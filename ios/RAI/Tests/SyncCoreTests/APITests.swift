@@ -53,7 +53,9 @@ private final class MockProtocol: URLProtocol, @unchecked Sendable {
 }
 private func mockReceipt(_ envelope: JSON) -> JSON {
     .object(["batchID": envelope["batchID"], "datasetEpoch": envelope["datasetEpoch"], "clientSeq": envelope["clientSeq"], "payloadSHA256": envelope["payloadSHA256"],
-             "commitRevision": .int(1), "ingestStatus": .string("committed"), "counts": .object(["inserted": envelope["eventCount"]]), "analysisJobIDs": .array([])])
+             "commitRevision": .int(1), "ingestStatus": .string("committed"), "counts": .object(["inserted": envelope["eventCount"],
+                "unchanged": .int(0), "deleted": .int(0), "tombstoned": .int(0), "suppressed": .int(0)]),
+             "analysisStatus": .string("not_required"), "analysisJobIDs": .array([])])
 }
 private struct MockUploader: FileUploader {
     func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {

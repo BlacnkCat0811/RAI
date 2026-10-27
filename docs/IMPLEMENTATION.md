@@ -117,3 +117,13 @@ P3 可开始，但不能宣称路线已发布：路线 seal、删除屏障、完
 macOS/Xcode 的最终 Swift/iOS 测试、iPhone target 构建结果和 fnOS 回归统计以证据文件为准。Swift SyncCore 的 macOS 合成进程实际经历两次 SIGKILL：batch COMMIT 后响应丢失，以及第 3 个 route chunk COMMIT 后响应丢失；重启使用原身份/文件恢复，最终 SQL 核验 1 sample、1 Workout、1 association、1 enrichment、1 sealed route / 6 chunks / 5,001 points，5 个 durable jobs，Worker 未启动。此链路是 Swift test harness → SSH loopback tunnel → fnOS API → 隔离 PostgreSQL，**不是 iPhone/HealthKit E2E**。既有 Compose P3 E2E 本轮重跑验证 API/PG restart 和 Worker offline。
 
 真实 20/45 分钟 Workout、实际 GPS、真实权限/删除、iPhone kill/网络中断、后台 URLSession 系统恢复、内存峰值及真机分阶段耗时仍未验证。已实现统计采集入口，但不得用合成测试耗时填写真机性能。终态本地载荷/回执暂保留，长期存储增长需要后续实际测量。签名、provisioning 与安装不以未签名 target build 代替。
+
+## P3.5 本轮复核（2026-10-27）
+
+本轮 `P35_BASE_COMMIT=537b526561d8d9667c0ccafb91928bafd573f25e`，`main`，开始时工作区干净。上述首次实施时的 P3 dirty worktree 和 iOS 工程均已包含在该提交内，不能再计为本轮新增；本轮未创建提交。服务端、migrations、部署配置、OpenAPI、同步合同和 P3 fnOS 证据相对该基线没有差异。
+
+复核发现 Swift `Envelope.validateReceipt` 只检查 `counts`/`analysisJobIDs` 非 null，未验证完整计数、分析状态及类型。新增回归用例在修复前实际复现错误回执推进 sequence；现按冻结 DTO 检查五类非负整数计数及总量上限、非负 revision、合法 analysisStatus 和 job UUID。服务端按实体合并重复事件，因此允许回执计数少于 eventCount。错误回执不能推进 cursor、sequence 或 delivered anchor；原候选 anchor/批次仍可在重启后用正确回执恢复。未改变线上协议或服务端。
+
+本轮 Swift 核心 27 项通过；108 个 route 向量由当前 Go 冻结实现重新生成，与 Swift fixture 一致。Swift/fnOS 合成恢复链路再次通过两次 macOS SIGKILL、提交后抑制响应、原 batch 回执恢复、原 route 第 3 块重传、6 块/5,001 点 seal、迟到关联和 enrichment；隔离 SQL 数量及 5 个 durable jobs 与首次验收一致。隔离 Compose 再次通过 API/PG restart 和 Worker offline。fnOS 普通 149、race 149、integration/race 279 项通过，gofmt、vet、build、模块校验和 246 包依赖边界通过。构建、模拟器测试和逐项 gate 的最终结果见[证据的 latest_revalidation 字段](evidence/p35-ios-2026-10-27.json)。临时测试容器和 Compose 卷已核实清理。
+
+本轮 Xcode 识别到已配对 iPhone，但设备为 `unavailable`；用户随后确认“本轮仍无可用 iPhone，完成代码与自动验收即可”。未安装 App、读取 HealthKit 或执行真实网络验收。唯一阶段出口阻塞仍为可用真实 iPhone 的 HealthKit→fnOS→ACK 及设备恢复验收；签名安装、真实 20/45 分钟 Workout/GPS、后台恢复及性能均未验证。**P3.5: BLOCKED；P3: PASS WITH RISKS；P4 READY: NO。** 原架构方案、旧 `running` 和生产入口未修改，未开始 P4。

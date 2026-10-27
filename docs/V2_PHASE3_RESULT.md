@@ -291,3 +291,17 @@ P4 READY: NO
 ```
 
 停止于 P3.5；未进入 Analysis Engine 或训练计划阶段。
+
+### 2026-10-27 本轮复核
+
+**Status: BLOCKED；P3 Final Status: PASS WITH RISKS；P4 READY: NO。** 本轮仓库 `/Users/ta/rai`，`P35_BASE_COMMIT=537b526561d8d9667c0ccafb91928bafd573f25e`，分支 `main`，开始时 tracked/untracked 均为 0。前文的 `67ff445` 基线与 21/16 项 dirty 文件属于首次实施历史；现有 P3 与 P3.5 工程已由 `537b526` 收录。本轮未创建 commit/push，未改变服务端、schema、合同、部署配置或原 P3 证据。
+
+**iOS / HealthKit / Local State / API：** 复用现有 target `RAI`、bundle `com.rai.v2.ios`、iOS 18+、只读 HealthKit capability 和 protocolVersion 2。新增仅为客户端回执正确性修复：完整验证五类计数、analysisStatus/job IDs 与 revision，避免接受 malformed durable ACK。回归用例先在旧验证器上失败，实际观察到 cursor/sequence 错误前移；修复后证明错误回执保留原候选 anchor 和批次，重开状态后未推进水位，正确回执仍可继续。允许服务端对重复实体事件合并计数，不要求 counts 之和等于原 eventCount。Mock receipt 已补齐冻结字段，未放松检查迁就测试。
+
+**Recovery / Route：** Swift 核心 27 项通过；当前 Go 实现重新生成的 108 个 canonical route 向量与 Swift fixture 全部一致。实际 Swift→SSH loopback→fnOS→隔离 PostgreSQL 链路再次通过 batch COMMIT 后响应抑制、macOS SIGKILL、GET 原 receipt、route 第 3 块提交后响应抑制及 SIGKILL、原 chunk 文件恢复重传、6 块/5,001 点 seal、迟到 association、enrichment、空页零新事实。最终 SQL：1 sample、1 Workout、1 association、1 enrichment、1 sealed route、6 chunks、5,001 points、3 batches、3 pages、5 durable jobs。Worker 未启动；临时容器、Compose 卷已验证删除。故障仍是合成 harness 抑制成功响应，不是真实 iPhone 网络丢包。
+
+**fnOS regression：** gofmt、go mod verify、go vet、go build、246 包依赖边界及普通/race/integration-race 测试通过（149/149/279 项；integration package elapsed 合计 170.311 秒）。既有 P3 Compose E2E 重跑通过 API restart、PostgreSQL restart、Worker offline、route、association、enrichment。本轮没有事务或服务端变更；未重跑 scale/OpenAPI lint，不复用历史值冒充新测量。
+
+**Real Device E2E / Performance：** Xcode 本轮两次检查均显示已配对 iPhone `unavailable`；用户确认“本轮仍无可用 iPhone，完成代码与自动验收即可”。未进行签名安装、真实 HealthKit 权限/Workout/sample/route/anchor/删除读取、iPhone kill、后台系统恢复或实际 iPhone→fnOS E2E。真机 HealthKit read、encode、compression、network、DB、ACK 和峰值内存仍为未测量。Debug/Release 编译及模拟器测试结果、逐项 acceptance gate 和合成步骤耗时见[最新复核证据](evidence/p35-ios-2026-10-27.json)的 `latest_revalidation`；它们不能替代真机门禁。
+
+**Privacy / Server Deviations / Remaining Risks：** 未读取真实 HealthKit、GPS、心率序列或既有 fnOS `rai` 库，未提交凭证或完整载荷。`SERVER CONTRACT DEVIATION: NONE`。唯一阶段出口阻塞为当前没有可用真实 iPhone 完成设备验收；首次实施记录的真实来源覆盖、后台行为和长期本地存储增长风险仍待验证。停止于 P3.5，不进入 P4。

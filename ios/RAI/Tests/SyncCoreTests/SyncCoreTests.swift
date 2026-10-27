@@ -13,7 +13,9 @@ private let scope = Scope(serviceID: "11111111-1111-4111-8111-111111111111", dat
 private let sampleType = "HKQuantityTypeIdentifierHeartRate"
 private func receipt(_ e: Envelope) -> JSON {
     .object(["batchID": .string(e.batchID), "ingestStatus": .string("committed"), "datasetEpoch": .string(e.datasetEpoch), "clientSeq": .int(e.clientSeq),
-        "payloadSHA256": .string(e.payloadSHA256), "commitRevision": .int(1), "counts": .object(["inserted": .int(Int64(e.eventCount))]), "analysisJobIDs": .array([])])
+        "payloadSHA256": .string(e.payloadSHA256), "commitRevision": .int(1), "counts": .object(["inserted": .int(Int64(e.eventCount)),
+            "unchanged": .int(0), "deleted": .int(0), "tombstoned": .int(0), "suppressed": .int(0)]),
+        "analysisStatus": .string("not_required"), "analysisJobIDs": .array([])])
 }
 @Suite(.serialized)
 struct SyncCoreTests {
@@ -115,6 +117,54 @@ struct SyncCoreTests {
         }
         let final = await store.snapshot()
         #expect(final.streams[sampleType]?.deliveredAnchor == Data([7])); #expect(final.pages.isEmpty)
+    }
+    @Test func malformedDurableReceiptCannotAdvanceState() async throws {
+        let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory), stream = try await store.stream(type: sampleType, query: "all")
+        let page = try await BatchBuilder.page(scope: scope, stream: stream, events: [], anchor: Data([11]), store: store)
+        try await store.stage(page)
+        guard case .request(let registration) = page.operations[0], case .batch(let envelope, _) = page.operations[1] else {
+            Issue.record("missing batch operations"); return
+        }
+        try await store.acknowledge(page.id, cursor: 0, receipt: .object(registration.expected))
+        let valid = receipt(envelope)
+        let invalidFields: [(String, JSON)] = [
+            ("counts", .string("malformed")), ("counts", .object([:])),
+            ("counts", .object(valid["counts"].fields.merging(["inserted": .int(-1)]) { _, new in new })),
+            ("counts", .object(valid["counts"].fields.merging(["inserted": .int(Int64.max)]) { _, new in new })),
+            ("counts", .object(valid["counts"].fields.merging(["suppressed": .int(1)]) { _, new in new })),
+            ("commitRevision", .int(-1)), ("analysisStatus", .null), ("analysisStatus", .string("ready")),
+            ("analysisJobIDs", .string("malformed")), ("analysisJobIDs", .array([.int(1)])),
+            ("analysisJobIDs", .array([.string("00000000-0000-0000-0000-000000000000")]))
+        ]
+        for (key, value) in invalidFields {
+            var fields = valid.fields; fields[key] = value
+            #expect(throws: SyncFailure.receiptMismatch) { try envelope.validateReceipt(.object(fields)) }
+        }
+        var malformed = valid.fields; malformed["counts"] = .object([:])
+        await #expect(throws: SyncFailure.receiptMismatch) { try await store.acknowledge(page.id, cursor: 1, receipt: .object(malformed)) }
+        let reopened = try OutboxStore(directory: directory), state = await reopened.snapshot()
+        #expect(state.pages[0].cursor == 1); #expect(state.pages[0].candidateAnchor == Data([11]))
+        #expect(state.streams[sampleType]?.nextSequence == 1); #expect(state.streams[sampleType]?.deliveredAnchor == nil)
+        try await store.acknowledge(page.id, cursor: 1, receipt: valid)
+        #expect(await store.snapshot().streams[sampleType]?.nextSequence == 2)
+    }
+    @Test func receiptAllowsCollapsedEventsAndAllFrozenOutcomes() async throws {
+        let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory), stream = try await store.stream(type: sampleType, query: "all")
+        let event: JSON = .object(["op": .string("delete"), "kind": .string("sample"), "type": .string(sampleType), "uuid": .string(Wire.id())])
+        let page = try await BatchBuilder.page(scope: scope, stream: stream, events: [event, event], anchor: Data([12]), store: store)
+        guard case .batch(let envelope, _) = page.operations[1] else { Issue.record("missing batch"); return }
+        for outcome in ["inserted", "unchanged", "deleted", "tombstoned", "suppressed"] {
+            var fields = receipt(envelope).fields
+            var counts = Dictionary(uniqueKeysWithValues: ["inserted", "unchanged", "deleted", "tombstoned", "suppressed"].map { ($0, JSON.int(0)) })
+            counts[outcome] = .int(1); fields["counts"] = .object(counts)
+            fields["analysisStatus"] = .string("queued"); fields["analysisJobIDs"] = .array([.string(Wire.id())])
+            try envelope.validateReceipt(.object(fields))
+            // A receipt cannot count more entity outcomes than input events.
+            counts[outcome] = .int(3); fields["counts"] = .object(counts)
+            #expect(throws: SyncFailure.receiptMismatch) { try envelope.validateReceipt(.object(fields)) }
+        }
     }
     @Test func missingPayloadAndSecondPendingPageRefused() async throws {
         let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }

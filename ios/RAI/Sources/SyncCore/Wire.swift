@@ -129,7 +129,19 @@ public struct Envelope: Codable, Equatable, Sendable {
     public func validateReceipt(_ receipt: JSON) throws {
         guard receipt["ingestStatus"].text == "committed", receipt["batchID"].text == batchID,
               receipt["datasetEpoch"].text == datasetEpoch, receipt["clientSeq"].integer == clientSeq,
-              receipt["payloadSHA256"].text == payloadSHA256, receipt["commitRevision"].integer != nil,
-              receipt["counts"] != .null, receipt["analysisJobIDs"] != .null else { throw SyncFailure.receiptMismatch }
+              receipt["payloadSHA256"].text == payloadSHA256, let revision = receipt["commitRevision"].integer, revision >= 0,
+              ["queued", "not_required"].contains(receipt["analysisStatus"].text ?? ""),
+              case .object(let counts) = receipt["counts"], case .array(let jobs) = receipt["analysisJobIDs"] else { throw SyncFailure.receiptMismatch }
+        // The server counts collapsed entity outcomes, so duplicate input
+        // events can legitimately produce fewer outcomes than eventCount.
+        var remaining = Int64(eventCount)
+        for key in ["inserted", "unchanged", "deleted", "tombstoned", "suppressed"] {
+            guard let count = counts[key]?.integer, count >= 0, count <= remaining else { throw SyncFailure.receiptMismatch }
+            remaining -= count
+        }
+        for job in jobs {
+            guard let id = job.text, let uuid = UUID(uuidString: id), uuid.uuidString.lowercased() == id,
+                  id != "00000000-0000-0000-0000-000000000000" else { throw SyncFailure.receiptMismatch }
+        }
     }
 }
