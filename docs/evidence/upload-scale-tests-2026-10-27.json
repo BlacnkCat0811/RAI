@@ -1,0 +1,4676 @@
+{
+  "date": "2026-10-27",
+  "timezone": "Asia/Shanghai",
+  "scope": "P2 maximum 10000-fragment page recovery and eight actual sqlc point queries at 10000/100000 rows; schema remains 7, no new payload capabilities",
+  "environment": {
+    "server_version": "18.6",
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "data_checksums": "on",
+    "listen_addresses": "",
+    "shared_buffers": "64MB",
+    "go": "go version go1.27.3 darwin/amd64",
+    "os": "Darwin",
+    "arch": "x86_64",
+    "schema_version": 7,
+    "synthetic_only": true,
+    "unix_socket_only": true,
+    "leftover_case_databases": 0,
+    "test_cluster_stopped": true,
+    "test_cluster_removed": true,
+    "production_accessed": false,
+    "remote_database_accessed": false,
+    "host_resource_limits_enforced": false
+  },
+  "full_regression": {
+    "total": 220,
+    "top_level": 70,
+    "subtests": 150,
+    "passed": 220,
+    "failed": 0,
+    "skipped_test_cases": 0,
+    "real_pg_top_level": 53,
+    "packages": [
+      {
+        "package": "rai/server/cmd/rai",
+        "status": "skip",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/config",
+        "status": "skip",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/jobs",
+        "status": "skip",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/storage/postgres",
+        "status": "skip",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/storage/postgres/dbgen",
+        "status": "skip",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/migrations",
+        "status": "skip",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/admin",
+        "status": "pass",
+        "elapsed_seconds": 3.707
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "status": "pass",
+        "elapsed_seconds": 5.226
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "status": "pass",
+        "elapsed_seconds": 6.395
+      },
+      {
+        "package": "rai/server/integration",
+        "status": "pass",
+        "elapsed_seconds": 277.943
+      }
+    ],
+    "tests": [
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestPageManifestCrossLanguageFixture",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestProtocolRoundTrip",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/top_case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0.03
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/missing_value",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/null_value",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/trailing",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/array",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/unknown",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/duplicate",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON",
+        "status": "pass",
+        "elapsed_seconds": 0.06
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/wire",
+        "status": "pass",
+        "elapsed_seconds": 0.05
+      },
+      {
+        "package": "rai/server/internal/admin",
+        "test": "TestFrozenMigrations",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/decoded",
+        "status": "pass",
+        "elapsed_seconds": 1.03
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/hash",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/line",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/count",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/empty",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/gzip_crc",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets",
+        "status": "pass",
+        "elapsed_seconds": 1.1
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestDeleteWinsAndConflicts",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestImmutableEnvelope",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestUnsupportedCapabilities/kind",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestUnsupportedCapabilities/unit",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestUnsupportedCapabilities/series",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestUnsupportedCapabilities",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestCrossLanguageFixture",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRoundTripAndIdentity",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/zone",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/series",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/invalid_uuid",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/start_before_parent",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_end",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/zero_configuration_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_stat_outside",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/duration_with_absent_end_exceeds_parent",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/overflow_location",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_configuration_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_lap",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_swimming_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_unknown",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_duplicate",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_swimming_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_lap_value",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_stat_missing_value",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_start",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_configuration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_swimming_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_lap_value",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_event_outside",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_activities",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_uuid",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/duplicate_uuid",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/end_after_parent",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/end_before_start",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/duration_exceeds_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_configuration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/fractional_configuration_activity",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_lap",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/lap_unit",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads",
+        "status": "pass",
+        "elapsed_seconds": 0.42
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "test": "TestUploadSlotsPerDeviceAndProcessRelease",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestAdmissionDurableAtomicBudgets",
+        "status": "pass",
+        "elapsed_seconds": 3.56
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivityBudgets",
+        "status": "pass",
+        "elapsed_seconds": 1.26
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRoundTrip",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_statistics",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/series",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_total",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_statistic",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_statistic",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/route",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_total_value",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/empty_aggregate",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/fractional_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_total_value",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_event_field",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/malformed_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/nested_case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_duration",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/distance_unit",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_total",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_stat_value",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_workout_field",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_event_type",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/sample_kind",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/duration_outside_interval",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_stat_value",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/event_outside_interval",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/duplicate_nested_field",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields",
+        "status": "pass",
+        "elapsed_seconds": 0.18
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutBudgetsAndDelete",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutBatchDetailBudget",
+        "status": "pass",
+        "elapsed_seconds": 0.62
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestAdmissionSharedAcrossConcurrentPools",
+        "status": "pass",
+        "elapsed_seconds": 1
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestAdmissionDatasetAggregateAndScopeIsolation",
+        "status": "pass",
+        "elapsed_seconds": 0.81
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestAdmissionFailureAndCancellationRollBackBothBuckets",
+        "status": "pass",
+        "elapsed_seconds": 0.76
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPActiveDeviceUploadRejectsBeforeReadingAndReleases",
+        "status": "pass",
+        "elapsed_seconds": 0.82
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPAdmissionBeforeBodyAndReceiptRecovery",
+        "status": "pass",
+        "elapsed_seconds": 0.78
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestSchema4UpgradeKeepsReceiptsAndStartsWithEmptyBudgets",
+        "status": "pass",
+        "elapsed_seconds": 1.12
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageFragmentsSealAndImmutableReceipts/sample",
+        "status": "pass",
+        "elapsed_seconds": 2.84
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageFragmentsSealAndImmutableReceipts/workout",
+        "status": "pass",
+        "elapsed_seconds": 1.39
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageFragmentsSealAndImmutableReceipts",
+        "status": "pass",
+        "elapsed_seconds": 4.23
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageRegistrationRejectsGapsAndIdentityChanges/fragment_count",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageRegistrationRejectsGapsAndIdentityChanges/repeated_index",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageRegistrationRejectsGapsAndIdentityChanges/missing_fragment",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageRegistrationRejectsGapsAndIdentityChanges/interleaved_page",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageRegistrationRejectsGapsAndIdentityChanges",
+        "status": "pass",
+        "elapsed_seconds": 0.82
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageSealFailureRollsBackFinalFragment/sample_insert",
+        "status": "pass",
+        "elapsed_seconds": 0.8
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageSealFailureRollsBackFinalFragment/sample_delete",
+        "status": "pass",
+        "elapsed_seconds": 0.91
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageSealFailureRollsBackFinalFragment/workout_insert",
+        "status": "pass",
+        "elapsed_seconds": 1.25
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageSealFailureRollsBackFinalFragment/workout_delete",
+        "status": "pass",
+        "elapsed_seconds": 1.14
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageSealFailureRollsBackFinalFragment",
+        "status": "pass",
+        "elapsed_seconds": 4.11
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestConcurrentFinalPageFragmentSealsOnce",
+        "status": "pass",
+        "elapsed_seconds": 1.1
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPPageRecoveryAfterLostFinalResponse",
+        "status": "pass",
+        "elapsed_seconds": 0.93
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestSchema3UpgradePreservesBatchReceiptsWithoutInventingPageSeals",
+        "status": "pass",
+        "elapsed_seconds": 0.79
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestPageSequenceBounds",
+        "status": "pass",
+        "elapsed_seconds": 0.72
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleMaximumPageRecovery",
+        "status": "pass",
+        "elapsed_seconds": 161.42
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/batch/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/page/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/sequence/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/legacy_page/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/open_page/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/tombstone/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/sample/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/workout/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/batch/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/page/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/sequence/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/legacy_page/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/open_page/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/tombstone/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/sample/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000/workout/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_10000",
+        "status": "pass",
+        "elapsed_seconds": 3.04
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/batch/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/page/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/sequence/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/legacy_page/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/open_page/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/tombstone/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/sample/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/workout/hit_true",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/batch/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/page/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/sequence/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/legacy_page/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/open_page/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/tombstone/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/sample/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000/workout/hit_false",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans/rows_100000",
+        "status": "pass",
+        "elapsed_seconds": 32.86
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestScaleUploadQueryPlans",
+        "status": "pass",
+        "elapsed_seconds": 41.12
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestCommitRetryAndDeletionBarrier",
+        "status": "pass",
+        "elapsed_seconds": 1.45
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUnknownDeleteAndSamePageDeleteWins",
+        "status": "pass",
+        "elapsed_seconds": 0.86
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestIdentitySequenceAndFencing",
+        "status": "pass",
+        "elapsed_seconds": 0.76
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestConflictRollsBackEntireBatch",
+        "status": "pass",
+        "elapsed_seconds": 0.79
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestConcurrentSameBatchReturnsOriginal",
+        "status": "pass",
+        "elapsed_seconds": 0.83
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestDatasetLockOrdersCommitAndTimeout",
+        "status": "pass",
+        "elapsed_seconds": 1.41
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestQueueLeaseAndDirtyGeneration",
+        "status": "pass",
+        "elapsed_seconds": 0.88
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPUploadReceiptAndAuthentication/sample",
+        "status": "pass",
+        "elapsed_seconds": 0.91
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPUploadReceiptAndAuthentication/workout",
+        "status": "pass",
+        "elapsed_seconds": 0.94
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPUploadReceiptAndAuthentication/workout_activities",
+        "status": "pass",
+        "elapsed_seconds": 0.86
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPUploadReceiptAndAuthentication",
+        "status": "pass",
+        "elapsed_seconds": 2.71
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestReceiptFailureRollsBackFactsAndWork",
+        "status": "pass",
+        "elapsed_seconds": 0.81
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestCommitResponseLossRecoveredByGET/sample",
+        "status": "pass",
+        "elapsed_seconds": 0.72
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestCommitResponseLossRecoveredByGET/workout",
+        "status": "pass",
+        "elapsed_seconds": 0.83
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestCommitResponseLossRecoveredByGET/workout_activities",
+        "status": "pass",
+        "elapsed_seconds": 0.86
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestCommitResponseLossRecoveredByGET",
+        "status": "pass",
+        "elapsed_seconds": 2.41
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestAPIRoleCannotMigrateOrMaintain",
+        "status": "pass",
+        "elapsed_seconds": 0.82
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestCleanScopeKeepsMonotonicGeneration",
+        "status": "pass",
+        "elapsed_seconds": 1.03
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestMaximumDeleteBatchAndEmptyBatch",
+        "status": "pass",
+        "elapsed_seconds": 5
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestReadOnlyDeviceAndForeignDatasetIsolation",
+        "status": "pass",
+        "elapsed_seconds": 0.71
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestCancellationDoesNotAdvanceStream",
+        "status": "pass",
+        "elapsed_seconds": 0.75
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestReconnectAfterTerminatedConnection",
+        "status": "pass",
+        "elapsed_seconds": 0.91
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestCommitRevisionCannotOvertakeUncommittedWrite",
+        "status": "pass",
+        "elapsed_seconds": 1
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestMigrationsIdempotentAndInitializationProtected",
+        "status": "pass",
+        "elapsed_seconds": 0.73
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseSharedDurableAndFenced",
+        "status": "pass",
+        "elapsed_seconds": 0.95
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseDatasetCapacityAndIsolation",
+        "status": "pass",
+        "elapsed_seconds": 0.79
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseConcurrentDatasetCap",
+        "status": "pass",
+        "elapsed_seconds": 1.01
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseAcquisitionFaultAndCancellation",
+        "status": "pass",
+        "elapsed_seconds": 0.87
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseLossRollsBackEntireFactTransaction/sample_upsert",
+        "status": "pass",
+        "elapsed_seconds": 0.91
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseLossRollsBackEntireFactTransaction/sample_delete",
+        "status": "pass",
+        "elapsed_seconds": 1.06
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseLossRollsBackEntireFactTransaction/workout_upsert",
+        "status": "pass",
+        "elapsed_seconds": 0.95
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseLossRollsBackEntireFactTransaction/workout_delete",
+        "status": "pass",
+        "elapsed_seconds": 1.01
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestUploadLeaseLossRollsBackEntireFactTransaction",
+        "status": "pass",
+        "elapsed_seconds": 3.93
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPUploadLeaseAcrossHandlersAndRecoveryReads",
+        "status": "pass",
+        "elapsed_seconds": 1.13
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPUploadCancellationClosesBodyAndReleasesLease",
+        "status": "pass",
+        "elapsed_seconds": 0.99
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestHTTPUploadReleaseFailurePreservesReceiptAndExpires",
+        "status": "pass",
+        "elapsed_seconds": 0.82
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestSchema5UpgradePreservesReceiptsAndBudgets",
+        "status": "pass",
+        "elapsed_seconds": 0.82
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesDurabilityAndDeletion",
+        "status": "pass",
+        "elapsed_seconds": 0.98
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivityConflictRollsBackWholeBatch",
+        "status": "pass",
+        "elapsed_seconds": 0.8
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivityDeleteWinsAndUnknownBarrier",
+        "status": "pass",
+        "elapsed_seconds": 0.78
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesAtomicFailures/activity_insert_upsert",
+        "status": "pass",
+        "elapsed_seconds": 0.95
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesAtomicFailures/receipt_upsert",
+        "status": "pass",
+        "elapsed_seconds": 0.87
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesAtomicFailures/receipt_delete",
+        "status": "pass",
+        "elapsed_seconds": 0.97
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesAtomicFailures/seal_upsert",
+        "status": "pass",
+        "elapsed_seconds": 0.94
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesAtomicFailures/seal_delete",
+        "status": "pass",
+        "elapsed_seconds": 0.89
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesAtomicFailures/lease_upsert",
+        "status": "pass",
+        "elapsed_seconds": 0.82
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesAtomicFailures/lease_delete",
+        "status": "pass",
+        "elapsed_seconds": 0.86
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutActivitiesAtomicFailures",
+        "status": "pass",
+        "elapsed_seconds": 6.33
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestSchema6UpgradePreservesV1IdentityAndRuntimeState",
+        "status": "pass",
+        "elapsed_seconds": 0.95
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestMaximumWorkoutActivitiesCommitAndCascade",
+        "status": "pass",
+        "elapsed_seconds": 0.87
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutFactsChildrenRetryAndDelete",
+        "status": "pass",
+        "elapsed_seconds": 1.94
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutUnknownDeletionWins",
+        "status": "pass",
+        "elapsed_seconds": 1.23
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutConflictRollsBackChildren",
+        "status": "pass",
+        "elapsed_seconds": 1.15
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutReceiptFailureRollsBackInsertAndDelete/insert",
+        "status": "pass",
+        "elapsed_seconds": 0.8
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutReceiptFailureRollsBackInsertAndDelete/delete",
+        "status": "pass",
+        "elapsed_seconds": 0.9
+      },
+      {
+        "package": "rai/server/integration",
+        "test": "TestWorkoutReceiptFailureRollsBackInsertAndDelete",
+        "status": "pass",
+        "elapsed_seconds": 1.7
+      }
+    ],
+    "raw_log_sha256": "c2f0a77e21af84a1fc14c8277fe1c1aff5c6c502de99390fcbf7d1b8e55b0e2f",
+    "command": "PGBIN=<local PG18 bin> scripts/test-postgres.sh go test -race -count=1 -tags=integration,scale -timeout=10m -json ./...",
+    "harness_wall_clock_seconds": 283.92,
+    "concurrency": "Default Go package scheduler; no t.Parallel in integration top-level cases. No concurrent builds or broad verification during this final run."
+  },
+  "independent_unit_regression": {
+    "total": 104,
+    "top_level": 17,
+    "subtests": 87,
+    "passed": 104,
+    "failed": 0,
+    "skipped_test_cases": 0,
+    "real_pg_top_level": 0,
+    "packages": [
+      {
+        "package": "rai/server/cmd/rai",
+        "status": "skip",
+        "elapsed_seconds": 0.001
+      },
+      {
+        "package": "rai/server/internal/config",
+        "status": "skip",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/jobs",
+        "status": "skip",
+        "elapsed_seconds": 0.008
+      },
+      {
+        "package": "rai/server/internal/storage/postgres",
+        "status": "skip",
+        "elapsed_seconds": 0.013
+      },
+      {
+        "package": "rai/server/internal/storage/postgres/dbgen",
+        "status": "skip",
+        "elapsed_seconds": 0.006
+      },
+      {
+        "package": "rai/server/migrations",
+        "status": "skip",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "status": "pass",
+        "elapsed_seconds": 1.9809999999999999
+      },
+      {
+        "package": "rai/server/internal/admin",
+        "status": "pass",
+        "elapsed_seconds": 2.909
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "status": "pass",
+        "elapsed_seconds": 7.538
+      }
+    ],
+    "tests": [
+      {
+        "package": "rai/server/internal/httpapi",
+        "test": "TestUploadSlotsPerDeviceAndProcessRelease",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/admin",
+        "test": "TestFrozenMigrations",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestPageManifestCrossLanguageFixture",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestProtocolRoundTrip",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/trailing",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/array",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/unknown",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/duplicate",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/top_case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/missing_value",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON/null_value",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestStrictJSON",
+        "status": "pass",
+        "elapsed_seconds": 0.05
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/wire",
+        "status": "pass",
+        "elapsed_seconds": 0.09
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/decoded",
+        "status": "pass",
+        "elapsed_seconds": 1.03
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/hash",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/line",
+        "status": "pass",
+        "elapsed_seconds": 0.05
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/count",
+        "status": "pass",
+        "elapsed_seconds": 0.03
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/empty",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets/gzip_crc",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestBodyBudgets",
+        "status": "pass",
+        "elapsed_seconds": 1.23
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestDeleteWinsAndConflicts",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestImmutableEnvelope",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestUnsupportedCapabilities/kind",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestUnsupportedCapabilities/unit",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestUnsupportedCapabilities/series",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestUnsupportedCapabilities",
+        "status": "pass",
+        "elapsed_seconds": 0.03
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestCrossLanguageFixture",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRoundTripAndIdentity",
+        "status": "pass",
+        "elapsed_seconds": 0.04
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/duration_with_absent_end_exceeds_parent",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/overflow_location",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_stat_outside",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/duplicate_uuid",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/end_before_start",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_configuration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_lap",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/invalid_uuid",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_configuration_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_start",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/end_after_parent",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_location",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_swimming_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_event_outside",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/zero_configuration_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_lap_value",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_lap_value",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/zone",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/series",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_uuid",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/duration_exceeds_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_swimming_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_stat_missing_value",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_duplicate",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_swimming_location",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/fractional_configuration_activity",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/lap_unit",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_lap",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_unknown",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_activities",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/start_before_parent",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_end",
+        "status": "pass",
+        "elapsed_seconds": 0.04
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_configuration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivitiesRejectInvalidPayloads",
+        "status": "pass",
+        "elapsed_seconds": 0.44
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutActivityBudgets",
+        "status": "pass",
+        "elapsed_seconds": 1.34
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRoundTrip",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/fractional_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_total",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/duplicate_nested_field",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/nested_case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_duration",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_statistics",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_event_type",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_total_value",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_stat_value",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_workout_field",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_activity",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_statistic",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/empty_aggregate",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/event_outside_interval",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/sample_kind",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/distance_unit",
+        "status": "pass",
+        "elapsed_seconds": 0.02
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_total_value",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/route",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/case_alias",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_duration",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_duration",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_event_field",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/duration_outside_interval",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_total",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_stat_value",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/series",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_activity",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_statistic",
+        "status": "pass",
+        "elapsed_seconds": 0.01
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/malformed_activity",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields",
+        "status": "pass",
+        "elapsed_seconds": 0.22
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutBudgetsAndDelete",
+        "status": "pass",
+        "elapsed_seconds": 0
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "test": "TestWorkoutBatchDetailBudget",
+        "status": "pass",
+        "elapsed_seconds": 0.45
+      }
+    ],
+    "raw_log_sha256": "bb0ae5720a4d36e2406fb0aca6b529176dd76968b0b5294cbf55449616b43311",
+    "command": "go test -race -count=1 -json ./..."
+  },
+  "maximum_page": {
+    "fragments": 10000,
+    "scenario_seconds": 160.615,
+    "first_nine_thousand_fragment_windows_seconds": [
+      14.506618188000001,
+      16.811281136,
+      17.101677596,
+      14.407974062,
+      14.061728068,
+      16.844126246,
+      16.570690583,
+      17.863977437,
+      16.708140067
+    ],
+    "transport": "repository RegisterBatch/Commit, no HTTP budget or upload admission",
+    "pool_reconstructions": 2,
+    "final_seal_fault_rollback": true,
+    "manifest_and_original_receipts_verified": true,
+    "later_page_delete_barrier_verified": true,
+    "crash_or_power_loss_simulated": false
+  },
+  "point_query_plans": {
+    "count": 32,
+    "max_execution_shared_blocks": 5,
+    "regression_execution_shared_block_budget": 32,
+    "seqscan_disabled": false,
+    "planner_cost_parameters_modified": false,
+    "fixture_analyzed": true,
+    "fixture_writer_statement_timeout_seconds": 120,
+    "online_statement_timeout_seconds": 2,
+    "fact_commit_context_timeout_seconds": 5,
+    "tables": [
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_10000",
+        "table": "health_samples",
+        "rows": 10000,
+        "total_relation_bytes": 4825088
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_10000",
+        "table": "entity_tombstones",
+        "rows": 10000,
+        "total_relation_bytes": 2285568
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_10000",
+        "table": "workouts",
+        "rows": 10000,
+        "total_relation_bytes": 3440640
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_10000",
+        "table": "sync_batches",
+        "rows": 10000,
+        "total_relation_bytes": 4513792
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_10000",
+        "table": "sync_streams",
+        "rows": 10001,
+        "total_relation_bytes": 4939776
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_10000",
+        "table": "sync_pages",
+        "rows": 10000,
+        "total_relation_bytes": 3555328
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_100000",
+        "table": "health_samples",
+        "rows": 100000,
+        "total_relation_bytes": 47513600
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_100000",
+        "table": "entity_tombstones",
+        "rows": 100000,
+        "total_relation_bytes": 22331392
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_100000",
+        "table": "workouts",
+        "rows": 100000,
+        "total_relation_bytes": 33898496
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_100000",
+        "table": "sync_batches",
+        "rows": 100000,
+        "total_relation_bytes": 44343296
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_100000",
+        "table": "sync_streams",
+        "rows": 100001,
+        "total_relation_bytes": 48668672
+      },
+      {
+        "stage": "TestScaleUploadQueryPlans/rows_100000",
+        "table": "sync_pages",
+        "rows": 100000,
+        "total_relation_bytes": 34865152
+      }
+    ],
+    "plans": [
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/batch/hit_true",
+        "fixture_rows_per_table": 10000,
+        "query": "batch",
+        "hit": true,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "sync_batches_pkey",
+              "Relation Name": "sync_batches",
+              "Alias": "sync_batches",
+              "Startup Cost": 0.29,
+              "Total Cost": 8.3,
+              "Plan Rows": 1,
+              "Plan Width": 147,
+              "Actual Startup Time": 0.039,
+              "Actual Total Time": 0.04,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (batch_id = '00000000-0000-0000-0000-000000010000'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 114,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.671,
+            "Triggers": [],
+            "Execution Time": 0.062
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/page/hit_true",
+        "fixture_rows_per_table": 10000,
+        "query": "page",
+        "hit": true,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "sync_pages_pkey",
+              "Relation Name": "sync_pages",
+              "Alias": "sync_pages",
+              "Startup Cost": 0.29,
+              "Total Cost": 8.3,
+              "Plan Rows": 1,
+              "Plan Width": 217,
+              "Actual Startup Time": 0.042,
+              "Actual Total Time": 0.043,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (page_id = '00000000-0000-0000-0000-000000010000'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 92,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.586,
+            "Triggers": [],
+            "Execution Time": 0.059
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/sequence/hit_true",
+        "fixture_rows_per_table": 10000,
+        "query": "sequence",
+        "hit": true,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.31,
+              "Total Cost": 8.32,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.055,
+              "Actual Total Time": 0.055,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_batches_dataset_id_stream_id_client_seq_key",
+                  "Relation Name": "sync_batches",
+                  "Alias": "sync_batches",
+                  "Startup Cost": 0.29,
+                  "Total Cost": 8.31,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.052,
+                  "Actual Total Time": 0.053,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (stream_id = '4615c9f5-1544-420d-8a8e-931bde6954f1'::uuid) AND (client_seq = '10000'::bigint))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 1,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 13,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.268,
+            "Triggers": [],
+            "Execution Time": 0.083
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/legacy_page/hit_true",
+        "fixture_rows_per_table": 10000,
+        "query": "legacy_page",
+        "hit": true,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 2.09,
+              "Total Cost": 2.1,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.028,
+              "Actual Total Time": 0.028,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_batches_legacy_page",
+                  "Relation Name": "sync_batches",
+                  "Alias": "sync_batches",
+                  "Startup Cost": 0.29,
+                  "Total Cost": 90.35,
+                  "Plan Rows": 50,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.026,
+                  "Actual Total Time": 0.027,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND ((envelope ->> 'pageID'::text) = '00000000-0000-0000-0000-000000010000'::text))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 9,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.125,
+            "Triggers": [],
+            "Execution Time": 0.051
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/open_page/hit_true",
+        "fixture_rows_per_table": 10000,
+        "query": "open_page",
+        "hit": true,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.3,
+              "Total Cost": 8.31,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.076,
+              "Actual Total Time": 0.076,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_pages_open",
+                  "Relation Name": "sync_pages",
+                  "Alias": "sync_pages",
+                  "Startup Cost": 0.29,
+                  "Total Cost": 8.3,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.073,
+                  "Actual Total Time": 0.073,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (stream_id = '00000000-0000-0000-0000-000000010000'::uuid))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 1,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.182,
+            "Triggers": [],
+            "Execution Time": 0.105
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/tombstone/hit_true",
+        "fixture_rows_per_table": 10000,
+        "query": "tombstone",
+        "hit": true,
+        "execution_shared_blocks": 4,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.43,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.062,
+              "Actual Total Time": 0.062,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 4,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "entity_tombstones_pkey",
+                  "Relation Name": "entity_tombstones",
+                  "Alias": "entity_tombstones",
+                  "Startup Cost": 0.41,
+                  "Total Cost": 8.43,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.059,
+                  "Actual Total Time": 0.059,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (sample_type = 'HKQuantityTypeIdentifierHeartRate'::text) AND (sample_uuid = '00000000-0000-0000-0000-000000010000'::uuid))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 1,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 4,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 31,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.337,
+            "Triggers": [],
+            "Execution Time": 0.086
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/sample/hit_true",
+        "fixture_rows_per_table": 10000,
+        "query": "sample",
+        "hit": true,
+        "execution_shared_blocks": 4,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "health_samples_pkey",
+              "Relation Name": "health_samples",
+              "Alias": "health_samples",
+              "Startup Cost": 0.41,
+              "Total Cost": 8.43,
+              "Plan Rows": 1,
+              "Plan Width": 49,
+              "Actual Startup Time": 0.041,
+              "Actual Total Time": 0.041,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (sample_type = 'HKQuantityTypeIdentifierHeartRate'::text) AND (sample_uuid = '00000000-0000-0000-0000-000000010000'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 4,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 75,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.485,
+            "Triggers": [],
+            "Execution Time": 0.055
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/workout/hit_true",
+        "fixture_rows_per_table": 10000,
+        "query": "workout",
+        "hit": true,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "workouts_pkey",
+              "Relation Name": "workouts",
+              "Alias": "workouts",
+              "Startup Cost": 0.29,
+              "Total Cost": 8.3,
+              "Plan Rows": 1,
+              "Plan Width": 49,
+              "Actual Startup Time": 0.035,
+              "Actual Total Time": 0.035,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (workout_uuid = '00000000-0000-0000-0000-000000010000'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 52,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.321,
+            "Triggers": [],
+            "Execution Time": 0.044
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/batch/hit_false",
+        "fixture_rows_per_table": 10000,
+        "query": "batch",
+        "hit": false,
+        "execution_shared_blocks": 2,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "sync_batches_pkey",
+              "Relation Name": "sync_batches",
+              "Alias": "sync_batches",
+              "Startup Cost": 0.29,
+              "Total Cost": 8.3,
+              "Plan Rows": 1,
+              "Plan Width": 147,
+              "Actual Startup Time": 0.011,
+              "Actual Total Time": 0.011,
+              "Actual Rows": 0.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (batch_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.115,
+            "Triggers": [],
+            "Execution Time": 0.024
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/page/hit_false",
+        "fixture_rows_per_table": 10000,
+        "query": "page",
+        "hit": false,
+        "execution_shared_blocks": 2,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "sync_pages_pkey",
+              "Relation Name": "sync_pages",
+              "Alias": "sync_pages",
+              "Startup Cost": 0.29,
+              "Total Cost": 8.3,
+              "Plan Rows": 1,
+              "Plan Width": 217,
+              "Actual Startup Time": 0.011,
+              "Actual Total Time": 0.011,
+              "Actual Rows": 0.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (page_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.079,
+            "Triggers": [],
+            "Execution Time": 0.023
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/sequence/hit_false",
+        "fixture_rows_per_table": 10000,
+        "query": "sequence",
+        "hit": false,
+        "execution_shared_blocks": 2,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.31,
+              "Total Cost": 8.32,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.037,
+              "Actual Total Time": 0.037,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_batches_dataset_id_stream_id_client_seq_key",
+                  "Relation Name": "sync_batches",
+                  "Alias": "sync_batches",
+                  "Startup Cost": 0.29,
+                  "Total Cost": 8.31,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.034,
+                  "Actual Total Time": 0.034,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (stream_id = '4615c9f5-1544-420d-8a8e-931bde6954f1'::uuid) AND (client_seq = '10001'::bigint))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 2,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.183,
+            "Triggers": [],
+            "Execution Time": 0.07
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/legacy_page/hit_false",
+        "fixture_rows_per_table": 10000,
+        "query": "legacy_page",
+        "hit": false,
+        "execution_shared_blocks": 2,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 2.09,
+              "Total Cost": 2.1,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.013,
+              "Actual Total Time": 0.014,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_batches_legacy_page",
+                  "Relation Name": "sync_batches",
+                  "Alias": "sync_batches",
+                  "Startup Cost": 0.29,
+                  "Total Cost": 90.35,
+                  "Plan Rows": 50,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.012,
+                  "Actual Total Time": 0.012,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND ((envelope ->> 'pageID'::text) = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::text))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 2,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.129,
+            "Triggers": [],
+            "Execution Time": 0.026
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/open_page/hit_false",
+        "fixture_rows_per_table": 10000,
+        "query": "open_page",
+        "hit": false,
+        "execution_shared_blocks": 2,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.3,
+              "Total Cost": 8.31,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.02,
+              "Actual Total Time": 0.021,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_pages_open",
+                  "Relation Name": "sync_pages",
+                  "Alias": "sync_pages",
+                  "Startup Cost": 0.29,
+                  "Total Cost": 8.3,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.018,
+                  "Actual Total Time": 0.018,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (stream_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 2,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.102,
+            "Triggers": [],
+            "Execution Time": 0.048
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/tombstone/hit_false",
+        "fixture_rows_per_table": 10000,
+        "query": "tombstone",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.43,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.012,
+              "Actual Total Time": 0.012,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "entity_tombstones_pkey",
+                  "Relation Name": "entity_tombstones",
+                  "Alias": "entity_tombstones",
+                  "Startup Cost": 0.41,
+                  "Total Cost": 8.43,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.011,
+                  "Actual Total Time": 0.011,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (sample_type = 'HKQuantityTypeIdentifierHeartRate'::text) AND (sample_uuid = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.059,
+            "Triggers": [],
+            "Execution Time": 0.023
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/sample/hit_false",
+        "fixture_rows_per_table": 10000,
+        "query": "sample",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "health_samples_pkey",
+              "Relation Name": "health_samples",
+              "Alias": "health_samples",
+              "Startup Cost": 0.41,
+              "Total Cost": 8.43,
+              "Plan Rows": 1,
+              "Plan Width": 49,
+              "Actual Startup Time": 0.013,
+              "Actual Total Time": 0.013,
+              "Actual Rows": 0.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (sample_type = 'HKQuantityTypeIdentifierHeartRate'::text) AND (sample_uuid = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.073,
+            "Triggers": [],
+            "Execution Time": 0.025
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_10000/workout/hit_false",
+        "fixture_rows_per_table": 10000,
+        "query": "workout",
+        "hit": false,
+        "execution_shared_blocks": 2,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "workouts_pkey",
+              "Relation Name": "workouts",
+              "Alias": "workouts",
+              "Startup Cost": 0.29,
+              "Total Cost": 8.3,
+              "Plan Rows": 1,
+              "Plan Width": 49,
+              "Actual Startup Time": 0.017,
+              "Actual Total Time": 0.017,
+              "Actual Rows": 0.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (workout_uuid = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.052,
+            "Triggers": [],
+            "Execution Time": 0.025
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/batch/hit_true",
+        "fixture_rows_per_table": 100000,
+        "query": "batch",
+        "hit": true,
+        "execution_shared_blocks": 4,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "sync_batches_pkey",
+              "Relation Name": "sync_batches",
+              "Alias": "sync_batches",
+              "Startup Cost": 0.42,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 147,
+              "Actual Startup Time": 0.886,
+              "Actual Total Time": 0.887,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (batch_id = '00000000-0000-0000-0000-000000100000'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 3,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 58,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.612,
+            "Triggers": [],
+            "Execution Time": 0.902
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/page/hit_true",
+        "fixture_rows_per_table": 100000,
+        "query": "page",
+        "hit": true,
+        "execution_shared_blocks": 4,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "sync_pages_pkey",
+              "Relation Name": "sync_pages",
+              "Alias": "sync_pages",
+              "Startup Cost": 0.42,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 217,
+              "Actual Startup Time": 0.059,
+              "Actual Total Time": 0.06,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (page_id = '00000000-0000-0000-0000-000000100000'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 4,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 61,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.471,
+            "Triggers": [],
+            "Execution Time": 0.075
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/sequence/hit_true",
+        "fixture_rows_per_table": 100000,
+        "query": "sequence",
+        "hit": true,
+        "execution_shared_blocks": 5,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.44,
+              "Total Cost": 8.45,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.187,
+              "Actual Total Time": 0.187,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 3,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_batches_dataset_id_stream_id_client_seq_key",
+                  "Relation Name": "sync_batches",
+                  "Alias": "sync_batches",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 8.44,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.184,
+                  "Actual Total Time": 0.185,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (stream_id = '4615c9f5-1544-420d-8a8e-931bde6954f1'::uuid) AND (client_seq = '100000'::bigint))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 1,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 2,
+                  "Shared Read Blocks": 3,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 9,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.197,
+            "Triggers": [],
+            "Execution Time": 0.209
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/legacy_page/hit_true",
+        "fixture_rows_per_table": 100000,
+        "query": "legacy_page",
+        "hit": true,
+        "execution_shared_blocks": 4,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 2.12,
+              "Total Cost": 2.13,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.104,
+              "Actual Total Time": 0.105,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 3,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_batches_legacy_page",
+                  "Relation Name": "sync_batches",
+                  "Alias": "sync_batches",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 851.36,
+                  "Plan Rows": 500,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.102,
+                  "Actual Total Time": 0.102,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND ((envelope ->> 'pageID'::text) = '00000000-0000-0000-0000-000000100000'::text))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 1,
+                  "Shared Read Blocks": 3,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.182,
+            "Triggers": [],
+            "Execution Time": 0.123
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/open_page/hit_true",
+        "fixture_rows_per_table": 100000,
+        "query": "open_page",
+        "hit": true,
+        "execution_shared_blocks": 5,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.44,
+              "Total Cost": 8.45,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.157,
+              "Actual Total Time": 0.157,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 5,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_pages_open",
+                  "Relation Name": "sync_pages",
+                  "Alias": "sync_pages",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 8.44,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.155,
+                  "Actual Total Time": 0.155,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (stream_id = '00000000-0000-0000-0000-000000100000'::uuid))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 1,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 5,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.101,
+            "Triggers": [],
+            "Execution Time": 0.174
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/tombstone/hit_true",
+        "fixture_rows_per_table": 100000,
+        "query": "tombstone",
+        "hit": true,
+        "execution_shared_blocks": 5,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.44,
+              "Total Cost": 8.45,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 1.32,
+              "Actual Total Time": 1.321,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 4,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "entity_tombstones_pkey",
+                  "Relation Name": "entity_tombstones",
+                  "Alias": "entity_tombstones",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 8.44,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 1.319,
+                  "Actual Total Time": 1.319,
+                  "Actual Rows": 1.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (sample_type = 'HKQuantityTypeIdentifierHeartRate'::text) AND (sample_uuid = '00000000-0000-0000-0000-000000100000'::uuid))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 1,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 1,
+                  "Shared Read Blocks": 4,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 19,
+              "Shared Read Blocks": 1,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.353,
+            "Triggers": [],
+            "Execution Time": 1.336
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/sample/hit_true",
+        "fixture_rows_per_table": 100000,
+        "query": "sample",
+        "hit": true,
+        "execution_shared_blocks": 4,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "health_samples_pkey",
+              "Relation Name": "health_samples",
+              "Alias": "health_samples",
+              "Startup Cost": 0.42,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 49,
+              "Actual Startup Time": 1.198,
+              "Actual Total Time": 1.199,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (sample_type = 'HKQuantityTypeIdentifierHeartRate'::text) AND (sample_uuid = '00000000-0000-0000-0000-000000100000'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 4,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 44,
+              "Shared Read Blocks": 2,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.323,
+            "Triggers": [],
+            "Execution Time": 1.208
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/workout/hit_true",
+        "fixture_rows_per_table": 100000,
+        "query": "workout",
+        "hit": true,
+        "execution_shared_blocks": 4,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "workouts_pkey",
+              "Relation Name": "workouts",
+              "Alias": "workouts",
+              "Startup Cost": 0.42,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 49,
+              "Actual Startup Time": 3.742,
+              "Actual Total Time": 3.745,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (workout_uuid = '00000000-0000-0000-0000-000000100000'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 3,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 35,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.542,
+            "Triggers": [],
+            "Execution Time": 3.768
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/batch/hit_false",
+        "fixture_rows_per_table": 100000,
+        "query": "batch",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "sync_batches_pkey",
+              "Relation Name": "sync_batches",
+              "Alias": "sync_batches",
+              "Startup Cost": 0.42,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 147,
+              "Actual Startup Time": 0.014,
+              "Actual Total Time": 0.015,
+              "Actual Rows": 0.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (batch_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.121,
+            "Triggers": [],
+            "Execution Time": 0.03
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/page/hit_false",
+        "fixture_rows_per_table": 100000,
+        "query": "page",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "sync_pages_pkey",
+              "Relation Name": "sync_pages",
+              "Alias": "sync_pages",
+              "Startup Cost": 0.42,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 217,
+              "Actual Startup Time": 0.015,
+              "Actual Total Time": 0.016,
+              "Actual Rows": 0.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (page_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.092,
+            "Triggers": [],
+            "Execution Time": 0.032
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/sequence/hit_false",
+        "fixture_rows_per_table": 100000,
+        "query": "sequence",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.44,
+              "Total Cost": 8.45,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.068,
+              "Actual Total Time": 0.069,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_batches_dataset_id_stream_id_client_seq_key",
+                  "Relation Name": "sync_batches",
+                  "Alias": "sync_batches",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 8.44,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.066,
+                  "Actual Total Time": 0.066,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (stream_id = '4615c9f5-1544-420d-8a8e-931bde6954f1'::uuid) AND (client_seq = '100001'::bigint))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.153,
+            "Triggers": [],
+            "Execution Time": 0.091
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/legacy_page/hit_false",
+        "fixture_rows_per_table": 100000,
+        "query": "legacy_page",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 2.12,
+              "Total Cost": 2.13,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.029,
+              "Actual Total Time": 0.03,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_batches_legacy_page",
+                  "Relation Name": "sync_batches",
+                  "Alias": "sync_batches",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 851.36,
+                  "Plan Rows": 500,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.026,
+                  "Actual Total Time": 0.027,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND ((envelope ->> 'pageID'::text) = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::text))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.201,
+            "Triggers": [],
+            "Execution Time": 0.053
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/open_page/hit_false",
+        "fixture_rows_per_table": 100000,
+        "query": "open_page",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.44,
+              "Total Cost": 8.45,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.014,
+              "Actual Total Time": 0.015,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "sync_pages_open",
+                  "Relation Name": "sync_pages",
+                  "Alias": "sync_pages",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 8.44,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.012,
+                  "Actual Total Time": 0.013,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (stream_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.087,
+            "Triggers": [],
+            "Execution Time": 0.029
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/tombstone/hit_false",
+        "fixture_rows_per_table": 100000,
+        "query": "tombstone",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Result",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 8.44,
+              "Total Cost": 8.45,
+              "Plan Rows": 1,
+              "Plan Width": 1,
+              "Actual Startup Time": 0.018,
+              "Actual Total Time": 0.018,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Index Only Scan",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Scan Direction": "Forward",
+                  "Index Name": "entity_tombstones_pkey",
+                  "Relation Name": "entity_tombstones",
+                  "Alias": "entity_tombstones",
+                  "Startup Cost": 0.42,
+                  "Total Cost": 8.44,
+                  "Plan Rows": 1,
+                  "Plan Width": 0,
+                  "Actual Startup Time": 0.016,
+                  "Actual Total Time": 0.016,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (sample_type = 'HKQuantityTypeIdentifierHeartRate'::text) AND (sample_uuid = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+                  "Rows Removed by Index Recheck": 0,
+                  "Heap Fetches": 0,
+                  "Index Searches": 1,
+                  "Shared Hit Blocks": 3,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0
+                }
+              ]
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.086,
+            "Triggers": [],
+            "Execution Time": 0.034
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/sample/hit_false",
+        "fixture_rows_per_table": 100000,
+        "query": "sample",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "health_samples_pkey",
+              "Relation Name": "health_samples",
+              "Alias": "health_samples",
+              "Startup Cost": 0.42,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 49,
+              "Actual Startup Time": 0.016,
+              "Actual Total Time": 0.016,
+              "Actual Rows": 0.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (sample_type = 'HKQuantityTypeIdentifierHeartRate'::text) AND (sample_uuid = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.097,
+            "Triggers": [],
+            "Execution Time": 0.031
+          }
+        ]
+      },
+      {
+        "test": "TestScaleUploadQueryPlans/rows_100000/workout/hit_false",
+        "fixture_rows_per_table": 100000,
+        "query": "workout",
+        "hit": false,
+        "execution_shared_blocks": 3,
+        "explain_analyze_buffers": [
+          {
+            "Plan": {
+              "Node Type": "Index Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "workouts_pkey",
+              "Relation Name": "workouts",
+              "Alias": "workouts",
+              "Startup Cost": 0.42,
+              "Total Cost": 8.44,
+              "Plan Rows": 1,
+              "Plan Width": 49,
+              "Actual Startup Time": 0.009,
+              "Actual Total Time": 0.009,
+              "Actual Rows": 0.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '8872567c-66ff-410f-b2e3-633b78adea94'::uuid) AND (workout_uuid = 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid))",
+              "Rows Removed by Index Recheck": 0,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 0,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.053,
+            "Triggers": [],
+            "Execution Time": 0.016
+          }
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "command": "go vet ./...",
+      "exit_code": 0
+    },
+    {
+      "command": "go vet -tags=integration,scale ./...",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 scripts/check-boundaries.py",
+      "exit_code": 0,
+      "online_dependency_packages": 245
+    },
+    {
+      "check": "sqlc",
+      "exit_code": 0,
+      "output": "PASS: sqlc 1.31.1 regeneration has identical content",
+      "commands": [
+        "sqlc v1.31.1 generate (before/after generated SHA-256 compared)"
+      ]
+    },
+    {
+      "check": "format_mod_shell",
+      "exit_code": 0,
+      "output": "all modules verified",
+      "commands": [
+        "go mod verify",
+        "gofmt -l cmd internal integration migrations/embed.go (empty output)",
+        "bash -n scripts/test-postgres.sh"
+      ]
+    },
+    {
+      "check": "build",
+      "exit_code": 0,
+      "output": "",
+      "commands": [
+        "go build -o <temporary>/rai-scale ./cmd/rai",
+        "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o <temporary>/rai-scale-linux-amd64 ./cmd/rai"
+      ],
+      "binaries_sha256": {
+        "rai-scale": "9520668dc78c64be3b69592dd82f97e6363ec4da4ec3083db25769a658c6528e",
+        "rai-scale-linux-amd64": "d18e494b017960794f98140dc9b327b8fa36dc8986ccbb1c5feaf3c8095ec09a"
+      },
+      "linux_binary_executed": false
+    },
+    {
+      "check": "local_document_link_targets",
+      "exit_code": 0,
+      "checked_targets": 81,
+      "anchors_validated": false
+    }
+  ],
+  "harness_failure_checks": [
+    {
+      "scenario": "child exits 7",
+      "observed_exit_code": 7,
+      "leftover_case_databases": 0,
+      "cluster_removed": true,
+      "log_sha256": "7598679199b97a884dd97737aec00ea6dd824056803180bb02004fdf8ac4497b"
+    },
+    {
+      "scenario": "child leaves synthetic_leftover database",
+      "observed_exit_code": 1,
+      "leftover_case_databases": 1,
+      "cluster_removed": true,
+      "log_sha256": "35228556e5ab3202f0a1b3881cf50b1ad7cad80af44711848a96c280f3b0e406"
+    }
+  ],
+  "earlier_attempts": [
+    {
+      "command": "go test -race -count=1 -tags=integration,scale -run ^TestScale -timeout=10m -json ./integration",
+      "result": "FAIL",
+      "note": "Maximum page passed (158.909s); plan decoder used int for PostgreSQL 18 decimal Actual Rows (1.00/0.00). Fixed decoder to float64, retaining row/index/buffer assertions and business deadlines.",
+      "test_summary": {
+        "total": 36,
+        "passed": 1,
+        "failed": 35,
+        "skipped_test_cases": 0
+      },
+      "raw_log_sha256": "4812049a42fa41ec1340d21dd0db2b7205aba927689836994f7018d42583d203"
+    },
+    {
+      "command": "go test -race -count=1 -tags=integration,scale -run ^TestScaleUploadQueryPlans$ -timeout=5m -json ./integration",
+      "go_result": "PASS",
+      "note": "All 32 plans passed. Wrapper was edited while running, producing an EOF parser message after Go finished; this attempt is not accepted as final wrapper verification. Final unchanged wrapper full run and explicit failure-path checks supersede it.",
+      "test_summary": {
+        "total": 35,
+        "passed": 35,
+        "failed": 0,
+        "skipped_test_cases": 0
+      },
+      "raw_log_sha256": "6881d6edd75103cb59651a7e8db296c2f3cc0b60fcb6d7a329ea0e5cf781f2ee"
+    }
+  ],
+  "migration_checksums": {
+    "00001_core.sql": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+    "00002_dirty_generations.sql": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+    "00003_workouts.sql": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+    "00004_page_receipts.sql": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+    "00005_request_budgets.sql": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+    "00006_upload_slots.sql": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+    "00007_workout_activities.sql": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6"
+  },
+  "source_sha256": {
+    ".github/workflows/server.yml": "e613658ede584ecbff403da87f4e769bb2b463ffe5c5aceab8065f59ed7ef046",
+    "AGENTS.md": "a718e8490d49b540fb872fc893149da1b9449ae84cd4bdaab79c4250cb91715b",
+    "README.md": "ca131ca09bf316d10dcece12687eab03133fbf0e58f034c0b4d00e4f9d869cc5",
+    "apps/server/.dockerignore": "3c3f6667cdeee6d974a160cefc2bbebd0087d95be0ab1bef8c392ac07cc952fe",
+    "apps/server/.go-version": "55a45ba2851dc159876cb8854f80bf67b9eae781e67ce179708ea2e4f990fcd8",
+    "apps/server/Dockerfile": "8642dc680454b45936514de465bf9e993e9cb581d26fec1e7b310fc62ce45444",
+    "apps/server/cmd/rai/main.go": "b58aa5b715487e6a6ea813e72e0aea53fb520c1cfee286488fd35acbba0e7978",
+    "apps/server/go.mod": "df62207c5f1a447c87ed1a9b030c0ea417ba742084c0e0ee10a4a98a15349a91",
+    "apps/server/go.sum": "520dbc096b85c030e48627ae69cea490cebb2db5be64dc898ab652c740092455",
+    "apps/server/integration/admission_test.go": "c1b6be2d82c00283ee33f46f446f907c966e528dc03adc40aba6d08c4ef0b860",
+    "apps/server/integration/page_test.go": "5542fcd096aabc75e024db9311dce71b16761c4ed9a3650d18d7d792b8c7673d",
+    "apps/server/integration/scale_test.go": "9285b8c0464ccbf3d04378b9091904c415c3cf3a50bdb53359e0b9d10a5cd54b",
+    "apps/server/integration/sync_test.go": "b257052577d1a57a3d873294cbfcdb0783249f5f853638ba19f395a6efd0f5ab",
+    "apps/server/integration/upload_test.go": "4d73c9b5808df42c243f925f583b174d0b64a796dc09372c7de04d3d5a79abba",
+    "apps/server/integration/workout_activities_test.go": "8023616ac57f3cf000bc7c6e39b8a4995d8104a9807b9581b0641e45b60810e7",
+    "apps/server/integration/workout_test.go": "eefd9abd5bfd10c5714244d4df8aebacd1257a1c88b9088229e088cf5acf091d",
+    "apps/server/internal/admin/admin.go": "c2d643b97f4756bd7329764d1242d14d2949ba2fe8a13d3ad4ff7cd5d8ce20b4",
+    "apps/server/internal/admin/migrations_test.go": "fe0705491a20d65e75938ad67177af0d317f9da29b98b3c2d043a646770039b4",
+    "apps/server/internal/config/config.go": "7f8bd8a7fa8731f83876d4f2bdb8f1e8a413d4c6ec6dbb78336a6d90a7b5308c",
+    "apps/server/internal/httpapi/server.go": "34a117d18af388559d9bf10d1d0df227d70bf821acb264d7df61c99c11c292e6",
+    "apps/server/internal/httpapi/upload_test.go": "18083eea557d549255bf272cdf355c7ded11cbe195b542869ecd482ac4e05e7f",
+    "apps/server/internal/jobs/worker.go": "18f32399ea2abcbd178058e289595471fb2dc7d8a503e1d8d821f165e128fb8d",
+    "apps/server/internal/storage/postgres/admission.go": "c208e9d5fe113110b2a89259fffa3758eabdefbc53e0a38a1d6b1808f8d67133",
+    "apps/server/internal/storage/postgres/dbgen/core.sql.go": "a5e0c1624e13ce533ad391f28172d4cd9d55865cb15636a34dd741a1d90cd904",
+    "apps/server/internal/storage/postgres/dbgen/db.go": "84f598c6b75bfcb2abf4c6fbe856276271ccb1899028c767b01f05ad1f13cd87",
+    "apps/server/internal/storage/postgres/dbgen/models.go": "353fd0f90c2445b9caf58b2a0d8a9dabb45ff7f2aea5eac0e790c7047b504f1f",
+    "apps/server/internal/storage/postgres/jobs.go": "24b6c5a0baa25c015e2734e52713b85e1dfb1e34c243f3f117e0fef7dd404211",
+    "apps/server/internal/storage/postgres/pages.go": "efe338d58281d82fb7cac21a6d41c15f6d62f968d6505779e760721522856fd3",
+    "apps/server/internal/storage/postgres/store.go": "5a04fb9c42833d42d20bb4d66b7cc7e6d7143979e6df500934e91334b67d4787",
+    "apps/server/internal/storage/postgres/uploads.go": "10135c139ffa984be8c05bdcdf3bcfeec3ec89e42dbacf125a56dfe59122b671",
+    "apps/server/internal/storage/postgres/workouts.go": "aad3edb19ff043de3cc0ceaff870e63ca8f9c80f9a65604591b2db0e91e602a3",
+    "apps/server/internal/syncing/admission.go": "3cd90d4285c59c62873ca83039ea3ac81081500946f667e4c54245c3f08b7eb2",
+    "apps/server/internal/syncing/page_test.go": "7892b33e1ce215aebe968d3f5981cc04413e99ea5734e7854f478a02bce63ea8",
+    "apps/server/internal/syncing/protocol.go": "7f382db4ac22927a54f0abb7f348c18a0718bedd0fb351b7fbaf17cea5ec7916",
+    "apps/server/internal/syncing/protocol_test.go": "2cd1b8f3ad705fd1efe285348ac9aff7b8484c8d9bc3a7e1edd096258c2a20ce",
+    "apps/server/internal/syncing/store.go": "3186ae38c31053c94d6b47ac023ecaee250c6e119054aff0e315135c288b9b66",
+    "apps/server/internal/syncing/workout.go": "aaba26c11247c7859da95282baad6f6c6649eefab1c4adccc08fbef8b961796e",
+    "apps/server/internal/syncing/workout_activities_test.go": "c3e9bf73c66033db599d225351c6d4f22c3b198f0063f317523f25ab1669cb95",
+    "apps/server/internal/syncing/workout_test.go": "3d203ed504cc3c4b6e23e883e7cd1bb379e2437b629dbc054538e347d3e366af",
+    "apps/server/migrations/00001_core.sql": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+    "apps/server/migrations/00002_dirty_generations.sql": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+    "apps/server/migrations/00003_workouts.sql": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+    "apps/server/migrations/00004_page_receipts.sql": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+    "apps/server/migrations/00005_request_budgets.sql": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+    "apps/server/migrations/00006_upload_slots.sql": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+    "apps/server/migrations/00007_workout_activities.sql": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+    "apps/server/migrations/checksums.json": "e34fea2f477335037e99f79f77de3ab72afec8db29a70b396bf13fbaf33110d2",
+    "apps/server/migrations/embed.go": "9f8086f8704f668285ece843dbbc53975967f7f63e0f2754ba1638f0d0c0a198",
+    "apps/server/queries/core.sql": "b21ebdccf2ca2bebe1f0326efb24163e49f9fa2cf989d1ade36c6dfaaa819462",
+    "apps/server/sqlc.yaml": "00677ebf41d5acbc96d70f67a6c1e849d44e2f12d67f468d4e7f9dfc93961fd8",
+    "contracts/fixtures/envelope.canonical.json": "bf6eeae8b3eeea73833d55bc91d554e7152e6863fd182f9d69d03e1fc98d33fa",
+    "contracts/fixtures/envelope.json": "1c1d24e9d97fc3b730da38da6ee7b1d4b7fa8da71ad1a2e20ad7a22fad5849dd",
+    "contracts/fixtures/envelope.sha256": "bd014695c8ca5eae9da528456fc14bd367864651818c935a221194d178586d22",
+    "contracts/fixtures/page-manifest.json": "4f9db6f452f99e450ecd00e4b11d6455b3ac2c986629660e065aac5f5ca28f6c",
+    "contracts/fixtures/sample.ndjson": "18a761778e199770c8eb214c7d81437ad5d50a1fd6c402eceee3fc9dd7478fcd",
+    "contracts/fixtures/sample.ndjson.gz": "e22d6b6a5b8f1a919f0f99072584651c6482769988eff127cc7979f5cba4f163",
+    "contracts/fixtures/workout-activities.ndjson": "f7986a27287b42b39ba8ed108df18a02030d22c9fd63cc3d36a324167a55dbea",
+    "contracts/fixtures/workout-activities.sha256": "6428fd45456be11e098d016ea57f6068324e4dec85cd96d666935266b40d0e65",
+    "contracts/fixtures/workout.ndjson": "e89aeda9d58979b99ea8e4243015c26f36b671d441804987d86c2dbf5a12552f",
+    "contracts/fixtures/workout.sha256": "2b565d68717ac9a687b736451282bed72dd9c9f81832cf655b29c1f1e863552d",
+    "contracts/openapi-v2.yaml": "178806be07cc70c7613fea7fb70fb3b30e78029e7b4003ea7955f88458fb7eeb",
+    "contracts/sync-v2.md": "f4e3257e78920172f5d61fa5d3de8b97cad3e1f3cc3dc801f4b9a8eb459ac72c",
+    "deploy/postgres/roles.sql": "5820fbb4810b72e45ade7b94b4e917bbd7a149a1b7ae2e342558eb7ceaffb20f",
+    "docs/UPLOAD-QUERY-BUDGETS.md": "c50194f2b5323d363c2902977572f340bfa08e8765ba03462e142b4bab453407",
+    "scripts/check-boundaries.py": "561e828bf1a6d65c484a3295bfdc76b50eca4225e381c4923711683db7d4e459",
+    "scripts/test-postgres.sh": "571ac0de181e5b60e8467fb4018b4ab052529e794434d8e88734f109d8049cef"
+  },
+  "not_verified": [
+    "Entire P2 exit",
+    "Million/ten-million row scale",
+    "Cold disk latency",
+    "All prepared/generic plans",
+    "All online SQL including leases/jobs/child cascades",
+    "HTTP maximum-page throughput and admission tuning",
+    "Real multi-host and fnOS/N100 resource limits",
+    "Docker or remote CI execution",
+    "iOS/HealthKit devices",
+    "Production deployment/upgrade/rollback",
+    "Database crash/power-loss recovery or backup RPO/RTO"
+  ],
+  "git_commit": null,
+  "application_image_digest": null
+}

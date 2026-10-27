@@ -1,0 +1,45 @@
+{
+  "algorithm": "SHA256(previous_32_raw_bytes || canonical_chunk_SHA256_32_raw_bytes), initial=32 zero bytes",
+  "chunks": [
+    {
+      "chunkIndex": 0,
+      "points": [
+        {
+          "startUs": 1793059200000000,
+          "endUs": 1793059201000000,
+          "value": 60.5,
+          "unit": "count/min"
+        },
+        {
+          "startUs": 1793059201000000,
+          "endUs": 1793059202000000,
+          "value": 61.25,
+          "unit": "count/min"
+        }
+      ],
+      "canonical": "[{\"startUs\":1793059200000000,\"endUs\":1793059201000000,\"value\":60.5,\"unit\":\"count/min\"},{\"startUs\":1793059201000000,\"endUs\":1793059202000000,\"value\":61.25,\"unit\":\"count/min\"}]",
+      "chunkSHA256": "14b7ad8e07993bc33aa368bd9cce39f71f441ee461797d6862049417cf252ccc",
+      "manifestSHA256": "719bd9a9195de772a655122f8800f121431480d96fb6c7ee4ff398335a47c85b"
+    },
+    {
+      "chunkIndex": 1,
+      "points": [
+        {
+          "startUs": 1793059202000000,
+          "endUs": 1793059203000000,
+          "value": 62.5,
+          "unit": "count/min"
+        },
+        {
+          "startUs": 1793059203000000,
+          "endUs": 1793059204000000,
+          "value": 63.75,
+          "unit": "count/min"
+        }
+      ],
+      "canonical": "[{\"startUs\":1793059202000000,\"endUs\":1793059203000000,\"value\":62.5,\"unit\":\"count/min\"},{\"startUs\":1793059203000000,\"endUs\":1793059204000000,\"value\":63.75,\"unit\":\"count/min\"}]",
+      "chunkSHA256": "87af5aca8c6cccc5dc65ba3e8306c4f0c6d91e020dd29c4eea97995cee9b554c",
+      "manifestSHA256": "96a75057ede7a0e769b72b7ba646e06c9ba5ad7fd5f6813d5d00b70a21a4deae"
+    }
+  ]
+}

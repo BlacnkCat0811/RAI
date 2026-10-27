@@ -1,0 +1,990 @@
+openapi: 3.1.0
+info:
+  title: RAI native delta API
+  version: 0.8.0
+  description: >-
+    Current implementation: sample and bounded multi-activity Workout v2
+    ingest, with optional source activities (schema 7), durable quantity-series
+    detail chunks with an explicit completeness seal (schema 8), oversized
+    Workout detail packages with a separate completeness seal (schema 9),
+    atomic page delivery receipts, durable dataset/device request budgets and
+    cross-replica upload leases. Legacy Workout v1 payloads without activities
+    remain valid.
+    The runtime handshake is authoritative for enabled capabilities and numeric
+    limits. Routes, changefeed and analysis execution are not supported yet.
+  license: {name: Proprietary, identifier: LicenseRef-Proprietary}
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local development only; production requires HTTPS ingress.
+security:
+  - deviceToken: []
+paths:
+  /livez:
+    get:
+      summary: Check process liveness
+      operationId: getLiveness
+      security: []
+      responses:
+        '200': {description: Process responds}
+  /readyz:
+    get:
+      summary: Check database and schema readiness
+      operationId: getReadiness
+      security: []
+      responses:
+        '200': {description: Database and required schema reachable}
+        '503': {$ref: '#/components/responses/Error'}
+  /v2/handshake:
+    get:
+      summary: Read service identity and supported capabilities
+      operationId: getHandshake
+      responses:
+        '200':
+          description: Bounded service metadata and explicit supported capabilities
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Handshake'}
+              examples:
+                synthetic:
+                  summary: Synthetic deployment metadata
+                  value:
+                    protocolVersion: 2
+                    datasetID: 11111111-1111-4111-8111-111111111111
+                    datasetEpoch: 22222222-2222-4222-8222-222222222222
+                    serviceID: 33333333-3333-4333-8333-333333333333
+                    timezone: Asia/Shanghai
+                    commitRevision: 42
+                    limits:
+                      wireBytes: 2097152
+                      decodedBytes: 8388608
+                      events: 1000
+                      lineBytes: 65536
+                      workoutStatistics: 128
+                      workoutEvents: 256
+                      workoutDetails: 2000
+                      workoutActivities: 128
+                      workoutPackageChunks: 100
+                      workoutPackageDetails: 20000
+                      workoutPackageDetailsPerChunk: 1000
+                      pageFragments: 10000
+                      seriesChunks: 1000
+                      seriesPoints: 1000000
+                      seriesPointsPerChunk: 5000
+                      requests:
+                        read:
+                          device: {perMinute: 120, burst: 30}
+                          dataset: {perMinute: 240, burst: 60}
+                        write:
+                          device: {perMinute: 60, burst: 10}
+                          dataset: {perMinute: 120, burst: 20}
+                        upload:
+                          device: {perMinute: 30, burst: 2}
+                          dataset: {perMinute: 60, burst: 4}
+                      processUploads: 2
+                      processDeviceUploads: 1
+                      datasetUploads: 2
+                      deviceUploads: 1
+                      uploadLeaseSeconds: 30
+                    capabilities:
+                      sampleTypes:
+                        - HKCategoryTypeIdentifierSleepAnalysis
+                        - HKQuantityTypeIdentifierHeartRate
+                        - HKQuantityTypeIdentifierStepCount
+                      contentEncoding: gzip
+                      workouts: true
+                      workoutType: HKWorkoutTypeIdentifier
+                      workoutPayloadVersion: 2
+                      pageReceipts: true
+                      workoutActivities: true
+                      workoutPackages: true
+                      quantitySeries: true
+                      routes: false
+                      changefeed: false
+                      analysis: false
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/streams:
+    post:
+      summary: Register an immutable collection stream
+      operationId: registerStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/StreamRequest'}
+      responses:
+        '200':
+          description: Registered stream, or identical existing registration
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StreamState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/streams/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Read the contiguous committed sequence
+      operationId: getStream
+      responses:
+        '200':
+          description: Last contiguous committed batch
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StreamState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/batches:
+    post:
+      summary: Register an immutable batch envelope
+      operationId: registerBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Envelope'}
+      responses:
+        '200':
+          description: Immutable registration; upload body to /v2/sync/batches/{batchID}/body
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BatchState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/batches/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Read a batch and its original receipt
+      operationId: getBatch
+      responses:
+        '200':
+          description: Original committed receipt or registered state
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BatchState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/batches/{id}/body:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    put:
+      summary: Acquire an upload lease, validate and atomically commit a gzip delta file
+      operationId: uploadBatchBody
+      parameters:
+        - in: header
+          name: Content-Encoding
+          required: true
+          schema: {const: gzip}
+      requestBody:
+        required: true
+        content:
+          application/x-rai-health-delta+ndjson:
+            schema:
+              type: string
+              format: binary
+              description: Immutable gzip file. Decoded lines conform to Event, max 1000 lines and 8 MiB decoded, 64 KiB per line, 2 MiB on wire.
+              x-rai-ndjson-line-schema: {$ref: '#/components/schemas/Event'}
+      responses:
+        '200':
+          description: Facts, receipt, sequence, ledger and required jobs committed atomically under a valid server-owned upload lease; expired or replaced leases return 409 upload_lease_lost
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Receipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/pages/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Recover page delivery progress and its original seal receipt
+      operationId: getPage
+      responses:
+        '200':
+          description: Pending page or immutable sealed receipt; confirms declared fragment delivery, not HealthKit query completeness or local anchor advancement
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PageState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '404': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/series:
+    post:
+      summary: Register one quantity-series identity for an already committed parent sample
+      operationId: registerSeries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SeriesRequest'}
+      responses:
+        '200':
+          description: Pending series identity, or the identical existing registration
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SeriesState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/series/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Recover chunk progress and the original series seal receipt
+      operationId: getSeries
+      responses:
+        '200':
+          description: Pending detail state or immutable sealed receipt; never a complete-series claim without ingestStatus sealed
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SeriesState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/series/{id}/chunks/{index}:
+    parameters: [{$ref: '#/components/parameters/ID'}, {$ref: '#/components/parameters/ChunkIndex'}]
+    put:
+      summary: Upload one immutable, contiguous series chunk
+      operationId: putSeriesChunk
+      parameters:
+        - in: header
+          name: Content-Encoding
+          required: true
+          schema: {const: gzip}
+      requestBody:
+        required: true
+        content:
+          application/x-rai-health-series+ndjson:
+            schema:
+              type: string
+              format: binary
+              description: Immutable gzip file of one or more ordered SeriesPoint lines; max 5000 points and 2 MiB on wire, 8 MiB decoded, 64 KiB per line.
+              x-rai-ndjson-line-schema: {$ref: '#/components/schemas/SeriesPoint'}
+      responses:
+        '200':
+          description: Chunk and its delivery receipt committed under the upload lease; chunks remain staging data until an explicit seal
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SeriesChunkReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/series/{id}/seal:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    post:
+      summary: Seal a complete series and publish its analysis scope
+      operationId: sealSeries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SeriesSeal'}
+      responses:
+        '200':
+          description: Completeness marker, analysis scope/job and original seal receipt committed in one transaction
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SeriesReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/workout-packages:
+    post:
+      summary: Reserve one oversized Workout identity and store its small core
+      operationId: registerWorkoutPackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WorkoutPackageRequest'}
+      responses:
+        '200':
+          description: Pending package, or the identical existing registration/sealed receipt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkoutPackageState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/workout-packages/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Recover package chunk progress and the original seal receipt
+      operationId: getWorkoutPackage
+      responses:
+        '200':
+          description: Pending immutable staging state or sealed receipt; no Workout fact exists before seal
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkoutPackageState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/workout-packages/{id}/chunks/{index}:
+    parameters: [{$ref: '#/components/parameters/ID'}, {$ref: '#/components/parameters/WorkoutPackageChunkIndex'}]
+    put:
+      summary: Upload one immutable, contiguous Workout detail chunk
+      operationId: putWorkoutPackageChunk
+      parameters:
+        - in: header
+          name: Content-Encoding
+          required: true
+          schema: {const: gzip}
+      requestBody:
+        required: true
+        content:
+          application/x-rai-health-workout-detail+ndjson:
+            schema:
+              type: string
+              format: binary
+              description: Immutable gzip file of ordered WorkoutDetail lines; max 1000 top-level entries, 2 MiB on wire, 8 MiB decoded, 64 KiB per line. Chunks remain staging until seal.
+              x-rai-ndjson-line-schema: {$ref: '#/components/schemas/WorkoutDetail'}
+      responses:
+        '200':
+          description: Chunk and its delivery receipt committed under the upload lease
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkoutDetailChunkReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/workout-packages/{id}/seal:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    post:
+      summary: Seal a complete oversized Workout and publish its fact and analysis scope
+      operationId: sealWorkoutPackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WorkoutPackageSeal'}
+      responses:
+        '200':
+          description: Workout fact, normalized detail, revision, dirty scope, analysis job, change event and original receipt committed in one transaction
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkoutPackageReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/jobs/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Read a durable analysis job state
+      operationId: getJob
+      responses:
+        '200':
+          description: Durable job state; never substitutes for the fact receipt
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobID, kind, scopeKey, targetGeneration, state, attempts, lastErrorCode]
+                properties:
+                  jobID: {$ref: '#/components/schemas/ID'}
+                  kind: {type: string}
+                  scopeKey: {type: string}
+                  targetGeneration: {type: integer}
+                  state: {enum: [queued, running, succeeded, failed, repair_required]}
+                  attempts: {type: integer}
+                  lastErrorCode: {type: [string, 'null']}
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    deviceToken: {type: http, scheme: bearer}
+  parameters:
+    ID:
+      in: path
+      name: id
+      required: true
+      schema: {$ref: '#/components/schemas/ID'}
+    ChunkIndex:
+      in: path
+      name: index
+      required: true
+      schema: {type: integer, minimum: 0, maximum: 999}
+    WorkoutPackageChunkIndex:
+      in: path
+      name: index
+      required: true
+      schema: {type: integer, minimum: 0, maximum: 99}
+  responses:
+    RateLimited:
+      description: Dataset/device request budget or process upload concurrency exhausted. Preserve immutable identity; recovery reads use a separate bounded budget.
+      headers:
+        Retry-After:
+          description: Integer seconds until the suggested earliest retry; concurrent requests may consume the replenished slot.
+          schema: {type: integer, minimum: 1}
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, retryAfterSeconds]
+            properties:
+              code: {enum: [device_rate_exceeded, dataset_rate_exceeded, device_upload_capacity_exceeded, upload_capacity_exceeded]}
+              retryAfterSeconds: {type: integer, minimum: 1}
+    Error:
+      description: Stable reason code. No health values or raw database diagnostics.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code]
+            properties:
+              code: {type: string}
+              expectedSeq: {type: integer}
+              expectedChunkIndex: {type: integer, minimum: 0}
+              eventIndex: {type: integer, minimum: 0}
+  schemas:
+    ID: {type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', not: {const: '00000000-0000-0000-0000-000000000000'}}
+    Fingerprint: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
+    Handshake:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, datasetID, datasetEpoch, serviceID, timezone, commitRevision, limits, capabilities]
+      description: Runtime service identity and the enabled capability set. The handshake is authoritative for capabilities and numeric limits.
+      properties:
+        protocolVersion: {const: 2}
+        datasetID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        serviceID: {$ref: '#/components/schemas/ID'}
+        timezone: {type: string, description: Business timezone; timestamps in the protocol remain UTC microseconds}
+        commitRevision: {type: integer, minimum: 0}
+        limits: {$ref: '#/components/schemas/HandshakeLimits'}
+        capabilities: {$ref: '#/components/schemas/HandshakeCapabilities'}
+    HandshakeLimits:
+      type: object
+      additionalProperties: false
+      required: [wireBytes, decodedBytes, events, lineBytes, workoutStatistics, workoutEvents, workoutDetails, workoutActivities, workoutPackageChunks, workoutPackageDetails, workoutPackageDetailsPerChunk, pageFragments, seriesChunks, seriesPoints, seriesPointsPerChunk, requests, processUploads, processDeviceUploads, datasetUploads, deviceUploads, uploadLeaseSeconds]
+      description: Current numeric limits. The runtime handshake returns the effective values for this deployment.
+      properties:
+        wireBytes: {type: integer, minimum: 1, description: Maximum compressed request body bytes}
+        decodedBytes: {type: integer, minimum: 1, description: Maximum decoded NDJSON bytes}
+        events: {type: integer, minimum: 1, description: Maximum input events per batch}
+        lineBytes: {type: integer, minimum: 1, description: Maximum bytes per NDJSON line}
+        workoutStatistics: {type: integer, minimum: 1, description: Maximum statistics per Workout or activity}
+        workoutEvents: {type: integer, minimum: 1, description: Maximum events per Workout or activity}
+        workoutDetails: {type: integer, minimum: 1, description: 'Maximum activity, statistic and event rows across the input batch'}
+        workoutActivities: {type: integer, minimum: 1, description: Maximum activities per Workout}
+        workoutPackageChunks: {type: integer, minimum: 1, description: Maximum immutable chunks in one oversized Workout package}
+        workoutPackageDetails: {type: integer, minimum: 1, description: 'Maximum total detail rows, including nested activity statistics/events, in one oversized Workout package'}
+        workoutPackageDetailsPerChunk: {type: integer, minimum: 1, description: Maximum top-level detail entries in one package chunk}
+        pageFragments: {type: integer, minimum: 1, description: Maximum fragments per page}
+        seriesChunks: {type: integer, minimum: 1, description: Maximum immutable chunks per quantity series}
+        seriesPoints: {type: integer, minimum: 1, description: Maximum total points per quantity series}
+        seriesPointsPerChunk: {type: integer, minimum: 1, description: Maximum points in one immutable series chunk}
+        requests: {$ref: '#/components/schemas/RequestBudgets'}
+        processUploads: {type: integer, minimum: 1, description: Per-process concurrent body uploads}
+        processDeviceUploads: {type: integer, minimum: 1, description: Per-process concurrent body uploads for one device}
+        datasetUploads: {type: integer, minimum: 1, description: Cross-replica concurrent upload leases per dataset}
+        deviceUploads: {type: integer, minimum: 1, description: Cross-replica concurrent upload leases per device}
+        uploadLeaseSeconds: {type: integer, minimum: 1, description: Server-owned upload lease duration}
+    HandshakeCapabilities:
+      type: object
+      additionalProperties: false
+      required: [sampleTypes, contentEncoding, workouts, workoutType, workoutPayloadVersion, pageReceipts, workoutActivities, workoutPackages, quantitySeries, routes, changefeed, analysis]
+      description: Explicit capability boundary for this deployment. Unsupported source fields must remain local; clients must not truncate them to fit.
+      properties:
+        sampleTypes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: Sorted sample identifiers accepted by this deployment. The runtime handshake is authoritative; this array is not a complete HealthKit type list.
+          items: {type: string, minLength: 1}
+        contentEncoding: {const: gzip}
+        workouts: {const: true}
+        workoutType: {const: HKWorkoutTypeIdentifier}
+        workoutPayloadVersion: {const: 2, description: Highest Workout payload version; protocolVersion remains 2}
+        pageReceipts: {const: true}
+        workoutActivities: {const: true}
+        workoutPackages: {const: true, description: Durable detail chunks for one oversized Workout; completeness requires an explicit seal}
+        quantitySeries: {const: true, description: Durable detail chunks for a quantity sample; completeness requires an explicit seal}
+        routes: {const: false}
+        changefeed: {const: false}
+        analysis: {const: false}
+    RequestBudgets:
+      type: object
+      additionalProperties: false
+      required: [read, write, upload]
+      properties:
+        read: {$ref: '#/components/schemas/AdmissionPolicy'}
+        write: {$ref: '#/components/schemas/AdmissionPolicy'}
+        upload: {$ref: '#/components/schemas/AdmissionPolicy'}
+    AdmissionPolicy:
+      type: object
+      additionalProperties: false
+      required: [device, dataset]
+      properties:
+        device: {$ref: '#/components/schemas/RequestBudget'}
+        dataset: {$ref: '#/components/schemas/RequestBudget'}
+    RequestBudget:
+      type: object
+      additionalProperties: false
+      required: [perMinute, burst]
+      properties:
+        perMinute: {type: integer, minimum: 1}
+        burst: {type: integer, minimum: 1}
+    StreamRequest:
+      type: object
+      additionalProperties: false
+      required: [datasetID, datasetEpoch, collectorEpoch, streamID, sampleType, queryFingerprint]
+      properties:
+        datasetID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        streamID: {$ref: '#/components/schemas/ID'}
+        sampleType: {type: string, description: "Must occur in handshake.capabilities.sampleTypes, or equal workoutType when workouts is true"}
+        queryFingerprint: {$ref: '#/components/schemas/Fingerprint'}
+    StreamState:
+      type: object
+      required: [streamID, collectorEpoch, sampleType, queryFingerprint, lastClientSeq, lastBatchID]
+      properties:
+        streamID: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        sampleType: {type: string}
+        queryFingerprint: {$ref: '#/components/schemas/Fingerprint'}
+        lastClientSeq: {type: integer, minimum: 0}
+        lastBatchID: {type: [string, 'null'], format: uuid}
+    Envelope:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, datasetID, datasetEpoch, collectorEpoch, streamID, batchID, clientSeq, previousBatchID, pageID, fragmentIndex, fragmentCount, queryFingerprint, contentEncoding, wireBytes, decodedBytes, eventCount, payloadSHA256]
+      properties:
+        protocolVersion: {const: 2}
+        datasetID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        streamID: {$ref: '#/components/schemas/ID'}
+        batchID: {$ref: '#/components/schemas/ID'}
+        clientSeq: {type: integer, minimum: 1}
+        previousBatchID: {type: [string, 'null'], format: uuid, description: null iff clientSeq is 1}
+        pageID: {$ref: '#/components/schemas/ID'}
+        fragmentIndex: {type: integer, minimum: 0, description: Less than fragmentCount; starts at zero and commits in order within one page}
+        fragmentCount: {type: integer, minimum: 1, maximum: 10000}
+        queryFingerprint: {$ref: '#/components/schemas/Fingerprint'}
+        contentEncoding: {const: gzip}
+        wireBytes: {type: integer, minimum: 1, maximum: 2097152}
+        decodedBytes: {type: integer, minimum: 0, maximum: 8388608}
+        eventCount: {type: integer, minimum: 0, maximum: 1000}
+        payloadSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+    Event:
+      oneOf:
+        - $ref: '#/components/schemas/Upsert'
+        - $ref: '#/components/schemas/WorkoutUpsert'
+        - $ref: '#/components/schemas/Delete'
+    Upsert:
+      type: object
+      additionalProperties: false
+      required: [op, kind, type, uuid, startUs, endUs, source]
+      properties:
+        op: {const: upsert}
+        kind: {const: sample}
+        type: {type: string}
+        uuid: {$ref: '#/components/schemas/ID'}
+        startUs: {type: integer, minimum: -62135596800000000}
+        endUs: {type: integer, maximum: 253402300799999999, description: Must be at least startUs}
+        quantity:
+          type: object
+          additionalProperties: false
+          required: [value, unit]
+          properties:
+            value: {type: number}
+            unit: {type: string, description: Exact normalized unit from sync-v2.md}
+        category: {type: integer, minimum: 0, maximum: 5}
+        source:
+          type: object
+          additionalProperties: false
+          required: [bundleID]
+          properties:
+            bundleID: {type: string, minLength: 1, maxLength: 255}
+        metadata: {type: object, description: Bounded by line budget; not a place for series points}
+      oneOf:
+        - required: [quantity]
+          properties: {quantity: {}, category: false}
+        - required: [category]
+          properties: {category: {}, quantity: false}
+    Quantity:
+      type: object
+      additionalProperties: false
+      required: [value, unit]
+      properties:
+        value: {type: number}
+        unit: {type: string}
+    WorkoutUpsert:
+      type: object
+      additionalProperties: false
+      required: [op, kind, type, uuid, startUs, endUs, source, workout]
+      properties:
+        op: {const: upsert}
+        kind: {const: workout}
+        type: {const: HKWorkoutTypeIdentifier}
+        uuid: {$ref: '#/components/schemas/ID'}
+        startUs: {type: integer, minimum: -62135596800000000}
+        endUs: {type: integer, maximum: 253402300799999999, description: Must be at least startUs}
+        source:
+          type: object
+          additionalProperties: false
+          required: [bundleID]
+          properties:
+            bundleID: {type: string, minLength: 1, maxLength: 255}
+        metadata: {type: object}
+        workout: {$ref: '#/components/schemas/Workout'}
+    Workout:
+      type: object
+      additionalProperties: false
+      required: [activityType, durationUs]
+      description: Workout payload v2 with optional source activities; legacy payload v1 without activities remains accepted. Retain unsupported data locally; never truncate to fit. Activities plus all parent/activity statistics and events together are limited to 2000 per input batch, plus the 64 KiB line budget. Omitted activities do not certify source completeness.
+      properties:
+        activityType: {type: integer, minimum: 1, maximum: 2147483647, description: HealthKit raw activity identifier; preserved without server interpretation}
+        durationUs: {type: integer, minimum: 0, description: Active duration; cannot exceed endUs minus startUs}
+        totalDistance:
+          allOf:
+            - $ref: '#/components/schemas/Quantity'
+            - properties: {value: {minimum: 0}, unit: {const: m}}
+        totalEnergyBurned:
+          allOf:
+            - $ref: '#/components/schemas/Quantity'
+            - properties: {value: {minimum: 0}, unit: {const: kcal}}
+        statistics:
+          type: array
+          maxItems: 128
+          description: Strictly increasing type order, no duplicates; only quantity types and exact units listed in sampleTypes. Each interval is within the Workout.
+          items: {$ref: '#/components/schemas/WorkoutStatistic'}
+        events:
+          type: array
+          maxItems: 256
+          description: Preserve source order including equal timestamps; every interval is within the Workout.
+          items: {$ref: '#/components/schemas/WorkoutEvent'}
+        activities:
+          type: array
+          maxItems: 128
+          description: Preserve source order; UUIDs unique within the Workout. Optional empty array normalizes to omission. No inferred activities for legacy payload v1.
+          items: {$ref: '#/components/schemas/WorkoutActivity'}
+    WorkoutActivity:
+      type: object
+      additionalProperties: false
+      required: [uuid, startUs, durationUs, configuration]
+      description: Source activity within parent interval. Optional endUs stays absent if unavailable; parent endUs is only a validation bound. No ordering, non-overlap or duration-sum inference.
+      properties:
+        uuid: {$ref: '#/components/schemas/ID'}
+        startUs: {type: integer}
+        endUs: {type: integer, description: At least activity startUs and at most parent endUs; explicit null rejected}
+        durationUs: {type: integer, minimum: 0, description: Cannot exceed activity endUs (or parent endUs if absent) minus activity startUs}
+        configuration: {$ref: '#/components/schemas/WorkoutConfiguration'}
+        metadata: {type: object}
+        statistics:
+          type: array
+          maxItems: 128
+          description: Strictly increasing type order; same quantity whitelist as parent; within activity interval (parent end if activity end absent).
+          items: {$ref: '#/components/schemas/WorkoutStatistic'}
+        events:
+          type: array
+          maxItems: 256
+          description: Preserve source order; within activity interval (parent end if activity end absent).
+          items: {$ref: '#/components/schemas/WorkoutEvent'}
+    WorkoutConfiguration:
+      type: object
+      additionalProperties: false
+      required: [activityType, locationType, swimmingLocationType]
+      description: Raw HealthKit identifiers without server reinterpretation. Zero location identifiers preserve unspecified values.
+      properties:
+        activityType: {type: integer, minimum: 1, maximum: 2147483647}
+        locationType: {type: integer, minimum: 0, maximum: 2147483647}
+        swimmingLocationType: {type: integer, minimum: 0, maximum: 2147483647}
+        lapLength:
+          allOf:
+            - $ref: '#/components/schemas/Quantity'
+            - properties: {value: {minimum: 0}, unit: {const: m}}
+    WorkoutStatistic:
+      type: object
+      additionalProperties: false
+      required: [type, startUs, endUs]
+      anyOf:
+        - required: [sum]
+        - required: [average]
+        - required: [minimum]
+        - required: [maximum]
+      properties:
+        type: {type: string}
+        startUs: {type: integer}
+        endUs: {type: integer}
+        sum: {$ref: '#/components/schemas/Quantity'}
+        average: {$ref: '#/components/schemas/Quantity'}
+        minimum: {$ref: '#/components/schemas/Quantity'}
+        maximum: {$ref: '#/components/schemas/Quantity'}
+    WorkoutEvent:
+      type: object
+      additionalProperties: false
+      required: [type, startUs, endUs]
+      properties:
+        type: {type: integer, minimum: 1, maximum: 2147483647, description: "HealthKit raw event identifier, without server interpretation"}
+        startUs: {type: integer}
+        endUs: {type: integer}
+        metadata: {type: object}
+    Delete:
+      type: object
+      additionalProperties: false
+      required: [op, kind, type, uuid]
+      properties:
+        op: {const: delete}
+        kind: {enum: [sample, workout], description: workout iff type is HKWorkoutTypeIdentifier}
+        type: {type: string}
+        uuid: {$ref: '#/components/schemas/ID'}
+    PageState:
+      type: object
+      required: [pageID, streamID, datasetEpoch, collectorEpoch, queryFingerprint, fragmentCount, firstClientSeq, committedFragments, ingestStatus]
+      properties:
+        pageID: {$ref: '#/components/schemas/ID'}
+        streamID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        queryFingerprint: {$ref: '#/components/schemas/Fingerprint'}
+        fragmentCount: {type: integer, minimum: 1, maximum: 10000}
+        firstClientSeq: {type: integer, minimum: 1}
+        committedFragments: {type: integer, minimum: 0, maximum: 10000}
+        ingestStatus: {enum: [pending, sealed]}
+        receipt: {$ref: '#/components/schemas/PageReceipt'}
+    PageReceipt:
+      type: object
+      description: Stored with the final fragment's transaction. No extra fact revision is assigned for sealing. See sync-v2.md for the ordered raw-byte manifest hash chain.
+      required: [pageID, streamID, datasetEpoch, collectorEpoch, queryFingerprint, ingestStatus, fragmentCount, firstClientSeq, lastClientSeq, lastBatchID, manifestSHA256, commitRevision]
+      properties:
+        pageID: {$ref: '#/components/schemas/ID'}
+        streamID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        queryFingerprint: {$ref: '#/components/schemas/Fingerprint'}
+        ingestStatus: {const: sealed}
+        fragmentCount: {type: integer, minimum: 1, maximum: 10000}
+        firstClientSeq: {type: integer, minimum: 1}
+        lastClientSeq: {type: integer, minimum: 1}
+        lastBatchID: {$ref: '#/components/schemas/ID'}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        commitRevision: {type: integer, minimum: 0}
+    SeriesRequest:
+      type: object
+      additionalProperties: false
+      required: [datasetID, datasetEpoch, collectorEpoch, seriesID, sampleType, sampleUUID]
+      description: Binds one immutable series identity to one already committed quantity sample. The sample must not be tombstoned; a parent owns at most one series identity.
+      properties:
+        datasetID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        seriesID: {$ref: '#/components/schemas/ID'}
+        sampleType: {type: string, description: Quantity HealthKit identifier with an exact unit; sleep category and Workout are rejected}
+        sampleUUID: {$ref: '#/components/schemas/ID'}
+    SeriesState:
+      type: object
+      additionalProperties: false
+      required: [seriesID, sampleType, sampleUUID, sampleStartUs, sampleEndUs, datasetEpoch, collectorEpoch, ingestStatus, committedChunks, totalPoints, manifestSHA256]
+      description: Pending chunks are durable staging data; only ingestStatus sealed and its original receipt indicate a complete series. No stream sequence or download watermark advances.
+      properties:
+        seriesID: {$ref: '#/components/schemas/ID'}
+        sampleType: {type: string}
+        sampleUUID: {$ref: '#/components/schemas/ID'}
+        sampleStartUs: {type: integer}
+        sampleEndUs: {type: integer}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {enum: [pending, sealed]}
+        committedChunks: {type: integer, minimum: 0, maximum: 1000}
+        totalPoints: {type: integer, minimum: 0, maximum: 1000000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        chunkCount: {type: integer, minimum: 1, maximum: 1000}
+        receipt: {$ref: '#/components/schemas/SeriesReceipt'}
+    SeriesPoint:
+      type: object
+      additionalProperties: false
+      required: [startUs, endUs, value, unit]
+      description: One source series entry. Preserve source order; no sort, merge or container-scalar substitution. Unit must be the exact parent quantity unit; both intervals lie within the parent sample range. Explicit null and unknown fields are rejected.
+      properties:
+        startUs: {type: integer, minimum: -62135596800000000}
+        endUs: {type: integer, maximum: 253402300799999999, description: Must be at least startUs}
+        value: {type: number}
+        unit: {type: string, minLength: 1}
+    SeriesChunkReceipt:
+      type: object
+      description: Original receipt for one immutable chunk. The manifest chain is SHA256(previous 32 raw bytes || canonical chunk SHA256), initial 32 zero bytes. Chunk bytes are retried exactly; the series is not complete until a separate seal.
+      required: [seriesID, chunkIndex, ingestStatus, pointCount, payloadSHA256, chunkSHA256, manifestSHA256, committedChunks]
+      properties:
+        seriesID: {$ref: '#/components/schemas/ID'}
+        chunkIndex: {type: integer, minimum: 0, maximum: 999}
+        ingestStatus: {const: pending}
+        pointCount: {type: integer, minimum: 1, maximum: 5000}
+        payloadSHA256: {type: string, pattern: '^[0-9a-f]{64}$', description: SHA-256 of the exact compressed request bytes}
+        chunkSHA256: {type: string, pattern: '^[0-9a-f]{64}$', description: SHA-256 of the canonical point array}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        committedChunks: {type: integer, minimum: 1, maximum: 1000}
+    SeriesSeal:
+      type: object
+      additionalProperties: false
+      required: [chunkCount, totalPoints, manifestSHA256]
+      description: Declares the fixed complete chunk list after all chunks are committed. The server verifies the bounded chunk index counts and digest chain; it never fabricates missing chunks.
+      properties:
+        chunkCount: {type: integer, minimum: 1, maximum: 1000}
+        totalPoints: {type: integer, minimum: 1, maximum: 1000000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+    SeriesReceipt:
+      type: object
+      description: Stored in the seal transaction with the completeness marker, dataset revision, dirty scope, analysis job and change event. Chunk transactions do not assign a business revision.
+      required: [seriesID, ingestStatus, sampleType, sampleUUID, chunkCount, totalPoints, manifestSHA256, commitRevision, analysisStatus, analysisJobIDs]
+      properties:
+        seriesID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {const: sealed}
+        sampleType: {type: string}
+        sampleUUID: {$ref: '#/components/schemas/ID'}
+        chunkCount: {type: integer, minimum: 1, maximum: 1000}
+        totalPoints: {type: integer, minimum: 1, maximum: 1000000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        commitRevision: {type: integer, minimum: 0}
+        analysisStatus: {enum: [queued, not_required]}
+        analysisJobIDs:
+          type: array
+          items: {$ref: '#/components/schemas/ID'}
+    Source:
+      type: object
+      additionalProperties: false
+      required: [bundleID]
+      properties:
+        bundleID: {type: string, minLength: 1, maxLength: 255}
+    WorkoutPackageRequest:
+      type: object
+      additionalProperties: false
+      required: [datasetID, datasetEpoch, collectorEpoch, workoutID, startUs, endUs, source, workout]
+      description: Reserves one Workout UUID and carries the small Workout core only. Statistics, events and activities must arrive as immutable detail chunks; a Workout fact exists only after seal.
+      properties:
+        datasetID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        workoutID: {$ref: '#/components/schemas/ID'}
+        startUs: {type: integer, minimum: -62135596800000000}
+        endUs: {type: integer, maximum: 253402300799999999, description: Must be at least startUs}
+        source: {$ref: '#/components/schemas/Source'}
+        metadata: {type: object, additionalProperties: true}
+        workout:
+          allOf: [{$ref: '#/components/schemas/Workout'}]
+          description: Core Workout with activityType and durationUs; statistics, events and activities must be absent or empty.
+    WorkoutPackageState:
+      type: object
+      additionalProperties: false
+      required: [workoutID, datasetEpoch, collectorEpoch, startUs, endUs, ingestStatus, committedChunks, totalDetails, manifestSHA256]
+      description: Pending package state is durable staging; only ingestStatus sealed and its original receipt indicate a complete Workout. No stream sequence or page watermark advances.
+      properties:
+        workoutID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        startUs: {type: integer}
+        endUs: {type: integer}
+        ingestStatus: {enum: [pending, sealed]}
+        committedChunks: {type: integer, minimum: 0, maximum: 100}
+        totalDetails: {type: integer, minimum: 0, maximum: 20000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        chunkCount: {type: integer, minimum: 1, maximum: 100}
+        receipt: {$ref: '#/components/schemas/WorkoutPackageReceipt'}
+    WorkoutDetail:
+      type: object
+      additionalProperties: false
+      required: [kind, ordinal]
+      description: One top-level detail entry. Exactly one of activity, statistic or event is present; ordinal is the zero-based position within its kind across all chunks. Activity entries retain their nested statistics/events as one bounded source object.
+      properties:
+        kind: {enum: [activity, statistic, event]}
+        ordinal: {type: integer, minimum: 0, maximum: 255}
+        activity: {$ref: '#/components/schemas/WorkoutActivity'}
+        statistic: {$ref: '#/components/schemas/WorkoutStatistic'}
+        event: {$ref: '#/components/schemas/WorkoutEvent'}
+      oneOf:
+        - required: [activity]
+        - required: [statistic]
+        - required: [event]
+    WorkoutDetailChunkReceipt:
+      type: object
+      description: Original receipt for one immutable detail chunk. The manifest chain is SHA256(previous 32 raw bytes || canonical detail-array SHA256), initial 32 zero bytes. The Workout is not complete until a separate seal.
+      required: [workoutID, chunkIndex, ingestStatus, detailCount, payloadSHA256, detailsSHA256, manifestSHA256, committedChunks, totalDetails]
+      properties:
+        workoutID: {$ref: '#/components/schemas/ID'}
+        chunkIndex: {type: integer, minimum: 0, maximum: 99}
+        ingestStatus: {const: pending}
+        detailCount: {type: integer, minimum: 1, maximum: 1000}
+        payloadSHA256: {type: string, pattern: '^[0-9a-f]{64}$', description: SHA-256 of the exact compressed request bytes}
+        detailsSHA256: {type: string, pattern: '^[0-9a-f]{64}$', description: SHA-256 of the canonical detail array}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        committedChunks: {type: integer, minimum: 1, maximum: 100}
+        totalDetails: {type: integer, minimum: 1, maximum: 20000}
+    WorkoutPackageSeal:
+      type: object
+      additionalProperties: false
+      required: [chunkCount, totalDetails, manifestSHA256]
+      description: Declares the fixed complete chunk list after all chunks are committed. The server verifies bounded chunk counts, total detail rows and the digest chain; it never fabricates missing chunks.
+      properties:
+        chunkCount: {type: integer, minimum: 1, maximum: 100}
+        totalDetails: {type: integer, minimum: 1, maximum: 20000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+    WorkoutPackageReceipt:
+      type: object
+      description: Stored in the seal transaction with the Workout fact, normalized detail, dataset revision, dirty scope, analysis job and change event.
+      required: [workoutID, ingestStatus, startUs, endUs, chunkCount, totalDetails, manifestSHA256, commitRevision, analysisStatus, analysisJobIDs]
+      properties:
+        workoutID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {const: sealed}
+        startUs: {type: integer}
+        endUs: {type: integer}
+        chunkCount: {type: integer, minimum: 1, maximum: 100}
+        totalDetails: {type: integer, minimum: 1, maximum: 20000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        commitRevision: {type: integer, minimum: 0}
+        analysisStatus: {enum: [queued, not_required]}
+        analysisJobIDs:
+          type: array
+          items: {$ref: '#/components/schemas/ID'}
+    BatchState:
+      type: object
+      required: [envelope, ingestStatus]
+      properties:
+        envelope: {$ref: '#/components/schemas/Envelope'}
+        ingestStatus: {enum: [registered, committed]}
+        receipt: {$ref: '#/components/schemas/Receipt'}
+    Receipt:
+      type: object
+      required: [batchID, ingestStatus, datasetEpoch, clientSeq, payloadSHA256, commitRevision, counts, analysisStatus, analysisJobIDs]
+      properties:
+        batchID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {const: committed}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        clientSeq: {type: integer}
+        payloadSHA256: {type: string}
+        commitRevision: {type: integer}
+        counts:
+          type: object
+          required: [inserted, unchanged, deleted, tombstoned, suppressed]
+          properties:
+            inserted: {type: integer, minimum: 0}
+            unchanged: {type: integer, minimum: 0}
+            deleted: {type: integer, minimum: 0}
+            tombstoned: {type: integer, minimum: 0}
+            suppressed: {type: integer, minimum: 0}
+        analysisStatus: {enum: [queued, not_required]}
+        analysisJobIDs:
+          type: array
+          items: {$ref: '#/components/schemas/ID'}

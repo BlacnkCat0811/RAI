@@ -1,0 +1,141 @@
+{
+  "date": "2026-10-27",
+  "timezone": "Asia/Shanghai",
+  "scope": "Oversized Workout core package, immutable detail chunks, explicit completeness seal and schema 9; P2 remains incomplete",
+  "environment": {
+    "server_version": "18.6",
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "data_checksums": "on",
+    "listen_addresses": "",
+    "shared_buffers": "64MB",
+    "leftover_case_databases": 0,
+    "os": "Darwin",
+    "arch": "x86_64",
+    "go": "go version go1.27.3 darwin/amd64",
+    "synthetic_only": true,
+    "unix_socket_only": true,
+    "test_cluster_stopped": true,
+    "schema_version": 9,
+    "production_accessed": false,
+    "remote_database_accessed": false,
+    "host_resource_limits_enforced": false
+  },
+  "full_regression": {
+    "command": "go test -p 1 -race -count=1 -tags=integration -json ./...",
+    "total": 231,
+    "top_level": 91,
+    "subtests": 140,
+    "passed": 231,
+    "failed": 0,
+    "skipped_test_cases": 0,
+    "integration_package_seconds": 131.589,
+    "packages": {
+      "rai/server/internal/admin": 1.982,
+      "rai/server/internal/httpapi": 2.041,
+      "rai/server/internal/syncing": 6.344,
+      "rai/server/internal/integration": 131.589
+    },
+    "transient_failure": "A prior default package-parallel full run had TestMaximumDeleteBatchAndEmptyBatch hit the existing 5s transaction deadline at the 1000-delete commit; no timeout was relaxed, the test passed alone in 6.56s, and the final -p 1 full run is the recorded PASS."
+  },
+  "unit_regression": {
+    "command": "go test -race -count=1 -json ./...",
+    "total": 139,
+    "top_level": 28,
+    "subtests": 111,
+    "passed": 139,
+    "failed": 0,
+    "skipped_test_cases": 0
+  },
+  "targeted": {
+    "TestWorkoutPackageChunksSealAndFacts_seconds": 1.1,
+    "TestWorkoutPackageMaxChunksAndDelete_seconds": 3.37,
+    "TestWorkoutPackageSealFailureRollsBack_seconds": 1.12,
+    "TestSchema8UpgradeAddsWorkoutPackagesWithoutRewritingFacts_seconds": 1.14,
+    "TestWorkoutPackageGapOrderAndSealChecks_seconds": 0.91,
+    "TestWorkoutPackageNormalWorkoutIdentityConflict_seconds": 1.1,
+    "TestHTTPWorkoutPackageUploadAndSeal_seconds": 1.1,
+    "TestAPIRoleCannotMigrateOrMaintain_seconds": 1.35,
+    "TestWorkoutPackageManifestCrossLanguageFixture_seconds": 0.0
+  },
+  "checks": [
+    {
+      "name": "go vet",
+      "command": "go vet ./... && go vet -tags=integration ./...",
+      "result": "PASS"
+    },
+    {
+      "name": "gofmt",
+      "command": "test -z \"$(gofmt -l .)\"",
+      "result": "PASS"
+    },
+    {
+      "name": "go mod verify",
+      "command": "go mod verify",
+      "result": "PASS"
+    },
+    {
+      "name": "online dependency boundary",
+      "command": "PATH=... python3 scripts/check-boundaries.py",
+      "result": "PASS: online import graph excludes admin, migration and goose (245 packages)"
+    },
+    {
+      "name": "sqlc",
+      "command": "/tmp/rai-go-pg-tools/sqlc generate (v1.31.1)",
+      "result": "PASS; dbgen core.sql.go/models.go/db.go SHA-256 match prior frozen evidence"
+    },
+    {
+      "name": "native build",
+      "command": "go build -trimpath -o /tmp/rai-package-native ./cmd/rai",
+      "result": "PASS"
+    },
+    {
+      "name": "linux amd64 static build",
+      "command": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/rai-package-linux-amd64 ./cmd/rai",
+      "result": "PASS; not executed on Linux/N100"
+    },
+    {
+      "name": "OpenAPI",
+      "command": "npx -y @redocly/cli@2.71.1 lint contracts/openapi-v2.yaml",
+      "result": "PASS: 0 errors; 5 warnings (two health-check 4xx; Event, SeriesPoint, WorkoutDetail referenced only by NDJSON extension); 18 paths, 36 schemas"
+    },
+    {
+      "name": "local markdown link targets",
+      "command": "relative link target check over maintained docs",
+      "result": "PASS: 0 missing targets"
+    }
+  ],
+  "migration": {
+    "file": "00009_workout_packages.sql",
+    "sha256": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+    "frozen_checksum_manifest": "nine entries; previous eight unchanged",
+    "upgrade": "schema 8 to 9 additive; sample facts and batch receipts unchanged; package/chunk tables empty before first use"
+  },
+  "boundaries": [
+    "Workout package core remains limited by the ordinary 16 KiB JSON registration request.",
+    "A single activity entry remains limited by the 64 KiB NDJSON line limit.",
+    "Maximum chunk count (100) and 300 detail rows were exercised; 20,000 total detail rows were not saturated.",
+    "No Swift encoder, real device, iOS simulator, phone history import, production throughput or multi-replica package concurrency evidence.",
+    "analysis.workout remains queued; Worker does not execute analysis.",
+    "No Docker, remote CI, fnOS, production deployment, migration of real data, commit or push performed."
+  ],
+  "source_sha256": {
+    "apps/server/internal/syncing/workout_package.go": "d98945463c5104c8146d3c3a4f662e0232a7bbbf027076aac8bf045501cd4528",
+    "apps/server/internal/syncing/workout_package_test.go": "26f0c397d581baefb4b916adb655a78dbef1dda48466a83596a9f7517eeb15c7",
+    "apps/server/internal/syncing/workout_package_fixture_test.go": "ad7dae0f105845e396fc0683dacbbaa2aa8aea25c926d04bda27ff6718af4914",
+    "apps/server/internal/syncing/workout.go": "81dcdb5288e3eab95ba343561e5488607388ec4ddbb85e4f2cbbcd7f49a28902",
+    "apps/server/internal/syncing/protocol.go": "85de3266d3e269c22695b420b92ae55ec115875becfea5d2e8ee1bf4b56b99f9",
+    "apps/server/internal/syncing/store.go": "99711efaf7ef92aaf334e94286e2d23af080f52d9c34749a0b16725d83c4cd9e",
+    "apps/server/internal/storage/postgres/workout_packages.go": "17b53c7bb59bd96f20e745e68a24f4d4b13ecc0f10502a7a16c6337c3c624267",
+    "apps/server/internal/storage/postgres/store.go": "a0e5dc0f729319057e7d628af47efac6dbc19620283cfcadf5a438a93ace4aa6",
+    "apps/server/internal/httpapi/server.go": "8d0a255f9ea7a2fa01b9eabb7fe281e73fc32aa96f10b54bfd3fc71f835db9b2",
+    "apps/server/integration/workout_package_test.go": "74cebd457f3a6a9720961c1879fdfd05e7f5d00ae14ab11268e4ffbe650260e7",
+    "apps/server/integration/sync_test.go": "a6a8ff7970b0808926f67975a176259b600e70aeb833c129ca26491f135bf695",
+    "apps/server/migrations/00009_workout_packages.sql": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+    "deploy/postgres/roles.sql": "6cc0be5103d1f0ef6a76949e59b41e8fca962ab4d3095bff196c6c48c9762ab5",
+    "contracts/sync-v2.md": "112ee9047b8e07e1dba2a1ad3ec984791e6901c295f833d28df64206ef7dd887",
+    "contracts/openapi-v2.yaml": "d157021be0b78c67d03784d2c51af31ce3436acb6382a735735f298dbb1c9f6b",
+    "contracts/fixtures/workout-package-manifest.json": "b2fa2865fd7e0962c34943914a84c5386437426f041428c10745773c61c5a37c"
+  }
+}

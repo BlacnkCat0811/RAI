@@ -1,0 +1,537 @@
+package postgres
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"rai/server/internal/storage/postgres/dbgen"
+	"rai/server/internal/syncing"
+)
+
+type Store struct {
+	Pool *pgxpool.Pool
+	q    *dbgen.Queries
+}
+
+func Open(ctx context.Context, url string, maxConnections int32) (*Store, error) {
+	c, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, errors.New("invalid database configuration")
+	}
+	c.MaxConns = maxConnections
+	c.MinConns = 0
+	c.MaxConnLifetime = 30 * time.Minute
+	c.ConnConfig.ConnectTimeout = 3 * time.Second
+	c.ConnConfig.RuntimeParams["timezone"] = "UTC"
+	c.ConnConfig.RuntimeParams["synchronous_commit"] = "on"
+	c.ConnConfig.RuntimeParams["statement_timeout"] = "2000"
+	c.ConnConfig.RuntimeParams["lock_timeout"] = "500"
+	c.ConnConfig.RuntimeParams["idle_in_transaction_session_timeout"] = "5000"
+	p, err := pgxpool.NewWithConfig(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{Pool: p, q: dbgen.New(p)}, nil
+}
+func (s *Store) Ready(ctx context.Context) error {
+	// Constant-sized schema evidence, no business table scan and no implicit migration.
+	var ok bool
+	err := s.Pool.QueryRow(ctx, `SELECT to_regclass('sync_batches') IS NOT NULL AND to_regclass('jobs') IS NOT NULL`).Scan(&ok)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("schema not ready")
+	}
+	var version int64
+	if err = s.Pool.QueryRow(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY id DESC LIMIT 1`).Scan(&version); err != nil {
+		return err
+	}
+	if version != 9 {
+		return errors.New("unsupported schema version")
+	}
+	return nil
+}
+
+func (s *Store) Authenticate(ctx context.Context, token string) (syncing.Principal, error) {
+	h := sha256.Sum256([]byte(token))
+	r, err := s.q.Authenticate(ctx, h[:])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return syncing.Principal{}, syncing.Fail(401, "unauthorized")
+		}
+		return syncing.Principal{}, err
+	}
+	return syncing.Principal{DatasetID: r.DatasetID, DeviceID: r.ID, CanCollect: r.CanCollect}, nil
+}
+func (s *Store) Metadata(ctx context.Context, p syncing.Principal) (syncing.Metadata, error) {
+	r, err := s.q.Dataset(ctx, p.DatasetID)
+	return syncing.Metadata{DatasetID: r.ID, DatasetEpoch: r.Epoch, ServiceID: r.ServiceID, Timezone: r.Timezone, CommitRevision: r.CommitRev}, err
+}
+func (s *Store) Stream(ctx context.Context, p syncing.Principal, id string) (syncing.StreamState, error) {
+	r, err := s.q.Stream(ctx, dbgen.StreamParams{DatasetID: p.DatasetID, ID: id})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return syncing.StreamState{}, syncing.Fail(404, "stream_not_found")
+	}
+	return syncing.StreamState{StreamID: r.ID, CollectorEpoch: r.CollectorEpoch, SampleType: r.SampleType, QueryFingerprint: r.QueryFingerprint, LastClientSeq: r.LastClientSeq, LastBatchID: r.LastBatchID}, err
+}
+func batchState(r dbgen.BatchRow) (syncing.BatchState, error) {
+	var e syncing.Envelope
+	if err := json.Unmarshal(r.Envelope, &e); err != nil {
+		return syncing.BatchState{}, err
+	}
+	return syncing.BatchState{Envelope: e, State: r.State, Receipt: json.RawMessage(r.Receipt)}, nil
+}
+func (s *Store) Batch(ctx context.Context, p syncing.Principal, id string) (syncing.BatchState, error) {
+	r, err := s.q.Batch(ctx, dbgen.BatchParams{DatasetID: p.DatasetID, BatchID: id})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return syncing.BatchState{}, syncing.Fail(404, "batch_not_found")
+		}
+		return syncing.BatchState{}, err
+	}
+	return batchState(r)
+}
+func (s *Store) Job(ctx context.Context, p syncing.Principal, id string) (any, error) {
+	r, err := s.q.Job(ctx, dbgen.JobParams{DatasetID: p.DatasetID, ID: id})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, syncing.Fail(404, "job_not_found")
+	}
+	return map[string]any{"jobID": r.ID, "kind": r.Kind, "scopeKey": r.ScopeKey, "targetGeneration": r.TargetGeneration, "state": r.State, "attempts": r.Attempts, "lastErrorCode": r.LastErrorCode}, err
+}
+
+func (s *Store) begin(ctx context.Context) (pgx.Tx, error) {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout = '5s'`); err != nil {
+		_ = tx.Rollback(ctx)
+		return nil, err
+	}
+	return tx, nil
+}
+
+// lockDataset is the first business row lock for fact/stream/batch writes.
+// It serializes revision assignment with actual transaction commit order;
+// independent operational admission budgets never assign business revisions.
+func lockDatasetRow(ctx context.Context, tx pgx.Tx, p syncing.Principal, dataset string) (string, int64, error) {
+	if dataset != p.DatasetID {
+		return "", 0, syncing.Fail(403, "dataset_forbidden")
+	}
+	if !p.CanCollect {
+		return "", 0, syncing.Fail(403, "read_only_device")
+	}
+	var actualEpoch string
+	var rev int64
+	err := tx.QueryRow(ctx, `SELECT epoch::text, commit_rev FROM datasets WHERE id=$1 FOR UPDATE`, dataset).Scan(&actualEpoch, &rev)
+	return actualEpoch, rev, err
+}
+
+// checkCollectorLease rechecks revocation/role inside the write transaction
+// after obtaining the dataset lock.
+func checkCollectorLease(ctx context.Context, tx pgx.Tx, p syncing.Principal, collector string) error {
+	var allowed bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM collector_leases l JOIN devices d ON d.dataset_id=l.dataset_id AND d.id=l.device_id
+		WHERE l.dataset_id=$1 AND l.device_id=$2 AND l.collector_epoch=$3 AND d.can_collect AND d.revoked_at IS NULL)`, p.DatasetID, p.DeviceID, collector).Scan(&allowed)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return syncing.Fail(409, "collector_fenced")
+	}
+	return nil
+}
+
+func lockDataset(ctx context.Context, tx pgx.Tx, p syncing.Principal, dataset, epoch, collector string) (int64, error) {
+	actualEpoch, rev, err := lockDatasetRow(ctx, tx, p, dataset)
+	if err != nil {
+		return 0, err
+	}
+	if actualEpoch != epoch {
+		return 0, syncing.Fail(409, "dataset_epoch_changed")
+	}
+	if err = checkCollectorLease(ctx, tx, p, collector); err != nil {
+		return 0, err
+	}
+	return rev, nil
+}
+func sequenceError(expected int64) error {
+	return &syncing.Error{Status: 409, Code: "sequence_gap", ExpectedSeq: &expected}
+}
+func (s *Store) RegisterStream(ctx context.Context, p syncing.Principal, r syncing.StreamRequest) (syncing.StreamState, error) {
+	if err := r.Validate(); err != nil {
+		return syncing.StreamState{}, err
+	}
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return syncing.StreamState{}, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = lockDataset(ctx, tx, p, r.DatasetID, r.DatasetEpoch, r.CollectorEpoch); err != nil {
+		return syncing.StreamState{}, err
+	}
+	q := dbgen.New(tx)
+	old, err := q.Stream(ctx, dbgen.StreamParams{DatasetID: p.DatasetID, ID: r.StreamID})
+	if err == nil {
+		if old.CollectorEpoch != r.CollectorEpoch || old.SampleType != r.SampleType || old.QueryFingerprint != r.QueryFingerprint {
+			return syncing.StreamState{}, syncing.Fail(409, "stream_identity_conflict")
+		}
+	} else if errors.Is(err, pgx.ErrNoRows) {
+		_, err = tx.Exec(ctx, `INSERT INTO sync_streams(dataset_id,id,collector_epoch,sample_type,query_fingerprint) VALUES($1,$2,$3,$4,$5)`, p.DatasetID, r.StreamID, r.CollectorEpoch, r.SampleType, r.QueryFingerprint)
+		if uniqueViolation(err) {
+			return syncing.StreamState{}, syncing.Fail(409, "stream_identity_conflict")
+		}
+		if err != nil {
+			return syncing.StreamState{}, err
+		}
+	} else {
+		return syncing.StreamState{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return syncing.StreamState{}, err
+	}
+	return s.Stream(ctx, p, r.StreamID)
+}
+func uniqueViolation(err error) bool {
+	var e *pgconn.PgError
+	return errors.As(err, &e) && e.Code == "23505"
+}
+func lockedStream(ctx context.Context, tx pgx.Tx, p syncing.Principal, e syncing.Envelope) (syncing.StreamState, error) {
+	var r syncing.StreamState
+	err := tx.QueryRow(ctx, `SELECT id::text,collector_epoch::text,sample_type,query_fingerprint,last_client_seq,last_batch_id::text
+		FROM sync_streams WHERE dataset_id=$1 AND id=$2 FOR UPDATE`, p.DatasetID, e.StreamID).Scan(&r.StreamID, &r.CollectorEpoch, &r.SampleType, &r.QueryFingerprint, &r.LastClientSeq, &r.LastBatchID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return r, syncing.Fail(404, "stream_not_found")
+	}
+	if err != nil {
+		return r, err
+	}
+	if r.CollectorEpoch != e.CollectorEpoch || r.QueryFingerprint != e.QueryFingerprint {
+		return r, syncing.Fail(409, "stream_identity_conflict")
+	}
+	return r, nil
+}
+func checkSequence(r syncing.StreamState, e syncing.Envelope) error {
+	if e.ClientSeq != r.LastClientSeq+1 {
+		return sequenceError(r.LastClientSeq + 1)
+	}
+	if (r.LastBatchID == nil) != (e.PreviousBatchID == nil) || (r.LastBatchID != nil && *r.LastBatchID != *e.PreviousBatchID) {
+		return syncing.Fail(409, "previous_batch_mismatch")
+	}
+	return nil
+}
+func (s *Store) RegisterBatch(ctx context.Context, p syncing.Principal, e syncing.Envelope) (syncing.BatchState, error) {
+	if err := e.Validate(); err != nil {
+		return syncing.BatchState{}, err
+	}
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return syncing.BatchState{}, err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = lockDataset(ctx, tx, p, e.DatasetID, e.DatasetEpoch, e.CollectorEpoch); err != nil {
+		return syncing.BatchState{}, err
+	}
+	stream, err := lockedStream(ctx, tx, p, e)
+	if err != nil {
+		return syncing.BatchState{}, err
+	}
+	canonical, digest := e.Canonical()
+	r, err := dbgen.New(tx).Batch(ctx, dbgen.BatchParams{DatasetID: p.DatasetID, BatchID: e.BatchID})
+	if err == nil {
+		if !bytes.Equal(digest, r.EnvelopeSha256) {
+			return syncing.BatchState{}, syncing.Fail(409, "batch_identity_conflict")
+		}
+		return batchState(r)
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return syncing.BatchState{}, err
+	}
+	// Registration permits only the next sequence. Existing registrations reserve it forever.
+	occupied, err := dbgen.New(tx).BatchSequenceOccupied(ctx, dbgen.BatchSequenceOccupiedParams{DatasetID: p.DatasetID, StreamID: e.StreamID, ClientSeq: e.ClientSeq})
+	if err != nil {
+		return syncing.BatchState{}, err
+	}
+	if occupied {
+		return syncing.BatchState{}, syncing.Fail(409, "sequence_identity_conflict")
+	}
+	if err = checkSequence(stream, e); err != nil {
+		return syncing.BatchState{}, err
+	}
+	if err = registerPage(ctx, tx, p, e); err != nil {
+		return syncing.BatchState{}, err
+	}
+	payload, _ := hex.DecodeString(e.PayloadSHA256)
+	_, err = tx.Exec(ctx, `INSERT INTO sync_batches(dataset_id,batch_id,stream_id,client_seq,dataset_epoch,envelope_sha256,payload_sha256,envelope,event_count,page_id,fragment_index)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, p.DatasetID, e.BatchID, e.StreamID, e.ClientSeq, e.DatasetEpoch, digest, payload, canonical, e.EventCount, e.PageID, e.FragmentIndex)
+	if err != nil {
+		return syncing.BatchState{}, err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return syncing.BatchState{}, err
+	}
+	return syncing.BatchState{Envelope: e, State: "registered"}, nil
+}
+
+// Commit accepts only a fully validated body. Its public boundary revalidates
+// event shape and count, so another transport cannot bypass the protocol invariants.
+func (s *Store) Commit(ctx context.Context, p syncing.Principal, e syncing.Envelope, events []syncing.Event) (json.RawMessage, error) {
+	return s.commit(ctx, p, e, events, nil)
+}
+
+// CommitUpload is the transport boundary: every HTTP PUT must present its lease.
+// Commit remains available to internal transaction tests without admission I/O.
+func (s *Store) CommitUpload(ctx context.Context, p syncing.Principal, e syncing.Envelope, events []syncing.Event, lease syncing.UploadLease) (json.RawMessage, error) {
+	return s.commit(ctx, p, e, events, &lease)
+}
+
+func (s *Store) commit(ctx context.Context, p syncing.Principal, e syncing.Envelope, events []syncing.Event, lease *syncing.UploadLease) (json.RawMessage, error) {
+	if err := e.Validate(); err != nil {
+		return nil, err
+	}
+	if len(events) != e.EventCount {
+		return nil, syncing.Fail(422, "event_count_mismatch")
+	}
+	if err := syncing.ValidateDetailBudget(events); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	rev, err := lockDataset(ctx, tx, p, e.DatasetID, e.DatasetEpoch, e.CollectorEpoch)
+	if err != nil {
+		return nil, err
+	}
+	stream, err := lockedStream(ctx, tx, p, e)
+	if err != nil {
+		return nil, err
+	}
+	// Business lock order stays dataset -> stream -> operational slot. The slot
+	// remains locked through COMMIT so reclamation cannot race the fact writes.
+	if lease != nil {
+		if err = lockUploadLease(ctx, tx, p, *lease); err != nil {
+			return nil, err
+		}
+	}
+	r, err := dbgen.New(tx).Batch(ctx, dbgen.BatchParams{DatasetID: p.DatasetID, BatchID: e.BatchID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, syncing.Fail(404, "batch_not_found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	_, digest := e.Canonical()
+	if !bytes.Equal(digest, r.EnvelopeSha256) {
+		return nil, syncing.Fail(409, "batch_identity_conflict")
+	}
+	if r.State == "committed" {
+		return json.RawMessage(r.Receipt), nil
+	}
+	if err = checkSequence(stream, e); err != nil {
+		return nil, err
+	}
+	for _, ev := range events {
+		if err = ev.Validate(stream.SampleType); err != nil {
+			return nil, err
+		}
+	}
+	collapsed, err := syncing.Collapse(events)
+	if err != nil {
+		return nil, err
+	}
+	receipt := syncing.Receipt{BatchID: e.BatchID, IngestStatus: "committed", DatasetEpoch: e.DatasetEpoch, ClientSeq: e.ClientSeq, PayloadSHA256: e.PayloadSHA256, CommitRevision: rev, AnalysisStatus: "not_required", AnalysisJobIDs: []string{}}
+	ordinal := 0
+	for _, ev := range collapsed {
+		changed, job, err := applyEvent(ctx, tx, p.DatasetID, e.BatchID, ev, rev+1, ordinal, &receipt.Counts)
+		if err != nil {
+			return nil, err
+		}
+		if changed {
+			ordinal++
+		}
+		if job != "" {
+			receipt.AnalysisJobIDs = append(receipt.AnalysisJobIDs, job)
+		}
+	}
+	if ordinal > 0 {
+		rev++
+		if _, err = tx.Exec(ctx, `UPDATE datasets SET commit_rev=$2 WHERE id=$1`, p.DatasetID, rev); err != nil {
+			return nil, err
+		}
+	}
+	receipt.CommitRevision = rev
+	if len(receipt.AnalysisJobIDs) > 0 {
+		receipt.AnalysisStatus = "queued"
+	}
+	body, err := json.Marshal(receipt)
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.Exec(ctx, `UPDATE sync_batches SET state='committed',receipt=$3,committed_at=now() WHERE dataset_id=$1 AND batch_id=$2`, p.DatasetID, e.BatchID, body)
+	if err != nil {
+		return nil, err
+	}
+	_, err = tx.Exec(ctx, `UPDATE sync_streams SET last_client_seq=$3,last_batch_id=$4 WHERE dataset_id=$1 AND id=$2`, p.DatasetID, e.StreamID, e.ClientSeq, e.BatchID)
+	if err != nil {
+		return nil, err
+	}
+	// The final fragment seals its page in this same fact/receipt transaction.
+	// NULL linkage marks historical pre-schema-4 batches; never infer a seal.
+	if r.PageID != nil {
+		if err = commitPage(ctx, tx, p, e, digest, rev); err != nil {
+			return nil, err
+		}
+	}
+	if lease != nil {
+		if err = checkUploadLease(ctx, tx, p, *lease); err != nil {
+			return nil, err
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return json.RawMessage(body), nil
+}
+
+func applyEvent(ctx context.Context, tx pgx.Tx, dataset, batch string, e syncing.Event, rev int64, ordinal int, counts *syncing.Counts) (bool, string, error) {
+	q := dbgen.New(tx)
+	tombstone, err := q.TombstoneExists(ctx, dbgen.TombstoneExistsParams{DatasetID: dataset, SampleType: e.Type, SampleUuid: e.UUID})
+	if err != nil {
+		return false, "", err
+	}
+	if tombstone {
+		if e.Op == "upsert" {
+			counts.Suppressed++
+		} else {
+			counts.Unchanged++
+		}
+		return false, "", nil
+	}
+	var oldStart, oldEnd *time.Time
+	var oldHash []byte
+	if e.Kind == "workout" {
+		var old dbgen.WorkoutIdentityRow
+		old, err = q.WorkoutIdentity(ctx, dbgen.WorkoutIdentityParams{DatasetID: dataset, WorkoutUuid: e.UUID})
+		if err == nil {
+			oldStart, oldEnd, oldHash = &old.EventStart.Time, &old.EventEnd.Time, old.ContentSha256
+		}
+	} else {
+		var old dbgen.SampleIdentityRow
+		old, err = q.SampleIdentity(ctx, dbgen.SampleIdentityParams{DatasetID: dataset, SampleType: e.Type, SampleUuid: e.UUID})
+		if err == nil {
+			oldStart, oldEnd, oldHash = &old.EventStart.Time, &old.EventEnd.Time, old.ContentSha256
+		}
+	}
+	exists := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, "", err
+	}
+	var start, end *time.Time
+	canonical, hash := e.Canonical()
+	if e.Op == "upsert" {
+		if e.Kind == "workout" {
+			packaged, err := workoutPackageExists(ctx, tx, dataset, e.UUID)
+			if err != nil {
+				return false, "", err
+			}
+			if packaged {
+				return false, "", syncing.Fail(409, "workout_package_conflict")
+			}
+		}
+		if exists {
+			if !bytes.Equal(oldHash, hash) {
+				return false, "", syncing.Fail(409, "sample_identity_conflict")
+			}
+			counts.Unchanged++
+			return false, "", nil
+		}
+		a, b := time.UnixMicro(*e.StartUs).UTC(), time.UnixMicro(*e.EndUs).UTC()
+		start, end = &a, &b
+		if e.Kind == "workout" {
+			err = insertWorkout(ctx, tx, dataset, e, rev, canonical, hash)
+		} else {
+			var value *float64
+			var unit *string
+			if e.Quantity != nil {
+				value = &e.Quantity.Value
+				unit = &e.Quantity.Unit
+			}
+			metadata := e.Metadata
+			if metadata == nil {
+				metadata = map[string]any{}
+			}
+			meta, _ := json.Marshal(metadata)
+			_, err = tx.Exec(ctx, `INSERT INTO health_samples(dataset_id,sample_type,sample_uuid,event_start,event_end,value_numeric,value_category,unit,source_bundle_id,content_sha256,entity_revision,metadata)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, dataset, e.Type, e.UUID, start, end, value, e.Category, unit, e.Source.BundleID, hash, rev, meta)
+		}
+		if err != nil {
+			return false, "", err
+		}
+		counts.Inserted++
+	} else {
+		_, err = tx.Exec(ctx, `INSERT INTO entity_tombstones(dataset_id,sample_type,sample_uuid,deleted_rev,previous_start,previous_end,reason) VALUES($1,$2,$3,$4,$5,$6,'healthkit_deleted_object')`, dataset, e.Type, e.UUID, rev, oldStart, oldEnd)
+		if err != nil {
+			return false, "", err
+		}
+		if e.Kind == "workout" {
+			if err = deleteWorkoutPackage(ctx, tx, dataset, e.UUID); err != nil {
+				return false, "", err
+			}
+		}
+		if exists {
+			if e.Kind == "workout" {
+				_, err = tx.Exec(ctx, `DELETE FROM workouts WHERE dataset_id=$1 AND workout_uuid=$2`, dataset, e.UUID)
+			} else {
+				_, err = tx.Exec(ctx, `DELETE FROM health_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3`, dataset, e.Type, e.UUID)
+			}
+			if err != nil {
+				return false, "", err
+			}
+			counts.Deleted++
+		} else {
+			counts.Tombstoned++
+		}
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO entity_changes(dataset_id,batch_id,ordinal,commit_rev,sample_type,sample_uuid,operation,previous_start,previous_end,new_start,new_end)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, dataset, batch, ordinal, rev, e.Type, e.UUID, e.Op, oldStart, oldEnd, start, end)
+	if err != nil {
+		return false, "", err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO change_events(dataset_id,commit_rev,ordinal,event_id,entity_kind,entity_key,operation,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, dataset, rev, ordinal, syncing.NewID(), e.Kind, e.Type+":"+e.UUID, e.Op, canonical)
+	if err != nil {
+		return false, "", err
+	}
+	// Unknown deletes create only a barrier, no fabricated analysis range.
+	if start == nil {
+		start, end = oldStart, oldEnd
+	}
+	if start == nil {
+		return true, "", nil
+	}
+	scope := e.Kind + ":" + e.Type + ":" + e.UUID
+	var generation int64
+	err = tx.QueryRow(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through) VALUES($1,$2,1,$3,$4)
+		ON CONFLICT(dataset_id,scope_key) DO UPDATE SET generation=dirty_scopes.generation+1,
+		dirty_from=LEAST(dirty_scopes.dirty_from,EXCLUDED.dirty_from),dirty_through=GREATEST(dirty_scopes.dirty_through,EXCLUDED.dirty_through)
+		RETURNING generation`, dataset, scope, start, end).Scan(&generation)
+	if err != nil {
+		return false, "", err
+	}
+	job := syncing.NewID()
+	_, err = tx.Exec(ctx, `INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,payload) VALUES($1,$2,$3,$4,$5,$6)`, job, dataset, "analysis."+e.Kind, scope, generation, fmt.Sprintf(`{"inputRevision":%d}`, rev))
+	return true, job, err
+}

@@ -1,0 +1,7 @@
+.DS_Store
+.env
+.local/
+secrets/
+coverage.out
+apps/server/rai
+*.test

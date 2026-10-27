@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-27",
+  "scope": "read-only static source inspection; no runtime, production data, or deployed configuration",
+  "source_root": "/Users/ta/running",
+  "files": [
+    {
+      "path": "apps/api/src/server.ts",
+      "sha256": "52935a224943e13647e3fc7f5b8c540881a4feb81b3e824c858df224e73025e1"
+    },
+    {
+      "path": "apps/api/src/schemas.ts",
+      "sha256": "559f5b25f082fdd81e49b8e0ddf243326eb823420e403afd6cca5b9fc2241ede"
+    },
+    {
+      "path": "apps/api/src/training-plan-routes.ts",
+      "sha256": "297c30af0dcb5f68909faa1f6f65d7d7ccc6dc9880bdacbd0a5ec5709c2fb1ab"
+    },
+    {
+      "path": "apps/api/src/training-plan-commands.ts",
+      "sha256": "1b27fc8b9be3f3c7c3ac34833718431d79565cd5509484625cc312758ed17126"
+    },
+    {
+      "path": "apps/api/src/training-plan-session-commands.ts",
+      "sha256": "ea6ee05a7dfed4d0f6bdcea2133e54a90cec19f989fe68fb74ccfeec804f6c0a"
+    },
+    {
+      "path": "apps/api/src/training-plan-execution-commands.ts",
+      "sha256": "1d77f45b6dbfae645f3eb724e70269ced5f95711a90a15d9a682d354de2f13d7"
+    },
+    {
+      "path": "apps/api/src/plan-publication.ts",
+      "sha256": "7e1ebee7fba817ab403322398331a53324d6b2c203e39ca8117620458167b725"
+    },
+    {
+      "path": "packages/api-contracts/src/retired-surfaces.ts",
+      "sha256": "e36a399510f709d06e998d52a412a79d78812d8a81d5bcef56cf6951fb0950d7"
+    },
+    {
+      "path": "packages/api-contracts/src/training-plan-closed-loop.ts",
+      "sha256": "0e9d39a96543275a83a4c4af09cf18f4d78c7d4aa87251fecce0e0a251814349"
+    },
+    {
+      "path": "packages/api-contracts/src/handshake-registry.ts",
+      "sha256": "f087350b4cd4a80943861423f27cef67f51c19e4612918066ae03a90974125b3"
+    },
+    {
+      "path": "apps/ios/RAI/APIClient.swift",
+      "sha256": "4ad54e7745cd6f5af6e226915b515cd6a0115f8a90b00dfcee79b12bf3db2cac"
+    },
+    {
+      "path": "apps/api/src/mobile-goals.ts",
+      "sha256": "b6735038279120490957227611f6d42913572cfc07a34d221def6348c1a0a252"
+    },
+    {
+      "path": "packages/api-contracts/src/index.ts",
+      "sha256": "ca43d3c70f9037ca8c9dfaed33313cedbdc74bcb8813eecf97dacc6e03d9c191"
+    }
+  ]
+}

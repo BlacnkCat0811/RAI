@@ -1,0 +1,2261 @@
+{
+ "date": "2026-10-27",
+ "timezone": "Asia/Shanghai",
+ "scope": "Quantity-series durable chunks, explicit completeness seal and schema 8; P2 remains incomplete",
+ "environment": {
+  "server_version": "18.6",
+  "fsync": "on",
+  "full_page_writes": "on",
+  "synchronous_commit": "on",
+  "data_checksums": "on",
+  "listen_addresses": "",
+  "max_connections": "40",
+  "shared_buffers": "8192",
+  "leftover_case_databases": 0,
+  "os": "Darwin",
+  "arch": "x86_64",
+  "go": "go version go1.27.3 darwin/amd64",
+  "synthetic_only": true,
+  "unix_socket_only": true,
+  "test_cluster_stopped": true,
+  "schema_version": 8,
+  "production_accessed": false,
+  "remote_database_accessed": false,
+  "host_resource_limits_enforced": false
+ },
+ "full_regression": {
+  "command": "go test -race -count=1 -tags=integration -json ./...",
+  "wall_clock_seconds": 122,
+  "integration_package_seconds": 110.542,
+  "concurrency": "Default Go package scheduler; no t.Parallel in integration top-level cases",
+  "total": 205,
+  "top_level": 79,
+  "subtests": 126,
+  "passed": 205,
+  "failed": 0,
+  "skipped_test_cases": 0,
+  "real_pg_top_level": 56,
+  "packages": [
+   {
+    "package": "rai/server/cmd/rai",
+    "status": "skip",
+    "elapsed_seconds": 0.001
+   },
+   {
+    "package": "rai/server/internal/config",
+    "status": "skip",
+    "elapsed_seconds": 0.012
+   },
+   {
+    "package": "rai/server/internal/jobs",
+    "status": "skip",
+    "elapsed_seconds": 0.001
+   },
+   {
+    "package": "rai/server/internal/storage/postgres",
+    "status": "skip",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/storage/postgres/dbgen",
+    "status": "skip",
+    "elapsed_seconds": 0.002
+   },
+   {
+    "package": "rai/server/migrations",
+    "status": "skip",
+    "elapsed_seconds": 0.002
+   },
+   {
+    "package": "rai/server/internal/admin",
+    "status": "pass",
+    "elapsed_seconds": 4.207
+   },
+   {
+    "package": "rai/server/internal/httpapi",
+    "status": "pass",
+    "elapsed_seconds": 5.28
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "status": "pass",
+    "elapsed_seconds": 13.864
+   },
+   {
+    "package": "rai/server/integration",
+    "status": "pass",
+    "elapsed_seconds": 110.542
+   }
+  ],
+  "tests": [
+   {
+    "package": "rai/server/internal/admin",
+    "test": "TestFrozenMigrations",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/httpapi",
+    "test": "TestUploadSlotsPerDeviceAndProcessRelease",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestPageManifestCrossLanguageFixture",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestProtocolRoundTrip",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/top_case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/missing_value",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/null_value",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/trailing",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/array",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/unknown",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/duplicate",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON",
+    "status": "pass",
+    "elapsed_seconds": 0.05
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/wire",
+    "status": "pass",
+    "elapsed_seconds": 0.06
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestAdmissionDurableAtomicBudgets",
+    "status": "pass",
+    "elapsed_seconds": 3.85
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestAdmissionSharedAcrossConcurrentPools",
+    "status": "pass",
+    "elapsed_seconds": 1.15
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/decoded",
+    "status": "pass",
+    "elapsed_seconds": 1.65
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/hash",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/line",
+    "status": "pass",
+    "elapsed_seconds": 0.03
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/count",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/empty",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/gzip_crc",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets",
+    "status": "pass",
+    "elapsed_seconds": 1.77
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestDeleteWinsAndConflicts",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestImmutableEnvelope",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestUnsupportedCapabilities/kind",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestUnsupportedCapabilities/unit",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestUnsupportedCapabilities/series",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestUnsupportedCapabilities",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestCrossLanguageFixture",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesManifestCrossLanguageFixture",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkPreservesOrderAndBounds",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/wrong_unit",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/bad_interval",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/outside_parent",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/missing_unit",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/unknown_field",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/null_field",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/duplicate_key",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput",
+    "status": "pass",
+    "elapsed_seconds": 0.06
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkLimits",
+    "status": "pass",
+    "elapsed_seconds": 0.22
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesRequestAndSealValidation/category",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesRequestAndSealValidation/workout",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesRequestAndSealValidation/bad_ID",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesRequestAndSealValidation",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestAdmissionDatasetAggregateAndScopeIsolation",
+    "status": "pass",
+    "elapsed_seconds": 2.49
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkMaximumPoints",
+    "status": "pass",
+    "elapsed_seconds": 2.46
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRoundTripAndIdentity",
+    "status": "pass",
+    "elapsed_seconds": 0.07
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_uuid",
+    "status": "pass",
+    "elapsed_seconds": 0.03
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/start_before_parent",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/zone",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_start",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_end",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_configuration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/series",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/duration_with_absent_end_exceeds_parent",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/overflow_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_lap_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_stat_outside",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/end_after_parent",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_location",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_swimming_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_swimming_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/fractional_configuration_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.04
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_lap_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_lap",
+    "status": "pass",
+    "elapsed_seconds": 0.03
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_stat_missing_value",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/duplicate_uuid",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/duration_exceeds_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_configuration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_configuration_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_event_outside",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/end_before_start",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_swimming_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/zero_configuration_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_duplicate",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_activities",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/invalid_uuid",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_lap",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/lap_unit",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_unknown",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads",
+    "status": "pass",
+    "elapsed_seconds": 0.53
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestAdmissionFailureAndCancellationRollBackBothBuckets",
+    "status": "pass",
+    "elapsed_seconds": 1.27
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPActiveDeviceUploadRejectsBeforeReadingAndReleases",
+    "status": "pass",
+    "elapsed_seconds": 1.26
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivityBudgets",
+    "status": "pass",
+    "elapsed_seconds": 1.72
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRoundTrip",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_stat_value",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_stat_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/duration_outside_interval",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_total",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/event_outside_interval",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/malformed_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/nested_case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/distance_unit",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_total_value",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/route",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_workout_field",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/duplicate_nested_field",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_statistic",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_statistics",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_statistic",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_event_type",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/series",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_total_value",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_total",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/empty_aggregate",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/sample_kind",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_event_field",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/fractional_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields",
+    "status": "pass",
+    "elapsed_seconds": 0.23
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutBudgetsAndDelete",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutBatchDetailBudget",
+    "status": "pass",
+    "elapsed_seconds": 0.58
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPAdmissionBeforeBodyAndReceiptRecovery",
+    "status": "pass",
+    "elapsed_seconds": 1.41
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestSchema4UpgradeKeepsReceiptsAndStartsWithEmptyBudgets",
+    "status": "pass",
+    "elapsed_seconds": 1.03
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageFragmentsSealAndImmutableReceipts/sample",
+    "status": "pass",
+    "elapsed_seconds": 1.24
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageFragmentsSealAndImmutableReceipts/workout",
+    "status": "pass",
+    "elapsed_seconds": 1.08
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageFragmentsSealAndImmutableReceipts",
+    "status": "pass",
+    "elapsed_seconds": 2.32
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageRegistrationRejectsGapsAndIdentityChanges/fragment_count",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageRegistrationRejectsGapsAndIdentityChanges/repeated_index",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageRegistrationRejectsGapsAndIdentityChanges/missing_fragment",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageRegistrationRejectsGapsAndIdentityChanges/interleaved_page",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageRegistrationRejectsGapsAndIdentityChanges",
+    "status": "pass",
+    "elapsed_seconds": 1.01
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageSealFailureRollsBackFinalFragment/sample_insert",
+    "status": "pass",
+    "elapsed_seconds": 0.96
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageSealFailureRollsBackFinalFragment/sample_delete",
+    "status": "pass",
+    "elapsed_seconds": 1.1
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageSealFailureRollsBackFinalFragment/workout_insert",
+    "status": "pass",
+    "elapsed_seconds": 1.09
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageSealFailureRollsBackFinalFragment/workout_delete",
+    "status": "pass",
+    "elapsed_seconds": 1.14
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageSealFailureRollsBackFinalFragment",
+    "status": "pass",
+    "elapsed_seconds": 4.29
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestConcurrentFinalPageFragmentSealsOnce",
+    "status": "pass",
+    "elapsed_seconds": 1.1
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPPageRecoveryAfterLostFinalResponse",
+    "status": "pass",
+    "elapsed_seconds": 0.98
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestSchema3UpgradePreservesBatchReceiptsWithoutInventingPageSeals",
+    "status": "pass",
+    "elapsed_seconds": 1.04
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestPageSequenceBounds",
+    "status": "pass",
+    "elapsed_seconds": 0.84
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestQuantitySeriesChunksAndSeal",
+    "status": "pass",
+    "elapsed_seconds": 1.26
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestSeriesFailureRollsBackSealAndLease",
+    "status": "pass",
+    "elapsed_seconds": 1.35
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPSeriesUploadAndSeal",
+    "status": "pass",
+    "elapsed_seconds": 1.07
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestSchema7UpgradeAddsSeriesWithoutRewritingFacts",
+    "status": "pass",
+    "elapsed_seconds": 0.97
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestMaximumSeriesChunksSeal",
+    "status": "pass",
+    "elapsed_seconds": 15.25
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestCommitRetryAndDeletionBarrier",
+    "status": "pass",
+    "elapsed_seconds": 1.25
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUnknownDeleteAndSamePageDeleteWins",
+    "status": "pass",
+    "elapsed_seconds": 1.02
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestIdentitySequenceAndFencing",
+    "status": "pass",
+    "elapsed_seconds": 0.86
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestConflictRollsBackEntireBatch",
+    "status": "pass",
+    "elapsed_seconds": 1.09
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestConcurrentSameBatchReturnsOriginal",
+    "status": "pass",
+    "elapsed_seconds": 1.01
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestDatasetLockOrdersCommitAndTimeout",
+    "status": "pass",
+    "elapsed_seconds": 1.56
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestQueueLeaseAndDirtyGeneration",
+    "status": "pass",
+    "elapsed_seconds": 1.35
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPUploadReceiptAndAuthentication/sample",
+    "status": "pass",
+    "elapsed_seconds": 1.2
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPUploadReceiptAndAuthentication/workout",
+    "status": "pass",
+    "elapsed_seconds": 1.08
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPUploadReceiptAndAuthentication/workout_activities",
+    "status": "pass",
+    "elapsed_seconds": 1.13
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPUploadReceiptAndAuthentication",
+    "status": "pass",
+    "elapsed_seconds": 3.42
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestReceiptFailureRollsBackFactsAndWork",
+    "status": "pass",
+    "elapsed_seconds": 1.18
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestCommitResponseLossRecoveredByGET/sample",
+    "status": "pass",
+    "elapsed_seconds": 1.7
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestCommitResponseLossRecoveredByGET/workout",
+    "status": "pass",
+    "elapsed_seconds": 1.04
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestCommitResponseLossRecoveredByGET/workout_activities",
+    "status": "pass",
+    "elapsed_seconds": 0.91
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestCommitResponseLossRecoveredByGET",
+    "status": "pass",
+    "elapsed_seconds": 3.66
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestAPIRoleCannotMigrateOrMaintain",
+    "status": "pass",
+    "elapsed_seconds": 1.43
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestCleanScopeKeepsMonotonicGeneration",
+    "status": "pass",
+    "elapsed_seconds": 0.97
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestMaximumDeleteBatchAndEmptyBatch",
+    "status": "pass",
+    "elapsed_seconds": 4.81
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestReadOnlyDeviceAndForeignDatasetIsolation",
+    "status": "pass",
+    "elapsed_seconds": 1.14
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestCancellationDoesNotAdvanceStream",
+    "status": "pass",
+    "elapsed_seconds": 1.14
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestReconnectAfterTerminatedConnection",
+    "status": "pass",
+    "elapsed_seconds": 1.44
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestCommitRevisionCannotOvertakeUncommittedWrite",
+    "status": "pass",
+    "elapsed_seconds": 1.2
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestMigrationsIdempotentAndInitializationProtected",
+    "status": "pass",
+    "elapsed_seconds": 1.03
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseSharedDurableAndFenced",
+    "status": "pass",
+    "elapsed_seconds": 1.22
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseDatasetCapacityAndIsolation",
+    "status": "pass",
+    "elapsed_seconds": 0.96
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseConcurrentDatasetCap",
+    "status": "pass",
+    "elapsed_seconds": 1.06
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseAcquisitionFaultAndCancellation",
+    "status": "pass",
+    "elapsed_seconds": 1.23
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseLossRollsBackEntireFactTransaction/sample_upsert",
+    "status": "pass",
+    "elapsed_seconds": 1.17
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseLossRollsBackEntireFactTransaction/sample_delete",
+    "status": "pass",
+    "elapsed_seconds": 1.27
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseLossRollsBackEntireFactTransaction/workout_upsert",
+    "status": "pass",
+    "elapsed_seconds": 0.99
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseLossRollsBackEntireFactTransaction/workout_delete",
+    "status": "pass",
+    "elapsed_seconds": 1.07
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestUploadLeaseLossRollsBackEntireFactTransaction",
+    "status": "pass",
+    "elapsed_seconds": 4.5
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPUploadLeaseAcrossHandlersAndRecoveryReads",
+    "status": "pass",
+    "elapsed_seconds": 1.13
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPUploadCancellationClosesBodyAndReleasesLease",
+    "status": "pass",
+    "elapsed_seconds": 1.05
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPUploadReleaseFailurePreservesReceiptAndExpires",
+    "status": "pass",
+    "elapsed_seconds": 1.07
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestSchema5UpgradePreservesReceiptsAndBudgets",
+    "status": "pass",
+    "elapsed_seconds": 1.27
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesDurabilityAndDeletion",
+    "status": "pass",
+    "elapsed_seconds": 1.24
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivityConflictRollsBackWholeBatch",
+    "status": "pass",
+    "elapsed_seconds": 1.17
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivityDeleteWinsAndUnknownBarrier",
+    "status": "pass",
+    "elapsed_seconds": 0.95
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesAtomicFailures/activity_insert_upsert",
+    "status": "pass",
+    "elapsed_seconds": 1.07
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesAtomicFailures/receipt_upsert",
+    "status": "pass",
+    "elapsed_seconds": 1.06
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesAtomicFailures/receipt_delete",
+    "status": "pass",
+    "elapsed_seconds": 1.13
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesAtomicFailures/seal_upsert",
+    "status": "pass",
+    "elapsed_seconds": 1.55
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesAtomicFailures/seal_delete",
+    "status": "pass",
+    "elapsed_seconds": 1.05
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesAtomicFailures/lease_upsert",
+    "status": "pass",
+    "elapsed_seconds": 1.08
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesAtomicFailures/lease_delete",
+    "status": "pass",
+    "elapsed_seconds": 1.35
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutActivitiesAtomicFailures",
+    "status": "pass",
+    "elapsed_seconds": 8.3
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestSchema6UpgradePreservesV1IdentityAndRuntimeState",
+    "status": "pass",
+    "elapsed_seconds": 1.26
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestMaximumWorkoutActivitiesCommitAndCascade",
+    "status": "pass",
+    "elapsed_seconds": 1.58
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutFactsChildrenRetryAndDelete",
+    "status": "pass",
+    "elapsed_seconds": 1.63
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutUnknownDeletionWins",
+    "status": "pass",
+    "elapsed_seconds": 1.29
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutConflictRollsBackChildren",
+    "status": "pass",
+    "elapsed_seconds": 1.03
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutReceiptFailureRollsBackInsertAndDelete/insert",
+    "status": "pass",
+    "elapsed_seconds": 1.01
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutReceiptFailureRollsBackInsertAndDelete/delete",
+    "status": "pass",
+    "elapsed_seconds": 1.15
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestWorkoutReceiptFailureRollsBackInsertAndDelete",
+    "status": "pass",
+    "elapsed_seconds": 2.17
+   }
+  ]
+ },
+ "independent_unit_regression": {
+  "command": "go test -race -count=1 -json ./...",
+  "total": 120,
+  "top_level": 23,
+  "subtests": 97,
+  "passed": 120,
+  "failed": 0,
+  "skipped_test_cases": 0,
+  "real_pg_top_level": 0,
+  "packages": [
+   {
+    "package": "rai/server/cmd/rai",
+    "status": "skip",
+    "elapsed_seconds": 0.005
+   },
+   {
+    "package": "rai/server/internal/config",
+    "status": "skip",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/jobs",
+    "status": "skip",
+    "elapsed_seconds": 0.004
+   },
+   {
+    "package": "rai/server/internal/storage/postgres",
+    "status": "skip",
+    "elapsed_seconds": 0.001
+   },
+   {
+    "package": "rai/server/internal/storage/postgres/dbgen",
+    "status": "skip",
+    "elapsed_seconds": 0.005
+   },
+   {
+    "package": "rai/server/migrations",
+    "status": "skip",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/admin",
+    "status": "pass",
+    "elapsed_seconds": 2.388
+   },
+   {
+    "package": "rai/server/internal/httpapi",
+    "status": "pass",
+    "elapsed_seconds": 3.665
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "status": "pass",
+    "elapsed_seconds": 11.044
+   }
+  ],
+  "tests": [
+   {
+    "package": "rai/server/internal/admin",
+    "test": "TestFrozenMigrations",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/httpapi",
+    "test": "TestUploadSlotsPerDeviceAndProcessRelease",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestPageManifestCrossLanguageFixture",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestProtocolRoundTrip",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/null_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/trailing",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/array",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/unknown",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/duplicate",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/top_case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON/missing_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestStrictJSON",
+    "status": "pass",
+    "elapsed_seconds": 0.05
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/wire",
+    "status": "pass",
+    "elapsed_seconds": 0.06
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/decoded",
+    "status": "pass",
+    "elapsed_seconds": 1.81
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/hash",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/line",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/count",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/empty",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets/gzip_crc",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestBodyBudgets",
+    "status": "pass",
+    "elapsed_seconds": 1.92
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestDeleteWinsAndConflicts",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestImmutableEnvelope",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestUnsupportedCapabilities/kind",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestUnsupportedCapabilities/unit",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestUnsupportedCapabilities/series",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestUnsupportedCapabilities",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestCrossLanguageFixture",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesManifestCrossLanguageFixture",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkPreservesOrderAndBounds",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/wrong_unit",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/bad_interval",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/outside_parent",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/missing_unit",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/unknown_field",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/null_field",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput/duplicate_key",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkRejectsUnsupportedInput",
+    "status": "pass",
+    "elapsed_seconds": 0.04
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkLimits",
+    "status": "pass",
+    "elapsed_seconds": 0.1
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesRequestAndSealValidation/category",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesRequestAndSealValidation/workout",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesRequestAndSealValidation/bad_ID",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestSeriesRequestAndSealValidation",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestParseSeriesChunkMaximumPoints",
+    "status": "pass",
+    "elapsed_seconds": 1.21
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRoundTripAndIdentity",
+    "status": "pass",
+    "elapsed_seconds": 0.03
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/zone",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/duration_with_absent_end_exceeds_parent",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_configuration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/overflow_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/lap_unit",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/series",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_stat_missing_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_configuration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_location",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_uuid",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/end_before_start",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_end",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/duration_exceeds_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_configuration_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_lap",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/invalid_uuid",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_swimming_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_lap_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_lap",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_stat_outside",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/activity_event_outside",
+    "status": "pass",
+    "elapsed_seconds": 0.03
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/duplicate_uuid",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/start_before_parent",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_unknown",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/configuration_duplicate",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_activities",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/end_after_parent",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_swimming_location",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/zero_configuration_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/fractional_configuration_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_lap_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_start",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/missing_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/negative_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads/null_swimming_location",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivitiesRejectInvalidPayloads",
+    "status": "pass",
+    "elapsed_seconds": 0.46
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutActivityBudgets",
+    "status": "pass",
+    "elapsed_seconds": 1.2
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRoundTrip",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/sample_kind",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_total_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/series",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_total",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_event_type",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/event_outside_interval",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/distance_unit",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_statistic",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_statistic",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_event_field",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/malformed_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/duration_outside_interval",
+    "status": "pass",
+    "elapsed_seconds": 0.02
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_activity",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_total_value",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_stat_value",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/negative_total",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/empty_aggregate",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/unknown_workout_field",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/nested_case_alias",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/duplicate_nested_field",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/fractional_duration",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/missing_stat_value",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/null_statistics",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields/route",
+    "status": "pass",
+    "elapsed_seconds": 0.01
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutRejectsIncompleteOrUnsupportedFields",
+    "status": "pass",
+    "elapsed_seconds": 0.22
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutBudgetsAndDelete",
+    "status": "pass",
+    "elapsed_seconds": 0
+   },
+   {
+    "package": "rai/server/internal/syncing",
+    "test": "TestWorkoutBatchDetailBudget",
+    "status": "pass",
+    "elapsed_seconds": 0.56
+   }
+  ]
+ },
+ "targeted_series": {
+  "command": "go test -race -count=1 -tags=integration -run '^Test(QuantitySeriesChunksAndSeal|SeriesFailureRollsBackSealAndLease|HTTPSeriesUploadAndSeal|Schema7UpgradeAddsSeriesWithoutRewritingFacts|MaximumSeriesChunksSeal)$' ./integration",
+  "top_level": 5,
+  "total": 5,
+  "tests": [
+   {
+    "package": "rai/server/integration",
+    "test": "TestQuantitySeriesChunksAndSeal",
+    "status": "pass",
+    "elapsed_seconds": 1.26
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestSeriesFailureRollsBackSealAndLease",
+    "status": "pass",
+    "elapsed_seconds": 1.35
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestHTTPSeriesUploadAndSeal",
+    "status": "pass",
+    "elapsed_seconds": 1.07
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestSchema7UpgradeAddsSeriesWithoutRewritingFacts",
+    "status": "pass",
+    "elapsed_seconds": 0.97
+   },
+   {
+    "package": "rai/server/integration",
+    "test": "TestMaximumSeriesChunksSeal",
+    "status": "pass",
+    "elapsed_seconds": 15.25
+   }
+  ],
+  "combined_elapsed_seconds": 19.9
+ },
+ "process_smoke": {
+  "status": "PASS",
+  "schema": 8,
+  "migrate_twice": true,
+  "init_overwrite_rejected": true,
+  "single_api_and_worker_started": true,
+  "handshake_quantity_series": true,
+  "handshake_series_chunks": 1000,
+  "parent_sample_batch_inserted": true,
+  "series_chunk_committed": true,
+  "series_sealed": true,
+  "analysis_job_queued": true,
+  "get_state_sealed": true,
+  "total_points": 2,
+  "all_processes_sigterm_exit_zero": true,
+  "synthetic_database_removed": true,
+  "note": "Single API/Worker process smoke; no multi-replica series concurrency test."
+ },
+ "additional_checks": [
+  {
+   "name": "OpenAPI Redocly 2.71.1 recommended",
+   "status": "PASS",
+   "output": "0 errors, 4 warnings (two health checks without 4xx; Event and SeriesPoint only referenced by NDJSON extension); rules not disabled"
+  },
+  {
+   "name": "gofmt",
+   "status": "PASS",
+   "output": "no files listed"
+  },
+  {
+   "name": "go vet ./...",
+   "status": "PASS",
+   "output": ""
+  },
+  {
+   "name": "go vet -tags=integration ./...",
+   "status": "PASS",
+   "output": ""
+  },
+  {
+   "name": "go mod verify",
+   "status": "PASS",
+   "output": "all modules verified"
+  },
+  {
+   "name": "dependency boundaries",
+   "status": "PASS",
+   "output": "245 packages; admin/migration/goose absent from online graph"
+  },
+  {
+   "name": "sqlc 1.31.1 regenerate",
+   "status": "PASS",
+   "output": "regenerated dbgen; before/after SHA-256 of every generated Go file identical"
+  },
+  {
+   "name": "native build",
+   "status": "PASS",
+   "output": "Mach-O x86_64 /tmp/rai-series-native; not run on Linux"
+  },
+  {
+   "name": "linux amd64 static build",
+   "status": "PASS",
+   "output": "ELF static /tmp/rai-series-linux-amd64; not run on Linux/N100"
+  },
+  {
+   "name": "local markdown links/anchors",
+   "status": "PASS",
+   "output": "CHECKED=87 ANCHORS=5 ERRORS=0"
+  }
+ ],
+ "scale_regression": {
+  "command": "go test -race -count=1 -tags=integration,scale -run '^TestScale' -timeout=10m ./integration",
+  "status": "PASS",
+  "elapsed_seconds": 260.066,
+  "failed": 0,
+  "note": "Existing maximum-page and eight-query plan gate rerun on schema 8; not a series 1,000,000-point or production-scale result."
+ },
+ "migration_checksums_verified": true,
+ "previous_seven_migrations_unchanged": true,
+ "source_sha256": {
+  "apps/server/migrations/00008_quantity_series.sql": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+  "apps/server/migrations/checksums.json": "112ea4650d51289782873ad1c16c0beea38d364b92e815b7289167b6812b5128",
+  "deploy/postgres/roles.sql": "894b9af1d59e936567f95f4212239883327f65e2ca2a06e91602a05674ff27ea",
+  "apps/server/queries/core.sql": "23604d81ee2baba9fb08d50e7e474b1fc4fc7ce05a3a2e0d6c1abd5a8eaa3da7",
+  "apps/server/internal/syncing/series.go": "4ef60a86757d6196d26fedb94ae37471e6da7be31335f32aadac32b993f06cf4",
+  "apps/server/internal/syncing/series_test.go": "252bcfc3425ee2668351fccd9e4562f4d2151fe258d2689ad204107ae945e307",
+  "apps/server/internal/syncing/protocol.go": "44db184233cb54c5e48672959c4ad8f3229685061511958a9fbd27406a70d3e8",
+  "apps/server/internal/syncing/store.go": "132d6209dd1c308c071d9a1607652921d2e7031cab88149164437f3f5c9015c3",
+  "apps/server/internal/storage/postgres/series.go": "eb2da6835e79d4cbe0226c9407bd9d74ec460c6c6aaed8d720ee475d2e8a06a1",
+  "apps/server/internal/storage/postgres/store.go": "0cfd78d24769c5edca16177cd88218316cb4d3c14088526499e031a4ff1dc83d",
+  "apps/server/internal/httpapi/server.go": "788f220d71ba8203f9e1872aa90eb246e648e28c1dd5bbe8b448e95bd15a8177",
+  "apps/server/integration/series_test.go": "ef16ab0f066c172c2ea4bd63b6c94a71b943f33297ca9af49fe3bb5ab0fb2fe2",
+  "apps/server/integration/sync_test.go": "faafcdbc21b2174685295b1f7db8190129026d623c1a38d7100ae5b71c457558",
+  "apps/server/internal/storage/postgres/dbgen/core.sql.go": "4831ed8b2b99fe8867910abd797c0ba9c5b2123b09005c44afb6848f873a1d49",
+  "apps/server/internal/storage/postgres/dbgen/models.go": "6b64c21e653e4f852a3eaf84f07ecd6cef0e0d398c067e9b50c461376e4ad00a",
+  "contracts/openapi-v2.yaml": "451662c951b4ea70eb76053f5a0653f64e35edb67db461770e503cfcff0cfeb1",
+  "contracts/sync-v2.md": "bf7530836fee543cc551fb96ef86f3e039d83a312281cc25b83dab9eb44bd17f",
+  "contracts/CHANGELOG.md": "73b2784738f8654068d49993ef75f2c96cd996f04d3b3b71235879b66dd90dfa",
+  "contracts/fixtures/series-manifest.json": "1da177719572e2d0769188ac7391c2f5586a1dfcc5dadb22b9caa3f91a1366c9",
+  "README.md": "a8dbdd7b90e4d420dc297ecd92b1da6c51c1df657652b1e48450de6b95ace7c5",
+  "docs/IMPLEMENTATION.md": "9ec262feb4618dce70118e9e970acb31280b2f70c6e9d736098829bd787ab1b5"
+ },
+ "commit_sha": null,
+ "application_image_digest": null,
+ "not_verified": [
+  "Swift HealthKit series query/encoder and real-device capture",
+  "1,000,000 total points for one series (only 1000 chunks of one point, and 5000 points in one unit chunk, were exercised)",
+  "multi-replica concurrent series upload/fencing and ingress connection/bandwidth limits",
+  "oversized Workout durable chunking and uncommitted-batch controlled supersede chain",
+  "million/ten-million row series tables, cold disk, full phone-history import throughput",
+  "Docker build, remote CI, fnOS/N100, production deployment and rollback"
+ ],
+ "warnings": [
+  "Series chunks intentionally do not assign commit_rev or analysis jobs; only seal publishes the complete series.",
+  "Series registration is not automatic: the client must discover and register every series; quantitySeries=true is not a completeness claim.",
+  "The 1000-chunk maximum was exercised with one point per chunk; total-point cap was not reached.",
+  "API role grants must be applied by the database owner after migration; the migration does not grant privileges.",
+  "Schema 7 binaries are rejected by readyz; deployment must stop them before starting schema 8."
+ ],
+ "remote_push_or_deployment": false,
+ "real_health_data_read_or_migrated": false
+}

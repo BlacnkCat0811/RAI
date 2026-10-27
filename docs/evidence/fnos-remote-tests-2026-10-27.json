@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-27",
+  "timezone": "Asia/Shanghai",
+  "stage": "P2 remote execution on fnOS/N100; not a deployment or production acceptance",
+  "host": {
+    "name": "TpMrFnOs",
+    "os": "Linux 6.18.18.c1032-trim",
+    "arch": "x86_64",
+    "cpu_count": 4,
+    "memory_gib": 7.8,
+    "docker": "28.5.2",
+    "go": "go1.27.3 linux/amd64",
+    "gcc": "Debian 12.2.0-14+deb12u1"
+  },
+  "ssh": {
+    "alias": "rai-fnos",
+    "host_key_algorithm": "ssh-ed25519",
+    "batch_mode": "PASS"
+  },
+  "isolation": {
+    "remote_run": "unique temporary directory per invocation",
+    "postgres": "throwaway postgres:18.6 container per invocation",
+    "database": "rai_test root database; random per-case databases created and dropped",
+    "existing_rai_database_used": false,
+    "remote_env_file_read": false,
+    "synthetic_only": true
+  },
+  "postgres_settings": {
+    "server_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "data_checksums": "on",
+    "shared_buffers": "128MB"
+  },
+  "runs": [
+    {
+      "command": "scripts/test-remote.sh",
+      "effective_command": "go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...",
+      "result": "PASS",
+      "integration_seconds": 100.436,
+      "other_package_seconds": {
+        "rai/server/internal/admin": 1.012,
+        "rai/server/internal/httpapi": 1.011,
+        "rai/server/internal/syncing": 4.54
+      },
+      "failures": 0
+    },
+    {
+      "command": "go vet -tags=integration,scale ./... && python3 scripts/check-boundaries.py",
+      "result": "PASS",
+      "dependency_packages": 246
+    },
+    {
+      "command": "go test -race -count=1 -tags=integration,scale -p 1 -run '^TestScale' -timeout=30m ./integration",
+      "result": "PASS",
+      "seconds": 300.714
+    }
+  ],
+  "not_verified": [
+    "multi-host or multi-replica concurrency",
+    "production CPU/memory limits or sustained load",
+    "backup/restore, deployment and rollback on fnOS",
+    "iOS device, real HealthKit import throughput or route download",
+    "existing rai database authentication, migration or data access"
+  ]
+}

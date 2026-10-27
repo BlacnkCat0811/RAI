@@ -1,0 +1,25 @@
+# Isolated synthetic development only; never point this volume at legacy data.
+services:
+  postgres:
+    image: postgres:18.6-bookworm@sha256:bbf83594798e144bff365a9c191c5d779f181fb3135902064ab8ff11918020fc
+    environment:
+      POSTGRES_DB: rai_dev
+      POSTGRES_USER: rai_dev
+      POSTGRES_PASSWORD: development-only
+      POSTGRES_INITDB_ARGS: --data-checksums
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - rai_dev_pg:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U rai_dev -d rai_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 2g
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+volumes:
+  rai_dev_pg:

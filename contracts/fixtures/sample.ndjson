@@ -1,0 +1,1 @@
+{"op":"upsert","kind":"sample","type":"HKQuantityTypeIdentifierHeartRate","uuid":"88888888-8888-4888-8888-888888888888","startUs":1793059200000001,"endUs":1793059200000001,"quantity":{"value":132,"unit":"count/min"},"source":{"bundleID":"example.synthetic"},"metadata":{}}

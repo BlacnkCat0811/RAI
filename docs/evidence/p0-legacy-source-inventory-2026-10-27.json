@@ -1,0 +1,3052 @@
+{
+  "description": "静态源码候选清单；非运行时路由、现有数据库结构或生产启用证明。SQL 文本匹配可含历史/临时表。",
+  "date": "2026-10-27 Asia/Shanghai",
+  "legacyHead": "dea7b35452916a1da42483f83e3bd44889be1ada",
+  "legacyTree": "包含未提交修改；下列文件摘要针对读取时实际内容",
+  "scope": [
+    "apps/api/src",
+    "packages/storage-sqlite/src",
+    "packages/health-export-parser/src",
+    "10 个领域算法包 src"
+  ],
+  "routeMethod": "TypeScript AST：属性调用 get/post/put/patch/delete 的首个参数是 /v1/ 字面量；不包括动态路径或其他注册形式",
+  "tableMethod": "源文本 CREATE TABLE/VIEW 字面量正则；包含历史迁移和临时表，不验证 DROP/RENAME、运行时生效或完整性",
+  "algorithmMethod": "10 个领域算法包的顶层 export function/class 声明；不包括变量导出、重导出、应用层与 API 策略",
+  "files": [
+    {
+      "file": "apps/api/src/api-error.ts",
+      "sha256": "277203391885fd98c0318951ea6ed35fc1cb970c0229406971b314ffc7d304cc"
+    },
+    {
+      "file": "apps/api/src/benchmark-import.ts",
+      "sha256": "5dd8f81c76d753f8756093394cb2e6885ef57c52690e4885daf98ee8d8b3cc45"
+    },
+    {
+      "file": "apps/api/src/coach-complete-plan.ts",
+      "sha256": "df11bdd5c5d48982e4654fac4af91d4d98a85c1e28602ca317184de32cadb987"
+    },
+    {
+      "file": "apps/api/src/coach-execution-assessment.ts",
+      "sha256": "af180a4dbb801f9f4923cc3ee8ce47d589f0ab231cb10eb78a45214729ed192b"
+    },
+    {
+      "file": "apps/api/src/coach-extension-eligibility.ts",
+      "sha256": "62ec0c171bd5f1af06c37642f5262d80f75f0c8accf7165322b1b0838e36ea19"
+    },
+    {
+      "file": "apps/api/src/coach-goal-gap.ts",
+      "sha256": "a95fc2a96586b501bb0c1ef7dd21e9a1a32365fe78eab15f70e585b27082ef49"
+    },
+    {
+      "file": "apps/api/src/coach-loop-decision.ts",
+      "sha256": "0a4eaa60c3590d6b5ecbf98539c7c5ac89a43d06537bb73dd554d84acaad431f"
+    },
+    {
+      "file": "apps/api/src/coach-loop-device-sync.ts",
+      "sha256": "20fb6b700dc828c1ac80fc80d2b0b1dd86939b0fd578627bb7596fd8a7c40003"
+    },
+    {
+      "file": "apps/api/src/coach-loop-facts.ts",
+      "sha256": "7af763d86250374cbaa435e7602a8779aa77c8a3886bf09663fd3e67e9d2d6c0"
+    },
+    {
+      "file": "apps/api/src/coach-loop-memo.ts",
+      "sha256": "66457be0f057dc7d0501f6e7f11af96715fa29db26ab6f592c6383d13bb989f7"
+    },
+    {
+      "file": "apps/api/src/coach-loop-policy.ts",
+      "sha256": "fe9ea2ff31ec590c5db8cff22aa4b68921f9617c643d16ec63421db57e3dbc8f"
+    },
+    {
+      "file": "apps/api/src/coach-loop-routes.ts",
+      "sha256": "18b30396bd6c8e4de3c6a119f7c2a9c018933baad509ee5c326f905e06538a78"
+    },
+    {
+      "file": "apps/api/src/coach-loop-runtime.ts",
+      "sha256": "80d86f052ae787e2c8f641596d379dd6d9f0f9c555ea55897554beb29b27dcaf"
+    },
+    {
+      "file": "apps/api/src/coach-plan-repair.ts",
+      "sha256": "178a29b01f5e1820d11e1d74d7f6d6f05ce4770114f02b4c678cb997bb345cc7"
+    },
+    {
+      "file": "apps/api/src/coach-prediction-companion.ts",
+      "sha256": "7ca35e0c41c3f16e5fc52233ec097660e430848555e2b785226e780823fb5897"
+    },
+    {
+      "file": "apps/api/src/coach-session-dose.ts",
+      "sha256": "63ec04a98907ebf7e44a07feccac520797b002e0027ed0a52adfc9426f7d2514"
+    },
+    {
+      "file": "apps/api/src/coach-subjective-feedback.ts",
+      "sha256": "a9d1c2a7c30edfbc66ad65fd4a468a0f0d7a66c9b3e9caabeb06ec86de609337"
+    },
+    {
+      "file": "apps/api/src/coach-template-library.ts",
+      "sha256": "46ed936abea540e0c639b58cdd382dd41de121fa51558c67dec72eb12848b19e"
+    },
+    {
+      "file": "apps/api/src/command-queue.ts",
+      "sha256": "7d40526b13da7a438ae23b7be3ae10f8d7d95cc883ce9548242f6d14bb3f9956"
+    },
+    {
+      "file": "apps/api/src/data-only-import.ts",
+      "sha256": "e8e041ea28189449f2696aaaa07d7aa2a6040e160088b921c06fd6ee690216a4"
+    },
+    {
+      "file": "apps/api/src/data.ts",
+      "sha256": "08429ce911f919b2f3fe2002384cc24775a6fdc3eaa358304d2cf10a3781d5fc"
+    },
+    {
+      "file": "apps/api/src/database-integrity-bootstrap.mjs",
+      "sha256": "b848df8d03bba8403085522283fad1a36d7d01bedc1414c39e60807958e63318"
+    },
+    {
+      "file": "apps/api/src/database-integrity-thread.ts",
+      "sha256": "c80105de2ef0554441d2bbaeac8ac8124d492bcfc2cf51f11acadf314ae71bcb"
+    },
+    {
+      "file": "apps/api/src/database-integrity-worker.ts",
+      "sha256": "b2082a68f8dea626a573e961f384c3d8125cb029533ccc8db87ef3014a4be770"
+    },
+    {
+      "file": "apps/api/src/dataset-epoch.ts",
+      "sha256": "1653854f3ac157ea531ec5dc8a13b49a5b1067f9cd1cf5e644bdf9ea775275a9"
+    },
+    {
+      "file": "apps/api/src/deletion-recovery.ts",
+      "sha256": "328099104aabfdd4b8e389953a5b84d6a59cddbb7a846243f40a8c4c873a0fbe"
+    },
+    {
+      "file": "apps/api/src/direct-sync-batch.ts",
+      "sha256": "6b3a52876367a4692d7a2746968ba9f0ccff36c6291b6ed408efbc94d259c218"
+    },
+    {
+      "file": "apps/api/src/direct-sync-ingest.ts",
+      "sha256": "18c475ed1e8046c85c7700afef3307d32d13fe9d3baa631e3369652ad585104b"
+    },
+    {
+      "file": "apps/api/src/direct-sync-plan.ts",
+      "sha256": "3f21132716495d045f0aca9b1386b2047980cf6339c2821a327100f6eb931a9d"
+    },
+    {
+      "file": "apps/api/src/fault-injection.ts",
+      "sha256": "37bb5d48e09174ff847f5d944d9aeaff1c37f494497d1700faeaa00ae6ef0980"
+    },
+    {
+      "file": "apps/api/src/health-change-plan.ts",
+      "sha256": "dc1ddc7ffcca87ee36b87e0ca66b6a768f636aa8d6483ccde090fdb76da0b684"
+    },
+    {
+      "file": "apps/api/src/import-analysis-bootstrap.mjs",
+      "sha256": "2b9ac05cfdebb90abcfb237462ada7cb71bad652a24cf0209789b72bebf1c2b4"
+    },
+    {
+      "file": "apps/api/src/import-analysis-thread.ts",
+      "sha256": "dd202255e27ccbb0a26dbc3ac292b55287cddabfeef4e3a23148b0fcc492631b"
+    },
+    {
+      "file": "apps/api/src/import-database-bootstrap.mjs",
+      "sha256": "7c6b086d5866a6c774d6f8756b21aac4ae637282e1f1bc49ea4170c46b284598"
+    },
+    {
+      "file": "apps/api/src/import-database-tasks.ts",
+      "sha256": "24204a85e1d9500f06cfa5687d30c415d63dafb20eafa7bd3a7043bcc2a6f1a6"
+    },
+    {
+      "file": "apps/api/src/import-database-thread.ts",
+      "sha256": "804c0251ffd279d5ed53589d3c18ad9a014d4cd9e1522a2433bbaa6d38e71deb"
+    },
+    {
+      "file": "apps/api/src/import-dataset-analysis.ts",
+      "sha256": "9f76e1bdd8a18ff292ecc839cb7a1e53f17f83927aa5fad78e14b9ae59ff485e"
+    },
+    {
+      "file": "apps/api/src/import-equivalence.ts",
+      "sha256": "a7b2a173079be2c436ae858f8a70910d69f50affed86ca825561406d588aa1b2"
+    },
+    {
+      "file": "apps/api/src/import-payload-identity.ts",
+      "sha256": "431f8907dd9143eb454870c9fac4a40c1a89bc0823942cd137d284d2b7026f47"
+    },
+    {
+      "file": "apps/api/src/import-performance.ts",
+      "sha256": "86ac75e8b43eddc0710ffa661ea2f0dd82e5bf398790b52f45509454539798ab"
+    },
+    {
+      "file": "apps/api/src/import-publication.ts",
+      "sha256": "2c0a57534a2016e4d0e639c3b8c5d08bbf251aa2a3b5a2a806774cd9586f751f"
+    },
+    {
+      "file": "apps/api/src/import-scope-cli.ts",
+      "sha256": "0c0e3152ed07f3e589c44dc3bfc404302c73e170d7f29481a0fc4e804ff7489d"
+    },
+    {
+      "file": "apps/api/src/import-source-finalization.ts",
+      "sha256": "f8b145974c1a452b9d6fd2204fb9603c06ffddc3a501962626dcbeedc8b6c2dc"
+    },
+    {
+      "file": "apps/api/src/import-sources.ts",
+      "sha256": "6622dcf0ef22590baffb14fdb545f14baaf5d0b25758d31560fe7e653f3c89ae"
+    },
+    {
+      "file": "apps/api/src/import-worker.ts",
+      "sha256": "4c43634ecef85eeb65d17346649a498f3a2e19235f3bcbf93b110609f545fb26"
+    },
+    {
+      "file": "apps/api/src/local-date.ts",
+      "sha256": "d28144729113dbb52d19ff7516405cac9bfade2e21a19f51ec0cb71cca4bf65a"
+    },
+    {
+      "file": "apps/api/src/local-request-security.ts",
+      "sha256": "e21a91ca989c3b9a44027efedf838f6ab6fa83fbeccbaf7ab7754b7023e62b32"
+    },
+    {
+      "file": "apps/api/src/maintenance.ts",
+      "sha256": "5013b627d3b52b86088f8dc1448c9b14a5fd47a4fcd3170cf26468089bff2716"
+    },
+    {
+      "file": "apps/api/src/manual-plan-policy.ts",
+      "sha256": "30a33ee11c861d7820b15cd6cf0ea6ee92959bd975b1b58d7b3ba3d5b3ba5004"
+    },
+    {
+      "file": "apps/api/src/mobile-coach.ts",
+      "sha256": "765b7f5d4dace01f4a3dbd856a5963b8104c07199c88eba01ed3f9e56127d302"
+    },
+    {
+      "file": "apps/api/src/mobile-goals.ts",
+      "sha256": "b6735038279120490957227611f6d42913572cfc07a34d221def6348c1a0a252"
+    },
+    {
+      "file": "apps/api/src/mobile-read.ts",
+      "sha256": "a1804c412ceedd2b36bd71f244c5fc73a55865132d2e8c9e5bc07aef2e783370"
+    },
+    {
+      "file": "apps/api/src/mobile-sync.ts",
+      "sha256": "b7e3de3766ae87343f9a346825019734cc63ed61acf76db5e11471abd7ad0aae"
+    },
+    {
+      "file": "apps/api/src/mutation-coordinator.ts",
+      "sha256": "38a7a14a51c8f5b4fbc61b8985037f1458cb1a0788c9fdce18fcf0d3e059789e"
+    },
+    {
+      "file": "apps/api/src/native-health-package-frame.ts",
+      "sha256": "b660fff52f19856b292781017fc7829101ed7669d192c0e2cd3b4f3d5c56bc8d"
+    },
+    {
+      "file": "apps/api/src/native-health-package-store.ts",
+      "sha256": "be5f5d51f64685481f443434487c5bb520262a9919e31419d6bc9c0f6ea7fef9"
+    },
+    {
+      "file": "apps/api/src/plan-adherence.ts",
+      "sha256": "6d8481d524519910ef540ced005ec249db1108c565fc1eaa8e4f9412ec4f3ede"
+    },
+    {
+      "file": "apps/api/src/plan-digest.ts",
+      "sha256": "f64979a42f37ace06d5e89aaf3f446d0440362488fab4ffac7e9da018013ba30"
+    },
+    {
+      "file": "apps/api/src/plan-execution.ts",
+      "sha256": "a395d13917434dc9039fdb37567abd15ba0ac13c96b314c5559dfc3e25b3725b"
+    },
+    {
+      "file": "apps/api/src/plan-periodization.ts",
+      "sha256": "bcd0eac12b677803c4907bddc5db1b65456cdd9f8b8fb2e62b49449e435c7757"
+    },
+    {
+      "file": "apps/api/src/plan-publication.ts",
+      "sha256": "7e1ebee7fba817ab403322398331a53324d6b2c203e39ca8117620458167b725"
+    },
+    {
+      "file": "apps/api/src/plan-read-consistency.ts",
+      "sha256": "02735214fbe32b6cdc37a62a9f920628028ac2f2f0120e287cda426bb65c0e4d"
+    },
+    {
+      "file": "apps/api/src/plan-receipt.ts",
+      "sha256": "c524ad454021d9e317d7c95769e1c37d1ad0b044207f508b5687b5ff08055294"
+    },
+    {
+      "file": "apps/api/src/pre-race-activation.ts",
+      "sha256": "3091c162a84be3c48783e7b21005f634f47d54a01289e9f1cf9c88342d0c5420"
+    },
+    {
+      "file": "apps/api/src/prediction-worker.ts",
+      "sha256": "1c738dfc5d207a8dc628e7e4c182782d72f20ddbf69c063ba4bbddc208260e2d"
+    },
+    {
+      "file": "apps/api/src/publication-guard.ts",
+      "sha256": "6d10629b21f977599cc5c89a837226dd7899da58079cc896f67f1b250c26c7f8"
+    },
+    {
+      "file": "apps/api/src/race-candidate.ts",
+      "sha256": "3084425a94dc9eaa898fab88f4d862f9c7423ce56fbe289b8ffb89d524ea4237"
+    },
+    {
+      "file": "apps/api/src/race-plan-policy.ts",
+      "sha256": "8b20a8cd889c6515e0abf83875683e945aa73a6a6ff9ac0f9d3a496f76aee81a"
+    },
+    {
+      "file": "apps/api/src/read-store-manager.ts",
+      "sha256": "295a88c046eb8c183a3251741455ea3f99fbbe7231b44e97b15090ffad036e36"
+    },
+    {
+      "file": "apps/api/src/recompute-thread.ts",
+      "sha256": "50611238110ac58acbc826ad35c09dd9e465f3f00459d9ecccc3f0c55901c13c"
+    },
+    {
+      "file": "apps/api/src/recompute-worker-bootstrap.mjs",
+      "sha256": "9dd702f1df56882ee83d10b694e7d5dd5dc81307897f6554e0dfe4a02be9be6b"
+    },
+    {
+      "file": "apps/api/src/recompute-worker.ts",
+      "sha256": "b735b500176514ea7b791ef15c387a1acbcca4e6eb762f4857151b3d69b44f5a"
+    },
+    {
+      "file": "apps/api/src/request-mutation-lifetime.ts",
+      "sha256": "0f29cc60c2acc7ba3425ef10860c5a8307825d0de3a52ef0c5b5931887c11d3c"
+    },
+    {
+      "file": "apps/api/src/restore-evidence.ts",
+      "sha256": "0081b953b75c45f9e042aae07e6c6b33a3280c1b58dc3eebf09c5d9e1ecdfd94"
+    },
+    {
+      "file": "apps/api/src/restore-journal.ts",
+      "sha256": "97fc35d72ae0b1d4843423ce485a0641476cfbb1758114bc81b7163019e01f09"
+    },
+    {
+      "file": "apps/api/src/routes/command-routes.ts",
+      "sha256": "f5452349778c233f464afcc06d80acee32e92637db8e60e7e0c44b7382012391"
+    },
+    {
+      "file": "apps/api/src/routes/import-routes.ts",
+      "sha256": "277db9497c0387b1e5bdbde2f237afaa4cc952917fdb8a5c80b48057abd48f3d"
+    },
+    {
+      "file": "apps/api/src/run-coach-policy.ts",
+      "sha256": "4c070ef203dd8be41db319d3739e871b5978a4a15b87ec4f3ab91abf0784573e"
+    },
+    {
+      "file": "apps/api/src/run-coach.ts",
+      "sha256": "1ba133e11d7974a1edfb0a06c46681750b21c8ffe579f876b22cdf3d461b82bc"
+    },
+    {
+      "file": "apps/api/src/runtime-state.ts",
+      "sha256": "2054d0bd99fe770b108071cbd0d4730635ae9d19f55932d5a2389de85586ea85"
+    },
+    {
+      "file": "apps/api/src/runtime-telemetry.ts",
+      "sha256": "e2bf144bc9b6b7d9e35b88913183cdf8bb9dba3d2a98ba9c50a470dfdc1d92c3"
+    },
+    {
+      "file": "apps/api/src/schemas.ts",
+      "sha256": "559f5b25f082fdd81e49b8e0ddf243326eb823420e403afd6cca5b9fc2241ede"
+    },
+    {
+      "file": "apps/api/src/series-read-worker.mjs",
+      "sha256": "b010b98792b2181e9787de5c6c17a3dff7d8a0ab0d8f891d736eda53d7165f32"
+    },
+    {
+      "file": "apps/api/src/series-read-worker.ts",
+      "sha256": "5a12fa48cc50a4e339eeefdf91e6d036157505b05f7c7096752bc805883b54bd"
+    },
+    {
+      "file": "apps/api/src/server.ts",
+      "sha256": "52935a224943e13647e3fc7f5b8c540881a4feb81b3e824c858df224e73025e1"
+    },
+    {
+      "file": "apps/api/src/session-structure.ts",
+      "sha256": "a754e3e5c657a63ee9bc505ddd2c5560a3ca3e32f1b0e263b77ecc3c0cb8dd32"
+    },
+    {
+      "file": "apps/api/src/share-card.ts",
+      "sha256": "e9ace43cb380cce22368069320aefbd781e4ce412d27f1e5593a39b17a054f85"
+    },
+    {
+      "file": "apps/api/src/systemd-notify.ts",
+      "sha256": "33f149d250f06b9f1768553a996e208b48e3e7a6b734972477fa689466f30b2e"
+    },
+    {
+      "file": "apps/api/src/task-admission.ts",
+      "sha256": "845962fbff3d28735823b422080af5e6537855a08e1845472d23b63ab4c9851f"
+    },
+    {
+      "file": "apps/api/src/training-mode-policy.ts",
+      "sha256": "5360f144d6196244fcb4f0267fe2028833b27e7b8408c0ec26486ab2d511014d"
+    },
+    {
+      "file": "apps/api/src/training-plan-commands.ts",
+      "sha256": "1b27fc8b9be3f3c7c3ac34833718431d79565cd5509484625cc312758ed17126"
+    },
+    {
+      "file": "apps/api/src/training-plan-coordinator.ts",
+      "sha256": "7c27bfa6efe1132f48ec5e81f74ce335d3d56f7f9cfcf469f9a5f02070c58976"
+    },
+    {
+      "file": "apps/api/src/training-plan-evaluation-repository.ts",
+      "sha256": "37db0a44b0820d686fba879b4364a516b70ed6420359fa24fd209c92ecda8fbf"
+    },
+    {
+      "file": "apps/api/src/training-plan-execution-commands.ts",
+      "sha256": "1d77f45b6dbfae645f3eb724e70269ced5f95711a90a15d9a682d354de2f13d7"
+    },
+    {
+      "file": "apps/api/src/training-plan-execution-match.ts",
+      "sha256": "dffb4c9c86c90e77a58045b581af80964fe8d4b4e4ddbc0c64511bfe5a295c2a"
+    },
+    {
+      "file": "apps/api/src/training-plan-execution-repository.ts",
+      "sha256": "5c30d82dcf3af2462bec32cfb9509dfd9ba89261db7d5d762dd9f9afb2b8093a"
+    },
+    {
+      "file": "apps/api/src/training-plan-generation.ts",
+      "sha256": "bcd16faf02ac3101ef9a52d8e8374ac680857ec67a6096fc1cafd8a6028346c9"
+    },
+    {
+      "file": "apps/api/src/training-plan-input-identity.ts",
+      "sha256": "42ac1e0745ac5414b0f14c2184f7cb9287afba966856660380dc8cb826a7f019"
+    },
+    {
+      "file": "apps/api/src/training-plan-ownership.ts",
+      "sha256": "9d72ccbb3fea4e5a7489140b52279b7e48f1953d066c5d1e296219d4c2dbb0ad"
+    },
+    {
+      "file": "apps/api/src/training-plan-preferences.ts",
+      "sha256": "ab698dfa53a1ff95b068b6cfb26a76ae8aef0026b4042c660ee53a3fa14fc61a"
+    },
+    {
+      "file": "apps/api/src/training-plan-routes.ts",
+      "sha256": "297c30af0dcb5f68909faa1f6f65d7d7ccc6dc9880bdacbd0a5ec5709c2fb1ab"
+    },
+    {
+      "file": "apps/api/src/training-plan-session-commands.ts",
+      "sha256": "ea6ee05a7dfed4d0f6bdcea2133e54a90cec19f989fe68fb74ccfeec804f6c0a"
+    },
+    {
+      "file": "apps/api/src/training-plan-session-migration.ts",
+      "sha256": "db4f43a35a8f8fbdb4e2f70f7d46ab827f4ce9bf2a89311e03ef5c36f2c604fc"
+    },
+    {
+      "file": "apps/api/src/training-plan-session-policy.ts",
+      "sha256": "4211c851c16c8800eaa6dad2cfa01891e4488c0b0493d6fc7c5190139d0201e4"
+    },
+    {
+      "file": "apps/api/src/training-plan-session-repository.ts",
+      "sha256": "2487e51a3c492609af6fa78dc6df3be0f07c21021c687e0ac471416ff5c88e41"
+    },
+    {
+      "file": "apps/api/src/training-plan-session-safety.ts",
+      "sha256": "00eab488e00803e8de380a38749d1ccba5afb80bd43893c5482fb43a03df268f"
+    },
+    {
+      "file": "apps/api/src/training-plan-session-state.ts",
+      "sha256": "a9e24c340d9093fb7b29cbbec2830fa2a950991e055d70cdbc1c9a7d719182ae"
+    },
+    {
+      "file": "apps/api/src/training-plan-state-audit.ts",
+      "sha256": "4c7b42314c47bd0fe519bf65b7e49adbf60d5b4e3506dfb4ccf7e66bf7e2c0e1"
+    },
+    {
+      "file": "apps/api/src/training-plan-store.ts",
+      "sha256": "6c8e80dccaa7904f1fca80acb3bdecb4b7b56c94a3f1c78e0f83bc017ce89520"
+    },
+    {
+      "file": "apps/api/src/training-zone-backfill.ts",
+      "sha256": "11252436b96fa2f8ba54c7e2a422474fbaf86087be942b1d90c9bd0eb9d05105"
+    },
+    {
+      "file": "apps/api/src/try-acquire-gate.ts",
+      "sha256": "37f8dd870a0d49d4d806d47a7ec1ac6601c976fc5ebc4031563e23a896e3cef4"
+    },
+    {
+      "file": "apps/api/src/weekly-capacity.ts",
+      "sha256": "e19bddb44f30a77d313c1fd0b3641de6789684110126cab5755e23629cffa147"
+    },
+    {
+      "file": "apps/api/src/weekly-plan-service.ts",
+      "sha256": "fb07e44d401faab0f7bace5c4e3a14ef8a3597f701b1acb307d960136b3da9e6"
+    },
+    {
+      "file": "apps/api/src/weekly-plan-validate.ts",
+      "sha256": "1dc148bffbba44419c3764d4047daf28b2e8332af676c106b1048f7fb5fed989"
+    },
+    {
+      "file": "apps/api/src/worker-process.ts",
+      "sha256": "4d766f1f500702de83412a35f187ba6ef3b57287c5370a45661db786cc1ecea3"
+    },
+    {
+      "file": "apps/api/src/worker.ts",
+      "sha256": "af77cc9857f4f52f67ab3c3f36c17ec6f7adb28a90197966ae44f02c1ca6ce84"
+    },
+    {
+      "file": "apps/api/src/workout-date-window.ts",
+      "sha256": "0fa379c1f25b42e28032ff42ea3ff5fa5e5f8d65217ae248cf6079d40c154d18"
+    },
+    {
+      "file": "apps/api/src/workout-dynamics.ts",
+      "sha256": "63486bc7d376403c5173cff42dd2c89042586c8492406f0a05f959ab1c7388f3"
+    },
+    {
+      "file": "apps/api/src/workout-environment.ts",
+      "sha256": "923f240f339c344cb269577ce151b31cf7e6f26131e48e7c2f488d35db09835e"
+    },
+    {
+      "file": "apps/api/src/workout-segments.ts",
+      "sha256": "5833c04d7396acb2c4fc5a11526e6cd64af145c5e38fd422d30b966b87477706"
+    },
+    {
+      "file": "apps/api/src/workout-summary-export.ts",
+      "sha256": "529dda1865242311e84aed94a4abb9e7245a9f61d78735eebdf8e92c464897c4"
+    },
+    {
+      "file": "apps/api/src/write-lease.ts",
+      "sha256": "f2ca782e52b7a8be17193f0f3d830b971a74c6ebf3bf710d17263390a683c008"
+    },
+    {
+      "file": "packages/dynamics/src/index.ts",
+      "sha256": "b739c7c9363870264357f90a9024cdd93ee06dbfbb46de0b4554da404baad892"
+    },
+    {
+      "file": "packages/features/src/index.ts",
+      "sha256": "d2f184653742cda92fb14d57ead24971d61019fec63353f60cc4c6633d079cf5"
+    },
+    {
+      "file": "packages/features/src/legacy-v3/index.ts",
+      "sha256": "226f1f9038c21adcf22b8d34b16525512652984d0e093af590a1cc4c088be0f9"
+    },
+    {
+      "file": "packages/features/src/speed-plausibility.ts",
+      "sha256": "30401f62157c348bfcb1c7a10461d70f3b83ea2078337cabf44c0a171ba580cb"
+    },
+    {
+      "file": "packages/features/src/speed-windows.ts",
+      "sha256": "3cb62f28cc5a810a13a3a63a5b35a97019dc38178b9aab9c61caddd3fdd5d686"
+    },
+    {
+      "file": "packages/features/src/v4.ts",
+      "sha256": "1bcc969a1596ecf1d2938d0eab35e208eb346859ebaf64019afa28c9d5eaef8c"
+    },
+    {
+      "file": "packages/health-export-parser/src/apple-health-parser.ts",
+      "sha256": "1877854ba9e477258e07ccc70fcb884aced6e0f6e9797af2aa92bc7a9fcb4f44"
+    },
+    {
+      "file": "packages/health-export-parser/src/apply-health-record.ts",
+      "sha256": "789bfa5c780864725c942fc0df5f7041b90a4099ba4c588896afdbaaae795e30"
+    },
+    {
+      "file": "packages/health-export-parser/src/apply-health-workout.ts",
+      "sha256": "6d0b991a1f055d07f46356368479eb95319e6567e080208f4efd46d1f3a2aa77"
+    },
+    {
+      "file": "packages/health-export-parser/src/audit.ts",
+      "sha256": "543ab27cbd63101b88e76b5dddb98b4fd98416092ee5f2d7a2b2c516f9fb6b67"
+    },
+    {
+      "file": "packages/health-export-parser/src/batch-dirty-evidence.ts",
+      "sha256": "620abadadcbe13aa93f124e2e5fac60d2ed0c7441d8451708e8f162fb8f6de0a"
+    },
+    {
+      "file": "packages/health-export-parser/src/canonical-builders.ts",
+      "sha256": "c9544880f3d7cd81bbfafb390123ec1a4e3f233c1ab6d173fd746fb0fe686d48"
+    },
+    {
+      "file": "packages/health-export-parser/src/canonicalize-nights.ts",
+      "sha256": "3b3069a6b53eaccaed5538073bb7070850cd6b4fb24e79d069342c88bb20bb2d"
+    },
+    {
+      "file": "packages/health-export-parser/src/canonicalize.ts",
+      "sha256": "1e673e0d86655358ed5f330ab9ed779301f9f5b869687a0546e826dd85774001"
+    },
+    {
+      "file": "packages/health-export-parser/src/cli.ts",
+      "sha256": "526e095a007bd3760db2873fad69301fe364003598a0062f8290709025b845da"
+    },
+    {
+      "file": "packages/health-export-parser/src/database.ts",
+      "sha256": "80ccb15947b1306455d46577adce0a5adccd61e9f7e12500fd8701ead9ce8258"
+    },
+    {
+      "file": "packages/health-export-parser/src/dirty-range-input.ts",
+      "sha256": "3fadbb312eccf6e1d1107565278966d282c72b0f9e76bdb99b85ee31c737f9a0"
+    },
+    {
+      "file": "packages/health-export-parser/src/dirty-range.ts",
+      "sha256": "627f25d4d20f43d6c6f8402d8f7145e2b26ec9bc88e22474f06088614a56cab5"
+    },
+    {
+      "file": "packages/health-export-parser/src/file-operations.ts",
+      "sha256": "1de7325d021bd66e8f80f56adf3b53e81c7b151b891c0f66ecc21c2d5bf83ffa"
+    },
+    {
+      "file": "packages/health-export-parser/src/gpx-parser.ts",
+      "sha256": "aba9b77bd3ac7af9822a5783e903b8468d4377b0dc2bf332f4f527e628f4ea08"
+    },
+    {
+      "file": "packages/health-export-parser/src/identity-algorithm.ts",
+      "sha256": "13a552c832cf76ee99431368dd3b4e88b52d8dd58d7c63b04fb5ff6a9ce39ff2"
+    },
+    {
+      "file": "packages/health-export-parser/src/import-guard.ts",
+      "sha256": "c5dc7c50a4dabb4ee70330a5006340b3f9b31f3afd6b67758cf2d906c3c307f2"
+    },
+    {
+      "file": "packages/health-export-parser/src/incremental.ts",
+      "sha256": "e12ee2674ad75be49914aef69cda55b5409af4e8be582a7c9690fb6420e13d8a"
+    },
+    {
+      "file": "packages/health-export-parser/src/index.ts",
+      "sha256": "216a6c72c98d4afc526a6cc0c8e3d791cb967cc283fb507a635dd9213e5add07"
+    },
+    {
+      "file": "packages/health-export-parser/src/native-record-writer.ts",
+      "sha256": "181b8751f74a4ee8e0d18bfc3ce0c24d7f5801061136ed200a7508535b551ca0"
+    },
+    {
+      "file": "packages/health-export-parser/src/native-worker.ts",
+      "sha256": "82bee9c2abc4f2c652d2824bd702bcab694d27731a245ee14a999815b8f307d4"
+    },
+    {
+      "file": "packages/health-export-parser/src/owned-transaction.ts",
+      "sha256": "fb6e1876e47f83c42e78c53a079a8c2917f213fc2c3175151934777c95bc26ee"
+    },
+    {
+      "file": "packages/health-export-parser/src/prune-tombstones-cli.ts",
+      "sha256": "504dab5745672568e5a5108691ca523c90ba6fe95e65fad4eb43cb01bb60c002"
+    },
+    {
+      "file": "packages/health-export-parser/src/record-delta-policy.ts",
+      "sha256": "3addb5a9d4be563410cea19eacbcc936b1e3127835fec4d53c8b23cf5fe1490b"
+    },
+    {
+      "file": "packages/health-export-parser/src/sync-manifest.ts",
+      "sha256": "50fa0bd27e463f6f8bd2b2eb553865f3ff6bd553ce7ec0c086b706979a9343ac"
+    },
+    {
+      "file": "packages/health-export-parser/src/utils.ts",
+      "sha256": "c6248756c931ab5252f60255a68a52f9a299e33f8a48eb1246117de02f4213f2"
+    },
+    {
+      "file": "packages/model-eval/src/index.ts",
+      "sha256": "9cd3380a3e7e71f45a7210cea936d633465cffb5000c1bbb3dbf82ff6fc5b642"
+    },
+    {
+      "file": "packages/model-eval/src/replay.ts",
+      "sha256": "db3167164998c5865a93645bdb09dcb9137c9ba2b49bdffd27298d75942e2265"
+    },
+    {
+      "file": "packages/normalization/src/index.ts",
+      "sha256": "613dc75aa262778da865223d85110053875ddd3aaae863b588a7f48c706c13ca"
+    },
+    {
+      "file": "packages/physiology/src/index.ts",
+      "sha256": "02db2abf59fc0928eb28482db7cf6956cc93999abb4cf67a5dff9d09cf5dd068"
+    },
+    {
+      "file": "packages/physiology/src/ridge.ts",
+      "sha256": "937d733a6977f56731fb3f32f384b004bf2199657608494e91d2dfcfc28e7bf1"
+    },
+    {
+      "file": "packages/prediction-inference/src/index.ts",
+      "sha256": "6c8148f955278bb1b127981cc8211758a0daffbb7d489cb09736a50b224c9a70"
+    },
+    {
+      "file": "packages/readiness/src/index.ts",
+      "sha256": "e6624bf5e49955747c46a3a776999a97b62ca169ba5577b3bdc642c930fcf072"
+    },
+    {
+      "file": "packages/scoring/src/baseline-v2.ts",
+      "sha256": "c00085607fdd4581bc45cf950a98a91a03343194fd440f48f48f754ec0d4de5a"
+    },
+    {
+      "file": "packages/scoring/src/index.ts",
+      "sha256": "f76c8759b243c5314211fe902cc57c621a3aa506be1d86302243b6ad1814e828"
+    },
+    {
+      "file": "packages/scoring/src/legacy-v1/index.ts",
+      "sha256": "6741846adc1d265f04a45b6e35d6bbfa0f9eaeb2b9c802c5b6c39dca31debc51"
+    },
+    {
+      "file": "packages/scoring/src/legacy-v1/model.ts",
+      "sha256": "d3799379634288774b21182bb66562382d6dfd236485a699429c9b050ab6124f"
+    },
+    {
+      "file": "packages/scoring/src/model.ts",
+      "sha256": "00f4cfccb9efa73cd268c0ff943348553ec2b55fe04c5e0404c754092debb2d3"
+    },
+    {
+      "file": "packages/storage-sqlite/src/calibration-repository.ts",
+      "sha256": "2d19f084359e5d8f07216a199483eeea47c3d0ba91315864f84b75288a4a697c"
+    },
+    {
+      "file": "packages/storage-sqlite/src/checkpoint.ts",
+      "sha256": "61fdbe3736cd40ac93b5ef6acc1b38f1cecaf654f3a6dd35f81b68da8d243a3d"
+    },
+    {
+      "file": "packages/storage-sqlite/src/coach-facts-repository.ts",
+      "sha256": "30a9421aaa593a0be7ddad2a2a72e528e5ac286e53b589afeb1b1eb4993fad41"
+    },
+    {
+      "file": "packages/storage-sqlite/src/database-file-publisher.ts",
+      "sha256": "7cde18e3c2e1f493766c21e14f95e85dbd6de9ecfc9d1466ae31b3153bea7f17"
+    },
+    {
+      "file": "packages/storage-sqlite/src/database-structure-probe.ts",
+      "sha256": "d15e6ee62528e8e4ba49fbf2716d2615fca60ccab4a705609621a448bb03b8b7"
+    },
+    {
+      "file": "packages/storage-sqlite/src/database.ts",
+      "sha256": "b558ef1be65c8a829cba4d8c0522cbf7fd8d0df0f49fc202d3098bddbb4e5d17"
+    },
+    {
+      "file": "packages/storage-sqlite/src/index.ts",
+      "sha256": "b543428b8246a43f65afce111f75cf589bd7f9460b1bd7f90e5f5332ff22e4b2"
+    },
+    {
+      "file": "packages/storage-sqlite/src/migrate-cli.ts",
+      "sha256": "ff1a8b442f4ac32917a06266e5f53b66dc9a3d62bb9fa20c54ece3bd71584753"
+    },
+    {
+      "file": "packages/storage-sqlite/src/model-release-repository.ts",
+      "sha256": "723ff9eb5379394ad0ac34c8faaf06169891320629187e2a3fa7f7c4610cdb86"
+    },
+    {
+      "file": "packages/storage-sqlite/src/model-run-repository.ts",
+      "sha256": "e2cd485a467d75d8c07b975c67ed97498566ce738ef8ef0a31937276b356fb7f"
+    },
+    {
+      "file": "packages/storage-sqlite/src/model-transition-gate.ts",
+      "sha256": "4aa0770e1ff988a554a8e287904882528536086cfe11124909b0b5b450cd7b72"
+    },
+    {
+      "file": "packages/storage-sqlite/src/performance-entry-repository.ts",
+      "sha256": "1365313d48605de01cb0441e9f9db75bf4baed0ee0646b9ac3c48d35b8ac9815"
+    },
+    {
+      "file": "packages/storage-sqlite/src/privacy-zone-repository.ts",
+      "sha256": "f9ed297a1d612b92ccecf759da08f744f7ba63da56bfd7ca5ab063023773d85a"
+    },
+    {
+      "file": "packages/storage-sqlite/src/publication-lock.ts",
+      "sha256": "5ef6a3bd3dfeadc3b3a1c5d5378a8d25b8f0dd13997da1fa5947a3843b38e922"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/audit-read-repository.ts",
+      "sha256": "ff783c99d94bf09c43ffe0eb3404a9ee0956fcf2ed98657d0dbfa4b67bf1fe5f"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/batch-analysis-dirty-evidence.ts",
+      "sha256": "960d2700abf40074266816f8046584745f6b3c7d6f9ccb8e60e78d470a611780"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/dashboard-read-repository.ts",
+      "sha256": "a25db20a64becca728b91304b40f108f4b5ddc47e4fd7ed45f7b8b9bfb7394c0"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/date-utils.ts",
+      "sha256": "497f058f858dcfeca3dfa3451ec7cc09c40027e11fc21264a21924cb3729b9d2"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/fact-read-view.ts",
+      "sha256": "45b292978ddc5d3c2a701a489d6f7ef1f4dbee5cc8568f2c270016fb70099b35"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/facts-reader.ts",
+      "sha256": "3f00b647d1734d78a7810f862dd63386ca4e5b98bf9673ab90c95f74eefc993d"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/health-record-overlap-reads.ts",
+      "sha256": "ec0b004e97b43e584a88409121dbc88b33a8af06de49f0d6b5fe21295de3a7e6"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/health-record-stats-worker-thread.mjs",
+      "sha256": "87d00468b1eab62dc6478d886b941ffbb154f2d567ac1c82609d40a0bb36e5af"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/health-record-stats-worker.ts",
+      "sha256": "5f25ec63511c7a97e32e563706f983507aaa2eb8e863e606b5a841fed14efd31"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/prediction-recovery-read-repository.ts",
+      "sha256": "d563e9b03320e16ebb245d6925e73f0209f19d3fcb1cf37b6acc8eab7c815e3c"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/read-utils.ts",
+      "sha256": "5d9f6b9dce7e8d59dfc9b65428cf9b3fa9f956e43f7698292c468da9a5839ae4"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/recovery-facts-read-repository.ts",
+      "sha256": "beb0e512f5fa4af969a25f9f08bd226c0d42c1d4178b72ebd2633300871e47f5"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/route-point-reader.ts",
+      "sha256": "bd64e3f1deaafb86b93b90a276ddb3bab3ee6e356d3a463d340d93f9a3a53a52"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/series-read-repository.ts",
+      "sha256": "dcd8d1a90342e506bf7944583f254c61cbda004ac46e35f5a2c807d6edd1fa73"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/training-statistics-read-repository.ts",
+      "sha256": "b6e5204b5edbedd40456eb6291a697ad4fcb48362f501c0288d95eec409eb61b"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/trends-read-repository.ts",
+      "sha256": "e5cde32dd24427b48abc8d5b92a61621b07515a8b492f31dda06e88375619641"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/workout-read-repository.ts",
+      "sha256": "cd68ac1319cbc4d48000fd1b18407951e43cdc969f028e99475ac3f02f874905"
+    },
+    {
+      "file": "packages/storage-sqlite/src/read/zone-read-repository.ts",
+      "sha256": "324fdd48c96b6f1ac8bebcb3f6089c0ac62aff468de15d26f0a2cf0434b67c44"
+    },
+    {
+      "file": "packages/storage-sqlite/src/recompute-job-repository.ts",
+      "sha256": "8434108353c21c7968497121d3cf1de48f7ddd7c4aef861d6d2243d41da77ae4"
+    },
+    {
+      "file": "packages/storage-sqlite/src/sql/fragments.ts",
+      "sha256": "92aff8659d2cce75bcec4c394d3148d0e7113ee8653b350db353914d9738f7bf"
+    },
+    {
+      "file": "packages/storage-sqlite/src/training-session-repository.ts",
+      "sha256": "2e45780394913794f3aba2409c4f6fabc307180bbaee5a991f33884b80ecc5cd"
+    },
+    {
+      "file": "packages/storage-sqlite/src/transaction.ts",
+      "sha256": "a7ae744a3917b06bb01c29893214d67c38df1d82ad6d4f5e1c3689406b86ca32"
+    },
+    {
+      "file": "packages/storage-sqlite/src/utils.ts",
+      "sha256": "ecab88655820c9228e990ff284445df78d13793625415a83ff1c277fd93a2562"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v2-migration.ts",
+      "sha256": "eaa1635e376ecdc8a65461cf2db54dc6ae0b603ddbb8453e7a3a9e35bc14459e"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v24-migration.ts",
+      "sha256": "6e164cb521dc3b427cacc1fea5188f0edc02c6f376315a55266567347fa31fdb"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v25-migration.ts",
+      "sha256": "1a8bfb2e270b5db2d9db250b4abcdfc25024b906865a050325ca589a972b73ac"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v26-migration.ts",
+      "sha256": "f5427748975349daa51e3436374625cce077fc42c8081c6a600284f0b12aca65"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v27-migration.ts",
+      "sha256": "1356fd4705ac30f6051852b114da2f1a48e327e63f06dc7f80056ef8b1b32b04"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v28-migration.ts",
+      "sha256": "58b9d8b01b389073075c6cfd60864db33eb73a900e07aafc037cb158ccef0f86"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v29-migration.ts",
+      "sha256": "73233f50f4981eaedbd33837dccf683cd5ff9b5697e8967eb975843fa30a2d1c"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v30-migration.ts",
+      "sha256": "91f3d96c46249f419464aa1b39257a114ab4bb426ffc9a2c26fdf6d63f5a8c40"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v31-migration.ts",
+      "sha256": "f73fb0d2c7df2d5297c294521bce015190e45a2776172d22360fe141ffbd5b8a"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v32-migration.ts",
+      "sha256": "95545478110d345d25741d874f5a70f3d505dc55dd52b309d702b63ea9a94a10"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v33-migration.ts",
+      "sha256": "ecc34f64fa9827f01b5355f378335e851559ea61c3ef4ee29aae31b4d8e8b4b5"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v34-migration.ts",
+      "sha256": "da4c8062c7f75662b1eef23ceef7f7cbca600b791d392eb6124fd6851e237e43"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v35-migration.ts",
+      "sha256": "10668584e4d5596639f03add749303714f7d8764fce3b5b94206d590c39d5293"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v36-migration.ts",
+      "sha256": "3713829c4859e4e238d4d93d688018c8cc8b9e7edf1279cf639ab71e484056a2"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v37-migration.ts",
+      "sha256": "e5589cc851030342e561bedb9c40911557aef59b3293dddbc9946f17afebd5be"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v38-migration.ts",
+      "sha256": "226fe04ed97bc9ba16a4d3ce1ad4077286254edf60874f885a047367d7195603"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v39-migration.ts",
+      "sha256": "90c85dbf22dd3b221737a2e19205ba467f3a2cc1b9050f0ce10d51a0b35ee6fa"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v40-migration.ts",
+      "sha256": "846f965d88203e292687b69688f8a9e32372b6e4c33fb6a2a793b4b7ca3523ad"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v41-migration.ts",
+      "sha256": "64499f802a19889162c52b123880a69cb3653a2e8f402408804159967e408f7b"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v42-migration.ts",
+      "sha256": "fac22dfbaee1b2ca496f4f9528afd6c7801121e64f76bf33d1765377a2c651eb"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v43-migration.ts",
+      "sha256": "1a0ad38fe7f971f96eab46962e6c7568be3f687d5545b94a3f0f36b38cb7f723"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v44-migration.ts",
+      "sha256": "9b7109f220edf3e30cc5d1a382e1e827e8fa674ee19eabc65fd7a9594f118501"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v45-migration.ts",
+      "sha256": "8d5ed769f7057a8546dd62ce62e2708268447dbba70fdf4d2b9684dd8da26a78"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v46-migration.ts",
+      "sha256": "4f3a5401ca2ec7ecd417420f7c239b0b8dcc4be014e17df0fd2c9ab1e4704fc5"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v47-migration.ts",
+      "sha256": "488999026ce3ebb2e74d2dfb3135dbe817c5d675f4e0079cf4161d8f5ff03932"
+    },
+    {
+      "file": "packages/storage-sqlite/src/v48-migration.ts",
+      "sha256": "26331b775ec8848907d355b0f9b6a9baba9824cdf74f6945be8f42c42b4eb523"
+    },
+    {
+      "file": "packages/training-load/src/form.ts",
+      "sha256": "b1c40ba21a385ff6a89e19746b8ee9df875f16fe5758a33487d477cb6cc83fa0"
+    },
+    {
+      "file": "packages/training-load/src/index.ts",
+      "sha256": "22bfc9454effc812d768b41382116c4bdb660e9034530caf523c62319f12c5da"
+    },
+    {
+      "file": "packages/training-zones/src/index.ts",
+      "sha256": "3f0d968d74ad5fffa008f5b8930b8c605153488220234200a062a09c0ef08397"
+    }
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/v1/backups",
+      "file": "apps/api/src/server.ts",
+      "line": 2808,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/backups",
+      "file": "apps/api/src/server.ts",
+      "line": 2820,
+      "receiver": "app"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/backups/:name",
+      "file": "apps/api/src/server.ts",
+      "line": 2852,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/backups/:name",
+      "file": "apps/api/src/server.ts",
+      "line": 2841,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/backups/:name/restore",
+      "file": "apps/api/src/server.ts",
+      "line": 2926,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/commands",
+      "file": "apps/api/src/routes/command-routes.ts",
+      "line": 12,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/commands/:id",
+      "file": "apps/api/src/routes/command-routes.ts",
+      "line": 16,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/commands/:id/cancel",
+      "file": "apps/api/src/routes/command-routes.ts",
+      "line": 21,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/dashboard",
+      "file": "apps/api/src/server.ts",
+      "line": 1501,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/data-audit",
+      "file": "apps/api/src/server.ts",
+      "line": 1503,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/data-summary",
+      "file": "apps/api/src/server.ts",
+      "line": 1502,
+      "receiver": "app"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/database",
+      "file": "apps/api/src/server.ts",
+      "line": 3134,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/diagnostics",
+      "file": "apps/api/src/server.ts",
+      "line": 1504,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/exports/workout-summary",
+      "file": "apps/api/src/server.ts",
+      "line": 1565,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/handshake",
+      "file": "apps/api/src/server.ts",
+      "line": 1412,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/health",
+      "file": "apps/api/src/server.ts",
+      "line": 1359,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/import-jobs",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 17,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/import-jobs/:id",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 152,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/import-jobs/:id/cancel",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 33,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/import-jobs/active",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 146,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/import-jobs/latest",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 150,
+      "receiver": "app"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/import-sources/:id",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 128,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/import-sources/discover",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 142,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/import-sources/recent",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 144,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/imports/inspect",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 86,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/imports/uploads",
+      "file": "apps/api/src/routes/import-routes.ts",
+      "line": 39,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/jobs",
+      "file": "apps/api/src/server.ts",
+      "line": 2777,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/jobs/:id",
+      "file": "apps/api/src/server.ts",
+      "line": 2779,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/jobs/:id/cancel",
+      "file": "apps/api/src/server.ts",
+      "line": 2785,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/label-funnel",
+      "file": "apps/api/src/server.ts",
+      "line": 1708,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/coach-execution",
+      "file": "apps/api/src/coach-loop-routes.ts",
+      "line": 52,
+      "receiver": "args.app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/coach-feedback",
+      "file": "apps/api/src/coach-loop-routes.ts",
+      "line": 57,
+      "receiver": "args.app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/coach-loop",
+      "file": "apps/api/src/coach-loop-routes.ts",
+      "line": 24,
+      "receiver": "args.app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/coach-loop",
+      "file": "apps/api/src/coach-loop-routes.ts",
+      "line": 30,
+      "receiver": "args.app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/coach-loop/synced",
+      "file": "apps/api/src/coach-loop-routes.ts",
+      "line": 47,
+      "receiver": "args.app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/coach-prediction-refresh",
+      "file": "apps/api/src/coach-loop-routes.ts",
+      "line": 95,
+      "receiver": "args.app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/goals",
+      "file": "apps/api/src/server.ts",
+      "line": 2414,
+      "receiver": "app"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/mobile/goals",
+      "file": "apps/api/src/server.ts",
+      "line": 2415,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/lock",
+      "file": "apps/api/src/server.ts",
+      "line": 2417,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/plan-operations/:id",
+      "file": "apps/api/src/server.ts",
+      "line": 2001,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/run-coach",
+      "file": "apps/api/src/server.ts",
+      "line": 2211,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/run-coach",
+      "file": "apps/api/src/server.ts",
+      "line": 2212,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/statistics",
+      "file": "apps/api/src/server.ts",
+      "line": 2392,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/today",
+      "file": "apps/api/src/server.ts",
+      "line": 1979,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/training-plan-state",
+      "file": "apps/api/src/server.ts",
+      "line": 1991,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/training-plan/commands",
+      "file": "apps/api/src/server.ts",
+      "line": 2189,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/training-plan/commands/preview",
+      "file": "apps/api/src/server.ts",
+      "line": 2188,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/training-plan/commands/refresh",
+      "file": "apps/api/src/server.ts",
+      "line": 2190,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/training-plan/execution-commands",
+      "file": "apps/api/src/server.ts",
+      "line": 2186,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/training-plan/session-commands",
+      "file": "apps/api/src/server.ts",
+      "line": 2160,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/training-plan/session-commands/preview",
+      "file": "apps/api/src/server.ts",
+      "line": 2159,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/training-plan/sessions/:sessionId/execution-candidates",
+      "file": "apps/api/src/server.ts",
+      "line": 2184,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/trends",
+      "file": "apps/api/src/server.ts",
+      "line": 2394,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mobile/workout-plan",
+      "file": "apps/api/src/server.ts",
+      "line": 2227,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/workout-plan/confirm",
+      "file": "apps/api/src/server.ts",
+      "line": 2389,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/workout-plan/generate",
+      "file": "apps/api/src/server.ts",
+      "line": 2390,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/workout-plan/preview",
+      "file": "apps/api/src/server.ts",
+      "line": 2388,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mobile/workout-plan/synced",
+      "file": "apps/api/src/server.ts",
+      "line": 1795,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/model-runs",
+      "file": "apps/api/src/server.ts",
+      "line": 2713,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/model-runs",
+      "file": "apps/api/src/server.ts",
+      "line": 2727,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/model-runs/:id/activate",
+      "file": "apps/api/src/server.ts",
+      "line": 2744,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/model-runs/compare",
+      "file": "apps/api/src/server.ts",
+      "line": 2715,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/model-snapshots",
+      "file": "apps/api/src/server.ts",
+      "line": 2542,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/openapi.json",
+      "file": "apps/api/src/server.ts",
+      "line": 1489,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/performance",
+      "file": "apps/api/src/server.ts",
+      "line": 1490,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/performance-entries",
+      "file": "apps/api/src/server.ts",
+      "line": 1699,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/performance-entries",
+      "file": "apps/api/src/server.ts",
+      "line": 1710,
+      "receiver": "app"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/performance-entries/:id",
+      "file": "apps/api/src/server.ts",
+      "line": 1737,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/prediction-models",
+      "file": "apps/api/src/server.ts",
+      "line": 2562,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/prediction-models/:id",
+      "file": "apps/api/src/server.ts",
+      "line": 2572,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/prediction-models/:id/activate",
+      "file": "apps/api/src/server.ts",
+      "line": 2679,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/prediction-models/:id/cancel",
+      "file": "apps/api/src/server.ts",
+      "line": 2652,
+      "receiver": "app"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/prediction-models/train",
+      "file": "apps/api/src/server.ts",
+      "line": 2594,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/predictions",
+      "file": "apps/api/src/server.ts",
+      "line": 2513,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/privacy-zones",
+      "file": "apps/api/src/server.ts",
+      "line": 1685,
+      "receiver": "app"
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/privacy-zones",
+      "file": "apps/api/src/server.ts",
+      "line": 1755,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/recovery-trends",
+      "file": "apps/api/src/server.ts",
+      "line": 2395,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/runtime-status",
+      "file": "apps/api/src/server.ts",
+      "line": 1510,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/sync/coverage",
+      "file": "apps/api/src/server.ts",
+      "line": 1484,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/training-statistics/history",
+      "file": "apps/api/src/server.ts",
+      "line": 1924,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/training-statistics/load",
+      "file": "apps/api/src/server.ts",
+      "line": 1933,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/training-statistics/overview",
+      "file": "apps/api/src/server.ts",
+      "line": 1920,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/training-zones/current",
+      "file": "apps/api/src/server.ts",
+      "line": 1941,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/training-zones/history",
+      "file": "apps/api/src/server.ts",
+      "line": 2470,
+      "receiver": "app"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/training-zones/profile",
+      "file": "apps/api/src/server.ts",
+      "line": 2478,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/trends",
+      "file": "apps/api/src/server.ts",
+      "line": 1916,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workouts",
+      "file": "apps/api/src/server.ts",
+      "line": 1542,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workouts/:id",
+      "file": "apps/api/src/server.ts",
+      "line": 1574,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workouts/:id/freshness",
+      "file": "apps/api/src/server.ts",
+      "line": 1633,
+      "receiver": "app"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/workouts/:id/override",
+      "file": "apps/api/src/server.ts",
+      "line": 1878,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workouts/:id/series",
+      "file": "apps/api/src/server.ts",
+      "line": 1599,
+      "receiver": "app"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workouts/:id/share-card",
+      "file": "apps/api/src/server.ts",
+      "line": 1675,
+      "receiver": "app"
+    }
+  ],
+  "tables": [
+    {
+      "kind": "TABLE",
+      "name": "mutation_commands",
+      "file": "apps/api/src/command-queue.ts",
+      "line": 71
+    },
+    {
+      "kind": "TABLE",
+      "name": "dataset_epoch",
+      "file": "apps/api/src/dataset-epoch.ts",
+      "line": 224
+    },
+    {
+      "kind": "TABLE",
+      "name": "dataset_deletion",
+      "file": "apps/api/src/dataset-epoch.ts",
+      "line": 225
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_publications",
+      "file": "apps/api/src/import-publication.ts",
+      "line": 191
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_publication_supersessions",
+      "file": "apps/api/src/import-publication.ts",
+      "line": 192
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_goals",
+      "file": "apps/api/src/mobile-goals.ts",
+      "line": 1258
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_goals_history",
+      "file": "apps/api/src/mobile-goals.ts",
+      "line": 1264
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_plan_pushes",
+      "file": "apps/api/src/mobile-goals.ts",
+      "line": 1270
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_plan_operations",
+      "file": "apps/api/src/mobile-goals.ts",
+      "line": 1278
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_coach_loop_receipts",
+      "file": "apps/api/src/mobile-goals.ts",
+      "line": 1282
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_control_schema",
+      "file": "apps/api/src/mobile-goals.ts",
+      "line": 1383
+    },
+    {
+      "kind": "TABLE",
+      "name": "native_packages",
+      "file": "apps/api/src/native-health-package-store.ts",
+      "line": 86
+    },
+    {
+      "kind": "TABLE",
+      "name": "native_package_chunks",
+      "file": "apps/api/src/native-health-package-store.ts",
+      "line": 108
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_publication_guard",
+      "file": "apps/api/src/publication-guard.ts",
+      "line": 47
+    },
+    {
+      "kind": "TABLE",
+      "name": "restore_intent",
+      "file": "apps/api/src/restore-journal.ts",
+      "line": 93
+    },
+    {
+      "kind": "TABLE",
+      "name": "runtime_meta",
+      "file": "apps/api/src/runtime-state.ts",
+      "line": 691
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_scope_evidence",
+      "file": "apps/api/src/runtime-state.ts",
+      "line": 692
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_sources",
+      "file": "apps/api/src/runtime-state.ts",
+      "line": 703
+    },
+    {
+      "kind": "TABLE",
+      "name": "scope_abandonments",
+      "file": "apps/api/src/runtime-state.ts",
+      "line": 711
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_jobs",
+      "file": "apps/api/src/runtime-state.ts",
+      "line": 724
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_training_plan_evaluation",
+      "file": "apps/api/src/training-plan-evaluation-repository.ts",
+      "line": 14
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_training_execution",
+      "file": "apps/api/src/training-plan-execution-repository.ts",
+      "line": 20
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_training_execution_history",
+      "file": "apps/api/src/training-plan-execution-repository.ts",
+      "line": 46
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_training_session_history",
+      "file": "apps/api/src/training-plan-session-repository.ts",
+      "line": 9
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_training_state",
+      "file": "apps/api/src/training-plan-store.ts",
+      "line": 205
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_training_state_history",
+      "file": "apps/api/src/training-plan-store.ts",
+      "line": 211
+    },
+    {
+      "kind": "TABLE",
+      "name": "mobile_training_migration_audit",
+      "file": "apps/api/src/training-plan-store.ts",
+      "line": 219
+    },
+    {
+      "kind": "TABLE",
+      "name": "apply_config",
+      "file": "packages/health-export-parser/src/native-record-writer.ts",
+      "line": 65
+    },
+    {
+      "kind": "TABLE",
+      "name": "canonical_records",
+      "file": "packages/health-export-parser/src/native-record-writer.ts",
+      "line": 66
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_manifest",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 158
+    },
+    {
+      "kind": "TABLE",
+      "name": "profile",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 163
+    },
+    {
+      "kind": "TABLE",
+      "name": "health_records",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 168
+    },
+    {
+      "kind": "TABLE",
+      "name": "workouts",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 190
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_statistics",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 211
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_events",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 228
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_routes",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 238
+    },
+    {
+      "kind": "TABLE",
+      "name": "route_points",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 253
+    },
+    {
+      "kind": "TABLE",
+      "name": "activity_summaries",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 270
+    },
+    {
+      "kind": "TABLE",
+      "name": "entity_inventory",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 275
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_issues",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 285
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_groups",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 293
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_group_members",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 301
+    },
+    {
+      "kind": "TABLE",
+      "name": "training_sessions",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 316
+    },
+    {
+      "kind": "TABLE",
+      "name": "feature_runs",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 379
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_features",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 394
+    },
+    {
+      "kind": "TABLE",
+      "name": "model_runs",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 425
+    },
+    {
+      "kind": "TABLE",
+      "name": "ability_assessments",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 444
+    },
+    {
+      "kind": "TABLE",
+      "name": "daily_ability_snapshots",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 478
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_overrides",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 495
+    },
+    {
+      "kind": "TABLE",
+      "name": "recompute_jobs",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 511
+    },
+    {
+      "kind": "TABLE",
+      "name": "recompute_job_events",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 532
+    },
+    {
+      "kind": "TABLE",
+      "name": "active_model_run",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 545
+    },
+    {
+      "kind": "VIEW",
+      "name": "effective_workout_overrides",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 551
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_ability_assessments",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 573
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_daily_ability_snapshots",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 578
+    },
+    {
+      "kind": "VIEW",
+      "name": "effective_workout_overrides",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 612
+    },
+    {
+      "kind": "TABLE",
+      "name": "prediction_model_runs",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 642
+    },
+    {
+      "kind": "TABLE",
+      "name": "prediction_model_events",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 675
+    },
+    {
+      "kind": "TABLE",
+      "name": "active_prediction_model",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 689
+    },
+    {
+      "kind": "TABLE",
+      "name": "training_metric_runs",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 748
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_training_loads",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 767
+    },
+    {
+      "kind": "TABLE",
+      "name": "daily_training_metrics",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 798
+    },
+    {
+      "kind": "VIEW",
+      "name": "effective_workout_overrides",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 833
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_workout_training_loads",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 857
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_daily_training_metrics",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 865
+    },
+    {
+      "kind": "TABLE",
+      "name": "daily_training_metrics",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 909
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_daily_training_metrics",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 946
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_ability_assessments",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 962
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_daily_ability_snapshots",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 970
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_workout_training_loads",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 978
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_daily_training_metrics",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 987
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_batches",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1002
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_batch_files",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1019
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_entity_changes",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1029
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_entity_generations",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1065
+    },
+    {
+      "kind": "TABLE",
+      "name": "route_file_fingerprints",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1076
+    },
+    {
+      "kind": "TABLE",
+      "name": "model_checkpoints",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1093
+    },
+    {
+      "kind": "TABLE",
+      "name": "recompute_validations",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1111
+    },
+    {
+      "kind": "TABLE",
+      "name": "training_zone_profile_settings",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1137
+    },
+    {
+      "kind": "TABLE",
+      "name": "daily_zone_profiles",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1152
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_zone_summaries",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1176
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_daily_zone_profiles",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1201
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_workout_zone_summaries",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1209
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_training_loads",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1242
+    },
+    {
+      "kind": "VIEW",
+      "name": "active_workout_training_loads",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1300
+    },
+    {
+      "kind": "TABLE",
+      "name": "canonical_nights",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1327
+    },
+    {
+      "kind": "TABLE",
+      "name": "canonical_hrv_days",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1356
+    },
+    {
+      "kind": "TABLE",
+      "name": "model_validation_gates",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1380
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_entity_tombstones",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1410
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_source_tombstones",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 1430
+    },
+    {
+      "kind": "TABLE",
+      "name": "schema_migrations",
+      "file": "packages/storage-sqlite/src/database.ts",
+      "line": 2022
+    },
+    {
+      "kind": "TABLE",
+      "name": "model_v2_runs",
+      "file": "packages/storage-sqlite/src/v2-migration.ts",
+      "line": 6
+    },
+    {
+      "kind": "TABLE",
+      "name": "model_domain_snapshots",
+      "file": "packages/storage-sqlite/src/v2-migration.ts",
+      "line": 13
+    },
+    {
+      "kind": "TABLE",
+      "name": "model_release_bundles",
+      "file": "packages/storage-sqlite/src/v2-migration.ts",
+      "line": 23
+    },
+    {
+      "kind": "TABLE",
+      "name": "active_model_release",
+      "file": "packages/storage-sqlite/src/v2-migration.ts",
+      "line": 33
+    },
+    {
+      "kind": "TABLE",
+      "name": "prediction_calibration_artifacts",
+      "file": "packages/storage-sqlite/src/v2-migration.ts",
+      "line": 37
+    },
+    {
+      "kind": "TABLE",
+      "name": "model_validation_gates",
+      "file": "packages/storage-sqlite/src/v24-migration.ts",
+      "line": 35
+    },
+    {
+      "kind": "TABLE",
+      "name": "model_release_refusals",
+      "file": "packages/storage-sqlite/src/v24-migration.ts",
+      "line": 61
+    },
+    {
+      "kind": "TABLE",
+      "name": "baseline_rebase_reviews",
+      "file": "packages/storage-sqlite/src/v25-migration.ts",
+      "line": 6
+    },
+    {
+      "kind": "TABLE",
+      "name": "privacy_zones",
+      "file": "packages/storage-sqlite/src/v26-migration.ts",
+      "line": 18
+    },
+    {
+      "kind": "TABLE",
+      "name": "privacy_zone_revisions",
+      "file": "packages/storage-sqlite/src/v26-migration.ts",
+      "line": 28
+    },
+    {
+      "kind": "TABLE",
+      "name": "performance_entries",
+      "file": "packages/storage-sqlite/src/v27-migration.ts",
+      "line": 16
+    },
+    {
+      "kind": "TABLE",
+      "name": "prediction_label_state",
+      "file": "packages/storage-sqlite/src/v28-migration.ts",
+      "line": 10
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_source_tombstones_v30",
+      "file": "packages/storage-sqlite/src/v30-migration.ts",
+      "line": 7
+    },
+    {
+      "kind": "TABLE",
+      "name": "healthkit_record_sources",
+      "file": "packages/storage-sqlite/src/v30-migration.ts",
+      "line": 17
+    },
+    {
+      "kind": "TABLE",
+      "name": "healthkit_record_aliases",
+      "file": "packages/storage-sqlite/src/v31-migration.ts",
+      "line": 33
+    },
+    {
+      "kind": "TABLE",
+      "name": "healthkit_record_facts",
+      "file": "packages/storage-sqlite/src/v31-migration.ts",
+      "line": 39
+    },
+    {
+      "kind": "TABLE",
+      "name": "coach_feedback_revisions",
+      "file": "packages/storage-sqlite/src/v32-migration.ts",
+      "line": 6
+    },
+    {
+      "kind": "TABLE",
+      "name": "coach_fact_operations",
+      "file": "packages/storage-sqlite/src/v32-migration.ts",
+      "line": 12
+    },
+    {
+      "kind": "TABLE",
+      "name": "coach_prediction_summaries",
+      "file": "packages/storage-sqlite/src/v32-migration.ts",
+      "line": 16
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_fact_history",
+      "file": "packages/storage-sqlite/src/v34-migration.ts",
+      "line": 27
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_generations",
+      "file": "packages/storage-sqlite/src/v34-migration.ts",
+      "line": 42
+    },
+    {
+      "kind": "TABLE",
+      "name": "route_versions",
+      "file": "packages/storage-sqlite/src/v35-migration.ts",
+      "line": 22
+    },
+    {
+      "kind": "TABLE",
+      "name": "route_version_points",
+      "file": "packages/storage-sqlite/src/v35-migration.ts",
+      "line": 34
+    },
+    {
+      "kind": "TABLE",
+      "name": "import_batch_partitions",
+      "file": "packages/storage-sqlite/src/v35-migration.ts",
+      "line": 50
+    },
+    {
+      "kind": "TABLE",
+      "name": "analysis_run_input_bindings",
+      "file": "packages/storage-sqlite/src/v39-migration.ts",
+      "line": 48
+    },
+    {
+      "kind": "TABLE",
+      "name": "analysis_job_coverage",
+      "file": "packages/storage-sqlite/src/v39-migration.ts",
+      "line": 66
+    },
+    {
+      "kind": "TABLE",
+      "name": "training_metric_checkpoints",
+      "file": "packages/storage-sqlite/src/v41-migration.ts",
+      "line": 41
+    },
+    {
+      "kind": "TABLE",
+      "name": "analysis_job_merges",
+      "file": "packages/storage-sqlite/src/v42-migration.ts",
+      "line": 52
+    },
+    {
+      "kind": "VIEW",
+      "name": "readable_route_points",
+      "file": "packages/storage-sqlite/src/v43-migration.ts",
+      "line": 61
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_sync_observations",
+      "file": "packages/storage-sqlite/src/v48-migration.ts",
+      "line": 34
+    },
+    {
+      "kind": "TABLE",
+      "name": "healthkit_workout_aliases",
+      "file": "packages/storage-sqlite/src/v48-migration.ts",
+      "line": 48
+    },
+    {
+      "kind": "TABLE",
+      "name": "healthkit_route_sources",
+      "file": "packages/storage-sqlite/src/v48-migration.ts",
+      "line": 61
+    },
+    {
+      "kind": "TABLE",
+      "name": "healthkit_record_native_details",
+      "file": "packages/storage-sqlite/src/v48-migration.ts",
+      "line": 76
+    },
+    {
+      "kind": "TABLE",
+      "name": "healthkit_record_series_items",
+      "file": "packages/storage-sqlite/src/v48-migration.ts",
+      "line": 86
+    },
+    {
+      "kind": "TABLE",
+      "name": "workout_sample_associations",
+      "file": "packages/storage-sqlite/src/v48-migration.ts",
+      "line": 100
+    }
+  ],
+  "algorithmExports": [
+    {
+      "name": "seriesCoverage",
+      "file": "packages/dynamics/src/index.ts",
+      "line": 101
+    },
+    {
+      "name": "analyseRunningDynamics",
+      "file": "packages/dynamics/src/index.ts",
+      "line": 225
+    },
+    {
+      "name": "calculateRecoveryParts",
+      "file": "packages/features/src/index.ts",
+      "line": 429
+    },
+    {
+      "name": "extractWorkoutFeatureVector",
+      "file": "packages/features/src/index.ts",
+      "line": 479
+    },
+    {
+      "name": "calculateRecoveryParts",
+      "file": "packages/features/src/legacy-v3/index.ts",
+      "line": 411
+    },
+    {
+      "name": "extractWorkoutFeatureVector",
+      "file": "packages/features/src/legacy-v3/index.ts",
+      "line": 461
+    },
+    {
+      "name": "detectImplausibleSpeedSamples",
+      "file": "packages/features/src/speed-plausibility.ts",
+      "line": 60
+    },
+    {
+      "name": "speedSourceBreakdown",
+      "file": "packages/features/src/speed-plausibility.ts",
+      "line": 120
+    },
+    {
+      "name": "SpeedWindows",
+      "file": "packages/features/src/speed-windows.ts",
+      "line": 20
+    },
+    {
+      "name": "extractWorkoutFeatureVectorV4",
+      "file": "packages/features/src/v4.ts",
+      "line": 10
+    },
+    {
+      "name": "encodeFeaturePayloadV4",
+      "file": "packages/features/src/v4.ts",
+      "line": 100
+    },
+    {
+      "name": "projectFeatureV4",
+      "file": "packages/features/src/v4.ts",
+      "line": 129
+    },
+    {
+      "name": "decodeStoredFeature",
+      "file": "packages/features/src/v4.ts",
+      "line": 145
+    },
+    {
+      "name": "storedFeatureSchema",
+      "file": "packages/features/src/v4.ts",
+      "line": 190
+    },
+    {
+      "name": "assertPredictionCorrectionLedger",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 54
+    },
+    {
+      "name": "validateCases",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 145
+    },
+    {
+      "name": "predictionMetrics",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 166
+    },
+    {
+      "name": "assertIndependentTemporalPartitions",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 181
+    },
+    {
+      "name": "assertIntervalPublicationPolicy",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 226
+    },
+    {
+      "name": "toHeuristicRange",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 287
+    },
+    {
+      "name": "assertIntervalPresentation",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 305
+    },
+    {
+      "name": "validateIntervalArtifact",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 374
+    },
+    {
+      "name": "fitEmpiricalIntervals",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 391
+    },
+    {
+      "name": "empiricalIntervalBounds",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 420
+    },
+    {
+      "name": "evaluateIntervalArtifact",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 437
+    },
+    {
+      "name": "compareResidualChallengers",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 499
+    },
+    {
+      "name": "negativeLearningReleaseBlockers",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 589
+    },
+    {
+      "name": "assertPerformanceComparisonIsComparable",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 697
+    },
+    {
+      "name": "evaluationReportEnvelope",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 748
+    },
+    {
+      "name": "assertUnifiedEvaluationReport",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 793
+    },
+    {
+      "name": "assertCaWeightAblationReport",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 863
+    },
+    {
+      "name": "personalCalibrationReadiness",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 1082
+    },
+    {
+      "name": "fitPersonalInterval",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 1113
+    },
+    {
+      "name": "personalBandSeconds",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 1157
+    },
+    {
+      "name": "assertPersonalIntervalPresentation",
+      "file": "packages/model-eval/src/index.ts",
+      "line": 1175
+    },
+    {
+      "name": "replayModelPair",
+      "file": "packages/model-eval/src/replay.ts",
+      "line": 5
+    },
+    {
+      "name": "stableContextHash",
+      "file": "packages/normalization/src/index.ts",
+      "line": 120
+    },
+    {
+      "name": "identityNormalizationConfigHash",
+      "file": "packages/normalization/src/index.ts",
+      "line": 155
+    },
+    {
+      "name": "createIdentityNormalizationAdapter",
+      "file": "packages/normalization/src/index.ts",
+      "line": 175
+    },
+    {
+      "name": "validateConditionLedger",
+      "file": "packages/normalization/src/index.ts",
+      "line": 312
+    },
+    {
+      "name": "danielsFractionOfVo2Max",
+      "file": "packages/physiology/src/index.ts",
+      "line": 212
+    },
+    {
+      "name": "oxygenCostAtVelocity",
+      "file": "packages/physiology/src/index.ts",
+      "line": 221
+    },
+    {
+      "name": "velocityAtOxygenCost",
+      "file": "packages/physiology/src/index.ts",
+      "line": 232
+    },
+    {
+      "name": "vdotFromPerformance",
+      "file": "packages/physiology/src/index.ts",
+      "line": 242
+    },
+    {
+      "name": "heatHumidityPenaltyFraction",
+      "file": "packages/physiology/src/index.ts",
+      "line": 254
+    },
+    {
+      "name": "elevationPenaltyFraction",
+      "file": "packages/physiology/src/index.ts",
+      "line": 271
+    },
+    {
+      "name": "performanceConditionPenaltyFraction",
+      "file": "packages/physiology/src/index.ts",
+      "line": 288
+    },
+    {
+      "name": "gradeCostJoulesPerKgMeter",
+      "file": "packages/physiology/src/index.ts",
+      "line": 339
+    },
+    {
+      "name": "gradeAdjustedPace",
+      "file": "packages/physiology/src/index.ts",
+      "line": 364
+    },
+    {
+      "name": "performanceSecondsFromVdot",
+      "file": "packages/physiology/src/index.ts",
+      "line": 382
+    },
+    {
+      "name": "performanceEvidence",
+      "file": "packages/physiology/src/index.ts",
+      "line": 399
+    },
+    {
+      "name": "performanceVdotEvidence",
+      "file": "packages/physiology/src/index.ts",
+      "line": 414
+    },
+    {
+      "name": "estimateVo2Max",
+      "file": "packages/physiology/src/index.ts",
+      "line": 454
+    },
+    {
+      "name": "estimatePerformanceVdot",
+      "file": "packages/physiology/src/index.ts",
+      "line": 565
+    },
+    {
+      "name": "estimateLactateThreshold",
+      "file": "packages/physiology/src/index.ts",
+      "line": 682
+    },
+    {
+      "name": "estimateLactateThresholdFromEvidence",
+      "file": "packages/physiology/src/index.ts",
+      "line": 789
+    },
+    {
+      "name": "estimateLactateThresholdFromPerformanceVdot",
+      "file": "packages/physiology/src/index.ts",
+      "line": 947
+    },
+    {
+      "name": "predictRaceTimes",
+      "file": "packages/physiology/src/index.ts",
+      "line": 963
+    },
+    {
+      "name": "predictRaceTimesFromPerformanceVdot",
+      "file": "packages/physiology/src/index.ts",
+      "line": 1100
+    },
+    {
+      "name": "buildPhysiologyPredictionSnapshot",
+      "file": "packages/physiology/src/index.ts",
+      "line": 1114
+    },
+    {
+      "name": "evaluateRacePrediction",
+      "file": "packages/physiology/src/index.ts",
+      "line": 1159
+    },
+    {
+      "name": "aggregateRacePredictionErrors",
+      "file": "packages/physiology/src/index.ts",
+      "line": 1191
+    },
+    {
+      "name": "calibrateRacePrediction",
+      "file": "packages/physiology/src/index.ts",
+      "line": 1252
+    },
+    {
+      "name": "createPhysiologyNormalizationAdapter",
+      "file": "packages/physiology/src/index.ts",
+      "line": 1319
+    },
+    {
+      "name": "buildWorkoutEnvironmentView",
+      "file": "packages/physiology/src/index.ts",
+      "line": 1347
+    },
+    {
+      "name": "buildRaceMlFeatures",
+      "file": "packages/physiology/src/ridge.ts",
+      "line": 72
+    },
+    {
+      "name": "fitRaceResidualRidge",
+      "file": "packages/physiology/src/ridge.ts",
+      "line": 126
+    },
+    {
+      "name": "predictRaceResidual",
+      "file": "packages/physiology/src/ridge.ts",
+      "line": 178
+    },
+    {
+      "name": "applyRaceResidualRidge",
+      "file": "packages/physiology/src/ridge.ts",
+      "line": 191
+    },
+    {
+      "name": "assertCatBoostArtifactManifest",
+      "file": "packages/prediction-inference/src/index.ts",
+      "line": 80
+    },
+    {
+      "name": "correctionFractionFromLogResidual",
+      "file": "packages/prediction-inference/src/index.ts",
+      "line": 132
+    },
+    {
+      "name": "OnnxCatBoostResidualModel",
+      "file": "packages/prediction-inference/src/index.ts",
+      "line": 151
+    },
+    {
+      "name": "readinessStateEvidence",
+      "file": "packages/readiness/src/index.ts",
+      "line": 29
+    },
+    {
+      "name": "assessReadiness",
+      "file": "packages/readiness/src/index.ts",
+      "line": 101
+    },
+    {
+      "name": "withReadinessLineage",
+      "file": "packages/readiness/src/index.ts",
+      "line": 172
+    },
+    {
+      "name": "legacyRecoveryBackground",
+      "file": "packages/readiness/src/index.ts",
+      "line": 193
+    },
+    {
+      "name": "classifyReadinessPhysState",
+      "file": "packages/readiness/src/index.ts",
+      "line": 212
+    },
+    {
+      "name": "physStateFromReadiness",
+      "file": "packages/readiness/src/index.ts",
+      "line": 242
+    },
+    {
+      "name": "assessDatedReadiness",
+      "file": "packages/readiness/src/index.ts",
+      "line": 259
+    },
+    {
+      "name": "adaptiveBaselineAt",
+      "file": "packages/scoring/src/baseline-v2.ts",
+      "line": 30
+    },
+    {
+      "name": "buildAdaptiveBaselineTimeline",
+      "file": "packages/scoring/src/baseline-v2.ts",
+      "line": 89
+    },
+    {
+      "name": "buildLegacyStratumHistory",
+      "file": "packages/scoring/src/baseline-v2.ts",
+      "line": 107
+    },
+    {
+      "name": "reviewBaselineRebase",
+      "file": "packages/scoring/src/baseline-v2.ts",
+      "line": 128
+    },
+    {
+      "name": "weightedCurrentAbility",
+      "file": "packages/scoring/src/index.ts",
+      "line": 59
+    },
+    {
+      "name": "confidenceScore",
+      "file": "packages/scoring/src/index.ts",
+      "line": 83
+    },
+    {
+      "name": "evaluateConfidenceV2",
+      "file": "packages/scoring/src/index.ts",
+      "line": 135
+    },
+    {
+      "name": "sessionStratum",
+      "file": "packages/scoring/src/index.ts",
+      "line": 211
+    },
+    {
+      "name": "evaluateStratumComparability",
+      "file": "packages/scoring/src/index.ts",
+      "line": 256
+    },
+    {
+      "name": "comparabilityValue",
+      "file": "packages/scoring/src/index.ts",
+      "line": 291
+    },
+    {
+      "name": "comparabilityPolicyVersion",
+      "file": "packages/scoring/src/index.ts",
+      "line": 296
+    },
+    {
+      "name": "baseLearningRate",
+      "file": "packages/scoring/src/index.ts",
+      "line": 315
+    },
+    {
+      "name": "growthResistance",
+      "file": "packages/scoring/src/index.ts",
+      "line": 324
+    },
+    {
+      "name": "updateTrueAbility",
+      "file": "packages/scoring/src/index.ts",
+      "line": 328
+    },
+    {
+      "name": "inactivityDecay",
+      "file": "packages/scoring/src/index.ts",
+      "line": 348
+    },
+    {
+      "name": "trueAbilityAfterInactivity",
+      "file": "packages/scoring/src/index.ts",
+      "line": 357
+    },
+    {
+      "name": "weightedCurrentAbility",
+      "file": "packages/scoring/src/legacy-v1/index.ts",
+      "line": 42
+    },
+    {
+      "name": "confidenceScore",
+      "file": "packages/scoring/src/legacy-v1/index.ts",
+      "line": 66
+    },
+    {
+      "name": "baseLearningRate",
+      "file": "packages/scoring/src/legacy-v1/index.ts",
+      "line": 82
+    },
+    {
+      "name": "growthResistance",
+      "file": "packages/scoring/src/legacy-v1/index.ts",
+      "line": 88
+    },
+    {
+      "name": "updateTrueAbility",
+      "file": "packages/scoring/src/legacy-v1/index.ts",
+      "line": 92
+    },
+    {
+      "name": "inactivityDecay",
+      "file": "packages/scoring/src/legacy-v1/index.ts",
+      "line": 108
+    },
+    {
+      "name": "trueAbilityAfterInactivity",
+      "file": "packages/scoring/src/legacy-v1/index.ts",
+      "line": 117
+    },
+    {
+      "name": "sortWorkoutFeaturesChronologically",
+      "file": "packages/scoring/src/legacy-v1/model.ts",
+      "line": 82
+    },
+    {
+      "name": "createPersonalBaseline",
+      "file": "packages/scoring/src/legacy-v1/model.ts",
+      "line": 168
+    },
+    {
+      "name": "hasCompletedCalibration",
+      "file": "packages/scoring/src/legacy-v1/model.ts",
+      "line": 194
+    },
+    {
+      "name": "scoreFeature",
+      "file": "packages/scoring/src/legacy-v1/model.ts",
+      "line": 262
+    },
+    {
+      "name": "updateTrueAbilityFromFeatureScore",
+      "file": "packages/scoring/src/legacy-v1/model.ts",
+      "line": 388
+    },
+    {
+      "name": "sortWorkoutFeaturesChronologically",
+      "file": "packages/scoring/src/model.ts",
+      "line": 185
+    },
+    {
+      "name": "createPersonalBaseline",
+      "file": "packages/scoring/src/model.ts",
+      "line": 331
+    },
+    {
+      "name": "hasCompletedCalibration",
+      "file": "packages/scoring/src/model.ts",
+      "line": 357
+    },
+    {
+      "name": "scoreFeature",
+      "file": "packages/scoring/src/model.ts",
+      "line": 425
+    },
+    {
+      "name": "updateTrueAbilityFromFeatureScore",
+      "file": "packages/scoring/src/model.ts",
+      "line": 634
+    },
+    {
+      "name": "classifyTrainingForm",
+      "file": "packages/training-load/src/form.ts",
+      "line": 56
+    },
+    {
+      "name": "withTrainingForm",
+      "file": "packages/training-load/src/form.ts",
+      "line": 72
+    },
+    {
+      "name": "estimateRecoveryTime",
+      "file": "packages/training-load/src/form.ts",
+      "line": 161
+    },
+    {
+      "name": "countNightsBelowSleepBaseline",
+      "file": "packages/training-load/src/index.ts",
+      "line": 18
+    },
+    {
+      "name": "classifyPhysState",
+      "file": "packages/training-load/src/index.ts",
+      "line": 26
+    },
+    {
+      "name": "heartRateReserve",
+      "file": "packages/training-load/src/index.ts",
+      "line": 137
+    },
+    {
+      "name": "trimpMinuteLoad",
+      "file": "packages/training-load/src/index.ts",
+      "line": 142
+    },
+    {
+      "name": "calculateWorkoutTrainingLoad",
+      "file": "packages/training-load/src/index.ts",
+      "line": 148
+    },
+    {
+      "name": "classifyTrainingStatus",
+      "file": "packages/training-load/src/index.ts",
+      "line": 229
+    },
+    {
+      "name": "acuteLoadExcess",
+      "file": "packages/training-load/src/index.ts",
+      "line": 257
+    },
+    {
+      "name": "assessLoad",
+      "file": "packages/training-load/src/index.ts",
+      "line": 336
+    },
+    {
+      "name": "buildLoadVectorV2",
+      "file": "packages/training-load/src/index.ts",
+      "line": 425
+    },
+    {
+      "name": "buildDailyTrainingMetrics",
+      "file": "packages/training-load/src/index.ts",
+      "line": 467
+    },
+    {
+      "name": "latestAcuteChronicLoadRatio",
+      "file": "packages/training-load/src/index.ts",
+      "line": 515
+    },
+    {
+      "name": "localDateInTimeZone",
+      "file": "packages/training-load/src/index.ts",
+      "line": 553
+    },
+    {
+      "name": "periodBounds",
+      "file": "packages/training-load/src/index.ts",
+      "line": 561
+    },
+    {
+      "name": "aggregateTrainingPeriod",
+      "file": "packages/training-load/src/index.ts",
+      "line": 569
+    },
+    {
+      "name": "buildCalendarPeriodSummary",
+      "file": "packages/training-load/src/index.ts",
+      "line": 588
+    },
+    {
+      "name": "buildRollingPeriodSummary",
+      "file": "packages/training-load/src/index.ts",
+      "line": 602
+    },
+    {
+      "name": "assessLoadV2",
+      "file": "packages/training-load/src/index.ts",
+      "line": 618
+    },
+    {
+      "name": "buildDailyTrainingMetricsV2",
+      "file": "packages/training-load/src/index.ts",
+      "line": 630
+    },
+    {
+      "name": "buildDailyZoneProfile",
+      "file": "packages/training-zones/src/index.ts",
+      "line": 182
+    },
+    {
+      "name": "heartRateZoneFor",
+      "file": "packages/training-zones/src/index.ts",
+      "line": 364
+    },
+    {
+      "name": "paceZoneFor",
+      "file": "packages/training-zones/src/index.ts",
+      "line": 380
+    },
+    {
+      "name": "assessZoneCoherence",
+      "file": "packages/training-zones/src/index.ts",
+      "line": 599
+    },
+    {
+      "name": "analyzeWorkoutZones",
+      "file": "packages/training-zones/src/index.ts",
+      "line": 704
+    },
+    {
+      "name": "trimpMinute",
+      "file": "packages/training-zones/src/index.ts",
+      "line": 859
+    },
+    {
+      "name": "calculateCompositeTrainingLoad",
+      "file": "packages/training-zones/src/index.ts",
+      "line": 863
+    },
+    {
+      "name": "percentile",
+      "file": "packages/training-zones/src/index.ts",
+      "line": 973
+    }
+  ]
+}
