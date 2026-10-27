@@ -4,7 +4,7 @@
 
 架构依据：[原始方案](RAI-Go-PostgreSQL架构重设计与实施方案.md)。实际进度、验收证据与下一步见 [实施记录](docs/IMPLEMENTATION.md)；工程约定见 [AGENTS](AGENTS.md)，边界与回滚见 [ADR-001](docs/adr/001-new-project.md)。
 
-当前可运行的是 **v2 样本、有界多活动 Workout v2、超大 Workout 细节分块包与数量 series 细项上传内核**，包括活动配置及各层统计／事件、series 父样本绑定与不可变分块／显式完整标记、超大 Workout 核心登记与不可变细节分块／seal、事务批回执与页交付封口、删除屏障、提交日志、持久任务及跨进程的 dataset/device 请求预算及上传租约（schema 9）。尚无可发布的 iOS App；路线、结果下载、分析算法和训练计划尚未实现。服务握手明确声明这些能力边界；分析任务保持 queued。
+当前可运行的是 **Phase 3 HealthKit Sync V2 服务端**：v2 样本、有界多活动 Workout v2、append-only Workout enrichment、sample↔Workout 迟到关联、超大 Workout 细节分块包、数量 series 细项、manifest 绑定的 route 分块与原子 seal、sealed 后不可变和删除屏障；包括事务批回执与页交付封口、提交日志、持久任务及跨进程 dataset/device 请求预算和上传租约（schema 11）。尚无可发布的 iOS App；真实 HealthKit、结果下载、分析算法和训练计划尚未实现。服务握手明确声明这些能力边界；分析任务保持 queued。
 
 按 [ADR-002](docs/adr/002-fresh-healthkit-dataset.md)，本次不迁移旧数据库。开发、真机与部署验收完成后，由新 iOS 客户端首次读取手机可见的 HealthKit 历史，随后走 anchor 增量同步；旧服务端计划、人工修改和旧回执不随健康事实重建。
 
@@ -14,7 +14,7 @@
 
 API 默认只监听 `127.0.0.1:8080`；容器配置监听 `0.0.0.0:8080`。`RAI_LISTEN_ADDR` 可更改监听地址。使用挂载秘密文件时配置 `RAI_DATABASE_URL_FILE`，不能同时设置两种数据库 URL 来源。API 不自动执行 migration 或创建数据集。仅在确需创建开发数据集时手动运行 `rai init`；其一次性设备凭证必须安全保存，不提交或写入普通日志。
 
-Worker 仅恢复过期租约，不消费未实现的分析任务。`GET /health` 和 `/livez` 检查进程；`GET /ready` 和 `/readyz` 检查数据库和 schema 版本。所有 `/v2` 接口都需要 `Authorization: Bearer <init 返回的 token>`。上传流程、单位及错误见 [同步合同](contracts/sync-v2.md)、[OpenAPI](contracts/openapi-v2.yaml)、[合同变更记录](contracts/CHANGELOG.md)，跨语言固定输入见 [fixtures](contracts/fixtures/envelope.json)。
+Worker 仅恢复过期租约，不消费未实现的分析任务。`GET /health` 和 `/livez` 检查进程；`GET /ready` 和 `/readyz` 检查数据库和 schema 版本。所有 `/v2` 接口都需要 `Authorization: Bearer <init 返回的 token>`。上传流程、单位及错误见 [同步合同](contracts/sync-v2.md)、[Phase 3 同步合同](docs/V2_PHASE3_SYNC_CONTRACT.md)、[OpenAPI](contracts/openapi-v2.yaml)、[合同变更记录](contracts/CHANGELOG.md)，跨语言固定输入见 [fixtures](contracts/fixtures/envelope.json)。
 
 NAS 连接见 [fnOS 访问说明](docs/FNOS-ACCESS.md)。远端现有库不作为开发／测试默认数据库。
 

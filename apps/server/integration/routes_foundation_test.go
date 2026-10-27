@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"rai/server/internal/storage/postgres"
 	"rai/server/internal/syncing"
 )
 
@@ -43,7 +42,6 @@ func TestWorkoutSampleAssociationConstraints(t *testing.T) {
 
 func TestSyntheticWorkoutDurationsAndRouteBatches(t *testing.T) {
 	f := setup(t)
-	ctx := context.Background()
 	workoutStream(t, f)
 	var previous *string
 	for i, seconds := range []int{1200, 2700, 14400} {
@@ -52,113 +50,128 @@ func TestSyntheticWorkoutDurationsAndRouteBatches(t *testing.T) {
 		duration, activity := int64(seconds)*1000000, int64(37)
 		w := syncing.Event{Op: "upsert", Kind: "workout", Type: syncing.WorkoutType, UUID: syncing.NewID(), StartUs: &startUs, EndUs: &endUs,
 			Source: &syncing.Source{BundleID: "synthetic.test"}, Workout: &syncing.Workout{ActivityType: &activity, DurationUs: &duration}}
-		workoutStart := time.Now()
 		e, _, _ := f.commit(t, []syncing.Event{w}, int64(i+1), previous)
-		if i == 0 {
-			t.Logf("synthetic workout complete commit: %s", time.Since(workoutStart))
-		}
 		previous = &e.BatchID
 		route := syncing.NewID()
-		for offset, chunk := 0, int32(0); offset < seconds; chunk++ {
-			n := min(5000, seconds-offset)
-			points := make([]postgres.RoutePoint, n)
-			for j := range points {
-				points[j] = postgres.RoutePoint{Sequence: int64(offset + j), RecordedAt: start.Add(time.Duration(offset+j) * time.Second)}
-			}
-			if _, err := f.s.StageRouteChunk(ctx, f.p.DatasetID, w.UUID, route, "synthetic", chunk, points); err != nil {
-				t.Fatal(err)
+		chunks := (seconds + syncing.MaxRoutePointsPerChunk - 1) / syncing.MaxRoutePointsPerChunk
+		registerTestRoute(t, f, w.UUID, route, start, start.Add(time.Duration(seconds-1)*time.Second), chunks, int64(seconds))
+		for chunk, offset := 0, 0; offset < seconds; chunk++ {
+			n := min(syncing.MaxRoutePointsPerChunk, seconds-offset)
+			receipt := uploadTestRouteChunk(t, f, route, chunk, testRoutePoints(start.Add(time.Duration(offset)*time.Second), n, int64(offset)))
+			if chunk == chunks-1 && receipt.CommittedChunks != chunks {
+				t.Fatal("last chunk receipt wrong", receipt)
 			}
 			offset += n
 		}
+		manifest, payload := routeStateChains(t, f, route)
+		sealed := sealTestRoute(t, f, route, chunks, int64(seconds), manifest, payload)
+		if sealed.IngestStatus != "sealed" || sealed.TotalPoints != int64(seconds) {
+			t.Fatal("route seal failed", sealed)
+		}
 		var got int
-		if err := f.s.Pool.QueryRow(ctx, `SELECT count(*) FROM route_points WHERE dataset_id=$1 AND route_uuid=$2`, f.p.DatasetID, route).Scan(&got); err != nil || got != seconds {
+		if err := f.s.Pool.QueryRow(context.Background(), `SELECT count(*) FROM route_points WHERE dataset_id=$1 AND route_uuid=$2`, f.p.DatasetID, route).Scan(&got); err != nil || got != seconds {
 			t.Fatalf("duration %d: %d points, %v", seconds, got, err)
 		}
 	}
 }
 
-func TestStageRouteChunkBatchRetryAndRollback(t *testing.T) {
+func TestRouteChunkRetryConflictGapAndSeal(t *testing.T) {
 	f := setup(t)
-	ctx := context.Background()
 	workoutStream(t, f)
-	w := workout(t, syncing.NewID())
+	start := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	w := workoutAt(start, 12)
 	f.commit(t, []syncing.Event{w}, 1, nil)
 	route := syncing.NewID()
-	points := make([]postgres.RoutePoint, 5000)
-	for i := range points {
-		points[i] = postgres.RoutePoint{Sequence: int64(i), RecordedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(i) * time.Second), Latitude: 0, Longitude: 0}
+	registerTestRoute(t, f, w.UUID, route, start, start.Add(9*time.Second), 2, 10)
+	points := testRoutePoints(start, 5, 0)
+	first := uploadTestRouteChunk(t, f, route, 0, points)
+	again := uploadTestRouteChunk(t, f, route, 0, points)
+	if string(first.ManifestSHA256) != string(again.ManifestSHA256) || again.CommittedChunks != 1 {
+		t.Fatal("identical chunk retry changed receipt")
 	}
-	started := time.Now()
-	inserted, err := f.s.StageRouteChunk(ctx, f.p.DatasetID, w.UUID, route, "synthetic", 0, points)
-	if err != nil || !inserted {
-		t.Fatalf("stage: %t %v", inserted, err)
+	changed := append([]syncing.RoutePoint(nil), points...)
+	changed[0].Latitude = 31.3
+	lease := takeUpload(t, f.s, f.p)
+	_, err := f.s.CommitRouteChunk(context.Background(), f.p, testRouteChunk(route, 0, changed), lease)
+	requireCode(t, err, "route_chunk_conflict")
+	if err = f.s.ReleaseUpload(context.Background(), f.p, lease); err != nil {
+		t.Fatal(err)
 	}
-	t.Logf("synthetic storage 5000-point chunk: %s", time.Since(started))
-	inserted, err = f.s.StageRouteChunk(ctx, f.p.DatasetID, w.UUID, route, "synthetic", 0, points)
-	if err != nil || inserted {
-		t.Fatalf("retry: %t %v", inserted, err)
+	// A gap is rejected before writing any point.
+	gapPoints := testRoutePoints(start.Add(10*time.Second), 1, 10)
+	lease = takeUpload(t, f.s, f.p)
+	_, err = f.s.CommitRouteChunk(context.Background(), f.p, testRouteChunk(route, 2, gapPoints), lease)
+	requireCode(t, err, "route_chunk_gap")
+	if err = f.s.ReleaseUpload(context.Background(), f.p, lease); err != nil {
+		t.Fatal(err)
 	}
-	points[0].Latitude = 1
-	if _, err = f.s.StageRouteChunk(ctx, f.p.DatasetID, w.UUID, route, "synthetic", 0, points); err == nil {
-		t.Fatal("different retry accepted")
+	partialManifest, partialPayload := routeStateChains(t, f, route)
+	if _, err = f.s.SealRoute(context.Background(), f.p, route, syncing.RouteSeal{
+		ProtocolVersion: syncing.ProtocolVersion, ChunkCount: 2, TotalPoints: 10,
+		ManifestSHA256: partialManifest, PayloadManifestSHA256: partialPayload,
+	}); err == nil {
+		t.Fatal("incomplete route sealed")
+	} else {
+		requireCode(t, err, "route_incomplete")
 	}
-	if _, err = f.s.StageRouteChunk(ctx, f.p.DatasetID, w.UUID, route, "synthetic", 1, points[:1]); err == nil {
-		t.Fatal("duplicate sequence accepted")
+	second := uploadTestRouteChunk(t, f, route, 1, testRoutePoints(start.Add(5*time.Second), 5, 5))
+	if second.CommittedChunks != 2 || second.TotalPoints != 10 {
+		t.Fatal("second chunk state wrong", second)
 	}
-	if count(t, f, "route_chunks") != 1 || count(t, f, "route_points") != 5000 {
-		t.Fatal("failed insert left partial chunk")
+	manifest, payloadManifest := routeStateChains(t, f, route)
+	if _, err = f.s.SealRoute(context.Background(), f.p, route, syncing.RouteSeal{
+		ProtocolVersion: syncing.ProtocolVersion, ChunkCount: 2, TotalPoints: 10,
+		ManifestSHA256:        "0000000000000000000000000000000000000000000000000000000000000000",
+		PayloadManifestSHA256: payloadManifest,
+	}); err == nil {
+		t.Fatal("wrong manifest sealed")
+	} else {
+		requireCode(t, err, "route_manifest_mismatch")
+	}
+	sealed := sealTestRoute(t, f, route, 2, 10, manifest, payloadManifest)
+	if sealed.IngestStatus != "sealed" || len(sealed.AnalysisJobIDs) != 1 {
+		t.Fatal("route seal incomplete", sealed)
+	}
+	replay := sealTestRoute(t, f, route, 2, 10, manifest, payloadManifest)
+	if replay.CommitRevision != sealed.CommitRevision {
+		t.Fatal("seal replay changed revision")
+	}
+	if _, err = f.s.SealRoute(context.Background(), f.p, route, syncing.RouteSeal{
+		ProtocolVersion: syncing.ProtocolVersion, ChunkCount: 2, TotalPoints: 9,
+		ManifestSHA256: manifest, PayloadManifestSHA256: payloadManifest,
+	}); err == nil {
+		t.Fatal("different seal declaration accepted")
+	} else {
+		requireCode(t, err, "route_already_sealed")
+	}
+	lease = takeUpload(t, f.s, f.p)
+	sameAfterSeal, err := f.s.CommitRouteChunk(context.Background(), f.p, testRouteChunk(route, 0, points), lease)
+	if err != nil || len(sameAfterSeal) == 0 {
+		t.Fatal("exact chunk retry after seal lost receipt", err)
+	}
+	_, err = f.s.CommitRouteChunk(context.Background(), f.p, testRouteChunk(route, 2, points[:1]), lease)
+	requireCode(t, err, "route_already_sealed")
+	if err = f.s.ReleaseUpload(context.Background(), f.p, lease); err != nil {
+		t.Fatal(err)
+	}
+	if count(t, f, "route_points") != 10 || count(t, f, "route_chunks") != 2 {
+		t.Fatal("failed retries changed route facts")
 	}
 }
 
-func TestRouteFoundationConstraintsAndBulkProjection(t *testing.T) {
+func TestRouteProjectionAndWorkoutCascade(t *testing.T) {
 	f := setup(t)
-	ctx := context.Background()
 	workoutStream(t, f)
-	w := workout(t, syncing.NewID())
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	w := workoutAt(start, 5000)
 	f.commit(t, []syncing.Event{w}, 1, nil)
 	route := syncing.NewID()
-	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO workout_routes(dataset_id,route_uuid,workout_uuid,source_bundle_id) VALUES($1,$2,$3,'synthetic')`, f.p.DatasetID, route, w.UUID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO workout_routes(dataset_id,route_uuid,workout_uuid,source_bundle_id) VALUES($1,$2,$3,'synthetic')`, f.p.DatasetID, route, w.UUID); err == nil {
-		t.Fatal("duplicate route accepted")
-	}
-	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO workout_routes(dataset_id,route_uuid,workout_uuid,source_bundle_id) VALUES($1,$2,$3,'synthetic')`, f.p.DatasetID, syncing.NewID(), syncing.NewID()); err == nil {
-		t.Fatal("route without parent accepted")
-	}
-	tx, err := f.s.Pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback(ctx)
-	started := time.Now()
-	_, err = tx.Exec(ctx, `INSERT INTO route_chunks(dataset_id,route_uuid,chunk_index,point_count,content_sha256,points)
-		SELECT $1,$2,0,5000,decode(repeat('00',32),'hex'),jsonb_agg(jsonb_build_object('sequence',n) ORDER BY n) FROM generate_series(0,4999) n`, f.p.DatasetID, route)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = tx.Exec(ctx, `INSERT INTO route_points(dataset_id,route_uuid,chunk_index,sequence,recorded_at,latitude,longitude)
-		SELECT $1,$2,0,n,'2026-01-01T00:00:00Z'::timestamptz + n*interval '1 second',0,0 FROM generate_series(0,4999) n`, f.p.DatasetID, route)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("synthetic 5000-point chunk plus projection transaction: %s", time.Since(started))
+	registerTestRoute(t, f, w.UUID, route, start, start.Add(4999*time.Second), 1, 5000)
+	uploadTestRouteChunk(t, f, route, 0, testRoutePoints(start, 5000, 0))
 	if count(t, f, "route_points") != 5000 {
 		t.Fatal("projection incomplete")
 	}
-	for _, q := range []string{
-		`INSERT INTO route_points(dataset_id,route_uuid,chunk_index,sequence,recorded_at,latitude,longitude) VALUES($1,$2,0,0,now(),0,0)`,
-		`INSERT INTO route_points(dataset_id,route_uuid,chunk_index,sequence,recorded_at,latitude,longitude) VALUES($1,$2,0,5000,now(),91,0)`,
-		`INSERT INTO route_points(dataset_id,route_uuid,chunk_index,sequence,recorded_at,latitude,longitude) VALUES($1,$2,1,5000,now(),0,0)`,
-	} {
-		if _, err = f.s.Pool.Exec(ctx, q, f.p.DatasetID, route); err == nil {
-			t.Fatal("invalid route point accepted")
-		}
-	}
-	if _, err = f.s.Pool.Exec(ctx, `DELETE FROM workouts WHERE dataset_id=$1 AND workout_uuid=$2`, f.p.DatasetID, w.UUID); err != nil {
+	if _, err := f.s.Pool.Exec(context.Background(), `DELETE FROM workouts WHERE dataset_id=$1 AND workout_uuid=$2`, f.p.DatasetID, w.UUID); err != nil {
 		t.Fatal(err)
 	}
 	if count(t, f, "workout_routes") != 0 || count(t, f, "route_chunks") != 0 || count(t, f, "route_points") != 0 {

@@ -1,0 +1,3 @@
+// Copy to Developer.xcconfig (ignored). No bearer tokens in build settings.
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+RAI_DEV_HTTP_HOST = rai-dev.local

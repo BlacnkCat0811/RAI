@@ -32,11 +32,11 @@ func TestHealthEndpointsWithPostgres(t *testing.T) {
 		}
 	}
 	check(200, 200)
-	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO goose_db_version (version_id, is_applied) VALUES (11, true)`); err != nil {
+	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO goose_db_version (version_id, is_applied) VALUES (12, true)`); err != nil {
 		t.Fatal(err)
 	}
 	check(200, 503)
-	if _, err := f.s.Pool.Exec(ctx, `DELETE FROM goose_db_version WHERE version_id = 11`); err != nil {
+	if _, err := f.s.Pool.Exec(ctx, `DELETE FROM goose_db_version WHERE version_id = 12`); err != nil {
 		t.Fatal(err)
 	}
 	check(200, 200)

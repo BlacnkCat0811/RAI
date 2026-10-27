@@ -51,6 +51,14 @@ scripts/test-remote.sh go test -race -count=1 -tags=integration,scale -p 1 -run 
 
 每次运行都会在远端新建独立临时目录和一次性 PostgreSQL 18 容器；默认优先使用远端的 Go 1.27.3 + gcc 直接跑原生 Linux 测试，缺少 Go 或 gcc 时才回退到一次性 Go 容器。测试结束删除容器与目录。并发运行使用不同的运行 ID，不会共用数据库。脚本**不连接**现有的 `rai-postgres`／`rai` 库，也不读取 `/home/tpandmr/rai/.env`；测试数据全部是合成数据。
 
+P3 的正式 fnOS Compose E2E：
+
+```bash
+scripts/test-remote.sh bash ../../scripts/test-p3-e2e.sh
+```
+
+脚本使用一次性 Compose 项目、合成 HealthKit-like 数据和独立卷，验证 worker 离线 durable ACK、API restart、PostgreSQL restart、route seal、association 和 enrichment；结束后删除项目、卷和测试镜像。它仍不是 iPhone 真机测试。
+
 N100 实测（2026-10-27）：完整 `go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...` 的 integration 包 101.450 秒；`TestScale` 专项 300.714 秒；`go vet -tags=integration,scale ./...` 与依赖边界检查通过（246 个包）。PostgreSQL 容器实查 `server_version=18.6`、`fsync=on`、`full_page_writes=on`、`synchronous_commit=on`、`data_checksums=on`、`shared_buffers=128MB`。
 
 N100 是 4 核低功耗机器（约 8 GB 内存），默认 `GOMAXPROCS=2`；同时跑两个 `-race` 套件已接近上限，`scale` 专项建议单独运行，不要用它做并发压测。

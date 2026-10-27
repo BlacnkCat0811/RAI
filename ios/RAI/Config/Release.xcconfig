@@ -1,0 +1,2 @@
+// Signing team can be supplied by Xcode's local account configuration.
+#include? "Developer.xcconfig"

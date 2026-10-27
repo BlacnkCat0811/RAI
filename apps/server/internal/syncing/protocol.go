@@ -78,6 +78,9 @@ type Envelope struct {
 }
 
 func (e Envelope) Validate() error {
+	if e.ProtocolVersion != ProtocolVersion {
+		return Fail(422, "unsupported_protocol")
+	}
 	for _, id := range []string{e.DatasetID, e.DatasetEpoch, e.CollectorEpoch, e.StreamID, e.BatchID, e.PageID} {
 		if !ValidID(id) {
 			return Fail(422, "unsupported_payload")
@@ -86,7 +89,7 @@ func (e Envelope) Validate() error {
 	if e.PreviousBatchID != nil && !ValidID(*e.PreviousBatchID) {
 		return Fail(422, "unsupported_payload")
 	}
-	if e.ProtocolVersion != ProtocolVersion || e.ContentEncoding != "gzip" || e.ClientSeq < 1 ||
+	if e.ContentEncoding != "gzip" || e.ClientSeq < 1 ||
 		(e.ClientSeq == 1) != (e.PreviousBatchID == nil) || e.FragmentCount < 1 || e.FragmentCount > MaxPageFragments ||
 		e.FragmentIndex < 0 || e.FragmentIndex >= e.FragmentCount ||
 		!strings.HasPrefix(e.QueryFingerprint, "sha256:") || !digestPattern.MatchString(strings.TrimPrefix(e.QueryFingerprint, "sha256:")) ||
@@ -169,7 +172,11 @@ var Units = map[string]string{
 	"HKQuantityTypeIdentifierRespiratoryRate":          "count/min",
 	"HKQuantityTypeIdentifierOxygenSaturation":         "1",
 	"HKQuantityTypeIdentifierRunningSpeed":             "m/s",
+	"HKQuantityTypeIdentifierWalkingSpeed":             "m/s",
 	"HKQuantityTypeIdentifierRunningPower":             "W",
+	"HKQuantityTypeIdentifierRunningCadence":           "count/min",
+	"HKQuantityTypeIdentifierCyclingCadence":           "count/min",
+	"HKQuantityTypeIdentifierWalkingCadence":           "count/min",
 	"HKCategoryTypeIdentifierSleepAnalysis":            "",
 }
 
@@ -205,6 +212,9 @@ func (e Event) Validate(sampleType string) error {
 			return Fail(422, "unsupported_payload")
 		}
 	} else if e.Quantity == nil || e.Category != nil || e.Quantity.Unit != unit || math.IsNaN(e.Quantity.Value) || math.IsInf(e.Quantity.Value, 0) {
+		if e.Quantity != nil && e.Quantity.Unit != unit {
+			return Fail(422, "unsupported_unit")
+		}
 		return Fail(422, "unsupported_payload")
 	}
 	return nil
@@ -328,6 +338,48 @@ func DecodeJSON(b []byte, v any) error {
 				if err := validateWorkoutJSON(fields["workout"]); err != nil {
 					return err
 				}
+			}
+		}
+	case *RouteManifest:
+		required = []string{"protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "routeID", "workoutID", "source", "expectedChunkCount", "expectedPointCount", "firstRecordedAtUs", "lastRecordedAtUs"}
+		for _, raw := range fields {
+			if bytes.Equal(raw, []byte("null")) {
+				return Fail(422, "unsupported_payload")
+			}
+		}
+	case *RouteSeal:
+		required = []string{"protocolVersion", "chunkCount", "totalPoints", "manifestSHA256", "payloadManifestSHA256"}
+		for _, raw := range fields {
+			if bytes.Equal(raw, []byte("null")) {
+				return Fail(422, "unsupported_payload")
+			}
+		}
+	case *RouteDeleteRequest:
+		required = []string{"protocolVersion", "datasetEpoch", "collectorEpoch"}
+		for _, raw := range fields {
+			if bytes.Equal(raw, []byte("null")) {
+				return Fail(422, "unsupported_payload")
+			}
+		}
+	case *RoutePoint:
+		required = []string{"sequence", "recordedAtUs", "latitude", "longitude"}
+		for _, raw := range fields {
+			if bytes.Equal(raw, []byte("null")) {
+				return Fail(422, "unsupported_payload")
+			}
+		}
+	case *AssociationRequest:
+		required = []string{"protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "associationID", "sampleType", "sampleUUID", "workoutUUID", "source"}
+		for _, raw := range fields {
+			if bytes.Equal(raw, []byte("null")) {
+				return Fail(422, "unsupported_payload")
+			}
+		}
+	case *WorkoutEnrichmentRequest:
+		required = []string{"protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "enrichmentID", "workoutID", "source", "sourceVersion", "observedAtUs"}
+		for _, raw := range fields {
+			if bytes.Equal(raw, []byte("null")) {
+				return Fail(422, "unsupported_payload")
 			}
 		}
 	}
@@ -464,6 +516,12 @@ func ParseBody(r io.Reader, e Envelope, sampleType string) ([]Event, error) {
 			return nil, &Error{Status: 422, Code: "unsupported_payload", EventIndex: &i}
 		}
 		if err := ev.Validate(sampleType); err != nil {
+			var typed *Error
+			if errors.As(err, &typed) {
+				copy := *typed
+				copy.EventIndex = &i
+				return nil, &copy
+			}
 			return nil, &Error{Status: 422, Code: "unsupported_payload", EventIndex: &i}
 		}
 		events = append(events, ev)

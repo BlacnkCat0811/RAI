@@ -1,3 +1,12 @@
+## 0.9.0 — 2026-10-27
+
+- Phase 3 同步合同扩展（schema 11）：route manifest、不可变分块、点投影触发器、双 hash chain、原子 seal、sealed 后不可变和独立删除屏障。
+- 新增 append-only Workout enrichment 与 sample↔Workout 迟到关联；Workout 主体仍不可变，旧源版本或不同值不得覆盖新值。
+- 新增 `POST /v2/routes`、`GET /v2/routes/{id}`、`PUT /v2/routes/{id}/chunks/{index}`、`POST /v2/routes/{id}/seal`、`POST /v2/routes/{id}/delete`、`POST /v2/sync/associations`、`POST/GET /v2/sync/workout-enrichments`。
+- handshake `capabilities.routes` 置为 true，并增加 `sampleWorkoutAssociations`、`workoutEnrichment`；新增 route 限额。
+- 新增稳定错误：`unsupported_protocol`、`unsupported_unit`、`route_identity_conflict`、`route_chunk_conflict`、`route_chunk_gap`、`route_already_sealed`、`route_incomplete`、`route_manifest_mismatch`、`route_unavailable`、`route_not_found`、`route_chunk_too_large`、`route_point_too_large`、`route_too_large`、`sample_association_conflict`、`association_unavailable`、`workout_enrichment_conflict`、`workout_enrichment_stale`、`workout_unavailable`、`workout_enrichment_not_found`。
+- 仅新增 migration 00011；既有 batch/page/series/Workout package 身份和回执不变。`protocolVersion` 保持 2。
+
 # 合同变更记录
 
 ## 0.8.0 — 2026-10-27

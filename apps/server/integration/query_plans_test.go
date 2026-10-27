@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"rai/server/internal/storage/postgres"
 	"rai/server/internal/syncing"
 )
 
@@ -21,9 +20,9 @@ func TestCoreIndexAvailability(t *testing.T) {
 	w := workout(t, syncing.NewID())
 	f.commit(t, []syncing.Event{w}, 1, nil)
 	route := syncing.NewID()
-	if _, err := f.s.StageRouteChunk(ctx, f.p.DatasetID, w.UUID, route, "synthetic", 0, []postgres.RoutePoint{{RecordedAt: time.Now(), Latitude: 0, Longitude: 0}}); err != nil {
-		t.Fatal(err)
-	}
+	start := time.UnixMicro(*w.StartUs).UTC()
+	registerTestRoute(t, f, w.UUID, route, start, start, 1, 1)
+	uploadTestRouteChunk(t, f, route, 0, testRoutePoints(start, 1, 0))
 	conn, err := f.s.Pool.Acquire(ctx)
 	if err != nil {
 		t.Fatal(err)

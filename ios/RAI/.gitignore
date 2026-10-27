@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+Config/Developer.xcconfig
+RAI.xcodeproj/xcuserdata/
+RAI.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+*.xcresult

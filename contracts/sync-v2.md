@@ -1,6 +1,6 @@
 # v2 增量同步合同：样本、有界／超大 Workout v2 与数量 series 细项
 
-对应 [OpenAPI](openapi-v2.yaml) 和 [协议代码](../apps/server/internal/syncing/protocol.go)。OpenAPI 只描述机器可读形状；能力和限额以 `GET /v2/handshake` 的运行时返回为准，本文是语义规范。所有内容仅为合成数据／新工程，尚未与真实 HealthKit 真机对接。
+对应 [OpenAPI](openapi-v2.yaml) 和 [协议代码](../apps/server/internal/syncing/protocol.go)。OpenAPI 只描述机器可读形状；能力和限额以 `GET /v2/handshake` 的运行时返回为准，本文是语义规范。P3 新增的 route seal、Workout enrichment 和 late association 语义以 [Phase 3 同步合同](../docs/V2_PHASE3_SYNC_CONTRACT.md) 为准；本文保留 P2 batch/page/series/Workout package 细节。所有内容仅为合成数据／新工程，尚未与真实 HealthKit 真机对接。
 
 ## 能力和认证
 
@@ -140,8 +140,9 @@ schema 5→6 只追加空运行槽表，不改原事实、页／批回执或持�
 | VO2Max | mL/kg/min |
 | BodyMass | kg |
 | OxygenSaturation | 1（比例值） |
-| RunningSpeed | m/s |
+| RunningSpeed、WalkingSpeed | m/s |
 | RunningPower | W |
+| RunningCadence、CyclingCadence、WalkingCadence | count/min |
 | HKCategoryTypeIdentifierSleepAnalysis | category 整数 0–5，无 quantity |
 
 数量类型完整名称以 `HKQuantityTypeIdentifier` 开头。握手白名单是实际准入依据；类型与单位适配尚需后续 Swift 端和真机校验。

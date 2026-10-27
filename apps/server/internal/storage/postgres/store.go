@@ -64,7 +64,7 @@ func (s *Store) Ready(ctx context.Context) error {
 	if err = s.Pool.QueryRow(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY id DESC LIMIT 1`).Scan(&version); err != nil {
 		return err
 	}
-	if version != 10 {
+	if version != 11 {
 		return errors.New("unsupported schema version")
 	}
 	return nil
@@ -504,6 +504,17 @@ func applyEvent(ctx context.Context, tx pgx.Tx, dataset, batch string, e syncing
 		}
 		if e.Kind == "workout" {
 			if err = deleteWorkoutPackage(ctx, tx, dataset, e.UUID); err != nil {
+				return false, "", err
+			}
+			// A deleted Workout also permanently fences every route UUID that
+			// belonged to it. The route rows themselves are removed by the
+			// existing workout FK cascade.
+			_, err = tx.Exec(ctx, `INSERT INTO entity_tombstones(dataset_id,sample_type,sample_uuid,deleted_rev,reason)
+				SELECT dataset_id,$3,route_uuid,$4,'workout_deleted_object'
+				FROM workout_routes WHERE dataset_id=$1 AND workout_uuid=$2
+				ON CONFLICT(dataset_id,sample_type,sample_uuid) DO NOTHING`,
+				dataset, e.UUID, syncing.RouteType, rev)
+			if err != nil {
 				return false, "", err
 			}
 		}

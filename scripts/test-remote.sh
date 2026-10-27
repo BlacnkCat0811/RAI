@@ -58,6 +58,7 @@ if [[ "${RAI_USE_RSYNC:-1}" != 0 ]] && ssh "${ssh_opts[@]}" "$host" 'command -v 
     --exclude=tmp \
     --exclude=docs/evidence \
     --exclude='*.log' \
+    --exclude=.build --exclude=.swiftpm --exclude=DerivedData --exclude='*.xcresult' --exclude=Developer.xcconfig \
     "$root/" "$host:$remote_dir/"
 else
   tar -C "$root" -czf - \
@@ -67,7 +68,9 @@ else
     --exclude=secrets \
     --exclude=tmp \
     --exclude=docs/evidence \
-    --exclude='*.log' . | ssh "${ssh_opts[@]}" "$host" "tar -xzf - -C $(printf %q "$remote_dir")"
+    --exclude='*.log' \
+    --exclude=.build --exclude=.swiftpm --exclude=DerivedData --exclude='*.xcresult' --exclude=Developer.xcconfig \
+    . | ssh "${ssh_opts[@]}" "$host" "tar -xzf - -C $(printf %q "$remote_dir")"
 fi
 
 remote_cmd="cd $(printf %q "$remote_dir") && bash scripts/remote-test.sh"

@@ -1,0 +1,97 @@
+{
+  "phase": 3,
+  "status": "PASS WITH RISKS",
+  "repository": "/Users/ta/rai",
+  "base_commit": "67ff445061fc62895fb34d80d2bc45c5571fab05",
+  "environment": {
+    "formal": "fnOS/N100",
+    "os": "Linux",
+    "postgres": "18.6",
+    "go": "1.27.3",
+    "database": "throwaway isolated PostgreSQL containers; synthetic data only",
+    "compose_e2e": "disposable project and volume; cleaned after run"
+  },
+  "quality_gates": {
+    "gofmt": "PASS",
+    "go_test": "PASS",
+    "go_test_race": "PASS",
+    "go_vet": "PASS",
+    "go_build": "PASS",
+    "boundary_check": "PASS",
+    "integration_race": "PASS",
+    "integration_duration_seconds": 158.534,
+    "run_id": "20261027194053-3107229",
+    "openapi_lint": "PASS_WITH_8_WARNINGS"
+  },
+  "migration": {
+    "latest": 11,
+    "empty_database": "PASS",
+    "schema_10_upgrade": "PASS",
+    "schema_10_binary_rejection": "PASS",
+    "checksum_verified": true
+  },
+  "p3_e2e": {
+    "run_id": "20261027193547-3097023",
+    "result": "PASS",
+    "worker_offline_durable_ack": "PASS",
+    "api_restart_original_receipt": "PASS",
+    "postgres_restart_original_receipt": "PASS",
+    "sample_count": 1000,
+    "route_points": 5000,
+    "route_chunks": 1,
+    "association": "committed",
+    "enrichment": "committed"
+  },
+  "performance_synthetic": {
+    "run_id": "20261027193751-3103045",
+    "note": "single observations on N100 unless stated; storage/validation scope, not production throughput",
+    "samples_250": {
+      "wire_bytes": 6335,
+      "decoded_bytes": 63910,
+      "total_ms": 131.911
+    },
+    "samples_500": {
+      "wire_bytes": 12278,
+      "decoded_bytes": 127820,
+      "total_ms": 221.482
+    },
+    "samples_1000": {
+      "wire_bytes": 24137,
+      "decoded_bytes": 255660,
+      "total_ms": 361.828
+    },
+    "samples_2000_two_batches": {
+      "wire_bytes": 48214,
+      "commit_ms": 740.931,
+      "total_ms": 831.293
+    },
+    "samples_1000_8runs_p95": {
+      "commit_ms": 900.5,
+      "total_ms": 945.869
+    },
+    "route_500": {
+      "wire_bytes": 2804,
+      "decoded_bytes": 44390,
+      "chunk_ms": 51.247,
+      "seal_ms": 13.124
+    },
+    "route_1000": {
+      "wire_bytes": 5621,
+      "decoded_bytes": 88890,
+      "chunk_ms": 69.493,
+      "seal_ms": 12.266
+    },
+    "route_5000": {
+      "wire_bytes": 28342,
+      "decoded_bytes": 448890,
+      "chunk_ms": 199.251,
+      "seal_ms": 13.737
+    }
+  },
+  "unverified": [
+    "No iOS project or real iPhone HealthKit anchored query was available in this repository.",
+    "Local anchor/outbox durability, app kill recovery, background URLSession recovery and real-device network E2E are not verified.",
+    "20/45 minute and 4 hour workloads were synthetic scale tests, not real HealthKit records.",
+    "No production deployment, TLS, backup/restore or capacity acceptance was performed."
+  ]
+}

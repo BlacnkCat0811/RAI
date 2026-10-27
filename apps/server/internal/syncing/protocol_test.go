@@ -156,15 +156,15 @@ func TestImmutableEnvelope(t *testing.T) {
 	}
 }
 func TestUnsupportedCapabilities(t *testing.T) {
-	for name, bad := range map[string]string{
-		"kind":   strings.Replace(line(NewID()), `"kind":"sample"`, `"kind":"workout"`, 1),
-		"unit":   strings.Replace(line(NewID()), `"unit":"count/min"`, `"unit":"Hz"`, 1),
-		"series": strings.Replace(line(NewID()), sampleType, "HKDataTypeIdentifierHeartbeatSeries", 1),
+	for name, test := range map[string]struct{ line, code string }{
+		"kind":   {strings.Replace(line(NewID()), `"kind":"sample"`, `"kind":"workout"`, 1), "unsupported_payload"},
+		"unit":   {strings.Replace(line(NewID()), `"unit":"count/min"`, `"unit":"Hz"`, 1), "unsupported_unit"},
+		"series": {strings.Replace(line(NewID()), sampleType, "HKDataTypeIdentifierHeartbeatSeries", 1), "unsupported_payload"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			e, b := payload(t, []byte(bad), 1)
+			e, b := payload(t, []byte(test.line), 1)
 			_, err := ParseBody(bytes.NewReader(b), e, sampleType)
-			assertCode(t, err, "unsupported_payload")
+			assertCode(t, err, test.code)
 		})
 	}
 }

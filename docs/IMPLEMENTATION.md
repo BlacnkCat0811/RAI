@@ -14,11 +14,11 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 
 ## 当前实现与范围
 
-当前工程不是空骨架：`apps/server` 为 Go 1.27.3 的 `rai/server`，已有 api/worker/migrate/init 单二进制模式、pgx/v5、sqlc、goose migrations 00001–00009、合成测试、开发 Compose、Dockerfile 和 CI。`/health`、`/livez` 检查进程存活，`/ready`、`/readyz` 检查数据库与 schema。开发 Compose 包含 PostgreSQL、API 和 Worker，启动前须显式执行 migration；fnOS 隔离验收见下。
+当前工程不是空骨架：`apps/server` 为 Go 1.27.3 的 `rai/server`，已有 api/worker/migrate/init 单二进制模式、pgx/v5、sqlc、goose migrations 00001–00011、合成测试、开发 Compose、Dockerfile 和 CI。`/health`、`/livez` 检查进程存活，`/ready`、`/readyz` 检查数据库与 schema。开发 Compose 包含 PostgreSQL、API 和 Worker，启动前须显式执行 migration；fnOS 隔离验收见下。
 
-已实现的服务端切片包括 v2 数量/睡眠类别样本、有界多活动 Workout、超大 Workout 分块/seal、数量 series 分块/seal、页回执、持久请求预算和上传租约。当前握手声明对应能力；路线、changefeed、分析仍为 false。详细身份、限额及可观察错误以 [同步合同](../contracts/sync-v2.md) 和 [OpenAPI](../contracts/openapi-v2.yaml) 为准。已有业务代码保留；它的存在不是 P2/P3 完整验收。Workout 和样本内容不可变；对既有 Workout metadata 的迟到变化尚无补充事实协议，必须保留客户端待办，不能覆盖或声称支持。
+已实现的服务端切片包括 v2 数量/睡眠类别样本、有界多活动 Workout、append-only Workout enrichment、sample↔Workout 迟到关联、超大 Workout 分块/seal、数量 series 分块/seal、manifest 绑定的 route 分块/原子 seal/删除屏障、页回执、持久请求预算和上传租约。当前握手声明 `routes=true`、`sampleWorkoutAssociations=true`、`workoutEnrichment=true`；`changefeed` 和 `analysis` 仍为 false。详细身份、限额及可观察错误以 [P3 同步合同](V2_PHASE3_SYNC_CONTRACT.md)、[P2 同步合同](../contracts/sync-v2.md) 和 [OpenAPI](../contracts/openapi-v2.yaml) 为准。Workout 主体和样本内容不可变；迟到 metadata 只能追加有源版本事实，不能覆盖既有不同值。
 
-当前 Worker 只回收过期租约，不消费或完成分析。原生 iOS、HealthKit 真机同步、路线、结果下载、分析算法、训练计划和生产部署未实现或未验收。SQLite 可用于未来客户端耐久 outbox，禁止用作服务端数据库。P1 服务 CI 不使用 Node；保留独立 OpenAPI lint 工作流，该合同工作流使用 Node。生产服务不依赖 Node。没有旧 API 或旧 schema 兼容层。
+当前 Worker 只回收过期租约，不消费或完成分析。P3.5 已在冻结的 `ios/RAI` 新增原生 iPhone 同步工程：只读 HealthKit anchored query、本地原子文件 outbox、candidate/delivered anchor、连续 sequence、不可变 gzip、回执/页 seal 校验、关联、enrichment、route/series/大 Workout 分块及稳定后台 URLSession。Swift 合成客户端已连通 fnOS 隔离 API/PostgreSQL，不能等同真机验收。用户确认本轮没有可用 iPhone；实际授权、HealthKit 数据读取、后台恢复和 iPhone app kill 仍未验证。结果下载、分析算法、训练计划和生产部署未实现或未验收。客户端当前使用原子文件，未引入本地数据库；SQLite 仅可作为客户端选择，禁止用作服务端数据库。P1 服务 CI 不使用 Node；保留独立 OpenAPI lint 工作流，该合同工作流使用 Node。生产服务不依赖 Node。没有旧 API 或旧 schema 兼容层。
 
 ## 阶段路线与出口
 
@@ -27,7 +27,7 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 | P0 | 冻结架构、领域、同步、Worker、风险与 P1 可执行计划 | 本轮文档冻结；P1 READY: YES |
 | P1 | 基础设施：Go、API/Worker、PG、显式 migration、配置、日志、健康、Compose、优雅停止、fnOS 质量门禁 | 本轮状态见下方最新记录；远端 CI 不再是验收条件 |
 | P2 | 核心领域、route/jobs/repository 和事务边界 | PASS WITH RISKS；核心模型、路线暂存与 fnOS 验证完成，路线发布协议留待 P3 |
-| P3 | iOS HealthKit 增量、批次、幂等、删除、重试、迟到及 route | 未端到端实现；metadata 更新语义待定 |
+| P3 | iOS HealthKit 增量、批次、幂等、删除、重试、迟到及 route | PASS WITH RISKS；服务端 fnOS 验证通过；P3.5 iOS 工程与 Swift 合成恢复联调已实现，真机 E2E 未完成，P3.5 BLOCKED / P4 READY: NO |
 | P4 | Go 异步分析、可重算结果、算法与输入版本 | 未实现；Worker 不假装完成 |
 | P5 | 训练基础计划、override、effective、执行与反馈闭环 | 未实现 |
 | P6 | iOS API、同步、分析查询、训练与执行集成 | 未实现 |
@@ -95,3 +95,25 @@ fnOS 一次性 PostgreSQL 18.6 上验证了独立合成 migration 的 up/down/up
 fnOS 上的 PostgreSQL 18.6 一次性隔离容器与合成数据通过完整 race 集成（integration 包 133.484 秒）、gofmt、`go test ./...`、`go test -race ./...`、`go vet ./...`、`go build ./...`、依赖边界检查；最终空卷 Compose 验证迁移、同镜像 API/Worker、同实例隔离集成、故障、停止与清理。两次全量/升级专项中分别发现旧 schema 注册 SQL 不兼容和新增 NULL 列被快照误判，修正后重跑通过。未连接现有 `rai` 数据库，未部署或迁移真实数据。
 
 P3 可开始，但不能宣称路线已发布：路线 seal、删除屏障、完整回执和原子发布，以及样本关联的写入协议、Workout metadata 的独立补充事实和冲突/删除规则仍须在 P3 定义并验收；现有路线暂存不得代替这些能力。老数据的设备来源未知，新增记录只标记采集设备而不推断 HealthKit 物理源。真实 HealthKit、生产负载、真机、断电恢复和部署仍未验证。详细时序、有限测试样本、手写 SQL 和其他风险见结果文档；不进入 P3。
+
+## P3 HealthKit Sync V2 结果（2026-10-27）
+
+**P3: PASS WITH RISKS；P4 READY: NO。** 完整合同与证据见 [Phase 3 同步合同](V2_PHASE3_SYNC_CONTRACT.md) 和 [Phase 3 结果](V2_PHASE3_RESULT.md)。本轮基线 `67ff445061fc62895fb34d80d2bc45c5571fab05`，工作区开始时干净。
+
+- 新增不可逆迁移 `00011_p3_sync_v2.sql`：route manifest/counts、chunk wire hash、双摘要链、sealed 计数、projection trigger、受控 append/seal/delete 函数、`route_deletions`、`workout_enrichments` 和 `workout_samples` 关联 idempotency 字段。`readyz` 要求 schema 11；旧 schema fail closed。
+- 新增 `POST/GET /v2/routes`、`PUT /v2/routes/{id}/chunks/{index}`、`POST /v2/routes/{id}/seal`、`POST /v2/routes/{id}/delete`、`POST /v2/sync/associations`、`POST/GET /v2/sync/workout-enrichments`。P3 `protocolVersion` 保持 2；未知版本返回 `unsupported_protocol`，已知错误单位返回 `unsupported_unit`。
+- 普通 batch、Workout package、series 的既有回执/序号语义未改。route chunk 为 staging；只有 seal 事务写 route 发布 receipt、dataset revision、Workout dirty scope、analysis job 和 change event。sealed 后新 chunk/内容拒绝，已提交 chunk 的精确重试返回原 receipt。
+- API 数据库角色不能直接写 route chunk/point、不能直接设置 route sealed/receipt、不能直接删除 route；append/seal/delete 通过 `SECURITY DEFINER` 函数执行，projection 由触发器从 canonical chunk JSON 生成；集成测试验证直接路径被拒绝。
+- fnOS 上完整 `go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...` 通过，integration 包 158.534 秒；Compose P3 E2E 通过：worker 离线仍 durable ACK、API 重启和 PostgreSQL 重启后同 batch 返回原 receipt、route seal、association、enrichment。OpenAPI lint 通过（8 条非阻断 warning）。
+- 合成性能基线：1000 samples 单批 total 约 362 ms、p95 total 约 946 ms（8 次，fnOS N100，storage+parse/register 口径）；2000 samples 分两批 commit 约 741 ms；5000 route points chunk 约 199 ms、seal 约 14 ms。均为单次/小样本观测，不是生产 SLO。
+- **当时未验证/风险**：P3 服务端阶段尚无 iOS 工程；真实 iPhone 查询、anchor/outbox、后台/强杀恢复和真实 HealthKit 数据未执行。P3.5 最新实现与验证见下；历史 20/45 分钟和 4 小时记录为合成规模测试。
+
+## P3.5 Client Closure（2026-10-27）
+
+**P3.5: BLOCKED；P3: PASS WITH RISKS；P4 READY: NO。** 用户明确本轮暂时不能提供真机；唯一阶段出口阻塞是真实 iPhone 端到端验收未执行。未开始 P4。完整记录见 [P3 结果的 Client Closure](V2_PHASE3_RESULT.md#client-closure) 与 [脱敏证据](evidence/p35-ios-2026-10-27.json)。
+
+`P35_BASE_COMMIT=67ff445061fc62895fb34d80d2bc45c5571fab05`；开始时已有 P3 的 21 个 tracked 修改和 16 个 untracked 文件。原服务端、migration、OpenAPI、同步合同和旧证据逐文件哈希保持不变；仅更新本主合同和 P3 结果的当前状态。P3.5 新增 `ios/RAI`、合成验收工具及证据，远端同步脚本仅增加 iOS 构建缓存/私有开发配置排除。未提交、推送、部署或接触既有 fnOS `rai` 库。
+
+macOS/Xcode 的最终 Swift/iOS 测试、iPhone target 构建结果和 fnOS 回归统计以证据文件为准。Swift SyncCore 的 macOS 合成进程实际经历两次 SIGKILL：batch COMMIT 后响应丢失，以及第 3 个 route chunk COMMIT 后响应丢失；重启使用原身份/文件恢复，最终 SQL 核验 1 sample、1 Workout、1 association、1 enrichment、1 sealed route / 6 chunks / 5,001 points，5 个 durable jobs，Worker 未启动。此链路是 Swift test harness → SSH loopback tunnel → fnOS API → 隔离 PostgreSQL，**不是 iPhone/HealthKit E2E**。既有 Compose P3 E2E 本轮重跑验证 API/PG restart 和 Worker offline。
+
+真实 20/45 分钟 Workout、实际 GPS、真实权限/删除、iPhone kill/网络中断、后台 URLSession 系统恢复、内存峰值及真机分阶段耗时仍未验证。已实现统计采集入口，但不得用合成测试耗时填写真机性能。终态本地载荷/回执暂保留，长期存储增长需要后续实际测量。签名、provisioning 与安装不以未签名 target build 代替。

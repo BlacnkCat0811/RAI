@@ -1,0 +1,68 @@
+name: RAI
+options:
+  postGenCommand: python3 ../../scripts/fix-p35-capability.py
+  bundleIdPrefix: com.rai.v2
+  deploymentTarget:
+    iOS: '18.0'
+packages:
+  RAIClient:
+    path: .
+configs:
+  Debug: debug
+  Release: release
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+    TARGETED_DEVICE_FAMILY: '1'
+    SUPPORTS_MACCATALYST: NO
+    SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+    SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+    CODE_SIGN_STYLE: Automatic
+targets:
+  RAITests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [AppTests]
+    dependencies:
+      - target: RAI
+      - package: RAIClient
+        product: SyncCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rai.v2.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+  RAI:
+    type: application
+    platform: iOS
+    attributes:
+      SystemCapabilities:
+        com.apple.HealthKit:
+          enabled: 1
+    sources: [App]
+    dependencies:
+      - package: RAIClient
+        product: SyncCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rai.v2.ios
+        INFOPLIST_FILE: Config/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Config/RAI.entitlements
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: '0.3.5'
+      configs:
+        Debug:
+          INFOPLIST_FILE: Config/Info-Debug.plist
+schemes:
+  RAI:
+    build:
+      targets:
+        RAI: all
+    run:
+      config: Debug
+    test:
+      targets: [RAITests]

@@ -1,0 +1,13 @@
+// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "RAIClient", platforms: [.iOS(.v18), .macOS(.v15)],
+    products: [.library(name: "SyncCore", targets: ["SyncCore"])],
+    targets: [
+        .target(name: "RAICompression", linkerSettings: [.linkedLibrary("z")]),
+        .target(name: "SyncCore", dependencies: ["RAICompression"]),
+        .executableTarget(name: "SyncProbe", dependencies: ["SyncCore"], path: "Tools/SyncProbe"),
+        .testTarget(name: "SyncCoreTests", dependencies: ["SyncCore"], resources: [.copy("Fixtures")])
+    ], swiftLanguageModes: [.v6]
+)

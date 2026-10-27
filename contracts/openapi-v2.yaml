@@ -1,18 +1,16 @@
 openapi: 3.1.0
 info:
   title: RAI native delta API
-  version: 0.8.0
+  version: 0.9.0
   description: >-
-    Current implementation: sample and bounded multi-activity Workout v2
-    ingest, with optional source activities (schema 7), durable quantity-series
-    detail chunks with an explicit completeness seal (schema 8), oversized
-    Workout detail packages with a separate completeness seal (schema 9),
-    atomic page delivery receipts, durable dataset/device request budgets and
-    cross-replica upload leases. Legacy Workout v1 payloads without activities
-    remain valid.
+    Phase 3 HealthKit Sync V2: sample and bounded multi-activity Workout v2
+    ingest, append-only Workout enrichment, late sample-Workout associations,
+    durable quantity-series and oversized Workout staging, manifest-bound route
+    chunks with an atomic publish seal and deletion barriers, page delivery
+    receipts, durable request budgets and cross-replica upload leases.
     The runtime handshake is authoritative for enabled capabilities and numeric
-    limits. A partial change notification endpoint exists; complete changefeed,
-    routes and analysis execution are not supported yet.
+    limits. A partial change notification endpoint exists; complete changefeed
+    and analysis execution are not supported yet.
   license: {name: Proprietary, identifier: LicenseRef-Proprietary}
 servers:
   - url: http://127.0.0.1:8080
@@ -86,6 +84,9 @@ paths:
                       seriesChunks: 1000
                       seriesPoints: 1000000
                       seriesPointsPerChunk: 5000
+                      routeChunks: 1000
+                      routePoints: 1000000
+                      routePointsPerChunk: 5000
                       requests:
                         read:
                           device: {perMinute: 120, burst: 30}
@@ -114,7 +115,9 @@ paths:
                       workoutActivities: true
                       workoutPackages: true
                       quantitySeries: true
-                      routes: false
+                      routes: true
+                      sampleWorkoutAssociations: true
+                      workoutEnrichment: true
                       changefeed: false
                       analysis: false
         '401': {$ref: '#/components/responses/Error'}
@@ -403,6 +406,173 @@ paths:
         '409': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
+  /v2/routes:
+    post:
+      summary: Register one immutable route manifest for an already durable Workout
+      operationId: registerRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RouteManifest'}
+      responses:
+        '200':
+          description: Pending manifest, or the identical existing manifest state
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RouteState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/routes/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Read route staging or its immutable sealed receipt
+      operationId: getRoute
+      responses:
+        '200':
+          description: Pending staging state or sealed published route receipt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RouteState'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/routes/{id}/chunks/{index}:
+    parameters: [{$ref: '#/components/parameters/ID'}, {$ref: '#/components/parameters/RouteChunkIndex'}]
+    put:
+      summary: Upload one immutable contiguous route chunk
+      operationId: putRouteChunk
+      parameters:
+        - in: header
+          name: Content-Encoding
+          required: true
+          schema: {const: gzip}
+      requestBody:
+        required: true
+        content:
+          application/x-rai-health-route+ndjson:
+            schema:
+              type: string
+              format: binary
+              description: Immutable gzip NDJSON of RoutePoint lines; max 5000 points, 2 MiB wire, 8 MiB decoded and 64 KiB per line. Chunks remain pending until seal.
+              x-rai-ndjson-line-schema: {$ref: '#/components/schemas/RoutePoint'}
+      responses:
+        '200':
+          description: Original immutable chunk receipt; the route is not complete until seal
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RouteChunkReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/routes/{id}/seal:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    post:
+      summary: Verify all route chunks and atomically publish the route
+      operationId: sealRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RouteSeal'}
+      responses:
+        '200':
+          description: Sealed route receipt and queued Workout analysis scope committed in one transaction
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RouteReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/routes/{id}/delete:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    post:
+      summary: Explicitly delete a route and write a permanent tombstone
+      operationId: deleteRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RouteDeleteRequest'}
+      responses:
+        '200':
+          description: Idempotent route deletion receipt; stale chunks cannot resurrect the route
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RouteDeleteReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/associations:
+    post:
+      summary: Idempotently associate one committed sample with one committed Workout
+      operationId: associateSample
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AssociationRequest'}
+      responses:
+        '200':
+          description: Relation, Workout dirty generation and analysis job committed atomically
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AssociationReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/workout-enrichments:
+    post:
+      summary: Append an immutable versioned Workout supplement fact
+      operationId: enrichWorkout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WorkoutEnrichmentRequest'}
+      responses:
+        '200':
+          description: Original enrichment receipt; Workout identity/payload remains immutable
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkoutEnrichmentReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/workout-enrichments/{id}:
+    parameters: [{$ref: '#/components/parameters/ID'}]
+    get:
+      summary: Recover the original Workout enrichment receipt
+      operationId: getWorkoutEnrichment
+      responses:
+        '200':
+          description: Immutable enrichment receipt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkoutEnrichmentReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
   /v2/sync/changes:
     get:
       summary: Read bounded committed change notifications
@@ -469,6 +639,11 @@ components:
       name: index
       required: true
       schema: {type: integer, minimum: 0, maximum: 99}
+    RouteChunkIndex:
+      in: path
+      name: index
+      required: true
+      schema: {type: integer, minimum: 0, maximum: 999}
   responses:
     RateLimited:
       description: Dataset/device request budget or process upload concurrency exhausted. Preserve immutable identity; recovery reads use a separate bounded budget.
@@ -537,7 +712,7 @@ components:
     HandshakeLimits:
       type: object
       additionalProperties: false
-      required: [wireBytes, decodedBytes, events, lineBytes, workoutStatistics, workoutEvents, workoutDetails, workoutActivities, workoutPackageChunks, workoutPackageDetails, workoutPackageDetailsPerChunk, pageFragments, seriesChunks, seriesPoints, seriesPointsPerChunk, requests, processUploads, processDeviceUploads, datasetUploads, deviceUploads, uploadLeaseSeconds]
+      required: [wireBytes, decodedBytes, events, lineBytes, workoutStatistics, workoutEvents, workoutDetails, workoutActivities, workoutPackageChunks, workoutPackageDetails, workoutPackageDetailsPerChunk, pageFragments, seriesChunks, seriesPoints, seriesPointsPerChunk, routeChunks, routePoints, routePointsPerChunk, requests, processUploads, processDeviceUploads, datasetUploads, deviceUploads, uploadLeaseSeconds]
       description: Current numeric limits. The runtime handshake returns the effective values for this deployment.
       properties:
         wireBytes: {type: integer, minimum: 1, description: Maximum compressed request body bytes}
@@ -555,6 +730,9 @@ components:
         seriesChunks: {type: integer, minimum: 1, description: Maximum immutable chunks per quantity series}
         seriesPoints: {type: integer, minimum: 1, description: Maximum total points per quantity series}
         seriesPointsPerChunk: {type: integer, minimum: 1, description: Maximum points in one immutable series chunk}
+        routeChunks: {type: integer, minimum: 1, description: Maximum immutable chunks per route}
+        routePoints: {type: integer, minimum: 1, description: Maximum total points per route}
+        routePointsPerChunk: {type: integer, minimum: 1, description: Maximum points in one immutable route chunk}
         requests: {$ref: '#/components/schemas/RequestBudgets'}
         processUploads: {type: integer, minimum: 1, description: Per-process concurrent body uploads}
         processDeviceUploads: {type: integer, minimum: 1, description: Per-process concurrent body uploads for one device}
@@ -564,7 +742,7 @@ components:
     HandshakeCapabilities:
       type: object
       additionalProperties: false
-      required: [sampleTypes, contentEncoding, workouts, workoutType, workoutPayloadVersion, pageReceipts, workoutActivities, workoutPackages, quantitySeries, routes, changefeed, analysis]
+      required: [sampleTypes, contentEncoding, workouts, workoutType, workoutPayloadVersion, pageReceipts, workoutActivities, workoutPackages, quantitySeries, routes, sampleWorkoutAssociations, workoutEnrichment, changefeed, analysis]
       description: Explicit capability boundary for this deployment. Unsupported source fields must remain local; clients must not truncate them to fit.
       properties:
         sampleTypes:
@@ -581,7 +759,9 @@ components:
         workoutActivities: {const: true}
         workoutPackages: {const: true, description: Durable detail chunks for one oversized Workout; completeness requires an explicit seal}
         quantitySeries: {const: true, description: Durable detail chunks for a quantity sample; completeness requires an explicit seal}
-        routes: {const: false}
+        routes: {const: true, description: Manifest-bound route chunks and an atomic publication seal; pending chunks are not a durable route}
+        sampleWorkoutAssociations: {const: true, description: Late sample-Workout association with one Workout per sample}
+        workoutEnrichment: {const: true, description: "Append-only versioned supplement facts that never rewrite Workout identity or payload"}
         changefeed: {const: false}
         analysis: {const: false}
     RequestBudgets:
@@ -1018,6 +1198,188 @@ components:
         analysisJobIDs:
           type: array
           items: {$ref: '#/components/schemas/ID'}
+    RouteManifest:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, datasetID, datasetEpoch, collectorEpoch, routeID, workoutID, source, expectedChunkCount, expectedPointCount, firstRecordedAtUs, lastRecordedAtUs]
+      description: Fixed route identity and completeness manifest. The Workout must already be durable; expected counts are enforced at chunk and seal time.
+      properties:
+        protocolVersion: {const: 2}
+        datasetID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        routeID: {$ref: '#/components/schemas/ID'}
+        workoutID: {$ref: '#/components/schemas/ID'}
+        source: {$ref: '#/components/schemas/Source'}
+        expectedChunkCount: {type: integer, minimum: 1, maximum: 1000}
+        expectedPointCount: {type: integer, minimum: 1, maximum: 1000000}
+        firstRecordedAtUs: {type: integer}
+        lastRecordedAtUs: {type: integer}
+        expectedPayloadManifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$', description: Optional fixed chain over exact compressed chunk hashes}
+    RoutePoint:
+      type: object
+      additionalProperties: false
+      required: [sequence, recordedAtUs, latitude, longitude]
+      description: One source route point. Optional measurements are omitted when absent and explicit null is rejected. Global sequence starts at zero and must be contiguous across chunks.
+      properties:
+        sequence: {type: integer, minimum: 0}
+        recordedAtUs: {type: integer}
+        latitude: {type: number, minimum: -90, maximum: 90}
+        longitude: {type: number, minimum: -180, maximum: 180}
+        altitude: {type: number}
+        horizontalAccuracy: {type: number, minimum: 0}
+        verticalAccuracy: {type: number, minimum: 0}
+        speed: {type: number, minimum: 0}
+        course: {type: number, minimum: 0, exclusiveMaximum: 360}
+    RouteState:
+      type: object
+      additionalProperties: false
+      required: [routeID, workoutID, source, ingestStatus, expectedChunkCount, expectedPointCount, committedChunks, committedPoints, manifestSHA256, payloadManifestSHA256, firstRecordedAtUs, lastRecordedAtUs]
+      description: Pending staging is not a complete route. Only a sealed state and its original receipt indicate a published route.
+      properties:
+        routeID: {$ref: '#/components/schemas/ID'}
+        workoutID: {$ref: '#/components/schemas/ID'}
+        source: {$ref: '#/components/schemas/Source'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {enum: [pending, sealed]}
+        expectedChunkCount: {type: integer, minimum: 1, maximum: 1000}
+        expectedPointCount: {type: integer, minimum: 1, maximum: 1000000}
+        committedChunks: {type: integer, minimum: 0, maximum: 1000}
+        committedPoints: {type: integer, minimum: 0, maximum: 1000000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        payloadManifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        expectedPayloadManifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        firstRecordedAtUs: {type: integer}
+        lastRecordedAtUs: {type: integer}
+        chunkCount: {type: integer, minimum: 1, maximum: 1000}
+        totalPoints: {type: integer, minimum: 1, maximum: 1000000}
+        commitRevision: {type: integer, minimum: 1}
+        receipt: {$ref: '#/components/schemas/RouteReceipt'}
+    RouteChunkReceipt:
+      type: object
+      additionalProperties: false
+      required: [routeID, chunkIndex, ingestStatus, pointCount, payloadSHA256, chunkSHA256, manifestSHA256, payloadManifestSHA256, committedChunks, totalPoints]
+      description: Immutable chunk receipt. Chunks are staging until an explicit seal.
+      properties:
+        routeID: {$ref: '#/components/schemas/ID'}
+        chunkIndex: {type: integer, minimum: 0, maximum: 999}
+        ingestStatus: {const: pending}
+        pointCount: {type: integer, minimum: 1, maximum: 5000}
+        payloadSHA256: {type: string, pattern: '^[0-9a-f]{64}$', description: SHA-256 of exact compressed request bytes}
+        chunkSHA256: {type: string, pattern: '^[0-9a-f]{64}$', description: SHA-256 of canonical point array}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        payloadManifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        committedChunks: {type: integer, minimum: 1, maximum: 1000}
+        totalPoints: {type: integer, minimum: 1, maximum: 1000000}
+    RouteSeal:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, chunkCount, totalPoints, manifestSHA256, payloadManifestSHA256]
+      description: Declares the fixed chunk list. The server verifies contiguous indices, point sequence, counts and both hash chains; it never fabricates missing chunks.
+      properties:
+        protocolVersion: {const: 2}
+        chunkCount: {type: integer, minimum: 1, maximum: 1000}
+        totalPoints: {type: integer, minimum: 1, maximum: 1000000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        payloadManifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+    RouteReceipt:
+      type: object
+      additionalProperties: false
+      required: [routeID, workoutID, ingestStatus, chunkCount, totalPoints, manifestSHA256, payloadManifestSHA256, commitRevision, analysisStatus, analysisJobIDs]
+      description: Published route receipt written atomically with route state, dataset revision, dirty scope, analysis job and change event.
+      properties:
+        routeID: {$ref: '#/components/schemas/ID'}
+        workoutID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {const: sealed}
+        chunkCount: {type: integer, minimum: 1, maximum: 1000}
+        totalPoints: {type: integer, minimum: 1, maximum: 1000000}
+        manifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        payloadManifestSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        commitRevision: {type: integer, minimum: 1}
+        analysisStatus: {enum: [queued, not_required]}
+        analysisJobIDs: {type: array, items: {$ref: '#/components/schemas/ID'}}
+    RouteDeleteRequest:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, datasetEpoch, collectorEpoch]
+      properties:
+        protocolVersion: {const: 2}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        reason: {type: string, maxLength: 128}
+    RouteDeleteReceipt:
+      type: object
+      additionalProperties: false
+      required: [routeID, ingestStatus, routeExisted, tombstoneCreated, commitRevision, analysisStatus, analysisJobIDs]
+      properties:
+        routeID: {$ref: '#/components/schemas/ID'}
+        workoutID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {const: deleted}
+        routeExisted: {type: boolean}
+        tombstoneCreated: {type: boolean}
+        commitRevision: {type: integer, minimum: 0}
+        analysisStatus: {enum: [queued, not_required]}
+        analysisJobIDs: {type: array, items: {$ref: '#/components/schemas/ID'}}
+    AssociationRequest:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, datasetID, datasetEpoch, collectorEpoch, associationID, sampleType, sampleUUID, workoutUUID, source]
+      properties:
+        protocolVersion: {const: 2}
+        datasetID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        associationID: {$ref: '#/components/schemas/ID'}
+        sampleType: {type: string}
+        sampleUUID: {$ref: '#/components/schemas/ID'}
+        workoutUUID: {$ref: '#/components/schemas/ID'}
+        source: {$ref: '#/components/schemas/Source'}
+    AssociationReceipt:
+      type: object
+      additionalProperties: false
+      required: [associationID, sampleType, sampleUUID, workoutUUID, ingestStatus, commitRevision, analysisStatus, analysisJobIDs]
+      properties:
+        associationID: {$ref: '#/components/schemas/ID'}
+        sampleType: {type: string}
+        sampleUUID: {$ref: '#/components/schemas/ID'}
+        workoutUUID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {const: committed}
+        commitRevision: {type: integer, minimum: 1}
+        analysisStatus: {enum: [queued, not_required]}
+        analysisJobIDs: {type: array, items: {$ref: '#/components/schemas/ID'}}
+    WorkoutEnrichmentRequest:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, datasetID, datasetEpoch, collectorEpoch, enrichmentID, workoutID, source, sourceVersion, observedAtUs]
+      description: At least one of totalDistanceM, totalEnergyKcal, metadata or routeAvailable must be present. It can only fill absent fields or confirm an equal value; differing values and stale observations are rejected.
+      properties:
+        protocolVersion: {const: 2}
+        datasetID: {$ref: '#/components/schemas/ID'}
+        datasetEpoch: {$ref: '#/components/schemas/ID'}
+        collectorEpoch: {$ref: '#/components/schemas/ID'}
+        enrichmentID: {$ref: '#/components/schemas/ID'}
+        workoutID: {$ref: '#/components/schemas/ID'}
+        source: {$ref: '#/components/schemas/Source'}
+        sourceVersion: {type: integer, minimum: 1}
+        observedAtUs: {type: integer}
+        totalDistanceM: {type: number, minimum: 0}
+        totalEnergyKcal: {type: number, minimum: 0}
+        metadata: {type: object}
+        routeAvailable: {type: boolean}
+    WorkoutEnrichmentReceipt:
+      type: object
+      additionalProperties: false
+      required: [enrichmentID, workoutID, ingestStatus, sourceVersion, observedAtUs, commitRevision, analysisStatus, analysisJobIDs]
+      properties:
+        enrichmentID: {$ref: '#/components/schemas/ID'}
+        workoutID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {const: committed}
+        sourceVersion: {type: integer, minimum: 1}
+        observedAtUs: {type: integer}
+        commitRevision: {type: integer, minimum: 1}
+        analysisStatus: {enum: [queued, not_required]}
+        analysisJobIDs: {type: array, items: {$ref: '#/components/schemas/ID'}}
     BatchState:
       type: object
       required: [envelope, ingestStatus]

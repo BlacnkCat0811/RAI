@@ -723,14 +723,71 @@ func TestAPIRoleCannotMigrateOrMaintain(t *testing.T) {
 		t.Fatal("restricted role lost activities")
 	}
 	routeID := syncing.NewID()
-	if inserted, err := restricted.StageRouteChunk(ctx, p.DatasetID, w.UUID, routeID, "synthetic.test", 0, []postgres.RoutePoint{{RecordedAt: time.Now(), Latitude: 0, Longitude: 0}}); err != nil || !inserted {
-		t.Fatal("restricted role cannot stage route", err)
+	routeStart := time.UnixMicro(*w.StartUs).UTC()
+	if _, err := restricted.RegisterRoute(ctx, p, syncing.RouteManifest{
+		ProtocolVersion: syncing.ProtocolVersion, DatasetID: p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
+		CollectorEpoch: f.enrollment.CollectorEpoch, RouteID: routeID, WorkoutID: w.UUID,
+		Source: &syncing.Source{BundleID: "synthetic.test"}, ExpectedChunkCount: 1, ExpectedPointCount: 1,
+		FirstRecordedAtUs: routeStart.UnixMicro(), LastRecordedAtUs: routeStart.UnixMicro(),
+	}); err != nil {
+		t.Fatal("restricted role cannot register route", err)
 	}
-	if _, err := restricted.Pool.Exec(ctx, `UPDATE workout_routes SET state='sealed', sealed_at=now(), receipt='synthetic' WHERE dataset_id=$1 AND route_uuid=$2`, p.DatasetID, routeID); err == nil {
-		t.Fatal("restricted role could forge a route seal")
+	if _, err := restricted.CommitRouteChunk(ctx, p, testRouteChunk(routeID, 0, testRoutePoints(routeStart, 1, 0)), lease); err != nil {
+		t.Fatal("restricted role cannot append route chunk", err)
 	}
-	if _, err := restricted.Pool.Exec(ctx, `DELETE FROM route_points WHERE dataset_id=$1 AND route_uuid=$2`, p.DatasetID, routeID); err == nil {
-		t.Fatal("restricted role could delete route points directly")
+	routeState, err := restricted.Route(ctx, p, routeID)
+	if err != nil || routeState.CommittedPoints != 1 {
+		t.Fatal("restricted role cannot read route state", err)
+	}
+	if _, err := restricted.SealRoute(ctx, p, routeID, syncing.RouteSeal{
+		ProtocolVersion: syncing.ProtocolVersion, ChunkCount: 1, TotalPoints: 1,
+		ManifestSHA256: routeState.ManifestSHA256, PayloadManifestSHA256: routeState.PayloadManifestSHA256,
+	}); err != nil {
+		t.Fatal("restricted role cannot seal route", err)
+	}
+	for _, sql := range []string{
+		`UPDATE workout_routes SET state='sealed', sealed_at=now(), receipt='synthetic' WHERE dataset_id=$1 AND route_uuid=$2`,
+		`DELETE FROM workout_routes WHERE dataset_id=$1 AND route_uuid=$2`,
+		`INSERT INTO route_chunks(dataset_id,route_uuid,chunk_index,point_count,content_sha256,points) VALUES($1,$2,0,1,sha256('x'::bytea),'[{"sequence":0}]'::jsonb)`,
+		`INSERT INTO route_points(dataset_id,route_uuid,chunk_index,sequence,recorded_at,latitude,longitude) VALUES($1,$2,0,0,now(),0,0)`,
+		`DELETE FROM route_points WHERE dataset_id=$1 AND route_uuid=$2`,
+	} {
+		if _, err := restricted.Pool.Exec(ctx, sql, p.DatasetID, routeID); err == nil {
+			t.Fatalf("restricted role permitted direct route mutation: %s", sql)
+		}
+	}
+	// A second route is removed by the Workout cascade; the first is deleted
+	// through the only barrier-writing function to prove that permission path.
+	route2 := syncing.NewID()
+	if _, err := restricted.RegisterRoute(ctx, p, syncing.RouteManifest{
+		ProtocolVersion: syncing.ProtocolVersion, DatasetID: p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
+		CollectorEpoch: f.enrollment.CollectorEpoch, RouteID: route2, WorkoutID: w.UUID,
+		Source: &syncing.Source{BundleID: "synthetic.test"}, ExpectedChunkCount: 1, ExpectedPointCount: 1,
+		FirstRecordedAtUs: routeStart.UnixMicro(), LastRecordedAtUs: routeStart.UnixMicro(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restricted.CommitRouteChunk(ctx, p, testRouteChunk(route2, 0, testRoutePoints(routeStart, 1, 0)), lease); err != nil {
+		t.Fatal(err)
+	}
+	route2State, err := restricted.Route(ctx, p, route2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restricted.SealRoute(ctx, p, route2, syncing.RouteSeal{
+		ProtocolVersion: syncing.ProtocolVersion, ChunkCount: 1, TotalPoints: 1,
+		ManifestSHA256: route2State.ManifestSHA256, PayloadManifestSHA256: route2State.PayloadManifestSHA256,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restricted.DeleteRoute(ctx, p, routeID, syncing.RouteDeleteRequest{
+		ProtocolVersion: syncing.ProtocolVersion, DatasetEpoch: f.enrollment.DatasetEpoch,
+		CollectorEpoch: f.enrollment.CollectorEpoch,
+	}); err != nil {
+		t.Fatal("restricted role cannot delete route", err)
+	}
+	if count(t, f, "route_deletions") != 1 || !embeddedRouteTombstone(t, f, routeID) {
+		t.Fatal("restricted route delete missed receipt/tombstone")
 	}
 	del, _ := f.envelope(t, []syncing.Event{workoutDelete(w.UUID)}, 2, &e.BatchID)
 	if _, err = restricted.RegisterBatch(ctx, p, del); err != nil {

@@ -33,7 +33,7 @@ to check database and schema readiness separately.
 their status. `migrate-down` requests a single rollback and exits nonzero
 unless the current SQL migration has been explicitly reviewed and its complete
 file hash added to the allowlist in `internal/admin/admin.go`. It rejects empty
-Down sections and unknown applied migrations. The existing 00001–00010
+Down sections and unknown applied migrations. The existing 00001–00011
 migrations are not approved: they contain durable facts, receipts, or fencing
 state, so the command refuses to downgrade them and preserves their version
 records. Correct those schemas through a reviewed forward migration; do not

@@ -31,13 +31,13 @@ settings="$("${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -Atc 
 "${compose[@]}" run --rm --no-deps api migrate
 "${compose[@]}" run --rm --no-deps api migrate
 status="$("${compose[@]}" run --rm --no-deps api migrate-status)"
-printf '%s' "$status" | python3 -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows)==10 and all(row["State"]=="applied" for row in rows)'
+printf '%s' "$status" | python3 -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows)==11 and all(row["State"]=="applied" for row in rows)'
 if "${compose[@]}" run --rm --no-deps api migrate-down; then
   echo 'irreversible migration unexpectedly rolled back' >&2
   exit 1
 fi
 status="$("${compose[@]}" run --rm --no-deps api migrate-status)"
-printf '%s' "$status" | python3 -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows)==10 and all(row["State"]=="applied" for row in rows)'
+printf '%s' "$status" | python3 -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows)==11 and all(row["State"]=="applied" for row in rows)'
 "${compose[@]}" up -d --wait api worker
 api_id="$("${compose[@]}" ps -q api)"
 worker_id="$("${compose[@]}" ps -q worker)"
@@ -61,14 +61,14 @@ if [[ "${RAI_P2_COMPOSE_INTEGRATION:-0}" == 1 ]]; then
     cd apps/server
     RAI_TEST_DATABASE_URL="postgres://rai_dev:development-only@127.0.0.1:$pg_port/rai_test?sslmode=disable" \
       go test -race -v -count=1 -tags=integration -p 1 -timeout=10m \
-        -run 'TestStageRouteChunkBatchRetryAndRollback|TestConcurrentJobClaimAndCrashRecovery|TestJobFailureRetryAndAttemptLimit|TestPermanentFailureAndAttemptUpdateAtomicity|TestBatchRegistrationFailureRollsBack|TestFreshDatabaseSchemaRebuild|TestSampleBatchPipelineAndIdempotency|TestSchema7UpgradeAddsSeriesWithoutRewritingFacts|TestAPIRoleCannotMigrateOrMaintain' ./integration
+        -run 'TestRouteChunkRetryConflictGapAndSeal|TestConcurrentJobClaimAndCrashRecovery|TestJobFailureRetryAndAttemptLimit|TestPermanentFailureAndAttemptUpdateAtomicity|TestBatchRegistrationFailureRollsBack|TestFreshDatabaseSchemaRebuild|TestSampleBatchPipelineAndIdempotency|TestSchema7UpgradeAddsSeriesWithoutRewritingFacts|TestAPIRoleCannotMigrateOrMaintain' ./integration
   )
 fi
-"${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -c 'INSERT INTO goose_db_version (version_id, is_applied) VALUES (11, true)' >/dev/null
+"${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -c 'INSERT INTO goose_db_version (version_id, is_applied) VALUES (12, true)' >/dev/null
 for path in /health /livez; do check "$path" 200; done
 for path in /ready /readyz; do check "$path" 503; done
 docker exec "$api_id" /rai probe
-"${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -c 'DELETE FROM goose_db_version WHERE version_id = 11' >/dev/null
+"${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -c 'DELETE FROM goose_db_version WHERE version_id = 12' >/dev/null
 for path in /ready /readyz; do check "$path" 200; done
 # Stop the DB to verify readiness fails without affecting liveness.
 "${compose[@]}" stop postgres

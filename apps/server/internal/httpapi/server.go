@@ -61,11 +61,46 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	m.Handle("GET /v2/sync/workout-packages/{id}", a.auth(syncing.ReadLane, a.workoutPackage))
 	m.Handle("PUT /v2/sync/workout-packages/{id}/chunks/{index}", a.auth(syncing.UploadLane, a.workoutPackageChunk))
 	m.Handle("POST /v2/sync/workout-packages/{id}/seal", a.auth(syncing.WriteLane, a.sealWorkoutPackage))
+	m.Handle("POST /v2/sync/associations", a.auth(syncing.WriteLane, a.associateSample))
+	m.Handle("POST /v2/sync/workout-enrichments", a.auth(syncing.WriteLane, a.enrichWorkout))
+	m.Handle("GET /v2/sync/workout-enrichments/{id}", a.auth(syncing.ReadLane, a.workoutEnrichment))
+	m.Handle("POST /v2/routes", a.auth(syncing.WriteLane, a.registerRoute))
+	m.Handle("GET /v2/routes/{id}", a.auth(syncing.ReadLane, a.route))
+	m.Handle("PUT /v2/routes/{id}/chunks/{index}", a.auth(syncing.UploadLane, a.routeChunk))
+	m.Handle("POST /v2/routes/{id}/seal", a.auth(syncing.WriteLane, a.sealRoute))
+	m.Handle("POST /v2/routes/{id}/delete", a.auth(syncing.WriteLane, a.deleteRoute))
 	m.Handle("GET /v2/jobs/{id}", a.auth(syncing.ReadLane, a.job))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return a.observe(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		m.ServeHTTP(w, r)
+	}))
+}
+
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+// observe emits correlation-only request metrics. It intentionally records no
+// request body, health values, token or database diagnostics.
+func (a *API) observe(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		requestID := r.Header.Get("X-Request-ID")
+		if !syncing.ValidID(requestID) {
+			requestID = syncing.NewID()
+		}
+		w.Header().Set("X-Request-ID", requestID)
+		sw := &statusWriter{ResponseWriter: w, status: 200}
+		next.ServeHTTP(sw, r)
+		a.log.Info("http_request", "request_id", requestID, "method", r.Method, "path", r.URL.Path,
+			"status", sw.status, "duration_ms", time.Since(start).Milliseconds())
 	})
 }
 
@@ -183,8 +218,8 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	}
 	sort.Strings(types)
 	respond(w, 200, map[string]any{"protocolVersion": 2, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
-		"limits":       map[string]any{"wireBytes": syncing.MaxWireBytes, "decodedBytes": syncing.MaxDecodedBytes, "events": syncing.MaxEvents, "lineBytes": syncing.MaxLineBytes, "workoutStatistics": syncing.MaxWorkoutStatistics, "workoutEvents": syncing.MaxWorkoutEvents, "workoutDetails": syncing.MaxWorkoutDetails, "workoutActivities": syncing.MaxWorkoutActivities, "workoutPackageChunks": syncing.MaxWorkoutPackageChunks, "workoutPackageDetails": syncing.MaxWorkoutPackageDetails, "workoutPackageDetailsPerChunk": syncing.MaxWorkoutPackageDetailsPerChunk, "pageFragments": syncing.MaxPageFragments, "seriesChunks": syncing.MaxSeriesChunks, "seriesPoints": syncing.MaxSeriesPoints, "seriesPointsPerChunk": syncing.MaxSeriesPointsPerChunk, "requests": syncing.RequestBudgets(), "processUploads": 2, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1, "uploadLeaseSeconds": syncing.UploadLeaseSeconds},
-		"capabilities": map[string]any{"sampleTypes": types, "contentEncoding": "gzip", "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 2, "pageReceipts": true, "workoutActivities": true, "workoutPackages": true, "quantitySeries": true, "routes": false, "changefeed": false, "analysis": false}})
+		"limits":       map[string]any{"wireBytes": syncing.MaxWireBytes, "decodedBytes": syncing.MaxDecodedBytes, "events": syncing.MaxEvents, "lineBytes": syncing.MaxLineBytes, "workoutStatistics": syncing.MaxWorkoutStatistics, "workoutEvents": syncing.MaxWorkoutEvents, "workoutDetails": syncing.MaxWorkoutDetails, "workoutActivities": syncing.MaxWorkoutActivities, "workoutPackageChunks": syncing.MaxWorkoutPackageChunks, "workoutPackageDetails": syncing.MaxWorkoutPackageDetails, "workoutPackageDetailsPerChunk": syncing.MaxWorkoutPackageDetailsPerChunk, "pageFragments": syncing.MaxPageFragments, "seriesChunks": syncing.MaxSeriesChunks, "seriesPoints": syncing.MaxSeriesPoints, "seriesPointsPerChunk": syncing.MaxSeriesPointsPerChunk, "routeChunks": syncing.MaxRouteChunks, "routePoints": syncing.MaxRoutePoints, "routePointsPerChunk": syncing.MaxRoutePointsPerChunk, "requests": syncing.RequestBudgets(), "processUploads": 2, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1, "uploadLeaseSeconds": syncing.UploadLeaseSeconds},
+		"capabilities": map[string]any{"sampleTypes": types, "contentEncoding": "gzip", "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 2, "pageReceipts": true, "workoutActivities": true, "workoutPackages": true, "quantitySeries": true, "routes": true, "sampleWorkoutAssociations": true, "workoutEnrichment": true, "changefeed": false, "analysis": false}})
 	return nil
 }
 func (a *API) registerStream(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
@@ -441,6 +476,155 @@ func (a *API) workoutPackageChunk(w http.ResponseWriter, r *http.Request, p sync
 	_, _ = w.Write(receipt)
 	return nil
 }
+func (a *API) registerRoute(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	var req syncing.RouteManifest
+	if err := readJSON(r, &req); err != nil {
+		return err
+	}
+	result, err := a.store.RegisterRoute(r.Context(), p, req)
+	if err == nil {
+		respond(w, 200, result)
+	}
+	return err
+}
+func (a *API) route(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	id, err := pathID(r)
+	if err != nil {
+		return err
+	}
+	result, err := a.store.Route(r.Context(), p, id)
+	if err == nil {
+		respond(w, 200, result)
+	}
+	return err
+}
+func (a *API) routeChunk(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	if !p.CanCollect {
+		return syncing.Fail(403, "read_only_device")
+	}
+	id, err := pathID(r)
+	if err != nil {
+		return err
+	}
+	index, err := strconv.Atoi(r.PathValue("index"))
+	if err != nil || index < 0 || index >= syncing.MaxRouteChunks {
+		return syncing.Fail(422, "unsupported_payload")
+	}
+	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || media != "application/x-rai-health-route+ndjson" {
+		return syncing.Fail(415, "unsupported_media_type")
+	}
+	if r.Header.Get("Content-Encoding") != "gzip" {
+		return syncing.Fail(415, "unsupported_content_encoding")
+	}
+	release, err := a.acquireUpload(p)
+	if err != nil {
+		return err
+	}
+	defer release()
+	lease, err := a.store.AcquireUpload(r.Context(), p)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := a.store.ReleaseUpload(ctx, p, lease); err != nil {
+			a.log.Error("upload_release_failed", "reason", "storage_unavailable")
+		}
+	}()
+	stopClose := context.AfterFunc(r.Context(), func() { _ = r.Body.Close() })
+	defer stopClose()
+	chunk, err := syncing.ParseRouteChunk(r.Body)
+	if err != nil {
+		return err
+	}
+	chunk.RouteID, chunk.ChunkIndex = id, index
+	if err = r.Context().Err(); err != nil {
+		return err
+	}
+	receipt, err := a.store.CommitRouteChunk(r.Context(), p, chunk, lease)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, _ = w.Write(receipt)
+	return nil
+}
+func (a *API) sealRoute(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	id, err := pathID(r)
+	if err != nil {
+		return err
+	}
+	var req syncing.RouteSeal
+	if err = readJSON(r, &req); err != nil {
+		return err
+	}
+	result, err := a.store.SealRoute(r.Context(), p, id, req)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(result)
+	}
+	return err
+}
+func (a *API) deleteRoute(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	id, err := pathID(r)
+	if err != nil {
+		return err
+	}
+	var req syncing.RouteDeleteRequest
+	if err = readJSON(r, &req); err != nil {
+		return err
+	}
+	result, err := a.store.DeleteRoute(r.Context(), p, id, req)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(result)
+	}
+	return err
+}
+func (a *API) associateSample(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	var req syncing.AssociationRequest
+	if err := readJSON(r, &req); err != nil {
+		return err
+	}
+	result, err := a.store.AssociateSample(r.Context(), p, req)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(result)
+	}
+	return err
+}
+func (a *API) enrichWorkout(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	var req syncing.WorkoutEnrichmentRequest
+	if err := readJSON(r, &req); err != nil {
+		return err
+	}
+	result, err := a.store.EnrichWorkout(r.Context(), p, req)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(result)
+	}
+	return err
+}
+func (a *API) workoutEnrichment(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	id, err := pathID(r)
+	if err != nil {
+		return err
+	}
+	result, err := a.store.WorkoutEnrichment(r.Context(), p, id)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		_, _ = w.Write(result)
+	}
+	return err
+}
 func (a *API) job(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
 	id, err := pathID(r)
 	if err != nil {
@@ -504,10 +688,17 @@ func (a *API) body(w http.ResponseWriter, r *http.Request, p syncing.Principal) 
 	if err = r.Context().Err(); err != nil {
 		return err
 	}
+	started := time.Now()
 	receipt, err := a.store.CommitUpload(r.Context(), p, b.Envelope, events, lease)
 	if err != nil {
 		return err
 	}
+	var committed syncing.Receipt
+	_ = json.Unmarshal(receipt, &committed)
+	a.log.Info("sync_batch_committed", "batch_id", b.Envelope.BatchID, "event_count", len(events),
+		"inserted", committed.Counts.Inserted, "unchanged", committed.Counts.Unchanged,
+		"deleted", committed.Counts.Deleted, "tombstoned", committed.Counts.Tombstoned,
+		"suppressed", committed.Counts.Suppressed, "commit_ms", time.Since(started).Milliseconds())
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	// A response write failure cannot undo the committed transaction. The client
