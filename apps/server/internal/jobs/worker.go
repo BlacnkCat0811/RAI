@@ -11,9 +11,9 @@ type Recovery interface {
 }
 
 // Run maintains durable leases. No analysis handler is registered until its
-// algorithm has passed legacy semantic comparison (P5). Unhandled jobs stay queued.
+// algorithm and its acceptance criteria have been implemented (P4). Unhandled jobs stay queued.
 func Run(ctx context.Context, q Recovery, log *slog.Logger) error {
-	log.Info("worker_started", "analysis_handlers", 0, "reason", "analysis_pending_p5")
+	log.Info("worker_started", "analysis_handlers", 0, "reason", "analysis_pending_p4")
 	t := time.NewTicker(15 * time.Second)
 	defer t.Stop()
 	for {

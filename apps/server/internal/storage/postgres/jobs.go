@@ -42,6 +42,39 @@ func (s *Store) Renew(ctx context.Context, l Lease) error {
 	return nil
 }
 
+// Fail records a bounded retry without accepting arbitrary error text, which
+// could contain health data or credentials. An expired or superseded lease
+// cannot alter the current attempt.
+func (s *Store) Fail(ctx context.Context, l Lease, retryable bool) error {
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var code string
+	err = tx.QueryRow(ctx, `UPDATE jobs SET
+		state=CASE WHEN $4 AND attempts < 8 THEN 'queued' ELSE 'failed' END,
+		lease_until=NULL, run_after=now()+interval '5 seconds',
+		last_error_code=CASE WHEN $4 THEN 'handler_retryable' ELSE 'handler_failed' END
+		WHERE id=$1 AND dataset_id=$2 AND state='running' AND fencing_token=$3 AND lease_until>now()
+		RETURNING last_error_code`, l.ID, l.DatasetID, l.FencingToken, retryable).Scan(&code)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return syncing.Fail(409, "lease_lost")
+	}
+	if err != nil {
+		return err
+	}
+	r, err := tx.Exec(ctx, `UPDATE job_attempts SET finished_at=now(),result_code=$3
+		WHERE job_id=$1 AND fencing_token=$2 AND finished_at IS NULL`, l.ID, l.FencingToken, code)
+	if err != nil {
+		return err
+	}
+	if r.RowsAffected() != 1 {
+		return errors.New("job attempt missing or already finished")
+	}
+	return tx.Commit(ctx)
+}
+
 // Complete is queue bookkeeping only. A future result publisher must also CAS
 // its declared input generations and write the release/changefeed in this transaction.
 func (s *Store) Complete(ctx context.Context, l Lease) error {

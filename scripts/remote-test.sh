@@ -108,7 +108,9 @@ fi
 
 ready=false
 for _ in $(seq 1 90); do
-  if docker exec "$pg" pg_isready -U rai_test -d rai_test >/dev/null 2>&1; then
+  # The image starts a temporary socket-only server during initialization.
+  # Wait for the final TCP listener, not that transient server.
+  if docker exec "$pg" pg_isready -h 127.0.0.1 -U rai_test -d rai_test >/dev/null 2>&1; then
     ready=true
     break
   fi

@@ -11,6 +11,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -63,6 +65,51 @@ func sameBusiness(t *testing.T, f *fixture, before map[string][]byte) {
 	for table, after := range businessSnapshot(t, f) {
 		if !bytes.Equal(before[table], after) {
 			t.Fatal("operational failure changed business state:", table)
+		}
+	}
+}
+
+// Schema 10 adds nullable provenance. Existing records must remain NULL, while
+// all pre-existing business columns and receipts must remain byte-for-byte
+// equivalent after normalization of that newly added field.
+func sameBusinessAcrossDeviceMigration(t *testing.T, f *fixture, before map[string][]byte) {
+	t.Helper()
+	after := businessSnapshot(t, f)
+	normalize := func(raw []byte, field string) []string {
+		t.Helper()
+		var rows []map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &rows); err != nil {
+			t.Fatal(err)
+		}
+		out := make([]string, 0, len(rows))
+		for _, row := range rows {
+			if device, ok := row[field]; ok && string(device) != "null" {
+				t.Fatal("migration invented legacy device provenance")
+			}
+			delete(row, field)
+			b, err := json.Marshal(row)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out = append(out, string(b))
+		}
+		sort.Strings(out)
+		return out
+	}
+	for table, raw := range after {
+		field := ""
+		if table == "sync_streams" || table == "sync_batches" {
+			field = "device_id"
+		}
+		if table == "health_samples" || table == "workouts" {
+			field = "ingest_device_id"
+		}
+		if field != "" {
+			if !reflect.DeepEqual(normalize(before[table], field), normalize(raw, field)) {
+				t.Fatal("migration changed business state:", table)
+			}
+		} else if !bytes.Equal(before[table], raw) {
+			t.Fatal("migration changed business state:", table)
 		}
 	}
 }
@@ -532,5 +579,5 @@ func TestSchema5UpgradePreservesReceiptsAndBudgets(t *testing.T) {
 	if !budgetTime(t, f, &f.p.DeviceID, syncing.UploadLane).Equal(debt) {
 		t.Fatal("upgrade reset rate debt")
 	}
-	sameBusiness(t, f, before)
+	sameBusinessAcrossDeviceMigration(t, f, before)
 }

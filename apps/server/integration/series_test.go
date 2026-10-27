@@ -446,13 +446,18 @@ func TestSchema7UpgradeAddsSeriesWithoutRewritingFacts(t *testing.T) {
 	if err := f.s.Ready(ctx); err != nil {
 		t.Fatal(err)
 	}
-	sameBusiness(t, f, before)
+	sameBusinessAcrossDeviceMigration(t, f, before)
 	if count(t, f, "series_uploads") != 0 || count(t, f, "series_chunks") != 0 {
 		t.Fatal("migration fabricated series detail")
 	}
 	retry, err := f.s.Commit(ctx, f.p, e, []syncing.Event{parent})
 	if err != nil || !bytes.Equal(retry, original) {
 		t.Fatal("upgrade changed original sample receipt", err)
+	}
+	newBatch, _, _ := f.commit(t, []syncing.Event{sample(syncing.NewID(), 120)}, 2, &e.BatchID)
+	var batchDevice string
+	if err = f.s.Pool.QueryRow(ctx, `SELECT device_id FROM sync_batches WHERE dataset_id=$1 AND batch_id=$2`, f.p.DatasetID, newBatch.BatchID).Scan(&batchDevice); err != nil || batchDevice != f.p.DeviceID {
+		t.Fatal("new batch on legacy stream lost device provenance", err)
 	}
 	seriesID := syncing.NewID()
 	state, err := f.s.RegisterSeries(ctx, f.p, seriesRequest(f, seriesID, parentID))

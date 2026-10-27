@@ -722,6 +722,16 @@ func TestAPIRoleCannotMigrateOrMaintain(t *testing.T) {
 	if count(t, f, "workout_activities") != 2 {
 		t.Fatal("restricted role lost activities")
 	}
+	routeID := syncing.NewID()
+	if inserted, err := restricted.StageRouteChunk(ctx, p.DatasetID, w.UUID, routeID, "synthetic.test", 0, []postgres.RoutePoint{{RecordedAt: time.Now(), Latitude: 0, Longitude: 0}}); err != nil || !inserted {
+		t.Fatal("restricted role cannot stage route", err)
+	}
+	if _, err := restricted.Pool.Exec(ctx, `UPDATE workout_routes SET state='sealed', sealed_at=now(), receipt='synthetic' WHERE dataset_id=$1 AND route_uuid=$2`, p.DatasetID, routeID); err == nil {
+		t.Fatal("restricted role could forge a route seal")
+	}
+	if _, err := restricted.Pool.Exec(ctx, `DELETE FROM route_points WHERE dataset_id=$1 AND route_uuid=$2`, p.DatasetID, routeID); err == nil {
+		t.Fatal("restricted role could delete route points directly")
+	}
 	del, _ := f.envelope(t, []syncing.Event{workoutDelete(w.UUID)}, 2, &e.BatchID)
 	if _, err = restricted.RegisterBatch(ctx, p, del); err != nil {
 		t.Fatal(err)
@@ -731,6 +741,9 @@ func TestAPIRoleCannotMigrateOrMaintain(t *testing.T) {
 	}
 	if count(t, f, "workout_activities") != 0 {
 		t.Fatal("restricted role orphaned activities")
+	}
+	if count(t, f, "workout_routes") != 0 || count(t, f, "route_chunks") != 0 || count(t, f, "route_points") != 0 {
+		t.Fatal("restricted role orphaned route staging")
 	}
 	if err = restricted.ReleaseUpload(ctx, p, lease); err != nil {
 		t.Fatal("API role cannot release workout lease", err)

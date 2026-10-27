@@ -37,7 +37,8 @@ trap 'exit 143' TERM
 
 if ! ssh "${ssh_opts[@]}" "$host" true; then
   echo "SSH key not accepted for $host; install this Mac's public key first:" >&2
-  echo "Configure your SSH host alias and install its public key using ssh-copy-id." >&2
+  cat ~/.ssh/id_ed25519_rai_fnos.pub >&2
+  echo "  ssh-copy-id -i ~/.ssh/id_ed25519_rai_fnos.pub -p 8022 tpandmr@101.33.202.40" >&2
   exit 2
 fi
 if ! ssh "${ssh_opts[@]}" "$host" 'command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1'; then
@@ -51,12 +52,20 @@ created=1
 if [[ "${RAI_USE_RSYNC:-1}" != 0 ]] && ssh "${ssh_opts[@]}" "$host" 'command -v rsync >/dev/null 2>&1'; then
   rsync -az --delete \
     --exclude=.git \
+    --exclude=.env \
+    --exclude=.local \
+    --exclude=secrets \
+    --exclude=tmp \
     --exclude=docs/evidence \
     --exclude='*.log' \
     "$root/" "$host:$remote_dir/"
 else
   tar -C "$root" -czf - \
     --exclude=.git \
+    --exclude=.env \
+    --exclude=.local \
+    --exclude=secrets \
+    --exclude=tmp \
     --exclude=docs/evidence \
     --exclude='*.log' . | ssh "${ssh_opts[@]}" "$host" "tar -xzf - -C $(printf %q "$remote_dir")"
 fi

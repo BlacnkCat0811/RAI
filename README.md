@@ -10,26 +10,11 @@
 
 ## 本地启动
 
-需要 Go **1.27.3**、Docker Compose，或单独的 PostgreSQL **18.6**。所有示例只用于新建开发数据库。生产必须配置独立最小权限角色，不能使用开发凭证。
+开发环境使用 Go **1.27.3** 和 PostgreSQL **18.6**。三服务 Compose 的显式迁移与启动步骤见 [开发 Compose](deploy/dev/README.md)。该配置仅用于合成开发数据，生产必须配置独立最小权限角色和秘密。
 
-```bash
-# 当前工程根目录
-docker compose -f deploy/dev/compose.yaml up -d
+API 默认只监听 `127.0.0.1:8080`；容器配置监听 `0.0.0.0:8080`。`RAI_LISTEN_ADDR` 可更改监听地址。使用挂载秘密文件时配置 `RAI_DATABASE_URL_FILE`，不能同时设置两种数据库 URL 来源。API 不自动执行 migration 或创建数据集。仅在确需创建开发数据集时手动运行 `rai init`；其一次性设备凭证必须安全保存，不提交或写入普通日志。
 
-cd apps/server
-export RAI_DATABASE_URL='postgres://rai_dev:development-only@127.0.0.1:55432/rai_dev?sslmode=disable'
-go run ./cmd/rai migrate
-
-# 仅首次执行。输出一次性设备凭证，安全保存，不要提交或写进普通日志。
-go run ./cmd/rai init
-go run ./cmd/rai api
-```
-
-API 默认只监听 `127.0.0.1:8080`。`RAI_LISTEN_ADDR` 可更改监听地址。挂载秘密文件时使用 `RAI_DATABASE_URL_FILE`，不能同时设置两种数据库 URL 来源。API 不自动执行 migration 或创建数据集。
-
-另一个终端使用相同数据库配置运行 `go run ./cmd/rai worker`。当前 Worker 仅恢复过期租约，不消费尚未移植的分析任务，不能用它宣称分析完成。
-
-`GET /livez` 检查进程；`GET /readyz` 检查数据库和 schema 版本。所有 `/v2` 接口都需要 `Authorization: Bearer <init 返回的 token>`。上传流程、单位及错误见 [同步合同](contracts/sync-v2.md)、[OpenAPI](contracts/openapi-v2.yaml)、[合同变更记录](contracts/CHANGELOG.md)，跨语言固定输入见 [fixtures](contracts/fixtures/envelope.json)。
+Worker 仅恢复过期租约，不消费未实现的分析任务。`GET /health` 和 `/livez` 检查进程；`GET /ready` 和 `/readyz` 检查数据库和 schema 版本。所有 `/v2` 接口都需要 `Authorization: Bearer <init 返回的 token>`。上传流程、单位及错误见 [同步合同](contracts/sync-v2.md)、[OpenAPI](contracts/openapi-v2.yaml)、[合同变更记录](contracts/CHANGELOG.md)，跨语言固定输入见 [fixtures](contracts/fixtures/envelope.json)。
 
 NAS 连接见 [fnOS 访问说明](docs/FNOS-ACCESS.md)。远端现有库不作为开发／测试默认数据库。
 
@@ -42,7 +27,7 @@ go vet ./...
 
 # 在隔离开发 PostgreSQL 上显式创建 rai_test 根测试库。
 # 测试连接用户需要 CREATEDB；每个用例另建随机临时数据库并在结束时删除。
-export RAI_TEST_DATABASE_URL='postgres://rai_dev:development-only@127.0.0.1:55432/rai_test?sslmode=disable'
+export RAI_TEST_DATABASE_URL='<独立隔离的 rai_test PostgreSQL URI>'
 go test -race -count=1 -tags=integration ./...
 go vet -tags=integration ./...
 
@@ -79,4 +64,4 @@ SQL 代码由 **sqlc 1.31.1** 生成，在 `apps/server` 执行 `sqlc generate`�
 docker build --platform linux/amd64 -t rai:dev apps/server
 ```
 
-一个镜像分别以 `api` / `worker` / `migrate` / `init` 模式执行，默认非 root。开发 Compose 仅提供隔离 PostgreSQL，不是 fnOS 生产发布配置。生产网络、TLS/frp、备份恢复和真机验收仍按方案 P3–P8 推进；P6 旧数据迁移按 ADR-002 不在本次上线范围。
+一个镜像分别以 `api` / `worker` / `migrate` / `init` 模式执行，默认非 root。开发 Compose 提供隔离的 PostgreSQL、API 和 Worker，不是 fnOS 生产发布配置。生产网络、TLS、备份恢复和真机验收仍待后续阶段完成；旧数据迁移按 ADR-002 不在本次上线范围。

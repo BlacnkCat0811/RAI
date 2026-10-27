@@ -353,7 +353,7 @@ func TestSchema8UpgradeAddsWorkoutPackagesWithoutRewritingFacts(t *testing.T) {
 	if err := f.s.Ready(ctx); err != nil {
 		t.Fatal(err)
 	}
-	sameBusiness(t, f, before)
+	sameBusinessAcrossDeviceMigration(t, f, before)
 	if count(t, f, "workout_packages") != 0 || count(t, f, "workout_package_chunks") != 0 {
 		t.Fatal("migration fabricated package staging")
 	}

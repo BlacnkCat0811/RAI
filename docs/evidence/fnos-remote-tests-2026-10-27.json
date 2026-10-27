@@ -14,7 +14,9 @@
   },
   "ssh": {
     "alias": "rai-fnos",
+    "endpoint": "tpandmr@101.33.202.40:8022",
     "host_key_algorithm": "ssh-ed25519",
+    "host_key_sha256": "SHA256:iFrLXhnwYuN2F5v+N2XJW1hDo51HW3B+4YklArxBfhc",
     "batch_mode": "PASS"
   },
   "isolation": {

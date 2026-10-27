@@ -11,7 +11,8 @@ info:
     cross-replica upload leases. Legacy Workout v1 payloads without activities
     remain valid.
     The runtime handshake is authoritative for enabled capabilities and numeric
-    limits. Routes, changefeed and analysis execution are not supported yet.
+    limits. A partial change notification endpoint exists; complete changefeed,
+    routes and analysis execution are not supported yet.
   license: {name: Proprietary, identifier: LicenseRef-Proprietary}
 servers:
   - url: http://127.0.0.1:8080
@@ -19,6 +20,21 @@ servers:
 security:
   - deviceToken: []
 paths:
+  /health:
+    get:
+      summary: Check process liveness
+      operationId: getHealth
+      security: []
+      responses:
+        '200': {description: Process responds}
+  /ready:
+    get:
+      summary: Check database and schema readiness
+      operationId: getReady
+      security: []
+      responses:
+        '200': {description: Database and required schema reachable}
+        '503': {$ref: '#/components/responses/Error'}
   /livez:
     get:
       summary: Check process liveness
@@ -387,6 +403,29 @@ paths:
         '409': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
+  /v2/sync/changes:
+    get:
+      summary: Read bounded committed change notifications
+      description: Notifications only; does not download full facts or chunk contents. The changefeed capability remains false.
+      operationId: getChangeNotifications
+      parameters:
+        - in: query
+          name: after
+          schema: {type: string, default: '0'}
+          description: Initial cursor 0 or an exact prior nextCursor, bound to the dataset and its epoch.
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 100, default: 50}
+      responses:
+        '200':
+          description: Ordered notifications and a resumable position
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ChangePage'}
+        '401': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
   /v2/jobs/{id}:
     parameters: [{$ref: '#/components/parameters/ID'}]
     get:
@@ -458,6 +497,27 @@ components:
               expectedChunkIndex: {type: integer, minimum: 0}
               eventIndex: {type: integer, minimum: 0}
   schemas:
+    ChangePage:
+      type: object
+      additionalProperties: false
+      required: [changes, nextCursor, hasMore]
+      properties:
+        changes:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [revision, ordinal, eventID, kind, key, operation]
+            properties:
+              revision: {type: integer, minimum: 1}
+              ordinal: {type: integer, minimum: 0}
+              eventID: {$ref: '#/components/schemas/ID'}
+              kind: {type: string}
+              key: {type: string}
+              operation: {type: string}
+        nextCursor: {type: string}
+        hasMore: {type: boolean}
     ID: {type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', not: {const: '00000000-0000-0000-0000-000000000000'}}
     Fingerprint: {type: string, pattern: '^sha256:[0-9a-f]{64}$'}
     Handshake:

@@ -79,6 +79,7 @@ type Store interface {
 	AcquireUpload(context.Context, Principal) (UploadLease, error)
 	ReleaseUpload(context.Context, Principal, UploadLease) error
 	Metadata(context.Context, Principal) (Metadata, error)
+	Changes(context.Context, Principal, string, int) (ChangePage, error)
 	RegisterStream(context.Context, Principal, StreamRequest) (StreamState, error)
 	Stream(context.Context, Principal, string) (StreamState, error)
 	RegisterBatch(context.Context, Principal, Envelope) (BatchState, error)

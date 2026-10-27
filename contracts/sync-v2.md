@@ -8,6 +8,12 @@
 
 `GET /v2/handshake` 返回稳定 serviceID、datasetID、datasetEpoch、业务版本、时区、限额和支持类型。当前支持 sample、有界 Workout v1 字段及 v2 多活动扩展、已提交数量样本的 series 细项分块，以及超大 Workout 的独立细节分块包；pageReceipts=true、workouts=true、workoutPayloadVersion=2、workoutActivities=true、workoutPackages=true、quantitySeries=true，workoutType=HKWorkoutTypeIdentifier。routes/changefeed/analysis 仍为 false。workoutPayloadVersion 表示最高载荷能力，不是 envelope protocolVersion（仍为 2），也不是完整 HealthKit 导入保证；quantitySeries 只表示细项协议可用，不表示服务端知道手机有哪些 series，也不表示全部历史已采集。不支持的类型、单位、不支持的 series 载荷字段及未知字段返回 `422 unsupported_payload`，不忽略后提交。
 
+## 变更通知（部分能力）
+
+`GET /v2/sync/changes?after=0&limit=50` 返回本 dataset 已提交的变更通知，按 `(commitRevision, ordinal)` 升序；`limit` 为 1–100，默认 50。每项包含 revision、ordinal、eventID、kind、key、operation，不包含事实载荷。`nextCursor` 是最后一条的位置，空页保持请求 cursor；`hasMore` 表示当前查询时后面还有记录，客户端以后仍可从末尾 cursor 继续。初始 cursor 为 `0`，后续位置绑定 dataset ID 和 epoch，格式及位置不合法返回 `422 invalid_change_cursor`。不支持的查询参数、重复参数或非法限额均拒绝。只读设备可访问。日志不使用时间戳或 sequence 排序；同一 revision 可跨页。
+
+此接口仅是提交通知：series 点和大 Workout 明细的下载尚未实现，不能靠它恢复完整事实或把通知当作 HealthKit 采集完成的证明。因此握手的 `changefeed` 仍为 false，P3 不得将它作为完整数据下载能力使用。
+
 ## 上传顺序
 
 1. `POST /v2/sync/streams` 登记固定 sampleType、collectorEpoch、queryFingerprint 和 streamID。请求重试身份不变，变更任一字段产生冲突。

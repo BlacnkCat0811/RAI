@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	neturl "net/url"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -27,9 +28,16 @@ func Open(ctx context.Context, url string, maxConnections int32) (*Store, error)
 	if err != nil {
 		return nil, errors.New("invalid database configuration")
 	}
-	c.MaxConns = maxConnections
-	c.MinConns = 0
-	c.MaxConnLifetime = 30 * time.Minute
+	// pgx supports pool_max_conns, pool_min_conns, pool_max_conn_lifetime and
+	// pool_max_conn_idle_time in the URL. Apply conservative defaults only when
+	// the corresponding option was not explicitly configured.
+	u, _ := neturl.Parse(url)
+	if u == nil || !u.Query().Has("pool_max_conns") {
+		c.MaxConns = maxConnections
+	}
+	if u == nil || !u.Query().Has("pool_max_conn_lifetime") {
+		c.MaxConnLifetime = 30 * time.Minute
+	}
 	c.ConnConfig.ConnectTimeout = 3 * time.Second
 	c.ConnConfig.RuntimeParams["timezone"] = "UTC"
 	c.ConnConfig.RuntimeParams["synchronous_commit"] = "on"
@@ -56,7 +64,7 @@ func (s *Store) Ready(ctx context.Context) error {
 	if err = s.Pool.QueryRow(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY id DESC LIMIT 1`).Scan(&version); err != nil {
 		return err
 	}
-	if version != 9 {
+	if version != 10 {
 		return errors.New("unsupported schema version")
 	}
 	return nil
@@ -355,16 +363,23 @@ func (s *Store) commit(ctx context.Context, p syncing.Principal, e syncing.Envel
 	}
 	receipt := syncing.Receipt{BatchID: e.BatchID, IngestStatus: "committed", DatasetEpoch: e.DatasetEpoch, ClientSeq: e.ClientSeq, PayloadSHA256: e.PayloadSHA256, CommitRevision: rev, AnalysisStatus: "not_required", AnalysisJobIDs: []string{}}
 	ordinal := 0
-	for _, ev := range collapsed {
-		changed, job, err := applyEvent(ctx, tx, p.DatasetID, e.BatchID, ev, rev+1, ordinal, &receipt.Counts)
+	if allSampleUpserts(collapsed) {
+		ordinal, receipt.AnalysisJobIDs, err = applySampleUpsertsBatch(ctx, tx, p.DatasetID, e.BatchID, collapsed, rev+1, &receipt.Counts)
 		if err != nil {
 			return nil, err
 		}
-		if changed {
-			ordinal++
-		}
-		if job != "" {
-			receipt.AnalysisJobIDs = append(receipt.AnalysisJobIDs, job)
+	} else {
+		for _, ev := range collapsed {
+			changed, job, err := applyEvent(ctx, tx, p.DatasetID, e.BatchID, ev, rev+1, ordinal, &receipt.Counts)
+			if err != nil {
+				return nil, err
+			}
+			if changed {
+				ordinal++
+			}
+			if job != "" {
+				receipt.AnalysisJobIDs = append(receipt.AnalysisJobIDs, job)
+			}
 		}
 	}
 	if ordinal > 0 {

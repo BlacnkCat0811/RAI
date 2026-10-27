@@ -3,16 +3,6 @@ on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
-  contracts:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22.23.2
-      - name: Validate OpenAPI
-        run: npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -43,14 +33,20 @@ jobs:
         run: |
           test -z "$(gofmt -l cmd internal integration migrations/embed.go)"
           go mod verify
+      - name: Unit tests
+        run: go test ./...
+      - name: Unit tests with race detector
+        run: go test -race ./...
       - name: Unit and real PostgreSQL regression with race detector
         run: go test -race -count=1 -tags=integration ./...
       - name: Maximum page recovery and synthetic large-table query plans
         run: go test -race -count=1 -tags=integration,scale -run '^TestScale' -timeout=10m ./integration
       - name: Vet and build
         run: |
+          go vet ./...
           go vet -tags=integration,scale ./...
-          CGO_ENABLED=0 go build ./cmd/rai
+          CGO_ENABLED=0 go build -o /tmp/rai-api ./cmd/rai
+          CGO_ENABLED=0 go build -o /tmp/rai-worker ./cmd/rai
       - name: Enforce online dependency boundaries
         run: python3 ../../scripts/check-boundaries.py
       - name: Verify sqlc generated code

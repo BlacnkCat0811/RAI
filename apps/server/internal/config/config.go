@@ -2,7 +2,10 @@ package config
 
 import (
 	"errors"
+	"net"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -22,5 +25,26 @@ func DatabaseURL() (string, error) {
 	if value == "" {
 		return "", errors.New("database URL is required")
 	}
+	u, err := url.Parse(value)
+	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Hostname() == "" || u.User == nil || u.User.Username() == "" || strings.Trim(u.Path, "/") == "" {
+		return "", errors.New("database URL must specify PostgreSQL host, user and database")
+	}
 	return value, nil
+}
+
+// ListenAddr validates the address before opening any network listener.
+func ListenAddr() (string, error) {
+	addr := os.Getenv("RAI_LISTEN_ADDR")
+	if addr == "" {
+		addr = "127.0.0.1:8080"
+	}
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", errors.New("invalid HTTP listen address")
+	}
+	n, err := strconv.Atoi(port)
+	if err != nil || n < 1 || n > 65535 {
+		return "", errors.New("invalid HTTP listen port")
+	}
+	return addr, nil
 }

@@ -274,7 +274,7 @@ func TestSchema6UpgradePreservesV1IdentityAndRuntimeState(t *testing.T) {
 	if err := f.s.Ready(ctx); err != nil {
 		t.Fatal(err)
 	}
-	sameBusiness(t, f, before)
+	sameBusinessAcrossDeviceMigration(t, f, before)
 	if count(t, f, "workout_activities") != 0 {
 		t.Fatal("migration fabricated activities")
 	}

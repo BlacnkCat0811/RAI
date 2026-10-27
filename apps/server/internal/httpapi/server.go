@@ -30,17 +30,23 @@ type uploadDevice struct{ datasetID, deviceID string }
 func New(store syncing.Store, log *slog.Logger) http.Handler {
 	a := &API{store: store, log: log, uploads: make(chan struct{}, 2), devices: make(map[uploadDevice]bool)}
 	m := http.NewServeMux()
-	m.HandleFunc("GET /livez", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) })
-	m.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+	live := func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) }
+	ready := func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 		if err := store.Ready(ctx); err != nil {
+			log.Warn("readiness_failed", "reason", "database_or_schema_unavailable")
 			respond(w, 503, map[string]string{"code": "not_ready"})
 			return
 		}
 		respond(w, 200, map[string]string{"status": "ready"})
-	})
+	}
+	m.HandleFunc("GET /livez", live)
+	m.HandleFunc("GET /health", live)
+	m.HandleFunc("GET /readyz", ready)
+	m.HandleFunc("GET /ready", ready)
 	m.Handle("GET /v2/handshake", a.auth(syncing.ReadLane, a.handshake))
+	m.Handle("GET /v2/sync/changes", a.auth(syncing.ReadLane, a.changes))
 	m.Handle("POST /v2/sync/streams", a.auth(syncing.WriteLane, a.registerStream))
 	m.Handle("GET /v2/sync/streams/{id}", a.auth(syncing.ReadLane, a.stream))
 	m.Handle("POST /v2/sync/batches", a.auth(syncing.WriteLane, a.registerBatch))
@@ -64,6 +70,36 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 }
 
 type handler func(http.ResponseWriter, *http.Request, syncing.Principal) error
+
+func (a *API) changes(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	q := r.URL.Query()
+	for k, values := range q {
+		if (k != "after" && k != "limit") || len(values) != 1 {
+			return syncing.Fail(422, "invalid_change_query")
+		}
+	}
+	after := q.Get("after")
+	if !q.Has("after") {
+		after = "0"
+	} else if after == "" {
+		return syncing.Fail(422, "invalid_change_cursor")
+	}
+	limit := 50
+	if q.Has("limit") {
+		v := q.Get("limit")
+		var err error
+		limit, err = strconv.Atoi(v)
+		if err != nil || strconv.Itoa(limit) != v || limit < 1 || limit > syncing.MaxChangePage {
+			return syncing.Fail(422, "invalid_change_limit")
+		}
+	}
+	page, err := a.store.Changes(r.Context(), p, after, limit)
+	if err != nil {
+		return err
+	}
+	respond(w, 200, page)
+	return nil
+}
 
 func (a *API) auth(lane syncing.AdmissionLane, next handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
