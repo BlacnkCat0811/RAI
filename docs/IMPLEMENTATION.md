@@ -14,7 +14,7 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 
 ## 当前实现与范围
 
-当前工程不是空骨架：`apps/server` 为 Go 1.27.3 的 `rai/server`，已有 api/worker/migrate/init 单二进制模式、pgx/v5、sqlc、goose migrations 00001–00012、合成测试、开发 Compose、Dockerfile 和 CI。`/health`、`/livez` 检查进程存活，`/ready`、`/readyz` 检查数据库与 schema。开发 Compose 包含 PostgreSQL、API 和 Worker，启动前须显式执行 migration；fnOS 隔离验收见下。
+当前工程不是空骨架：`apps/server` 为 Go 1.27.3 的 `rai/server`，已有 api/worker/migrate/init 单二进制模式、pgx/v5、sqlc、goose migrations 00001–00013、合成测试、开发 Compose、Dockerfile 和 CI。`/health`、`/livez` 检查进程存活，`/ready`、`/readyz` 检查数据库与 schema。开发 Compose 包含 PostgreSQL、API 和 Worker，启动前须显式执行 migration；fnOS 隔离验收见下。
 
 已实现的服务端切片包括 v2 数量/睡眠类别样本、有界多活动 Workout、append-only Workout enrichment、sample↔Workout 迟到关联、超大 Workout 分块/seal、数量 series 分块/seal、manifest 绑定的 route 分块/原子 seal/删除屏障、页回执、持久请求预算和上传租约。当前握手声明 `routes=true`、`sampleWorkoutAssociations=true`、`workoutEnrichment=true`；`changefeed` 仍为 false；P4 的 `analysis` 为 true。详细身份、限额及可观察错误以 [P3 同步合同](V2_PHASE3_SYNC_CONTRACT.md)、[P2 同步合同](../contracts/sync-v2.md) 和 [OpenAPI](../contracts/openapi-v2.yaml) 为准。Workout 主体和样本内容不可变；迟到 metadata 只能追加有源版本事实，不能覆盖既有不同值。
 
@@ -31,8 +31,8 @@ P3.5 原生iPhone同步工程已经实现，但真实授权、HealthKit读取、
 | P2 | 核心领域、route/jobs/repository 和事务边界 | PASS WITH RISKS；核心模型、路线暂存与 fnOS 验证完成，路线发布协议留待 P3 |
 | P3 | iOS HealthKit 增量、批次、幂等、删除、重试、迟到及 route | PASS WITH RISKS；服务端 fnOS 验证通过；P3.5 iOS 工程与 Swift 合成恢复联调已实现，真机 E2E 未完成；本轮用户授权延期，不再阻塞P4开发，历史P3.5 BLOCKED保留 |
 | P4 | Go 异步分析、可重算结果、算法与输入版本 | PASS WITH RISKS；fnOS自动门禁通过，load-only模型与输入上限见P4 Result |
-| P5 | 训练基础计划、override、effective、执行与反馈闭环 | 未实现 |
-| P6 | iOS API、同步、分析查询、训练与执行集成 | 未实现 |
+| P5 | 训练基础计划、override、effective、执行与反馈闭环 | PASS WITH RISKS，见P5 Result |
+| P6 | iOS API、同步、分析查询、训练与执行集成 | 产品代码已实现，模拟器UI/Release验收受宿主磁盘满阻塞 |
 | P7 | fnOS Docker、TLS、资源、可观测、PG 备份恢复、性能和用户明确授权的发布 | 未验收；不自动部署、切入口或迁移真实数据 |
 
 旧文档/README 中旧 P0–P8 编号是历史表述；这里采用新 P0–P7，不能据编号推断既有工作消失或重复实施。详细责任、逻辑身份、路线比较、目标 SLO、资源预算及 Do Not Build 见 [基线](V2_PHASE0_BASELINE.md)。
@@ -160,3 +160,12 @@ P5新增schema13、纯training domain、versioned generator/parameters、stable 
 P5为backend-only；未实现P6完整UI、WorkoutKit、Watch、LLM或P7部署。透明规则与load-only readiness/recovery的个体效度、目标时间优化/taper、长期retention、真实iPhone、生产TLS/secret/备份恢复/断电仍未验证。没有连接既有rai数据库、迁移真实健康数据或修改旧running。
 
 **P5 STATUS: PASS WITH RISKS；P6 DEVELOPMENT READY: YES。P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED。** P6 gate只表示P5闭环自动验收成立，按STOP RULE停止于P5，不开始P6。
+
+
+## P6 Native Product Integration（2026-10-28，验收进行中）
+
+P6_BASE_COMMIT=`62511f9b3e5998ccad79396a7e14540074e506e5`，main，入口干净；P4/P5已在基线。新增原生五Tab、统一Liquid Glass/Material、P4Published/P5Effective读取、训练命令journal、字段调整/冲突/ACK重试、frozen执行与显式Workout关联/Feedback；P3诊断移至我的。新增只读Workout/overview/history，无新migration、P3 ingestion变更或第二套算法/计划。原方案和历史evidence保留。
+
+真实Swift→fnOS隔离PG通过Home读取、原命令ACK重放、409草稿、override跨新Base保留、未修改字段更新、snapshot与Feedback。fnOS普通/race/vet/build、完整PG race（integration311.846秒）、249包边界、Compose P3/P4/P5回归、OpenAPI通过。最新Swift核心34项通过，含原P3同步27项。具体构建与末尾补丁验收见[P6 Result](V2_PHASE6_RESULT.md)、[产品合同](P6_IOS_PRODUCT_CONTRACT.md)与[evidence](evidence/p6-ios-2026-10-28.json)。
+
+模拟器UI、最终Debug/Release、两尺寸/Accessibility/视觉基线与性能尚未完成：宿主磁盘满导致Xcode安装Code28与Release构建失败。已清理本轮可再生成缓存并停止本轮模拟器；用户选择自行释放空间。未清理历史evidence或用户数据，未触碰生产/旧running。P6 DEVELOPMENT STATUS: BLOCKED（等待空间恢复继续验收）；P7 DEVELOPMENT READY: NO。P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；DEVICE TEST: NOT RUN；PRODUCTION RELEASE READY: NO。

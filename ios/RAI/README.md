@@ -1,6 +1,6 @@
-# RAI V2 P3.5 iPhone sync client
+# RAI V2 P6 native iPhone product
 
-Native SwiftUI iPhone target `RAI`, bundle `com.rai.v2.ios`, iOS 18+, Swift 6 with complete concurrency checks. Only the sync debug screen is implemented. No analysis or training features. The frozen layout is `ios/RAI`, as specified in `docs/V2_PHASE0_BASELINE.md`.
+Native SwiftUI iPhone target `RAI`, bundle `com.rai.v2.ios`, iOS 18+, Swift 6 with complete concurrency checks. Five native tabs integrate published analysis, effective training, overrides, frozen execution and feedback. Sync diagnostics remain under Profile. See `../../docs/P6_IOS_PRODUCT_CONTRACT.md` and `../../docs/V2_PHASE6_RESULT.md` for actual verification and remaining gates. The frozen layout is `ios/RAI`, as specified in `docs/V2_PHASE0_BASELINE.md`.
 
 ## Build and tests
 
@@ -55,4 +55,30 @@ The Swift probe uses the same SyncCore but is a macOS command-line **test harnes
 
 The user confirmed no physical iPhone is available for this run. Signing/install, actual read authorization, real Workout/sample/route reads, repeat incremental sync, foreground/background lifecycle, iPhone kill/network loss, server-commit response loss and API/PG restart recovery with that phone remain **NOT VERIFIED**. Real 20/45-minute records, GPS seal, latency and peak memory remain unmeasured. Delete tests must use disposable or mocked facts, never delete private HealthKit records for acceptance.
 
-Use `docs/evidence/p35-ios-2026-10-27.json` and the Client Closure section of `docs/V2_PHASE3_RESULT.md` as the actual result. P3.5 is BLOCKED at the physical-device gate; `P4 READY: NO`.
+P3/P3.5 evidence remains historical. P3 REAL DEVICE ACCEPTANCE is DEFERRED / NOT VERIFIED. P6 is separately tracked in `docs/evidence/p6-ios-2026-10-28.json`; neither simulator nor macOS probes establish physical-device acceptance.
+
+## P6 synthetic product acceptance
+
+The product is SwiftUI + native TabView/Charts/Sheet, iOS26 glassEffect with iOS18 Material fallback. `ProductCore` reuses `RAIAPIClient` and keeps immutable product commands separate from HealthKit anchors. No Swift coach or analysis algorithm exists. WorkoutKit scheduling remains deferred.
+
+From the repository root, run the disposable host in one terminal and keep its log private:
+
+```bash
+RAI_TEST_GOPROXY=https://goproxy.cn,direct scripts/test-remote.sh bash ../../scripts/p6-client-host.sh > /tmp/rai-p6-host.log 2>&1
+```
+
+In another terminal, after `P6_CLIENT_READY`:
+
+```bash
+cd ios/RAI
+swift test
+swift build --product ProductProbe
+cd ../..
+python3 scripts/test-p6-client.py /tmp/rai-p6-host.log
+```
+
+The driver creates a private `/tmp/rai-p6-native-acceptance` configuration, opens a loopback SSH tunnel, submits synthetic P3 facts and verifies live P4/P5 state with the same Swift clients. It stays alive for serial simulator tests. Build/run the RAI scheme with `RAI_DEV_HTTP_HOST=127.0.0.1`, `CODE_SIGNING_ALLOWED=NO`, an explicit simulator destination and parallel testing disabled. UI tests require this actual host; no mock runtime fallback is allowed. Choose an isolated acceptance simulator. Screenshots and redacted reports are copied before creating `/tmp/rai-p6-native-acceptance/done`, which ends the driver, removes private credentials, and tears down remote API/Worker/PG.
+
+`Tools/CompareSnapshots.swift <baseline-dir> <candidate-dir>` compares five actual PNG screenshots with equal dimensions, a 10% changed-pixel allowance and mean channel error ≤12/255. It never updates a baseline automatically. Compare the same OS/model/text size; review synthetic date/value differences. Baselines must come from a verified UI run, not the design image.
+
+Formal server regression: `RAI_TEST_GOPROXY=https://goproxy.cn,direct scripts/test-remote.sh bash ../../scripts/check-p6.sh`; Compose P3/P4/P5 regression remains `scripts/test-remote.sh bash ../../scripts/test-p5-compose.sh`. These are disposable synthetic environments, not production deployment.

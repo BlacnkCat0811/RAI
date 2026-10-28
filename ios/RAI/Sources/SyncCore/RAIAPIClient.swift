@@ -13,7 +13,7 @@ public struct RAIAPIClient: Sendable {
         self.baseURL = baseURL; self.token = token; self.session = session; self.uploader = uploader; self.metrics = metrics
     }
     public func call(_ method: String, _ path: String, body: Data? = nil, file: URL? = nil,
-                     mediaType: String = "application/json", gzip: Bool = false, identity: String = "") async throws -> JSON {
+                     mediaType: String = "application/json", gzip: Bool = false, identity: String = "", query: [String: String] = [:]) async throws -> JSON {
         let networkStart = Date()
         defer {
             metrics.elapsed("network_ms", since: networkStart)
@@ -21,7 +21,8 @@ public struct RAIAPIClient: Sendable {
             if path.hasPrefix("/v2/routes/") && path.contains("/chunks/") { metrics.elapsed("route_chunk_upload_ms", since: networkStart) }
         }
         guard path.hasPrefix("/v2/"), var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else { throw SyncFailure.invalid("invalid_api_path") }
-        components.path = path; components.query = nil; components.fragment = nil
+        guard !path.contains("?"), !path.contains("#") else { throw SyncFailure.invalid("invalid_api_path") }
+        components.path = path; components.queryItems = query.isEmpty ? nil : query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }; components.fragment = nil
         guard let url = components.url else { throw SyncFailure.invalid("invalid_api_url") }
         var request = URLRequest(url: url, timeoutInterval: 60)
         request.httpMethod = method; request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
@@ -46,7 +47,9 @@ public struct RAIAPIClient: Sendable {
                 let code = decoded?["code"].text
                 throw UploadError(code: code ?? "unexpected_http_status", status: status, retryAfter: retryAfter)
             }
+            let decodeStart = Date()
             let json = try JSON.decode(data)
+            metrics.elapsed("response_decode_ms", since: decodeStart)
             return json
         } catch let error as UploadError { throw error }
         catch let error as URLError { throw UploadError(code: "network_" + String(error.code.rawValue)) }

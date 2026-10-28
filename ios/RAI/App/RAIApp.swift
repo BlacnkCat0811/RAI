@@ -102,7 +102,7 @@ struct RAIApp: App {
     @Environment(\.scenePhase) private var phase
     var body: some Scene {
         WindowGroup {
-            SyncView(model: model)
+            ProductTabs(sync: model)
                 .onChange(of: phase) { _, phase in
                     if phase == .active { model.start(readHealth: false) }
                     else if phase == .background { model.suspendForegroundWork() }
@@ -117,32 +117,32 @@ struct SyncView: View {
     @State private var collector = ""
     @State private var token = ""
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Health Authorization") {
-                    Text(model.authorization).font(.footnote)
-                    Button("Request Read Access") { model.authorize() }.disabled(model.busy)
-                }
-                Section("Sync") {
-                    LabeledContent("Status", value: model.status)
-                    LabeledContent("Pending pages", value: String(model.pending))
-                    if let date = model.lastSync { LabeledContent("Last sync") { Text(date, style: .time) } }
-                    if let date = model.lastACK { LabeledContent("Last ACK") { Text(date, style: .time) } }
-                    if let error = model.error { Text(error).foregroundStyle(.red).font(.footnote) }
-                    Button("Sync Now") { model.start() }.disabled(model.busy)
-                    Button("Retry Saved Work") { model.retrySaved() }.disabled(model.busy)
-                }
-                Section("Development API") {
-                    TextField("HTTPS base URL", text: $apiURL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    TextField("Collector epoch UUID", text: $collector).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    SecureField("Device bearer token", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    Button("Save to Keychain") {
-                        do { try ClientConfiguration.save(baseURL: apiURL, collectorEpoch: collector, token: token); token = ""; model.error = nil }
-                        catch { model.error = "Invalid configuration or Keychain write failed." }
-                    }.disabled(model.busy)
-                    Text("Use an isolated dataset. A saved dataset/collector identity cannot be silently changed.").font(.caption)
-                }
-            }.navigationTitle("RAI V2")
-        }
+        Form {
+            Section("Health Authorization") {
+                Text(model.authorization).font(.footnote)
+                Button("Request Read Access") { model.authorize() }.disabled(model.busy)
+            }
+            Section("Sync") {
+                LabeledContent("Status", value: model.status)
+                LabeledContent("Pending pages", value: String(model.pending))
+                if let date = model.lastSync { LabeledContent("Last sync") { Text(date, style: .time) } }
+                if let date = model.lastACK { LabeledContent("Last ACK") { Text(date, style: .time) } }
+                if let error = model.error { Text(error).foregroundStyle(.red).font(.footnote) }
+                Button("Sync Now") { model.start() }.disabled(model.busy)
+                Button("Retry Saved Work") { model.retrySaved() }.disabled(model.busy)
+            }
+            Section("Development API") {
+                TextField("HTTPS base URL", text: $apiURL).textInputAutocapitalization(.never).autocorrectionDisabled()
+                TextField("Collector epoch UUID", text: $collector).textInputAutocapitalization(.never).autocorrectionDisabled()
+                SecureField("Device bearer token", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
+                Button("Save to Keychain") {
+                    do { try ClientConfiguration.save(baseURL: apiURL, collectorEpoch: collector, token: token); token = ""; model.error = nil }
+                    catch { model.error = "Invalid configuration or Keychain write failed." }
+                }.disabled(model.busy)
+                Text("Use an isolated dataset. A saved dataset/collector identity cannot be silently changed.").font(.caption)
+            }
+        }.navigationTitle("同步与诊断")
+            .scrollContentBackground(.hidden)
+            .raiScreen()
     }
 }

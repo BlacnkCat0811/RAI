@@ -24,6 +24,16 @@ settings:
     SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
     CODE_SIGN_STYLE: Automatic
 targets:
+  RAIUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: RAI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rai.v2.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
   RAITests:
     type: bundle.unit-test
     platform: iOS
@@ -32,6 +42,8 @@ targets:
       - target: RAI
       - package: RAIClient
         product: SyncCore
+      - package: RAIClient
+        product: ProductCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rai.v2.ios.tests
@@ -47,13 +59,15 @@ targets:
     dependencies:
       - package: RAIClient
         product: SyncCore
+      - package: RAIClient
+        product: ProductCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.rai.v2.ios
         INFOPLIST_FILE: Config/Info.plist
         CODE_SIGN_ENTITLEMENTS: Config/RAI.entitlements
         CURRENT_PROJECT_VERSION: 1
-        MARKETING_VERSION: '0.3.5'
+        MARKETING_VERSION: '0.6.0'
       configs:
         Debug:
           INFOPLIST_FILE: Config/Info-Debug.plist
@@ -65,4 +79,4 @@ schemes:
     run:
       config: Debug
     test:
-      targets: [RAITests]
+      targets: [RAITests, RAIUITests]

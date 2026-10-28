@@ -1,8 +1,8 @@
 # RAI V2 — System Architecture
 
-Current Implementation / As-Built Architecture，2026-10-28（Asia/Shanghai）。仓库 `/Users/ta/rai`；P5 基线 `8e40573e027ac6dd9aac871fb755051cb31c4657` 加既有P4及本轮P5未提交工作。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
+Current Implementation / As-Built Architecture，2026-10-28（Asia/Shanghai）。仓库 `/Users/ta/rai`；P6基线 `62511f9b3e5998ccad79396a7e14540074e506e5`，入口干净，P4/P5已在该提交中。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
 
-**P3 REAL DEVICE ACCEPTANCE: DEFERRED BY USER / NOT VERIFIED。P4 DEVELOPMENT EXCEPTION: AUTHORIZED BY USER。** 这只改变开发入口，不把 P3.5 模拟器、macOS SIGKILL、合成网络或未签名编译变成真实 iPhone 验收。P5 后端闭环已实现；不进入P6。
+**P3 REAL DEVICE ACCEPTANCE: DEFERRED BY USER / NOT VERIFIED。P4 DEVELOPMENT EXCEPTION: AUTHORIZED BY USER。** 这只改变开发入口，不把 P3.5 模拟器、macOS SIGKILL、合成网络或未签名编译变成真实 iPhone 验收。P5 后端闭环已实现；P6原生产品集成见第13节。
 
 ## 1. 产品、事实和运行边界
 
@@ -136,7 +136,7 @@ bundle `workout.bundle/v1` 与 `training_state.bundle/v1` 固定组件版本，�
 
 P3 API、limits、鉴权、持久 admission 与上传租约沿用既有实现。稳定错误码，日志不含 payload/HR/GPS/token/DSN。Worker 日志记录 job_id/scope/generation/algorithm/version/run_id/duration/result_status。现有 roles.sql 扩展 API 只读 derived，Worker 可读输入、写 derived/dirty/jobs，不能修改 raw；owner 连接仍可绕过权限，不称生产安全验收。
 
-iOS 同步工程未改：Swift actors、HealthKit anchored query、candidate/delivered anchor、backup-excluded immutable gzip 和 state.json 原子替换、严格回执校验、device-only Keychain、稳定后台 URLSession。没有分析 Dashboard 或 P6 产品集成。实际 HealthKit 授权、来源覆盖、background OS lifecycle、iPhone kill/GPS 和 iPhone→fnOS 仍 NOT VERIFIED。
+P3同步语义保持：Swift actors、HealthKit anchored query、candidate/delivered anchor、backup-excluded immutable gzip 和 state.json 原子替换、严格回执校验、device-only Keychain、稳定后台 URLSession。当前P6产品集成见第13节。实际 HealthKit 授权、来源覆盖、background OS lifecycle、iPhone kill/GPS 和 iPhone→fnOS 仍 NOT VERIFIED。
 
 ## 11. 验证、风险与后续
 
@@ -144,7 +144,7 @@ iOS 同步工程未改：Swift actors、HealthKit anchored query、candidate/del
 
 性能样本明确算法输入、race/non-race、样本数和环境；100次纯算法可给固定场景median/p95，单次状态/worker观测不能冒充P95。1/3/5年 fixture 证明有界查询与行数增长，不证明健康事实导入完整性、真实多年GPS容量、生产SLO或长期soak。
 
-生产 TLS/ingress、LOGIN roles/secrets、备份恢复/RPO/RTO、断电、长期retention、设备测试属于仍未验收范围。迁移只前向，down白名单仍空；管理工具不进入同步。P4历史验收结论保持原样；P5见后文。P6 UI、WorkoutKit、Watch与P7部署尚未实施。
+生产 TLS/ingress、LOGIN roles/secrets、备份恢复/RPO/RTO、断电、长期retention、设备测试属于仍未验收范围。迁移只前向，down白名单仍空；管理工具不进入同步。P4历史验收结论保持原样；P5见后文。P6产品实现与未完成验收见第13节；WorkoutKit、Watch与P7部署未实施。
 
 
 ## 12. P5 Training Plan / Coach Closed Loop
@@ -172,6 +172,19 @@ create/config/recalculate、completed/skipped/late association、Workout/state b
 
 Execution scheduled/started/completed/skipped，start绑定current Effective/session并冻结完整prescription。Workout可晚到，仅用户显式关联，不做自动唯一时间匹配。feedback/v1保留duration/distance planned/actual/delta/ratio与actual load、source run和execution revision；新publication追加feedback并重算。没有Workout不自动推断missed，显式skip保留历史。
 
-当前P5是backend-only合同；iOS Training UI、WorkoutKit mapping/授权/排程、Watch和生产部署均未开始。P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED。验证命令、性能样本、真实未验证项与P6 gate见P5 Result，不能由本节实现描述推导真机或部署PASS。
+P5交付时是backend-only；P6 iOS产品集成见第13节。WorkoutKit mapping/授权/排程、Watch和生产部署均未开始。P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED。验证命令、性能样本、真实未验证项与P6 gate见P5 Result，不能由本节实现描述推导真机或部署PASS。
 
 P5 STATUS: PASS WITH RISKS。P6 DEVELOPMENT READY: YES（仅后端闭环自动验收gate；未进入P6）。P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED。
+
+
+## 13. P6 Native iOS Product Integration（2026-10-28）
+
+P6_BASE_COMMIT=`62511f9b3e5998ccad79396a7e14540074e506e5`，入口工作区干净；已有P4/P5包含在该提交内。
+
+SwiftUI五个原生Tab统一使用RAITheme/RAIGlassSurface、暖暗背景和系统字体。iOS26使用原生glassEffect，iOS18–25保留Material fallback；系统TabView/NavigationStack/Sheet，Reduce Motion/Transparency和Dynamic Type适配。视觉参考为用户本轮提供的Liquid Glass首页图；当前摄影素材使用可替换的原生抽象场景。
+
+`ProductCore`作为Presentation/Interaction actor层复用RAIAPIClient，读取P4Published与P5Effective，不实现第二套分析或计划算法。MainActor ProductModel发布状态，产品命令journal在网络前原子持久化commandID/request并绑定dataset；409保留草稿，原命令重试恢复ACK；字段级override/revoke、snapshot execution、显式Workout关联与Feedback均走P5。P3HealthKit/outbox/后台传输仍是原同步路径，诊断移至“我的”。
+
+新增只读product DTO和四个GET路由：Workout列表/详情、两周overview、published analysis history。服务端只提供耐久raw summary与clean publication，缺失不补零；dataset隔离、ReadLane和有界keyset分页。没有新migration、route read API、P3wire变更或全历史重算。
+
+实际测试与风险见[P6 Result](V2_PHASE6_RESULT.md)、[Product Contract](P6_IOS_PRODUCT_CONTRACT.md)及[evidence](evidence/p6-ios-2026-10-28.json)。P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；WorkoutKit排程/Watch继续deferred，P7与生产发布未开始。

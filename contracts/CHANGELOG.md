@@ -38,3 +38,7 @@
 - 新增训练Plan/config、field override、Effective/history/audit、frozen execution和versioned feedback API；正常客户端默认使用Effective。
 - command UUID不可变幂等；config/override/execution各有expected revision，冲突409；缺失分析不当作0。
 - schema13新建训练领域，P3 protocolVersion2、上传/回执/anchor合同不变；未开始WorkoutKit或P6 UI。
+
+## 2026-10-28 P6 read projections
+
+`GET /v2/workouts[/{id}]`, `/v2/product/overview` and `/v2/analysis/history` add authenticated, dataset-scoped native product reads. Workout paging uses an opaque descending `(event_start, UUID)` cursor (max 50); overview covers two dataset calendar weeks; history reads at most 90 days of clean published state. Missing derived values stay null. No route point read API is advertised. No P3 upload, anchor, receipt, ingestion or migration contract changes.

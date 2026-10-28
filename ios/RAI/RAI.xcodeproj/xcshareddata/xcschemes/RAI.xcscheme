@@ -50,6 +50,17 @@
                ReferencedContainer = "container:RAI.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "B188DF49F92595CBB910F13A"
+               BuildableName = "RAIUITests.xctest"
+               BlueprintName = "RAIUITests"
+               ReferencedContainer = "container:RAI.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>
