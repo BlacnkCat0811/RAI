@@ -1,0 +1,87 @@
+[0/1] Planning build
+Building for debugging...
+[0/6] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.89s)
+Test Suite 'All tests' started at 2026-10-28 22:00:53.720.
+Test Suite 'All tests' passed at 2026-10-28 22:00:53.738.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.017) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: x86_64-apple-macos14.0
+◇ Suite APITests started.
+◇ Suite ProductTests started.
+◇ Suite SyncCoreTests started.
+◇ Test immutableCommandSurvivesReopenAndLostACK() started.
+◇ Test successfulGenerationDoesNotShowAnErrorSentinel() started.
+◇ Test rejectedCommandRetainsDraftUntilExplicitReview() started.
+◇ Test missingAndQualityAreNotZero() started.
+◇ Test regeneratedEffectiveProjectionKeepsServerValues() started.
+◇ Test commitResponseLossAndProcessReconstruction() started.
+◇ Test effectivePresentationUsesServerFields() started.
+◇ Test commandReceiptCannotAcknowledgeAnotherExecution() started.
+◇ Test malformedTransportResponseKeepsUnknownCommit() started.
+◇ Test canonicalEnvelopeFixture() started.
+✔ Test successfulGenerationDoesNotShowAnErrorSentinel() passed after 0.002 seconds.
+✔ Test regeneratedEffectiveProjectionKeepsServerValues() passed after 0.002 seconds.
+✔ Test effectivePresentationUsesServerFields() passed after 0.002 seconds.
+✔ Test malformedTransportResponseKeepsUnknownCommit() passed after 0.002 seconds.
+✔ Test commandReceiptCannotAcknowledgeAnotherExecution() passed after 0.002 seconds.
+✔ Test missingAndQualityAreNotZero() passed after 0.006 seconds.
+✔ Test rejectedCommandRetainsDraftUntilExplicitReview() passed after 0.013 seconds.
+✔ Test canonicalEnvelopeFixture() passed after 0.026 seconds.
+◇ Test pageManifestFixture() started.
+✔ Test immutableCommandSurvivesReopenAndLostACK() passed after 0.029 seconds.
+✔ Suite ProductTests passed after 0.030 seconds.
+✔ Test pageManifestFixture() passed after 0.008 seconds.
+◇ Test goNumberBoundaries() started.
+✔ Test goNumberBoundaries() passed after 0.002 seconds.
+◇ Test goRouteCanonicalAndHashVectors() started.
+✔ Test commitResponseLossAndProcessReconstruction() passed after 0.089 seconds.
+◇ Test timeoutBeforeCommitRetriesSameBodyAndIdentity() started.
+✔ Test goRouteCanonicalAndHashVectors() passed after 0.080 seconds.
+◇ Test goStringEscapingAndSeriesCanonical() started.
+✔ Test goStringEscapingAndSeriesCanonical() passed after 0.001 seconds.
+◇ Test gzipStableAndEmpty() started.
+✔ Test gzipStableAndEmpty() passed after 0.001 seconds.
+◇ Test candidatePersistsWithoutAdvancingDelivered() started.
+✔ Test candidatePersistsWithoutAdvancingDelivered() passed after 0.018 seconds.
+◇ Test receiptCannotAdvanceWrongBatchOrHash() started.
+✔ Test timeoutBeforeCommitRetriesSameBodyAndIdentity() passed after 0.060 seconds.
+◇ Test serviceUnavailablePreservesCandidateAndBackoff() started.
+✔ Test receiptCannotAdvanceWrongBatchOrHash() passed after 0.032 seconds.
+◇ Test batchACKAdvancesSequenceButWaitsForPageSeal() started.
+✔ Test serviceUnavailablePreservesCandidateAndBackoff() passed after 0.025 seconds.
+◇ Test conflictDoesNotAutomaticallyRetry() started.
+✔ Test conflictDoesNotAutomaticallyRetry() passed after 0.022 seconds.
+◇ Test wrongSealedManifestCannotAdvanceAnchor() started.
+✔ Test batchACKAdvancesSequenceButWaitsForPageSeal() passed after 0.031 seconds.
+◇ Test malformedDurableReceiptCannotAdvanceState() started.
+✔ Test malformedDurableReceiptCannotAdvanceState() passed after 0.042 seconds.
+◇ Test receiptAllowsCollapsedEventsAndAllFrozenOutcomes() started.
+✔ Test receiptAllowsCollapsedEventsAndAllFrozenOutcomes() passed after 0.014 seconds.
+◇ Test missingPayloadAndSecondPendingPageRefused() started.
+✔ Test missingPayloadAndSecondPendingPageRefused() passed after 0.006 seconds.
+◇ Test failedAtomicWriteCannotAdvanceMemoryOrDisk() started.
+✔ Test wrongSealedManifestCannotAdvanceAnchor() passed after 0.077 seconds.
+◇ Test lateAssociationWakesOnlyAfterNewDurableFacts() started.
+✔ Test failedAtomicWriteCannotAdvanceMemoryOrDisk() passed after 0.041 seconds.
+◇ Test multiFragmentPageCannotPromoteAnchorAfterFirstACK() started.
+✔ Test lateAssociationWakesOnlyAfterNewDurableFacts() passed after 0.110 seconds.
+✔ Suite APITests passed after 0.388 seconds.
+✔ Test multiFragmentPageCannotPromoteAnchorAfterFirstACK() passed after 0.312 seconds.
+◇ Test sourceDeletionCancelsStaleAssociationWithoutForgingReceipt() started.
+✔ Test sourceDeletionCancelsStaleAssociationWithoutForgingReceipt() passed after 0.022 seconds.
+◇ Test scopeSwitchAndCorruptStateRefused() started.
+✔ Test scopeSwitchAndCorruptStateRefused() passed after 0.013 seconds.
+◇ Test retryClassificationAndCap() started.
+✔ Test retryClassificationAndCap() passed after 0.001 seconds.
+◇ Test routeSpoolBoundsHashesAndRestartFiles() started.
+✔ Test routeSpoolBoundsHashesAndRestartFiles() passed after 1.113 seconds.
+◇ Test routeRejectsInvalidMeasurements() started.
+✔ Test routeRejectsInvalidMeasurements() passed after 0.001 seconds.
+◇ Test routeManifestSealAndDeletePayloads() started.
+✔ Test routeManifestSealAndDeletePayloads() passed after 0.011 seconds.
+◇ Test deleteWireHasOnlyFrozenFourFields() started.
+✔ Test deleteWireHasOnlyFrozenFourFields() passed after 0.001 seconds.
+✔ Suite SyncCoreTests passed after 1.786 seconds.
+✔ Test run with 35 tests in 3 suites passed after 1.788 seconds.

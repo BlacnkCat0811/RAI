@@ -13,6 +13,7 @@
 		2FCC9D22C37F1C0D2FE992CE /* SyncCore in Frameworks */ = {isa = PBXBuildFile; productRef = C8231504354E85B393C73480 /* SyncCore */; };
 		33F9B9919F59EC183612D086 /* BackgroundTransfers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA980D427771A33B8728C2F4 /* BackgroundTransfers.swift */; };
 		353B12124B591DCDBABED276 /* ProductUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 530A77CFC988CC9AC635D6A8 /* ProductUITests.swift */; };
+		674EB3A46AF0DDB5DC5EF08D /* TrainingHero.jpg in Resources */ = {isa = PBXBuildFile; fileRef = C5C0A45B04413EF2F308B1F3 /* TrainingHero.jpg */; };
 		69A14B76ECBDB83F1149DA87 /* TrainingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D79734A29F98E7FF31585DA /* TrainingViews.swift */; };
 		74409469EFBA71F64DB591A7 /* RAITheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D573336D2D55F14E12765B60 /* RAITheme.swift */; };
 		753253D3DF60555C5FD66AE0 /* ProductCore in Frameworks */ = {isa = PBXBuildFile; productRef = C6A0463C5B37FDCF32C21147 /* ProductCore */; };
@@ -58,6 +59,7 @@
 		9E07F85D2D88C92236A913A7 /* ExecutionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutionView.swift; sourceTree = "<group>"; };
 		BA980D427771A33B8728C2F4 /* BackgroundTransfers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTransfers.swift; sourceTree = "<group>"; };
 		BB111EA31F53F12B70600AFB /* RAIUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RAIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C5C0A45B04413EF2F308B1F3 /* TrainingHero.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = TrainingHero.jpg; sourceTree = "<group>"; };
 		CC0CE59185A6582157B523D9 /* ProductModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductModel.swift; sourceTree = "<group>"; };
 		D573336D2D55F14E12765B60 /* RAITheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RAITheme.swift; sourceTree = "<group>"; };
 		DE18C52EB6E3A1E357E8DCB7 /* ClientConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientConfiguration.swift; sourceTree = "<group>"; };
@@ -137,6 +139,7 @@
 				D573336D2D55F14E12765B60 /* RAITheme.swift */,
 				50C22EC825B004D4C177125E /* SyncCoordinator.swift */,
 				6D79734A29F98E7FF31585DA /* TrainingViews.swift */,
+				7CE264E120F439B2A03391B7 /* Resources */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -147,6 +150,14 @@
 				68F3632FDF17607E40D61DAA /* RAI */,
 			);
 			name = Packages;
+			sourceTree = "<group>";
+		};
+		7CE264E120F439B2A03391B7 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C5C0A45B04413EF2F308B1F3 /* TrainingHero.jpg */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		D479B890E937547B7A20CD19 /* UITests */ = {
@@ -165,6 +176,7 @@
 			buildConfigurationList = 9A59FD449E1B78FE35160865 /* Build configuration list for PBXNativeTarget "RAI" */;
 			buildPhases = (
 				4080256EE8537266CC26A0CD /* Sources */,
+				58E20A153DAD4E334CA238A5 /* Resources */,
 				E637661DA90B8242A03AAD14 /* Frameworks */,
 			);
 			buildRules = (
@@ -264,6 +276,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		58E20A153DAD4E334CA238A5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				674EB3A46AF0DDB5DC5EF08D /* TrainingHero.jpg in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		07AE754129C17A2ED9DE7BE1 /* Sources */ = {

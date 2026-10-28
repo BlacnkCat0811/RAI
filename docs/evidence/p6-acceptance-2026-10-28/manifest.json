@@ -1,0 +1,970 @@
+{
+  "date": "2026-10-28",
+  "scope": "synthetic only; see README for renderer/audit limits",
+  "files": {
+    "README.md": {
+      "bytes": 2275,
+      "sha256": "c3235eeb11466a5457ba7a63baa228acd4bb9eba50c5729737368780db8b9ac1"
+    },
+    "accessibility-environment.json": {
+      "bytes": 479,
+      "sha256": "0b33cf73a09c7e23b77bd66bcab485392aef7388369f471def2d4cb02a44f6a0"
+    },
+    "accessibility-feedback-clip-before-fix.json": {
+      "bytes": 1321,
+      "sha256": "36cc2354d0372329fe7ee09673c12075d0fd31e8ca00581173cd8bcbee895fbf"
+    },
+    "debug-test-build.log": {
+      "bytes": 74532,
+      "sha256": "e5cff132567a5408b0340d41e4867847e01938a45d41a8725871cc514041d345"
+    },
+    "fnos-final.log": {
+      "bytes": 2172,
+      "sha256": "38c92f2c73a3a20113b65f29889417b90ce40bc112741950acbba848ee74f33d"
+    },
+    "fnos-synthetic-api.log": {
+      "bytes": 167699,
+      "sha256": "84d15e73fa56a0351041c0d79b8bf634230625a17807ecabd892af9997a9d9b0"
+    },
+    "fnos-synthetic-migrate.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "fnos-synthetic-worker.log": {
+      "bytes": 14558,
+      "sha256": "2081d7f536dda3a455f5cb32672b10f2c403b6f59b8fc160ba9f8791013030dd"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/AnalysisAccessibility.png": {
+      "bytes": 452809,
+      "sha256": "4176d61611a7fb6885f458f1ad5887701d952fdef634cd14bc7ac20ac07b7cf9"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/AnalysisTrendAccessibility.png": {
+      "bytes": 390437,
+      "sha256": "11571e32abe1979948af4b54742f79b9524caa48a38d53bbacd6b577fa34b420"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/ExecutionAccessibility.png": {
+      "bytes": 366731,
+      "sha256": "1e1a5a99b31fb68c6e004369c27a9d972718ea9d51ed95d502c2532d9dc4e530"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/FeedbackAccessibility.png": {
+      "bytes": 366731,
+      "sha256": "1e1a5a99b31fb68c6e004369c27a9d972718ea9d51ed95d502c2532d9dc4e530"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/HomeAccessibility.png": {
+      "bytes": 1818623,
+      "sha256": "70d403e1fa5599f094c2534c5ecd8e4ee2f7de2f9d27d98c60e46f36327dd974"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/HomeAccessibilityScrolled.png": {
+      "bytes": 1800502,
+      "sha256": "a94fc6116442b8499a5e371964ec5b5a9e46d6443ae77aba03bdcc62769bab1c"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/SessionActionsAccessibility.png": {
+      "bytes": 1646975,
+      "sha256": "780be48c231c07bc9e8b506635f290d70f6ccb276bb0a6c8125ac1d60e346d2a"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/SessionDetailAccessibility.png": {
+      "bytes": 1646498,
+      "sha256": "2d7dda81618b111a3ad448832bac65af45e7725c072c8f231d63e32b59125ee0"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/TrainingAccessibility.png": {
+      "bytes": 471960,
+      "sha256": "0002ed40b21edab8eb103f0884934e71a22244e9028c5fb4187686a207314c54"
+    },
+    "history/iphone17-pro-max-final-default-earlier-accessibility/WeeklyAccessibility.png": {
+      "bytes": 1800683,
+      "sha256": "a96b363c73f423963d05cd8659e6f0c7ed9218d67dadd8f3b18a5cfe3a3f31f0"
+    },
+    "history/large-a11y-before-final-audit/AnalysisAccessibility.png": {
+      "bytes": 452809,
+      "sha256": "4176d61611a7fb6885f458f1ad5887701d952fdef634cd14bc7ac20ac07b7cf9"
+    },
+    "history/large-a11y-before-final-audit/AnalysisTrendAccessibility.png": {
+      "bytes": 390437,
+      "sha256": "11571e32abe1979948af4b54742f79b9524caa48a38d53bbacd6b577fa34b420"
+    },
+    "history/large-a11y-before-final-audit/ExecutionAccessibility.png": {
+      "bytes": 366731,
+      "sha256": "1e1a5a99b31fb68c6e004369c27a9d972718ea9d51ed95d502c2532d9dc4e530"
+    },
+    "history/large-a11y-before-final-audit/FeedbackAccessibility.png": {
+      "bytes": 366731,
+      "sha256": "1e1a5a99b31fb68c6e004369c27a9d972718ea9d51ed95d502c2532d9dc4e530"
+    },
+    "history/large-a11y-before-final-audit/HomeAccessibility.png": {
+      "bytes": 1818623,
+      "sha256": "70d403e1fa5599f094c2534c5ecd8e4ee2f7de2f9d27d98c60e46f36327dd974"
+    },
+    "history/large-a11y-before-final-audit/HomeAccessibilityScrolled.png": {
+      "bytes": 1800502,
+      "sha256": "a94fc6116442b8499a5e371964ec5b5a9e46d6443ae77aba03bdcc62769bab1c"
+    },
+    "history/large-a11y-before-final-audit/SessionActionsAccessibility.png": {
+      "bytes": 1646975,
+      "sha256": "780be48c231c07bc9e8b506635f290d70f6ccb276bb0a6c8125ac1d60e346d2a"
+    },
+    "history/large-a11y-before-final-audit/SessionDetailAccessibility.png": {
+      "bytes": 1646498,
+      "sha256": "2d7dda81618b111a3ad448832bac65af45e7725c072c8f231d63e32b59125ee0"
+    },
+    "history/large-a11y-before-final-audit/TrainingAccessibility.png": {
+      "bytes": 471960,
+      "sha256": "0002ed40b21edab8eb103f0884934e71a22244e9028c5fb4187686a207314c54"
+    },
+    "history/large-a11y-before-final-audit/WeeklyAccessibility.png": {
+      "bytes": 1800683,
+      "sha256": "a96b363c73f423963d05cd8659e6f0c7ed9218d67dadd8f3b18a5cfe3a3f31f0"
+    },
+    "history/large-a11y-before-grid-fit-fix/004AD7CA-F814-44DB-9141-DD67F2480210.png": {
+      "bytes": 1646701,
+      "sha256": "8c5c1e6d6b9246a52a8f3d0f24effd7d693418db97fc2f7271f4e3be2b0145cd"
+    },
+    "history/large-a11y-before-grid-fit-fix/029389B5-484B-4411-9618-40CC9363E343": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/039DFBFB-696F-43E4-AE69-7631A30FC5DB": {
+      "bytes": 1893,
+      "sha256": "43e827d9328f620cb007c4107fd26ff063c168625678d81ebaa48b60813590e4"
+    },
+    "history/large-a11y-before-grid-fit-fix/0434F151-8176-4FDF-8B60-D967B93AA3F8.png": {
+      "bytes": 1800703,
+      "sha256": "a0283a3a4b5caf1aa2afe8ae2375367ce978118411eecf4c4b796a37c520ef81"
+    },
+    "history/large-a11y-before-grid-fit-fix/0CF9C421-0108-4B6C-82C7-9F32C1A46A41": {
+      "bytes": 2684,
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    "history/large-a11y-before-grid-fit-fix/1569D6DE-0448-45FB-9277-3F1F42F2A614.png": {
+      "bytes": 366602,
+      "sha256": "b83323f6ad63581537715c2810a638f404e4edc7e34716e8921cdecb56c30af7"
+    },
+    "history/large-a11y-before-grid-fit-fix/1B5D3A8F-1074-4FD6-BA96-CB369F50852C": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/1C38FBE7-8A92-4AA0-A1F7-F3C5B85DD842": {
+      "bytes": 2684,
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    "history/large-a11y-before-grid-fit-fix/2A05FEB7-2E1C-4F5E-9707-F2B1A17C4B06.png": {
+      "bytes": 366510,
+      "sha256": "bc90c32681e60f2190a61c945ceb7c226b540fa60b6d2e66d26c005165a2fb2c"
+    },
+    "history/large-a11y-before-grid-fit-fix/333EE95D-C38E-4595-B41C-A138C5B75670.png": {
+      "bytes": 1800682,
+      "sha256": "f99bd6021d8d25758797dd7c56466a51e970f66c8a2822e03d060c9f46d8f2a5"
+    },
+    "history/large-a11y-before-grid-fit-fix/33C687CD-F578-4ACE-8F93-D78653897826": {
+      "bytes": 2684,
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    "history/large-a11y-before-grid-fit-fix/3BB39F75-BED3-464E-BF79-710B5BACBD6D": {
+      "bytes": 2073,
+      "sha256": "3c8ad6c9ad56ac46ee9120cb9818ac417c52633d44c2c49bff52b371b8dcd881"
+    },
+    "history/large-a11y-before-grid-fit-fix/41C33D91-717B-4E76-9129-4E8ED6EFE1D2": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/445D1DC1-18BF-444B-A35E-28C8475BD159.png": {
+      "bytes": 1647258,
+      "sha256": "62bce4fc0d720af109b84fb3b98a1842969f6721d0022ffa35f57f7f80a6c410"
+    },
+    "history/large-a11y-before-grid-fit-fix/493CB6DD-B57B-4017-AF89-FA0C7F452518": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/4A8D9171-BF0E-47EF-9270-8B145463F92A": {
+      "bytes": 1893,
+      "sha256": "43e827d9328f620cb007c4107fd26ff063c168625678d81ebaa48b60813590e4"
+    },
+    "history/large-a11y-before-grid-fit-fix/52537326-B909-4FF0-AF0C-D54BA57BB980": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/57F0DB87-4FDC-4DDC-B027-A1F637F5E930.png": {
+      "bytes": 406725,
+      "sha256": "39853b5959bc52727fc79d03e9b58bd2a7c893e04ac12b69e28c7914be21631e"
+    },
+    "history/large-a11y-before-grid-fit-fix/6660961E-C94C-4C7A-ADD2-AAB1FD028E8F": {
+      "bytes": 1893,
+      "sha256": "bf695389669d6d0d3d7933b8a20e20a70fd6b0b550eae8f948610d7b21f0b475"
+    },
+    "history/large-a11y-before-grid-fit-fix/6674F6E9-4514-4321-A5C7-7EBDD34E995B": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/6D27FC3D-3FF9-4375-A47A-848CFE895119": {
+      "bytes": 1298,
+      "sha256": "c3eaf65daaea58ffa742fb9c0c69a9f1c431e3044bac2ba9979f61c1e9668752"
+    },
+    "history/large-a11y-before-grid-fit-fix/6FD6E042-DD97-4A5C-8E38-DDADC8050B82.png": {
+      "bytes": 452821,
+      "sha256": "81aba06e703baaa849f4e168e2e59bfcae88ccdf7986b14025b51cf2d41df580"
+    },
+    "history/large-a11y-before-grid-fit-fix/703BC99D-B03C-437A-9CF4-E1D1901D3C66": {
+      "bytes": 2684,
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    "history/large-a11y-before-grid-fit-fix/7179A440-BF5C-4FFD-8508-0593AEBA914C": {
+      "bytes": 1893,
+      "sha256": "54ef6f29f91c2bd96a64f048dc8338331f6d51cdf016d01925b8fbf5774e4783"
+    },
+    "history/large-a11y-before-grid-fit-fix/76664359-2A95-4E95-B9FB-1BAA325DBEB7": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/78397CB5-8E0D-456F-B3DA-084ABE8FEBCF.txt": {
+      "bytes": 83,
+      "sha256": "e01dcee805c8f6056948572e757953a799fe6d2a6a1a3e671e2e6fc81490eb46"
+    },
+    "history/large-a11y-before-grid-fit-fix/7B984F7A-2F91-4549-8F4B-759C8AB36CA8": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/8B6B74F2-6C6B-444F-B58C-D2EE60266AE3": {
+      "bytes": 1905,
+      "sha256": "b229e9382335f0c14fad11c4dd1cc5a305635d812c82da863c296289f6672343"
+    },
+    "history/large-a11y-before-grid-fit-fix/93D34995-DFD7-4EE2-9DE8-4918A5EFAAFB": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/9B724143-DA3C-4CDD-875B-7648E58AEB11.mp4": {
+      "bytes": 27369156,
+      "sha256": "f61f8f7ecbcaf9b3a4eb709ee5bbb8c512311ee0f011ca4e794ea89bb204c16c"
+    },
+    "history/large-a11y-before-grid-fit-fix/A15BA6A9-7341-4E12-9250-822385AB8F8F": {
+      "bytes": 1893,
+      "sha256": "96e0035a41a6c893208c598b943bb6bb74e34d9739bc2096e83e4763cff04792"
+    },
+    "history/large-a11y-before-grid-fit-fix/A2CAEA85-75F0-4168-B6FE-5CAC02E9FEEF.png": {
+      "bytes": 10510,
+      "sha256": "b0af05c211667b21450e5052596da9b9bf24a5f967b9e57e783b23a376a5cec0"
+    },
+    "history/large-a11y-before-grid-fit-fix/A383AC10-F380-4202-84A2-052B0F2E898F": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/AC44A2EB-7968-4C61-AF81-B5C2774FDD0B": {
+      "bytes": 1355,
+      "sha256": "b3b8d6d36f3114125d1ac334938b995c63b78836a0690119bff6b1ddda42b5c9"
+    },
+    "history/large-a11y-before-grid-fit-fix/B270ACEE-CE54-478A-BD2F-B74B24750F64": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/B42B9A73-7701-41E7-BA41-D2D21285A43B": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/C34365F2-5146-456E-BBEC-9874BCAFE625": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/C424B454-2FDF-45C2-803C-161FD40E53F6.png": {
+      "bytes": 446302,
+      "sha256": "8b0fbfd48b4ee8284a68858ab4a02601a12fb724dc6a48758e468aa3e477a462"
+    },
+    "history/large-a11y-before-grid-fit-fix/C516D1FF-48E6-444F-8ED5-1B836A093795.png": {
+      "bytes": 1800675,
+      "sha256": "de0f2d843d795fe85bc5bb65250c2758ce56a45b9332874441091e10fd586f1f"
+    },
+    "history/large-a11y-before-grid-fit-fix/C9AE37B0-842D-434D-B207-21F991B03407": {
+      "bytes": 2684,
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    "history/large-a11y-before-grid-fit-fix/D441DFAA-E674-47D9-B50C-9E75D42467B3": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/D8CA4E78-4C39-4F10-8DE9-A7AA1FF2702D": {
+      "bytes": 1881,
+      "sha256": "13bab2ca0fd22c3b8090c68b834469f15333b8f360ff74ce7bf6c8f9064fa8a0"
+    },
+    "history/large-a11y-before-grid-fit-fix/D96B6D0E-243F-46EF-889F-BE840AAD236E": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/DDDF13B0-BDB0-4D61-88C9-48631397CBBB": {
+      "bytes": 2684,
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    "history/large-a11y-before-grid-fit-fix/DE8EDE4B-EC6D-44E3-BD6F-5E699C76C63F.png": {
+      "bytes": 1818707,
+      "sha256": "3574aa8b4e7e5b30a21f83fbac51bcea99d325eba54fa3cbb65de5f8a5bd6431"
+    },
+    "history/large-a11y-before-grid-fit-fix/DF41B4BC-5655-4F0F-BACC-C18FF6ED4B78": {
+      "bytes": 1893,
+      "sha256": "7fe2b8e918261f5a538089a452585c6434eff07b8e6e22c8cd5e74650000ea57"
+    },
+    "history/large-a11y-before-grid-fit-fix/EA7A1C0E-FF47-469B-971F-85C7716906A0": {
+      "bytes": 1905,
+      "sha256": "b35ecc542341cd3cef86a8b62371749727a4fa56aa3159b7fae4b66222f564c4"
+    },
+    "history/large-a11y-before-grid-fit-fix/F7F460DB-EE21-4144-9EAB-38A4047E0189": {
+      "bytes": 2684,
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    "history/large-a11y-before-grid-fit-fix/FAF6320D-BF6B-413F-8E8D-F84F6707A65D": {
+      "bytes": 1213,
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    "history/large-a11y-before-grid-fit-fix/FFC9A8D4-14DB-410E-891F-F493F60E0B3D.png": {
+      "bytes": 472053,
+      "sha256": "f639938e4dd257599a9f695c92b7922c1431f8df8dcf469255005218d0fbf0bc"
+    },
+    "history/performance-api-initial.json": {
+      "bytes": 1690,
+      "sha256": "32fcf54ff549ae738881f5ded0729363a9808de18bcedd94e85b746afa0db04a"
+    },
+    "initial-accessibility-tests.json": {
+      "bytes": 973,
+      "sha256": "29b8866d67da2ba73cee95bfb5ed07a27d2084f6ef2f134df148f22090369742"
+    },
+    "initial-snapshot-candidate-tests.json": {
+      "bytes": 971,
+      "sha256": "5c01ee37a6c58e32e13e8849515b471700b9d4160c05dc475d45cfccd8234868"
+    },
+    "initial-snapshot-comparison.log": {
+      "bytes": 376,
+      "sha256": "29a1ef6cdd531bc0b3841fc4de7723c7b3fc4c080817dfe6fa4ba3fcfe29b84f"
+    },
+    "instruments-attempt.json": {
+      "bytes": 418,
+      "sha256": "cadbe80409e9da24d4f04e8b4f9a4a7e1473760e10ae259e784973e1c8527473"
+    },
+    "iphone12-accessibility-tests.json": {
+      "bytes": 985,
+      "sha256": "4b95137b1ac4b4f4bd5177df1a1310bdf3a8a94b921a50d4ebbe189ee3743f57"
+    },
+    "iphone12-default-tests.json": {
+      "bytes": 1086,
+      "sha256": "ecc4a42137c6a6c44b62df9ca36303d38812b1aa4ab7cdf609b6a8a7a5377245"
+    },
+    "iphone12-pro-max-accessibility/ActivitiesAccessibility.png": {
+      "bytes": 425876,
+      "sha256": "34345f8b8b8556b0661b86cd5e86692f070296479b3c0cde01833c58b07706ba"
+    },
+    "iphone12-pro-max-accessibility/AnalysisAccessibility.png": {
+      "bytes": 439561,
+      "sha256": "a36d92d2525d8652f6af86916e05d00891d3790dd764e4e6be624adbad6d70d9"
+    },
+    "iphone12-pro-max-accessibility/AnalysisTrendAccessibility.png": {
+      "bytes": 375888,
+      "sha256": "eed9a7afab0d8e82255f3d8cbf3dc5751d1e2f69c263ae2ec0d01862c965acac"
+    },
+    "iphone12-pro-max-accessibility/ExecutionAccessibility.png": {
+      "bytes": 354093,
+      "sha256": "0623d279f3369074b425de18edbca6f5aa25a430474acd811504a34a4b9573db"
+    },
+    "iphone12-pro-max-accessibility/FeedbackAccessibility.png": {
+      "bytes": 354150,
+      "sha256": "b9a6ab9f03c8c9adf46d9514ee215b463a2e82e970db2b312c7f095026dfda53"
+    },
+    "iphone12-pro-max-accessibility/HomeAccessibility.png": {
+      "bytes": 1718252,
+      "sha256": "b5cda61521b6e5463c6286481e4664e0b3ecadae234117ae6585229461bfddbb"
+    },
+    "iphone12-pro-max-accessibility/HomeAccessibilityScrolled.png": {
+      "bytes": 1732177,
+      "sha256": "d127e571cfdabfc22aa9a947d446bfc7bd6ccdaf07258b62dcfef7c36e78aaca"
+    },
+    "iphone12-pro-max-accessibility/SessionActionsAccessibility.png": {
+      "bytes": 1595221,
+      "sha256": "a050aa76438ec82e0686e295c73bbd15be6f86b5f5b85b6e76e0e897049d785f"
+    },
+    "iphone12-pro-max-accessibility/SessionDetailAccessibility.png": {
+      "bytes": 1595218,
+      "sha256": "8c45b0a00d718c36c4fba07e7cf7cafd698fd46bd379e21aa8b2a697095250c1"
+    },
+    "iphone12-pro-max-accessibility/TrainingAccessibility.png": {
+      "bytes": 435813,
+      "sha256": "4c823b145e523036a3dd66cce2fdca646d06aeabebd80be7ae3152ca31d09e94"
+    },
+    "iphone12-pro-max-accessibility/WeeklyAccessibility.png": {
+      "bytes": 1731881,
+      "sha256": "2436e45d55b91911cdb0b5ae8ec50c3a7969ad5b8076f8a32e91d0a48f894e92"
+    },
+    "iphone12-pro-max-accessibility/WeeklyLoadAccessibility.png": {
+      "bytes": 1731991,
+      "sha256": "81a74ffcedeb87ac0d54047535210f785f8e900ab8a3cdd9c945bad4e5249616"
+    },
+    "iphone12-pro-max-candidate/Activities.png": {
+      "bytes": 651975,
+      "sha256": "a723d8520afcc70f0d8056172e97f97d0e667251af3aca1b3a4ed3576c452cab"
+    },
+    "iphone12-pro-max-candidate/Analysis.png": {
+      "bytes": 546608,
+      "sha256": "f54f8ce4667c606a62faff68d1007a00e583775d7846a7bd75fb3ee3ede72cfb"
+    },
+    "iphone12-pro-max-candidate/Execution.png": {
+      "bytes": 496065,
+      "sha256": "6a9260cbcdd3942b77aa7a6ee312bbefcf85c3483bd376c224f3a68227d80113"
+    },
+    "iphone12-pro-max-candidate/Home.png": {
+      "bytes": 1561556,
+      "sha256": "174d16995c0dad07cc8b43b15f10204085170240820c80e684dcf7b4990ab648"
+    },
+    "iphone12-pro-max-candidate/SessionDetail.png": {
+      "bytes": 1441858,
+      "sha256": "0e0feb6caeae467315c99d1884fe9cd4eca29265ddeacf8191626b5ce81077bb"
+    },
+    "iphone12-pro-max-candidate/Training.png": {
+      "bytes": 660720,
+      "sha256": "0dc3c38e17591cc98fc45ab7ffcf224009c3cd3f5b0eb56dec11e78cc6fee90d"
+    },
+    "iphone12-pro-max-candidate/ui-timings.json": {
+      "bytes": 426,
+      "sha256": "39988d655d4274395e5c3bd02ed21e530a79f329adfd59d240b01aa93df55fe0"
+    },
+    "iphone12-pro-max-default/Activities.png": {
+      "bytes": 651975,
+      "sha256": "a723d8520afcc70f0d8056172e97f97d0e667251af3aca1b3a4ed3576c452cab"
+    },
+    "iphone12-pro-max-default/Analysis.png": {
+      "bytes": 546608,
+      "sha256": "f54f8ce4667c606a62faff68d1007a00e583775d7846a7bd75fb3ee3ede72cfb"
+    },
+    "iphone12-pro-max-default/BeforeSkip.png": {
+      "bytes": 1464014,
+      "sha256": "ec15648e641bbe5921380628bab6afec730bc4b33bca1ed28e3f96d902af65d2"
+    },
+    "iphone12-pro-max-default/Conflict.png": {
+      "bytes": 239274,
+      "sha256": "56ae6ab5047066b2d4dbecf161142899e483ac34857aaf5c6c1a1d04376b57f7"
+    },
+    "iphone12-pro-max-default/Execution.png": {
+      "bytes": 501153,
+      "sha256": "675c8f5cdacf464ea965cf3f012889eb9b62a3beaa20f9447d78fc1c220782e1"
+    },
+    "iphone12-pro-max-default/ExecutionStarted.png": {
+      "bytes": 589701,
+      "sha256": "fe154e984245437249a84d090c207a7f3c0c7f29ff96a29f03e38419a7b364b3"
+    },
+    "iphone12-pro-max-default/Feedback.png": {
+      "bytes": 501153,
+      "sha256": "675c8f5cdacf464ea965cf3f012889eb9b62a3beaa20f9447d78fc1c220782e1"
+    },
+    "iphone12-pro-max-default/Home.png": {
+      "bytes": 1561556,
+      "sha256": "174d16995c0dad07cc8b43b15f10204085170240820c80e684dcf7b4990ab648"
+    },
+    "iphone12-pro-max-default/SessionDetail.png": {
+      "bytes": 1441858,
+      "sha256": "0e0feb6caeae467315c99d1884fe9cd4eca29265ddeacf8191626b5ce81077bb"
+    },
+    "iphone12-pro-max-default/Skip.png": {
+      "bytes": 159529,
+      "sha256": "171dd986f9eeaa274d7732e1aa5fa92c4879d09d7dd0ec3c100b82ca5f1f44ea"
+    },
+    "iphone12-pro-max-default/Training.png": {
+      "bytes": 647341,
+      "sha256": "6f5e0c143d0ec275039698cc117495f90d1e756c405cf8b005781a03d565010b"
+    },
+    "iphone12-pro-max-default/ui-timings.json": {
+      "bytes": 790,
+      "sha256": "85ef55120a87c780c6f20a61a802e1bb4f7ef4ed83fa77d6bab62b39b5e63b53"
+    },
+    "iphone12-snapshot-comparison.log": {
+      "bytes": 316,
+      "sha256": "91cd77577dd07c138eefe67309af417529ee2f73b1b7e005d40ce66f0a44313f"
+    },
+    "iphone12-snapshot-tests.json": {
+      "bytes": 985,
+      "sha256": "c16329920780c84d40e0af5f5a0b59c28528f08a480788335cd1ac1dff3b0291"
+    },
+    "iphone17-accessibility-tests.json": {
+      "bytes": 973,
+      "sha256": "6693004c4fe2d77078f89c75a83215d39e49c1e3048dd2d512d3d859a1144002"
+    },
+    "iphone17-default-tests.json": {
+      "bytes": 1074,
+      "sha256": "15f701fc1171544b9d46c54dfd70b3e838e3f3d8bb3057f8df86891b923bae29"
+    },
+    "iphone17-final-snapshot-tests.json": {
+      "bytes": 973,
+      "sha256": "dbffeb35057def40d412c4dcdc244cb3f92c4de6d4e429d63e4b8cbc8d4147a0"
+    },
+    "iphone17-pro-max-a11y-initial/AnalysisAccessibility.png": {
+      "bytes": 452015,
+      "sha256": "f0fce29debb25725aabd0b3fb8e95f7acb4b9755a3534e76992f03707a9cfe61"
+    },
+    "iphone17-pro-max-a11y-initial/HomeAccessibility.png": {
+      "bytes": 1812219,
+      "sha256": "976d3ffd56ad01ab2e90d73b101a6d0d255a9b0c38a407db03a6ee8f85dd40ac"
+    },
+    "iphone17-pro-max-a11y-initial/HomeAccessibilityScrolled.png": {
+      "bytes": 961228,
+      "sha256": "87a768ba131ddc40a2ff7c6f314cd866037e91fbfe9d63863eba10433997d815"
+    },
+    "iphone17-pro-max-a11y-initial/TrainingAccessibility.png": {
+      "bytes": 472593,
+      "sha256": "fdedaf8f55bffdedb72e1b4762415cdddee4f43735e0317f5442f4870c76d7bb"
+    },
+    "iphone17-pro-max-accessibility/ActivitiesAccessibility.png": {
+      "bytes": 449638,
+      "sha256": "cff979fe69d903e35480c371c08bcb742d0c6037fceff8d65c408a6216d9ae51"
+    },
+    "iphone17-pro-max-accessibility/AnalysisAccessibility.png": {
+      "bytes": 452734,
+      "sha256": "5d736c9018f978d6eb3a618153a6b133ad4a83bfbfbac36d9d6422d216919681"
+    },
+    "iphone17-pro-max-accessibility/AnalysisTrendAccessibility.png": {
+      "bytes": 406454,
+      "sha256": "db366dbd5478daad4539863f2380848e956c4453071ffb5d90b6c5f80cacf8b1"
+    },
+    "iphone17-pro-max-accessibility/ExecutionAccessibility.png": {
+      "bytes": 366494,
+      "sha256": "00100c6db8764f1852db6017ff845798ea2d98f2359c8775556fcc95ee20e300"
+    },
+    "iphone17-pro-max-accessibility/FeedbackAccessibility.png": {
+      "bytes": 366581,
+      "sha256": "2b4b31a2672899be5cf63ad76c3dc968532ce90cffe73253a4138e01b7c0bfb6"
+    },
+    "iphone17-pro-max-accessibility/HomeAccessibility.png": {
+      "bytes": 1818678,
+      "sha256": "f5027c175b78b23898ae0c58018ae17c66aa6e3f502eff53218def004d89f77a"
+    },
+    "iphone17-pro-max-accessibility/HomeAccessibilityScrolled.png": {
+      "bytes": 1800594,
+      "sha256": "5fbe2a8dd2942d14dc5ca42efa51448413a9342f65fd6db6a8a193166adab7f7"
+    },
+    "iphone17-pro-max-accessibility/SessionActionsAccessibility.png": {
+      "bytes": 1646252,
+      "sha256": "38e1338b6725431a8da3b4d92137fc83659d1a6a1d2a7d048604a8a76232e2a2"
+    },
+    "iphone17-pro-max-accessibility/SessionDetailAccessibility.png": {
+      "bytes": 1646831,
+      "sha256": "7db8f8eecea4b2c5261e045e8c37acd02df598a038a6acfc2da51d6967ecb1e4"
+    },
+    "iphone17-pro-max-accessibility/TrainingAccessibility.png": {
+      "bytes": 472156,
+      "sha256": "5c42f4aeae353729d3eba64ffc83afa2a5869f3352cd77db4d5e59dd55994477"
+    },
+    "iphone17-pro-max-accessibility/WeeklyAccessibility.png": {
+      "bytes": 1800568,
+      "sha256": "8422528eb594f8435ba1f077935852a192daee9f8738b28e2c6a24a44a4e3f29"
+    },
+    "iphone17-pro-max-accessibility/WeeklyLoadAccessibility.png": {
+      "bytes": 1800568,
+      "sha256": "8422528eb594f8435ba1f077935852a192daee9f8738b28e2c6a24a44a4e3f29"
+    },
+    "iphone17-pro-max-candidate/Activities.png": {
+      "bytes": 684847,
+      "sha256": "01851a5953c739e81b6d8c5bcbdbf6995d748b467ed547163928593f190278b8"
+    },
+    "iphone17-pro-max-candidate/Analysis.png": {
+      "bytes": 567842,
+      "sha256": "f97e3829a783dfd11b85e684695e59192a01e2bcf27374a320250548acd4301e"
+    },
+    "iphone17-pro-max-candidate/BeforeSkip.png": {
+      "bytes": 1506058,
+      "sha256": "657e4f050b1d73654d073c692894a9dd99d600cd5fb5d3352a0e25629acef2a8"
+    },
+    "iphone17-pro-max-candidate/Conflict.png": {
+      "bytes": 247347,
+      "sha256": "0f9a4ec68744556deb02777bedbfe7aa95a881e9c210945aa69cb1d42ec0ad1a"
+    },
+    "iphone17-pro-max-candidate/Execution.png": {
+      "bytes": 519044,
+      "sha256": "dd78dc29e0cc4459e82da8718a1be2e3d4ef290748462774045fb6ab24ea01fc"
+    },
+    "iphone17-pro-max-candidate/ExecutionStarted.png": {
+      "bytes": 613255,
+      "sha256": "26fc50a23868183d8adfac68e38d5f6e700c3ff0b5f028b3f9bb5d1df3b6518d"
+    },
+    "iphone17-pro-max-candidate/Feedback.png": {
+      "bytes": 524843,
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    "iphone17-pro-max-candidate/Home.png": {
+      "bytes": 1605103,
+      "sha256": "21838d55dc7a1d9d86f1105570a2b0496ac07fc09a4f38931f38736bc78b7b87"
+    },
+    "iphone17-pro-max-candidate/SessionDetail.png": {
+      "bytes": 1481970,
+      "sha256": "87e33c3922311bf3157619f08ed5a15108d01b005fe186ff54d0b241043fb2a7"
+    },
+    "iphone17-pro-max-candidate/Skip.png": {
+      "bytes": 168341,
+      "sha256": "6d7a9cb4da9dcabfe1c3801b7ed9fc0dcb964591e235e56f8069fe4624230895"
+    },
+    "iphone17-pro-max-candidate/Training.png": {
+      "bytes": 681980,
+      "sha256": "c2b9cd3d01b19d1795221369d0be58072ca184db0f60875f8bb396035e1244bd"
+    },
+    "iphone17-pro-max-candidate/ui-timings.json": {
+      "bytes": 424,
+      "sha256": "d6fd4b71e62d75418fae979defe1cdf420bf1767ccd18279a91f58e2091e979d"
+    },
+    "iphone17-pro-max-default/Activities.png": {
+      "bytes": 650761,
+      "sha256": "0ad3b34f546ddb1c1035896dc0cdb64110c312b48bd3f66da7b9f56b0c774b9e"
+    },
+    "iphone17-pro-max-default/Analysis.png": {
+      "bytes": 567842,
+      "sha256": "f97e3829a783dfd11b85e684695e59192a01e2bcf27374a320250548acd4301e"
+    },
+    "iphone17-pro-max-default/BeforeSkip.png": {
+      "bytes": 1506058,
+      "sha256": "657e4f050b1d73654d073c692894a9dd99d600cd5fb5d3352a0e25629acef2a8"
+    },
+    "iphone17-pro-max-default/Conflict.png": {
+      "bytes": 247347,
+      "sha256": "0f9a4ec68744556deb02777bedbfe7aa95a881e9c210945aa69cb1d42ec0ad1a"
+    },
+    "iphone17-pro-max-default/Execution.png": {
+      "bytes": 524843,
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    "iphone17-pro-max-default/ExecutionStarted.png": {
+      "bytes": 613255,
+      "sha256": "26fc50a23868183d8adfac68e38d5f6e700c3ff0b5f028b3f9bb5d1df3b6518d"
+    },
+    "iphone17-pro-max-default/Feedback.png": {
+      "bytes": 524843,
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    "iphone17-pro-max-default/Home.png": {
+      "bytes": 1605550,
+      "sha256": "95826c2636123e09d2ff8fbf7bdac922f68bc91dfdcce64ae47ccfe2a940ef83"
+    },
+    "iphone17-pro-max-default/SessionDetail.png": {
+      "bytes": 1488095,
+      "sha256": "7b9d0c6f5a65278100c806893a90e0322e6b6884a15ffa205f751853029a3d86"
+    },
+    "iphone17-pro-max-default/Skip.png": {
+      "bytes": 168341,
+      "sha256": "6d7a9cb4da9dcabfe1c3801b7ed9fc0dcb964591e235e56f8069fe4624230895"
+    },
+    "iphone17-pro-max-default/Training.png": {
+      "bytes": 685527,
+      "sha256": "b0833f8ad1526fce76636c1bb3ff37e09e032405bfb4fbd37fdf387c25d27051"
+    },
+    "iphone17-pro-max-default/ui-timings.json": {
+      "bytes": 790,
+      "sha256": "e44f7c2ecdea28475220b3a7cc6fe639513394d14e77990e13f1c1b6fbbb8460"
+    },
+    "iphone17-pro-max-final-default/Activities.png": {
+      "bytes": 685091,
+      "sha256": "aecc32aba7c94487490f400c58793faff9aa646af9d906c15c4de69b5f385a3c"
+    },
+    "iphone17-pro-max-final-default/Analysis.png": {
+      "bytes": 567689,
+      "sha256": "184df9d4aaf8c22ab742fc97c4e29d60eb3b4c47262b3f85bd037cdfebdb2529"
+    },
+    "iphone17-pro-max-final-default/BeforeSkip.png": {
+      "bytes": 1506058,
+      "sha256": "657e4f050b1d73654d073c692894a9dd99d600cd5fb5d3352a0e25629acef2a8"
+    },
+    "iphone17-pro-max-final-default/Conflict.png": {
+      "bytes": 247347,
+      "sha256": "0f9a4ec68744556deb02777bedbfe7aa95a881e9c210945aa69cb1d42ec0ad1a"
+    },
+    "iphone17-pro-max-final-default/Execution.png": {
+      "bytes": 519044,
+      "sha256": "dd78dc29e0cc4459e82da8718a1be2e3d4ef290748462774045fb6ab24ea01fc"
+    },
+    "iphone17-pro-max-final-default/ExecutionStarted.png": {
+      "bytes": 613255,
+      "sha256": "26fc50a23868183d8adfac68e38d5f6e700c3ff0b5f028b3f9bb5d1df3b6518d"
+    },
+    "iphone17-pro-max-final-default/Feedback.png": {
+      "bytes": 524843,
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    "iphone17-pro-max-final-default/Home.png": {
+      "bytes": 1605103,
+      "sha256": "21838d55dc7a1d9d86f1105570a2b0496ac07fc09a4f38931f38736bc78b7b87"
+    },
+    "iphone17-pro-max-final-default/SessionDetail.png": {
+      "bytes": 1481970,
+      "sha256": "87e33c3922311bf3157619f08ed5a15108d01b005fe186ff54d0b241043fb2a7"
+    },
+    "iphone17-pro-max-final-default/Skip.png": {
+      "bytes": 168341,
+      "sha256": "6d7a9cb4da9dcabfe1c3801b7ed9fc0dcb964591e235e56f8069fe4624230895"
+    },
+    "iphone17-pro-max-final-default/Training.png": {
+      "bytes": 681980,
+      "sha256": "c2b9cd3d01b19d1795221369d0be58072ca184db0f60875f8bb396035e1244bd"
+    },
+    "iphone17-pro-max-final-default/ui-timings.json": {
+      "bytes": 426,
+      "sha256": "713ae425d040d76e643a4ae57801ffafb24ca079d5cb7cfe16582d6d3cabb8fc"
+    },
+    "iphone17-scroll-tests.json": {
+      "bytes": 1071,
+      "sha256": "d6ba2337f5856a0e8e36b4519336e0adfcc22b8f378b3d9d18c92de0c8c67e56"
+    },
+    "iphone17-scroll.log": {
+      "bytes": 13488,
+      "sha256": "63a33cef303fd64e446da7e7c171b6149806583074c82b0bc87a00fe8d77e872"
+    },
+    "iphone17-snapshot-comparison.log": {
+      "bytes": 410,
+      "sha256": "e9242f195850c8299a9ff1bd294877dfaab4c7c31eff6a729cca7154e1ebcfd8"
+    },
+    "large-accessibility-infrastructure-timeout.json": {
+      "bytes": 1501,
+      "sha256": "99a73b64bee34d9d68eae8274b8254d8dbf4c99875495b26c723ab01bc0a4d5e"
+    },
+    "performance-api.json": {
+      "bytes": 1700,
+      "sha256": "932685a6bf37fa109b2f6d84331c0a8d09b6056a6826c1be58540f0438caba91"
+    },
+    "performance-api.log": {
+      "bytes": 67,
+      "sha256": "2ec137b02bc56dbf0c5118c79a5400d788839bfcfc8e64785279701e7ea96137"
+    },
+    "performance-simulator-product.json": {
+      "bytes": 698,
+      "sha256": "1ca83c88a157115732d8cea9c38ab0241de68e6da6af29297f9ff24b6cad43f6"
+    },
+    "performance-ui.json": {
+      "bytes": 3698,
+      "sha256": "a841bd246925067bd4f9922a87820133845ddbdc7eafe7c06248a918db554423"
+    },
+    "previous-ui-failure-context.json": {
+      "bytes": 365,
+      "sha256": "6654d70674b483d48912055e66ce6f0501085b4d3f3ec2b31fbda636a3be87bb"
+    },
+    "previous-ui-failure.json": {
+      "bytes": 1541,
+      "sha256": "c5a9faa9390aea3f15d5c7a195974dcb0973668c2f535eaf7063508360acc505"
+    },
+    "raw-final-screens/iPhone13,4/Activities.png": {
+      "bytes": 651975,
+      "sha256": "a723d8520afcc70f0d8056172e97f97d0e667251af3aca1b3a4ed3576c452cab"
+    },
+    "raw-final-screens/iPhone13,4/ActivitiesAccessibility.png": {
+      "bytes": 425876,
+      "sha256": "34345f8b8b8556b0661b86cd5e86692f070296479b3c0cde01833c58b07706ba"
+    },
+    "raw-final-screens/iPhone13,4/Analysis.png": {
+      "bytes": 546608,
+      "sha256": "f54f8ce4667c606a62faff68d1007a00e583775d7846a7bd75fb3ee3ede72cfb"
+    },
+    "raw-final-screens/iPhone13,4/AnalysisAccessibility.png": {
+      "bytes": 439561,
+      "sha256": "a36d92d2525d8652f6af86916e05d00891d3790dd764e4e6be624adbad6d70d9"
+    },
+    "raw-final-screens/iPhone13,4/AnalysisTrendAccessibility.png": {
+      "bytes": 375888,
+      "sha256": "eed9a7afab0d8e82255f3d8cbf3dc5751d1e2f69c263ae2ec0d01862c965acac"
+    },
+    "raw-final-screens/iPhone13,4/BeforeSkip.png": {
+      "bytes": 1464014,
+      "sha256": "ec15648e641bbe5921380628bab6afec730bc4b33bca1ed28e3f96d902af65d2"
+    },
+    "raw-final-screens/iPhone13,4/Conflict.png": {
+      "bytes": 239274,
+      "sha256": "56ae6ab5047066b2d4dbecf161142899e483ac34857aaf5c6c1a1d04376b57f7"
+    },
+    "raw-final-screens/iPhone13,4/Execution.png": {
+      "bytes": 496065,
+      "sha256": "6a9260cbcdd3942b77aa7a6ee312bbefcf85c3483bd376c224f3a68227d80113"
+    },
+    "raw-final-screens/iPhone13,4/ExecutionAccessibility.png": {
+      "bytes": 354093,
+      "sha256": "0623d279f3369074b425de18edbca6f5aa25a430474acd811504a34a4b9573db"
+    },
+    "raw-final-screens/iPhone13,4/ExecutionStarted.png": {
+      "bytes": 589701,
+      "sha256": "fe154e984245437249a84d090c207a7f3c0c7f29ff96a29f03e38419a7b364b3"
+    },
+    "raw-final-screens/iPhone13,4/Feedback.png": {
+      "bytes": 501153,
+      "sha256": "675c8f5cdacf464ea965cf3f012889eb9b62a3beaa20f9447d78fc1c220782e1"
+    },
+    "raw-final-screens/iPhone13,4/FeedbackAccessibility.png": {
+      "bytes": 354150,
+      "sha256": "b9a6ab9f03c8c9adf46d9514ee215b463a2e82e970db2b312c7f095026dfda53"
+    },
+    "raw-final-screens/iPhone13,4/Home.png": {
+      "bytes": 1561556,
+      "sha256": "174d16995c0dad07cc8b43b15f10204085170240820c80e684dcf7b4990ab648"
+    },
+    "raw-final-screens/iPhone13,4/HomeAccessibility.png": {
+      "bytes": 1718252,
+      "sha256": "b5cda61521b6e5463c6286481e4664e0b3ecadae234117ae6585229461bfddbb"
+    },
+    "raw-final-screens/iPhone13,4/HomeAccessibilityScrolled.png": {
+      "bytes": 1732177,
+      "sha256": "d127e571cfdabfc22aa9a947d446bfc7bd6ccdaf07258b62dcfef7c36e78aaca"
+    },
+    "raw-final-screens/iPhone13,4/SessionActionsAccessibility.png": {
+      "bytes": 1595221,
+      "sha256": "a050aa76438ec82e0686e295c73bbd15be6f86b5f5b85b6e76e0e897049d785f"
+    },
+    "raw-final-screens/iPhone13,4/SessionDetail.png": {
+      "bytes": 1441858,
+      "sha256": "0e0feb6caeae467315c99d1884fe9cd4eca29265ddeacf8191626b5ce81077bb"
+    },
+    "raw-final-screens/iPhone13,4/SessionDetailAccessibility.png": {
+      "bytes": 1595218,
+      "sha256": "8c45b0a00d718c36c4fba07e7cf7cafd698fd46bd379e21aa8b2a697095250c1"
+    },
+    "raw-final-screens/iPhone13,4/Skip.png": {
+      "bytes": 159529,
+      "sha256": "171dd986f9eeaa274d7732e1aa5fa92c4879d09d7dd0ec3c100b82ca5f1f44ea"
+    },
+    "raw-final-screens/iPhone13,4/Training.png": {
+      "bytes": 660720,
+      "sha256": "0dc3c38e17591cc98fc45ab7ffcf224009c3cd3f5b0eb56dec11e78cc6fee90d"
+    },
+    "raw-final-screens/iPhone13,4/TrainingAccessibility.png": {
+      "bytes": 435813,
+      "sha256": "4c823b145e523036a3dd66cce2fdca646d06aeabebd80be7ae3152ca31d09e94"
+    },
+    "raw-final-screens/iPhone13,4/WeeklyAccessibility.png": {
+      "bytes": 1731881,
+      "sha256": "2436e45d55b91911cdb0b5ae8ec50c3a7969ad5b8076f8a32e91d0a48f894e92"
+    },
+    "raw-final-screens/iPhone13,4/WeeklyLoadAccessibility.png": {
+      "bytes": 1731991,
+      "sha256": "81a74ffcedeb87ac0d54047535210f785f8e900ab8a3cdd9c945bad4e5249616"
+    },
+    "raw-final-screens/iPhone13,4/ui-timings.json": {
+      "bytes": 426,
+      "sha256": "39988d655d4274395e5c3bd02ed21e530a79f329adfd59d240b01aa93df55fe0"
+    },
+    "raw-final-screens/iPhone18,2/Activities.png": {
+      "bytes": 685091,
+      "sha256": "aecc32aba7c94487490f400c58793faff9aa646af9d906c15c4de69b5f385a3c"
+    },
+    "raw-final-screens/iPhone18,2/ActivitiesAccessibility.png": {
+      "bytes": 449638,
+      "sha256": "cff979fe69d903e35480c371c08bcb742d0c6037fceff8d65c408a6216d9ae51"
+    },
+    "raw-final-screens/iPhone18,2/Analysis.png": {
+      "bytes": 567689,
+      "sha256": "184df9d4aaf8c22ab742fc97c4e29d60eb3b4c47262b3f85bd037cdfebdb2529"
+    },
+    "raw-final-screens/iPhone18,2/AnalysisAccessibility.png": {
+      "bytes": 452734,
+      "sha256": "5d736c9018f978d6eb3a618153a6b133ad4a83bfbfbac36d9d6422d216919681"
+    },
+    "raw-final-screens/iPhone18,2/AnalysisTrendAccessibility.png": {
+      "bytes": 406454,
+      "sha256": "db366dbd5478daad4539863f2380848e956c4453071ffb5d90b6c5f80cacf8b1"
+    },
+    "raw-final-screens/iPhone18,2/BeforeSkip.png": {
+      "bytes": 1506058,
+      "sha256": "657e4f050b1d73654d073c692894a9dd99d600cd5fb5d3352a0e25629acef2a8"
+    },
+    "raw-final-screens/iPhone18,2/Conflict.png": {
+      "bytes": 247347,
+      "sha256": "0f9a4ec68744556deb02777bedbfe7aa95a881e9c210945aa69cb1d42ec0ad1a"
+    },
+    "raw-final-screens/iPhone18,2/Execution.png": {
+      "bytes": 519044,
+      "sha256": "dd78dc29e0cc4459e82da8718a1be2e3d4ef290748462774045fb6ab24ea01fc"
+    },
+    "raw-final-screens/iPhone18,2/ExecutionAccessibility.png": {
+      "bytes": 366494,
+      "sha256": "00100c6db8764f1852db6017ff845798ea2d98f2359c8775556fcc95ee20e300"
+    },
+    "raw-final-screens/iPhone18,2/ExecutionStarted.png": {
+      "bytes": 613255,
+      "sha256": "26fc50a23868183d8adfac68e38d5f6e700c3ff0b5f028b3f9bb5d1df3b6518d"
+    },
+    "raw-final-screens/iPhone18,2/Feedback.png": {
+      "bytes": 524843,
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    "raw-final-screens/iPhone18,2/FeedbackAccessibility.png": {
+      "bytes": 366581,
+      "sha256": "2b4b31a2672899be5cf63ad76c3dc968532ce90cffe73253a4138e01b7c0bfb6"
+    },
+    "raw-final-screens/iPhone18,2/Home.png": {
+      "bytes": 1605103,
+      "sha256": "21838d55dc7a1d9d86f1105570a2b0496ac07fc09a4f38931f38736bc78b7b87"
+    },
+    "raw-final-screens/iPhone18,2/HomeAccessibility.png": {
+      "bytes": 1818678,
+      "sha256": "f5027c175b78b23898ae0c58018ae17c66aa6e3f502eff53218def004d89f77a"
+    },
+    "raw-final-screens/iPhone18,2/HomeAccessibilityScrolled.png": {
+      "bytes": 1800594,
+      "sha256": "5fbe2a8dd2942d14dc5ca42efa51448413a9342f65fd6db6a8a193166adab7f7"
+    },
+    "raw-final-screens/iPhone18,2/SessionActionsAccessibility.png": {
+      "bytes": 1646252,
+      "sha256": "38e1338b6725431a8da3b4d92137fc83659d1a6a1d2a7d048604a8a76232e2a2"
+    },
+    "raw-final-screens/iPhone18,2/SessionDetail.png": {
+      "bytes": 1481970,
+      "sha256": "87e33c3922311bf3157619f08ed5a15108d01b005fe186ff54d0b241043fb2a7"
+    },
+    "raw-final-screens/iPhone18,2/SessionDetailAccessibility.png": {
+      "bytes": 1646831,
+      "sha256": "7db8f8eecea4b2c5261e045e8c37acd02df598a038a6acfc2da51d6967ecb1e4"
+    },
+    "raw-final-screens/iPhone18,2/Skip.png": {
+      "bytes": 168341,
+      "sha256": "6d7a9cb4da9dcabfe1c3801b7ed9fc0dcb964591e235e56f8069fe4624230895"
+    },
+    "raw-final-screens/iPhone18,2/Training.png": {
+      "bytes": 681980,
+      "sha256": "c2b9cd3d01b19d1795221369d0be58072ca184db0f60875f8bb396035e1244bd"
+    },
+    "raw-final-screens/iPhone18,2/TrainingAccessibility.png": {
+      "bytes": 472156,
+      "sha256": "5c42f4aeae353729d3eba64ffc83afa2a5869f3352cd77db4d5e59dd55994477"
+    },
+    "raw-final-screens/iPhone18,2/WeeklyAccessibility.png": {
+      "bytes": 1800568,
+      "sha256": "8422528eb594f8435ba1f077935852a192daee9f8738b28e2c6a24a44a4e3f29"
+    },
+    "raw-final-screens/iPhone18,2/WeeklyLoadAccessibility.png": {
+      "bytes": 1800568,
+      "sha256": "8422528eb594f8435ba1f077935852a192daee9f8738b28e2c6a24a44a4e3f29"
+    },
+    "raw-final-screens/iPhone18,2/ui-timings.json": {
+      "bytes": 426,
+      "sha256": "713ae425d040d76e643a4ae57801ffafb24ca079d5cb7cfe16582d6d3cabb8fc"
+    },
+    "release-acceptance-config-check.json": {
+      "bytes": 129,
+      "sha256": "31ac272cc47b8f815d6509aa5be0afa659b66cc62966afc3e2331394de1ca1a9"
+    },
+    "release-build.log": {
+      "bytes": 39053,
+      "sha256": "fa37cd9d2858a24d32be85b45210e20d01377a0c82aa1eb3bf04c2ac2a983ec0"
+    },
+    "server-log-privacy.json": {
+      "bytes": 178,
+      "sha256": "df9a0bb3a484b5b12c09d1816ce8f36138f65d21969805ae9b9805f4d6d08604"
+    },
+    "simulator-cpu-sample.txt": {
+      "bytes": 5151915,
+      "sha256": "0747d689bf76e7abd5eea5e971849f4fa6f8e13e9c8ffda5f9e238c5a8391f3b"
+    },
+    "simulator-initial-timings.json": {
+      "bytes": 994,
+      "sha256": "3577c1614683a5e1ddea6a15c28572c59c831d97fc24e9461b3ec33d8ba2d7a6"
+    },
+    "snapshot-comparison.log": {
+      "bytes": 376,
+      "sha256": "29a1ef6cdd531bc0b3841fc4de7723c7b3fc4c080817dfe6fa4ba3fcfe29b84f"
+    },
+    "snapshot-negative-control.log": {
+      "bytes": 281,
+      "sha256": "e96896384fcc28f8c1a4bb3c1d8466b7c1b58a4407e04739868d5d139be5add8"
+    },
+    "swift-core.log": {
+      "bytes": 5493,
+      "sha256": "d05a2b73a74a51a5e95c2ef1cbc318a338aa981aacdc5ddca5555dff78b61d28"
+    },
+    "swift-fnos-e2e.json": {
+      "bytes": 158,
+      "sha256": "933dad8f917252d7726e5476c88691aa9c3b581a060209933e997d5994e1844c"
+    },
+    "swift-fnos-e2e.log": {
+      "bytes": 585,
+      "sha256": "ee14843ea294c9ce4c1e07ebd0b1b5898726dbe2fb7134f50cef3c675aa2ff13"
+    }
+  }
+}

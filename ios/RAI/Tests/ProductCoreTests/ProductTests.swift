@@ -129,4 +129,20 @@ struct ProductTests {
         UploadError(code: "invalid_training_override", status: 422)))
   }
 
+  @Test func successfulGenerationDoesNotShowAnErrorSentinel() {
+    var data = ProductSnapshot()
+    data.plan = .object([
+      "generationState": .string("succeeded"), "lastErrorCode": .string("SUCCEEDED"),
+    ])
+    #expect(data.generationFailure == nil)
+    data.plan = .object([
+      "generationState": .string("queued"), "lastErrorCode": .string("old_failure"),
+    ])
+    #expect(data.generationFailure == nil)
+    data.plan = .object([
+      "generationState": .string("failed"), "lastErrorCode": .string("insufficient_context"),
+    ])
+    #expect(data.generationFailure == "insufficient_context")
+  }
+
 }

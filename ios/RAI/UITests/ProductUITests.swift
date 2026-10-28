@@ -4,7 +4,8 @@ import XCTest
 final class ProductUITests: XCTestCase {
   private let privateRoot = "/tmp/rai-p6-native-acceptance"
   private var app: XCUIApplication!
-  private func launchApp() {
+  private var timings: [String: Double] = [:]
+  private func launchApp() throws {
     continueAfterFailure = false
     XCTAssertTrue(
       FileManager.default.fileExists(atPath: privateRoot + "/config-app.json"),
@@ -13,19 +14,53 @@ final class ProductUITests: XCTestCase {
     app.launchEnvironment["RAI_SYNTHETIC_ACCEPTANCE"] = "1"
     app.launchEnvironment["RAI_ACCEPTANCE_CONFIG"] = privateRoot + "/config-app.json"
     app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    let launchStart = Date()
     app.launch()
-    XCTAssertTrue(element("home.hero").waitForExistence(timeout: 60))
+    guard element("home.hero").waitForExistence(timeout: 60) else {
+      throw UIFlowFailure.missing("home.hero after live API bootstrap")
+    }
+    timings["process_launch_to_live_home_ms"] = Date().timeIntervalSince(launchStart) * 1000
   }
   private func element(_ id: String) -> XCUIElement {
     app.descendants(matching: .any).matching(identifier: id).firstMatch
   }
-  private func tap(_ id: String) {
+  private func tap(_ id: String) throws {
     let e = element(id)
-    XCTAssertTrue(e.waitForExistence(timeout: 15), id)
+    guard e.waitForExistence(timeout: 15) else { throw UIFlowFailure.missing(id) }
+    let ready = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "enabled == true"), object: e)
+    guard XCTWaiter.wait(for: [ready], timeout: 20) == .completed else {
+      throw UIFlowFailure.disabled(id)
+    }
     if !e.isHittable { app.swipeUp() }
+    guard e.isHittable else { throw UIFlowFailure.missing(id + ": not hittable") }
+    let start = Date()
     e.tap()
+    timings["tap_" + id + "_ms"] = Date().timeIntervalSince(start) * 1000
   }
-  private func tab(_ title: String) { app.tabBars.buttons[title].tap() }
+  private func tab(_ title: String) {
+    let start = Date()
+    app.tabBars.buttons[title].tap()
+    timings["tab_" + title + "_ms"] = Date().timeIntervalSince(start) * 1000
+  }
+  private func scroll(_ screen: String, up: Bool = true) {
+    // Use the content margin so large button labels do not own the gesture.
+    let view = app.scrollViews.matching(identifier: screen).firstMatch
+    let start = view.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: up ? 0.80 : 0.20))
+    let end = view.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: up ? 0.20 : 0.80))
+    start.press(forDuration: 0.05, thenDragTo: end)
+  }
+  private func auditVisibleText() throws {
+    do {
+      try app.performAccessibilityAudit(for: .textClipped)
+    } catch let error as NSError
+      where error.domain == "com.apple.xcode.xctest.accessibilityAudit" && error.code == -56
+    {
+      // A busy simulator can time out before producing any audit result.
+      // Retry that infrastructure error once; clipping findings are not ignored.
+      try app.performAccessibilityAudit(for: .textClipped)
+    }
+  }
   private func screen(_ name: String) throws {
     let shot = app.screenshot()
     let attachment = XCTAttachment(screenshot: shot)
@@ -37,9 +72,14 @@ final class ProductUITests: XCTestCase {
         ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] ?? "simulator")
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     try shot.pngRepresentation.write(to: directory.appendingPathComponent(name + ".png"))
+    try JSONSerialization.data(
+      withJSONObject: [
+        "scope": "simulator UI automation; includes XCTest overhead", "timings": timings,
+      ], options: [.sortedKeys]
+    ).write(to: directory.appendingPathComponent("ui-timings.json"))
   }
   func test01NavigationVisualBaselineAndDiagnostics() throws {
-    launchApp()
+    try launchApp()
     try screen("Home")
     tab("运动")
     XCTAssertTrue(element("screen.activities").exists)
@@ -51,17 +91,18 @@ final class ProductUITests: XCTestCase {
     XCTAssertTrue(element("screen.training").exists)
     try screen("Training")
     tab("我的")
-    tap("profile.sync")
+    try tap("profile.sync")
     XCTAssertTrue(app.buttons["Request Read Access"].exists || app.buttons["请求读取权限"].exists)
     tab("首页")
-    tap("home.hero")
+    try tap("home.hero")
     XCTAssertTrue(element("session.edit").waitForExistence(timeout: 10))
     try screen("SessionDetail")
   }
   func test02EditConflictMoveSkipAddRevokeExecutionFeedback() async throws {
-    launchApp()
-    tap("home.hero")
-    tap("session.edit")
+    try await freshPlan()
+    try launchApp()
+    try tap("home.hero")
+    try tap("session.edit")
     let value = app.textFields["edit.value"]
     XCTAssertTrue(value.waitForExistence(timeout: 10))
     value.tap()
@@ -70,78 +111,182 @@ final class ProductUITests: XCTestCase {
     let old = value.value as? String ?? ""
     value.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count) + "7100")
     try await concurrentOverride()
-    tap("edit.save")
+    try tap("edit.save")
     XCTAssertTrue(element("edit.review").waitForExistence(timeout: 15))
     XCTAssertEqual(value.value as? String, "7100")
     try screen("Conflict")
-    tap("edit.review")
-    tap("edit.save")
+    try tap("edit.review")
+    try tap("edit.save")
     XCTAssertTrue(element("session.edit").waitForExistence(timeout: 20))
     app.swipeUp()
-    if element("session.revoke").waitForExistence(timeout: 10) { tap("session.revoke") }
+    try tap("session.revoke")
     app.swipeDown()
-    tap("session.move")
-    tap("edit.save")
+    try tap("session.move")
+    try tap("edit.nextDay")
+    try tap("edit.save")
     XCTAssertTrue(element("session.start").waitForExistence(timeout: 15))
-    tap("session.start")
+    try tap("session.start")
     XCTAssertTrue(element("execution.complete").waitForExistence(timeout: 15))
-    try screen("Execution")
-    tap("execution.complete")
+    try screen("ExecutionStarted")
+    try tap("execution.complete")
     XCTAssertTrue(element("execution.associate").waitForExistence(timeout: 15))
-    tap("execution.associate")
-    tap("associate.candidate")
+    try tap("execution.associate")
+    try tap("associate.candidate")
     XCTAssertTrue(element("feedback.card").waitForExistence(timeout: 15))
+    try tap("execution.refresh")
     try screen("Feedback")
+    try screen("Execution")
+    app.navigationBars.buttons.firstMatch.tap()
+    app.navigationBars.buttons.firstMatch.tap()
     tab("训练")
     app.swipeUp()
-    tap("training.add")
+    try tap("training.add")
     let distance = app.textFields["add.distance"]
     XCTAssertTrue(distance.waitForExistence(timeout: 10))
     distance.tap()
     distance.typeText("3200")
-    tap("edit.save")
+    try tap("edit.save")
     XCTAssertTrue(element("screen.training").waitForExistence(timeout: 15))
     tab("首页")
     app.swipeDown()
-    tap("home.hero")
-    tap("session.skip")
-    tap("edit.save")
+    try tap("home.hero")
+    try screen("BeforeSkip")
+    try tap("session.skip")
+    try screen("Skip")
+    try tap("edit.save")
     XCTAssertTrue(element("screen.session").waitForExistence(timeout: 15))
   }
-  func test03LaunchAndHomeScrollPerformance() {
-    launchApp()
+  func test03LaunchAndHomeScrollPerformance() async throws {
+    try await freshPlan()
+    try launchApp()
+    let originalY = element("home.hero").frame.minY
+    scroll("screen.home")
+    XCTAssertLessThan(element("home.hero").frame.minY, originalY - 20)
+    scroll("screen.home", up: false)
     let options = XCTMeasureOptions()
     options.iterationCount = 3
     measure(metrics: [XCTClockMetric(), XCTMemoryMetric(application: app)], options: options) {
-      app.swipeUp()
-      app.swipeDown()
+      scroll("screen.home")
+      scroll("screen.home", up: false)
     }
   }
-  private func concurrentOverride() async throws {
+  func test04AccessibilityLayout() throws {
+    try launchApp()
+    tab("我的")
+    let flags = element("profile.a11y")
+    if !flags.isHittable { app.swipeUp() }
+    XCTAssertTrue(flags.waitForExistence(timeout: 10))
+    guard flags.label.contains("accessibility") else {
+      throw XCTSkip("Run the dedicated matrix with an Accessibility Dynamic Type size")
+    }
+    XCTAssertTrue(flags.label.contains("motion=true"), flags.label)
+    XCTAssertTrue(flags.label.contains("transparency=true"), flags.label)
+    XCTAssertTrue(flags.label.contains("accessibility"), flags.label)
+    tab("首页")
+    try auditVisibleText()
+    try screen("HomeAccessibility")
+    try tap("home.hero")
+    try auditVisibleText()
+    try screen("SessionDetailAccessibility")
+    scroll("screen.session")
+    try auditVisibleText()
+    try screen("SessionActionsAccessibility")
+    app.navigationBars.buttons.firstMatch.tap()
+    scroll("screen.home")
+    try auditVisibleText()
+    try screen("HomeAccessibilityScrolled")
+    let weekly = app.staticTexts["本周概览"].firstMatch
+    for _ in 0..<8 {
+      if weekly.isHittable { break }
+      scroll("screen.home")
+    }
+    XCTAssertTrue(
+      weekly.isHittable, "Weekly heading must be visible, not only present in the hierarchy")
+    try auditVisibleText()
+    try screen("WeeklyAccessibility")
+    scroll("screen.home")
+    try auditVisibleText()
+    try screen("WeeklyLoadAccessibility")
+    tab("训练")
+    try auditVisibleText()
+    try screen("TrainingAccessibility")
+    tab("运动")
+    try auditVisibleText()
+    try screen("ActivitiesAccessibility")
+    tab("分析")
+    try auditVisibleText()
+    try screen("AnalysisAccessibility")
+    scroll("screen.analysis")
+    try auditVisibleText()
+    try screen("AnalysisTrendAccessibility")
+    tab("训练")
+    for _ in 0..<6 {
+      if element("training.execution").isHittable { break }
+      scroll("screen.training")
+    }
+    try tap("training.execution")
+    try auditVisibleText()
+    try screen("ExecutionAccessibility")
+    scroll("screen.execution")
+    try auditVisibleText()
+    try screen("FeedbackAccessibility")
+  }
+  func test05VisualRegressionCandidate() throws {
+    try test01NavigationVisualBaselineAndDiagnostics()
+    app.navigationBars.buttons.firstMatch.tap()
+    tab("训练")
+    app.swipeUp()
+    try tap("training.execution")
+    XCTAssertTrue(element("feedback.card").waitForExistence(timeout: 15))
+    try screen("Execution")
+  }
+  private func call(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
     let bytes = try Data(contentsOf: URL(fileURLWithPath: privateRoot + "/config.json"))
     let config = try JSONSerialization.jsonObject(with: bytes) as! [String: String]
-    func call(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
-      var r = URLRequest(url: URL(string: config["baseURL"]! + path)!)
-      r.setValue("Bearer " + config["token"]!, forHTTPHeaderField: "Authorization")
-      r.setValue("application/json", forHTTPHeaderField: "Content-Type")
-      if let body {
-        r.httpMethod = "POST"
-        r.httpBody = try JSONSerialization.data(withJSONObject: body)
-      }
-      let (data, response) = try await URLSession.shared.data(for: r)
-      XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
-      return try JSONSerialization.jsonObject(with: data) as! [String: Any]
+    var request = URLRequest(url: URL(string: config["baseURL"]! + path)!)
+    request.setValue("Bearer " + config["token"]!, forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    if let body {
+      request.httpMethod = "POST"
+      request.httpBody = try JSONSerialization.data(withJSONObject: body)
     }
+    let (data, response) = try await URLSession.shared.data(for: request)
+    XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+    return try JSONSerialization.jsonObject(with: data) as! [String: Any]
+  }
+  private func freshPlan() async throws {
+    let current = try await call("/v2/training/plans/current")
+    _ = try await call(
+      "/v2/training/plans",
+      body: [
+        "commandID": UUID().uuidString.lowercased(), "planID": UUID().uuidString.lowercased(),
+        "config": current["config"]!,
+      ])
+    for _ in 0..<45 {
+      let plan = try await call("/v2/training/plans/current")
+      if plan["effective"] is [String: Any] && plan["generationState"] as? String == "succeeded" {
+        return
+      }
+      try await Task.sleep(for: .seconds(2))
+    }
+    XCTFail("Actual Worker did not publish a fresh synthetic Effective plan")
+  }
+  private func concurrentOverride() async throws {
     let plan = try await call("/v2/training/plans/current")
     let effective = plan["effective"] as! [String: Any]
     let sessions = effective["sessions"] as! [[String: Any]]
-    let s = sessions.first { $0["type"] as? String != "REST" }!
+    let session = sessions.first { $0["type"] as? String != "REST" }!
     _ = try await call(
       "/v2/training/plans/" + (plan["planID"] as! String) + "/overrides",
       body: [
         "commandID": UUID().uuidString.lowercased(), "overrideID": UUID().uuidString.lowercased(),
-        "sessionID": s["sessionID"]!, "expectedOverrideRevision": plan["overrideRevision"]!,
+        "sessionID": session["sessionID"]!, "expectedOverrideRevision": plan["overrideRevision"]!,
         "operation": "edit", "path": "notes", "value": "synthetic UI concurrent update",
       ])
   }
+}
+
+private enum UIFlowFailure: Error {
+  case missing(String)
+  case disabled(String)
 }

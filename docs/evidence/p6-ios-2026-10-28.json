@@ -4,7 +4,7 @@
   "P6_BASE_COMMIT": "62511f9b3e5998ccad79396a7e14540074e506e5",
   "branch": "main",
   "initial_worktree": "clean; prior P4/P5 committed in baseline",
-  "status": "BLOCKED: user is freeing disk space; final UI/Release/visual/performance gates pending",
+  "status": "PASS WITH RISKS",
   "xcode": {
     "version": "26.5",
     "build": "17F42",
@@ -15,40 +15,53 @@
   "visual_reference": {
     "source": "user-provided RAI Liquid Glass image, 2026-10-28",
     "sha256": "a66370d21f292c25a1cdcbe113e59935b4797d7b0b6f27341e6c8a946ac331e9",
-    "visual_comparison": "NOT ACCEPTED; no successful populated simulator baseline yet",
-    "deviation": "native procedural sunset/track placeholder replaces reference photography"
+    "visual_comparison": "Both sizes independent five-page comparisons PASS, plus negative control rejected. No native GPU Liquid Glass approval.",
+    "deviation": "Independent generated sunset runner photograph; native UI and SF Symbol avatar; no screenshot slicing. System native TabBar is visually distorted on this no-Metal host."
   },
   "build": {
-    "debug_simulator": "PASS before final small correctness/accessibility patches; final rebuild pending",
-    "ui_test_build": "PASS before final patches",
-    "release": "FAIL: no space for CreateBuildDescription/swiftc --version",
-    "device": "NOT RUN"
+    "debug_simulator": "PASS; local ad hoc signing, real Keychain",
+    "ui_test_build": "PASS; Swift 6 complete strict concurrency",
+    "release": "PASS; unsigned generic arm64 iOS with minimum 18.0",
+    "device": "NOT RUN",
+    "debug_log": "p6-acceptance-2026-10-28/debug-test-build.log",
+    "release_log": "p6-acceptance-2026-10-28/release-build.log"
   },
   "tests": {
     "swift_core": {
       "status": "PASS",
-      "count": 34,
+      "count": 35,
       "suites": 3,
-      "elapsed_seconds": 1.427,
-      "scope": "macOS SPM synthetic; includes original 27 SyncCore tests"
+      "elapsed_seconds": 1.788,
+      "scope": "macOS SPM synthetic, includes original 27 SyncCore tests"
     },
-    "ios_app_unit": "NOT RUN in this phase",
+    "ios_app_unit": "PASS: 8 synthetic SDK normalizer tests",
     "ui": {
-      "status": "NOT PASSED",
-      "first_failure": "NSPOSIXErrorDomain 28 No space left on device installing app",
-      "retry_failure": "home.hero not found; needs bootstrap diagnosis after disk recovery",
-      "simulator": "iPhone 17 Pro Max / iOS 26.5",
-      "simulator_id": "28249D58-A2BE-4C2B-B8B0-991F2D87AB73"
+      "status": "PASS functional/layout gates, not GPU visual approval",
+      "iphone17_default": "8 native unit + UI01/UI02/UI03 PASS; final independent UI05 PASS",
+      "iphone12_class_default": "8 native unit + UI01/UI02/UI03 PASS; final independent UI05 PASS",
+      "accessibility": "Both sizes UI04 PASS, 0 skipped; real system Light + app Dark, Accessibility XXXL, Reduce Motion and Reduce Transparency",
+      "large_accessibility_environment": "Owned simulator mediaanalysisd temporarily SIGSTOP during functional audit to avoid repeated -56 timeouts; EXIT trap attempts SIGCONT, process had exited afterward; simulator shut down. Performance runs used default OS processes.",
+      "scroll": "Hero frame movement asserted before 3 measured forward/back pairs",
+      "audit_scope": "textClipped only, including detail/actions, weekly, activities, trends and feedback; not full VoiceOver/contrast certification",
+      "history": "Failed runs preserved in history and separate summaries; real clipping findings never filtered; -56 infrastructure timeout retried once"
     },
     "screens": {
-      "status": "NOT ACCEPTED",
+      "status": "PASS limited no-Metal layout regression on both sizes; GPU/scroll compositing NOT VERIFIED",
       "required": [
         "Home",
         "Training",
         "SessionDetail",
         "Analysis",
         "Execution"
-      ]
+      ],
+      "initial_comparison": "PASS all five, independent launches",
+      "negative_control": "FAIL as expected when Home replaced by Analysis",
+      "artifact_directory": "p6-acceptance-2026-10-28",
+      "final_comparisons": {
+        "iphone17": "p6-acceptance-2026-10-28/iphone17-snapshot-comparison.log",
+        "iphone12": "p6-acceptance-2026-10-28/iphone12-snapshot-comparison.log",
+        "negative_control": "p6-acceptance-2026-10-28/snapshot-negative-control.log"
+      }
     },
     "real_device": "DEFERRED / NOT VERIFIED",
     "swift_parse": "PASS: all current iOS App Swift sources parsed; not a substitute for SDK typechecking/build"
@@ -57,7 +70,7 @@
     "status": "PASS",
     "path": "macOS Swift -> loopback SSH -> fnOS actual Go API/Worker -> disposable PostgreSQL 18.6",
     "synthetic_only": true,
-    "home_five_api_load_ms": 348.3130931854248,
+    "home_five_api_load_ms": 505.2759647369385,
     "scenarios": [
       "P3 fact durable ACK and explicit HR relationships",
       "Published Analysis reads",
@@ -87,7 +100,7 @@
       "go vet -tags=integration,scale ./...",
       "dependency boundaries"
     ],
-    "integration_elapsed_seconds": 311.846,
+    "integration_elapsed_seconds": 302.488,
     "online_packages": 249,
     "p3_p4_p5_regression": "PASS",
     "read_api_targeted_pg_race_elapsed_seconds": 3.119,
@@ -98,7 +111,7 @@
       "checksums": "on"
     },
     "compose": "PASS: P3 API/PG restart + Worker offline, P4 publication, P5 HTTP closed loop, same image, SIGTERM",
-    "cleanup": "regression/Compose temporary resources cleaned by scripts; P6 live synthetic host retained pending simulator acceptance"
+    "cleanup": "PASS: final P6_ISOLATED_HOST=PASS, tunnel/temporary API/Worker/PostgreSQL cleaned by bounded harness"
   },
   "openapi": {
     "status": "PASS",
@@ -107,20 +120,35 @@
     "warnings_scope": "existing health 4XX / unused historical schemas"
   },
   "performance": {
-    "scope": "synthetic macOS API total only",
-    "ui_render": "NOT MEASURED",
-    "cold_launch": "NOT MEASURED",
-    "scroll": "NOT MEASURED",
-    "memory": "NOT MEASURED",
-    "iphone_12_pro_max": "NOT VERIFIED",
-    "production_slo": "NOT ESTABLISHED"
+    "scope": "SIMULATOR ONLY / synthetic; automation and CPU sample include substantial XCTest overhead, no physical hardware or SLO claim",
+    "cpu_sample": "Apple sample, 10 seconds, 71.6M physical footprint / 88.7M peak during tab navigation",
+    "instruments": "NOT VERIFIED: no completed Time Profiler trace; exporter Document Missing Template Error; bounded attempt stopped",
+    "render_gpu_fps": "NOT VERIFIED: host has no Metal device",
+    "production_slo": "NOT ESTABLISHED",
+    "iphone_12_pro_max_hardware": "NOT VERIFIED",
+    "api_operation_medians_ms": {
+      "Activities": 84.06293392181396,
+      "Analysis": 33.65898132324219,
+      "History": 79.47397232055664,
+      "Home": 294.69001293182373,
+      "Training": 77.18002796173096,
+      "Weekly": 30.326008796691895
+    },
+    "api_samples_per_operation": 3,
+    "evidence_files": [
+      "p6-acceptance-2026-10-28/performance-api.json",
+      "p6-acceptance-2026-10-28/performance-ui.json",
+      "p6-acceptance-2026-10-28/performance-simulator-product.json",
+      "p6-acceptance-2026-10-28/simulator-initial-timings.json",
+      "p6-acceptance-2026-10-28/simulator-cpu-sample.txt"
+    ]
   },
   "device_status": {
     "P3": "DEFERRED / NOT VERIFIED",
     "P6": "DEFERRED / NOT VERIFIED",
     "WorkoutKit": "DEFERRED; no real scheduling claim"
   },
-  "P7_DEVELOPMENT_READY": "NO",
+  "P7_DEVELOPMENT_READY": "YES - development only, P7 not started",
   "PRODUCTION_RELEASE_READY": "NO",
   "privacy": {
     "production_data_accessed": false,
@@ -132,17 +160,12 @@
     "historical_evidence_deleted": false
   },
   "known_gaps": [
-    "host disk space blocks remaining acceptance; user is freeing space",
-    "final Debug/Release/Swift strict build after final patches",
-    "successful native UI run and populated screenshot baselines",
-    "iPhone12 class and current large layout matrix",
-    "Accessibility settings runtime verification",
-    "iOS18 fallback runtime absent",
-    "UI performance/Instruments baseline",
-    "route read API absent: explicitly unavailable",
+    "iOS18 runtime absent; actual no-Metal fallback is not iOS18 runtime proof",
+    "GPU native Liquid Glass/Swift Charts/TabBar visuals and frame hitches not verified",
+    "real device HealthKit/background/network lifecycle not verified",
+    "route read API absent and explicitly unavailable",
     "cross-device execution list absent",
-    "WorkoutKit scheduling deferred",
-    "real device HealthKit/OS lifecycle not verified"
+    "WorkoutKit scheduling deferred"
   ],
   "source_sha256": {
     "apps/server/integration/product_test.go": "2299fe1a4da74f2ff12ebb91ea785b4838ae5c98d9f48dc260fab9ca52e8376f",
@@ -152,19 +175,39 @@
     "contracts/openapi-v2.yaml": "e3ac1ff11625fc16230c21826118d3455efb84f37b3ccef73815ecd9f6045501",
     "ios/RAI/App/BackgroundTransfers.swift": "5c48236b4fd7e8174a3e82217048bcce898ae2e7a07da8db449e4f7937b596e0",
     "ios/RAI/App/ClientConfiguration.swift": "97666aadbdc405af222f709f95f91528678d6bbeead040498623226922124aa9",
-    "ios/RAI/App/ExecutionView.swift": "ada833189e181c88618bb6d2f097c7280c87565a235f04ad7a7b7b366cc24253",
+    "ios/RAI/App/ExecutionView.swift": "8ce40c312888ae5c09dfa5582390b9147c0caef321b80ea0e854ebe51e119fd4",
     "ios/RAI/App/HealthKitClient.swift": "e39c439d1a7fb054fdf5899551154f8282eac80dc8d38fd4f51384a69143c300",
     "ios/RAI/App/ProductModel.swift": "97514e79388f3b2a5fb69ddf22465bd2360ce66eebe95ef3280fb3118f0ad732",
-    "ios/RAI/App/ProductViews.swift": "84cf3a8ddac0de88d7d7cf5307ec526c75ff32a4b6976f13c3424ee428f20205",
+    "ios/RAI/App/ProductViews.swift": "61056aaa446654e50147ad2e0f4bd42d6a5b73d9f72b113ea4e3bfbce24f364e",
     "ios/RAI/App/RAIApp.swift": "e33f9639bb261d6c54362436639db03181e9aee015bb945878acbe227a64a91d",
-    "ios/RAI/App/RAITheme.swift": "2b52fd34b29cacbec2f0ca576a02903a97a99c162e3f30b89883e5adbf8e3d48",
+    "ios/RAI/App/RAITheme.swift": "06e666e8dd11f4ca64c0f0001d3ea27930cff52076e1c3c0addb73a87bba5cbc",
     "ios/RAI/App/SyncCoordinator.swift": "244a249533fc6e3c952792fe2a0f81d04e13f39a046ff88e0073d75c6882f018",
-    "ios/RAI/App/TrainingViews.swift": "32a652c56f7346ca370a979131225c81ad95694bcdf59f25ab45f071f4d02f86",
-    "ios/RAI/Sources/ProductCore/Product.swift": "02c753175c6893a6a4d09e112ca5995e76392fde9ec44c02dfde931926705a6f",
-    "ios/RAI/Tests/ProductCoreTests/ProductTests.swift": "d3f776e87d1d2f2f10bb4b516c349d3c2187b5e5ffd9200c77ca80cd3493e4be",
-    "ios/RAI/Tools/ProductProbe/Probe.swift": "4f14a7aad65f9fe28315a192ed3e0cb514fa8f39d9524af2c1ae78c4ac0459d3",
-    "ios/RAI/UITests/ProductUITests.swift": "9137814932aae39ccea1717be020f887cdccba1fedd0acb0045dde11737e85ac",
-    "ios/RAI/Tools/CompareSnapshots.swift": "c6fb202e1c8b2c21c8a6dfa10f38a7d4ad7708f28d003504971b1b49d61af9ea"
+    "ios/RAI/App/TrainingViews.swift": "e06e75d5b273afd7060c8ded75fbc6fc3c57ef43a7e2bab3187ac64461c34ecd",
+    "ios/RAI/Sources/ProductCore/Product.swift": "35424d4a593e39ce435036abba0705104e94c5ec3b1fdfe97134473511e7a455",
+    "ios/RAI/Tests/ProductCoreTests/ProductTests.swift": "f83c4d1294b80c9ca83f6205a51066d3ac0c27ef3c6a70cbce38f9a6dcbfe778",
+    "ios/RAI/Tools/ProductProbe/Probe.swift": "99816668098a0de69b4424655881e44c9cf0b659f2e3b9ce7f23dc4e881827a2",
+    "ios/RAI/UITests/ProductUITests.swift": "b9cefad5bda8f41961f034d541b6aea0bc8806284c9c84f33dcc38d229fe691a",
+    "ios/RAI/Tools/CompareSnapshots.swift": "c6fb202e1c8b2c21c8a6dfa10f38a7d4ad7708f28d003504971b1b49d61af9ea",
+    "ios/RAI/App/Resources/TrainingHero.jpg": "33d2c9ae20bc5c408152323b2db71a1d69e05678a41dc0bb06a8134840617389",
+    "scripts/test-p6-client.py": "2ca67ca432fdcc87f9c57c32c7d7f325f823abdc1fc4d5e9cdf3e35b79a8853c",
+    "ios/RAI/RAI.xcodeproj/project.pbxproj": "c1d978208f6b231416d9e3f5e757edce99c30263d5251b6dfb9541c2d8d4638a",
+    "ios/RAI/project.yml": "2355f2ceaa6f10d3ca7da4e1af1845a11b1620d723605314b6ffb8668166f853"
   },
-  "original_plan_and_migrations_unchanged": true
+  "original_plan_and_migrations_unchanged": true,
+  "resume_base_commit": "3ffed27aabfdbc9af962e59da297e7e2eea77c4d",
+  "host": {
+    "metal_device": "NONE; MTLCreateSystemDefaultDevice returned nil",
+    "disk_space": "restored by user; more than 380 GiB available during acceptance",
+    "architecture": "x86_64",
+    "macOS": "26.6.2"
+  },
+  "historical_evidence": "p6-ios-2026-10-28-initial-blocked.json",
+  "cleanup": {
+    "status": "PASS",
+    "private_acceptance_directory_removed": true,
+    "owned_simulators_shutdown": true,
+    "temporary_photo_analysis_pause": "EXIT trap attempted SIGCONT; original process no longer existed afterward; owned simulator shut down",
+    "production_or_old_running_modified": false,
+    "historical_evidence_preserved": true
+  }
 }

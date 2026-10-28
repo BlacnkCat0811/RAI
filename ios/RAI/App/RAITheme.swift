@@ -1,7 +1,19 @@
+import Metal
 import ProductCore
 import SwiftUI
 import SyncCore
 
+enum RAIRenderer {
+  // Simulator hosts can have no Metal GPU. Keep native material/readability
+  // available there; physical iPhones retain the system Liquid Glass path.
+  static let metalAvailable: Bool = {
+    #if targetEnvironment(simulator)
+      return MTLCreateSystemDefaultDevice() != nil
+    #else
+      return true
+    #endif
+  }()
+}
 enum RAITheme {
   static let orange = Color(red: 1, green: 0.48, blue: 0.10)
   static let amber = Color(red: 1, green: 0.70, blue: 0.36)
@@ -39,11 +51,11 @@ struct RAIGlassSurface: ViewModifier {
     if opaque {
       content.background(RAITheme.brown, in: shape).overlay(
         shape.strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
-    } else if #available(iOS 26.0, *) {
+    } else if #available(iOS 26.0, *), RAIRenderer.metalAvailable {
       content.glassEffect(.regular.tint(RAITheme.brown.opacity(0.20)), in: shape)
     } else {
       content.background(.ultraThinMaterial, in: shape).background(
-        RAITheme.brown.opacity(0.25), in: shape
+        RAITheme.brown.opacity(0.55), in: shape
       ).overlay(
         shape.strokeBorder(
           LinearGradient(
@@ -60,6 +72,7 @@ extension View {
   func raiScreen() -> some View {
     frame(maxWidth: .infinity, maxHeight: .infinity).background { AmbientBackground() }
       .toolbarBackground(.hidden, for: .navigationBar).foregroundStyle(.white)
+      .modifier(RAITabMaterialFallback())
   }
 }
 struct RAIPressStyle: ButtonStyle {
@@ -110,7 +123,7 @@ struct OrangeButton: View {
   }
 }
 @MainActor private enum HeroArtwork {
-  static let image = UIImage(named: "TrainingHero")
+  static let image = UIImage(named: "TrainingHero.jpg")
 }
 struct HeroScene: View {
   var body: some View {
@@ -121,28 +134,73 @@ struct HeroScene: View {
             width: g.size.width, height: g.size.height
           ).clipped()
         }
-        LinearGradient(
-          colors: [
-            RAITheme.blue.opacity(0.15), RAITheme.amber.opacity(0.50),
-            RAITheme.orange.opacity(0.15),
-          ], startPoint: .topLeading, endPoint: .bottomTrailing)
-        Circle().fill(
-          RadialGradient(
-            colors: [RAITheme.amber.opacity(0.75), .clear], center: .center, startRadius: 0,
-            endRadius: 100)
-        ).frame(width: 200, height: 200).offset(x: 45, y: -15)
-        // Abstract track, never a fabricated geographic route.
-        Path { p in
-          p.move(to: CGPoint(x: g.size.width * 0.46, y: g.size.height))
-          p.addQuadCurve(
-            to: CGPoint(x: g.size.width, y: g.size.height * 0.32),
-            control: CGPoint(x: g.size.width * 0.60, y: g.size.height * 0.58))
-        }.stroke(RAITheme.amber.opacity(0.25), lineWidth: 2)
-        Image(systemName: "figure.run").font(.system(size: 125, weight: .ultraLight))
-          .foregroundStyle(.black.opacity(0.30)).offset(x: -12, y: 12)
+        if HeroArtwork.image == nil {
+          LinearGradient(
+            colors: [
+              RAITheme.blue.opacity(0.15), RAITheme.amber.opacity(0.50),
+              RAITheme.orange.opacity(0.15),
+            ], startPoint: .topLeading, endPoint: .bottomTrailing)
+          Circle().fill(
+            RadialGradient(
+              colors: [RAITheme.amber.opacity(0.75), .clear], center: .center, startRadius: 0,
+              endRadius: 100)
+          ).frame(width: 200, height: 200).offset(x: 45, y: -15)
+          // Abstract track, never a fabricated geographic route.
+          Path { p in
+            p.move(to: CGPoint(x: g.size.width * 0.46, y: g.size.height))
+            p.addQuadCurve(
+              to: CGPoint(x: g.size.width, y: g.size.height * 0.32),
+              control: CGPoint(x: g.size.width * 0.60, y: g.size.height * 0.58))
+          }.stroke(RAITheme.amber.opacity(0.25), lineWidth: 2)
+          Image(systemName: "figure.run").font(.system(size: 125, weight: .ultraLight))
+            .foregroundStyle(.black.opacity(0.30)).offset(x: -12, y: 12)
+        }
         LinearGradient(
           colors: [.black.opacity(0.05), .black.opacity(0.58)], startPoint: .top, endPoint: .bottom)
       }
     }.accessibilityHidden(true)
+  }
+}
+
+struct RAITabMaterialFallback: ViewModifier {
+  func body(content: Content) -> some View {
+    if RAIRenderer.metalAvailable {
+      content
+    } else {
+      content.toolbarBackground(.visible, for: .tabBar).toolbarBackground(
+        RAITheme.brown, for: .tabBar)
+    }
+  }
+}
+struct RecordedBars: View {
+  let values: [(String, Double?)]
+  var color: Color = RAITheme.orange
+  @ScaledMetric(relativeTo: .caption2) private var labelHeight = 18.0
+  var body: some View {
+    GeometryReader { geometry in
+      let maximum = values.compactMap { $0.1 }.max() ?? 0
+      let plotHeight = max(0, geometry.size.height - labelHeight)
+      HStack(alignment: .bottom, spacing: 5) {
+        ForEach(Array(values.enumerated()), id: \.offset) { _, entry in
+          VStack(spacing: 4) {
+            ZStack(alignment: .bottom) {
+              Color.clear
+              if let value = entry.1 {
+                RoundedRectangle(cornerRadius: 3).fill(color.gradient)
+                  .frame(
+                    width: 12,
+                    height: maximum > 0 ? plotHeight * CGFloat(max(0, value) / maximum) : 0)
+              } else {
+                Text("–").font(.caption2).foregroundStyle(RAITheme.secondary)
+              }
+            }.frame(height: plotHeight)
+            Text(entry.0).font(.caption2).foregroundStyle(RAITheme.secondary).lineLimit(1)
+              .minimumScaleFactor(0.6)
+          }.frame(maxWidth: .infinity)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(entry.0 + "，" + ProductFormat.decimal(entry.1, digits: 1))
+        }
+      }
+    }
   }
 }

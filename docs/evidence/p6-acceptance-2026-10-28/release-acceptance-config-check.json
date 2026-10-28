@@ -1,0 +1,5 @@
+{
+  "result": "PASS",
+  "release_binary_has_acceptance_environment_names": false,
+  "production_or_device_install_claim": false
+}

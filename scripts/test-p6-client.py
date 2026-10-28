@@ -30,7 +30,10 @@ try:
  else:raise RuntimeError('simulator acceptance timed out')
 finally:
  if tunnel is not None:tunnel.terminate();tunnel.wait(timeout=10)
- subprocess.run(ssh+['touch '+shlex.quote(meta['done'])],check=True)
+ try:
+  subprocess.run(ssh+['touch '+shlex.quote(meta['done'])],check=True,timeout=20)
+ except (subprocess.SubprocessError, OSError):
+  print('P6_REMOTE_CLEANUP_SIGNAL=FAILED; disposable host has a bounded timeout',file=sys.stderr)
  # Private credentials never enter repository evidence. Caller copies redacted
  # reports before signalling done; remove the private workspace and test token.
  import shutil

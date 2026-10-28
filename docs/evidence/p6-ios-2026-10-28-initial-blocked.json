@@ -1,0 +1,170 @@
+{
+  "date": "2026-10-28",
+  "timezone": "Asia/Shanghai",
+  "P6_BASE_COMMIT": "62511f9b3e5998ccad79396a7e14540074e506e5",
+  "branch": "main",
+  "initial_worktree": "clean; prior P4/P5 committed in baseline",
+  "status": "BLOCKED: user is freeing disk space; final UI/Release/visual/performance gates pending",
+  "xcode": {
+    "version": "26.5",
+    "build": "17F42",
+    "swift": "6.3.2",
+    "minimum_ios": "18.0",
+    "strict_concurrency": "complete; Swift language 6"
+  },
+  "visual_reference": {
+    "source": "user-provided RAI Liquid Glass image, 2026-10-28",
+    "sha256": "a66370d21f292c25a1cdcbe113e59935b4797d7b0b6f27341e6c8a946ac331e9",
+    "visual_comparison": "NOT ACCEPTED; no successful populated simulator baseline yet",
+    "deviation": "native procedural sunset/track placeholder replaces reference photography"
+  },
+  "build": {
+    "debug_simulator": "PASS before final small correctness/accessibility patches; final rebuild pending",
+    "ui_test_build": "PASS before final patches",
+    "release": "FAIL: no space for CreateBuildDescription/swiftc --version",
+    "device": "NOT RUN"
+  },
+  "tests": {
+    "swift_core": {
+      "status": "PASS",
+      "count": 34,
+      "suites": 3,
+      "elapsed_seconds": 1.427,
+      "scope": "macOS SPM synthetic; includes original 27 SyncCore tests"
+    },
+    "ios_app_unit": "NOT RUN in this phase",
+    "ui": {
+      "status": "NOT PASSED",
+      "first_failure": "NSPOSIXErrorDomain 28 No space left on device installing app",
+      "retry_failure": "home.hero not found; needs bootstrap diagnosis after disk recovery",
+      "simulator": "iPhone 17 Pro Max / iOS 26.5",
+      "simulator_id": "28249D58-A2BE-4C2B-B8B0-991F2D87AB73"
+    },
+    "screens": {
+      "status": "NOT ACCEPTED",
+      "required": [
+        "Home",
+        "Training",
+        "SessionDetail",
+        "Analysis",
+        "Execution"
+      ]
+    },
+    "real_device": "DEFERRED / NOT VERIFIED",
+    "swift_parse": "PASS: all current iOS App Swift sources parsed; not a substitute for SDK typechecking/build"
+  },
+  "api_e2e": {
+    "status": "PASS",
+    "path": "macOS Swift -> loopback SSH -> fnOS actual Go API/Worker -> disposable PostgreSQL 18.6",
+    "synthetic_only": true,
+    "home_five_api_load_ms": 348.3130931854248,
+    "scenarios": [
+      "P3 fact durable ACK and explicit HR relationships",
+      "Published Analysis reads",
+      "Effective Plan reads",
+      "same-command original receipt after suppressed response and journal reopen",
+      "actual 409 draft retained then explicit latest review/new command",
+      "Monday distance override survives regeneration",
+      "Sunday move survives; untouched distance follows new Base",
+      "Execution snapshot remains previous Effective",
+      "complete before explicit Workout association",
+      "server Feedback planned/actual/ratio/load"
+    ],
+    "limits": "application boundary response suppression; not actual iPhone packet loss or simulator UI E2E"
+  },
+  "fnos_regression": {
+    "status": "PASS",
+    "go": "1.27.3",
+    "postgres": "18.6",
+    "checks": [
+      "gofmt",
+      "go mod verify",
+      "go test ./...",
+      "go test -race ./...",
+      "go vet ./...",
+      "go build ./...",
+      "go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...",
+      "go vet -tags=integration,scale ./...",
+      "dependency boundaries"
+    ],
+    "integration_elapsed_seconds": 311.846,
+    "online_packages": 249,
+    "p3_p4_p5_regression": "PASS",
+    "read_api_targeted_pg_race_elapsed_seconds": 3.119,
+    "postgres_settings": {
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "checksums": "on"
+    },
+    "compose": "PASS: P3 API/PG restart + Worker offline, P4 publication, P5 HTTP closed loop, same image, SIGTERM",
+    "cleanup": "regression/Compose temporary resources cleaned by scripts; P6 live synthetic host retained pending simulator acceptance"
+  },
+  "openapi": {
+    "status": "PASS",
+    "redocly": "2.71.1",
+    "warnings": 8,
+    "warnings_scope": "existing health 4XX / unused historical schemas"
+  },
+  "performance": {
+    "scope": "synthetic macOS API total only",
+    "ui_render": "NOT MEASURED",
+    "cold_launch": "NOT MEASURED",
+    "scroll": "NOT MEASURED",
+    "memory": "NOT MEASURED",
+    "iphone_12_pro_max": "NOT VERIFIED",
+    "production_slo": "NOT ESTABLISHED"
+  },
+  "device_status": {
+    "P3": "DEFERRED / NOT VERIFIED",
+    "P6": "DEFERRED / NOT VERIFIED",
+    "WorkoutKit": "DEFERRED; no real scheduling claim"
+  },
+  "P7_DEVELOPMENT_READY": "NO",
+  "PRODUCTION_RELEASE_READY": "NO",
+  "privacy": {
+    "production_data_accessed": false,
+    "healthkit_read_in_acceptance": false,
+    "sensitive_values_or_tokens_in_evidence": false,
+    "raw_gps_in_evidence": false,
+    "commit_push_deploy": false,
+    "old_running_modified": false,
+    "historical_evidence_deleted": false
+  },
+  "known_gaps": [
+    "host disk space blocks remaining acceptance; user is freeing space",
+    "final Debug/Release/Swift strict build after final patches",
+    "successful native UI run and populated screenshot baselines",
+    "iPhone12 class and current large layout matrix",
+    "Accessibility settings runtime verification",
+    "iOS18 fallback runtime absent",
+    "UI performance/Instruments baseline",
+    "route read API absent: explicitly unavailable",
+    "cross-device execution list absent",
+    "WorkoutKit scheduling deferred",
+    "real device HealthKit/OS lifecycle not verified"
+  ],
+  "source_sha256": {
+    "apps/server/integration/product_test.go": "2299fe1a4da74f2ff12ebb91ea785b4838ae5c98d9f48dc260fab9ca52e8376f",
+    "apps/server/internal/httpapi/product.go": "500d45d41505fb9ece03bf1eb3c5333dba0f9e377a2e2231e191419ba783f07b",
+    "apps/server/internal/product/model.go": "72a21d972ac3dbbcc847bedf63bf471b23335af9dabbbbc1ee8d71892cfd773e",
+    "apps/server/internal/storage/postgres/product_read.go": "00d6e03d1ee82c1f8e348318cf46f0f8fd0a2a3a03706f56e0accfee3a05720b",
+    "contracts/openapi-v2.yaml": "e3ac1ff11625fc16230c21826118d3455efb84f37b3ccef73815ecd9f6045501",
+    "ios/RAI/App/BackgroundTransfers.swift": "5c48236b4fd7e8174a3e82217048bcce898ae2e7a07da8db449e4f7937b596e0",
+    "ios/RAI/App/ClientConfiguration.swift": "97666aadbdc405af222f709f95f91528678d6bbeead040498623226922124aa9",
+    "ios/RAI/App/ExecutionView.swift": "ada833189e181c88618bb6d2f097c7280c87565a235f04ad7a7b7b366cc24253",
+    "ios/RAI/App/HealthKitClient.swift": "e39c439d1a7fb054fdf5899551154f8282eac80dc8d38fd4f51384a69143c300",
+    "ios/RAI/App/ProductModel.swift": "97514e79388f3b2a5fb69ddf22465bd2360ce66eebe95ef3280fb3118f0ad732",
+    "ios/RAI/App/ProductViews.swift": "84cf3a8ddac0de88d7d7cf5307ec526c75ff32a4b6976f13c3424ee428f20205",
+    "ios/RAI/App/RAIApp.swift": "e33f9639bb261d6c54362436639db03181e9aee015bb945878acbe227a64a91d",
+    "ios/RAI/App/RAITheme.swift": "2b52fd34b29cacbec2f0ca576a02903a97a99c162e3f30b89883e5adbf8e3d48",
+    "ios/RAI/App/SyncCoordinator.swift": "244a249533fc6e3c952792fe2a0f81d04e13f39a046ff88e0073d75c6882f018",
+    "ios/RAI/App/TrainingViews.swift": "32a652c56f7346ca370a979131225c81ad95694bcdf59f25ab45f071f4d02f86",
+    "ios/RAI/Sources/ProductCore/Product.swift": "02c753175c6893a6a4d09e112ca5995e76392fde9ec44c02dfde931926705a6f",
+    "ios/RAI/Tests/ProductCoreTests/ProductTests.swift": "d3f776e87d1d2f2f10bb4b516c349d3c2187b5e5ffd9200c77ca80cd3493e4be",
+    "ios/RAI/Tools/ProductProbe/Probe.swift": "4f14a7aad65f9fe28315a192ed3e0cb514fa8f39d9524af2c1ae78c4ac0459d3",
+    "ios/RAI/UITests/ProductUITests.swift": "9137814932aae39ccea1717be020f887cdccba1fedd0acb0045dde11737e85ac",
+    "ios/RAI/Tools/CompareSnapshots.swift": "c6fb202e1c8b2c21c8a6dfa10f38a7d4ad7708f28d003504971b1b49d61af9ea"
+  },
+  "original_plan_and_migrations_unchanged": true
+}

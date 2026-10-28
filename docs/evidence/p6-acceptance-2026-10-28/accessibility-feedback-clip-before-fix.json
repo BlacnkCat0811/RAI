@@ -1,0 +1,49 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "x86_64",
+        "deviceId" : "1A53126B-9DF3-4ED3-B5C1-DBCE58C9C4DC",
+        "deviceName" : "RAI P6 Large Acceptance",
+        "modelName" : "iPhone 17 Pro Max",
+        "osBuildNumber" : "23F77",
+        "osVersion" : "26.5",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 1,
+      "passedTests" : 0,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "RAI · Built with macOS 26.6.2",
+  "expectedFailures" : 0,
+  "failedTests" : 1,
+  "finishTime" : 1793197215.268,
+  "passedTests" : 0,
+  "result" : "Failed",
+  "skippedTests" : 0,
+  "startTime" : 1793197035.469,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "Text clipped",
+      "targetName" : "RAIUITests",
+      "testIdentifier" : 1,
+      "testIdentifierString" : "ProductUITests/test04AccessibilityLayout()",
+      "testIdentifierURL" : "test://com.apple.xcode/RAI/RAIUITests/ProductUITests/test04AccessibilityLayout",
+      "testName" : "test04AccessibilityLayout()"
+    }
+  ],
+  "title" : "Test - RAI",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 1
+}

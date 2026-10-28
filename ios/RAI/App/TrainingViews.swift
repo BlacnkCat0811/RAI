@@ -7,6 +7,7 @@ struct TrainingView: View {
   @State private var date = ""
   @State private var create = false
   @State private var add = false
+  @State private var selectedSession: ProductSession?
   @Namespace private var transition
   var dates: [String] { Array(Set(model.data.sessions.map(\.date))).sorted() }
   var selected: String {
@@ -33,13 +34,13 @@ struct TrainingView: View {
               Label("后台正在更新，保留当前训练安排", systemImage: "arrow.triangle.2.circlepath").font(.caption)
                 .foregroundStyle(RAITheme.amber)
             }
-            if let code = model.data.plan["lastErrorCode"].text {
+            if let code = model.data.generationFailure {
               Text("生成未完成：\(code)").font(.caption).foregroundStyle(RAITheme.amber)
             }
             Text(
               "\(Int(model.data.plan["config"].number("weeks") ?? 0)) 周 · 有效计划 v\(Int(model.data.effective.number("version") ?? 0))"
             ).font(.caption).foregroundStyle(RAITheme.secondary)
-          }.padding(22).raiGlass()
+          }.frame(maxWidth: .infinity, alignment: .leading).padding(22).raiGlass()
           ScrollView(.horizontal) {
             HStack(spacing: 8) {
               ForEach(dates, id: \.self) { day in
@@ -59,9 +60,8 @@ struct TrainingView: View {
             }
           }.scrollIndicators(.hidden)
           ForEach(model.data.sessions.filter { $0.date == selected }) { s in
-            NavigationLink {
-              SessionDetail(model: model, session: s, effective: model.data.effective).modifier(
-                RAIDetailTransition(id: s.id, namespace: transition))
+            Button {
+              selectedSession = s
             } label: {
               SessionCard(session: s)
             }.buttonStyle(RAIPressStyle()).matchedTransitionSource(id: s.id, in: transition)
@@ -88,6 +88,9 @@ struct TrainingView: View {
       .sheet(isPresented: $create) { CreatePlanView(model: model) }
       .sheet(isPresented: $add) {
         SessionEditor(model: model, session: nil, operation: "add", effective: model.data.effective)
+      }.navigationDestination(item: $selectedSession) { session in
+        SessionDetail(model: model, session: session, effective: model.data.effective).modifier(
+          RAIDetailTransition(id: session.id, namespace: transition))
       }.accessibilityIdentifier("screen.training")
   }
 }
@@ -95,7 +98,11 @@ struct RAIDetailTransition: ViewModifier {
   let id: String, namespace: Namespace.ID
   @Environment(\.accessibilityReduceMotion) private var reduced
   func body(content: Content) -> some View {
-    if reduced { content } else { content.navigationTransition(.zoom(sourceID: id, in: namespace)) }
+    if reduced || !RAIRenderer.metalAvailable {
+      content
+    } else {
+      content.navigationTransition(.zoom(sourceID: id, in: namespace))
+    }
   }
 }
 struct SessionCard: View {
@@ -143,6 +150,7 @@ struct SessionDetail: View {
   let session: ProductSession, effective: JSON
   @State private var editor: String?
   @State private var execution = false
+  @Environment(\.dynamicTypeSize) private var typeSize
   var current: ProductSession { model.data.sessions.first { $0.id == session.id } ?? session }
   var body: some View {
     ScrollView {
@@ -165,16 +173,11 @@ struct SessionDetail: View {
             }
           }.disabled(model.loading).accessibilityIdentifier("session.start")
         }
-        HStack {
-          Button("编辑", systemImage: "slider.horizontal.3") { editor = "edit" }
-            .accessibilityIdentifier("session.edit")
-          Spacer()
-          Button("改期", systemImage: "calendar") { editor = "move" }.accessibilityIdentifier(
-            "session.move")
-          Spacer()
-          Button("跳过", systemImage: "forward.end") { editor = "skip" }.accessibilityIdentifier(
-            "session.skip")
-        }.font(.subheadline).disabled(model.loading)
+        if typeSize.isAccessibilitySize {
+          VStack(spacing: 10) { actions }
+        } else {
+          HStack(spacing: 10) { actions }
+        }
         VStack(alignment: .leading, spacing: 12) {
           CardHeading(title: "训练处方", icon: "list.bullet")
           if let hr = current.raw.number("targetHR") {
@@ -251,6 +254,20 @@ struct SessionDetail: View {
         && $0.string("operation") != "revoke"
     }.map { $0.string("overrideID") }
   }
+  @ViewBuilder private var actions: some View {
+    action("编辑", "slider.horizontal.3", "edit")
+    action("改期", "calendar", "move")
+    action("跳过", "forward.end", "skip")
+  }
+  private func action(_ title: String, _ icon: String, _ operation: String) -> some View {
+    Button {
+      editor = operation
+    } label: {
+      Label(title, systemImage: icon).font(.subheadline)
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .background(.white.opacity(0.08), in: Capsule()).contentShape(Capsule())
+    }.buttonStyle(.plain).accessibilityIdentifier("session." + operation)
+  }
 }
 struct EditorOperation: Identifiable { let id: String }
 func stepTitle(_ kind: String) -> String {
@@ -308,6 +325,17 @@ struct SessionEditor: View {
           Section {
             DatePicker("训练日期", selection: $date, displayedComponents: .date)
               .accessibilityIdentifier("edit.date")
+            if operation == "move" {
+              HStack {
+                Button("前一天", systemImage: "chevron.left") {
+                  date = Calendar.current.date(byAdding: .day, value: -1, to: date) ?? date
+                }.accessibilityIdentifier("edit.previousDay")
+                Spacer()
+                Button("后一天", systemImage: "chevron.right") {
+                  date = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date
+                }.accessibilityIdentifier("edit.nextDay")
+              }.buttonStyle(.borderless)
+            }
           }
         }
         if operation == "skip" {

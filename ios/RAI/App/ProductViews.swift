@@ -44,6 +44,7 @@ struct HomeView: View {
   @Binding var tab: Int
   @AppStorage("runnerName") private var name = "跑者"
   @Namespace private var hero
+  @State private var selectedSession: ProductSession?
   @Environment(\.dynamicTypeSize) private var typeSize
   @Environment(\.accessibilityReduceMotion) private var reduced
   var body: some View {
@@ -51,9 +52,8 @@ struct HomeView: View {
       VStack(spacing: 12) {
         greeting.padding(.bottom, 4)
         if let session = model.data.todaySession {
-          NavigationLink {
-            SessionDetail(model: model, session: session, effective: model.data.effective).modifier(
-              RAIDetailTransition(id: session.id, namespace: hero))
+          Button {
+            selectedSession = session
           } label: {
             TrainingHero(session: session)
           }.buttonStyle(RAIPressStyle()).matchedTransitionSource(id: session.id, in: hero)
@@ -90,9 +90,29 @@ struct HomeView: View {
         }
       }.padding(.horizontal, 18).padding(.top, 8).padding(.bottom, 22)
     }.raiScreen().refreshable { await model.refresh() }.toolbar(.hidden, for: .navigationBar)
+      .navigationDestination(item: $selectedSession) { session in
+        SessionDetail(model: model, session: session, effective: model.data.effective).modifier(
+          RAIDetailTransition(id: session.id, namespace: hero))
+      }
       .accessibilityIdentifier("screen.home")
   }
   private var greeting: some View {
+    Group {
+      if typeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 12) {
+          identity
+          syncBadge
+        }.frame(maxWidth: .infinity, alignment: .leading)
+      } else {
+        HStack(spacing: 12) {
+          identity
+          Spacer(minLength: 2)
+          syncBadge
+        }
+      }
+    }
+  }
+  private var identity: some View {
     HStack(alignment: .center, spacing: 12) {
       Image(systemName: "person.crop.circle.fill").font(.system(size: 46, weight: .light))
         .foregroundStyle(RAITheme.amber).accessibilityHidden(true)
@@ -101,13 +121,14 @@ struct HomeView: View {
         Text(name).font(.system(.title, design: .rounded, weight: .bold))
         Text("每一次奔跑，都是更好的自己").font(.caption).foregroundStyle(RAITheme.secondary)
       }
-      Spacer(minLength: 2)
-      VStack(spacing: 4) {
-        Image(systemName: sync.busy ? "arrow.triangle.2.circlepath.cloud" : "cloud")
-        Text(syncLabel).font(.caption2)
-      }.foregroundStyle(sync.error == nil ? RAITheme.secondary : RAITheme.amber).padding(10)
-        .background(.white.opacity(0.06), in: Capsule()).accessibilityIdentifier("home.sync")
     }
+  }
+  private var syncBadge: some View {
+    VStack(spacing: 4) {
+      Image(systemName: sync.busy ? "arrow.triangle.2.circlepath" : "cloud")
+      Text(syncLabel).font(.caption2)
+    }.foregroundStyle(sync.error == nil ? RAITheme.secondary : RAITheme.amber).padding(10)
+      .background(.white.opacity(0.06), in: Capsule()).accessibilityIdentifier("home.sync")
   }
   private var syncLabel: String {
     sync.busy
@@ -225,9 +246,10 @@ struct ReadinessRing: View {
 }
 struct MetricBar: View {
   let name: String, symbol: String, value: Double?, color: Color, ratio: Double?
+  @ScaledMetric(relativeTo: .title3) private var symbolWidth = 25.0
   var body: some View {
     HStack(spacing: 8) {
-      Image(systemName: symbol).foregroundStyle(color).font(.title3).frame(width: 25)
+      Image(systemName: symbol).foregroundStyle(color).font(.title3).frame(width: symbolWidth)
       VStack(spacing: 4) {
         HStack {
           Text(name).font(.caption)
@@ -246,6 +268,8 @@ struct MetricBar: View {
   }
 }
 struct WeeklyCard: View {
+  @Environment(\.dynamicTypeSize) private var typeSize
+  @ScaledMetric(relativeTo: .caption2) private var fallbackChartHeight = 56.0
   let overview: JSON
   @State private var appeared = false
   @Environment(\.accessibilityReduceMotion) private var reduced
@@ -257,26 +281,38 @@ struct WeeklyCard: View {
   }
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        CardHeading(title: "本周概览", icon: "chart.bar")
-        Spacer()
-        Text("\(days.filter{($0.number("count") ?? 0)>0}.count)/7 天").font(.caption)
-          .foregroundStyle(RAITheme.secondary)
+      if typeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 8) { heading }
+      } else {
+        HStack { heading }
       }
-      ViewThatFits(in: .horizontal) {
-        HStack(alignment: .top, spacing: 20) {
-          column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "km")
-          column("训练负荷", "load", ProductFormat.decimal(total("load")), "AU")
-        }
+      if typeSize.isAccessibilitySize {
         VStack(spacing: 18) {
           column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "km")
           column("训练负荷", "load", ProductFormat.decimal(total("load")), "AU")
+        }
+      } else {
+        ViewThatFits(in: .horizontal) {
+          HStack(alignment: .top, spacing: 20) {
+            column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "km")
+            column("训练负荷", "load", ProductFormat.decimal(total("load")), "AU")
+          }
+          VStack(spacing: 18) {
+            column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "km")
+            column("训练负荷", "load", ProductFormat.decimal(total("load")), "AU")
+          }
         }
       }
       Text("仅统计已同步跑步；缺失负荷不补零").font(.caption2).foregroundStyle(RAITheme.secondary)
     }.padding(18).raiGlass().onAppear {
       if !appeared { withAnimation(reduced ? nil : .easeOut(duration: 0.3)) { appeared = true } }
     }
+  }
+  @ViewBuilder private var heading: some View {
+    CardHeading(title: "本周概览", icon: "chart.bar")
+    if !typeSize.isAccessibilitySize { Spacer() }
+    Text("\(days.filter{($0.number("count") ?? 0)>0}.count)/7 天").font(.caption)
+      .foregroundStyle(RAITheme.secondary)
   }
   private func column(_ label: String, _ key: String, _ value: String, _ unit: String) -> some View
   {
@@ -286,21 +322,29 @@ struct WeeklyCard: View {
         Text(value).font(.title2.bold()).monospacedDigit()
         Text(unit).font(.caption).foregroundStyle(RAITheme.secondary)
       }
-      Chart(Array(days.enumerated()), id: \.offset) { index, day in
-        if let n = day.number(key) {
-          BarMark(x: .value("日", index), y: .value(label, appeared ? n : 0), width: .ratio(0.46))
-            .foregroundStyle(
-              LinearGradient(
-                colors: [RAITheme.amber, RAITheme.orange], startPoint: .top, endPoint: .bottom)
-            ).cornerRadius(3)
-        }
-      }.chartXAxis {
-        AxisMarks(values: Array(0...6)) { v in
-          AxisValueLabel {
-            Text(["一", "二", "三", "四", "五", "六", "日"][v.as(Int.self) ?? 0]).font(.caption2)
+      if !RAIRenderer.metalAvailable {
+        RecordedBars(
+          values: Array(days.enumerated()).map { index, day in
+            (["一", "二", "三", "四", "五", "六", "日"][index], day.number(key))
           }
-        }
-      }.chartYAxis(.hidden).frame(height: 48)
+        ).frame(height: fallbackChartHeight)
+      } else {
+        Chart(Array(days.enumerated()), id: \.offset) { index, day in
+          if let n = day.number(key) {
+            BarMark(x: .value("日", index), y: .value(label, appeared ? n : 0), width: .ratio(0.46))
+              .foregroundStyle(
+                LinearGradient(
+                  colors: [RAITheme.amber, RAITheme.orange], startPoint: .top, endPoint: .bottom)
+              ).cornerRadius(3)
+          }
+        }.chartXAxis {
+          AxisMarks(values: Array(0...6)) { v in
+            AxisValueLabel {
+              Text(["一", "二", "三", "四", "五", "六", "日"][v.as(Int.self) ?? 0]).font(.caption2)
+            }
+          }
+        }.chartYAxis(.hidden).frame(height: 48)
+      }
     }.frame(minWidth: 130, maxWidth: .infinity, alignment: .leading)
   }
 }
@@ -413,13 +457,19 @@ struct TrendChart: View {
   var body: some View {
     let points = metrics.filter { $0.string("metric") == name }
     if points.contains(where: { $0.number("value") != nil }) {
-      Chart(Array(points.enumerated()), id: \.offset) { index, m in
-        if let value = m.number("value") {
-          PointMark(x: .value("日期", m.string("day")), y: .value("值", value)).foregroundStyle(
-            name == "fatigue" ? RAITheme.purple : RAITheme.orange)
-        }
-      }.chartXAxis(.hidden).chartYAxis { AxisMarks(position: .leading) }.accessibilityLabel(
-        metricTitle(name) + "，已发布历史趋势")
+      if !RAIRenderer.metalAvailable {
+        RecordedBars(
+          values: points.map { (String($0.string("day").suffix(2)), $0.number("value")) },
+          color: name == "fatigue" ? RAITheme.purple : RAITheme.orange)
+      } else {
+        Chart(Array(points.enumerated()), id: \.offset) { index, m in
+          if let value = m.number("value") {
+            PointMark(x: .value("日期", m.string("day")), y: .value("值", value)).foregroundStyle(
+              name == "fatigue" ? RAITheme.purple : RAITheme.orange)
+          }
+        }.chartXAxis(.hidden).chartYAxis { AxisMarks(position: .leading) }.accessibilityLabel(
+          metricTitle(name) + "，已发布历史趋势")
+      }
     } else {
       ContentUnavailableView("暂无已发布趋势", systemImage: "chart.xyaxis.line").font(.caption)
     }
@@ -442,6 +492,9 @@ struct MetricDetail: View {
   }
 }
 struct ProfileView: View {
+  @Environment(\.accessibilityReduceMotion) private var reduced
+  @Environment(\.accessibilityReduceTransparency) private var opaque
+  @Environment(\.dynamicTypeSize) private var typeSize
   @Bindable var model: ProductModel
   @Bindable var sync: SyncModel
   @AppStorage("runnerName") private var name = "跑者"
@@ -475,6 +528,16 @@ struct ProfileView: View {
           }.disabled(model.loading)
         }
       }
+      #if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.environment["RAI_SYNTHETIC_ACCEPTANCE"] == "1" {
+          Section("验收诊断") {
+            Text(
+              "metal=\(RAIRenderer.metalAvailable), motion=\(reduced), transparency=\(opaque), type=\(typeSize)"
+            )
+            .accessibilityIdentifier("profile.a11y")
+          }
+        }
+      #endif
       Section("关于") {
         Text("RAI · 原生跑步训练")
         Text("HealthKit 只读；WorkoutKit 排程暂未开放。").font(.footnote)
@@ -487,5 +550,8 @@ struct ProfileView: View {
 }
 
 func trainingTag(_ type: String) -> String {
-  ["REST": "恢复与休息", "EASY": "有氧耐力", "LONG": "长距离耐力", "TEMPO": "节奏耐力", "INTERVAL": "间歇训练", "RECOVERY": "低强度恢复"][type] ?? "训练安排"
+  [
+    "REST": "恢复与休息", "EASY": "有氧耐力", "LONG": "长距离耐力", "TEMPO": "节奏耐力", "INTERVAL": "间歇训练",
+    "RECOVERY": "低强度恢复",
+  ][type] ?? "训练安排"
 }

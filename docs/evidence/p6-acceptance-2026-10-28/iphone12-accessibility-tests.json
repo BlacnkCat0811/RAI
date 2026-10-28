@@ -1,0 +1,42 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "x86_64",
+        "deviceId" : "C7605DD2-F817-4924-9F89-16C8F8D4C884",
+        "deviceName" : "RAI P6 iPhone 12 Pro Max Acceptance",
+        "modelName" : "iPhone 12 Pro Max",
+        "osBuildNumber" : "23F77",
+        "osVersion" : "26.5",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 1,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "RAI · Built with macOS 26.6.2",
+  "expectedFailures" : 0,
+  "failedTests" : 0,
+  "finishTime" : 1793198627.287,
+  "passedTests" : 1,
+  "result" : "Passed",
+  "skippedTests" : 0,
+  "startTime" : 1793198378.825,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - RAI",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 1
+}

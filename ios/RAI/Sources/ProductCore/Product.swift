@@ -53,6 +53,12 @@ public struct ProductSnapshot: Sendable {
   public var effective: JSON { plan["effective"] }
   public var sessions: [ProductSession] { effective["sessions"].list.map(ProductSession.init) }
   public var today: String { overview.string("today") }
+  public var generationFailure: String? {
+    guard ["failed", "repair_required"].contains(plan.string("generationState")),
+      let code = plan["lastErrorCode"].text, !code.isEmpty
+    else { return nil }
+    return code
+  }
   public var todaySession: ProductSession? {
     sessions.first { $0.date == today && $0.type != "REST" } ?? sessions.first { $0.date == today }
   }

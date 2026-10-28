@@ -1,0 +1,47 @@
+RAI_REMOTE_RUN=20261028201919-4057461
+RAI_REMOTE_MODE=host
+RAI_REMOTE_PG_IMAGE=postgres:18.6
+RAI_REMOTE_PG_SETTINGS={"server_version" : "18.6 (Debian 18.6-1.pgdg13+2)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "shared_buffers" : "128MB"}
+RAI_REMOTE_PG_PORT=32969
+all modules verified
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/internal/admin	0.008s
+ok  	rai/server/internal/analysis	0.161s
+ok  	rai/server/internal/config	0.020s
+ok  	rai/server/internal/httpapi	0.007s
+ok  	rai/server/internal/jobs	0.014s
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/storage/postgres	0.019s
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	0.420s
+ok  	rai/server/internal/training	0.019s
+?   	rai/server/migrations	[no test files]
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/internal/admin	1.018s
+ok  	rai/server/internal/analysis	1.539s
+ok  	rai/server/internal/config	1.012s
+ok  	rai/server/internal/httpapi	1.016s
+ok  	rai/server/internal/jobs	1.017s
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/storage/postgres	1.017s
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	4.742s
+ok  	rai/server/internal/training	1.086s
+?   	rai/server/migrations	[no test files]
+PASS: online import graph excludes admin, migration and goose (249 packages)
+PASS: pure analysis domain excludes database, network and filesystem
+PASS: pure training domain excludes database, network and filesystem
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/integration	302.488s
+ok  	rai/server/internal/admin	2.602s
+ok  	rai/server/internal/analysis	1.527s
+ok  	rai/server/internal/config	1.012s
+ok  	rai/server/internal/httpapi	1.015s
+ok  	rai/server/internal/jobs	1.014s
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/storage/postgres	1.012s
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	4.692s
+ok  	rai/server/internal/training	1.068s
+?   	rai/server/migrations	[no test files]
+P6_GO_GATES=PASS

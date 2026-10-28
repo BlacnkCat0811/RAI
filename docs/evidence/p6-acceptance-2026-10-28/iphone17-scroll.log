@@ -1,0 +1,160 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -xctestrun /tmp/rai-p6-resume-debug-derived/Build/Products/RAI_iphonesimulator26.5-x86_64.xctestrun -destination "platform=iOS Simulator,id=1A53126B-9DF3-4ED3-B5C1-DBCE58C9C4DC" -parallel-testing-enabled NO -collect-test-diagnostics never "-only-testing:RAIUITests/ProductUITests/test03LaunchAndHomeScrollPerformance" -resultBundlePath /tmp/rai-p6-final-large-scroll.xcresult
+
+2026-10-28 22:15:46.838 xcodebuild[93632:17971501] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+Writing result bundle at path:
+	/tmp/rai-p6-final-large-scroll.xcresult
+
+2026-10-28 22:15:46.846 xcodebuild[93632:17971501] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-10-28 22:15:47.286 xcodebuild[93632:17971501] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-10-28 22:15:54.674066+0800 RAIUITests-Runner[93641:17972424] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-10-28 22:15:56.950.
+Test Suite 'RAIUITests.xctest' started at 2026-10-28 22:15:56.951.
+Test Suite 'ProductUITests' started at 2026-10-28 22:15:56.952.
+Test Case '-[RAIUITests.ProductUITests test03LaunchAndHomeScrollPerformance]' started.
+    t =     0.01s Start Test at 2026-10-28 22:15:56.959
+    t =     0.05s Set Up
+    t =     2.65s Open com.rai.v2.ios
+    t =     2.65s     Launch com.rai.v2.ios
+2026-10-28 22:15:59.688 xcodebuild[93632:17971501] [MT] IDELaunchParametersSnapshot: The operation couldn’t be completed. (DebuggerLLDB.DebuggerVersionStore.StoreError error 0.)
+2026-10-28 22:15:59.689 xcodebuild[93632:17971501] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     7.32s         Setting up automation session
+    t =    10.93s         Wait for com.rai.v2.ios to idle
+    t =    13.89s Waiting 60.0s for "home.hero" Any to exist
+    t =    14.94s     Checking `Expect predicate `existsNoRetry == 1` for object "home.hero" Any`
+    t =    14.95s         Checking existence of `"home.hero" Any`
+    t =    15.98s Find the "home.hero" Any
+    t =    16.63s Press "screen.home" ScrollView[0.98, 0.80] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.20] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    16.63s     Wait for com.rai.v2.ios to idle
+    t =    16.64s     Find the "screen.home" ScrollView
+    t =    16.87s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    17.04s     Synthesize event
+    t =    17.04s         Find the "screen.home" ScrollView
+    t =    17.22s         Find the "screen.home" ScrollView
+    t =    17.40s         Find the "screen.home" ScrollView
+    t =    17.56s         Find the "screen.home" ScrollView
+    t =    17.74s         Find the "screen.home" ScrollView
+    t =    19.38s     Wait for com.rai.v2.ios to idle
+    t =    19.83s Find the "home.hero" Any
+    t =    20.53s Press "screen.home" ScrollView[0.98, 0.20] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.80] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    20.53s     Wait for com.rai.v2.ios to idle
+    t =    20.54s     Find the "screen.home" ScrollView
+    t =    20.79s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    20.96s     Synthesize event
+    t =    20.96s         Find the "screen.home" ScrollView
+    t =    21.33s         Find the "screen.home" ScrollView
+    t =    21.61s         Find the "screen.home" ScrollView
+    t =    21.92s         Find the "screen.home" ScrollView
+    t =    22.18s         Find the "screen.home" ScrollView
+    t =    23.91s     Wait for com.rai.v2.ios to idle
+    t =    27.47s Press "screen.home" ScrollView[0.98, 0.80] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.20] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    27.48s     Wait for com.rai.v2.ios to idle
+    t =    27.49s     Find the "screen.home" ScrollView
+    t =    27.68s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    27.78s     Synthesize event
+    t =    27.78s         Find the "screen.home" ScrollView
+    t =    27.99s         Find the "screen.home" ScrollView
+    t =    28.16s         Find the "screen.home" ScrollView
+    t =    28.33s         Find the "screen.home" ScrollView
+    t =    28.53s         Find the "screen.home" ScrollView
+    t =    30.17s     Wait for com.rai.v2.ios to idle
+    t =    30.65s Press "screen.home" ScrollView[0.98, 0.20] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.80] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    30.65s     Wait for com.rai.v2.ios to idle
+    t =    30.66s     Find the "screen.home" ScrollView
+    t =    30.85s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    31.08s     Synthesize event
+    t =    31.08s         Find the "screen.home" ScrollView
+    t =    31.34s         Find the "screen.home" ScrollView
+    t =    31.64s         Find the "screen.home" ScrollView
+    t =    31.94s         Find the "screen.home" ScrollView
+    t =    32.16s         Find the "screen.home" ScrollView
+    t =    33.84s     Wait for com.rai.v2.ios to idle
+    t =    37.17s Press "screen.home" ScrollView[0.98, 0.80] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.20] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    37.17s     Wait for com.rai.v2.ios to idle
+    t =    37.18s     Find the "screen.home" ScrollView
+    t =    37.41s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    37.55s     Synthesize event
+    t =    37.55s         Find the "screen.home" ScrollView
+    t =    37.76s         Find the "screen.home" ScrollView
+    t =    37.93s         Find the "screen.home" ScrollView
+    t =    38.09s         Find the "screen.home" ScrollView
+    t =    38.29s         Find the "screen.home" ScrollView
+    t =    39.94s     Wait for com.rai.v2.ios to idle
+    t =    40.41s Press "screen.home" ScrollView[0.98, 0.20] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.80] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    40.41s     Wait for com.rai.v2.ios to idle
+    t =    40.42s     Find the "screen.home" ScrollView
+    t =    40.70s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    40.84s     Synthesize event
+    t =    40.85s         Find the "screen.home" ScrollView
+    t =    41.21s         Find the "screen.home" ScrollView
+    t =    41.50s         Find the "screen.home" ScrollView
+    t =    41.76s         Find the "screen.home" ScrollView
+    t =    41.98s         Find the "screen.home" ScrollView
+    t =    43.73s     Wait for com.rai.v2.ios to idle
+    t =    47.06s Press "screen.home" ScrollView[0.98, 0.80] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.20] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    47.06s     Wait for com.rai.v2.ios to idle
+    t =    47.08s     Find the "screen.home" ScrollView
+    t =    47.40s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    47.54s     Synthesize event
+    t =    47.55s         Find the "screen.home" ScrollView
+    t =    47.78s         Find the "screen.home" ScrollView
+    t =    48.00s         Find the "screen.home" ScrollView
+    t =    48.24s         Find the "screen.home" ScrollView
+    t =    48.48s         Find the "screen.home" ScrollView
+    t =    50.12s     Wait for com.rai.v2.ios to idle
+    t =    50.58s Press "screen.home" ScrollView[0.98, 0.20] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.80] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    50.58s     Wait for com.rai.v2.ios to idle
+    t =    50.59s     Find the "screen.home" ScrollView
+    t =    51.35s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    51.51s     Synthesize event
+    t =    51.51s         Find the "screen.home" ScrollView
+    t =    51.79s         Find the "screen.home" ScrollView
+    t =    52.16s         Find the "screen.home" ScrollView
+    t =    52.39s         Find the "screen.home" ScrollView
+    t =    52.71s         Find the "screen.home" ScrollView
+    t =    54.38s     Wait for com.rai.v2.ios to idle
+    t =    57.72s Press "screen.home" ScrollView[0.98, 0.80] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.20] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    57.72s     Wait for com.rai.v2.ios to idle
+    t =    57.73s     Find the "screen.home" ScrollView
+    t =    58.06s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    58.21s     Synthesize event
+    t =    58.21s         Find the "screen.home" ScrollView
+    t =    58.40s         Find the "screen.home" ScrollView
+    t =    58.61s         Find the "screen.home" ScrollView
+    t =    58.79s         Find the "screen.home" ScrollView
+    t =    58.98s         Find the "screen.home" ScrollView
+    t =    60.61s     Wait for com.rai.v2.ios to idle
+    t =    61.10s Press "screen.home" ScrollView[0.98, 0.20] for 0.1 seconds, then drag to "screen.home" ScrollView[0.98, 0.80] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    61.10s     Wait for com.rai.v2.ios to idle
+    t =    61.12s     Find the "screen.home" ScrollView
+    t =    61.37s     Check for interrupting elements affecting "screen.home" ScrollView
+    t =    61.52s     Synthesize event
+    t =    61.53s         Find the "screen.home" ScrollView
+    t =    61.82s         Find the "screen.home" ScrollView
+    t =    62.13s         Find the "screen.home" ScrollView
+    t =    62.41s         Find the "screen.home" ScrollView
+    t =    62.63s         Find the "screen.home" ScrollView
+    t =    64.40s     Wait for com.rai.v2.ios to idle
+/Users/ta/rai/ios/RAI/UITests/ProductUITests.swift:157: Test Case '-[RAIUITests.ProductUITests test03LaunchAndHomeScrollPerformance]' measured [Absolute Memory Physical (ios), kB] average: 66605.056, relative standard deviation: 0.263%, values: [66359.296000, 66699.264000, 66756.608000], performanceMetricID:com.apple.dt.XCTMetric_Memory-com.rai.v2.ios.physical_absolute, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/ta/rai/ios/RAI/UITests/ProductUITests.swift:157: Test Case '-[RAIUITests.ProductUITests test03LaunchAndHomeScrollPerformance]' measured [Memory Peak Physical (ios), kB] average: 69522.773, relative standard deviation: 5.655%, values: [66572.288000, 75079.680000, 66916.352000], performanceMetricID:com.apple.dt.XCTMetric_Memory-com.rai.v2.ios.physical_peak, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/ta/rai/ios/RAI/UITests/ProductUITests.swift:157: Test Case '-[RAIUITests.ProductUITests test03LaunchAndHomeScrollPerformance]' measured [Memory Physical (ios), kB] average: 137.899, relative standard deviation: 104.323%, values: [16.384000, 339.968000, 57.344000], performanceMetricID:com.apple.dt.XCTMetric_Memory-com.rai.v2.ios.physical, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+/Users/ta/rai/ios/RAI/UITests/ProductUITests.swift:157: Test Case '-[RAIUITests.ProductUITests test03LaunchAndHomeScrollPerformance]' measured [Clock Monotonic Time, s] average: 10.180, relative standard deviation: 3.286%, values: [9.892976, 10.649552, 9.998530], performanceMetricID:com.apple.dt.XCTMetric_Clock.time.monotonic, baselineName: "", baselineAverage: , polarity: prefers smaller, maxPercentRegression: 10.000%, maxPercentRelativeStandardDeviation: 10.000%, maxRegression: 0.000, maxStandardDeviation: 0.000
+    t =    67.83s Tear Down
+Test Case '-[RAIUITests.ProductUITests test03LaunchAndHomeScrollPerformance]' passed (68.668 seconds).
+Test Suite 'ProductUITests' passed at 2026-10-28 22:17:05.626.
+	 Executed 1 test, with 0 failures (0 unexpected) in 68.668 (68.674) seconds
+Test Suite 'RAIUITests.xctest' passed at 2026-10-28 22:17:05.627.
+	 Executed 1 test, with 0 failures (0 unexpected) in 68.668 (68.676) seconds
+Test Suite 'Selected tests' passed at 2026-10-28 22:17:05.628.
+	 Executed 1 test, with 0 failures (0 unexpected) in 68.668 (68.678) seconds
+2026-10-28 22:17:06.060 xcodebuild[93632:17971501] [MT] IDETestOperationsObserverDebug: 78.769 elapsed -- Testing started completed.
+2026-10-28 22:17:06.060 xcodebuild[93632:17971501] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-28 22:17:06.060 xcodebuild[93632:17971501] [MT] IDETestOperationsObserverDebug: 78.769 sec, +78.769 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/rai-p6-final-large-scroll.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

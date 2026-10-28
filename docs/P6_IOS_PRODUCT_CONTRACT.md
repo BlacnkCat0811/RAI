@@ -6,11 +6,11 @@
 
 用户提供的暖暗 Liquid Glass 首页图是视觉基准：Greeting → Today Training Hero → Body Status → Weekly Overview → Recent Activity → 浮动系统Tab。实现是SwiftUI布局、Shape、Swift Charts、SF Symbols和原生控件，没有截图切片、假地图或固定健康值。用户头像使用SF Symbol；称呼可配置，初值为“跑者”。
 
-背景为静态炭黑/暖棕底、橙色环境光与冷蓝阴影，延伸safe area。Hero使用原生抽象日落/跑道场景，SF Symbol表示运动；不是虚构路线。可在正式资产目录提供`TrainingHero`图片，统一缓存后替换场景。当前未提供与参考图相同的人物/城市摄影，视觉偏差必须保留。
+背景为静态炭黑/暖棕底、橙色环境光与冷蓝阴影，延伸safe area。Hero使用独立生成的日落城市/滨水跑步摄影背景，资源随App打包并由单一入口缓存；不包含界面文字、数字或截图切片。1280×853 JPEG，缺图时退回原生抽象跑道/SF Symbol。人物与城市不与参考图完全相同；生成提示词与来源见[素材记录](evidence/p6-hero-provenance.md)。
 
 统一`RAITheme`：orange≈#FF7A1A、amber≈#FFB35C、charcoal≈#161412、brown≈#2B211B、white、66%secondary；Fitness橙、Fatigue紫、Recovery绿、Readiness蓝橙渐变。大卡圆角28pt，轻控制18pt、CTA胶囊。全部系统字体；大数值使用rounded系统字形和monospacedDigit。字号使用语义text style随Dynamic Type变化，不把业务数字放在固定高度容器。
 
-`RAIGlassSurface`统一shape/tint/material/contrast。iOS26使用经Xcode26.5实际编译的`glassEffect(.regular.tint(...), in: RoundedRectangle(...))`；18–25使用ultraThinMaterial、低透明暖色和0.5pt高光。Reduce Transparency直接切换高不透明棕色surface。卡内的标签/进度条/按钮只使用轻量填充，没有卡套卡玻璃。当前没有需要多个玻璃形状融合的交互，因此不额外建立GlassEffectContainer/morph系统。
+`RAIGlassSurface`统一shape/tint/material/contrast。iOS26使用经Xcode26.5实际编译的`glassEffect(.regular.tint(...), in: RoundedRectangle(...))`；18–25以及无Metal的模拟器使用ultraThinMaterial、低透明暖色和0.5pt高光。Reduce Transparency直接切换高不透明棕色surface。卡内的标签/进度条/按钮只使用轻量填充，没有卡套卡玻璃。当前没有需要多个玻璃形状融合的交互，因此不额外建立GlassEffectContainer/morph系统。
 
 TabView、NavigationStack、toolbar、sheet、Form沿用系统。系统iOS26提供Liquid Glass Tab；fallback仍是原生Tab。参考：[Apple Applying Liquid Glass](https://developer.apple.com/documentation/SwiftUI/Applying-Liquid-Glass-to-custom-views)。不自绘替代Tab，不使用第三方UI框架。
 
@@ -20,19 +20,19 @@ Swift只做呈现、命令、单位格式化与图表归一化，不复制TRIMP�
 
 正式App没有Mock默认数据。Preview、unit test和合成E2E必须标明用途。Published Analysis缺失、dirty或insufficient显示`--`。Recovery原值为0..1，展示百分比仅做单位格式化；不是身体医疗诊断。Fitness/Fatigue单位为AU/day，不当作0..100生理分数；两条bar使用当前已知Fitness/Fatigue的共同显示尺度，仅作图表归一化。周统计只代表已同步跑步，不宣称导入覆盖完整。
 
-页面下拉刷新；前台每20秒有界刷新，后台停止刷新。发布新Effective不清空Sheet的本地草稿；新计划保留原版本到服务器返回新版本，列表基于稳定sessionID。当前没有全历史下载或全库重算。
+页面下拉刷新；前台每20秒有界刷新，后台停止刷新。发布新Effective不清空Sheet的本地草稿；新计划保留原版本到服务器返回新版本，列表基于稳定sessionID。Home/Training详情通过独立selection驱动导航，修改课程或移出今日列表不会销毁已打开详情。当前没有全历史下载或全库重算。
 
 ## 导航与首页
 
 五个原生Tab：首页、运动、训练、分析、我的。首页一个垂直ScrollView；Greeting显示真实P3同步状态（尚未同步/同步中/待同步/需处理/本轮已同步），不推断HealthKit读权限。Hero读取dataset日历当天Effective Session；没有课程显示空态，不偷偷换成明天课程。
 
-Hero显示服务器实际距离、时长、RPE和修改标记；未给时长不会推测45min。点击以iOS18原生matchedTransitionSource/zoom展开详情，Reduce Motion时关闭zoom。Body Status使用原生Readiness ring和紧凑指标。周卡两个Swift Charts柱图，首次出现250–400ms动画，Reduce Motion无动画。Recent Activity来自只读Workout列表；无路线读取接口时只显示运动图标。
+Hero显示服务器实际距离、时长、RPE和修改标记；未给时长不会推测45min。点击以iOS18原生matchedTransitionSource/zoom展开详情，Reduce Motion或无Metal模拟器时关闭zoom。Body Status使用原生Readiness ring和紧凑指标。周卡两个Swift Charts柱图，首次出现250–400ms动画，Reduce Motion无动画。Recent Activity来自只读Workout列表；无路线读取接口时只显示运动图标。
 
 ## Activities与Analysis
 
 Workout列表使用每页最多50的keyset cursor，可继续加载；详情显示真实duration、distance和已发布pace/HR/load。没有route point read API，明确显示路线不可用，不将sealed状态当作地图。
 
-Analysis展示当前clean publication和最多90日已发布历史；默认14日。缺失不补零、不用连线跨越缺失点，Swift Charts显示已有点。详情解释load-only和未纳入的sleep/HRV/resting-HR trend。
+Analysis展示当前clean publication和最多90日已发布历史；默认14日。缺失不补零、不用连线跨越缺失点，Swift Charts显示已有点。无Metal模拟器用原生Shape绘制同一批已发布值的柱图，仅做显示比例变换，缺失仍为空白；不据此声称Swift Charts的GPU视觉通过。详情解释load-only和未纳入的sleep/HRV/resting-HR trend。
 
 ## Training与Override
 
@@ -58,7 +58,7 @@ WorkoutKit/Watch系统行为在既有IMPLEMENTATION/基线为deferred，本轮�
 
 ## Accessibility、交互与性能
 
-按钮约0.98按压缩放、短easeInOut；不持续bounce。关键命令ACK使用light haptic，日期选择selection。Reduce Motion关闭zoom/按压缩放/柱图入场动画；没有parallax。Reduce Transparency增加surface不透明度；Dynamic Type支持纵向reflow（ViewThatFits/adaptive grid），日期可横向滚动，Form保持原生可访问性。
+按钮约0.98按压缩放、短easeInOut；不持续bounce。关键命令ACK使用light haptic，日期选择selection。Reduce Motion关闭zoom/按压缩放/柱图入场动画；没有parallax。Reduce Transparency增加surface不透明度；Dynamic Type支持问候区、身体指标、周统计和反馈的纵向reflow，图标/图表标签区域随字号缩放。课程编辑/改期/跳过有至少44pt触控区，Accessibility字号时纵向排列。日期可横向滚动，Form保持原生可访问性。
 
 背景无持续动画、shader、粒子或持续自定义blur。图片只在单一缓存入口加载；未放4K素材。OSLog只记耗时、计数、字节与稳定错误码，不记健康值、路线或token。network/response_decode、Home加载、state publication与command ACK分别可观测；UI测试记录截图/操作/内存。模拟器耗时不推导iPhone12ProMax帧率、真机内存或生产SLO。
 

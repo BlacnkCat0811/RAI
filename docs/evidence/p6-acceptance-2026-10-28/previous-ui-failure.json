@@ -1,0 +1,52 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "x86_64",
+        "deviceId" : "1A53126B-9DF3-4ED3-B5C1-DBCE58C9C4DC",
+        "deviceName" : "RAI P6 Large Acceptance",
+        "modelName" : "iPhone 17 Pro Max",
+        "osBuildNumber" : "23F77",
+        "osVersion" : "26.5",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 1,
+      "passedTests" : 10,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "RAI · Built with macOS 26.6.2",
+  "expectedFailures" : 0,
+  "failedTests" : 1,
+  "finishTime" : 1793191475.734,
+  "passedTests" : 10,
+  "result" : "Failed",
+  "skippedTests" : 0,
+  "startTime" : 1793190992.757,
+  "statistics" : [
+    {
+      "subtitle" : "1 test run",
+      "title" : "1 test collected performance metrics"
+    }
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "failed: caught error: \"missing(\"edit.save\")\"",
+      "targetName" : "RAIUITests",
+      "testIdentifier" : 10,
+      "testIdentifierString" : "ProductUITests/test02EditConflictMoveSkipAddRevokeExecutionFeedback()",
+      "testIdentifierURL" : "test://com.apple.xcode/RAI/RAIUITests/ProductUITests/test02EditConflictMoveSkipAddRevokeExecutionFeedback",
+      "testName" : "test02EditConflictMoveSkipAddRevokeExecutionFeedback()"
+    }
+  ],
+  "title" : "Test - RAI",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 11
+}

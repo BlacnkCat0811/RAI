@@ -113,12 +113,16 @@ struct ExecutionView: View {
 }
 struct FeedbackCard: View {
   let feedback: JSON
+  @Environment(\.dynamicTypeSize) private var typeSize
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       CardHeading(title: "训练反馈", icon: "checkmark.circle")
       Text(feedbackStatus(feedback.string("status"))).font(.subheadline)
         .foregroundStyle(RAITheme.secondary)
-      LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))], alignment: .leading, spacing: 18) {
+      LazyVGrid(
+        columns: [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 280 : 120))],
+        alignment: .leading, spacing: 18
+      ) {
         item("计划距离", ProductFormat.distance(feedback["distance"].number("planned")) + " km")
         item("实际距离", ProductFormat.distance(feedback["distance"].number("actual")) + " km")
         item(
@@ -134,8 +138,10 @@ struct FeedbackCard: View {
   func item(_ title: String, _ value: String) -> some View {
     VStack(alignment: .leading, spacing: 5) {
       Text(title).font(.caption).foregroundStyle(RAITheme.secondary)
+        .fixedSize(horizontal: false, vertical: true)
       Text(value).font(.title3.bold()).monospacedDigit()
-    }
+        .fixedSize(horizontal: false, vertical: true)
+    }.frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 

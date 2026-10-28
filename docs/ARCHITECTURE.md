@@ -179,9 +179,9 @@ P5 STATUS: PASS WITH RISKS。P6 DEVELOPMENT READY: YES（仅后端闭环自动�
 
 ## 13. P6 Native iOS Product Integration（2026-10-28）
 
-P6_BASE_COMMIT=`62511f9b3e5998ccad79396a7e14540074e506e5`，入口工作区干净；已有P4/P5包含在该提交内。
+P6_BASE_COMMIT=`62511f9b3e5998ccad79396a7e14540074e506e5`，初轮入口工作区干净；已有P4/P5包含在该提交内。空间恢复后续作基线为`3ffed27aabfdbc9af962e59da297e7e2eea77c4d`，入口干净。
 
-SwiftUI五个原生Tab统一使用RAITheme/RAIGlassSurface、暖暗背景和系统字体。iOS26使用原生glassEffect，iOS18–25保留Material fallback；系统TabView/NavigationStack/Sheet，Reduce Motion/Transparency和Dynamic Type适配。视觉参考为用户本轮提供的Liquid Glass首页图；当前摄影素材使用可替换的原生抽象场景。
+SwiftUI五个原生Tab统一使用RAITheme/RAIGlassSurface、暖暗背景和系统字体。iOS26使用原生glassEffect，iOS18–25保留Material fallback；无Metal模拟器使用相同回退分支及同值Shape柱图，保留原生Tab。系统TabView/NavigationStack/Sheet、Reduce Motion/Transparency和Dynamic Type重排；Home/Training详情导航独立于会刷新的课程卡片。视觉参考为用户提供的Liquid Glass首页图，Hero使用独立生成、随App打包和缓存的1280×853日落跑步摄影，不包含UI或数据。
 
 `ProductCore`作为Presentation/Interaction actor层复用RAIAPIClient，读取P4Published与P5Effective，不实现第二套分析或计划算法。MainActor ProductModel发布状态，产品命令journal在网络前原子持久化commandID/request并绑定dataset；409保留草稿，原命令重试恢复ACK；字段级override/revoke、snapshot execution、显式Workout关联与Feedback均走P5。P3HealthKit/outbox/后台传输仍是原同步路径，诊断移至“我的”。
 

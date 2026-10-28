@@ -1,0 +1,35 @@
+{
+  "scope": "actual iPhone17 simulator OSLog, since 21:44; state publication is assignment, not render",
+  "timings": {
+    "home_load_ms": {
+      "count": 7,
+      "median": 365.463972,
+      "min": 303.732991,
+      "max": 2184.584975,
+      "samples": [
+        303.732991,
+        797.549009,
+        307.758927,
+        308.746934,
+        2184.584975,
+        1309.559941,
+        365.463972
+      ]
+    },
+    "state_publication_ms": {
+      "count": 7,
+      "median": 0.226021,
+      "min": 0.111938,
+      "max": 0.413895,
+      "samples": [
+        0.111938,
+        0.413895,
+        0.222921,
+        0.411034,
+        0.130057,
+        0.226021,
+        0.349998
+      ]
+    }
+  }
+}

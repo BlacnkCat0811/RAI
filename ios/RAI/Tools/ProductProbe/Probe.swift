@@ -31,6 +31,38 @@ struct Configuration: Codable { let baseURL: URL, token: String, collectorEpoch:
     let api = ProductAPI(client: RAIAPIClient(baseURL: config.baseURL, token: config.token))
     let dir = URL(fileURLWithPath: args[3])
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    if args[1] == "performance" {
+      let timings = ProbeTimings()
+      let measured = ProductAPI(
+        client: RAIAPIClient(
+          baseURL: config.baseURL, token: config.token,
+          metrics: SyncMetrics { name, value in timings.record(name, value) }))
+      var operations: [String: [Double]] = [:]
+      for _ in 0..<3 {
+        for (name, path) in [
+          ("Training", "/v2/training/plans/current"), ("Analysis", "/v2/analysis/state"),
+          ("Activities", "/v2/workouts"), ("Weekly", "/v2/product/overview"),
+          ("History", "/v2/analysis/history"),
+        ] {
+          let start = Date()
+          _ = try await measured.get(path)
+          operations[name, default: []].append(Date().timeIntervalSince(start) * 1000)
+        }
+        let start = Date()
+        let value = await measured.load()
+        try require(value.failures.isEmpty, "performance_read_failed")
+        operations["Home", default: []].append(Date().timeIntervalSince(start) * 1000)
+      }
+      let report: [String: Any] = [
+        "scope": "macOS Swift / actual fnOS API / synthetic only", "samples": 3,
+        "operationsMS": operations, "clientTimingsMS": timings.snapshot(),
+      ]
+      try OutboxStore.write(
+        JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]),
+        to: dir.appendingPathComponent("performance.json"))
+      print("P6_API_PERFORMANCE=PASS (3 samples; HTTP+decode, no health values)")
+      return
+    }
     let hello = try await client.call("GET", "/v2/handshake")
     if args[1] == "seed" {
       let scope = Scope(
@@ -290,5 +322,21 @@ struct Configuration: Codable { let baseURL: URL, token: String, collectorEpoch:
         "sessionID": .string(session), "operation": .string(operation), "path": .string(path),
         "value": value,
       ])
+  }
+}
+
+// The lock protects every access from the client's Sendable metrics callback.
+final class ProbeTimings: @unchecked Sendable {
+  private let lock = NSLock()
+  private var values: [String: [Double]] = [:]
+  func record(_ name: String, _ value: Double) {
+    lock.lock()
+    defer { lock.unlock() }
+    values[name, default: []].append(value)
+  }
+  func snapshot() -> [String: [Double]] {
+    lock.lock()
+    defer { lock.unlock() }
+    return values
   }
 }

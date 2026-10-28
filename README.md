@@ -4,7 +4,7 @@
 
 架构依据：[原始方案](RAI-Go-PostgreSQL架构重设计与实施方案.md)。实际进度、验收证据与下一步见 [实施记录](docs/IMPLEMENTATION.md)；工程约定见 [AGENTS](AGENTS.md)，边界与回滚见 [ADR-001](docs/adr/001-new-project.md)。
 
-当前已实现 **Phase 5 Training Plan / Coach Closed Loop**（schema13）：Published Analysis → deterministic Base → persistent field Overrides → versioned Effective → frozen Execution → Workout Feedback → Recalculation，用户修改跨重算保留。合同见 [P5 Coach Contract](docs/P5_COACH_CONTRACT.md)，验收与未验证项见 [P5 Result](docs/V2_PHASE5_RESULT.md)。P4分析能力与历史验收保留。**P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED**；正式部署和真机E2E未验收，P6 已加入原生产品界面与只读查询；实际验收、视觉偏差和未验证项见 [P6 Result](docs/V2_PHASE6_RESULT.md) 与 [产品合同](docs/P6_IOS_PRODUCT_CONTRACT.md)。WorkoutKit排程、独立Watch与生产发布未开放。
+当前已实现 **Phase 6 Native iOS Product Integration**：五个原生Tab、Liquid Glass/Material主题、Published Analysis与Effective Plan、字段调整/冲突/命令恢复、执行快照和反馈。Debug/Release、两尺寸UI/无障碍、截图回归及真实隔离PostgreSQL门禁通过，结论 **PASS WITH RISKS**；无Metal宿主的GPU视觉/iOS18运行和真实iPhone行为仍未验证。见 [P6 Result](docs/V2_PHASE6_RESULT.md)、[产品合同](docs/P6_IOS_PRODUCT_CONTRACT.md) 与 [证据](docs/evidence/p6-ios-2026-10-28.json)。P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；WorkoutKit、独立Watch、P7实施与生产发布未开放。P4/P5历史合同和验收保留。
 
 按 [ADR-002](docs/adr/002-fresh-healthkit-dataset.md)，本次不迁移旧数据库。开发、真机与部署验收完成后，由新 iOS 客户端首次读取手机可见的 HealthKit 历史，随后走 anchor 增量同步；旧服务端计划、人工修改和旧回执不随健康事实重建。
 

@@ -1,0 +1,7 @@
+{
+  "result": "NOT VERIFIED",
+  "template": "Time Profiler",
+  "requested_time_limit_seconds": 20,
+  "observed": "xctrace remained at Starting recording after target process ended; no completed trace, export returned Document Missing Template Error",
+  "followup": "Stopped only this run of xctrace; retained partial trace in /tmp. Used Apple sample for a separate 10-second CPU call graph. GPU/FPS not established."
+}

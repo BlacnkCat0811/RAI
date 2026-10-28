@@ -1,0 +1,6 @@
+{
+  "result": "FAILED (preserved historical attempt)",
+  "cause": "UI02 missed edit.save after tapping small Skip control; 44pt target and background-read navigation availability corrected afterward",
+  "xcresult": "/tmp/rai-p6-resume-large-fixed.xcresult",
+  "other_tests": "8 native normalizer tests, navigation and scrolling metrics passed in the same attempt"
+}

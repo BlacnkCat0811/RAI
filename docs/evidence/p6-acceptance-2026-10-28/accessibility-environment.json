@@ -1,0 +1,7 @@
+{
+  "scope": "owned disposable iPhone17 simulator only, functional accessibility audit",
+  "reason": "OS mediaanalysisd consumed about 270 percent CPU and repeated XCTest audit -56 timeout",
+  "temporary_action": "SIGSTOP that simulator mediaanalysisd PID 96243; shell EXIT trap SIGCONT restores it",
+  "performance_measurements": "collected earlier with default OS processes, no performance claim from paused-background run",
+  "application_state_or_health_data_mocked": false
+}

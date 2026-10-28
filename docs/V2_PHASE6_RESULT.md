@@ -2,7 +2,7 @@
 
 ## Status
 
-**BLOCKED — 验收进行中。** 原生产品、只读API和Swift/API闭环已实现；模拟器视觉/UI和Release验收被宿主磁盘满阻塞。源码存在和命令行E2E不替代模拟器/真机门禁。
+**PASS WITH RISKS。** P6开发与可执行门禁完成：原生产品、真实后端闭环、两尺寸默认UI/大字号审计及截图回归通过。原生Liquid Glass的GPU视觉、真实iOS18运行与真机行为仍未验证，不是生产验收PASS。
 
 ## Repository
 
@@ -10,19 +10,19 @@
 
 ## Base Commit
 
-`P6_BASE_COMMIT=62511f9b3e5998ccad79396a7e14540074e506e5`；入口工作区干净，P4/P5已包含在基线。原始架构方案、00001–00013和历史evidence未改。
+`P6_BASE_COMMIT=62511f9b3e5998ccad79396a7e14540074e506e5`；初轮入口工作区干净，P4/P5已包含在基线。空间恢复后继续的基线为`3ffed27aabfdbc9af962e59da297e7e2eea77c4d`，入口同样干净（用户已保存前轮实现）。原始架构方案、00001–00013和历史evidence未改。
 
 ## Visual Reference
 
-用户本轮补充的Liquid Glass首页图为Visual Source of Truth。实现Greeting→Hero→Body Status→Weekly→Recent→系统Tab。原生抽象日落/跑道替代摄影，不使用截图切片或假路线。最终视觉比对未完成，不能声明视觉PASS。
+用户提供的Liquid Glass首页图为Visual Source of Truth。实现Greeting→Hero→Body Status→Weekly→Recent→系统Tab。Hero采用独立生成的日落城市/滨水跑步摄影，文本、指标、按钮和卡片由原生绘制，不使用截图切片或假路线。人物/城市不同；素材来源与完整提示词见[记录](evidence/p6-hero-provenance.md)。宿主没有Metal设备，不能据此声明原生Liquid Glass GPU视觉通过。
 
 ## Design System
 
-`RAITheme`/`RAIGlassSurface`统一暖暗背景、橙/琥珀/白色层级、28pt圆角、系统字体和monospacedDigit。iOS26原生glassEffect已编译；iOS18–25 Material fallback保留最低版本，原生Tab/Sheet。详情见[产品合同](P6_IOS_PRODUCT_CONTRACT.md)。
+`RAITheme`/`RAIGlassSurface`统一暖暗背景、橙/琥珀/白色层级、28pt圆角、系统字体和monospacedDigit。iOS26原生glassEffect已编译；iOS18–25 Material fallback保留最低版本，原生Tab/Sheet。无Metal模拟器使用Material和同值Shape柱图回退；系统Tab仍保留原生实现。详情见[产品合同](P6_IOS_PRODUCT_CONTRACT.md)。
 
 ## Home
 
-真实P4Published、dataset当天P5Effective、两周跑步统计、recent Workout和P3同步状态。Missing显示`--`；缺时长不猜45min。Recovery/Readiness明确load-only训练状态估算。Swift真实API读取成功；模拟器加载仍待验收。
+真实P4Published、dataset当天P5Effective、两周跑步统计、recent Workout和P3同步状态。Missing显示`--`；缺时长不猜45min。Recovery/Readiness明确load-only训练状态估算。Swift与原生模拟器均已读取真实API；Keychain保存使用本地ad hoc签名，不绕过Keychain。
 
 ## Activities
 
@@ -34,7 +34,7 @@ Workout分页/详情展示duration、distance与published pace/HR/load；无rout
 
 ## Training
 
-唯一视图为Effective；目标创建、日期selector、Session Detail与edit/move/skip/add/revoke Sheet/audit。Swift不生成或合并计划；后台更新不清空草稿。
+唯一视图为Effective；目标创建、日期selector、Session Detail与edit/move/skip/add/revoke Sheet/audit。Swift不生成或合并计划；后台更新不清空草稿。验收发现撤销后详情会返回首页，已将Home/Training导航移到独立selection，避免课程卡片刷新或改期移出列表销毁详情。成功generation不再把`SUCCEEDED`哨兵显示成错误。
 
 ## Override
 
@@ -60,38 +60,46 @@ P3.5 outbox、anchor、ACK、后台URLSession与Keychain保持；诊断移至“
 
 ## Accessibility
 
-已实现Dynamic Type重排、Reduce Motion与Reduce Transparency。运行截图、两尺寸和较大Accessibility字号尚未完成；iOS18 runtime未安装，fallback运行未验证。
+两种模拟器尺寸均验证系统Light外观、应用Dark主题、Accessibility XXXL字号、Reduce Motion和Reduce Transparency；测试读取真实SwiftUI环境并断言，未注入假的环境值。首页、课程详情/操作、周统计、训练、运动、分析趋势、执行及反馈的textClipped审计通过；不等于全量VoiceOver/对比度认证。
+
+人工截图发现的图标重叠已用ScaledMetric修正；问候区、周统计和反馈大字号纵向重排，反馈单元格保留完整文字高度。滚动测试断言Hero实际坐标改变，周统计定位后才审计。大屏宿主照片分析进程曾占用约270% CPU，造成XCTest -56超时；最终仅暂停本轮自建模拟器的该进程完成审计，EXIT trap恢复，随后关闭测试模拟器。性能测量未使用此暂停环境。真实裁切失败与超时记录保留，未忽略裁切问题；只对无结果的-56基础设施超时重试一次。iOS18 runtime未安装，回退分支运行不冒充iOS18运行。
 
 ## Performance
 
-**SIMULATOR ONLY / synthetic harness**：一次macOS Swift→SSH→fnOS读取Home五个API总计348.313ms，非iPhone/UI渲染或生产SLO。network/decode/state publication/command ACK埋点已实现；模拟器scroll/launch/memory/渲染测量待完成。磁盘满造成的异常不当作性能基线。
+**SIMULATOR ONLY / synthetic harness。** 最后一组macOS Swift→SSH→fnOS各3次独立读取：Home五API总计中位294.690ms（268.517–352.721）；Training 77.180ms、Analysis 33.659ms、Activities 84.063ms、Weekly 30.326ms、History 79.474ms。一次闭环505.276ms、初轮348.313ms及初次性能样本中的18.640s异常值保留，不据小样本声明SLO。解码样本、原生launch/操作、状态发布/命令ACK及CPU调用图见[evidence目录](evidence/p6-acceptance-2026-10-28)。
+
+有实际滚动位置断言的3次往返：大屏XCTest时钟平均10.180s、进程物理内存平均66,605kB、peak平均69,523kB；12ProMax class平均11.731s、67,831kB、peak平均70,950kB。手势有指定速度且包含大量XCTest查询开销，不能解释为App帧耗时。10秒Apple sample记录71.6M footprint/88.7M peak，调用图包含大量自动化查询，不作纯App CPU评价。
+
+Time Profiler未生成可读取trace，导出返回Document Missing Template Error，已停止该次工具进程并保留失败记录。没有Metal设备，系统Tab的合成存在异常，部分滚动截图的合成位置也不可靠；截图仅为受限回退环境的布局回归基线。GPU渲染、blur hitch、Swift Charts原生绘制和真实帧率均NOT VERIFIED。真机性能和生产SLO未建立。
 
 ## Tests
 
 - fnOS普通/race单元、vet、build、模块校验：PASS。
-- 完整隔离PG race：PASS，integration311.846秒，含P3/P4/P5与P6只读查询。
+- 完整隔离PG race：PASS，恢复空间后最终integration302.488秒（初轮311.846秒保留），含P3/P4/P5与P6只读查询。
 - 249包依赖边界、analysis/training无I/O：PASS。
 - Compose P3重启/离线ACK、P4 Worker/publication、P5 HTTP闭环与SIGTERM：PASS。
 - OpenAPI Redocly2.71.1：PASS，8条既有warning。
-- Swift核心34项通过（原SyncCore27项与ProductCore7项）；最终iOS App补丁仍需Xcode重建。
-- Debug Simulator/UI test build与Swift6 strict concurrency已通过；末尾小补丁待最终重新构建。
-- Release未通过：磁盘满导致CreateBuildDescription/swiftc --version失败。
-- UI未通过：首轮安装明确NSPOSIXErrorDomain Code28 No space left on device；清理本轮缓存后重试未找到Home Hero，需继续诊断。
+- Swift核心35项通过（原SyncCore27项与ProductCore8项）。
+- 最终Debug Simulator/UI test build与Swift6 strict concurrency通过。
+- 最终Release arm64 generic iOS 18 minimum target构建通过；这是未签名编译，未安装真机。
+- 两尺寸分别8项原生Normalizer单元测试及3项UI测试通过；两尺寸各一次独立五页面截图比对通过，错换首页的negative control被拒绝。
+- 两尺寸完整大字号/系统开关/textClipped审计通过；大屏最终功能审计的宿主后台分析隔离条件有单独记录。
+- 历史失败保留：磁盘Code28、未签名Simulator Keychain失败、详情导航返回与Skip小触控区导致的失败均未计PASS。
 - DEVICE TEST: NOT RUN。
 
 ## Deviations
 
-摄影占位不同；视觉/截图基线未验收；route read、跨设备执行列表和WorkoutKit未开放。Swift命令行真实闭环不冒充模拟器UI E2E。
+人物/城市摄影与参考图不同；原生GPU玻璃视觉与完整滚动合成未验收。route read、跨设备执行列表和WorkoutKit未开放。Swift命令行闭环、原生UI闭环、系统审计、编译和真机证据分别记录，不互相替代。
 
 ## Risks
 
-磁盘不足阻塞UI/视觉/性能及Release；不能宣称P6完成。iOS18运行、iPhone12ProMax真实性能、HealthKit/后台/网络恢复和模型个体效度仍未验证。
+磁盘阻塞已解除。剩余风险是无Metal宿主的GPU/系统控件合成限制、iOS18运行、iPhone12ProMax真实硬件性能、HealthKit/后台/网络恢复及load-only模型个体效度。截图基线不是原生Liquid Glass真机视觉批准；需要有Metal的环境建立独立基线。没有读取生产数据、迁移真实数据或部署。
 
 ## P6 Final Status
 
 ```text
 P6 DEVELOPMENT STATUS:
-BLOCKED
+PASS WITH RISKS
 ```
 
 ## Device Status
@@ -111,7 +119,7 @@ NOT RUN
 
 ```text
 P7 DEVELOPMENT READY:
-NO
+YES — development only; no P7 work started
 ```
 
 ## Production

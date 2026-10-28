@@ -1,0 +1,7 @@
+P6_SYNTHETIC_SEED=PASS (7 workouts, explicit HR relationships, real P3 durable ACK, actual Worker)
+P6_HOME_REAL_API=PASS load_ms=505.2759647369385
+P6_LOST_ACK=PASS same durable command, identical receipt, journal reopened
+P6_CONFLICT=PASS 409, draft retained, fetch latest, explicit review and new command
+P6_REGENERATION=PASS Monday user distance survives, Sunday move survives, untouched distance follows Base; snapshot frozen
+P6_FEEDBACK=PASS complete before explicit association; server planned/actual/ratio
+P6_SWIFT_FNOS_READY=PASS simulator may connect using private config path

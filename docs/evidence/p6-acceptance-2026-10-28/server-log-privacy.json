@@ -1,0 +1,6 @@
+{
+  "scope": "disposable synthetic API/Worker only",
+  "known_test_token_redactions": 0,
+  "database_url_redaction_enabled": true,
+  "init_credentials_file_not_collected": true
+}

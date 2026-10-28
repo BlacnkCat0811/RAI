@@ -1,0 +1,120 @@
+{
+  "scope": "SIMULATOR ONLY; synthetic actual API; gesture/launch includes XCTest overhead; not physical iPhone performance",
+  "render_gpu_fps": "NOT VERIFIED; no Metal device",
+  "scroll": {
+    "iPhone17ProMax": {
+      "Absolute Memory Physical (ios), kB": {
+        "average": 66605.056,
+        "samples": [
+          66359.296,
+          66699.264,
+          66756.608
+        ]
+      },
+      "Memory Peak Physical (ios), kB": {
+        "average": 69522.773,
+        "samples": [
+          66572.288,
+          75079.68,
+          66916.352
+        ]
+      },
+      "Memory Physical (ios), kB": {
+        "average": 137.899,
+        "samples": [
+          16.384,
+          339.968,
+          57.344
+        ]
+      },
+      "Clock Monotonic Time, s": {
+        "average": 10.18,
+        "samples": [
+          9.892976,
+          10.649552,
+          9.99853
+        ]
+      }
+    },
+    "iPhone12ProMaxClass": {
+      "Absolute Memory Physical (ios), kB": {
+        "average": 67831.125,
+        "samples": [
+          66387.968,
+          66629.632,
+          70475.776
+        ]
+      },
+      "Memory Peak Physical (ios), kB": {
+        "average": 70949.547,
+        "samples": [
+          66535.424,
+          73068.544,
+          73244.672
+        ]
+      },
+      "Memory Physical (ios), kB": {
+        "average": 1391.275,
+        "samples": [
+          86.016,
+          241.664,
+          3846.144
+        ]
+      },
+      "Clock Monotonic Time, s": {
+        "average": 11.731,
+        "samples": [
+          11.198357,
+          12.578554,
+          11.415498
+        ]
+      }
+    }
+  },
+  "workflow_automation": {
+    "iphone17-pro-max-default": {
+      "scope": "simulator UI automation; includes XCTest overhead",
+      "timings": {
+        "process_launch_to_live_home_ms": 15228.375911712646,
+        "tab_\u8bad\u7ec3_ms": 3818.8300132751465,
+        "tab_\u9996\u9875_ms": 2870.8019256591797,
+        "tap_associate.candidate_ms": 2266.634941101074,
+        "tap_edit.nextDay_ms": 2459.7100019454956,
+        "tap_edit.review_ms": 3795.1619625091553,
+        "tap_edit.save_ms": 3273.5350131988525,
+        "tap_execution.associate_ms": 2516.7720317840576,
+        "tap_execution.complete_ms": 1801.1720180511475,
+        "tap_execution.refresh_ms": 1853.9260625839233,
+        "tap_home.hero_ms": 2395.0610160827637,
+        "tap_session.edit_ms": 4563.529968261719,
+        "tap_session.move_ms": 2510.5810165405273,
+        "tap_session.revoke_ms": 1893.1740522384644,
+        "tap_session.skip_ms": 2990.8390045166016,
+        "tap_session.start_ms": 2504.5719146728516,
+        "tap_training.add_ms": 2508.8030099868774
+      }
+    },
+    "iphone12-pro-max-default": {
+      "scope": "simulator UI automation; includes XCTest overhead",
+      "timings": {
+        "process_launch_to_live_home_ms": 15595.02398967743,
+        "tab_\u8bad\u7ec3_ms": 3791.201949119568,
+        "tab_\u9996\u9875_ms": 4165.522933006287,
+        "tap_associate.candidate_ms": 2102.0560264587402,
+        "tap_edit.nextDay_ms": 2448.2250213623047,
+        "tap_edit.review_ms": 4636.90197467804,
+        "tap_edit.save_ms": 3737.428069114685,
+        "tap_execution.associate_ms": 2135.249972343445,
+        "tap_execution.complete_ms": 1867.8010702133179,
+        "tap_execution.refresh_ms": 1853.3129692077637,
+        "tap_home.hero_ms": 2354.7369241714478,
+        "tap_session.edit_ms": 3413.664937019348,
+        "tap_session.move_ms": 2407.2149991989136,
+        "tap_session.revoke_ms": 2303.744077682495,
+        "tap_session.skip_ms": 3287.976026535034,
+        "tap_session.start_ms": 1935.5889558792114,
+        "tap_training.add_ms": 3741.4920330047607
+      }
+    }
+  }
+}

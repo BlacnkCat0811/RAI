@@ -1,0 +1,5 @@
+Home: PASS changed=0.0003476184438527535 mean_channel_error=0.07491547271882
+Training: PASS changed=0.009965766451122099 mean_channel_error=1.2732876181620951
+SessionDetail: PASS changed=0.0199695701787752 mean_channel_error=3.374288914247073
+Analysis: PASS changed=0.0010576476057647605 mean_channel_error=0.12638483862333236
+Execution: PASS changed=0.011174506571996111 mean_channel_error=1.2481386388290154
