@@ -25,7 +25,7 @@ func TestSampleBatchPipelineAndIdempotency(t *testing.T) {
 		}
 		batchStart := time.Now()
 		e, r, _ := f.commit(t, events, seq, previous)
-		if r.Counts.Inserted != 1000 || len(r.AnalysisJobIDs) != 1000 {
+		if r.Counts.Inserted != 1000 || len(r.AnalysisJobIDs) != 1 {
 			t.Fatalf("batch %d counts: %+v", seq, r.Counts)
 		}
 		if seq == 1 {
@@ -34,7 +34,7 @@ func TestSampleBatchPipelineAndIdempotency(t *testing.T) {
 		previous = &e.BatchID
 	}
 	t.Logf("synthetic 5000 samples across five complete commits: %s", time.Since(started))
-	if count(t, f, "health_samples") != 5000 || count(t, f, "jobs") != 5000 {
+	if count(t, f, "health_samples") != 5000 || count(t, f, "jobs") != 5 {
 		t.Fatal("bulk facts or jobs missing")
 	}
 	var streamDevice, batchDevice string

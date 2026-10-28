@@ -1,0 +1,407 @@
+{
+  "add": {
+    "sessions": [
+      {
+        "sessionID": "mon",
+        "slot": 0,
+        "date": "2026-10-26",
+        "type": "EASY",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 5000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "wed",
+        "slot": 0,
+        "date": "2026-10-28",
+        "type": "INTERVAL",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 0,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "user",
+        "slot": 0,
+        "date": "2026-10-30",
+        "type": "EASY",
+        "origin": "user_added",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 3000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": true
+      },
+      {
+        "sessionID": "sun",
+        "slot": 0,
+        "date": "2026-11-01",
+        "type": "LONG",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 12000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      }
+    ],
+    "recommendations": [
+      "user_override_review"
+    ]
+  },
+  "base": {
+    "sessions": [
+      {
+        "sessionID": "mon",
+        "slot": 0,
+        "date": "2026-10-26",
+        "type": "EASY",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 5000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "wed",
+        "slot": 0,
+        "date": "2026-10-28",
+        "type": "INTERVAL",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 0,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "sun",
+        "slot": 0,
+        "date": "2026-11-01",
+        "type": "LONG",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 12000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      }
+    ],
+    "recommendations": []
+  },
+  "edit": {
+    "sessions": [
+      {
+        "sessionID": "mon",
+        "slot": 0,
+        "date": "2026-10-26",
+        "type": "EASY",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 7000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": true
+      },
+      {
+        "sessionID": "wed",
+        "slot": 0,
+        "date": "2026-10-28",
+        "type": "INTERVAL",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 0,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "sun",
+        "slot": 0,
+        "date": "2026-11-01",
+        "type": "LONG",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 12000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      }
+    ],
+    "recommendations": [
+      "user_override_review"
+    ]
+  },
+  "move": {
+    "sessions": [
+      {
+        "sessionID": "mon",
+        "slot": 0,
+        "date": "2026-10-27",
+        "type": "EASY",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 5000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": true
+      },
+      {
+        "sessionID": "wed",
+        "slot": 0,
+        "date": "2026-10-28",
+        "type": "INTERVAL",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 0,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "sun",
+        "slot": 0,
+        "date": "2026-11-01",
+        "type": "LONG",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 12000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      }
+    ],
+    "recommendations": [
+      "user_override_review"
+    ]
+  },
+  "multiple": {
+    "sessions": [
+      {
+        "sessionID": "mon",
+        "slot": 0,
+        "date": "2026-10-26",
+        "type": "EASY",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 8000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": true
+      },
+      {
+        "sessionID": "wed",
+        "slot": 0,
+        "date": "2026-10-28",
+        "type": "INTERVAL",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 0,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "sun",
+        "slot": 0,
+        "date": "2026-11-01",
+        "type": "LONG",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 12000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      }
+    ],
+    "recommendations": [
+      "user_override_review"
+    ]
+  },
+  "removed": {
+    "sessions": [
+      {
+        "sessionID": "mon",
+        "slot": 0,
+        "date": "2026-10-26",
+        "type": "EASY",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 7000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": true,
+        "conflicts": [
+          "base_session_removed_kept"
+        ]
+      },
+      {
+        "sessionID": "wed",
+        "slot": 0,
+        "date": "2026-10-28",
+        "type": "INTERVAL",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 0,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "sun",
+        "slot": 0,
+        "date": "2026-11-01",
+        "type": "LONG",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 12000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      }
+    ],
+    "recommendations": [
+      "user_override_review"
+    ]
+  },
+  "revoke": {
+    "sessions": [
+      {
+        "sessionID": "mon",
+        "slot": 0,
+        "date": "2026-10-26",
+        "type": "EASY",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 5000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "wed",
+        "slot": 0,
+        "date": "2026-10-28",
+        "type": "INTERVAL",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 0,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "sun",
+        "slot": 0,
+        "date": "2026-11-01",
+        "type": "LONG",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 12000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      }
+    ],
+    "recommendations": []
+  },
+  "skip": {
+    "sessions": [
+      {
+        "sessionID": "mon",
+        "slot": 0,
+        "date": "2026-10-26",
+        "type": "EASY",
+        "origin": "generated",
+        "status": "skipped",
+        "durationS": 0,
+        "distanceM": 5000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": true
+      },
+      {
+        "sessionID": "wed",
+        "slot": 0,
+        "date": "2026-10-28",
+        "type": "INTERVAL",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 0,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      },
+      {
+        "sessionID": "sun",
+        "slot": 0,
+        "date": "2026-11-01",
+        "type": "LONG",
+        "origin": "generated",
+        "status": "scheduled",
+        "durationS": 0,
+        "distanceM": 12000,
+        "effort": 0,
+        "notes": "",
+        "reasonCodes": null,
+        "modifiedByUser": false
+      }
+    ],
+    "recommendations": [
+      "user_override_review"
+    ]
+  }
+}

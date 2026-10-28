@@ -1,0 +1,443 @@
+{
+  "phase": 4,
+  "status": "PASS WITH RISKS",
+  "date": "2026-10-28 Asia/Shanghai",
+  "repository": "/Users/ta/rai",
+  "branch": "main",
+  "P4_BASE_COMMIT": "8e40573e027ac6dd9aac871fb755051cb31c4657",
+  "initial_tracked_changes": [],
+  "initial_untracked_files": [],
+  "P3_REAL_DEVICE_ACCEPTANCE": "DEFERRED BY USER; NOT VERIFIED",
+  "P4_DEVELOPMENT_EXCEPTION": "AUTHORIZED BY USER",
+  "P5_DEVELOPMENT_READY": true,
+  "environment": {
+    "host": "fnOS/N100",
+    "kernel": "Linux x86_64",
+    "cpus": 4,
+    "memory_kib": 8136308,
+    "go": "1.27.3",
+    "postgres": "18.6 (Debian 18.6-1.pgdg13+2)",
+    "compose": "5.1.0",
+    "GOMAXPROCS": 2,
+    "database": "throwaway container and per-test random rai_test_* databases; synthetic only",
+    "pg_settings": {
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "data_checksums": "on",
+      "shared_buffers": "128MB"
+    }
+  },
+  "validation": {
+    "full_integration_race_initial": {
+      "run_id": "20261028092651-3607283",
+      "integration_package_seconds": [
+        194.036
+      ],
+      "result": "PASS",
+      "log_sha256": "676427ba68654e99bd361b585d687fcd6d3af1c86027c543ab96453b5262571c"
+    },
+    "full_integration_race_second": {
+      "run_id": "20261028093412-3618473",
+      "integration_package_seconds": [
+        261.859
+      ],
+      "result": "PASS",
+      "log_sha256": "0bd0ced9511981d783a39383e9488fc980c32e4c4d5bb525e552a1fd2df85cf7"
+    },
+    "final_source_p4_race_and_quality": {
+      "run_id": "20261028093954-3632318",
+      "integration_package_seconds": [
+        31.61,
+        7.458
+      ],
+      "result": "PASS",
+      "log_sha256": "d56f419bdbbdf142330b49904143197b403a980f610c44b62e74635388f3505a"
+    },
+    "final_source_scope_note": "Final code reran ordinary/race unit tests, vet/build/boundaries, all P4 PG race tests, non-race capacity, codegen and OpenAPI. Earlier complete P1-P4 regression is separately recorded; do not attribute later added test counts to that run.",
+    "gofmt": "PASS",
+    "go_mod_verify": "PASS",
+    "go_test": "PASS",
+    "go_test_race": "PASS",
+    "go_vet": "PASS",
+    "go_build": "PASS",
+    "go_vet_integration_scale": "PASS",
+    "online_boundary_packages": 247,
+    "analysis_io_boundary": "PASS",
+    "sqlc_version": "1.31.1",
+    "sqlc_regeneration_byte_identical": true,
+    "openapi_lint": {
+      "version": "Redocly 2.71.1",
+      "result": "PASS",
+      "nonblocking_warnings": 8
+    }
+  },
+  "migration": {
+    "version": 12,
+    "empty_database": "PASS",
+    "schema11_upgrade_receipt_preservation": "PASS",
+    "repeated_migrate": "PASS",
+    "new_binary_schema11_readiness": "FAIL_CLOSED_VERIFIED",
+    "old_binary_schema12": "static readiness version comparison only; process combination not executed",
+    "schema_rebuild": "PASS",
+    "frozen_00001_through_00011_unchanged": true
+  },
+  "correctness": {
+    "golden": [
+      "workout.bundle/v1",
+      "training_state.bundle/v1"
+    ],
+    "properties": [
+      "finite output",
+      "nonnegative features",
+      "coverage bounds",
+      "readiness bounds",
+      "timezone/DST calendar"
+    ],
+    "missing": [
+      "no HR",
+      "partial HR",
+      "instant HR",
+      "overlap",
+      "paused workout",
+      "summary only",
+      "indoor",
+      "no route",
+      "no cadence",
+      "no power",
+      "no personal parameters"
+    ],
+    "late_arrival": [
+      "sample/association",
+      "enrichment",
+      "sealed route",
+      "sealed series"
+    ],
+    "delete": "published workout hidden immediately; sample deletion dirties workout",
+    "generation_race": "older result cannot publish or clean newer generation, including newer publication already present",
+    "fencing": "stale token rejected, recovery generates new token",
+    "worker": "actual claim loop and scheduled renewal; lost lease cancellation; real restricted-role publication",
+    "recompute": "explicit range, dry run, pending dirty coverage gate",
+    "raw_unchanged": "full business-row snapshots and role permission denial"
+  },
+  "fault_injection": {
+    "before_publish_crash": "simulated expired lease after calculation; RUNNING history closes and retry succeeds",
+    "transaction_faults": [
+      "analysis_results INSERT",
+      "analysis_publications INSERT",
+      "dirty_scopes UPDATE",
+      "jobs UPDATE",
+      "job_attempts UPDATE"
+    ],
+    "lease_expiry_during_transaction": "rollback after wall-clock check",
+    "commit_before_external_ack": "job already complete and cannot be reclaimed",
+    "physical_power_loss": "NOT TESTED",
+    "actual_SIGKILL_during_calculation": "NOT TESTED"
+  },
+  "compose": {
+    "run_id": "20261028093605-3622534",
+    "integration_package_seconds": [],
+    "result": "PASS",
+    "log_sha256": "79c6a51a817bc52865f5edf71f46a8b86e4c374c51d55c795511e1f42213706d",
+    "same_api_worker_image": true,
+    "worker_offline_durable_ack": true,
+    "api_and_pg_restart_original_receipt": true,
+    "actual_worker_and_current_http_api": true,
+    "scratch_tzdata_and_cli_dry_run": true,
+    "sigterm_and_worker_restart": true,
+    "temporary_project_and_volume_removed": true
+  },
+  "performance": {
+    "measurement": "non-race final source; state/worker each n=1 per capacity; pure features/load n=100 each; nearest rank p95; no production SLO claim",
+    "scope": "daily synthetic Workout/derived history seed; current Workout has 1000 HR intervals + 1000 sealed route points; state timing includes admin enqueue/claim/input/compute/run/publish; worker excludes polling",
+    "capacity": [
+      {
+        "analysis_publications_rows": 730,
+        "analysis_results_rows": 2793,
+        "analysis_runs_rows": 369,
+        "environment": "fnOS/N100; Go native; PG18.6 disposable; GOMAXPROCS=2",
+        "jobs_rows": 374,
+        "seed": "set-based synthetic raw+derived capacity fixture",
+        "seven_workout_load_pure_ms": 0.030018,
+        "state_30d_load_compute_ms": 12.51,
+        "state_30d_ms": 58.856,
+        "state_365d_load_compute_ms": 42.564,
+        "state_365d_ms": 319.073,
+        "state_7d_load_compute_ms": 14.471,
+        "state_7d_ms": 51.762,
+        "syntheticWorkouts": 365,
+        "workout_claim_to_publication_ms": 61.776,
+        "workout_feature_and_load_pure_ms": {
+          "count": 100,
+          "input": "1h, one full-interval HR, no route",
+          "median": 0.022488,
+          "p95": 0.029619
+        },
+        "workout_load_pure_ms": {
+          "count": 100,
+          "median": 0.004133,
+          "p95": 0.005046
+        },
+        "workouts_rows": 365,
+        "years": 1
+      },
+      {
+        "analysis_publications_rows": 1460,
+        "analysis_results_rows": 3523,
+        "analysis_runs_rows": 1099,
+        "environment": "fnOS/N100; Go native; PG18.6 disposable; GOMAXPROCS=2",
+        "jobs_rows": 1104,
+        "seed": "set-based synthetic raw+derived capacity fixture",
+        "seven_workout_load_pure_ms": 0.032032,
+        "state_30d_load_compute_ms": 17.752,
+        "state_30d_ms": 98.229,
+        "state_365d_load_compute_ms": 55.985,
+        "state_365d_ms": 430.674,
+        "state_7d_load_compute_ms": 18.175,
+        "state_7d_ms": 68.937,
+        "syntheticWorkouts": 1095,
+        "workout_claim_to_publication_ms": 63.566,
+        "workout_feature_and_load_pure_ms": {
+          "count": 100,
+          "input": "1h, one full-interval HR, no route",
+          "median": 0.022596,
+          "p95": 0.039469
+        },
+        "workout_load_pure_ms": {
+          "count": 100,
+          "median": 0.004273,
+          "p95": 0.005719
+        },
+        "workouts_rows": 1095,
+        "years": 3
+      },
+      {
+        "analysis_publications_rows": 2190,
+        "analysis_results_rows": 4253,
+        "analysis_runs_rows": 1829,
+        "environment": "fnOS/N100; Go native; PG18.6 disposable; GOMAXPROCS=2",
+        "jobs_rows": 1834,
+        "seed": "set-based synthetic raw+derived capacity fixture",
+        "seven_workout_load_pure_ms": 0.030083,
+        "state_30d_load_compute_ms": 18.749,
+        "state_30d_ms": 79.923,
+        "state_365d_load_compute_ms": 54.89,
+        "state_365d_ms": 339.237,
+        "state_7d_load_compute_ms": 19.778,
+        "state_7d_ms": 69.921,
+        "syntheticWorkouts": 1825,
+        "workout_claim_to_publication_ms": 61.009,
+        "workout_feature_and_load_pure_ms": {
+          "count": 100,
+          "input": "1h, one full-interval HR, no route",
+          "median": 0.023104,
+          "p95": 0.031294
+        },
+        "workout_load_pure_ms": {
+          "count": 100,
+          "median": 0.004214,
+          "p95": 0.005099
+        },
+        "workouts_rows": 1825,
+        "years": 5
+      }
+    ],
+    "query_plans": "p4-query-plans-2026-10-28.json",
+    "large_HR_GPS_history": "NOT VERIFIED"
+  },
+  "resolved_findings": [
+    "sample delete and series seal dependency invalidation",
+    "sample batch job storm coalesced by type/UTC day",
+    "stale generation and fencing",
+    "narrow recompute must cover pending dirty days",
+    "scratch image lacked timezone database; fixed by embedded time/tzdata",
+    "conservative TRIMP missing policy for instant/partial/ambiguous/paused HR input",
+    "summary HR maximum retained alongside trace maximum"
+  ],
+  "risks": [
+    "Load-only recovery/readiness are deterministic engineering models without physiological calibration",
+    "Instant HR/paused workouts/missing parameters can leave load and state unavailable",
+    "250000 observation and route-point analysis cap; larger durable sync inputs fail explicitly",
+    "Synthetic Workout capacity does not validate many-year full HR/GPS or long-term retention",
+    "Old-binary/new-schema process combination not tested",
+    "P3 real-device acceptance deferred; P7 production/security/backup/power-loss not accepted"
+  ],
+  "changes": {
+    "prior_modifications": [],
+    "this_round_files": [
+      "README.md",
+      "apps/server/cmd/rai/main.go",
+      "apps/server/integration/analysis_performance_test.go",
+      "apps/server/integration/analysis_test.go",
+      "apps/server/integration/health_test.go",
+      "apps/server/integration/sample_batch_test.go",
+      "apps/server/integration/sync_test.go",
+      "apps/server/internal/admin/analysis.go",
+      "apps/server/internal/analysis/analysis_test.go",
+      "apps/server/internal/analysis/input.go",
+      "apps/server/internal/analysis/model.go",
+      "apps/server/internal/analysis/query.go",
+      "apps/server/internal/analysis/state.go",
+      "apps/server/internal/analysis/testdata/training_state.bundle.v1.json",
+      "apps/server/internal/analysis/testdata/workout.bundle.v1.json",
+      "apps/server/internal/analysis/workout.go",
+      "apps/server/internal/httpapi/analysis.go",
+      "apps/server/internal/httpapi/server.go",
+      "apps/server/internal/jobs/worker.go",
+      "apps/server/internal/jobs/worker_test.go",
+      "apps/server/internal/storage/postgres/analysis_input.go",
+      "apps/server/internal/storage/postgres/analysis_publish.go",
+      "apps/server/internal/storage/postgres/analysis_query.go",
+      "apps/server/internal/storage/postgres/dbgen/core.sql.go",
+      "apps/server/internal/storage/postgres/dbgen/models.go",
+      "apps/server/internal/storage/postgres/jobs.go",
+      "apps/server/internal/storage/postgres/sample_batch.go",
+      "apps/server/internal/storage/postgres/store.go",
+      "apps/server/migrations/00012_analysis.sql",
+      "apps/server/migrations/checksums.json",
+      "apps/server/queries/core.sql",
+      "contracts/CHANGELOG.md",
+      "contracts/openapi-v2.yaml",
+      "deploy/postgres/roles.sql",
+      "docs/ARCHITECTURE.md",
+      "docs/IMPLEMENTATION.md",
+      "docs/P4_ALGORITHM_CONTRACT.md",
+      "docs/V2_PHASE4_RESULT.md",
+      "docs/evidence/p4-baseline-2026-10-28.json",
+      "docs/evidence/p4-fnos-2026-10-28.json",
+      "docs/evidence/p4-query-plans-2026-10-28.json",
+      "scripts/check-boundaries.py",
+      "scripts/check-p4.sh",
+      "scripts/test-p1-compose.sh",
+      "scripts/test-p3-e2e.sh",
+      "scripts/test-p4-compose.sh"
+    ],
+    "source_sha256": {
+      "apps/server/cmd/rai/main.go": "aa033133f9cc94bdb2ba3c4c2c405ae29cb2be74742fce82639aefcf387fb346",
+      "apps/server/migrations/00012_analysis.sql": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+      "apps/server/migrations/checksums.json": "3eba7bfbc0d3833b8e9d21058b7756805d6e8862ef79569e0b64a5e89fe17835",
+      "apps/server/integration/sync_test.go": "aa9ad6d0e7d0f1f88f5c2e2ddbc2dc9d1dea813ab12b4482187b834630fbc99e",
+      "apps/server/integration/analysis_performance_test.go": "e3f1380c599046d0eb460ab336ef1bd14b2d54cf98d9f5e0f06b5f322f7a07d9",
+      "apps/server/integration/analysis_test.go": "9725669c033c1c940a7935b50cab9988e5dcceba6c147cb69b2d3ebba5962008",
+      "apps/server/integration/sample_batch_test.go": "16c232bc6fd8c17688d4c0f99cc5f084106fc2d1e37901402a2d8f5f105c3f06",
+      "apps/server/integration/health_test.go": "3ef0fc0afe30f69b4a4cbf77ccdd3a419072e8ebe6538f94cc65d2d559034444",
+      "apps/server/internal/analysis/query.go": "68fda195bd53ae46e45ef11d9b70dc52f117d2b6d8c5ed8d08d7558000fdf75d",
+      "apps/server/internal/analysis/analysis_test.go": "a9843ed50521a16c00392634d1b4347f8d3f3468607aeb5e9697bf455322d019",
+      "apps/server/internal/analysis/workout.go": "9ae7639c312c0af53bac89408c2746275ebe4daa6e383d242cd032e5c94b5b42",
+      "apps/server/internal/analysis/input.go": "67723daaa564b10a3603e3053d7dc3f97ead66996c45a27d3e0ef9ee322f7d65",
+      "apps/server/internal/analysis/model.go": "34f154b96979eeac9406ba8ab43107f83bcd50b44d9d93a9080c8276f154c96a",
+      "apps/server/internal/analysis/state.go": "3a79d7c91850f78855df2afa950330774254f08619f6fa998c7b6aa6c6a88ac7",
+      "apps/server/internal/analysis/testdata/workout.bundle.v1.json": "2a0ffa5ead4e4571b6fb67408c000e56728e2c54b28ec6b447550d02ced348af",
+      "apps/server/internal/analysis/testdata/training_state.bundle.v1.json": "fab5fe9676509ad5b7f68345eadad1f1fe3e20a2d1b0c2e435154d93cb0bab9c",
+      "apps/server/internal/admin/analysis.go": "1f984614f4f444988e43bc63cb63fe288278ac5b764b684bd0de4baadbad8bdb",
+      "apps/server/internal/httpapi/analysis.go": "1404977f7de14b2e286fad950997210d450f62fe3d4b268d13cc55c7877d7eda",
+      "apps/server/internal/httpapi/server.go": "7476d48eba67dae51fe8bdfa8ce4d071ecd5a0c9366d17575960bbee5f662e3e",
+      "apps/server/internal/storage/postgres/analysis_publish.go": "e776d271050a831401d2f164b0d768ba6f91dd42925fc05c2fc4db6d212af925",
+      "apps/server/internal/storage/postgres/store.go": "9c79e7347ac6a4ca75dd864753719907b6011d84c744b487485d3cb320f336a8",
+      "apps/server/internal/storage/postgres/sample_batch.go": "bbacfaf51318b64bb1ca88eab387fd4ea9a447a14c21822b600a70577d9b7a56",
+      "apps/server/internal/storage/postgres/analysis_query.go": "61875ae847d57ee4139bfd1ea9788e584b3dd3246fa4b0420d20a1e368136f32",
+      "apps/server/internal/storage/postgres/jobs.go": "e81d4b9ee8bab1394e550e1f2e681c79c8204d4c7d1635060bb58d9b2685cf64",
+      "apps/server/internal/storage/postgres/analysis_input.go": "f75a39bd879164c7020c3db6b5370dc49771446d28afae8767d71e36006939f5",
+      "apps/server/internal/storage/postgres/dbgen/models.go": "992db73b1b4ae0b310191dcee90118468b35b611faa7d8ee7ae9dc5b814d451b",
+      "apps/server/internal/storage/postgres/dbgen/core.sql.go": "2db97aefa9f79889792f16e3f5fb8d0b65bf0b8508b53bf02c159b7098690c8a",
+      "apps/server/internal/jobs/worker.go": "62bb5a93d7a707294c6ff9186c31ed9cd031e7483006ea52f55ec6849d2b40ff",
+      "apps/server/internal/jobs/worker_test.go": "47f2bfe9304872c8b4acb1440f7c52875e25770baac5b688f972143abefa330e",
+      "apps/server/queries/core.sql": "913f0708f91587f1a7f2de03ac55a183eb447b699bd63ff4686fec850351cd25",
+      "contracts/CHANGELOG.md": "f20b89d7200e8e8ef8e691313e29fe8c731bbc77b7d22514917973f84f925bd9",
+      "contracts/openapi-v2.yaml": "00ccc18ba08f8ca37ff2856a4c3f4b6f8db3e952b601f878bb91604cd3772bd6",
+      "scripts/test-p3-e2e.sh": "15487249a64a59121440b278e1870e08397e0e3395f5db7035e15525e6250b83",
+      "scripts/test-p4-compose.sh": "702707b2332f25f7a3fcaeec6bcf572a902110c6e97753d990abcd474acf0ff1",
+      "scripts/test-p1-compose.sh": "65e18ed935c5dba2c04dafc4a4152028b7f739e275e165b1900812d8f08e0465",
+      "scripts/check-p4.sh": "43151befc677154f61b27152ba57729862781d81ef9fa869c6e3f526439407b3",
+      "scripts/check-boundaries.py": "b890cb8ec1c5e615b24941960cfa53fc4db22f6ba03d98928f54b2cbd1f523cc",
+      "deploy/postgres/roles.sql": "447fcadca48bdf410ef2e883df6abbd131dd08f6ae4e397dbdde6edaf98867e2"
+    },
+    "commits_created": false,
+    "pushed": false,
+    "production_deployed": false,
+    "legacy_running_modified": false,
+    "training_plan_started": false
+  },
+  "cleanup": {
+    "retained_test_source_directories_removed": true,
+    "compose_project_and_volume_inventory_empty": true,
+    "scope": "only this task disposable test resources; existing services untouched"
+  },
+  "observed_outputs": {
+    "full_first": {
+      "package_results": [
+        "ok  \trai/server/internal/admin\t1.037s",
+        "ok  \trai/server/internal/analysis\t2.372s",
+        "ok  \trai/server/internal/config\t1.051s",
+        "ok  \trai/server/internal/httpapi\t1.024s",
+        "ok  \trai/server/internal/jobs\t1.027s",
+        "ok  \trai/server/internal/storage/postgres\t1.048s",
+        "ok  \trai/server/internal/syncing\t6.593s",
+        "ok  \trai/server/integration\t194.036s",
+        "ok  \trai/server/internal/admin\t2.538s",
+        "ok  \trai/server/internal/analysis\t1.594s",
+        "ok  \trai/server/internal/config\t1.012s",
+        "ok  \trai/server/internal/httpapi\t1.015s",
+        "ok  \trai/server/internal/jobs\t1.014s",
+        "ok  \trai/server/internal/storage/postgres\t1.012s",
+        "ok  \trai/server/internal/syncing\t4.527s"
+      ],
+      "terminal_markers": [
+        "P4_GO_GATES=PASS"
+      ]
+    },
+    "full_second": {
+      "package_results": [
+        "ok  \trai/server/internal/admin\t1.013s",
+        "ok  \trai/server/internal/analysis\t1.533s",
+        "ok  \trai/server/internal/config\t1.012s",
+        "ok  \trai/server/internal/httpapi\t1.014s",
+        "ok  \trai/server/internal/jobs\t1.014s",
+        "ok  \trai/server/internal/storage/postgres\t1.019s",
+        "ok  \trai/server/internal/syncing\t5.428s",
+        "ok  \trai/server/integration\t261.859s",
+        "ok  \trai/server/internal/admin\t3.423s",
+        "ok  \trai/server/internal/analysis\t1.567s",
+        "ok  \trai/server/internal/config\t1.011s",
+        "ok  \trai/server/internal/httpapi\t1.015s",
+        "ok  \trai/server/internal/jobs\t1.014s",
+        "ok  \trai/server/internal/storage/postgres\t1.012s",
+        "ok  \trai/server/internal/syncing\t4.606s"
+      ],
+      "terminal_markers": [
+        "P4_GO_GATES=PASS"
+      ]
+    },
+    "acceptance": {
+      "package_results": [
+        "ok  \trai/server/internal/admin\t0.004s",
+        "ok  \trai/server/internal/analysis\t0.092s",
+        "ok  \trai/server/internal/config\t0.005s",
+        "ok  \trai/server/internal/httpapi\t0.009s",
+        "ok  \trai/server/internal/jobs\t0.012s",
+        "ok  \trai/server/internal/storage/postgres\t0.007s",
+        "ok  \trai/server/internal/syncing\t0.256s",
+        "ok  \trai/server/internal/admin\t1.014s",
+        "ok  \trai/server/internal/analysis\t1.539s",
+        "ok  \trai/server/internal/config\t1.012s",
+        "ok  \trai/server/internal/httpapi\t1.014s",
+        "ok  \trai/server/internal/jobs\t1.013s",
+        "ok  \trai/server/internal/storage/postgres\t1.014s",
+        "ok  \trai/server/internal/syncing\t4.630s",
+        "ok  \trai/server/integration\t31.610s",
+        "ok  \trai/server/integration\t7.458s"
+      ],
+      "terminal_markers": [
+        "P4_SQLC_REPRODUCIBLE=PASS",
+        "P4_FINAL_VALIDATION=PASS"
+      ]
+    },
+    "compose": {
+      "package_results": [],
+      "terminal_markers": [
+        "P4_CURRENT_API=PASS (nullable missing personal parameters; no invented load)",
+        "P4_COMPOSE=PASS (P3 restart/worker-offline regression, same image, actual worker, current API, dry-run, SIGTERM)"
+      ]
+    }
+  }
+}

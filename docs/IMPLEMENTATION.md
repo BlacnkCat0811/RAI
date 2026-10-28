@@ -1,6 +1,6 @@
 # RAI V2 实施合同与实际状态
 
-更新：2026-10-27（Asia/Shanghai）。工作仓库 `/Users/ta/rai`。本文件是实施主合同；[Phase 0 基线](V2_PHASE0_BASELINE.md) 规定领域、协议、状态、预算及禁止事项，[Phase 1 执行计划](V2_PHASE1_PLAN.md) 是本阶段执行入口。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；本轮用户冻结的 P0–P7 路线与其旧阶段编号、兼容和迁移设想不一致时，按本合同实施，不修改原文或追求旧系统兼容。
+更新：2026-10-28（Asia/Shanghai）。工作仓库 `/Users/ta/rai`。本文件是实施主合同；[Phase 0 基线](V2_PHASE0_BASELINE.md) 规定领域、协议、状态、预算及禁止事项，[Phase 1 执行计划](V2_PHASE1_PLAN.md) 是本阶段执行入口。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；本轮用户冻结的 P0–P7 路线与其旧阶段编号、兼容和迁移设想不一致时，按本合同实施，不修改原文或追求旧系统兼容。
 
 ## 目标与不变量
 
@@ -14,11 +14,13 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 
 ## 当前实现与范围
 
-当前工程不是空骨架：`apps/server` 为 Go 1.27.3 的 `rai/server`，已有 api/worker/migrate/init 单二进制模式、pgx/v5、sqlc、goose migrations 00001–00011、合成测试、开发 Compose、Dockerfile 和 CI。`/health`、`/livez` 检查进程存活，`/ready`、`/readyz` 检查数据库与 schema。开发 Compose 包含 PostgreSQL、API 和 Worker，启动前须显式执行 migration；fnOS 隔离验收见下。
+当前工程不是空骨架：`apps/server` 为 Go 1.27.3 的 `rai/server`，已有 api/worker/migrate/init 单二进制模式、pgx/v5、sqlc、goose migrations 00001–00012、合成测试、开发 Compose、Dockerfile 和 CI。`/health`、`/livez` 检查进程存活，`/ready`、`/readyz` 检查数据库与 schema。开发 Compose 包含 PostgreSQL、API 和 Worker，启动前须显式执行 migration；fnOS 隔离验收见下。
 
-已实现的服务端切片包括 v2 数量/睡眠类别样本、有界多活动 Workout、append-only Workout enrichment、sample↔Workout 迟到关联、超大 Workout 分块/seal、数量 series 分块/seal、manifest 绑定的 route 分块/原子 seal/删除屏障、页回执、持久请求预算和上传租约。当前握手声明 `routes=true`、`sampleWorkoutAssociations=true`、`workoutEnrichment=true`；`changefeed` 和 `analysis` 仍为 false。详细身份、限额及可观察错误以 [P3 同步合同](V2_PHASE3_SYNC_CONTRACT.md)、[P2 同步合同](../contracts/sync-v2.md) 和 [OpenAPI](../contracts/openapi-v2.yaml) 为准。Workout 主体和样本内容不可变；迟到 metadata 只能追加有源版本事实，不能覆盖既有不同值。
+已实现的服务端切片包括 v2 数量/睡眠类别样本、有界多活动 Workout、append-only Workout enrichment、sample↔Workout 迟到关联、超大 Workout 分块/seal、数量 series 分块/seal、manifest 绑定的 route 分块/原子 seal/删除屏障、页回执、持久请求预算和上传租约。当前握手声明 `routes=true`、`sampleWorkoutAssociations=true`、`workoutEnrichment=true`；`changefeed` 仍为 false；P4 的 `analysis` 为 true。详细身份、限额及可观察错误以 [P3 同步合同](V2_PHASE3_SYNC_CONTRACT.md)、[P2 同步合同](../contracts/sync-v2.md) 和 [OpenAPI](../contracts/openapi-v2.yaml) 为准。Workout 主体和样本内容不可变；迟到 metadata 只能追加有源版本事实，不能覆盖既有不同值。
 
-当前 Worker 只回收过期租约，不消费或完成分析。P3.5 已在冻结的 `ios/RAI` 新增原生 iPhone 同步工程：只读 HealthKit anchored query、本地原子文件 outbox、candidate/delivered anchor、连续 sequence、不可变 gzip、回执/页 seal 校验、关联、enrichment、route/series/大 Workout 分块及稳定后台 URLSession。Swift 合成客户端已连通 fnOS 隔离 API/PostgreSQL，不能等同真机验收。用户确认本轮没有可用 iPhone；实际授权、HealthKit 数据读取、后台恢复和 iPhone app kill 仍未验证。结果下载、分析算法、训练计划和生产部署未实现或未验收。客户端当前使用原子文件，未引入本地数据库；SQLite 仅可作为客户端选择，禁止用作服务端数据库。P1 服务 CI 不使用 Node；保留独立 OpenAPI lint 工作流，该合同工作流使用 Node。生产服务不依赖 Node。没有旧 API 或旧 schema 兼容层。
+当前 Worker 已消费 Workout、sample/series依赖与training-state任务；版本化run/results、原子publication、generation CAS、lease renewal/fencing、当前结果查询和受控重算已实现。Go纯算法与storage分离，参数不足/心率覆盖不足时返回unavailable；recovery/readiness只表达load-only模型，不假装使用睡眠/HRV。P4 fnOS验证与限制见末尾及 [P4 Result](V2_PHASE4_RESULT.md)。
+
+P3.5 原生iPhone同步工程已经实现，但真实授权、HealthKit读取、后台与iPhone kill/GPS/E2E仍NOT VERIFIED。用户本轮授权将真机验收延期，允许P4开发入口例外；保留历史P3/P3.5结果。客户端仍使用原子文件outbox，没有服务端SQLite。完整事实下载、P5训练计划与正式部署仍未实现或未验收。生产不依赖Node；独立OpenAPI lint仍使用Node。
 
 ## 阶段路线与出口
 
@@ -27,8 +29,8 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 | P0 | 冻结架构、领域、同步、Worker、风险与 P1 可执行计划 | 本轮文档冻结；P1 READY: YES |
 | P1 | 基础设施：Go、API/Worker、PG、显式 migration、配置、日志、健康、Compose、优雅停止、fnOS 质量门禁 | 本轮状态见下方最新记录；远端 CI 不再是验收条件 |
 | P2 | 核心领域、route/jobs/repository 和事务边界 | PASS WITH RISKS；核心模型、路线暂存与 fnOS 验证完成，路线发布协议留待 P3 |
-| P3 | iOS HealthKit 增量、批次、幂等、删除、重试、迟到及 route | PASS WITH RISKS；服务端 fnOS 验证通过；P3.5 iOS 工程与 Swift 合成恢复联调已实现，真机 E2E 未完成，P3.5 BLOCKED / P4 READY: NO |
-| P4 | Go 异步分析、可重算结果、算法与输入版本 | 未实现；Worker 不假装完成 |
+| P3 | iOS HealthKit 增量、批次、幂等、删除、重试、迟到及 route | PASS WITH RISKS；服务端 fnOS 验证通过；P3.5 iOS 工程与 Swift 合成恢复联调已实现，真机 E2E 未完成；本轮用户授权延期，不再阻塞P4开发，历史P3.5 BLOCKED保留 |
+| P4 | Go 异步分析、可重算结果、算法与输入版本 | PASS WITH RISKS；fnOS自动门禁通过，load-only模型与输入上限见P4 Result |
 | P5 | 训练基础计划、override、effective、执行与反馈闭环 | 未实现 |
 | P6 | iOS API、同步、分析查询、训练与执行集成 | 未实现 |
 | P7 | fnOS Docker、TLS、资源、可观测、PG 备份恢复、性能和用户明确授权的发布 | 未验收；不自动部署、切入口或迁移真实数据 |
@@ -127,3 +129,34 @@ macOS/Xcode 的最终 Swift/iOS 测试、iPhone target 构建结果和 fnOS 回�
 本轮 Swift 核心 27 项通过；108 个 route 向量由当前 Go 冻结实现重新生成，与 Swift fixture 一致。Swift/fnOS 合成恢复链路再次通过两次 macOS SIGKILL、提交后抑制响应、原 batch 回执恢复、原 route 第 3 块重传、6 块/5,001 点 seal、迟到关联和 enrichment；隔离 SQL 数量及 5 个 durable jobs 与首次验收一致。隔离 Compose 再次通过 API/PG restart 和 Worker offline。fnOS 普通 149、race 149、integration/race 279 项通过，gofmt、vet、build、模块校验和 246 包依赖边界通过。构建、模拟器测试和逐项 gate 的最终结果见[证据的 latest_revalidation 字段](evidence/p35-ios-2026-10-27.json)。临时测试容器和 Compose 卷已核实清理。
 
 本轮 Xcode 识别到已配对 iPhone，但设备为 `unavailable`；用户随后确认“本轮仍无可用 iPhone，完成代码与自动验收即可”。未安装 App、读取 HealthKit 或执行真实网络验收。唯一阶段出口阻塞仍为可用真实 iPhone 的 HealthKit→fnOS→ACK 及设备恢复验收；签名安装、真实 20/45 分钟 Workout/GPS、后台恢复及性能均未验证。**P3.5: BLOCKED；P3: PASS WITH RISKS；P4 READY: NO。** 原架构方案、旧 `running` 和生产入口未修改，未开始 P4。
+
+
+## P4 开发入口例外与实现（2026-10-28）
+
+`P4_BASE_COMMIT=8e40573e027ac6dd9aac871fb755051cb31c4657`，`main`，开始时 tracked/untracked 均为0。
+**P3 REAL DEVICE ACCEPTANCE: DEFERRED BY USER / NOT VERIFIED。P4 DEVELOPMENT EXCEPTION: AUTHORIZED BY USER。** 前文 P3/P3.5 的 BLOCKED、P4 READY:NO 是当时真实历史，不修改成虚构真机 PASS；本次按用户明确入口例外实施 P4。
+
+新增 schema12、analysis domain、真实 Worker handler、输入快照/hash/lineage、参数版本、不可变 runs/results、原子 publication、generation CAS、删除隐藏、current query 与管理 recompute。Workout Features → TRIMP → fitness/fatigue → load-only recovery/readiness 按顺序实现。没有可靠个人参数或心率覆盖时不提供 TRIMP，也不伪造上层评分。只在已有队列中消费、续租、重试和结束，未引入新运行依赖或 P5。
+
+P3 输入正确性 blocker 的证据与最小修复见 [算法合同](P4_ALGORITHM_CONTRACT.md)：删除 sample 关联需要标脏 Workout，sealed series 需要传播依赖；sample 新增批次按 type/UTC 日聚合任务。上传身份、sequence、seal 和 durable receipt 合同保持，旧回执不重写。00001–00011 checksum 保持。
+
+完整本轮验证、性能/容量观测及未验证项以 [P4 Result](V2_PHASE4_RESULT.md) 为准。真机、生产部署、真实数据迁移和 P5 均未执行。没有 commit、push、入口切换或修改旧 running。
+
+本轮最终：**P4 STATUS: PASS WITH RISKS；P5 DEVELOPMENT READY: YES。P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED。** 停止于P4。
+
+
+## P5 Training Plan / Coach Closed Loop（2026-10-28）
+
+`P5_BASE_COMMIT=8e40573e027ac6dd9aac871fb755051cb31c4657`，`main`；本轮在既有未提交P4工作上增量实现，未创建commit/push。旧P3/P3.5/P4验收历史与原方案保留。**P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED。** 本轮用户明确允许P5开发，不能据此推导真机通过。
+
+P5新增schema13、纯training domain、versioned generator/parameters、stable session、persistent field overrides、immutable materialized Effective、generation runs/publication、execution snapshot、explicit late Workout association、versioned planned-vs-actual feedback和同队列recalculation。用户edit/move/add/skip/delete/revoke与乐观锁、overrideID及commandID独立幂等已实现；重算发布在dataset锁内合并最新override。新目标可归档旧Plan而保留历史。P5未修改00001–00012，ready严格要求13。
+
+真实P4 publication→low readiness→新Base→用户7km与改期保留、未编辑长跑距离更新→frozen execution→late association/late analysis→feedback→再重算已由PostgreSQL和HTTP/Worker验收。并发双客户端、edit vs generation、旧generation/fencing、lease事务内过期、Base/Effective/publication/job/override/feedback故障回滚、fresh及schema12升级/重复迁移、角色边界和历史重放均通过。实现中实际发现并修复取整增长边界、anchor aliasing、override identity幂等、冻结timezone兼容和受限角色权限；失败轮不记PASS。
+
+最终fnOS完整race PostgreSQL集成386.281秒通过，含P3/P4回归；最后只读timezone过滤补丁后又通过全部P5真实PG race（90.441秒）、race单元、vet/build/依赖边界。最终源码再跑gofmt、普通/race、vet（含integration/scale）、build与边界通过；sqlc生成与重复哈希校验通过。隔离Compose通过P3离线Worker/重启回执、P4真实Worker/current API、P5 HTTP闭环和SIGTERM；OpenAPI lint通过，8条旧warning保留。
+
+最终独立non-race容量/性能24.336秒：52周/3年合成历史364/1095 Workout，100 override，154/258 Effective；16周112 slots。生成8/16周分别100次，其他查询/merge/recalculation为单次storage观测；测试harness排除debounce/poll等待，非HTTP或iPhone延迟，非生产SLO。具体数字、源码哈希与验收序列见 [P5 Result](V2_PHASE5_RESULT.md)、[Coach Contract](P5_COACH_CONTRACT.md)、[fnOS evidence](evidence/p5-fnos-2026-10-28.json) 和 [baseline](evidence/p5-baseline-2026-10-28.json)。
+
+P5为backend-only；未实现P6完整UI、WorkoutKit、Watch、LLM或P7部署。透明规则与load-only readiness/recovery的个体效度、目标时间优化/taper、长期retention、真实iPhone、生产TLS/secret/备份恢复/断电仍未验证。没有连接既有rai数据库、迁移真实健康数据或修改旧running。
+
+**P5 STATUS: PASS WITH RISKS；P6 DEVELOPMENT READY: YES。P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED。** P6 gate只表示P5闭环自动验收成立，按STOP RULE停止于P5，不开始P6。

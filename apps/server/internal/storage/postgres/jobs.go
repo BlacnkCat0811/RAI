@@ -3,13 +3,14 @@ package postgres
 import (
 	"context"
 	"errors"
+	"rai/server/internal/analysis"
 
 	"github.com/jackc/pgx/v5"
 	"rai/server/internal/storage/postgres/dbgen"
 	"rai/server/internal/syncing"
 )
 
-type Lease = dbgen.ClaimJobRow
+type Lease = analysis.Lease
 
 func (s *Store) Claim(ctx context.Context, kinds []string) (Lease, error) {
 	tx, err := s.begin(ctx)
@@ -28,11 +29,11 @@ func (s *Store) Claim(ctx context.Context, kinds []string) (Lease, error) {
 	if err = tx.Commit(ctx); err != nil {
 		return Lease{}, err
 	}
-	return r, nil
+	return Lease{ID: r.ID, DatasetID: r.DatasetID, Kind: r.Kind, ScopeKey: r.ScopeKey, TargetGeneration: r.TargetGeneration, FencingToken: r.FencingToken, Payload: r.Payload}, nil
 }
 func (s *Store) Renew(ctx context.Context, l Lease) error {
 	r, err := s.Pool.Exec(ctx, `UPDATE jobs SET lease_until=now()+interval '60 seconds'
-		WHERE id=$1 AND dataset_id=$2 AND state='running' AND fencing_token=$3 AND lease_until>now()`, l.ID, l.DatasetID, l.FencingToken)
+		WHERE id=$1 AND dataset_id=$2 AND state='running' AND fencing_token=$3 AND lease_until>clock_timestamp()`, l.ID, l.DatasetID, l.FencingToken)
 	if err != nil {
 		return err
 	}
@@ -56,7 +57,7 @@ func (s *Store) Fail(ctx context.Context, l Lease, retryable bool) error {
 		state=CASE WHEN $4 AND attempts < 8 THEN 'queued' ELSE 'failed' END,
 		lease_until=NULL, run_after=now()+interval '5 seconds',
 		last_error_code=CASE WHEN $4 THEN 'handler_retryable' ELSE 'handler_failed' END
-		WHERE id=$1 AND dataset_id=$2 AND state='running' AND fencing_token=$3 AND lease_until>now()
+		WHERE id=$1 AND dataset_id=$2 AND state='running' AND fencing_token=$3 AND lease_until>clock_timestamp()
 		RETURNING last_error_code`, l.ID, l.DatasetID, l.FencingToken, retryable).Scan(&code)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return syncing.Fail(409, "lease_lost")
@@ -90,7 +91,7 @@ func (s *Store) Complete(ctx context.Context, l Lease) error {
 	var scope string
 	var generation int64
 	err = tx.QueryRow(ctx, `UPDATE jobs SET state='succeeded',lease_until=NULL WHERE id=$1 AND dataset_id=$2
-		AND fencing_token=$3 AND state='running' AND lease_until>now() RETURNING scope_key,target_generation`, l.ID, l.DatasetID, l.FencingToken).Scan(&scope, &generation)
+		AND fencing_token=$3 AND state='running' AND lease_until>clock_timestamp() RETURNING scope_key,target_generation`, l.ID, l.DatasetID, l.FencingToken).Scan(&scope, &generation)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return syncing.Fail(409, "lease_lost")
 	}
@@ -118,6 +119,14 @@ func (s *Store) RequeueExpired(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	for _, r := range rows {
+		_, err = tx.Exec(ctx, `UPDATE training_generation_runs SET status='FAILED',completed_at=now(),error_code='lease_expired' WHERE job_id=$1 AND fencing_token=$2 AND status='RUNNING'`, r.ID, r.FencingToken)
+		if err != nil {
+			return 0, err
+		}
+		_, err = tx.Exec(ctx, `UPDATE analysis_runs SET status='FAILED',finished_at=now(),error_code='lease_expired' WHERE job_id=$1 AND fencing_token=$2 AND status='RUNNING'`, r.ID, r.FencingToken)
+		if err != nil {
+			return 0, err
+		}
 		_, err = tx.Exec(ctx, `UPDATE job_attempts SET finished_at=now(),result_code='lease_expired' WHERE job_id=$1 AND fencing_token=$2`, r.ID, r.FencingToken)
 		if err != nil {
 			return 0, err

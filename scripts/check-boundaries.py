@@ -17,3 +17,15 @@ for package in packages:
     if path == 'rai/server/internal/admin' or path.startswith('rai/server/migrations') or path.startswith('github.com/pressly/goose'):
         raise SystemExit('FAIL: online graph reaches maintenance package: ' + path)
 print('PASS: online import graph excludes admin, migration and goose (%d packages)' % len(packages))
+
+algorithms = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/analysis'], cwd=root, text=True))
+for dependency in algorithms.get('Imports', []):
+    if dependency.startswith(('rai/server/internal/storage', 'rai/server/internal/admin', 'github.com/jackc/', 'net', 'os', 'database/')):
+        raise SystemExit('FAIL: analysis core reaches I/O: ' + dependency)
+print('PASS: pure analysis domain excludes database, network and filesystem')
+
+algorithms = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/training'], cwd=root, text=True))
+for dependency in algorithms.get('Imports', []):
+    if dependency.startswith(('rai/server/internal/storage', 'rai/server/internal/admin', 'github.com/jackc/', 'net', 'os', 'database/')):
+        raise SystemExit('FAIL: training core reaches I/O: ' + dependency)
+print('PASS: pure training domain excludes database, network and filesystem')

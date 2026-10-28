@@ -38,9 +38,10 @@ FROM jobs WHERE dataset_id = $1 AND id = $2;
 
 -- name: ClaimJob :one
 WITH candidate AS (
-    SELECT id FROM jobs
+    SELECT id FROM jobs candidate
     WHERE state = 'queued' AND run_after <= now() AND kind = ANY(sqlc.arg(kinds)::text[])
-    ORDER BY run_after, id FOR UPDATE SKIP LOCKED LIMIT 1
+    AND NOT EXISTS (SELECT 1 FROM jobs newer WHERE newer.dataset_id=candidate.dataset_id AND newer.kind=candidate.kind AND newer.scope_key=candidate.scope_key AND newer.target_generation>candidate.target_generation AND newer.state IN ('queued','running'))
+    ORDER BY CASE kind WHEN 'analysis.workout' THEN 0 WHEN 'analysis.training_state' THEN 2 WHEN 'training.plan' THEN 3 ELSE 1 END, run_after, id FOR UPDATE SKIP LOCKED LIMIT 1
 )
 UPDATE jobs j SET state = 'running', lease_until = now() + interval '60 seconds',
     fencing_token = fencing_token + 1, attempts = attempts + 1

@@ -1,0 +1,52 @@
+{
+  "algorithm": "workout.bundle/v1",
+  "input": {
+    "id": "fixture-workout-A",
+    "startUs": 0,
+    "endUs": 3600000000,
+    "durationSeconds": 3600,
+    "distanceMeters": 10000,
+    "deleted": false,
+    "parameters": {
+      "version": 1,
+      "restingHR": 50,
+      "maxHR": 200,
+      "coefficientA": 0.64,
+      "coefficientB": 1.92,
+      "provenance": "synthetic fixture, explicit"
+    },
+    "observations": [
+      {
+        "id": "hr-A",
+        "type": "HKQuantityTypeIdentifierHeartRate",
+        "startUs": 0,
+        "endUs": 3600000000,
+        "value": 150,
+        "unit": "count/min"
+      }
+    ],
+    "statistics": [],
+    "route": [],
+    "lineage": [
+      "synthetic:A"
+    ]
+  },
+  "expected": {
+    "duration": 3600,
+    "distance": 10000,
+    "average_speed": 2.7777777777777777,
+    "average_pace": 0.36,
+    "average_heart_rate": 150,
+    "max_heart_rate": 150,
+    "heart_rate_coverage": 1,
+    "cadence_coverage": 0,
+    "power_coverage": 0,
+    "route_coverage": 0,
+    "workout_load": 92.07397697457361,
+    "average_cadence": null,
+    "average_power": null,
+    "route_distance": null,
+    "elevation_gain": null,
+    "elevation_loss": null
+  }
+}

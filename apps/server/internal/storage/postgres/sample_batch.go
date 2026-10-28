@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -60,7 +61,12 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 		return 0, nil, err
 	}
 	writes := &pgx.Batch{}
-	jobs := make([]string, 0, len(newEvents))
+	jobs := make([]string, 0)
+	type group struct {
+		job        string
+		start, end time.Time
+	}
+	groups := map[string]group{}
 	for ordinal, e := range newEvents {
 		canonical, hash := e.Canonical()
 		start, end := time.UnixMicro(*e.StartUs).UTC(), time.UnixMicro(*e.EndUs).UTC()
@@ -77,9 +83,19 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 		if err != nil {
 			return 0, nil, err
 		}
-		job := syncing.NewID()
-		jobs = append(jobs, job)
-		scope := e.Kind + ":" + e.Type + ":" + e.UUID
+		scope := "sample:" + e.Type + ":" + start.Format("20060102")
+		g, ok := groups[scope]
+		if !ok {
+			g = group{syncing.NewID(), start, end}
+		} else {
+			if start.Before(g.start) {
+				g.start = start
+			}
+			if end.After(g.end) {
+				g.end = end
+			}
+		}
+		groups[scope] = g
 		writes.Queue(`WITH fact AS (
 			INSERT INTO health_samples(dataset_id,sample_type,sample_uuid,event_start,event_end,value_numeric,value_category,unit,source_bundle_id,content_sha256,entity_revision,metadata)
 			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
@@ -89,14 +105,7 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 		), event_log AS (
 			INSERT INTO change_events(dataset_id,commit_rev,ordinal,event_id,entity_kind,entity_key,operation,payload)
 			VALUES($1,$11,$14,$15,'sample',$16,'upsert',$17)
-		), dirty AS (
-			INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through) VALUES($1,$18,1,$4,$5)
-			ON CONFLICT(dataset_id,scope_key) DO UPDATE SET generation=dirty_scopes.generation+1,
-				dirty_from=LEAST(dirty_scopes.dirty_from,EXCLUDED.dirty_from),dirty_through=GREATEST(dirty_scopes.dirty_through,EXCLUDED.dirty_through)
-			RETURNING generation
-		)
-		INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,payload)
-		SELECT $19,$1,'analysis.sample',$18,generation,$20 FROM dirty`, dataset, e.Type, e.UUID, start, end, value, e.Category, unit, e.Source.BundleID, hash, rev, meta, batchID, ordinal, syncing.NewID(), e.Type+":"+e.UUID, canonical, scope, job, fmt.Sprintf(`{"inputRevision":%d}`, rev))
+        ) SELECT 1`, dataset, e.Type, e.UUID, start, end, value, e.Category, unit, e.Source.BundleID, hash, rev, meta, batchID, ordinal, syncing.NewID(), e.Type+":"+e.UUID, canonical)
 	}
 	if len(newEvents) > 0 {
 		results = tx.SendBatch(ctx, writes)
@@ -107,6 +116,23 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 			}
 		}
 		if err := results.Close(); err != nil {
+			return 0, nil, err
+		}
+	}
+	keys := make([]string, 0, len(groups))
+	for key := range groups {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, scope := range keys {
+		g := groups[scope]
+		jobs = append(jobs, g.job)
+		_, err := tx.Exec(ctx, `WITH dirty AS (
+ INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through) VALUES($1,$2,1,$3,$4)
+ ON CONFLICT(dataset_id,scope_key) DO UPDATE SET generation=dirty_scopes.generation+1,
+ dirty_from=LEAST(dirty_scopes.dirty_from,EXCLUDED.dirty_from),dirty_through=GREATEST(dirty_scopes.dirty_through,EXCLUDED.dirty_through) RETURNING generation)
+ INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,payload) SELECT $5,$1,'analysis.sample',$2,generation,$6 FROM dirty`, dataset, scope, g.start, g.end, g.job, fmt.Sprintf(`{"inputRevision":%d}`, rev))
+		if err != nil {
 			return 0, nil, err
 		}
 	}

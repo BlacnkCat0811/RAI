@@ -1,0 +1,443 @@
+{
+  "date": "2026-10-28",
+  "base_commit": "8e40573e027ac6dd9aac871fb755051cb31c4657",
+  "p5_status": "PASS WITH RISKS",
+  "p6_development_ready": true,
+  "p3_real_device_acceptance": "DEFERRED / NOT VERIFIED",
+  "full_acceptance": {
+    "run": "20261028112016-3711868",
+    "packages": [
+      {
+        "package": "rai/server/internal/admin",
+        "seconds": 0.011
+      },
+      {
+        "package": "rai/server/internal/analysis",
+        "seconds": 0.183
+      },
+      {
+        "package": "rai/server/internal/config",
+        "seconds": 0.007
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "seconds": 0.023
+      },
+      {
+        "package": "rai/server/internal/jobs",
+        "seconds": 0.007
+      },
+      {
+        "package": "rai/server/internal/storage/postgres",
+        "seconds": 0.014
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "seconds": 0.517
+      },
+      {
+        "package": "rai/server/internal/training",
+        "seconds": 0.017
+      },
+      {
+        "package": "rai/server/internal/admin",
+        "seconds": 1.038
+      },
+      {
+        "package": "rai/server/internal/analysis",
+        "seconds": 1.883
+      },
+      {
+        "package": "rai/server/internal/config",
+        "seconds": 1.02
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "seconds": 1.027
+      },
+      {
+        "package": "rai/server/internal/jobs",
+        "seconds": 1.026
+      },
+      {
+        "package": "rai/server/internal/storage/postgres",
+        "seconds": 1.024
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "seconds": 6.101
+      },
+      {
+        "package": "rai/server/internal/training",
+        "seconds": 1.12
+      },
+      {
+        "package": "rai/server/integration",
+        "seconds": 386.281
+      },
+      {
+        "package": "rai/server/internal/admin",
+        "seconds": 2.868
+      },
+      {
+        "package": "rai/server/internal/analysis",
+        "seconds": 1.551
+      },
+      {
+        "package": "rai/server/internal/config",
+        "seconds": 1.013
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "seconds": 1.016
+      },
+      {
+        "package": "rai/server/internal/jobs",
+        "seconds": 1.014
+      },
+      {
+        "package": "rai/server/internal/storage/postgres",
+        "seconds": 1.012
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "seconds": 4.825
+      },
+      {
+        "package": "rai/server/internal/training",
+        "seconds": 1.066
+      }
+    ],
+    "markers": [
+      "PASS: online import graph excludes admin, migration and goose (248 packages)",
+      "PASS: pure analysis domain excludes database, network and filesystem",
+      "PASS: pure training domain excludes database, network and filesystem",
+      "P5_GO_GATES=PASS"
+    ]
+  },
+  "final_calendar_delta": {
+    "run": "20261028113040-3727552",
+    "packages": [
+      {
+        "package": "rai/server/internal/admin",
+        "seconds": 1.031
+      },
+      {
+        "package": "rai/server/internal/analysis",
+        "seconds": 1.522
+      },
+      {
+        "package": "rai/server/internal/config",
+        "seconds": 1.021
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "seconds": 1.015
+      },
+      {
+        "package": "rai/server/internal/jobs",
+        "seconds": 1.016
+      },
+      {
+        "package": "rai/server/internal/storage/postgres",
+        "seconds": 1.018
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "seconds": 4.996
+      },
+      {
+        "package": "rai/server/internal/training",
+        "seconds": 1.13
+      },
+      {
+        "package": "rai/server/integration",
+        "seconds": 90.441
+      }
+    ],
+    "markers": [
+      "PASS: online import graph excludes admin, migration and goose (248 packages)",
+      "PASS: pure analysis domain excludes database, network and filesystem",
+      "PASS: pure training domain excludes database, network and filesystem"
+    ]
+  },
+  "final_source_quality": {
+    "run": null,
+    "packages": [
+      {
+        "package": "rai/server/internal/admin",
+        "seconds": 0.006
+      },
+      {
+        "package": "rai/server/internal/analysis",
+        "seconds": 0.135
+      },
+      {
+        "package": "rai/server/internal/config",
+        "seconds": 0.012
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "seconds": 0.015
+      },
+      {
+        "package": "rai/server/internal/jobs",
+        "seconds": 0.011
+      },
+      {
+        "package": "rai/server/internal/storage/postgres",
+        "seconds": 0.005
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "seconds": 0.267
+      },
+      {
+        "package": "rai/server/internal/training",
+        "seconds": 0.014
+      },
+      {
+        "package": "rai/server/internal/admin",
+        "seconds": 1.018
+      },
+      {
+        "package": "rai/server/internal/analysis",
+        "seconds": 1.55
+      },
+      {
+        "package": "rai/server/internal/config",
+        "seconds": 1.011
+      },
+      {
+        "package": "rai/server/internal/httpapi",
+        "seconds": 1.015
+      },
+      {
+        "package": "rai/server/internal/jobs",
+        "seconds": 1.014
+      },
+      {
+        "package": "rai/server/internal/storage/postgres",
+        "seconds": 1.014
+      },
+      {
+        "package": "rai/server/internal/syncing",
+        "seconds": 4.439
+      },
+      {
+        "package": "rai/server/internal/training",
+        "seconds": 1.072
+      }
+    ],
+    "markers": [
+      "PASS: online import graph excludes admin, migration and goose (248 packages)",
+      "PASS: pure analysis domain excludes database, network and filesystem",
+      "PASS: pure training domain excludes database, network and filesystem",
+      "P5_FINAL_SOURCE_QUALITY=PASS"
+    ]
+  },
+  "compose": {
+    "run": "20261028112038-3713068",
+    "packages": [],
+    "markers": [
+      "P4_CURRENT_API=PASS (nullable missing personal parameters; no invented load)",
+      "P5_HTTP_CLOSED_LOOP=PASS (immutable retry, published base, override survives feedback recalculation, frozen execution, late association)",
+      "P5_COMPOSE=PASS (P3 restart/worker-offline regression, same image, actual worker, current API, dry-run, SIGTERM)"
+    ]
+  },
+  "sqlc": {
+    "run": null,
+    "packages": [],
+    "markers": [
+      "P5_SQLC_REPRODUCIBLE=PASS"
+    ]
+  },
+  "baseline": {
+    "run": "20261028113323-3730687",
+    "packages": [
+      {
+        "package": "rai/server/integration",
+        "seconds": 24.336
+      }
+    ],
+    "markers": []
+  },
+  "openapi": {
+    "status": "PASS",
+    "warnings": 8,
+    "warnings_are_existing": [
+      "4 health responses lack 4XX",
+      "4 unused legacy schemas"
+    ]
+  },
+  "verification_sequence": [
+    "Full fresh/schema12 upgrade/fencing/fault/P3/P4/P5 PostgreSQL race integration and Compose passed.",
+    "Then a final read-side timezone compatibility predicate and its assertion were added.",
+    "All P5 PostgreSQL race tests, all ordinary/race unit tests, vet/build/boundaries and final gofmt passed after that predicate.",
+    "sqlc generated models were retrieved and repeat generation had identical hashes.",
+    "Final non-race performance/capacity ran separately without other task tests running."
+  ],
+  "fixed_regressions": [
+    "Allocated weekly rounding is the basis for subsequent progression.",
+    "Anchor pointer aliasing was reproduced by a failing regression before deep-copy repair.",
+    "Override identity itself deduplicates independently of command identity.",
+    "Frozen Plan timezone filters incompatible state publications and assigns workout dates consistently.",
+    "Restricted API role can update the queued training job generation/run_after columns."
+  ],
+  "not_verified": [
+    "P3 real iPhone / HealthKit / device background lifecycle",
+    "Production deployment/TLS/secrets/backup/power failure",
+    "Physiological efficacy / target-time optimization / race taper",
+    "Long-running retention and production SLO"
+  ],
+  "migration_checksums": {
+    "00001_core.sql": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+    "00002_dirty_generations.sql": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+    "00003_workouts.sql": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+    "00004_page_receipts.sql": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+    "00005_request_budgets.sql": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+    "00006_upload_slots.sql": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+    "00007_workout_activities.sql": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+    "00008_quantity_series.sql": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+    "00009_workout_packages.sql": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+    "00010_route_foundation.sql": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
+    "00011_p3_sync_v2.sql": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
+    "00012_analysis.sql": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+    "00013_training.sql": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b"
+  },
+  "source_sha256": {
+    "apps/server/cmd/rai/main.go": "aa033133f9cc94bdb2ba3c4c2c405ae29cb2be74742fce82639aefcf387fb346",
+    "apps/server/integration/admission_test.go": "e4a6cf00b1522e9bb7b503271b796ba34b0f6df3c57dc976961ccecbdf5914ae",
+    "apps/server/integration/analysis_performance_test.go": "e3f1380c599046d0eb460ab336ef1bd14b2d54cf98d9f5e0f06b5f322f7a07d9",
+    "apps/server/integration/analysis_test.go": "9725669c033c1c940a7935b50cab9988e5dcceba6c147cb69b2d3ebba5962008",
+    "apps/server/integration/changes_test.go": "d3af331583b0608508925503cb7c314da6e6eec31eff2edcf18ada19d5e8aa69",
+    "apps/server/integration/health_test.go": "3ef0fc0afe30f69b4a4cbf77ccdd3a419072e8ebe6538f94cc65d2d559034444",
+    "apps/server/integration/jobs_foundation_test.go": "2c6798a3974d3635f240632ad781f0b37a9844295626646e0c9b50c271466d91",
+    "apps/server/integration/p3_faults_test.go": "f8e8d1304d2bddbc0c30d6589a245d81b9b2a888e86711134e0c5d16a24a279d",
+    "apps/server/integration/p3_helpers_test.go": "ddaf0ece2939b41a74d0ced18a65429f342fe0fcc7f18f456cd0cb80f5c2d179",
+    "apps/server/integration/p3_performance_test.go": "fd948857e73c660551bbdc007a56093a4e10bf086680c1c83affcde9efe6f1f9",
+    "apps/server/integration/p3_sync_test.go": "d3575af33c1bb52241de76924539b6fe52dca77a0eb94715e8b3bfed6a255cb4",
+    "apps/server/integration/page_test.go": "5542fcd096aabc75e024db9311dce71b16761c4ed9a3650d18d7d792b8c7673d",
+    "apps/server/integration/query_plans_test.go": "2c73352993895183c3e223782d9fb42c5f378bb6f4d826a881552f524a298e0b",
+    "apps/server/integration/routes_foundation_test.go": "0c960f81e831b6133ce4323ee98e37eefa471eebd4d9aab3838e095e1ed6e2d8",
+    "apps/server/integration/sample_batch_test.go": "16c232bc6fd8c17688d4c0f99cc5f084106fc2d1e37901402a2d8f5f105c3f06",
+    "apps/server/integration/scale_test.go": "9285b8c0464ccbf3d04378b9091904c415c3cf3a50bdb53359e0b9d10a5cd54b",
+    "apps/server/integration/schema_rebuild_test.go": "dc8b2cb5e062721af3d74b317ba51cfc117e7b28fe0577a543b73fb74ba4ef65",
+    "apps/server/integration/series_scale_test.go": "b1517d08dd2adf5dca25576b8b2055f6653d3314fd7efc6ac564705feabc7019",
+    "apps/server/integration/series_test.go": "ee81e50c284dff909dcb208ab37c20937d827fbdc77caf78df6d7af2a6850822",
+    "apps/server/integration/sync_test.go": "aa9ad6d0e7d0f1f88f5c2e2ddbc2dc9d1dea813ab12b4482187b834630fbc99e",
+    "apps/server/integration/training_performance_test.go": "742a44e8632cbd6b2f96fba7514226274afe8216c149f37ea9c4d078ed8d1367",
+    "apps/server/integration/training_test.go": "ec961e12680bf4fc41964cecc883b227ad0c9fa3db37433298f2931b995eae70",
+    "apps/server/integration/transaction_failures_test.go": "1c9f757fc43d1a3be3d075bd874e15daed320f86c95a4aeb0f8d5f43617487be",
+    "apps/server/integration/upload_test.go": "ccee4c906060957fcc19a3516a46d00d46f471a3407209db005b365516e06fdd",
+    "apps/server/integration/workout_activities_test.go": "a5b02e93ecb40b7b1048b8a8d156ead810578aa4e916e15fbc3f81aa5b766fe6",
+    "apps/server/integration/workout_package_scale_test.go": "87be6be3eb3e0c32186a7242bcfdf585ff534b22b147772cdabf4b9e14589202",
+    "apps/server/integration/workout_package_test.go": "ec4bcb2795e66b56d459c876efb2ebc38049bd2951781a2335e048b47064179e",
+    "apps/server/integration/workout_test.go": "eefd9abd5bfd10c5714244d4df8aebacd1257a1c88b9088229e088cf5acf091d",
+    "apps/server/internal/admin/admin.go": "f7b8f8c554544c280c4a3e3be1032e34a75381c23b7bf1ca67852234ada2ac1d",
+    "apps/server/internal/admin/analysis.go": "1f984614f4f444988e43bc63cb63fe288278ac5b764b684bd0de4baadbad8bdb",
+    "apps/server/internal/admin/down_integration_test.go": "9656d22be8bb0f3c7746199c9e525e97e662d38fc48e75f65dd705b81b3a39c0",
+    "apps/server/internal/admin/down_test.go": "384a890310e20b830718f6390c657b8336c337fb7554898a7b227d79b1cb8dde",
+    "apps/server/internal/admin/migrations_test.go": "fe0705491a20d65e75938ad67177af0d317f9da29b98b3c2d043a646770039b4",
+    "apps/server/internal/analysis/analysis_test.go": "a9843ed50521a16c00392634d1b4347f8d3f3468607aeb5e9697bf455322d019",
+    "apps/server/internal/analysis/input.go": "67723daaa564b10a3603e3053d7dc3f97ead66996c45a27d3e0ef9ee322f7d65",
+    "apps/server/internal/analysis/model.go": "34f154b96979eeac9406ba8ab43107f83bcd50b44d9d93a9080c8276f154c96a",
+    "apps/server/internal/analysis/query.go": "68fda195bd53ae46e45ef11d9b70dc52f117d2b6d8c5ed8d08d7558000fdf75d",
+    "apps/server/internal/analysis/state.go": "3a79d7c91850f78855df2afa950330774254f08619f6fa998c7b6aa6c6a88ac7",
+    "apps/server/internal/analysis/workout.go": "9ae7639c312c0af53bac89408c2746275ebe4daa6e383d242cd032e5c94b5b42",
+    "apps/server/internal/config/config.go": "c67acefbf0aafdc4159e124196d7b2a0291cf51e01fbee16d9abe54b9feeb2a8",
+    "apps/server/internal/config/config_test.go": "3c3b6091e6034627011226da3a95ea02931aa1836fb9073300201eb809bf5315",
+    "apps/server/internal/httpapi/analysis.go": "1404977f7de14b2e286fad950997210d450f62fe3d4b268d13cc55c7877d7eda",
+    "apps/server/internal/httpapi/health_test.go": "bd0d3c3787561982ce5f5e2d394ab5510c17ec726e1d805eacd23f1053c5daf0",
+    "apps/server/internal/httpapi/server.go": "227ad0789f65481175d6bfd23bcc32840a7a3a8e07ed3f83cc4d99faad631da8",
+    "apps/server/internal/httpapi/training.go": "33ccddf051e04a2b9f02b074599a8c9de31c82afdd72cdfaf5f96a9f62845555",
+    "apps/server/internal/httpapi/upload_test.go": "18083eea557d549255bf272cdf355c7ded11cbe195b542869ecd482ac4e05e7f",
+    "apps/server/internal/jobs/worker.go": "6dee113d8bb0b11ae6df88bcaca7c516d02a1dfdba8836a82fea2027105cf3bc",
+    "apps/server/internal/jobs/worker_test.go": "47f2bfe9304872c8b4acb1440f7c52875e25770baac5b688f972143abefa330e",
+    "apps/server/internal/storage/postgres/admission.go": "c208e9d5fe113110b2a89259fffa3758eabdefbc53e0a38a1d6b1808f8d67133",
+    "apps/server/internal/storage/postgres/analysis_input.go": "f75a39bd879164c7020c3db6b5370dc49771446d28afae8767d71e36006939f5",
+    "apps/server/internal/storage/postgres/analysis_publish.go": "26d0954c05060086fc8b6fca5e079350ec67a3d259757fa114dec58df8b023e1",
+    "apps/server/internal/storage/postgres/analysis_query.go": "61875ae847d57ee4139bfd1ea9788e584b3dd3246fa4b0420d20a1e368136f32",
+    "apps/server/internal/storage/postgres/associations.go": "62351aaed9df34039a4130e18d8c19e8c0d974d724a7eb154ab0bc2e2aaf42b5",
+    "apps/server/internal/storage/postgres/changes.go": "fbf2dbef89543f635d1b8a0b2b34393baa1eb52ce09f70c85a29fbfa9986898f",
+    "apps/server/internal/storage/postgres/dbgen/core.sql.go": "7a523d7220e43ecd06e70a80d3e5b57c88d38131abb950cbce511a58b5ea96c0",
+    "apps/server/internal/storage/postgres/dbgen/db.go": "84f598c6b75bfcb2abf4c6fbe856276271ccb1899028c767b01f05ad1f13cd87",
+    "apps/server/internal/storage/postgres/dbgen/models.go": "26094de2b9fd0a1c98f3a45630db54be3bafa28b71d3fc0c407b1777a0dba488",
+    "apps/server/internal/storage/postgres/enrichments.go": "bd18e9c9069d3c8fa390ec99fe32a39e95cc73b3b59195f524e8882dd00cdaf7",
+    "apps/server/internal/storage/postgres/jobs.go": "c40ae7f7beb5a5571c26621607f8c753945b44a871ac82a2e7d38d589a59c301",
+    "apps/server/internal/storage/postgres/pages.go": "efe338d58281d82fb7cac21a6d41c15f6d62f968d6505779e760721522856fd3",
+    "apps/server/internal/storage/postgres/pool_test.go": "865e7c165a260fa6d9f5794e26cc07ada0b04c5440ab5acba9148742b3250b0a",
+    "apps/server/internal/storage/postgres/routes.go": "7d1ec4327aa44f42759aef9187eaaf3206ff078a15cb7f915994a6702ed19348",
+    "apps/server/internal/storage/postgres/routes_test.go": "5eb7cadf93c0efefcd9f00068716ab306a801413ce5a437458de75ba7ac3b209",
+    "apps/server/internal/storage/postgres/sample_batch.go": "bbacfaf51318b64bb1ca88eab387fd4ea9a447a14c21822b600a70577d9b7a56",
+    "apps/server/internal/storage/postgres/series.go": "eb2da6835e79d4cbe0226c9407bd9d74ec460c6c6aaed8d720ee475d2e8a06a1",
+    "apps/server/internal/storage/postgres/store.go": "d85229fe881ba25556c06157c92a34b372d786d4cb38c25304e6f325121ba56d",
+    "apps/server/internal/storage/postgres/training_execution.go": "6d7d4fdd9d2081375cfefd8891d106052f97ba8afdab0e4add51f059fb790a67",
+    "apps/server/internal/storage/postgres/training_input.go": "c25b5fef11cb390f07614b3e4d0467810838e0d7f37b10ab450b6374f2eae92e",
+    "apps/server/internal/storage/postgres/training_publish.go": "98e0d22e9e7b5fefd5f72bd3b0dcc5cc3345afbc07ccdd2cb1529ae0e664ac63",
+    "apps/server/internal/storage/postgres/training_store.go": "62fe931f89b5d66a24eaaa4ae662bcba04078e74b30f3b7292b7730a47f1e276",
+    "apps/server/internal/storage/postgres/uploads.go": "10135c139ffa984be8c05bdcdf3bcfeec3ec89e42dbacf125a56dfe59122b671",
+    "apps/server/internal/storage/postgres/workout_packages.go": "17b53c7bb59bd96f20e745e68a24f4d4b13ecc0f10502a7a16c6337c3c624267",
+    "apps/server/internal/storage/postgres/workouts.go": "aad3edb19ff043de3cc0ceaff870e63ca8f9c80f9a65604591b2db0e91e602a3",
+    "apps/server/internal/syncing/admission.go": "3cd90d4285c59c62873ca83039ea3ac81081500946f667e4c54245c3f08b7eb2",
+    "apps/server/internal/syncing/association.go": "759d46676ba44f32b2fd1939fbd11b959d579e088c0ac829f646dc4598006ef2",
+    "apps/server/internal/syncing/changes.go": "1250e7e17904fd8f94213e0b4a8e5d2ae4a5aeaac742c12465ac2e4c1421b240",
+    "apps/server/internal/syncing/enrichment.go": "b7a513bc89e3e2b33d4abd4fe540737dca3997b33caaa0e4dbbd4dbeb92017af",
+    "apps/server/internal/syncing/page_test.go": "7892b33e1ce215aebe968d3f5981cc04413e99ea5734e7854f478a02bce63ea8",
+    "apps/server/internal/syncing/protocol.go": "49f34a29092a48b2a2a022cd22f79e2ef16a9b3cbe7c897cde3e4494d9640721",
+    "apps/server/internal/syncing/protocol_test.go": "b01433a1e948a8038b893046b640e66466dbc3ebc4b533628ce25ff0819acb19",
+    "apps/server/internal/syncing/route.go": "5cade2cacee3446ef2ba77ca04f595d30b55212bbb99634dc0926e5eafacd44b",
+    "apps/server/internal/syncing/route_test.go": "ea1b63a424d3068b30e28086c3db32c86036db443b550eb73fc5e7b2ef85342c",
+    "apps/server/internal/syncing/series.go": "4ef60a86757d6196d26fedb94ae37471e6da7be31335f32aadac32b993f06cf4",
+    "apps/server/internal/syncing/series_test.go": "252bcfc3425ee2668351fccd9e4562f4d2151fe258d2689ad204107ae945e307",
+    "apps/server/internal/syncing/store.go": "e7e8c89ab5ad0ee7f08e9bf2b5ceb9898e40afb4dae36dac71effa3cae9d2be1",
+    "apps/server/internal/syncing/workout.go": "81dcdb5288e3eab95ba343561e5488607388ec4ddbb85e4f2cbbcd7f49a28902",
+    "apps/server/internal/syncing/workout_activities_test.go": "c3e9bf73c66033db599d225351c6d4f22c3b198f0063f317523f25ab1669cb95",
+    "apps/server/internal/syncing/workout_package.go": "d98945463c5104c8146d3c3a4f662e0232a7bbbf027076aac8bf045501cd4528",
+    "apps/server/internal/syncing/workout_package_fixture_test.go": "ad7dae0f105845e396fc0683dacbbaa2aa8aea25c926d04bda27ff6718af4914",
+    "apps/server/internal/syncing/workout_package_test.go": "26f0c397d581baefb4b916adb655a78dbef1dda48466a83596a9f7517eeb15c7",
+    "apps/server/internal/syncing/workout_test.go": "3d203ed504cc3c4b6e23e883e7cd1bb379e2437b629dbc054538e347d3e366af",
+    "apps/server/internal/training/effective.go": "3ee0cb34d1cc97de3baccb97cab1f0ecacb51b8fe7b8a84e9833fde7c31609a1",
+    "apps/server/internal/training/feedback.go": "0d4bd392752f4f7a467e760fe51350a0677909928f72316bd759d7ee0843f5d0",
+    "apps/server/internal/training/generator.go": "86996e1832946933eae341646d952809abeb122ac4eb8e95f93234801d3b04e4",
+    "apps/server/internal/training/model.go": "4e1590f3e0300bccf7e5eb7c7aab36c28d39a9ac75ee8e16bb0546256adee32c",
+    "apps/server/internal/training/training_test.go": "65cded220bf76ccfce0ec1bfd40bd60e20e727eae987cd87f6a631d6b28c9ee4",
+    "apps/server/migrations/00013_training.sql": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b",
+    "apps/server/migrations/checksums.json": "4e1ccbb6f71001ca13f8744cba8e0c77fdb89c046a09cf79f3a8a6896884938c",
+    "apps/server/migrations/embed.go": "9f8086f8704f668285ece843dbbc53975967f7f63e0f2754ba1638f0d0c0a198",
+    "contracts/openapi-v2.yaml": "57dfcbf19b09c9462d39ebcd26212df777a90935d53c19e8673a4355f2e94027",
+    "deploy/postgres/roles.sql": "e84945b2f2dc6cd13a0b95bcc43c82d028a417499079684d371366b3dee00c57",
+    "scripts/check-boundaries.py": "e79e4c52ebbdd15d4b16eba00ccff448db42c4eeb6004fb82ab04e9334f2688c",
+    "scripts/check-p5.sh": "dafaf758c81ebd61f0d331ad65248995272509edf02b709b4ed7d42765ac1a5d",
+    "scripts/test-p5-compose.sh": "d43a94a733cefde32144db9ac9f0a93732b7b76c216b78383bb1dd907db89ff3"
+  },
+  "cleanup": {
+    "status": "PASS",
+    "disposable_run_ids": [
+      "20261028105245-3672585",
+      "20261028105355-3674574",
+      "20261028105606-3676617",
+      "20261028105827-3679126",
+      "20261028110225-3682607",
+      "20261028110258-3683866",
+      "20261028110520-3686501",
+      "20261028110717-3688475",
+      "20261028110856-3690715",
+      "20261028110856-3690755",
+      "20261028110856-3690762",
+      "20261028111026-3696757",
+      "20261028111305-3702254",
+      "20261028111602-3707063",
+      "20261028112016-3711868",
+      "20261028112038-3713068",
+      "20261028113040-3727552",
+      "20261028113323-3730687"
+    ],
+    "compose_projects": [
+      "rai-p5-1793156960-3693789",
+      "rai-p5-1793157676-3715867"
+    ],
+    "test_containers_volumes_networks_removed": true,
+    "retained_generation_workspace_removed": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "repository": "/Users/ta/rai",
+  "branch": "main",
+  "P4_BASE_COMMIT": "8e40573e027ac6dd9aac871fb755051cb31c4657",
+  "initial_tracked_changes": [],
+  "initial_untracked_files": [],
+  "P3_REAL_DEVICE_ACCEPTANCE": "DEFERRED BY USER; NOT VERIFIED",
+  "P4_DEVELOPMENT_EXCEPTION": "AUTHORIZED BY USER",
+  "deployment_authorized": false
+}

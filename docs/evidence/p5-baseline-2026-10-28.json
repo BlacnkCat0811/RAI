@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-28",
+  "repository": "/Users/ta/rai",
+  "base_commit": "8e40573e027ac6dd9aac871fb755051cb31c4657",
+  "entry_worktree_dirty": true,
+  "prior_p4_uncommitted_work_preserved": true,
+  "p3_real_device_acceptance": "DEFERRED / NOT VERIFIED",
+  "environment": {
+    "host": "fnOS/N100",
+    "go": "1.27.3",
+    "postgresql": "18.6",
+    "gomaxprocs": 2,
+    "data": "synthetic only",
+    "database": "per-test disposable isolated databases; no existing rai DB",
+    "durability": {
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "data_checksums": "on"
+    }
+  },
+  "observations": [
+    {
+      "audit_100overrides_ms": 5.028,
+      "complete_feedback_recalculate_ms": 83.884,
+      "effectiveVersions": 154,
+      "effective_query_ms": 0.947,
+      "environment": "fnOS/N100; native Go; isolated PostgreSQL18.6; GOMAXPROCS2",
+      "generate_16week_ms": {
+        "count": 100,
+        "median": 0.125412,
+        "p95": 0.170365
+      },
+      "generate_8week_ms": {
+        "count": 100,
+        "median": 0.072336,
+        "p95": 0.125777
+      },
+      "generation_history_build_ms": 4434.76,
+      "history": "52weeks",
+      "history_first50_ms": 22.658,
+      "kind": "single observation unless sample count explicit",
+      "merge_100sessions_100overrides_ms": 0.553,
+      "syntheticWorkouts": 364
+    },
+    {
+      "audit_100overrides_ms": 5.093,
+      "complete_feedback_recalculate_ms": 83.986,
+      "effectiveVersions": 258,
+      "effective_query_ms": 1.259,
+      "environment": "fnOS/N100; native Go; isolated PostgreSQL18.6; GOMAXPROCS2",
+      "generate_16week_ms": {
+        "count": 100,
+        "median": 0.152215,
+        "p95": 0.456102
+      },
+      "generate_8week_ms": {
+        "count": 100,
+        "median": 0.08003,
+        "p95": 0.161866
+      },
+      "generation_history_build_ms": 12001.162,
+      "history": "3years",
+      "history_first50_ms": 24.099,
+      "kind": "single observation unless sample count explicit",
+      "merge_100sessions_100overrides_ms": 0.849,
+      "syntheticWorkouts": 1095
+    }
+  ],
+  "measurement_limits": [
+    "Final baseline ran without other tests from this task running; other host activity was not isolated.",
+    "Only pure generation has 100 samples/median/p95; other operations are single observations.",
+    "Query timings are storage+Go decoding, not iPhone or HTTP/UI latency.",
+    "Recalculate measures complete+feedback+load+generate+publish; test harness advances run_after, excluding the real 1s debounce and poll wait.",
+    "Capacity rows are synthetic raw+published fixtures, not an ingest correctness or longitudinal validation test.",
+    "No production SLO, clinical validity, device acceptance or long-term soak claim."
+  ]
+}

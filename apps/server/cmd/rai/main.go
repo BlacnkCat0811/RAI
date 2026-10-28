@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // scratch image has no OS timezone database; freeze calendar support into the binary.
 
 	"rai/server/internal/admin"
 	"rai/server/internal/config"
@@ -28,7 +29,7 @@ func main() {
 	}
 }
 func run(log *slog.Logger) error {
-	if len(os.Args) != 2 {
+	if len(os.Args) < 2 {
 		return errors.New("usage: rai api|worker|migrate|migrate-down|migrate-status|init|probe")
 	}
 	mode := os.Args[1]
@@ -44,7 +45,7 @@ func run(log *slog.Logger) error {
 		}
 		return nil
 	}
-	if mode != "api" && mode != "worker" && mode != "migrate" && mode != "migrate-down" && mode != "migrate-status" && mode != "init" {
+	if mode != "analysis" && mode != "api" && mode != "worker" && mode != "migrate" && mode != "migrate-down" && mode != "migrate-status" && mode != "init" {
 		return errors.New("unknown command")
 	}
 	url, err := config.DatabaseURL()
@@ -53,6 +54,12 @@ func run(log *slog.Logger) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if mode == "analysis" {
+		return admin.AnalysisCommand(ctx, url, os.Args[2:], os.Stdout)
+	}
+	if len(os.Args) != 2 {
+		return errors.New("unexpected command arguments")
+	}
 	if mode == "migrate" {
 		if err := admin.Migrate(ctx, url); err != nil {
 			return errors.New("migration failed")
@@ -103,6 +110,9 @@ func run(log *slog.Logger) error {
 		return json.NewEncoder(os.Stdout).Encode(result)
 	}
 	if mode == "worker" {
+		if err = store.Ready(ctx); err != nil {
+			return errors.New("worker schema not ready")
+		}
 		return jobs.Run(ctx, store, log)
 	}
 	addr, err := config.ListenAddr()

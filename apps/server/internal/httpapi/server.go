@@ -69,6 +69,19 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	m.Handle("PUT /v2/routes/{id}/chunks/{index}", a.auth(syncing.UploadLane, a.routeChunk))
 	m.Handle("POST /v2/routes/{id}/seal", a.auth(syncing.WriteLane, a.sealRoute))
 	m.Handle("POST /v2/routes/{id}/delete", a.auth(syncing.WriteLane, a.deleteRoute))
+	m.Handle("GET /v2/analysis/workouts/{id}", a.auth(syncing.ReadLane, a.workoutAnalysis))
+	m.Handle("GET /v2/analysis/state", a.auth(syncing.ReadLane, a.trainingState))
+	m.Handle("GET /v2/training/plans/current", a.auth(syncing.ReadLane, a.training))
+	m.Handle("GET /v2/training/plans/{id}", a.auth(syncing.ReadLane, a.training))
+	m.Handle("GET /v2/training/plans/{id}/effective", a.auth(syncing.ReadLane, a.training))
+	m.Handle("GET /v2/training/plans/{id}/effective/{version}", a.auth(syncing.ReadLane, a.training))
+	m.Handle("GET /v2/training/plans/{id}/history", a.auth(syncing.ReadLane, a.training))
+	m.Handle("GET /v2/training/executions/{id}", a.auth(syncing.ReadLane, a.training))
+	m.Handle("POST /v2/training/plans", a.auth(syncing.WriteLane, a.training))
+	m.Handle("POST /v2/training/plans/{id}/changes", a.auth(syncing.WriteLane, a.training))
+	m.Handle("POST /v2/training/plans/{id}/overrides", a.auth(syncing.WriteLane, a.training))
+	m.Handle("POST /v2/training/executions", a.auth(syncing.WriteLane, a.training))
+	m.Handle("POST /v2/training/executions/{id}/changes", a.auth(syncing.WriteLane, a.training))
 	m.Handle("GET /v2/jobs/{id}", a.auth(syncing.ReadLane, a.job))
 	return a.observe(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -219,7 +232,7 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	sort.Strings(types)
 	respond(w, 200, map[string]any{"protocolVersion": 2, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
 		"limits":       map[string]any{"wireBytes": syncing.MaxWireBytes, "decodedBytes": syncing.MaxDecodedBytes, "events": syncing.MaxEvents, "lineBytes": syncing.MaxLineBytes, "workoutStatistics": syncing.MaxWorkoutStatistics, "workoutEvents": syncing.MaxWorkoutEvents, "workoutDetails": syncing.MaxWorkoutDetails, "workoutActivities": syncing.MaxWorkoutActivities, "workoutPackageChunks": syncing.MaxWorkoutPackageChunks, "workoutPackageDetails": syncing.MaxWorkoutPackageDetails, "workoutPackageDetailsPerChunk": syncing.MaxWorkoutPackageDetailsPerChunk, "pageFragments": syncing.MaxPageFragments, "seriesChunks": syncing.MaxSeriesChunks, "seriesPoints": syncing.MaxSeriesPoints, "seriesPointsPerChunk": syncing.MaxSeriesPointsPerChunk, "routeChunks": syncing.MaxRouteChunks, "routePoints": syncing.MaxRoutePoints, "routePointsPerChunk": syncing.MaxRoutePointsPerChunk, "requests": syncing.RequestBudgets(), "processUploads": 2, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1, "uploadLeaseSeconds": syncing.UploadLeaseSeconds},
-		"capabilities": map[string]any{"sampleTypes": types, "contentEncoding": "gzip", "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 2, "pageReceipts": true, "workoutActivities": true, "workoutPackages": true, "quantitySeries": true, "routes": true, "sampleWorkoutAssociations": true, "workoutEnrichment": true, "changefeed": false, "analysis": false}})
+		"capabilities": map[string]any{"sampleTypes": types, "contentEncoding": "gzip", "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 2, "pageReceipts": true, "workoutActivities": true, "workoutPackages": true, "quantitySeries": true, "routes": true, "sampleWorkoutAssociations": true, "workoutEnrichment": true, "changefeed": false, "analysis": true}})
 	return nil
 }
 func (a *API) registerStream(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {

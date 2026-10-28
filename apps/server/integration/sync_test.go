@@ -445,7 +445,7 @@ func TestHTTPUploadReceiptAndAuthentication(t *testing.T) {
 				t.Fatal(status)
 			}
 			status, b := request("GET", "/v2/handshake", nil, f.enrollment.Token, "", "")
-			if status != 200 || !bytes.Contains(b, []byte(`"pageReceipts":true`)) || !bytes.Contains(b, []byte(`"analysis":false`)) || !bytes.Contains(b, []byte(`"workouts":true`)) || !bytes.Contains(b, []byte(`"workoutActivities":true`)) {
+			if status != 200 || !bytes.Contains(b, []byte(`"pageReceipts":true`)) || !bytes.Contains(b, []byte(`"analysis":true`)) || !bytes.Contains(b, []byte(`"workouts":true`)) || !bytes.Contains(b, []byte(`"workoutActivities":true`)) {
 				t.Fatal(status, string(b))
 			}
 			status, _ = request("GET", "/readyz", nil, "", "", "")

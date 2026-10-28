@@ -1,5 +1,9 @@
 ## 0.9.0 — 2026-10-27
 
+## 2026-10-28 — P4 analysis
+
+新增两个只读 current analysis 查询及 DTO，handshake analysis=true；保持 protocolVersion=2 和所有 P3 上传身份、sequence、seal、durable receipt 字段不变。analysisJobIDs 数量不固定；sample 批次按 type/UTC 日聚合依赖任务，旧回执不重写。结果缺失为 null/insufficient，状态为 load-only、有显式算法版本和输入谱系。
+
 - Phase 3 同步合同扩展（schema 11）：route manifest、不可变分块、点投影触发器、双 hash chain、原子 seal、sealed 后不可变和独立删除屏障。
 - 新增 append-only Workout enrichment 与 sample↔Workout 迟到关联；Workout 主体仍不可变，旧源版本或不同值不得覆盖新值。
 - 新增 `POST /v2/routes`、`GET /v2/routes/{id}`、`PUT /v2/routes/{id}/chunks/{index}`、`POST /v2/routes/{id}/seal`、`POST /v2/routes/{id}/delete`、`POST /v2/sync/associations`、`POST/GET /v2/sync/workout-enrichments`。
@@ -28,3 +32,9 @@
 - 修正 OpenAPI 能力口径：当前为 sample 与有界多活动 Workout v2（schema 7）；不带 activities 的旧 Workout v1 载荷仍兼容。
 - 将 `GET /v2/handshake` 的 `limits`、`capabilities` 从泛型对象收紧为显式 schema，并保留运行时 handshake 作为能力和限额的权威来源。
 - 仅文档与合同形状变更；未改变 `protocolVersion`、`workoutPayloadVersion`、端点、字段、错误码或限额值。
+
+## P5 Training Plan / Coach Closed Loop（2026-10-28）
+
+- 新增训练Plan/config、field override、Effective/history/audit、frozen execution和versioned feedback API；正常客户端默认使用Effective。
+- command UUID不可变幂等；config/override/execution各有expected revision，冲突409；缺失分析不当作0。
+- schema13新建训练领域，P3 protocolVersion2、上传/回执/anchor合同不变；未开始WorkoutKit或P6 UI。

@@ -31,7 +31,7 @@ trap 'exit 143' TERM
 "${compose[@]}" run --rm --no-deps api migrate >/dev/null
 "${compose[@]}" run --rm --no-deps api migrate >/dev/null
 status="$("${compose[@]}" run --rm --no-deps api migrate-status)"
-printf '%s' "$status" | python3 -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows)==11 and all(row["State"]=="applied" for row in rows)'
+printf '%s' "$status" | python3 -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows)==13 and all(row["State"]=="applied" for row in rows)'
 # Start API without worker: sync must still commit and enqueue durable jobs.
 "${compose[@]}" up -d --wait api
 api_port="$("${compose[@]}" port api 8080 | awk -F: '{print $NF}')"

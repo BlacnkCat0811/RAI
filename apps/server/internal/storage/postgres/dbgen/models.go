@@ -8,6 +8,62 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AnalysisParameterSet struct {
+	DatasetID    string
+	Version      int64
+	RestingHr    float64
+	MaxHr        float64
+	CoefficientA float64
+	CoefficientB float64
+	Provenance   string
+	CreatedAt    pgtype.Timestamptz
+}
+
+type AnalysisPublication struct {
+	DatasetID      string
+	ScopeKey       string
+	MetricFamily   string
+	Day            pgtype.Date
+	PublishedRunID string
+	Generation     int64
+	PublishedAt    pgtype.Timestamptz
+}
+
+type AnalysisResult struct {
+	DatasetID        string
+	RunID            string
+	Day              pgtype.Date
+	Metric           string
+	AlgorithmName    string
+	AlgorithmVersion string
+	Value            pgtype.Float8
+	Unit             string
+	Quality          string
+	Details          []byte
+	ComputedAt       pgtype.Timestamptz
+}
+
+type AnalysisRun struct {
+	DatasetID        string
+	ID               string
+	JobID            string
+	FencingToken     int64
+	ScopeKey         string
+	TargetGeneration int64
+	AlgorithmName    string
+	AlgorithmVersion string
+	InputVersion     string
+	InputHash        []byte
+	InputFrom        pgtype.Timestamptz
+	InputThrough     pgtype.Timestamptz
+	Lineage          []byte
+	Status           string
+	ErrorCode        pgtype.Text
+	StartedAt        pgtype.Timestamptz
+	FinishedAt       pgtype.Timestamptz
+	CreatedAt        pgtype.Timestamptz
+}
+
 type ChangeEvent struct {
 	DatasetID  string
 	CommitRev  int64
@@ -91,6 +147,7 @@ type HealthSample struct {
 	FirstReceivedAt pgtype.Timestamptz
 	AvailableAt     pgtype.Timestamptz
 	Metadata        []byte
+	IngestDeviceID  *string
 }
 
 type Job struct {
@@ -114,6 +171,45 @@ type JobAttempt struct {
 	StartedAt    pgtype.Timestamptz
 	FinishedAt   pgtype.Timestamptz
 	ResultCode   pgtype.Text
+}
+
+type RouteChunk struct {
+	DatasetID             string
+	RouteUuid             string
+	ChunkIndex            int32
+	PointCount            int32
+	ContentSha256         []byte
+	Points                []byte
+	CreatedAt             pgtype.Timestamptz
+	WireSha256            []byte
+	ManifestSha256        []byte
+	PayloadManifestSha256 []byte
+	Receipt               []byte
+}
+
+type RouteDeletion struct {
+	DatasetID   string
+	RouteUuid   string
+	WorkoutUuid *string
+	DeletedRev  int64
+	Reason      string
+	Receipt     []byte
+	DeletedAt   pgtype.Timestamptz
+}
+
+type RoutePoint struct {
+	DatasetID          string
+	RouteUuid          string
+	ChunkIndex         int32
+	Sequence           int64
+	RecordedAt         pgtype.Timestamptz
+	Latitude           float64
+	Longitude          float64
+	Altitude           pgtype.Float8
+	HorizontalAccuracy pgtype.Float8
+	VerticalAccuracy   pgtype.Float8
+	Speed              pgtype.Float8
+	Course             pgtype.Float8
 }
 
 type SeriesChunk struct {
@@ -164,6 +260,7 @@ type SyncBatch struct {
 	CommittedAt    pgtype.Timestamptz
 	PageID         *string
 	FragmentIndex  pgtype.Int4
+	DeviceID       *string
 }
 
 type SyncPage struct {
@@ -196,6 +293,7 @@ type SyncStream struct {
 	QueryFingerprint string
 	LastClientSeq    int64
 	LastBatchID      *string
+	DeviceID         *string
 }
 
 type SyncUploadSlot struct {
@@ -204,6 +302,130 @@ type SyncUploadSlot struct {
 	DeviceID  *string
 	Token     *string
 	ExpiresAt pgtype.Timestamptz
+}
+
+type TrainingBaseVersion struct {
+	DatasetID string
+	PlanID    string
+	ID        string
+	Number    int64
+	RunID     string
+	Base      []byte
+	CreatedAt pgtype.Timestamptz
+}
+
+type TrainingCommand struct {
+	DatasetID   string
+	ID          string
+	PlanID      string
+	RequestHash []byte
+	Receipt     []byte
+	CreatedAt   pgtype.Timestamptz
+}
+
+type TrainingConfig struct {
+	DatasetID string
+	PlanID    string
+	Revision  int64
+	Config    []byte
+	CreatedAt pgtype.Timestamptz
+}
+
+type TrainingEffectiveVersion struct {
+	DatasetID        string
+	PlanID           string
+	ID               string
+	Number           int64
+	BaseID           string
+	OverrideRevision int64
+	Effective        []byte
+	CreatedAt        pgtype.Timestamptz
+}
+
+type TrainingExecution struct {
+	DatasetID   string
+	ID          string
+	PlanID      string
+	EffectiveID string
+	SessionID   string
+	Revision    int64
+	Status      string
+	Snapshot    []byte
+	StartedAt   pgtype.Timestamptz
+	CompletedAt pgtype.Timestamptz
+	WorkoutID   *string
+	Notes       string
+	CreatedAt   pgtype.Timestamptz
+}
+
+type TrainingFeedback struct {
+	DatasetID         string
+	ID                string
+	ExecutionID       string
+	ExecutionRevision int64
+	SourceRunID       *string
+	Feedback          []byte
+	CreatedAt         pgtype.Timestamptz
+}
+
+type TrainingGenerationRun struct {
+	DatasetID        string
+	ID               string
+	PlanID           string
+	JobID            string
+	FencingToken     int64
+	Generation       int64
+	ConfigRevision   int64
+	Generator        string
+	ParameterVersion string
+	InputHash        []byte
+	Context          []byte
+	Status           string
+	ErrorCode        pgtype.Text
+	StartedAt        pgtype.Timestamptz
+	CompletedAt      pgtype.Timestamptz
+}
+
+type TrainingOverride struct {
+	DatasetID   string
+	PlanID      string
+	ID          string
+	SessionID   string
+	CommandID   string
+	RequestHash []byte
+	Revision    int64
+	Operation   string
+	Event       []byte
+	CreatedAt   pgtype.Timestamptz
+}
+
+type TrainingParameterSet struct {
+	Version    string
+	Parameters []byte
+	CreatedAt  pgtype.Timestamptz
+}
+
+type TrainingPlan struct {
+	DatasetID          string
+	ID                 string
+	Timezone           string
+	Active             bool
+	ConfigRevision     int64
+	OverrideRevision   int64
+	BaseNumber         int64
+	EffectiveNumber    int64
+	CurrentBaseID      *string
+	CurrentEffectiveID *string
+	CreatedAt          pgtype.Timestamptz
+}
+
+type TrainingSession struct {
+	DatasetID string
+	PlanID    string
+	ID        string
+	Origin    string
+	Slot      pgtype.Int4
+	CreatedAt pgtype.Timestamptz
 }
 
 type Workout struct {
@@ -219,6 +441,7 @@ type Workout struct {
 	FirstReceivedAt pgtype.Timestamptz
 	AvailableAt     pgtype.Timestamptz
 	Payload         []byte
+	IngestDeviceID  *string
 }
 
 type WorkoutActivity struct {
@@ -230,6 +453,23 @@ type WorkoutActivity struct {
 	EventEnd     pgtype.Timestamptz
 	DurationUs   int64
 	Payload      []byte
+}
+
+type WorkoutEnrichment struct {
+	DatasetID       string
+	EnrichmentID    string
+	WorkoutUuid     string
+	SourceBundleID  string
+	SourceVersion   int64
+	ObservedAtUs    int64
+	TotalDistanceM  pgtype.Float8
+	TotalEnergyKcal pgtype.Float8
+	Metadata        []byte
+	RouteAvailable  pgtype.Bool
+	ContentSha256   []byte
+	Receipt         []byte
+	CommitRev       int64
+	CreatedAt       pgtype.Timestamptz
 }
 
 type WorkoutEvent struct {
@@ -271,6 +511,43 @@ type WorkoutPackageChunk struct {
 	Details       []byte
 	Receipt       []byte
 	CreatedAt     pgtype.Timestamptz
+}
+
+type WorkoutRoute struct {
+	DatasetID                     string
+	RouteUuid                     string
+	WorkoutUuid                   string
+	SourceBundleID                string
+	State                         string
+	CreatedAt                     pgtype.Timestamptz
+	SealedAt                      pgtype.Timestamptz
+	Receipt                       []byte
+	DatasetEpoch                  *string
+	CollectorEpoch                *string
+	ExpectedChunkCount            int32
+	ExpectedPointCount            int64
+	FirstRecordedAt               pgtype.Timestamptz
+	LastRecordedAt                pgtype.Timestamptz
+	CommittedChunks               int32
+	CommittedPoints               int64
+	ManifestSha256                []byte
+	PayloadManifestSha256         []byte
+	ExpectedPayloadManifestSha256 []byte
+	SealedRev                     pgtype.Int8
+	ChunkCount                    pgtype.Int4
+	TotalPoints                   pgtype.Int8
+}
+
+type WorkoutSample struct {
+	DatasetID          string
+	SampleType         string
+	SampleUuid         string
+	WorkoutUuid        string
+	AssociationID      *string
+	SourceBundleID     pgtype.Text
+	AssociationReceipt []byte
+	CommitRev          pgtype.Int8
+	CreatedAt          pgtype.Timestamptz
 }
 
 type WorkoutStatistic struct {

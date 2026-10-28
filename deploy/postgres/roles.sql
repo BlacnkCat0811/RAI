@@ -42,3 +42,33 @@ GRANT UPDATE(commit_rev) ON datasets TO rai_worker;
 GRANT UPDATE ON jobs, job_attempts TO rai_worker;
 GRANT INSERT ON job_attempts TO rai_worker;
 GRANT UPDATE(clean_generation) ON dirty_scopes TO rai_worker;
+
+-- P4: API reads published DTO inputs; cannot write derived history/pointers.
+GRANT SELECT ON analysis_runs, analysis_results, analysis_publications TO rai_api;
+GRANT SELECT ON workouts, workout_statistics, workout_events, workout_activities,
+    health_samples, workout_samples, workout_enrichments, workout_routes,
+    route_points, series_uploads, series_chunks, analysis_parameter_sets,
+    analysis_runs, analysis_results, analysis_publications TO rai_worker;
+GRANT INSERT ON analysis_runs, analysis_results, analysis_publications, dirty_scopes, jobs TO rai_worker;
+GRANT UPDATE(status,finished_at,error_code) ON analysis_runs TO rai_worker;
+GRANT UPDATE ON analysis_publications TO rai_worker;
+GRANT DELETE ON analysis_publications TO rai_worker;
+GRANT UPDATE(generation,dirty_from,dirty_through) ON dirty_scopes TO rai_worker;
+GRANT EXECUTE ON FUNCTION rai_analysis_dirty(uuid,text,text,timestamptz,timestamptz) TO rai_api,rai_worker;
+GRANT SELECT ON analysis_parameter_sets TO rai_api;
+
+-- P5: immutable audit rows are protected by triggers for both online roles.
+GRANT SELECT ON training_parameter_sets, training_plans, training_configs,
+ training_sessions, training_generation_runs, training_base_versions,
+ training_overrides, training_effective_versions, training_executions,
+ training_feedback, training_commands TO rai_api,rai_worker;
+GRANT INSERT ON training_plans, training_configs, training_sessions, training_overrides,
+ training_effective_versions, training_executions, training_feedback, training_commands TO rai_api;
+GRANT UPDATE ON training_plans, training_executions TO rai_api;
+GRANT INSERT ON training_sessions, training_generation_runs, training_base_versions,
+ training_effective_versions, training_feedback TO rai_worker;
+GRANT UPDATE ON training_plans TO rai_worker;
+GRANT UPDATE(status,completed_at,error_code) ON training_generation_runs TO rai_worker;
+GRANT EXECUTE ON FUNCTION rai_training_dirty(uuid,uuid) TO rai_api,rai_worker;
+
+GRANT UPDATE(target_generation,run_after) ON jobs TO rai_api;
