@@ -28,6 +28,8 @@ scripts/p7-monitor.sh /absolute/last-successful-backup/backup.json
 
 输出聚合snapshot及alerts JSON；退出0健康、1有actionable告警、2证据缺失/格式错误。无法采集命令非零退出也必须被外部任务当作监控失败。建议用户批准后由fnOS计划任务每5分钟调用；目前**未安装schedule、未接通知渠道**，没有发送邮件或消息。下列规则由合成positive/negative control验证，不能等同真实通知交付。
 
+后续月度专项适配（保留P7历史每日口径）：当前月度方案加载其受限环境后使用 `scripts/p7-monitor.sh --monthly`，调用月度check并使用每月1日03:00上海时间＋24h宽限，不套用下表的26h。`p7-monitor.sh DAILY_METADATA`仍是显式旧每日入口。两者不能同时配置为月度备份的监控；跨云全SHA检查宜低频/手动，不能照搬每5分钟扫描大归档。具体状态、未安装门禁见 [月度备份](RAI_MONTHLY_BACKUP.md#月度检查与旧监控适配) 和 [本轮结果](RAI_MONTHLY_BACKUP_DEPLOY_RESULT.md)。
+
 | 条件 | 初始阈值/动作 |
 |---|---|
 | API不ready或Worker停止/DB探针失败 | 立即检查进程、角色、PG；不要盲目重启 |

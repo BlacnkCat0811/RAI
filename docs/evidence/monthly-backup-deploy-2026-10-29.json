@@ -1,0 +1,307 @@
+{
+  "date": "2026-10-29",
+  "timezone": "Asia/Shanghai",
+  "backup_deploy_base_commit": "09fb5bb38d32cdbe42c757277ab2431995818ac4",
+  "branch": "main",
+  "entry_git_status": [
+    " M README.md",
+    " M docs/ARCHITECTURE.md",
+    " M docs/IMPLEMENTATION.md",
+    " M scripts/p7-workload.py",
+    " M scripts/test-p7-compose.sh",
+    "?? apps/server/integration/disaster_recovery_boundary_test.go",
+    "?? deploy/release/monthly-backup.crontab.example",
+    "?? deploy/release/monthly-backup.environment.example",
+    "?? docs/RAI_BACKUP_RECOVERY_RESULT.md",
+    "?? docs/RAI_DISASTER_RECOVERY.md",
+    "?? docs/RAI_MONTHLY_BACKUP.md",
+    "?? docs/evidence/backup-recovery-2026-10-29.json",
+    "?? ios/RAI/Tests/SyncCoreTests/RecoveryBoundaryTests.swift",
+    "?? scripts/rai-backup-remote.py",
+    "?? scripts/rai-backup-scheduled.sh",
+    "?? scripts/rai-backup.py",
+    "?? scripts/rai-backup.sh",
+    "?? scripts/rai-restore.py",
+    "?? scripts/rai-restore.sh",
+    "?? scripts/test-monthly-backup.py",
+    "?? scripts/test-monthly-compose.sh",
+    "?? scripts/test-monthly-restore.sh",
+    "?? scripts/test-monthly-ssh.py"
+  ],
+  "p7_committed": true,
+  "previous_monthly_work_uncommitted": true,
+  "automatic_commit_push": false,
+  "states": {
+    "MONTHLY BACKUP CODE": "PASS WITH RISKS",
+    "REAL CLOUD BACKUP": "PENDING CONFIGURATION",
+    "MONTHLY SCHEDULER": "PENDING CONFIGURATION",
+    "MONTHLY MONITORING": "PASS",
+    "MINIMAL DISASTER RECOVERY REVIEW": "COMPLETE",
+    "DISASTER RECOVERY IMPLEMENTATION": "NOT STARTED",
+    "DISASTER RECOVERY RESYNC": "BLOCKED",
+    "P3 REAL DEVICE ACCEPTANCE": "DEFERRED / NOT VERIFIED",
+    "P6 REAL DEVICE ACCEPTANCE": "DEFERRED / NOT VERIFIED",
+    "PRODUCTION RELEASE READY": "NO"
+  },
+  "real_writes_approval": "PENDING USER APPROVAL per user TASK A4; no real writes performed",
+  "fnos_read_only_inventory": {
+    "observed_at": "2026-10-29T02:48:39.189094+00:00",
+    "docker": "28.5.2",
+    "compose": "5.1.0",
+    "containers": [
+      "rai-postgres",
+      "frpc"
+    ],
+    "existing_pg": {
+      "project": "rai",
+      "service": "postgres",
+      "image": "postgres:18.6",
+      "configured_database": "rai",
+      "configured_role": "rai",
+      "mount_type": "bind",
+      "mount_source": "/home/tpandmr/rai/pgdata",
+      "mount_destination": "/var/lib/postgresql",
+      "schema_queried": false,
+      "application_data_queried": false,
+      "used_as_backup_source": false
+    },
+    "v2_source_identity": "NOT CONFIRMED / NOT DEPLOYED",
+    "cron": "active",
+    "host_timezone": "Asia/Shanghai",
+    "user_crontab": "none (exit 1)",
+    "readable_system_rai_backup_entries": [],
+    "other_users_crontabs": "NOT VERIFIED",
+    "installed_script": "NOT PRESENT at /home/tpandmr/rai/scripts/rai-backup.sh",
+    "v2_directory": "/home/tpandmr/rai-v2 NOT PRESENT",
+    "home_free_bytes": 119114891264,
+    "vol1_free_bytes": 885667864576,
+    "monthly_config_environment": "absent in checked noninteractive local/fnOS environments"
+  },
+  "cloud": {
+    "state": "PENDING CONFIGURATION",
+    "user_configuration_reply": "我不清楚",
+    "generic_ssh_aliases_exist": true,
+    "backup_host_user_key_directory_confirmed": false,
+    "connected_to_real_backup_target": false,
+    "remote_directory_permission_space_verified": false,
+    "real_upload_download_restore": "NOT RUN",
+    "real_files_created_or_deleted": false
+  },
+  "scheduler": {
+    "checked_at": "2026-10-29T03:03:15.270411+00:00",
+    "exit": 75,
+    "outside_window_rejected": true,
+    "schedule": {
+      "timezone": "Asia/Shanghai",
+      "required_snapshot_at": "2026-10-01T03:00:00+08:00",
+      "latest_scheduled_at": "2026-10-01T03:00:00+08:00",
+      "grace_deadline": "2026-10-02T03:00:00+08:00",
+      "next_scheduled_at": "2026-11-01T03:00:00+08:00"
+    },
+    "stderr": "MONTHLY_BACKUP_SKIPPED=outside_configured_monthly_window; check cron timezone or missed schedule",
+    "installed": false
+  },
+  "regression": {
+    "full_command": "scripts/test-remote.sh bash -c 'set -e; python3 ../../scripts/test-monthly-backup.py; python3 ../../scripts/test-monthly-policy.py; bash ../../scripts/check-p7.sh; bash ../../scripts/test-monthly-compose.sh'",
+    "exit_code": 0,
+    "go_gates": [
+      {
+        "mode": "unit",
+        "pass": 183,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/internal/admin": 0.009,
+          "rai/server/internal/analysis": 0.104,
+          "rai/server/internal/config": 0.058,
+          "rai/server/internal/httpapi": 0.013,
+          "rai/server/internal/jobs": 0.009,
+          "rai/server/internal/storage/postgres": 0.007,
+          "rai/server/internal/training": 0.015,
+          "rai/server/internal/syncing": 0.282
+        }
+      },
+      {
+        "mode": "race",
+        "pass": 183,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/internal/admin": 1.026,
+          "rai/server/internal/analysis": 1.545,
+          "rai/server/internal/config": 1.159,
+          "rai/server/internal/httpapi": 1.017,
+          "rai/server/internal/jobs": 1.017,
+          "rai/server/internal/storage/postgres": 1.017,
+          "rai/server/internal/training": 1.111,
+          "rai/server/internal/syncing": 4.53
+        }
+      },
+      {
+        "mode": "integration",
+        "pass": 365,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/integration": 314.342,
+          "rai/server/internal/admin": 2.703,
+          "rai/server/internal/analysis": 1.522,
+          "rai/server/internal/config": 1.151,
+          "rai/server/internal/httpapi": 1.016,
+          "rai/server/internal/jobs": 1.014,
+          "rai/server/internal/storage/postgres": 1.012,
+          "rai/server/internal/syncing": 4.541,
+          "rai/server/internal/training": 1.067
+        }
+      }
+    ],
+    "go_quality": {
+      "gofmt": "PASS",
+      "mod_verify": "PASS",
+      "vet": "PASS",
+      "vet_integration_scale_p7capacity": "PASS",
+      "build": "PASS",
+      "boundary_packages": 249
+    },
+    "file_tests": 12,
+    "policy_tests": 7,
+    "calendar_months": 72,
+    "swift_core_tests": 41,
+    "swift_exit_code": 0,
+    "swift_runtime_changes": false,
+    "monthly_loopback_ssh": {
+      "status": "PASS",
+      "successes": 5,
+      "retained": 3,
+      "oldest_removed": true,
+      "strict_host_key": true,
+      "ssh_failure_preserved": true,
+      "network_timeout_preserved": true,
+      "manual_retry_clears_failure": true,
+      "p7_monthly_monitor_preserves_worker_alert": true,
+      "archive_bytes": 2671594,
+      "sha256": "24037c8bd98804615aa27db21f2234a24a424bdf9c97105b7921fd504b1c8103"
+    },
+    "monthly_isolated_sql_restore": {
+      "status": "PASS",
+      "table_count": 45,
+      "schema": 13,
+      "invariant_violations": 0,
+      "all_table_counts_and_hashes_equal": true,
+      "p3_original_receipt": true,
+      "p5_override_effective_execution_feedback": true
+    },
+    "loopback_archive_read_locally_for_restore": true,
+    "real_cloud_roundtrip": false,
+    "monthly_target_cleanup_exit": 0,
+    "p7_legacy_backup_restore": "PASS",
+    "p7_soak": {
+      "seconds": 195.134,
+      "reads": 144,
+      "median_ms": 17.834074329584837,
+      "p95_ms": 36.62252891808748,
+      "p95_method": "nearest rank",
+      "errors": 0,
+      "incremental_uploads": 6,
+      "scope": "bounded synthetic HTTPS stable-publication reads, formal sync and six individually confirmed training regenerations; not mixed dirty-state availability or long-term endurance"
+    },
+    "p7_private_256MiB_enospc": "PASS",
+    "p7_compose": "PASS",
+    "p7_cleanup_exit": 0,
+    "final_fnos_policy_revalidation": {
+      "exit_code": 0,
+      "tests": [
+        7,
+        12
+      ],
+      "daily_alert_controls": "PASS",
+      "reason": "final timestamp type validation after rehearsal launch; no Go/Swift/contract changes"
+    },
+    "post_test_container_inventory": [
+      "rai-postgres: healthy, original project rai",
+      "frpc: running, original project frpc"
+    ]
+  },
+  "development_failures": [
+    {
+      "scope": "local synthetic fixture",
+      "result": "1s normal command startup timeout; normal budget 5s, SSH timeout injection still 1s; rerun passed"
+    },
+    {
+      "scope": "local edit",
+      "result": "IndentationError caught by py_compile/local test; corrected before fnOS rehearsal"
+    }
+  ],
+  "protected_entry_files": {
+    "count": 481,
+    "all_unchanged": true,
+    "tree_sha256": "f9469b8478bb1b96ddbc8372f9392852972daad521f4f22bf97b246b944d1595"
+  },
+  "existing_files_changed_this_turn": [
+    "deploy/release/monthly-backup.environment.example",
+    "docs/RAI_DISASTER_RECOVERY.md",
+    "docs/RAI_MONTHLY_BACKUP.md",
+    "scripts/rai-backup.py",
+    "scripts/test-monthly-backup.py",
+    "scripts/test-monthly-ssh.py",
+    "README.md",
+    "docs/IMPLEMENTATION.md",
+    "docs/P7_OPERATIONS.md",
+    "scripts/p7-alerts.py",
+    "scripts/p7-monitor.sh"
+  ],
+  "final_script_sha256": {
+    "monthly_backup_policy.py": "851385c983fd742beeb5d7f84b233c10af2e7638c2c65dff1bcbcf073927f1ca",
+    "rai-backup.py": "d80b5e3f26fe8f689653f7579ed5d4d0187f3d8ca23c9a65de5f956e81dfc065",
+    "p7-alerts.py": "b505cb939375d1e1361bfd6398cd38ed0b7110fca1ee9087248cd53f1a2c77e7",
+    "p7-monitor.sh": "0f0f3888a0060b11b7b463954baa9a864ec76cf3dcdc73851a8ab0f025b4437e",
+    "test-monthly-backup.py": "5cf28c3c76e9d124246fddf87cacbcb72a5ac9cf7da92f0720d85e74542455c7",
+    "test-monthly-policy.py": "e8b87e73156d0696b14ee1a1893848efef320997980553a75035ff3613f46723",
+    "test-monthly-ssh.py": "7e160c88ff97fd3537b163b6190d17ba9918174ec6b11142613ba8d9f1a3770c"
+  },
+  "raw_logs": {
+    "fnos-final-policy.log": {
+      "relative_path": "docs/evidence/monthly-backup-deploy-2026-10-29/fnos-final-policy.log",
+      "sha256": "db07629205b177b26a1170431b9b219125249264ae8c75d3c00107d6d7f26480"
+    },
+    "fnos-validation.log": {
+      "relative_path": "docs/evidence/monthly-backup-deploy-2026-10-29/fnos-validation.log",
+      "sha256": "a003554907c4951bcc7e2bf8fed494d7c98d0a2f999beab0adc73354d48bbfbc"
+    },
+    "python-files.log": {
+      "relative_path": "docs/evidence/monthly-backup-deploy-2026-10-29/python-files.log",
+      "sha256": "198f2d999873a6c2713e655b7c4b67176e90595499f53272a94a373ff6fa1742"
+    },
+    "scheduled-guard.json": {
+      "relative_path": "docs/evidence/monthly-backup-deploy-2026-10-29/scheduled-guard.json",
+      "sha256": "c83a77d442605aea589f187a3f91787306ebf50f2761e45cbd0403c33c49f737"
+    },
+    "swift-core.log": {
+      "relative_path": "docs/evidence/monthly-backup-deploy-2026-10-29/swift-core.log",
+      "sha256": "8a74be657a3d36c54292a4a7369398806f6e4f626729725b583225b61f067988"
+    }
+  },
+  "limits": [
+    "No confirmed production V2 deployment or cloud backup identity",
+    "No real cloud upload/download/restore or formal cron installation",
+    "Only synthetic databases, facts, credentials and loopback SSH tested",
+    "A and B current real-device recovery remain blocked; B session switching is design only",
+    "No reset of real anchors, deletion of real outbox, new protocol, new generation, UI or real data migration"
+  ],
+  "recorded_at": "2026-10-29T03:17:08.413662+00:00",
+  "final_head": "09fb5bb38d32cdbe42c757277ab2431995818ac4",
+  "final_quality": {
+    "git_diff_check": "PASS",
+    "python_compile": "PASS",
+    "bash_syntax": "PASS",
+    "secret_audit": "PASS",
+    "real_services_modified": false,
+    "formal_cron_installed": false
+  },
+  "final_document_sha256": {
+    "docs/RAI_MONTHLY_BACKUP.md": "cf668090ea87929068485bf6160d82ec1e884d5c2be93824f12dcbdc317fc188",
+    "docs/RAI_MINIMAL_DISASTER_RECOVERY_REVIEW.md": "cbcdfea434c6d708344ecc6f463ab3cb36a4b31c8697accfb8c7dc224b66c92a",
+    "docs/RAI_MONTHLY_BACKUP_DEPLOY_RESULT.md": "d3048f98ef8799859a224b3cf4e405e7bddb29ab46503a0a396fc6574dbceb72",
+    "docs/IMPLEMENTATION.md": "6e80d5ec1c66fec26f290d6b28c6a7b78de2043ff1a93e8618fac796a14e3f97"
+  }
+}

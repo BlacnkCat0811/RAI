@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-10-29T03:03:15.270411+00:00",
+  "exit": 75,
+  "outside_window_rejected": true,
+  "schedule": {
+    "timezone": "Asia/Shanghai",
+    "required_snapshot_at": "2026-10-01T03:00:00+08:00",
+    "latest_scheduled_at": "2026-10-01T03:00:00+08:00",
+    "grace_deadline": "2026-10-02T03:00:00+08:00",
+    "next_scheduled_at": "2026-11-01T03:00:00+08:00"
+  },
+  "stderr": "MONTHLY_BACKUP_SKIPPED=outside_configured_monthly_window; check cron timezone or missed schedule",
+  "installed": false
+}

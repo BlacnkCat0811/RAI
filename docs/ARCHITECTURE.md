@@ -200,3 +200,11 @@ SwiftUI五个原生Tab统一使用RAITheme/RAIGlassSurface、暖暗背景和系�
 整库pg_dump custom → GPG加密 → 独立空PG实际restore → FK/不变量/45表计数hash/原回执与Effective/execution核验。备份恢复与全库verify不进入正常sync。离机存储/密钥取回、生产PKI/入口、真机与正式发布仍独立未验证；逻辑dump不是PITR或无损schema回滚。
 
 服务端facts/tombstones/receipts/jobs/analysis与training历史保留，unsafe retention明确DEFERRED。iOS仅新增完成页mark→verify→bounded sweep，delivered anchor与reclaim marker同一state commit，保护pending引用、不扫未知orphan。HealthKit/batch/seq/ACK/seal、训练UI和Liquid Glass不变。真实证据及剩余门禁见 [P7 Result](V2_PHASE7_RESULT.md)。
+
+## 15. Monthly Backup / Disaster Recovery 专项（2026-10-29）
+
+基线 `09fb5bb38d32cdbe42c757277ab2431995818ac4`，不是 P8。正常 iOS/Go 同步、schema13、P3/P4/P5算法与不可变发布历史保持；未新增客户端、常驻服务或生产第二数据库。P7历史结果和加密工具保留。
+
+新增显式管理脚本 `rai-backup.sh backup|check|list`：复用 release Compose 与只读备份身份，整库 custom dump→本地归档检查/SHA→严格SSH→远端partial/大小及摘要重读核验→原子发布manifest→仅保留三份已核验成功副本。目录0700、文件0600、两端锁和不跟随symlink；失败不执行历史清理；无额外文件加密。cron只提供每月1日03:00显式时区模板，云端与真实任务未安装。`rai-restore.sh`只允许明确确认的labelled/空闲/空PG18隔离目标、单事务SQL恢复，随后需角色/FK/原回执与45表不变量验收。
+
+HealthKit灾难重同步为 **BLOCKED**：旧快照保持dataset/service/device身份，但可能丢失墓碑/receipt/stream进度；客户端已交付载荷可能已由P7合法GC。当前没有recovery generation和可证的恢复流/删除覆盖完成合同。本轮交付审查设计与Go/Swift边界反例，没有添加假可用恢复入口、清空Anchor/Outbox或绕过sequence。备份后的User Override/Execution/Feedback可能永久丢失；备份内历史由原P4/P5追加发布保护。详细限制和证据见 [Monthly Backup](RAI_MONTHLY_BACKUP.md)、[Disaster Recovery](RAI_DISASTER_RECOVERY.md) 与 [Result](RAI_BACKUP_RECOVERY_RESULT.md)。

@@ -188,3 +188,35 @@ P6 DEVELOPMENT STATUS: PASS WITH RISKS；P7 DEVELOPMENT READY: YES（仅开发�
 实际差异与失败轮均记录在P7 Result：修复Worker缺goose表权限、原始path日志风险、历史失败告警；测试用ANALYZE预算/secret权限/端口与注入时序问题经重跑，不把失败轮计PASS。remote-test现验证本轮容器label/ID并rm -fv自建匿名卷；无法确认归属的旧卷不prune。线上同步仍不导入admin/migration/备份/全库摘要，不改变事实/回执事务或P4/P5发布算法。
 
 **未验证项**：P3/P6 REAL DEVICE ACCEPTANCE仍DEFERRED / NOT VERIFIED；真实HealthKit/anchor/GPS/background URLSession/iPhone force-quit/网络/训练执行、iOS18 runtime、12ProMax性能、Liquid Glass GPU、WorkoutKit排程继续延期。真实入口/TLS/防火墙/凭证、离机与密钥取回、定时任务/通知、生产规模/长期vacuum/bloat与断电硬件恢复未验收。恢复旧快照会丢失之后ACK事实并可能恢复旧撤销状态，手机anchor/凭证灾难恢复方案是正式切换门禁。未读取真实数据库/健康值，未改旧工程/入口，未迁移、部署、开放公网、发App、commit或push；完成P7后停止。
+
+## Monthly Cloud Backup / HealthKit Disaster Recovery 专项（2026-10-29）
+
+`RECOVERY_BASE_COMMIT=09fb5bb38d32cdbe42c757277ab2431995818ac4`，`main`，入口干净，P7已包含在基线。本专项不是P8；原始方案、00001–00013、P3/P4/P5/P6冻结合同、P0–P7历史结果及证据保留。当前改动未commit/push。
+
+**MONTHLY BACKUP IMPLEMENTATION: PASS WITH RISKS；CLOUD BACKUP INSTALLATION: PENDING CONFIGURATION；DISASTER RECOVERY RESYNC: BLOCKED。** 新月度入口复用P7只读整库custom dump，在不额外加密文件的前提下，通过严格SSH上传，远端大小/摘要重读核验、manifest原子发布后保留三份成功副本；双端文件锁、0700/0600、NOFOLLOW和仅受控身份清理。只准备cron每月1日03:00/Asia-Shanghai配置及错时保护，不安装正式任务；旧P7加密工具保持可用。
+
+真实fnOS合成loopback OpenSSH已完成4次备份/最终3份/最旧移除，并在SSH失败和TCP超时后验证旧集合不变；2,673,852字节的实际归档在另一全新凭证/空卷PG18中完成单事务restore，45表计数/SHA完全一致、schema13、FK/不变量、原receipt/stream/tombstone/P4publication/P5Effective/override/execution/feedback通过。恢复拒绝错确认、未标记源实例、其他活动连接和非空目标；工具没有正式覆盖模式。文件级12项故障/锁/权限/路径安全测试通过；ENOSPC为remote helper显式注入，不能冒充真实云磁盘满验收。
+
+Go/Swift边界用例证明旧快照保留dataset/service/device/collector身份却丢失后续receipt/sequence/tombstone；已完成页原载荷与receipt缓存可能已由P7合法回收。不能据HealthKit空查询推断删除，也不能在同一旧stream重置sequence。当前没有recovery generation、旧代际fencing或coverage完成合同，因此本轮交付审查设计与可重现blocker，未添加假可用恢复CLI/UI、reset Anchor、删除Outbox或第二套importer。保留原payload时连续exact replay及known tombstone抑制通过，不等于完整自动恢复。
+
+真实PG另验证备份后5km→7km及执行完成/feedback会丢失；备份内Override仍生效，新Base/Effective正常追加，旧Effective和frozen execution不被重算覆盖。**数据库备份之后的新手动修改与执行历史可能永久丢失**，HealthKit不能重建原人工命令或处方。
+
+最终Go普通183/race183、完整真实PG/race命令365个test pass事件（fail/skip=0，integration393.169秒）、vet/build/gofmt/mod/249包边界通过。完整Compose最终exit0，包含月度SSH/45表实际恢复、P7 TLS/权限/加密恢复、API/Worker/PG实际SIGKILL、网络/ENOSPC、三轮生命周期及195.507秒/144读/6增量/6逐轮发布的稳定窗口soak，清理exit0。此前soak读取断言失败与未留码事实保留；最终口径加入明确publication屏障，保持零读取错误，不代表dirty期间可用性。最终Go、Swift、Compose命令/数量、失败轮和逐项门禁见 [Backup/Recovery Result](RAI_BACKUP_RECOVERY_RESULT.md) 与 [机器证据](evidence/backup-recovery-2026-10-29.json)。Swift41项（含两项本轮边界）及macOS合成GC实际SIGKILL恢复通过；不声称真实HealthKit/恢复UI已通过。本轮没有生产数据、真实云备份文件、正式cron、真实iPhone状态或旧running变更。**REAL DEVICE RECOVERY与P3/P6 REAL DEVICE ACCEPTANCE继续DEFERRED / NOT VERIFIED；P7 ENGINEERING STATUS保持PASS WITH RISKS、DEPLOYMENT PREPARATION保持PARTIAL、PRODUCTION RELEASE READY保持NO。** 完成证据后停止。
+
+## Monthly Backup Installation / Minimal Manual Recovery Review（2026-10-29）
+
+`BACKUP_DEPLOY_BASE_COMMIT=09fb5bb38d32cdbe42c757277ab2431995818ac4`，main。P7已提交，入口有上一轮5个tracked及18个untracked变更（共23项），本轮保留并增量适配，不沿用上轮“入口干净”。[部署结果](RAI_MONTHLY_BACKUP_DEPLOY_RESULT.md)、[最小恢复审查](RAI_MINIMAL_DISASTER_RECOVERY_REVIEW.md)、[本轮机器证据和原始日志](evidence/monthly-backup-deploy-2026-10-29.json)记录独立口径；不改写P0–P7历史结果或上一轮证据。
+
+**MONTHLY BACKUP CODE: PASS WITH RISKS；REAL CLOUD BACKUP: PENDING CONFIGURATION；MONTHLY SCHEDULER: PENDING CONFIGURATION；MONTHLY MONITORING: PASS；MINIMAL DISASTER RECOVERY REVIEW: COMPLETE；DISASTER RECOVERY IMPLEMENTATION: NOT STARTED；DISASTER RECOVERY RESYNC: BLOCKED。** 真实目录/上传/删除受管云副本/正式调度仍按用户任务A4为PENDING USER APPROVAL；代码与隔离验证不代表安装完成。
+
+fnOS只读盘点为Docker28.5.2/Compose5.1.0、旧project rai的rai-postgres及frpc；容器配置DB/role均rai，bind旧项目pgdata，没有正式V2的API/Worker或月度脚本。未连接旧库、读取schema/健康事实或备份它。宿主Asia/Shanghai、cron active，当前用户无crontab，可读系统任务无RAI备份；其他用户任务未全面核实。正式V2源身份和云端host/user/key/专用目录缺失，用户表示不清楚；通用cloud别名没有被当作备份身份。只提供正式部署后可复用的配置/命令与唯一月度cron；未安装或访问真实云备份文件。按当前日历推算下一计划2026-11-01 03:00+08:00，未安装不能声称存在实际next-run。
+
+复用整库custom/严格SSH/双锁/原子manifest/大小SHA/三份保留；补真实source PG18版本核实、结构化操作日志和0600原子最后尝试记录。共享月度日历策略以每月1日03:00上海时间＋24h宽限检查快照起点；正确处理不同月长/闰年/跨年，宽限不掩盖前月漏备份。`rai-backup.sh check`区分无备份/健康/逾期/失败/损坏/远端不可达；`p7-monitor.sh --monthly`及显式monthly alert策略现场调用月度证据，不用26h；旧daily工具保留兼容。没有新增告警服务、自动恢复、额外加密或常驻数据库。
+
+fnOS最终Go普通183/race183、完整PG18 race命令365个pass事件（fail/skip=0，integration314.342s）、gofmt/mod/vet/build、含integration/scale/p7capacity的vet及249包边界通过。Python文件安全12项、日历/状态适配7项（72个月）和旧P7告警控制通过；最终增加时间字段类型拒绝后，又在fnOS重跑12＋7及每日告警控制通过。Swift核心41项通过；无Swift修改、没有重跑P6 UI截图。定时入口仅用临时配置验证错时返回75，不当作真实月度触发。
+
+真实loopback SSH五次备份最终三份，断连/超时保留旧集合，失败check/手动成功解除和P7月度入口保留Worker停止告警通过。2,671,594B归档在全新凭证/空卷PG18实际单事务恢复；45表count/hash一致、schema13/FK/不变量、原P3回执与P5 Override/Effective/frozen Execution/Feedback通过。这里是loopback上传后本地读取归档恢复，**没有真实云端下载往返**。完整Compose退出0，原P7故障/加密恢复、三轮生命周期、私有256MiB真实ENOSPC及195.134s/144读/6增量/6次确认重生成的稳定发布窗口soak零错误；月度/P7清理exit0，事后仅原rai-postgres/frpc运行。不是生产SLO或真机验证。
+
+最小恢复审查只比较A恢复旧库接续与B新空库/新身份。A保留备份内历史，但旧Scope不变、receipt/seq/墓碑回退及GC后payload缺失不能安全协调；B复用原Init与首次历史同步，但固定Outbox/Background session/Product journal尚不能安全切换。当前两者真实恢复都BLOCKED；按用户接受损失的范围建议以后验证B的显式独立本地会话，预期复用现有服务端协议，未实现按钮/会话切换/generation/新恢复流。SQL隔离恢复后的真实手机写入仍须关闭，禁止reset Anchor、清Outbox或静默接续。
+
+入口481个受保护文件（Go/Swift/合同/角色/migration/原方案/历史结果和证据）逐文件SHA一致。未操作生产、切换入口、安装正式调度、提交或推送。真实V2/云身份、目录权限/空间、真实上传→下载→新PG恢复、正式cron/监控及通知、生产规模RPO/RTO、B会话切换、HealthKit可见覆盖/删除/Route/GPS/后台/强杀/真实网络均未验收。P3/P6 REAL DEVICE ACCEPTANCE继续DEFERRED / NOT VERIFIED；PRODUCTION RELEASE READY继续NO。

@@ -1,0 +1,14 @@
+# Export alongside the existing release environment. No real credentials here.
+RAI_BACKUP_SSH_HOST=
+RAI_BACKUP_SSH_PORT=22
+RAI_BACKUP_SSH_USER=
+RAI_BACKUP_REMOTE_DIR=
+RAI_BACKUP_SSH_KEY=
+# Optional, otherwise OpenSSH's standard known_hosts; never auto-accept keys.
+RAI_BACKUP_KNOWN_HOSTS=
+# Fixed monthly policy: 1st at 03:00, 24h grace, calendar months.
+RAI_BACKUP_TIMEZONE=Asia/Shanghai
+RAI_BACKUP_STATE_DIR=
+RAI_BACKUP_TIMEOUT_SECONDS=3600
+# Existing P7 release environment: RAI_PROJECT, RAI_SECRETS_DIR,
+# RAI_RELEASE_IMAGE, RAI_TLS_SERVER_NAME, optionally RAI_POSTGRES_IMAGE.

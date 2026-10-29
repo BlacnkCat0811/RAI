@@ -88,6 +88,9 @@ PY
 "${compose[@]}" stop worker >/dev/null
 python3 scripts/p7-fault-client.py worker
 python3 scripts/p7-workload.py capture
+if [[ "${RAI_MONTHLY_REHEARSAL:-0}" == 1 ]];then
+ bash scripts/test-monthly-restore.sh "$work"
+fi
 [[ "$("${compose[@]}" exec -T postgres psql -X -U rai_bootstrap -d rai_v2 -Atc "SELECT count(*) FROM jobs WHERE state='queued'")" -gt 0 ]]
 "${compose[@]}" run --rm --no-deps admin ops verify > "$work/source-verify.json"
 start_restore=$SECONDS

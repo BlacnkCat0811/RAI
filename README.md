@@ -8,6 +8,10 @@ P6原生产品与P3/P4/P5历史合同和验收保留，见 [P6 Result](docs/V2_P
 
 按 [ADR-002](docs/adr/002-fresh-healthkit-dataset.md)，本次不迁移旧数据库。开发、真机与部署验收完成后，由新 iOS 客户端首次读取手机可见的 HealthKit 历史，随后走 anchor 增量同步；旧服务端计划、人工修改和旧回执不随健康事实重建。
 
+后续独立专项 [Monthly Backup](docs/RAI_MONTHLY_BACKUP.md) 提供每月1日03:00、无额外文件加密的整库 SSH 备份、最近三份成功副本保留及隔离恢复入口；保留原 P7 工具。正式云端/cron 尚未安装。[灾难恢复审查](docs/RAI_DISASTER_RECOVERY.md) 明确当前 HealthKit recovery resync 为 BLOCKED，不能通过 reset Anchor 或清空 Outbox 处理旧数据库回退；本轮验证和逐项门禁见 [Backup/Recovery Result](docs/RAI_BACKUP_RECOVERY_RESULT.md)。
+
+后续部署准备及月度监控适配见 [Monthly Deploy Result](docs/RAI_MONTHLY_BACKUP_DEPLOY_RESULT.md)；只比较恢复旧库与新建数据集的简化方案见 [Minimal Recovery Review](docs/RAI_MINIMAL_DISASTER_RECOVERY_REVIEW.md)。真实V2/云备份身份与正式调度仍待配置和明确批准，灾难恢复实现未开始。
+
 ## 本地启动
 
 开发环境使用 Go **1.27.3** 和 PostgreSQL **18.6**。三服务 Compose 的显式迁移与启动步骤见 [开发 Compose](deploy/dev/README.md)。该配置仅用于合成开发数据，生产必须配置独立最小权限角色和秘密。

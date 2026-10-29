@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Synthetic authenticated HTTPS workload. Original IDs/receipts remain private."""
-import concurrent.futures,datetime,gzip,hashlib,json,math,os,pathlib,ssl,statistics,sys,time,urllib.error,urllib.request,uuid
+import concurrent.futures,datetime,gzip,hashlib,json,math,os,pathlib,re,ssl,statistics,sys,time,urllib.error,urllib.request,uuid
 base=os.environ['RAI_E2E_URL'];token=os.environ['RAI_E2E_TOKEN'];collector=os.environ['RAI_E2E_COLLECTOR'];state=pathlib.Path(os.environ['RAI_E2E_STATE_DIR'])
 def uid():return str(uuid.uuid4())
 def call(method,path,value=None,data=None,extra=None):
@@ -12,7 +12,10 @@ def call(method,path,value=None,data=None,extra=None):
    with urllib.request.urlopen(request,timeout=30) as response:return json.load(response)
   except urllib.error.HTTPError as e:
    if e.code==429 and attempt<11:time.sleep(max(1,int(e.headers.get('Retry-After','1'))));continue
-   raise RuntimeError('HTTP workload failed status='+str(e.code)) from None
+   try:code=json.loads(e.read(512)).get('code','unknown')
+   except (ValueError,AttributeError):code='unknown'
+   if not isinstance(code,str) or not re.fullmatch(r'[a-z0-9_]{1,80}',code):code='unknown'
+   raise RuntimeError('HTTP workload failed status='+str(e.code)+' code='+code) from None
 def wait_plan(predicate):
  for _ in range(120):
   p=call('GET','/v2/training/plans/current')
@@ -109,7 +112,7 @@ def settle():
   time.sleep(1)
  raise RuntimeError('restored jobs did not settle')
 def soak():
- s=json.loads((state/'p7-private.json').read_text());latencies=[];started=time.monotonic();errors=0;load=SyncLoad();uploads=0
+ s=json.loads((state/'p7-private.json').read_text());latencies=[];started=time.monotonic();errors=0;error_codes={};load=SyncLoad();uploads=0
  # Bounded 180s rehearsal: concurrent API reads, periodic formal sync/recalc.
  def read_once(i):
   at=time.monotonic();call('GET',['/v2/product/overview','/v2/workouts','/v2/analysis/state','/v2/training/plans/current'][i%4]);return (time.monotonic()-at)*1000
@@ -117,12 +120,20 @@ def soak():
   with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
    for future in [pool.submit(read_once,turn*8+i) for i in range(8)]:
     try:latencies.append(future.result())
-    except RuntimeError:errors+=1
+    except RuntimeError as error:errors+=1;error_codes[str(error)]=error_codes.get(str(error),0)+1
   if turn%3==0:
    load.upload(10);uploads+=1
+   prior=call('GET','/v2/training/plans/'+s['plan'])['effective']['baseVersionID']
    call('POST','/v2/training/plans/'+s['plan']+'/changes',{'commandID':uid(),'operation':'recalculate','expectedConfigRevision':1})
+   # Current-result reads intentionally hide dirty publications. Require each
+   # real asynchronous regeneration to finish before the next stable-read
+   # window; do not count a 404 as success or weaken the zero-error assertion.
+   published=wait_plan(lambda p:p['generationState']=='succeeded' and p['effective']['baseVersionID']!=prior)
+   assert next(x for x in published['effective']['sessions'] if x['sessionID']==s['session'])['distanceM']==7000
+   settle()
   time.sleep(10)
+ if errors:print('P7_SOAK_FAILURE='+json.dumps({'errors':errors,'codes':error_codes}))
  assert errors==0
  p=wait_plan(lambda p:p['generationState']=='succeeded');assert next(x for x in p['effective']['sessions'] if x['sessionID']==s['session'])['distanceM']==7000
- values=sorted(latencies);print('P7_SOAK='+json.dumps({'seconds':round(time.monotonic()-started,3),'reads':len(values),'median_ms':statistics.median(values),'p95_ms':values[math.ceil(.95*len(values))-1],'p95_method':'nearest rank','errors':errors,'incremental_uploads':uploads,'scope':'bounded synthetic HTTPS reads, periodic formal sync and six real training regenerations; not long-term endurance'}))
+ values=sorted(latencies);print('P7_SOAK='+json.dumps({'seconds':round(time.monotonic()-started,3),'reads':len(values),'median_ms':statistics.median(values),'p95_ms':values[math.ceil(.95*len(values))-1],'p95_method':'nearest rank','errors':errors,'incremental_uploads':uploads,'scope':'bounded synthetic HTTPS stable-publication reads, formal sync and six individually confirmed training regenerations; not mixed dirty-state availability or long-term endurance'}))
 if __name__=='__main__':{'seed':seed,'verify':verify,'soak':soak,'performance':performance,'capture':capture,'settle':settle}[sys.argv[1]]()

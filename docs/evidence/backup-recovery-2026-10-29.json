@@ -1,0 +1,548 @@
+{
+  "format": "RAI-monthly-backup-recovery-evidence/v1",
+  "recorded_at": "2026-10-29T10:31:53.210694+08:00",
+  "timezone": "Asia/Shanghai",
+  "repository": "/Users/ta/rai",
+  "branch": "main",
+  "RECOVERY_BASE_COMMIT": "09fb5bb38d32cdbe42c757277ab2431995818ac4",
+  "initial_worktree_clean": true,
+  "status": {
+    "MONTHLY BACKUP IMPLEMENTATION": "PASS WITH RISKS",
+    "CLOUD BACKUP INSTALLATION": "PENDING CONFIGURATION",
+    "DISASTER RECOVERY RESYNC": "BLOCKED",
+    "REAL DEVICE RECOVERY": "DEFERRED / NOT VERIFIED",
+    "P3 REAL DEVICE ACCEPTANCE": "DEFERRED / NOT VERIFIED",
+    "P6 REAL DEVICE ACCEPTANCE": "DEFERRED / NOT VERIFIED",
+    "PRODUCTION RELEASE READY": "NO"
+  },
+  "source_manifest_sha256": {
+    "README.md": "2601a54a216d545045578ec8846d01582baef2b96633ad24daa51d851b49c78f",
+    "apps/server/integration/disaster_recovery_boundary_test.go": "6cc728f335ce2b07d75f4e2a36660ad39c847841e91887d641f11c9f163e49a0",
+    "deploy/release/monthly-backup.crontab.example": "864876a604aaf06f65e0a1504be9964ae13d4fc5a4ae9262940134485d2a2908",
+    "deploy/release/monthly-backup.environment.example": "479918865b460b2f66c6577f234a32b5dd9055358f7057918200cb6b503213a8",
+    "docs/ARCHITECTURE.md": "a8c064688d37a069e3d74181bde6ca4d768d1861e3c2b250701a9cd06b9cf44c",
+    "docs/IMPLEMENTATION.md": "3a1de747a9e7278cfb6f656f1ac1451c083010e82ed61478e0bc9e5d687dd820",
+    "docs/RAI_BACKUP_RECOVERY_RESULT.md": "55c69fa6cc08db070679ed2f57bcb6efe62ce1cfafcfd572e0bc906b93311a6c",
+    "docs/RAI_DISASTER_RECOVERY.md": "982ca427ddb7c46c8788a71a75965193019219a50ca528b3300ee5deaac8589e",
+    "docs/RAI_MONTHLY_BACKUP.md": "b6f3d500a688bf837feb20b1c0348423e4f6190d8946920feb4aa2889bb56a13",
+    "ios/RAI/Tests/SyncCoreTests/RecoveryBoundaryTests.swift": "d8f5ae81f6fc6ab3db34bf6f3e187dca7ea589f9ab527f06339fafef9d60e320",
+    "scripts/p7-workload.py": "3ce8293eea2cf44486512e79fff65cebcbefeb16c5b1290e30971104971e2b29",
+    "scripts/rai-backup-remote.py": "468a8c923c6a25e02203da233a264cd8b07001a280c1116a70a0afb54c6b19ce",
+    "scripts/rai-backup-scheduled.sh": "229f7ccc68f31e3a596b75317032e53430506c83830307a7e2fe0565a4ff1240",
+    "scripts/rai-backup.py": "83778094aef382a1b63b336e080f23e2526c0c5c507bb55d761b8c826d632a54",
+    "scripts/rai-backup.sh": "4b4ca6112f92bcebad3706a6def95c1dc55729871efbfa76607d65e9b8422a43",
+    "scripts/rai-restore.py": "74a49bd74edacda52de7686d6ba4e6afb0d999cbaac6d87394f6523bedda42ea",
+    "scripts/rai-restore.sh": "62b2fdbd00e32e85f27b13df2091741d71329db2746001f63856f81ac07aac12",
+    "scripts/test-monthly-backup.py": "0114748800c6073565a130c530de587eeb36ba55dce1164d71207ab2e6400181",
+    "scripts/test-monthly-compose.sh": "9ace8129440feb239a58aa6f9ac1b503d98547b6c1360c6762624787b3408ff7",
+    "scripts/test-monthly-restore.sh": "c8f995e76d0de085b051a7c22ef4b11e449578344a6f2497b73902d15e91eb98",
+    "scripts/test-monthly-ssh.py": "3aee16ca3c1f0ecce7672288bb028ecef64ea1d5bbfc92fafb5a9b96fb1ee203",
+    "scripts/test-p7-compose.sh": "2a5fea6fbc383e7d29aa6d859075f2950e3e0f474af07e0e329df29797c80157"
+  },
+  "source_manifest_digest": "77b555462e00e9c0395b051b9664a245da2e062de9875cfb215c23e2df43282c",
+  "preserved_baseline_files": [
+    "RAI-Go-PostgreSQL架构重设计与实施方案.md",
+    "apps/server/migrations/00001_core.sql",
+    "apps/server/migrations/00002_dirty_generations.sql",
+    "apps/server/migrations/00003_workouts.sql",
+    "apps/server/migrations/00004_page_receipts.sql",
+    "apps/server/migrations/00005_request_budgets.sql",
+    "apps/server/migrations/00006_upload_slots.sql",
+    "apps/server/migrations/00007_workout_activities.sql",
+    "apps/server/migrations/00008_quantity_series.sql",
+    "apps/server/migrations/00009_workout_packages.sql",
+    "apps/server/migrations/00010_route_foundation.sql",
+    "apps/server/migrations/00011_p3_sync_v2.sql",
+    "apps/server/migrations/00012_analysis.sql",
+    "apps/server/migrations/00013_training.sql",
+    "apps/server/migrations/checksums.json",
+    "apps/server/migrations/embed.go",
+    "contracts/CHANGELOG.md",
+    "contracts/fixtures/envelope.canonical.json",
+    "contracts/fixtures/envelope.json",
+    "contracts/fixtures/envelope.sha256",
+    "contracts/fixtures/page-manifest.json",
+    "contracts/fixtures/sample.ndjson",
+    "contracts/fixtures/sample.ndjson.gz",
+    "contracts/fixtures/series-manifest.json",
+    "contracts/fixtures/workout-activities.ndjson",
+    "contracts/fixtures/workout-activities.sha256",
+    "contracts/fixtures/workout-package-manifest.json",
+    "contracts/fixtures/workout.ndjson",
+    "contracts/fixtures/workout.sha256",
+    "contracts/openapi-v2.yaml",
+    "contracts/sync-v2.md",
+    "docs/P7_BACKUP_RESTORE.md",
+    "docs/P7_OPERATIONS.md",
+    "docs/P7_RELEASE_CHECKLIST.md",
+    "docs/V2_PHASE3_RESULT.md",
+    "docs/V2_PHASE3_SYNC_CONTRACT.md",
+    "docs/V2_PHASE4_RESULT.md",
+    "docs/V2_PHASE5_RESULT.md",
+    "docs/V2_PHASE6_RESULT.md",
+    "docs/V2_PHASE7_RESULT.md"
+  ],
+  "runtime_go_and_ios_app_code_changed": false,
+  "synthetic_only": true,
+  "monthly": {
+    "ssh": {
+      "status": "PASS",
+      "successes": 4,
+      "retained": 3,
+      "oldest_removed": true,
+      "strict_host_key": true,
+      "ssh_failure_preserved": true,
+      "network_timeout_preserved": true,
+      "archive_bytes": 2673852,
+      "sha256": "f21f4d97771d8eecdbd0751fefd98faa3d365de90babdb87e2c5f68f46cc0261"
+    },
+    "sql_restore": {
+      "status": "PASS",
+      "table_count": 45,
+      "schema": 13,
+      "invariant_violations": 0,
+      "all_table_counts_and_hashes_equal": true,
+      "p3_original_receipt": true,
+      "p5_override_effective_execution_feedback": true,
+      "archive_sha256": "f21f4d97771d8eecdbd0751fefd98faa3d365de90babdb87e2c5f68f46cc0261",
+      "attestation_binding": "test-monthly-ssh.py selected-archive -> test-monthly-restore.sh -> verified rai-restore.sh input; automatic archive metadata remains restore_tested=false"
+    },
+    "cloud_installation_tested": false,
+    "remote_host_scope": "ephemeral unprivileged OpenSSH on fnOS loopback, fresh keys/host key/authorized_keys; no cloud endpoint",
+    "scheduler": "cron only; template, not installed",
+    "fnos_scheduler_read_only_evidence": {
+      "cron": "active",
+      "crontab_available": true,
+      "host_timezone": "Asia/Shanghai"
+    },
+    "off_window_guard_exit": 75,
+    "file_fault_tests": {
+      "pass": 12,
+      "fail": 0,
+      "seconds": 7.091,
+      "log_sha256": "dcfb8c24b6e5dc0833036120db270fab2d580ce265a621e997aaeba42c9e3382",
+      "cases": [
+        "test_checksum_mismatch_preserves_all_old_backups",
+        "test_duplicate_identity_never_overwrites",
+        "test_enospc_preserves_all_old_backups",
+        "test_existing_nonempty_directory_not_adopted",
+        "test_four_successes_keep_latest_three_and_permissions",
+        "test_interrupted_upload_preserves_all_old_backups",
+        "test_killed_upload_has_no_success_marker_or_retention",
+        "test_local_dump_ssh_timeout_and_mutex_failures",
+        "test_partial_and_foreign_files_never_enter_retention",
+        "test_remote_lock_refuses_concurrent_publication",
+        "test_symlink_directory_and_ancestor_refused",
+        "test_symlink_managed_backup_not_followed_or_deleted"
+      ],
+      "enospc_scope": "OSError(ENOSPC) injected into remote helper fsync; actual cloud disk not filled",
+      "interrupted_upload_scope": "short input plus actual local helper SIGKILL; no success manifest or pruning"
+    }
+  },
+  "go": {
+    "command": "scripts/test-remote.sh bash ../../scripts/check-p7.sh",
+    "run_id": "20261029100634-482696",
+    "gates": [
+      {
+        "mode": "unit",
+        "pass": 183,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/internal/admin": 0.007,
+          "rai/server/internal/analysis": 0.1,
+          "rai/server/internal/config": 0.044,
+          "rai/server/internal/httpapi": 0.006,
+          "rai/server/internal/jobs": 0.007,
+          "rai/server/internal/storage/postgres": 0.005,
+          "rai/server/internal/training": 0.02,
+          "rai/server/internal/syncing": 0.339
+        }
+      },
+      {
+        "mode": "race",
+        "pass": 183,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/internal/admin": 1.034,
+          "rai/server/internal/analysis": 1.5979999999999999,
+          "rai/server/internal/config": 1.183,
+          "rai/server/internal/httpapi": 1.029,
+          "rai/server/internal/jobs": 1.027,
+          "rai/server/internal/storage/postgres": 1.023,
+          "rai/server/internal/training": 1.109,
+          "rai/server/internal/syncing": 4.924
+        }
+      },
+      {
+        "mode": "integration",
+        "pass": 365,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/integration": 393.169,
+          "rai/server/internal/admin": 3.3689999999999998,
+          "rai/server/internal/analysis": 1.593,
+          "rai/server/internal/config": 1.17,
+          "rai/server/internal/httpapi": 1.018,
+          "rai/server/internal/jobs": 1.014,
+          "rai/server/internal/storage/postgres": 1.014,
+          "rai/server/internal/syncing": 5.13,
+          "rai/server/internal/training": 1.072
+        }
+      }
+    ],
+    "postgres": {
+      "server_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "data_checksums": "on",
+      "shared_buffers": "128MB"
+    },
+    "quality": [
+      "gofmt",
+      "go mod verify",
+      "go vet ./...",
+      "go vet -tags=integration,scale,p7capacity ./...",
+      "go build ./...",
+      "249-package online boundary",
+      "pure analysis and training I/O boundaries"
+    ],
+    "log_sha256": "76f8689303bb9d10c1406d4250004252fad1a16d6e75fc2f1482e9d4e9014701"
+  },
+  "swift": {
+    "command": "cd ios/RAI && swift test",
+    "pass": 41,
+    "fail": 0,
+    "new_boundary_tests": 2,
+    "platform": "x86_64 macOS, synthetic Foundation/SyncCore/ProductCore; no actual HealthKit",
+    "macos_gc_sigkill": {
+      "command": "python3 scripts/test-p7-gc.py",
+      "status": "PASS",
+      "killed_process_exit": -9,
+      "anchor_preserved": true
+    }
+  },
+  "compose": {
+    "command": "scripts/test-remote.sh env RAI_SOURCE_COMMIT=09fb5bb38d32cdbe42c757277ab2431995818ac4 bash ../../scripts/test-monthly-compose.sh",
+    "run_id": "20261029101710-508117",
+    "exit_code": 0,
+    "monthly_target_cleanup_exit": 0,
+    "p7_cleanup_exit": 0,
+    "resource_verification": {
+      "projects_checked": [
+        "rai-monthly-restore-1793240521-521634",
+        "rai-p7-restore-1793240246-509014",
+        "rai-p7-test-1793240246-509014"
+      ],
+      "containers": 0,
+      "volumes": 0,
+      "networks": 0,
+      "status": "PASS"
+    },
+    "soak": {
+      "seconds": 195.507,
+      "reads": 144,
+      "median_ms": 18.152323085814714,
+      "p95_ms": 46.10645491629839,
+      "p95_method": "nearest rank",
+      "errors": 0,
+      "incremental_uploads": 6,
+      "scope": "bounded synthetic HTTPS stable-publication reads, formal sync and six individually confirmed training regenerations; not mixed dirty-state availability or long-term endurance"
+    },
+    "scope": "P3/P4/P5 fixture, P7 TLS/runtime identities/original encrypted restore, monthly SSH/plain custom restore, API/Worker/PG SIGKILL, DB network disconnect, actual 256MiB tmpfs ENOSPC, three lifecycle rounds",
+    "p7_encrypted_restore_regression_inventory": {
+      "schema_version": 13,
+      "tables": [
+        {
+          "table": "analysis_parameter_sets",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "analysis_publications",
+          "rows": 6,
+          "sha256": "d9bde85b19fb9193e1c7879c08bdc6f8a039d306297dfcbd64518f49c201cb2b"
+        },
+        {
+          "table": "analysis_results",
+          "rows": 178,
+          "sha256": "2fde26496e2e1ae7e249efacb36f4a2daa888b560cc3ebaa08244ab33ba109e3"
+        },
+        {
+          "table": "analysis_runs",
+          "rows": 36,
+          "sha256": "6da012f0462916a187fedfba3c6a5271f956eb4dae24c1f08ea274c9d87e2319"
+        },
+        {
+          "table": "change_events",
+          "rows": 12011,
+          "sha256": "6d1a9f4cc85886a3e3600ee06bb945d9d4534e3145f9dbb036f8752251da60a1"
+        },
+        {
+          "table": "collector_leases",
+          "rows": 1,
+          "sha256": "a7ef19f538ab610902be17f0c59dc1ed7ec8c6e32361e54a9ec269e8d0ae58c8"
+        },
+        {
+          "table": "datasets",
+          "rows": 1,
+          "sha256": "a49e244c56bd1034082b8706db1b4dd8522b4e47a2150d3e8891c7b532177d29"
+        },
+        {
+          "table": "devices",
+          "rows": 1,
+          "sha256": "24796a8f0a6a5b02fe7c739456494b6453420f4b2b8237cfc6978eb42ce36126"
+        },
+        {
+          "table": "dirty_scopes",
+          "rows": 8,
+          "sha256": "95a70e330dc88fe3757735bcaeefc9840ad4eb4a09d45403b5a949e2e171178f"
+        },
+        {
+          "table": "entity_changes",
+          "rows": 12007,
+          "sha256": "2a4af734d05319e13a6f59b78251633a062adf6d0bff40e033cdbfd62cd3daee"
+        },
+        {
+          "table": "entity_tombstones",
+          "rows": 1,
+          "sha256": "efb18cd8671413521618b50826a78b8b75a0b6f69285964047663bd467d50941"
+        },
+        {
+          "table": "goose_db_version",
+          "rows": 14,
+          "sha256": "5072884eaf5554dfd160789cc82295ce2c7666ce9586bd1b0e81eb87a3e79d2a"
+        },
+        {
+          "table": "health_samples",
+          "rows": 12002,
+          "sha256": "028346b20bccbdfb1dae7905be15efe182ffd8fdb83b243029a5ce92793883b1"
+        },
+        {
+          "table": "job_attempts",
+          "rows": 44,
+          "sha256": "b287b30ad56203a03154eec05faae292eaf2a026043df381740bd5882ea16821"
+        },
+        {
+          "table": "jobs",
+          "rows": 46,
+          "sha256": "766c6e09c5ec52fc7ff0a50176ecdeb58494173b72821f312fc04da85f1e9f23"
+        },
+        {
+          "table": "route_chunks",
+          "rows": 4,
+          "sha256": "198d5a62eb9be4490d9fd353d2a1782e2a5bc04d80dc42cb4b15a92282dc118d"
+        },
+        {
+          "table": "route_deletions",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "route_points",
+          "rows": 19400,
+          "sha256": "14aa5bb06badfb58080a0b5646287183fdfd3bbb8546ad9487add5bfc30d1580"
+        },
+        {
+          "table": "series_chunks",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "series_uploads",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "sync_batches",
+          "rows": 19,
+          "sha256": "265110a7ea3bc99c954e74a3d1be5718389cfcb500711c500e3ce17663d2c5fe"
+        },
+        {
+          "table": "sync_pages",
+          "rows": 19,
+          "sha256": "ee03ba8b4eb9dbdd5c9be18996e362cb8a6eee11e056ea6cd39a0921573a9088"
+        },
+        {
+          "table": "sync_request_budgets",
+          "rows": 6,
+          "sha256": "feccce8683c3aacf1542e3ca070a47f0e9673b73222c2f1a53cda5a29adba378"
+        },
+        {
+          "table": "sync_streams",
+          "rows": 7,
+          "sha256": "70a571c79d54af8f570ef4b832e65e73b181b00fd7e1b8fed91bd62445551e89"
+        },
+        {
+          "table": "sync_upload_slots",
+          "rows": 2,
+          "sha256": "43b73971d6d144e2562a66feab9d68db449c8b37738ed79d5471d95c797f75db"
+        },
+        {
+          "table": "training_base_versions",
+          "rows": 7,
+          "sha256": "11a1bf2f2d7462b4ef6c39acbdfe4595c7b4d7841552e607f83d5962602d15e8"
+        },
+        {
+          "table": "training_commands",
+          "rows": 5,
+          "sha256": "f0504056bfb593064627558c0c4c899c5f6c9496c18bf977aa1c13d90207d22b"
+        },
+        {
+          "table": "training_configs",
+          "rows": 1,
+          "sha256": "38ab06b12fd5376ee535dac2ac3e32d2198f510b5065a3c6888d035179bc039f"
+        },
+        {
+          "table": "training_effective_versions",
+          "rows": 8,
+          "sha256": "a91db11b0fe02487083b22650f7ab5e211540a8282ced49ccc322ac8c849fe00"
+        },
+        {
+          "table": "training_executions",
+          "rows": 1,
+          "sha256": "bfeb3baa7965fff69f2f46056e362639af48a08e3fa752f88c699fdd4d5d525d"
+        },
+        {
+          "table": "training_feedback",
+          "rows": 4,
+          "sha256": "43b6e35b80139ba08835260c9149ac73c50390714c316215d9f2da492bbef770"
+        },
+        {
+          "table": "training_generation_runs",
+          "rows": 8,
+          "sha256": "31c986360fe0fe909244b4d223fc299166daf133f380cad840b8cbfd89f317a3"
+        },
+        {
+          "table": "training_overrides",
+          "rows": 1,
+          "sha256": "dd2dd16cd98f95ca346447d153c31cb9990ed7579aa498393d43df67cae0e26b"
+        },
+        {
+          "table": "training_parameter_sets",
+          "rows": 1,
+          "sha256": "0bfc899128ed14c0fc5ee43bb89570cca1c0e99cbecc947516174afb1027b531"
+        },
+        {
+          "table": "training_plans",
+          "rows": 1,
+          "sha256": "27c8194d6a86339013323d5caf92a77d57c4379c6dd73421bb0c64defdf12b57"
+        },
+        {
+          "table": "training_sessions",
+          "rows": 56,
+          "sha256": "35d0e2bf7c08b7dce6f8b6d813cc98c496d7f17f42840a0e3e3e74e94a110ada"
+        },
+        {
+          "table": "workout_activities",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_enrichments",
+          "rows": 1,
+          "sha256": "6c56a51a567dc86147b941cf6b03d52191cbdc2c96730076ac30ac1dcd350919"
+        },
+        {
+          "table": "workout_events",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_package_chunks",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_packages",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_routes",
+          "rows": 2,
+          "sha256": "528981bdb0400ca223bef153159b6d212a8814076bab0a4fe7a10693fc9cd0d4"
+        },
+        {
+          "table": "workout_samples",
+          "rows": 1,
+          "sha256": "ed6ee80c4f6ceb160300a8a1cb977004dd082da6f84f449fabd10cba5089f9e6"
+        },
+        {
+          "table": "workout_statistics",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workouts",
+          "rows": 4,
+          "sha256": "d70083f3e565c1ebd83de3d73723a2f84dd60b1356c1705d70d0866960a9bac4"
+        }
+      ],
+      "invariant_violations": 0,
+      "automatic_deletion": false
+    },
+    "log_sha256": "e17deffb7bc55c356b96c43c8b6e69d4797e1bc4261d7de80a02f7cb7065c23d"
+  },
+  "recovery_boundary_tests": {
+    "command": "go test -race -count=1 -tags=integration -run ^TestDisasterRecovery -v ./integration",
+    "pass": 2,
+    "scope": "quiesced real PG template copy represents state A; actual dump restore is separate monthly test",
+    "old_identity_unchanged": true,
+    "ahead_sequence_gap": true,
+    "lost_receipt": true,
+    "post_backup_tombstone_lost": true,
+    "backed_up_tombstone_suppresses": true,
+    "exact_retained_payload_replay_idempotent": true,
+    "manual_5_to_7_post_backup_edit_lost": true,
+    "post_backup_completion_and_feedback_lost": true,
+    "restored_override_frozen_execution_and_old_effective_preserved_after_new_base": true
+  },
+  "not_implemented": [
+    "persistent recovery generation and protected mark-restored CLI",
+    "old-generation fencing and recovery stream boundary",
+    "independent HealthKit recovery query progress/coverage/route completion",
+    "iOS recovery confirmation/progress/retry/cancel/completion UI",
+    "automatic safe return to normal incremental sync"
+  ],
+  "failure_rounds": [
+    {
+      "issue": "macOS fixture used /var symlink ancestor",
+      "resolution": "resolve only the synthetic test path; production NOFOLLOW unchanged"
+    },
+    {
+      "issue": "new PG test fixture returned receipt instead of wire",
+      "resolution": "retain original immutable gzip request before committing; exact replay tested"
+    },
+    {
+      "issue": "sshd StrictModes refused synthetic authorized_keys under /tmp ancestry",
+      "resolution": "fresh private home directory; StrictModes and strict host-key checking remain enabled"
+    },
+    {
+      "issue": "second Compose: monthly SSH/SQL passed, later old soak errors==0 failed with no saved HTTP codes",
+      "resolution": "retain failure; add sanitized error codes and per-turn new-Base/override/current-publication barriers; final stable-publication workload passes, no 404 ignored",
+      "limitation": "cause of the earlier unclassified error cannot be proved retroactively; final scope is not dirty-state availability"
+    }
+  ],
+  "safety": {
+    "production_db_accessed": false,
+    "real_healthkit_read": false,
+    "real_anchor_or_outbox_cleared": false,
+    "cloud_endpoint_contacted": false,
+    "production_schedule_installed": false,
+    "production_deployed_or_switched": false,
+    "git_commit_or_push": false,
+    "old_running_modified": false,
+    "old_migrations_or_frozen_contracts_modified": false
+  },
+  "remaining_risks": [
+    "HealthKit resync BLOCKED: lost deletion proofs, collected delivered payloads and absent generation/coverage contract",
+    "cloud credentials/directory/permissions/off-host retrieval and real monthly cron not installed",
+    "P7 old monitor retains daily encrypted metadata/26-hour threshold; no monthly freshness integration",
+    "production-sized RPO/RTO and hardware disaster not measured",
+    "real iPhone HealthKit/route/deletion/background/force-quit and P6 device acceptance remain deferred"
+  ]
+}

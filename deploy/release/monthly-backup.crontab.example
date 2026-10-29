@@ -1,0 +1,8 @@
+# USER crontab template only; never installed automatically.
+# Verify cron daemon host timezone == RAI_BACKUP_TIMEZONE (Asia/Shanghai).
+# Setting TZ below affects the process, not the cron daemon's calendar.
+# Fill real absolute paths after approval. Remove old backup schedules first.
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+TZ=Asia/Shanghai
+0 3 1 * * /ABSOLUTE/rai/scripts/rai-backup-scheduled.sh /ABSOLUTE/private/monthly.env >> /ABSOLUTE/private/monthly-backup.log 2>&1

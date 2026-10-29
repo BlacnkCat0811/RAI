@@ -2,12 +2,21 @@
 # Local aggregate output + exit status. No external notification is sent.
 set -euo pipefail
 umask 077
-[[ $# == 1 ]] || { echo 'usage: p7-monitor.sh LAST_BACKUP_METADATA' >&2;exit 2; }
+[[ $# == 1 ]] || { echo 'usage: p7-monitor.sh --monthly | LEGACY_DAILY_BACKUP_METADATA' >&2;exit 2; }
 : "${RAI_PROJECT:?}" "${RAI_SECRETS_DIR:?}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 compose=(docker compose -f "$root/deploy/release/compose.yaml")
 private="$(mktemp -d)"
 trap 'rm -rf -- "$private"' EXIT
+policy=daily
+metadata="$1"
+if [[ "$1" == --monthly ]];then
+ policy=monthly
+ metadata="$private/monthly-check.json"
+ # check reports operational failures as structured health plus nonzero exit.
+ # Invalid/empty output (including a busy local lock) fails closed in alerts.
+ "$root/scripts/rai-backup.sh" check > "$metadata" || true
+fi
 "${compose[@]}" run --rm --no-deps monitor > "$private/snapshot.json"
 ready=no worker=no tls=no
 if "${compose[@]}" exec -T api /rai probe --ready >/dev/null 2>&1;then ready=yes;fi
@@ -27,4 +36,4 @@ print(n)
 PY
 )"
 cat "$private/snapshot.json"
-python3 "$root/scripts/p7-alerts.py" "$private/snapshot.json" --backup-metadata "$1" --disk-free-bytes "$((free_kb*1024))" --ready "$ready" --worker-active "$worker" --tls-valid "$tls" --sync-failures "$failures"
+python3 "$root/scripts/p7-alerts.py" "$private/snapshot.json" --backup-metadata "$metadata" --backup-policy "$policy" --disk-free-bytes "$((free_kb*1024))" --ready "$ready" --worker-active "$worker" --tls-valid "$tls" --sync-failures "$failures"
