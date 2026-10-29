@@ -1,0 +1,836 @@
+{
+  "synthetic_only": true,
+  "source_commit": "d11e7b29e339b3d33c84962611031a3f33a18a7c",
+  "worktree_dirty": true,
+  "source_fingerprint_sha256": "7360a774224be50d56eedd004a0416941e7c96886038c6906cde0eee72aa5361",
+  "test_image_id": "sha256:e14231c1ed551a0f0602548c974b221d69814b7fb232373ff54cc6e2bf1a5ee8",
+  "source_inventory": {
+    "schema_version": 13,
+    "tables": [
+      {
+        "table": "analysis_parameter_sets",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "analysis_publications",
+        "rows": 6,
+        "sha256": "d68bc163cfccf16f19601296d6265d7b3bb164fbc6fd44eed1691d0417085a41"
+      },
+      {
+        "table": "analysis_results",
+        "rows": 178,
+        "sha256": "21a20ac650ece3f8d5001fde78438cb86a5be779eff206ba7817ad8fb6603509"
+      },
+      {
+        "table": "analysis_runs",
+        "rows": 36,
+        "sha256": "2615cecdb3a152e8f4f277f7fda66bcc9cb162765354829819a4a83ace0865b0"
+      },
+      {
+        "table": "change_events",
+        "rows": 12011,
+        "sha256": "cb6b2ff82cc02625a5dc1189095a48af674cebdb2f967feeea5db828a95b1f8b"
+      },
+      {
+        "table": "collector_leases",
+        "rows": 1,
+        "sha256": "c84a1f6bb3094fbeb3d66fcfcb255c67c6b52f7ba9e5661d67be80feb37870c3"
+      },
+      {
+        "table": "datasets",
+        "rows": 1,
+        "sha256": "eb27d03186ac876dbfe27473968c290ce3b0cbc32abe96d1f0b4090d64e075d0"
+      },
+      {
+        "table": "devices",
+        "rows": 1,
+        "sha256": "4ac1b2a54397ba9f0a41a2ac258303acc66e5cee354e87ef58bd387be1349472"
+      },
+      {
+        "table": "dirty_scopes",
+        "rows": 8,
+        "sha256": "a1f411c40bed233c09583c7826f621637a0418046646db5e44f43e6abc1a7c7e"
+      },
+      {
+        "table": "entity_changes",
+        "rows": 12007,
+        "sha256": "d77a610fd87443199c668aa5101357fee5e1ec4db939c4f259aed5c97d4021ef"
+      },
+      {
+        "table": "entity_tombstones",
+        "rows": 1,
+        "sha256": "e81bdf5c8adcc02089681438da7117fa348b07869c380e928b85c4d3f713b00a"
+      },
+      {
+        "table": "goose_db_version",
+        "rows": 14,
+        "sha256": "343da6f293f3ba172f8b94e0e3fb5fe7bac1dfb871577acb13dc0ca726c5b7d7"
+      },
+      {
+        "table": "health_samples",
+        "rows": 12002,
+        "sha256": "6e4df82a80e1410d82af6e6e532e8e48d865f24bc5d582294ac206b626208e9e"
+      },
+      {
+        "table": "job_attempts",
+        "rows": 44,
+        "sha256": "ccbea97d16abdccda5152bd53a32a66b506a2293ecd6f956edcf70ca9c86fe83"
+      },
+      {
+        "table": "jobs",
+        "rows": 46,
+        "sha256": "85fe87858a1c431a5cd5e65c7c0efc6abd54e6c224df91a6314fc89affe041b7"
+      },
+      {
+        "table": "route_chunks",
+        "rows": 4,
+        "sha256": "382ad58f863029dd0af7fc8d201f867788af019c83340804382a8d93cabd1473"
+      },
+      {
+        "table": "route_deletions",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "route_points",
+        "rows": 19400,
+        "sha256": "79dad5ad627afd386322f229b6bed4e16ea8717afd703031f1bc650e0303c977"
+      },
+      {
+        "table": "series_chunks",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "series_uploads",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "sync_batches",
+        "rows": 19,
+        "sha256": "28891c986b8fd2a6d43a7701cc044a934647b4b83fe8200057a623b10ce6a023"
+      },
+      {
+        "table": "sync_pages",
+        "rows": 19,
+        "sha256": "9b45357500558181aa0665782268bb417ceab7977df12266913acdebcf6ae1f9"
+      },
+      {
+        "table": "sync_request_budgets",
+        "rows": 6,
+        "sha256": "66b2b1fc2f83f2022697385ab555c95c6711de81f01ac13dec289a128639a207"
+      },
+      {
+        "table": "sync_streams",
+        "rows": 7,
+        "sha256": "03e6ae9105551542fb2b6ed590fee60a510c56a09d515e0b79fd1cc360910077"
+      },
+      {
+        "table": "sync_upload_slots",
+        "rows": 2,
+        "sha256": "d2d4ecbad60414142b524e02f9697c1b7c388546f3b5fcbabfab0d6e5a4549ad"
+      },
+      {
+        "table": "training_base_versions",
+        "rows": 7,
+        "sha256": "5448eb543fb16a785b9dde45244925ef1378812ffc4c3e483ada419fd88906d2"
+      },
+      {
+        "table": "training_commands",
+        "rows": 5,
+        "sha256": "689e36f4456f960595e6e9dc78ea5a3eee5c23805da8f5c07d34f79a7dc1897f"
+      },
+      {
+        "table": "training_configs",
+        "rows": 1,
+        "sha256": "abde289dc63da777b7b058f4dfc68351807cc93d6d3f57a5a8d5d82c0b1d9ad7"
+      },
+      {
+        "table": "training_effective_versions",
+        "rows": 8,
+        "sha256": "d16da523b4bbb472bfa798657240dc756a08a1fcafe1f11ef4a0cf57f3f04c92"
+      },
+      {
+        "table": "training_executions",
+        "rows": 1,
+        "sha256": "af2e2a3f96b1bc3199e2d0dd4992e7f956b6c65825e3443836cb959cd72e68b3"
+      },
+      {
+        "table": "training_feedback",
+        "rows": 4,
+        "sha256": "b9a9984c7f9956e3dec66df36f17a34d8b9dd32632b6909561bfee883f62f7aa"
+      },
+      {
+        "table": "training_generation_runs",
+        "rows": 8,
+        "sha256": "d8747e5ca797b6f1ad765a9e351a0c029f95b84312c096c7457ce45509f924b8"
+      },
+      {
+        "table": "training_overrides",
+        "rows": 1,
+        "sha256": "4afaae226abdd1cd1b9f6db70ec447454b76694f39b5b50b35ea3b14ec37a68a"
+      },
+      {
+        "table": "training_parameter_sets",
+        "rows": 1,
+        "sha256": "f6823f5c5efdc38ba36cf2b8b0ee9aa619be3e9541e17f9a2f57d16c15175a8a"
+      },
+      {
+        "table": "training_plans",
+        "rows": 1,
+        "sha256": "3de5e4b69a05a5a5e79e6b0998eab5dc7e27b6e43ff498d9b58a6dbf00e8823b"
+      },
+      {
+        "table": "training_sessions",
+        "rows": 56,
+        "sha256": "143ca7a085bd5f22f273a2e2df33f184502edc988dc9a834335cdfcd5599df77"
+      },
+      {
+        "table": "workout_activities",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workout_enrichments",
+        "rows": 1,
+        "sha256": "2f9df1f0c23fce955c7740a3b32e1c74fa0cbcc163d8c3b48132ce30f4ea127f"
+      },
+      {
+        "table": "workout_events",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workout_package_chunks",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workout_packages",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workout_routes",
+        "rows": 2,
+        "sha256": "16c03ee904ae6201ea4d89ad6961b1124309bbd8fb682be4b8a65060cb86d2a2"
+      },
+      {
+        "table": "workout_samples",
+        "rows": 1,
+        "sha256": "79d9cbfdb25a0529f0c19003eba4f6293d415b54472bc5d77dc0f301a8ebb0bb"
+      },
+      {
+        "table": "workout_statistics",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workouts",
+        "rows": 4,
+        "sha256": "32d4faa1df440388cd1c13ce13aeba7c70ebba556dda289fcacd580d7542ec01"
+      }
+    ],
+    "invariant_violations": 0,
+    "automatic_deletion": false
+  },
+  "restored_inventory": {
+    "schema_version": 13,
+    "tables": [
+      {
+        "table": "analysis_parameter_sets",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "analysis_publications",
+        "rows": 6,
+        "sha256": "d68bc163cfccf16f19601296d6265d7b3bb164fbc6fd44eed1691d0417085a41"
+      },
+      {
+        "table": "analysis_results",
+        "rows": 178,
+        "sha256": "21a20ac650ece3f8d5001fde78438cb86a5be779eff206ba7817ad8fb6603509"
+      },
+      {
+        "table": "analysis_runs",
+        "rows": 36,
+        "sha256": "2615cecdb3a152e8f4f277f7fda66bcc9cb162765354829819a4a83ace0865b0"
+      },
+      {
+        "table": "change_events",
+        "rows": 12011,
+        "sha256": "cb6b2ff82cc02625a5dc1189095a48af674cebdb2f967feeea5db828a95b1f8b"
+      },
+      {
+        "table": "collector_leases",
+        "rows": 1,
+        "sha256": "c84a1f6bb3094fbeb3d66fcfcb255c67c6b52f7ba9e5661d67be80feb37870c3"
+      },
+      {
+        "table": "datasets",
+        "rows": 1,
+        "sha256": "eb27d03186ac876dbfe27473968c290ce3b0cbc32abe96d1f0b4090d64e075d0"
+      },
+      {
+        "table": "devices",
+        "rows": 1,
+        "sha256": "4ac1b2a54397ba9f0a41a2ac258303acc66e5cee354e87ef58bd387be1349472"
+      },
+      {
+        "table": "dirty_scopes",
+        "rows": 8,
+        "sha256": "a1f411c40bed233c09583c7826f621637a0418046646db5e44f43e6abc1a7c7e"
+      },
+      {
+        "table": "entity_changes",
+        "rows": 12007,
+        "sha256": "d77a610fd87443199c668aa5101357fee5e1ec4db939c4f259aed5c97d4021ef"
+      },
+      {
+        "table": "entity_tombstones",
+        "rows": 1,
+        "sha256": "e81bdf5c8adcc02089681438da7117fa348b07869c380e928b85c4d3f713b00a"
+      },
+      {
+        "table": "goose_db_version",
+        "rows": 14,
+        "sha256": "343da6f293f3ba172f8b94e0e3fb5fe7bac1dfb871577acb13dc0ca726c5b7d7"
+      },
+      {
+        "table": "health_samples",
+        "rows": 12002,
+        "sha256": "6e4df82a80e1410d82af6e6e532e8e48d865f24bc5d582294ac206b626208e9e"
+      },
+      {
+        "table": "job_attempts",
+        "rows": 44,
+        "sha256": "ccbea97d16abdccda5152bd53a32a66b506a2293ecd6f956edcf70ca9c86fe83"
+      },
+      {
+        "table": "jobs",
+        "rows": 46,
+        "sha256": "85fe87858a1c431a5cd5e65c7c0efc6abd54e6c224df91a6314fc89affe041b7"
+      },
+      {
+        "table": "route_chunks",
+        "rows": 4,
+        "sha256": "382ad58f863029dd0af7fc8d201f867788af019c83340804382a8d93cabd1473"
+      },
+      {
+        "table": "route_deletions",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "route_points",
+        "rows": 19400,
+        "sha256": "79dad5ad627afd386322f229b6bed4e16ea8717afd703031f1bc650e0303c977"
+      },
+      {
+        "table": "series_chunks",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "series_uploads",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "sync_batches",
+        "rows": 19,
+        "sha256": "28891c986b8fd2a6d43a7701cc044a934647b4b83fe8200057a623b10ce6a023"
+      },
+      {
+        "table": "sync_pages",
+        "rows": 19,
+        "sha256": "9b45357500558181aa0665782268bb417ceab7977df12266913acdebcf6ae1f9"
+      },
+      {
+        "table": "sync_request_budgets",
+        "rows": 6,
+        "sha256": "66b2b1fc2f83f2022697385ab555c95c6711de81f01ac13dec289a128639a207"
+      },
+      {
+        "table": "sync_streams",
+        "rows": 7,
+        "sha256": "03e6ae9105551542fb2b6ed590fee60a510c56a09d515e0b79fd1cc360910077"
+      },
+      {
+        "table": "sync_upload_slots",
+        "rows": 2,
+        "sha256": "d2d4ecbad60414142b524e02f9697c1b7c388546f3b5fcbabfab0d6e5a4549ad"
+      },
+      {
+        "table": "training_base_versions",
+        "rows": 7,
+        "sha256": "5448eb543fb16a785b9dde45244925ef1378812ffc4c3e483ada419fd88906d2"
+      },
+      {
+        "table": "training_commands",
+        "rows": 5,
+        "sha256": "689e36f4456f960595e6e9dc78ea5a3eee5c23805da8f5c07d34f79a7dc1897f"
+      },
+      {
+        "table": "training_configs",
+        "rows": 1,
+        "sha256": "abde289dc63da777b7b058f4dfc68351807cc93d6d3f57a5a8d5d82c0b1d9ad7"
+      },
+      {
+        "table": "training_effective_versions",
+        "rows": 8,
+        "sha256": "d16da523b4bbb472bfa798657240dc756a08a1fcafe1f11ef4a0cf57f3f04c92"
+      },
+      {
+        "table": "training_executions",
+        "rows": 1,
+        "sha256": "af2e2a3f96b1bc3199e2d0dd4992e7f956b6c65825e3443836cb959cd72e68b3"
+      },
+      {
+        "table": "training_feedback",
+        "rows": 4,
+        "sha256": "b9a9984c7f9956e3dec66df36f17a34d8b9dd32632b6909561bfee883f62f7aa"
+      },
+      {
+        "table": "training_generation_runs",
+        "rows": 8,
+        "sha256": "d8747e5ca797b6f1ad765a9e351a0c029f95b84312c096c7457ce45509f924b8"
+      },
+      {
+        "table": "training_overrides",
+        "rows": 1,
+        "sha256": "4afaae226abdd1cd1b9f6db70ec447454b76694f39b5b50b35ea3b14ec37a68a"
+      },
+      {
+        "table": "training_parameter_sets",
+        "rows": 1,
+        "sha256": "f6823f5c5efdc38ba36cf2b8b0ee9aa619be3e9541e17f9a2f57d16c15175a8a"
+      },
+      {
+        "table": "training_plans",
+        "rows": 1,
+        "sha256": "3de5e4b69a05a5a5e79e6b0998eab5dc7e27b6e43ff498d9b58a6dbf00e8823b"
+      },
+      {
+        "table": "training_sessions",
+        "rows": 56,
+        "sha256": "143ca7a085bd5f22f273a2e2df33f184502edc988dc9a834335cdfcd5599df77"
+      },
+      {
+        "table": "workout_activities",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workout_enrichments",
+        "rows": 1,
+        "sha256": "2f9df1f0c23fce955c7740a3b32e1c74fa0cbcc163d8c3b48132ce30f4ea127f"
+      },
+      {
+        "table": "workout_events",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workout_package_chunks",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workout_packages",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workout_routes",
+        "rows": 2,
+        "sha256": "16c03ee904ae6201ea4d89ad6961b1124309bbd8fb682be4b8a65060cb86d2a2"
+      },
+      {
+        "table": "workout_samples",
+        "rows": 1,
+        "sha256": "79d9cbfdb25a0529f0c19003eba4f6293d415b54472bc5d77dc0f301a8ebb0bb"
+      },
+      {
+        "table": "workout_statistics",
+        "rows": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "table": "workouts",
+        "rows": 4,
+        "sha256": "32d4faa1df440388cd1c13ce13aeba7c70ebba556dda289fcacd580d7542ec01"
+      }
+    ],
+    "invariant_violations": 0,
+    "automatic_deletion": false
+  },
+  "backup_metadata": {
+    "format": "RAI-P7-pg_dump-custom-gpg/v1",
+    "started_at": "2026-10-28T21:29:06Z",
+    "completed_at": "2026-10-28T21:29:07.897044+00:00",
+    "source_commit": "d11e7b29e339b3d33c84962611031a3f33a18a7c",
+    "sha256": "2da9ea90b93967e2eab4b15cfec00637d2f24b7ee68dfd8009c0504031442729",
+    "bytes": 2320937,
+    "restore_tested": false,
+    "off_host_verified": false
+  },
+  "aggregate_snapshot": {
+    "jobs": {
+      "failed": 1,
+      "succeeded": 43
+    },
+    "tables": [
+      {
+        "bytes": 16384,
+        "table": "analysis_parameter_sets",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 32768,
+        "table": "analysis_publications",
+        "dead_tuples": 4,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 147456,
+        "table": "analysis_results",
+        "dead_tuples": 0,
+        "estimated_rows": 34,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 114688,
+        "table": "analysis_runs",
+        "dead_tuples": 3,
+        "estimated_rows": 3,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 7290880,
+        "table": "change_events",
+        "dead_tuples": 0,
+        "estimated_rows": 1,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 40960,
+        "table": "collector_leases",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 32768,
+        "table": "datasets",
+        "dead_tuples": 1,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 49152,
+        "table": "devices",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 57344,
+        "table": "dirty_scopes",
+        "dead_tuples": 12,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 3039232,
+        "table": "entity_changes",
+        "dead_tuples": 0,
+        "estimated_rows": 1,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 32768,
+        "table": "entity_tombstones",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 24576,
+        "table": "goose_db_version",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 6873088,
+        "table": "health_samples",
+        "dead_tuples": 0,
+        "estimated_rows": 1,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 32768,
+        "table": "job_attempts",
+        "dead_tuples": 5,
+        "estimated_rows": 5,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 147456,
+        "table": "jobs",
+        "dead_tuples": 12,
+        "estimated_rows": 5,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 360448,
+        "table": "route_chunks",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 16384,
+        "table": "route_deletions",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 4931584,
+        "table": "route_points",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 16384,
+        "table": "series_chunks",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 24576,
+        "table": "series_uploads",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 131072,
+        "table": "sync_batches",
+        "dead_tuples": 1,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 81920,
+        "table": "sync_pages",
+        "dead_tuples": 1,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 65536,
+        "table": "sync_request_budgets",
+        "dead_tuples": 10,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 49152,
+        "table": "sync_streams",
+        "dead_tuples": 1,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 24576,
+        "table": "sync_upload_slots",
+        "dead_tuples": 6,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 139264,
+        "table": "training_base_versions",
+        "dead_tuples": 0,
+        "estimated_rows": 2,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 49152,
+        "table": "training_commands",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 32768,
+        "table": "training_configs",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 163840,
+        "table": "training_effective_versions",
+        "dead_tuples": 0,
+        "estimated_rows": 2,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 65536,
+        "table": "training_executions",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 65536,
+        "table": "training_feedback",
+        "dead_tuples": 0,
+        "estimated_rows": 1,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 114688,
+        "table": "training_generation_runs",
+        "dead_tuples": 2,
+        "estimated_rows": 2,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 65536,
+        "table": "training_overrides",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 32768,
+        "table": "training_parameter_sets",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 49152,
+        "table": "training_plans",
+        "dead_tuples": 4,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 49152,
+        "table": "training_sessions",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 24576,
+        "table": "workout_activities",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 65536,
+        "table": "workout_enrichments",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 16384,
+        "table": "workout_events",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 16384,
+        "table": "workout_package_chunks",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 16384,
+        "table": "workout_packages",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 49152,
+        "table": "workout_routes",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 65536,
+        "table": "workout_samples",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 16384,
+        "table": "workout_statistics",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      },
+      {
+        "bytes": 49152,
+        "table": "workouts",
+        "dead_tuples": 0,
+        "estimated_rows": 0,
+        "last_autovacuum": null
+      }
+    ],
+    "connections": 4,
+    "observed_at": "2026-10-28T21:29:04.053449+00:00",
+    "retry_count": 9,
+    "lock_waiters": 0,
+    "analysis_runs": {
+      "FAILED": 9,
+      "SUCCEEDED": 26,
+      "SUPERSEDED": 1
+    },
+    "training_runs": {
+      "FAILED": 1,
+      "SUCCEEDED": 7
+    },
+    "expired_leases": 0,
+    "generation_lag": 0,
+    "deadlocks_total": 0,
+    "rollbacks_total": 37,
+    "feedback_pending": 0,
+    "training_backlog": 0,
+    "database_size_bytes": 34059967,
+    "historical_failed_jobs": 1,
+    "oldest_due_job_seconds": 0,
+    "failed_jobs_needing_action": 0,
+    "analysis_publication_age_seconds": 5.121681
+  },
+  "verification_attestation": {
+    "verified": true,
+    "ciphertext_sha256": "2da9ea90b93967e2eab4b15cfec00637d2f24b7ee68dfd8009c0504031442729",
+    "scope": "isolated actual SQL restore + all table count/hash comparison + API original receipts/Effective/execution/tombstone suppression",
+    "drill_seconds": 41,
+    "new_database_credentials": true,
+    "off_host_verified": false
+  }
+}

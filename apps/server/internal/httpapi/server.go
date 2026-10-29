@@ -96,8 +96,12 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 
 type statusWriter struct {
 	http.ResponseWriter
-	status int
+	status    int
+	errorCode string
 }
+
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+func (w *statusWriter) setErrorCode(code string)    { w.errorCode = code }
 
 func (w *statusWriter) WriteHeader(status int) {
 	w.status = status
@@ -116,8 +120,12 @@ func (a *API) observe(next http.Handler) http.Handler {
 		w.Header().Set("X-Request-ID", requestID)
 		sw := &statusWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(sw, r)
-		a.log.Info("http_request", "request_id", requestID, "method", r.Method, "path", r.URL.Path,
-			"status", sw.status, "duration_ms", time.Since(start).Milliseconds())
+		operation := r.Pattern
+		if operation == "" {
+			operation = "unmatched"
+		}
+		a.log.Info("http_request", "request_id", requestID, "component", "api", "operation", operation,
+			"status", sw.status, "error_code", sw.errorCode, "duration_ms", time.Since(start).Milliseconds())
 	})
 }
 
@@ -181,6 +189,9 @@ func (a *API) auth(lane syncing.AdmissionLane, next handler) http.Handler {
 func (a *API) fail(w http.ResponseWriter, err error) {
 	var e *syncing.Error
 	if errors.As(err, &e) {
+		if observer, ok := w.(interface{ setErrorCode(string) }); ok {
+			observer.setErrorCode(e.Code)
+		}
 		if e.Status == 401 {
 			w.Header().Set("WWW-Authenticate", "Bearer")
 		}
@@ -192,6 +203,9 @@ func (a *API) fail(w http.ResponseWriter, err error) {
 	}
 	// Database errors can contain sample values or credential-bearing URLs.
 	a.log.Error("request_failed", "reason", "storage_unavailable")
+	if observer, ok := w.(interface{ setErrorCode(string) }); ok {
+		observer.setErrorCode("temporarily_unavailable")
+	}
 	w.Header().Set("Retry-After", "2")
 	respond(w, 503, map[string]string{"code": "temporarily_unavailable"})
 }
@@ -268,6 +282,7 @@ func (a *API) registerBatch(w http.ResponseWriter, r *http.Request, p syncing.Pr
 	}
 	result, err := a.store.RegisterBatch(r.Context(), p, req)
 	if err == nil {
+		a.log.Info("batch_registration", "component", "sync", "operation", "register_batch", "request_id", w.Header().Get("X-Request-ID"), "status", result.State, "event_count", req.EventCount)
 		respond(w, 200, result)
 	}
 	return err
@@ -279,6 +294,7 @@ func (a *API) batch(w http.ResponseWriter, r *http.Request, p syncing.Principal)
 	}
 	result, err := a.store.Batch(r.Context(), p, id)
 	if err == nil {
+		a.log.Info("receipt_recovery", "component", "sync", "operation", "get_batch", "request_id", w.Header().Get("X-Request-ID"), "status", result.State)
 		respond(w, 200, result)
 	}
 	return err
@@ -516,6 +532,7 @@ func (a *API) route(w http.ResponseWriter, r *http.Request, p syncing.Principal)
 	return err
 }
 func (a *API) routeChunk(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	start := time.Now()
 	if !p.CanCollect {
 		return syncing.Fail(403, "read_only_device")
 	}
@@ -564,12 +581,14 @@ func (a *API) routeChunk(w http.ResponseWriter, r *http.Request, p syncing.Princ
 	if err != nil {
 		return err
 	}
+	a.logDurable(w, "route_chunk", receipt, time.Since(start))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	_, _ = w.Write(receipt)
 	return nil
 }
 func (a *API) sealRoute(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	start := time.Now()
 	id, err := pathID(r)
 	if err != nil {
 		return err
@@ -580,6 +599,7 @@ func (a *API) sealRoute(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	}
 	result, err := a.store.SealRoute(r.Context(), p, id, req)
 	if err == nil {
+		a.logDurable(w, "route_seal", result, time.Since(start))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
 		_, _ = w.Write(result)
@@ -710,18 +730,27 @@ func (a *API) body(w http.ResponseWriter, r *http.Request, p syncing.Principal) 
 	if err != nil {
 		return err
 	}
-	var committed syncing.Receipt
-	_ = json.Unmarshal(receipt, &committed)
-	a.log.Info("sync_batch_committed", "batch_id", b.Envelope.BatchID, "event_count", len(events),
-		"inserted", committed.Counts.Inserted, "unchanged", committed.Counts.Unchanged,
-		"deleted", committed.Counts.Deleted, "tombstoned", committed.Counts.Tombstoned,
-		"suppressed", committed.Counts.Suppressed, "commit_ms", time.Since(started).Milliseconds())
+	a.logDurable(w, "batch_commit", receipt, time.Since(started))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	// A response write failure cannot undo the committed transaction. The client
 	// recovers using GET batchID; do not relabel it as a storage failure.
 	_, _ = w.Write(receipt)
 	return nil
+}
+
+// The transaction has committed before this log. This is server durability,
+// not proof that the phone received or persisted the response. Decode into a
+// strict aggregate projection so IDs, hashes, values and payloads never enter it.
+func (a *API) logDurable(w http.ResponseWriter, operation string, body []byte, elapsed time.Duration) {
+	var summary struct {
+		Status          string         `json:"ingestStatus"`
+		Counts          syncing.Counts `json:"counts"`
+		TotalPoints     int64          `json:"totalPoints"`
+		CommittedChunks int64          `json:"committedChunks"`
+	}
+	_ = json.Unmarshal(body, &summary)
+	a.log.Info("durable_commit", "component", "sync", "operation", operation, "request_id", w.Header().Get("X-Request-ID"), "duration_ms", elapsed.Milliseconds(), "status", summary.Status, "counts", summary.Counts, "point_count", summary.TotalPoints, "chunk_count", summary.CommittedChunks)
 }
 
 // Only active uploads occupy map entries. The global two-slot cap bounds both

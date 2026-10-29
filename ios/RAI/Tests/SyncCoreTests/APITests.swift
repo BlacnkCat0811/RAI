@@ -113,6 +113,28 @@ struct APITests {
         #expect(await store.snapshot().pages.isEmpty)
         #expect(MockProtocol.state.withLock { $0.uploadCount == 2 })
     }
+    @Test func missingReferencedPayloadCannotAdvanceAnchorAndRetrySurvivesGC() async throws {
+        let (store, directory, api, page) = try await setup(lostAfterCommit: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        guard case .batch(_, let file) = page.operations[1] else { Issue.record("missing batch"); return }
+        let path = directory.appendingPathComponent(file), bytes = try Data(contentsOf: path)
+        try FileManager.default.removeItem(at: path)
+        try await OutboxPipeline(store: store, api: api).drain()
+        let blocked = await store.snapshot()
+        #expect(blocked.streams.values.first?.deliveredAnchor == nil)
+        #expect(blocked.streams.values.first?.nextSequence == 1)
+        #expect(!MockProtocol.state.withLock { $0.committed })
+        #expect(try await store.collectGarbage(dryRun: false) == 0)
+        try bytes.write(to: path)
+        try await store.retryBlocked(); try await OutboxPipeline(store: store, api: api).drain()
+        // First transport fails before commit; its original file/identity stays.
+        try await store.retryBlocked(); try await OutboxPipeline(store: store, api: api).drain()
+        #expect(await store.snapshot().streams.values.first?.deliveredAnchor == Data([42]))
+        _ = try await store.collectGarbage(dryRun: false)
+        try await OutboxPipeline(store: store, api: api).drain()
+        #expect(await store.snapshot().pages.isEmpty)
+        #expect(MockProtocol.state.withLock { $0.uploadCount == 2 })
+    }
     @Test func serviceUnavailablePreservesCandidateAndBackoff() async throws {
         let (store, directory, api, _) = try await setup(lostAfterCommit: false)
         defer { try? FileManager.default.removeItem(at: directory) }

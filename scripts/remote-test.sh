@@ -40,14 +40,33 @@ case "$mode" in
 esac
 
 network_created=0
+pg_created=0
+pg_volumes=()
+ownership_dir="$(mktemp -d)"
 cleanup() {
   rc=$?
   trap - EXIT INT TERM
-  docker rm -f "$go_ctr" >/dev/null 2>&1 || true
-  docker rm -f "$pg" >/dev/null 2>&1 || true
+  if [[ -f "$ownership_dir/go.cid" ]];then
+    owned_go_id="$(cat "$ownership_dir/go.cid")"
+    if [[ "$(docker inspect -f '{{index .Config.Labels "rai.test.run"}}' "$owned_go_id" 2>/dev/null || true)" == "$run_id" ]];then
+      docker rm -fv "$owned_go_id" >/dev/null 2>&1 || rc=1
+    fi
+  fi
+  if [[ "$pg_created" == 1 && "$(docker inspect -f '{{index .Config.Labels "rai.test.run"}}' "$pg" 2>/dev/null || true)" == "$run_id" ]];then
+    # Official PG18 declares a VOLUME; -f alone leaves an anonymous data volume.
+    # Only this successfully-created, run-labelled container is eligible.
+    docker rm -fv "$pg" >/dev/null 2>&1 || rc=1
+    for volume in "${pg_volumes[@]}";do
+      if docker volume inspect "$volume" >/dev/null 2>&1;then
+        echo 'Owned test PostgreSQL volume cleanup failed; no prune attempted' >&2
+        rc=1
+      fi
+    done
+  fi
   if [[ "$network_created" == 1 ]]; then
     docker network rm "$net" >/dev/null 2>&1 || true
   fi
+  rm -rf -- "$ownership_dir"
   exit "$rc"
 }
 trap cleanup EXIT
@@ -106,6 +125,9 @@ else
     -c synchronous_commit=on >/dev/null
 fi
 
+pg_created=1
+read -r -a pg_volumes < <(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{.Name}} {{end}}{{end}}' "$pg")
+
 ready=false
 for _ in $(seq 1 90); do
   # The image starts a temporary socket-only server during initialization.
@@ -147,6 +169,7 @@ if [[ "$mode" == host ]]; then
   (
     cd "$root/apps/server"
     export RAI_TEST_DATABASE_URL="postgres://rai_test:$pass@127.0.0.1:$port/rai_test?sslmode=disable"
+    export RAI_TEST_PG_CONTAINER="$pg"
     export GOMAXPROCS="$gomaxprocs"
     export CGO_ENABLED=1
     export GOMODCACHE="$mod_cache"
@@ -157,7 +180,7 @@ if [[ "$mode" == host ]]; then
     "$@"
   ) || status=$?
 else
-  docker run --rm --name "$go_ctr" --network "$net" \
+  docker run --rm --cidfile "$ownership_dir/go.cid" --name "$go_ctr" --network "$net" \
     --label "rai.test.run=$run_id" \
     --memory "$go_mem" --cpus "$go_cpus" \
     -v "$root:/src" \

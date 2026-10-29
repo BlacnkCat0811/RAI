@@ -1,0 +1,1232 @@
+{
+  "phase": "RAI V2 Phase 7",
+  "date": "2026-10-29",
+  "timezone": "Asia/Shanghai",
+  "synthetic_only": true,
+  "source_commit": "d11e7b29e339b3d33c84962611031a3f33a18a7c",
+  "branch": "main",
+  "initial_worktree_clean": true,
+  "p6_committed": true,
+  "worktree_dirty": true,
+  "source_commit_caveat": "P7 is an uncommitted increment on this base; neither the baseline commit nor the local image ID is a published release.",
+  "source_fingerprint": {
+    "sha256": "7360a774224be50d56eedd004a0416941e7c96886038c6906cde0eee72aa5361",
+    "file_count": 225,
+    "method": "SHA256 of compact sorted JSON mapping repository-relative source paths to SHA256; roots apps/server, deploy, scripts, ios/RAI; git ls-files -co --exclude-standard",
+    "manifest": "p7-source-2026-10-29.json"
+  },
+  "original_architecture_proposal_sha256": "6951b1d938133a964cb06d28c3aa744ad05121f25da770e184041211df53e3de",
+  "protected_baseline": {
+    "equal_bytes": true,
+    "files": 304,
+    "sha256": "7ccfed60c4a7b45b771e4c3a26c551a5ab9b4dada8c57f6eb086bfc31b0cd75c",
+    "historical_evidence_files": 265,
+    "sql_migrations": {
+      "apps/server/migrations/00001_core.sql": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+      "apps/server/migrations/00002_dirty_generations.sql": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+      "apps/server/migrations/00003_workouts.sql": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+      "apps/server/migrations/00004_page_receipts.sql": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+      "apps/server/migrations/00005_request_budgets.sql": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+      "apps/server/migrations/00006_upload_slots.sql": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+      "apps/server/migrations/00007_workout_activities.sql": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+      "apps/server/migrations/00008_quantity_series.sql": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+      "apps/server/migrations/00009_workout_packages.sql": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+      "apps/server/migrations/00010_route_foundation.sql": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
+      "apps/server/migrations/00011_p3_sync_v2.sql": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
+      "apps/server/migrations/00012_analysis.sql": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+      "apps/server/migrations/00013_training.sql": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b"
+    }
+  },
+  "status": {
+    "engineering": "PASS WITH RISKS",
+    "deployment_preparation": "PARTIAL",
+    "p3_real_device": "DEFERRED / NOT VERIFIED",
+    "p6_real_device": "DEFERRED / NOT VERIFIED",
+    "workoutkit": "DEFERRED",
+    "production_release_ready": "NO"
+  },
+  "environment": {
+    "kernel": "6.18.18.c1032-trim",
+    "cpus": 4,
+    "go": "go version go1.27.3 linux/amd64",
+    "docker": "28.5.2",
+    "compose": "5.1.0",
+    "interfaces_summary": [
+      {
+        "kind": "loopback",
+        "state": "UNKNOWN",
+        "private_address_count": 0,
+        "global_address_count": 0
+      },
+      {
+        "kind": "host",
+        "state": "UP",
+        "private_address_count": 2,
+        "global_address_count": 2
+      },
+      {
+        "kind": "docker",
+        "state": "UP",
+        "private_address_count": 2,
+        "global_address_count": 0
+      },
+      {
+        "kind": "docker",
+        "state": "UP",
+        "private_address_count": 2,
+        "global_address_count": 0
+      },
+      {
+        "kind": "docker",
+        "state": "UP",
+        "private_address_count": 1,
+        "global_address_count": 0
+      },
+      {
+        "kind": "docker",
+        "state": "UP",
+        "private_address_count": 1,
+        "global_address_count": 0
+      }
+    ],
+    "vpn_binaries_present": {
+      "wg": false,
+      "tailscale": false,
+      "openvpn": false,
+      "zerotier-cli": false
+    },
+    "host_firewall_tools_present": {
+      "nft": false,
+      "iptables": false,
+      "ufw": false
+    },
+    "production_certificate_files_inspected": false,
+    "vpn_connectivity_verified": false,
+    "phone_ingress_verified": false,
+    "cpu": {
+      "Architecture": "x86_64",
+      "CPU(s)": "4",
+      "Model name": "Intel(R) N100",
+      "Hypervisor vendor": "KVM",
+      "Virtualization type": "full"
+    },
+    "host": "N100/PVE/fnOS disposable test environments",
+    "memory_bytes": 8331579392,
+    "native_go_tests": true,
+    "go_test_gomaxprocs": 2,
+    "swift": "6.3.2",
+    "xcode": "26.5 (17F42)",
+    "simulator_runtime": "iOS 26.5",
+    "ios18_runtime": "NOT AVAILABLE",
+    "metal_gpu": "NOT AVAILABLE",
+    "existing_services_preserved": true,
+    "production_database_accessed": false
+  },
+  "docker": {
+    "version": "28.5.2",
+    "compose": "5.1.0",
+    "release_services": [
+      "postgres",
+      "api",
+      "worker"
+    ],
+    "on_demand": [
+      "admin",
+      "monitor"
+    ],
+    "test_image_id": "sha256:e14231c1ed551a0f0602548c974b221d69814b7fb232373ff54cc6e2bf1a5ee8",
+    "registry_digest": "NOT PUBLISHED",
+    "postgres_release_image": "postgres:18.6-bookworm@sha256:bbf83594798e144bff365a9c191c5d779f181fb3135902064ab8ff11918020fc",
+    "go_build_image": "golang:1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb",
+    "pgdata": "/var/lib/postgresql/18/docker",
+    "volume_target": "/var/lib/postgresql",
+    "loopback_https_only": true,
+    "postgres_host_port_published": false,
+    "api_worker_same_image": true,
+    "cleanup_exit": 0,
+    "resource_inventory_after_cleanup": {
+      "projects_checked": [
+        "rai-p7-crypto-1793222285-274762",
+        "rai-p7-disk-1793223224-305347",
+        "rai-p7-restore-1793222667-282693",
+        "rai-p7-test-1793220442-233355",
+        "rai-p7-test-1793222667-282693"
+      ],
+      "wrapper_runs_checked": [
+        "20261029043040-222589",
+        "20261029044707-232525",
+        "20261029051313-268092",
+        "20261029051551-270567",
+        "20261029051739-273419",
+        "20261029052413-281848"
+      ],
+      "remaining_containers": [],
+      "remaining_named_volumes": [],
+      "remaining_networks": [],
+      "remaining_release_image_tags": [],
+      "existing_service_states": {
+        "rai-postgres": "running",
+        "frpc": "running"
+      },
+      "unattributed_anonymous_volumes": "not deleted; this check does not establish ownership of preexisting anonymous volumes; wrapper validates exact own volume deletion"
+    },
+    "old_unattributed_anonymous_volumes": "NOT DELETED; no prune; wrapper now validates own label/id and removes anonymous volume with -fv"
+  },
+  "release_manifest": {
+    "analysis": [
+      "workout.bundle/v1",
+      "training_state.bundle/v1",
+      "dependency.invalidate/v1"
+    ],
+    "coach_parameters": "coach_parameters/v1",
+    "feedback": "training_feedback/v1",
+    "go": "go1.27.3",
+    "openapi": "1.0.0",
+    "schema": 13,
+    "source_commit": "d11e7b29e339b3d33c84962611031a3f33a18a7c",
+    "sync_protocol": 2,
+    "training": "training_plan/v1",
+    "swift": "6.3.2",
+    "postgresql": "18.6",
+    "worktree_dirty": true,
+    "source_fingerprint_sha256": "7360a774224be50d56eedd004a0416941e7c96886038c6906cde0eee72aa5361",
+    "docker_image_id": "sha256:e14231c1ed551a0f0602548c974b221d69814b7fb232373ff54cc6e2bf1a5ee8",
+    "registry_digest": "NOT PUBLISHED"
+  },
+  "postgresql": {
+    "server_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "data_checksums": "on",
+    "shared_buffers": "128MB",
+    "release_shared_buffers": "256MB",
+    "release_max_connections": 40,
+    "release_memory_limit_bytes": 2147483648,
+    "integration_shared_buffers": "128MB",
+    "integration_memory_limit_bytes": 1073741824,
+    "timezone": "UTC",
+    "encoding": "UTF8"
+  },
+  "migration_version": 13,
+  "security_tests": {
+    "status": "PASS IN ISOLATION",
+    "tls": "real HTTPS with synthetic CA; chain, hostname, expiry and key pair verified; wrong/missing trust rejected in Go tests",
+    "minimum_tls": "1.2",
+    "no_validation_bypass": true,
+    "no_ats_relaxation": true,
+    "secret_audit": "PASS in local Git checkout",
+    "http_logging": "normalized route; unmatched hides path/query; no token/body/HR/GPS",
+    "production_pki_phone_trust": "NOT VERIFIED"
+  },
+  "role_tests": {
+    "status": "PASS real PostgreSQL LOGIN + restricted-role P4/P5 regressions",
+    "api_ddl_temp_route_bypass_role_switch": "SQLSTATE 42501",
+    "runtime_migration": "DENIED including fully migrated schema",
+    "cross_dataset": "404",
+    "revoked_device": "401",
+    "backup": "read-only whole dump succeeded",
+    "monitor": "aggregate CLI succeeded without raw table SELECT",
+    "restore_password_isolation": true,
+    "rls": "NOT IMPLEMENTED; trusted API query boundary"
+  },
+  "backup_tests": {
+    "status": "PASS synthetic whole database",
+    "method": "pg_dump custom/no-owner/no-acl -> GPG AES256 integrity-protected encryption",
+    "scope_tables": 45,
+    "encrypted_bytes": 2320937,
+    "ciphertext_sha256": "2da9ea90b93967e2eab4b15cfec00637d2f24b7ee68dfd8009c0504031442729",
+    "key_separate": true,
+    "plaintext_dump_long_lived": false,
+    "negative_controls": [
+      "wrong key",
+      "ciphertext hash mismatch",
+      "ciphertext corruption with updated SHA metadata",
+      "unlabelled target",
+      "nonempty target"
+    ],
+    "failed_restore_writes": 0,
+    "off_host_copy": "DESIGNED / NOT VERIFIED",
+    "scheduler": "NOT INSTALLED",
+    "rpo_design_hours": 24,
+    "rto_design_minutes": 60,
+    "pitr": false
+  },
+  "restore_tests": {
+    "status": "PASS real second independent PostgreSQL",
+    "evidence": "p7-restore-2026-10-29.json",
+    "new_database_passwords_all_six_roles": true,
+    "exact_tables_equal": 45,
+    "invariant_violations": 0,
+    "schema": 13,
+    "validated_fk": true,
+    "original_batch_receipt": true,
+    "original_override_receipt": true,
+    "effective_and_execution": true,
+    "tombstone_suppression": true,
+    "queued_state_preserved": true,
+    "tls_runtime_api_ready": true,
+    "drill_seconds": 41,
+    "rto_scope": "backup creation/encryption + fresh target startup/bootstrap + SQL restore + grants + whole inventory verification + API smoke; small synthetic database, no production RTO claim"
+  },
+  "recovery_tests": {
+    "status": "PASS in isolated synthetic environments",
+    "api_sigkill": "open final receipt transaction rolled back; original retry committed once",
+    "worker_sigkill": "publication transaction killed; real 60s lease expiry; old FAILED lease_expired + one SUCCEEDED run",
+    "postgres_sigkill": "WAL rollback of in-flight facts; committed receipt retained; pgx reconnect",
+    "route": "PG chunk/seal fault/retry/delete tests plus scale",
+    "analysis_publication": "PG trigger/lease/fencing atomicity regression",
+    "training_publication": "PG trigger/lease atomicity; old Effective and override survival",
+    "network": "API/database disconnect/reconnect; liveness available and readiness/auth fail safely",
+    "disk_full": "separate 256MiB tmpfs, measured zero free blocks; 1000-event write 503; remove own filler; original-identity retry and Worker readiness/verify pass; all newly queued jobs drained was not separately asserted",
+    "graceful_restart_rounds": 3,
+    "api_worker_sigterm_exit_codes": [
+      0,
+      0
+    ],
+    "real_phone_network": "NOT VERIFIED",
+    "host_power_loss": "NOT VERIFIED"
+  },
+  "retention_tests": {
+    "status": "PASS conservative inventory + bounded iOS completed-page GC",
+    "server_automatic_deletion": false,
+    "raw_tombstones_receipts_training_history": "RETAINED",
+    "server_history_staging_gc": "DEFERRED",
+    "ios_gc": "durable ACK/all operations/sealed proof + anchor persisted -> marked queue -> reference/path verify -> bounded sweep128 max512",
+    "swift_regression_tests": 39,
+    "gc_real_sigkill": "macOS synthetic subprocess between bounded batches; anchor preserved; reclaim continued",
+    "orphans_cancelled_legacy_files": "RETAINED / DEFERRED",
+    "missing_referenced_payload": "page retained; no anchor advancement; original retry verified",
+    "iphone_force_quit": "NOT VERIFIED"
+  },
+  "monitoring_tests": {
+    "status": "PASS synthetic controls + live TLS/runtime aggregate monitor",
+    "rules": 11,
+    "each_condition_verified_separately": true,
+    "healthy": "exit0",
+    "actionable": "exit1",
+    "missing_evidence": "exit2",
+    "current_failed_job": "alerts until higher-generation clean coverage; repair_required always alerts",
+    "historical_failed_job": "audit identity retained; counts visible; no current incident once replaced by clean generation",
+    "real_pg_failure_resolution_test": true,
+    "live_alerts": [],
+    "schedule": "NOT INSTALLED",
+    "external_notification_delivery": "NOT CONFIGURED / NOT VERIFIED",
+    "raw_health_values_logged": false
+  },
+  "capacity_tests": {
+    "status": "PASS bounded synthetic fixtures",
+    "fixtures": [
+      {
+        "analysis_runs_rows": 365,
+        "associated_samples_plan": {
+          "execution_ms": 0.843,
+          "nodes": [
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Limit",
+              "Shared Hit Blocks": 506,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Incremental Sort",
+              "Shared Hit Blocks": 506,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Merge Join",
+              "Shared Hit Blocks": 506,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Nested Loop",
+              "Shared Hit Blocks": 504,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Index Name": "workout_samples_workout",
+              "Node Type": "Index Only Scan",
+              "Shared Hit Blocks": 104,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 100,
+              "Actual Rows": 1,
+              "Index Name": "health_samples_pkey",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 400,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 0,
+              "Index Name": "series_uploads_dataset_id_sample_type_sample_uuid_key",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0
+            }
+          ]
+        },
+        "database_bytes": 91816463,
+        "effective_current_ms": {
+          "count": 100,
+          "median": 0.6338305,
+          "p95": 0.879637
+        },
+        "health_samples_rows": 36500,
+        "historical_seed": "SQL read-only capacity fixture; 100 HR intervals and 300 route points per one-hour daily Workout",
+        "jobs_rows": 418,
+        "product_first50_ms": {
+          "count": 100,
+          "median": 13.145710000000001,
+          "p95": 14.946293
+        },
+        "route_points": 109500,
+        "route_points_rows": 109500,
+        "samples": 36500,
+        "sealed_routes_plan": {
+          "execution_ms": 0.426,
+          "nodes": [
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Limit",
+              "Shared Hit Blocks": 16,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Incremental Sort",
+              "Shared Hit Blocks": 16,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Nested Loop",
+              "Shared Hit Blocks": 16,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 1,
+              "Index Name": "workout_routes_workout",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 5,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Index Name": "route_points_pkey",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 11,
+              "Shared Read Blocks": 0
+            }
+          ]
+        },
+        "sync_batches_rows": 730,
+        "sync_history": "two actual empty P3 batch/page commits per simulated day; not nonempty historical ingest",
+        "training_effective_versions_rows": 53,
+        "training_regenerations": 53,
+        "wal_bytes_during_fixture_and_training": 106231792,
+        "workouts": 365,
+        "years": 1
+      },
+      {
+        "analysis_runs_rows": 1095,
+        "associated_samples_plan": {
+          "execution_ms": 1.793,
+          "nodes": [
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Limit",
+              "Shared Hit Blocks": 188,
+              "Shared Read Blocks": 219
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Incremental Sort",
+              "Shared Hit Blocks": 188,
+              "Shared Read Blocks": 219
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Merge Join",
+              "Shared Hit Blocks": 188,
+              "Shared Read Blocks": 219
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Nested Loop",
+              "Shared Hit Blocks": 186,
+              "Shared Read Blocks": 219
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Index Name": "workout_samples_workout",
+              "Node Type": "Index Only Scan",
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 4
+            },
+            {
+              "Actual Loops": 100,
+              "Actual Rows": 1,
+              "Index Name": "health_samples_pkey",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 185,
+              "Shared Read Blocks": 215
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 0,
+              "Index Name": "series_uploads_dataset_id_sample_type_sample_uuid_key",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0
+            }
+          ]
+        },
+        "database_bytes": 253589183,
+        "effective_current_ms": {
+          "count": 100,
+          "median": 0.7048185,
+          "p95": 1.007391
+        },
+        "health_samples_rows": 109500,
+        "historical_seed": "SQL read-only capacity fixture; 100 HR intervals and 300 route points per one-hour daily Workout",
+        "jobs_rows": 1252,
+        "product_first50_ms": {
+          "count": 100,
+          "median": 2.6819325000000003,
+          "p95": 3.511122
+        },
+        "route_points": 328500,
+        "route_points_rows": 328500,
+        "samples": 109500,
+        "sealed_routes_plan": {
+          "execution_ms": 0.479,
+          "nodes": [
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Limit",
+              "Shared Hit Blocks": 13,
+              "Shared Read Blocks": 1
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Incremental Sort",
+              "Shared Hit Blocks": 13,
+              "Shared Read Blocks": 1
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Nested Loop",
+              "Shared Hit Blocks": 13,
+              "Shared Read Blocks": 1
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 1,
+              "Index Name": "workout_routes_workout",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Index Name": "route_points_pkey",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 10,
+              "Shared Read Blocks": 1
+            }
+          ]
+        },
+        "sync_batches_rows": 2190,
+        "sync_history": "two actual empty P3 batch/page commits per simulated day; not nonempty historical ingest",
+        "training_effective_versions_rows": 157,
+        "training_regenerations": 157,
+        "wal_bytes_during_fixture_and_training": 319723144,
+        "workouts": 1095,
+        "years": 3
+      },
+      {
+        "analysis_runs_rows": 1825,
+        "associated_samples_plan": {
+          "execution_ms": 1.962,
+          "nodes": [
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Limit",
+              "Shared Hit Blocks": 165,
+              "Shared Read Blocks": 242
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Incremental Sort",
+              "Shared Hit Blocks": 165,
+              "Shared Read Blocks": 242
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Merge Join",
+              "Shared Hit Blocks": 165,
+              "Shared Read Blocks": 242
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Node Type": "Nested Loop",
+              "Shared Hit Blocks": 163,
+              "Shared Read Blocks": 242
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 100,
+              "Index Name": "workout_samples_workout",
+              "Node Type": "Index Only Scan",
+              "Shared Hit Blocks": 1,
+              "Shared Read Blocks": 4
+            },
+            {
+              "Actual Loops": 100,
+              "Actual Rows": 1,
+              "Index Name": "health_samples_pkey",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 162,
+              "Shared Read Blocks": 238
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 0,
+              "Index Name": "series_uploads_dataset_id_sample_type_sample_uuid_key",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0
+            }
+          ]
+        },
+        "database_bytes": 413557263,
+        "effective_current_ms": {
+          "count": 100,
+          "median": 0.7178385,
+          "p95": 0.999611
+        },
+        "health_samples_rows": 182500,
+        "historical_seed": "SQL read-only capacity fixture; 100 HR intervals and 300 route points per one-hour daily Workout",
+        "jobs_rows": 2086,
+        "product_first50_ms": {
+          "count": 100,
+          "median": 2.7418924999999996,
+          "p95": 3.650071
+        },
+        "route_points": 547500,
+        "route_points_rows": 547500,
+        "samples": 182500,
+        "sealed_routes_plan": {
+          "execution_ms": 0.459,
+          "nodes": [
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Limit",
+              "Shared Hit Blocks": 6,
+              "Shared Read Blocks": 8
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Incremental Sort",
+              "Shared Hit Blocks": 6,
+              "Shared Read Blocks": 8
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Node Type": "Nested Loop",
+              "Shared Hit Blocks": 6,
+              "Shared Read Blocks": 8
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 1,
+              "Index Name": "workout_routes_workout",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 0
+            },
+            {
+              "Actual Loops": 1,
+              "Actual Rows": 300,
+              "Index Name": "route_points_pkey",
+              "Node Type": "Index Scan",
+              "Shared Hit Blocks": 3,
+              "Shared Read Blocks": 8
+            }
+          ]
+        },
+        "sync_batches_rows": 3650,
+        "sync_history": "two actual empty P3 batch/page commits per simulated day; not nonempty historical ingest",
+        "training_effective_versions_rows": 261,
+        "training_regenerations": 261,
+        "wal_bytes_during_fixture_and_training": 532252888,
+        "workouts": 1825,
+        "years": 5
+      }
+    ],
+    "history_seed": "SQL read-only history fixture; two real empty P3 pages/day for receipt/batch growth; nonempty protocol upload tested separately",
+    "sample_density": "100 HR intervals and 300 GPS points per daily 1h Workout; not 1Hz history",
+    "query_samples": 100,
+    "quantiles": "nearest rank P95",
+    "default_planner": true,
+    "scale": {
+      "ten_thousand_fragment_page_seconds": 229.933,
+      "million_series_points": 1000000,
+      "series_chunks": 200,
+      "series_staging_seal_verify_seconds": 31.44256659,
+      "series_seal_ms": 11.558071,
+      "large_workout_details": 20000,
+      "workout_chunks": 78,
+      "workout_staging_seal_seconds": 3.872921824,
+      "workout_seal_ms": 511.825839,
+      "all_scale_package_seconds": 304.625
+    },
+    "maintenance_analyze_timeout": "test-only transaction60s; online2s/fact5s unchanged",
+    "autovacuum_long_term": "NOT VERIFIED; last_autovacuum not observed in short window",
+    "pg_scale_working_set_snapshot": "167.1MiB",
+    "pg_scale_cgroup_peak_bytes": 1073741824,
+    "peak_caveat": "includes cache; test limit1GiB vs release2GiB"
+  },
+  "performance": {
+    "sync_https": {
+      "1000": {
+        "samples": 1000,
+        "batches": 1,
+        "total_ms": 370.2745968475938,
+        "observations": [
+          {
+            "ms": 346.94780595600605,
+            "wire_bytes": 30148,
+            "decoded_bytes": 263000
+          }
+        ],
+        "includes_admission_backoff": true
+      },
+      "10000": {
+        "samples": 10000,
+        "batches": 10,
+        "total_ms": 21142.585850786418,
+        "observations": [
+          {
+            "ms": 2397.7940380573273,
+            "wire_bytes": 30207,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 1466.3634868338704,
+            "wire_bytes": 30166,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 2504.8686265945435,
+            "wire_bytes": 30163,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 1572.1792071126401,
+            "wire_bytes": 30182,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 2622.073370963335,
+            "wire_bytes": 30200,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 1666.2956699728966,
+            "wire_bytes": 30151,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 2718.504195101559,
+            "wire_bytes": 30184,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 2264.8606379516423,
+            "wire_bytes": 30196,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 1885.1838330738246,
+            "wire_bytes": 30150,
+            "decoded_bytes": 263000
+          },
+          {
+            "ms": 1845.487181097269,
+            "wire_bytes": 30196,
+            "decoded_bytes": 263000
+          }
+        ],
+        "includes_admission_backoff": true
+      }
+    },
+    "long_route_https": {
+      "synthetic_workout_seconds": 14400,
+      "points": 14400,
+      "chunks": [
+        {
+          "points": 5000,
+          "wire_bytes": 41587,
+          "ms": 2289.5814781077206
+        },
+        {
+          "points": 5000,
+          "wire_bytes": 41571,
+          "ms": 1262.6882176846266
+        },
+        {
+          "points": 4400,
+          "wire_bytes": 35657,
+          "ms": 2231.067702639848
+        }
+      ],
+      "chunk_upload_and_seal_ms": 5937.151362653822,
+      "includes_admission_backoff": true
+    },
+    "analysis_nonrace": [
+      {
+        "analysis_publications_rows": 730,
+        "analysis_results_rows": 2793,
+        "analysis_runs_rows": 369,
+        "environment": "fnOS/N100; Go native; PG18.6 disposable; GOMAXPROCS=2",
+        "jobs_rows": 374,
+        "seed": "set-based synthetic raw+derived capacity fixture",
+        "seven_workout_load_pure_ms": 0.030543,
+        "state_30d_load_compute_ms": 16.49,
+        "state_30d_ms": 75.747,
+        "state_365d_load_compute_ms": 45.514,
+        "state_365d_ms": 334.563,
+        "state_7d_load_compute_ms": 19.783,
+        "state_7d_ms": 66.793,
+        "syntheticWorkouts": 365,
+        "workout_claim_to_publication_ms": 104.173,
+        "workout_feature_and_load_pure_ms": {
+          "count": 100,
+          "input": "1h, one full-interval HR, no route",
+          "median": 0.022375,
+          "p95": 0.032751
+        },
+        "workout_load_pure_ms": {
+          "count": 100,
+          "median": 0.00424,
+          "p95": 0.005423
+        },
+        "workouts_rows": 365,
+        "years": 1
+      },
+      {
+        "analysis_publications_rows": 1460,
+        "analysis_results_rows": 3523,
+        "analysis_runs_rows": 1099,
+        "environment": "fnOS/N100; Go native; PG18.6 disposable; GOMAXPROCS=2",
+        "jobs_rows": 1104,
+        "seed": "set-based synthetic raw+derived capacity fixture",
+        "seven_workout_load_pure_ms": 0.034322,
+        "state_30d_load_compute_ms": 17.721,
+        "state_30d_ms": 74.81,
+        "state_365d_load_compute_ms": 78.271,
+        "state_365d_ms": 354.708,
+        "state_7d_load_compute_ms": 17.277,
+        "state_7d_ms": 67.261,
+        "syntheticWorkouts": 1095,
+        "workout_claim_to_publication_ms": 65.654,
+        "workout_feature_and_load_pure_ms": {
+          "count": 100,
+          "input": "1h, one full-interval HR, no route",
+          "median": 0.023134,
+          "p95": 0.034688
+        },
+        "workout_load_pure_ms": {
+          "count": 100,
+          "median": 0.004419,
+          "p95": 0.005322
+        },
+        "workouts_rows": 1095,
+        "years": 3
+      },
+      {
+        "analysis_publications_rows": 2190,
+        "analysis_results_rows": 4253,
+        "analysis_runs_rows": 1829,
+        "environment": "fnOS/N100; Go native; PG18.6 disposable; GOMAXPROCS=2",
+        "jobs_rows": 1834,
+        "seed": "set-based synthetic raw+derived capacity fixture",
+        "seven_workout_load_pure_ms": 0.030773,
+        "state_30d_load_compute_ms": 17.685,
+        "state_30d_ms": 81.18,
+        "state_365d_load_compute_ms": 50.708,
+        "state_365d_ms": 366.591,
+        "state_7d_load_compute_ms": 23.638,
+        "state_7d_ms": 103.801,
+        "syntheticWorkouts": 1825,
+        "workout_claim_to_publication_ms": 64.389,
+        "workout_feature_and_load_pure_ms": {
+          "count": 100,
+          "input": "1h, one full-interval HR, no route",
+          "median": 0.022675,
+          "p95": 0.040332
+        },
+        "workout_load_pure_ms": {
+          "count": 100,
+          "median": 0.004227,
+          "p95": 0.004971
+        },
+        "workouts_rows": 1825,
+        "years": 5
+      }
+    ],
+    "training_nonrace": [
+      {
+        "audit_100overrides_ms": 5.036,
+        "complete_feedback_recalculate_ms": 57.389,
+        "effectiveVersions": 154,
+        "effective_query_ms": 0.985,
+        "environment": "fnOS/N100; native Go; isolated PostgreSQL18.6; GOMAXPROCS2",
+        "generate_16week_ms": {
+          "count": 100,
+          "median": 0.229883,
+          "p95": 0.387563
+        },
+        "generate_8week_ms": {
+          "count": 100,
+          "median": 0.114357,
+          "p95": 0.201166
+        },
+        "generation_history_build_ms": 4635.92,
+        "history": "52weeks",
+        "history_first50_ms": 26.566,
+        "kind": "single observation unless sample count explicit",
+        "merge_100sessions_100overrides_ms": 0.585,
+        "syntheticWorkouts": 364
+      },
+      {
+        "audit_100overrides_ms": 4.785,
+        "complete_feedback_recalculate_ms": 82.722,
+        "effectiveVersions": 258,
+        "effective_query_ms": 1.132,
+        "environment": "fnOS/N100; native Go; isolated PostgreSQL18.6; GOMAXPROCS2",
+        "generate_16week_ms": {
+          "count": 100,
+          "median": 0.233998,
+          "p95": 0.291437
+        },
+        "generate_8week_ms": {
+          "count": 100,
+          "median": 0.094063,
+          "p95": 0.165015
+        },
+        "generation_history_build_ms": 13301.39,
+        "history": "3years",
+        "history_first50_ms": 27.759,
+        "kind": "single observation unless sample count explicit",
+        "merge_100sessions_100overrides_ms": 0.55,
+        "syntheticWorkouts": 1095
+      }
+    ],
+    "soak_restored_release": {
+      "seconds": 182.537,
+      "reads": 144,
+      "median_ms": 19.60787666030228,
+      "p95_ms": 36.62599204108119,
+      "p95_method": "nearest rank",
+      "errors": 0,
+      "incremental_uploads": 6,
+      "scope": "bounded synthetic HTTPS reads, periodic formal sync and six real training regenerations; not long-term endurance"
+    },
+    "soak_standalone_replication": {
+      "seconds": 181.954,
+      "reads": 144,
+      "median_ms": 17.190208192914724,
+      "p95_ms": 28.58687611296773,
+      "p95_method": "nearest rank",
+      "errors": 0,
+      "incremental_uploads": 6,
+      "scope": "bounded synthetic HTTPS reads, periodic formal sync and six real training regenerations; not long-term endurance"
+    },
+    "source_cgroup_peaks": {
+      "api": {
+        "cpu.stat": {
+          "burst_usec": 0,
+          "nice_usec": 0,
+          "nr_bursts": 0,
+          "nr_periods": 152,
+          "nr_throttled": 0,
+          "system_usec": 327708,
+          "throttled_usec": 0,
+          "usage_usec": 2061898,
+          "user_usec": 1734189
+        },
+        "memory.current": 26370048,
+        "memory.peak": 27611136
+      },
+      "worker": {
+        "cpu.stat": {
+          "burst_usec": 0,
+          "nice_usec": 0,
+          "nr_bursts": 0,
+          "nr_periods": 58,
+          "nr_throttled": 0,
+          "system_usec": 80146,
+          "throttled_usec": 0,
+          "usage_usec": 257854,
+          "user_usec": 177707
+        },
+        "memory.current": 18550784,
+        "memory.peak": 23101440
+      }
+    },
+    "post_restart_cgroup": {
+      "api": {
+        "cpu.stat": {
+          "burst_usec": 0,
+          "nice_usec": 0,
+          "nr_bursts": 0,
+          "nr_periods": 12,
+          "nr_throttled": 0,
+          "system_usec": 49010,
+          "throttled_usec": 0,
+          "usage_usec": 206476,
+          "user_usec": 157465
+        },
+        "memory.current": 10838016,
+        "memory.peak": 11444224
+      },
+      "worker": {
+        "cpu.stat": {
+          "burst_usec": 0,
+          "nice_usec": 0,
+          "nr_bursts": 0,
+          "nr_periods": 8,
+          "nr_throttled": 0,
+          "system_usec": 23032,
+          "throttled_usec": 0,
+          "usage_usec": 111062,
+          "user_usec": 88030
+        },
+        "memory.current": 7159808,
+        "memory.peak": 7741440
+      },
+      "postgres_memory_peak_bytes": 69177344
+    },
+    "post_restart_docker_snapshot": [
+      {
+        "BlockIO": "0B / 0B",
+        "CPUPerc": "0.00%",
+        "MemPerc": "1.64%",
+        "MemUsage": "8.418MiB / 512MiB",
+        "NetIO": "44.1kB / 16.9kB",
+        "PIDs": "6"
+      },
+      {
+        "BlockIO": "307kB / 49.2MB",
+        "CPUPerc": "0.07%",
+        "MemPerc": "2.24%",
+        "MemUsage": "45.79MiB / 2GiB",
+        "NetIO": "1.36MB / 2.42MB",
+        "PIDs": "11"
+      },
+      {
+        "BlockIO": "0B / 0B",
+        "CPUPerc": "0.05%",
+        "MemPerc": "0.53%",
+        "MemUsage": "5.395MiB / 1GiB",
+        "NetIO": "7.79kB / 13.5kB",
+        "PIDs": "6"
+      }
+    ],
+    "resource_window": {
+      "seconds": 15.484371785074472,
+      "samples": 4,
+      "services": {
+        "api": {
+          "average_cpu_percent_of_one_core": 1.6548943900133017,
+          "max_sampled_memory_current_bytes": 11972608,
+          "cgroup_memory_peak_bytes": 16601088,
+          "cpu_throttled_usec_delta": 0
+        },
+        "worker": {
+          "average_cpu_percent_of_one_core": 0.8668675866423239,
+          "max_sampled_memory_current_bytes": 8060928,
+          "cgroup_memory_peak_bytes": 9515008,
+          "cpu_throttled_usec_delta": 0
+        },
+        "postgres": {
+          "average_cpu_percent_of_one_core": 3.272170205112155,
+          "max_sampled_memory_current_bytes": 69959680,
+          "cgroup_memory_peak_bytes": 73396224,
+          "cpu_throttled_usec_delta": 0
+        }
+      },
+      "max_sampled_total_container_bytes": 89755648,
+      "host_memory": {
+        "MemTotal_bytes": 8331579392,
+        "MemAvailable_bytes": 5048856576,
+        "SwapFree_bytes": 3671834624
+      },
+      "host_disk": {
+        "total_bytes": 189810294784,
+        "free_bytes": 119413940224
+      },
+      "scope": "cgroup counters include brief probes; CPU is sampled-window average; memory.peak since current container cgroup start"
+    },
+    "no_production_slo_claim": true,
+    "no_long_term_leak_claim": true,
+    "capacity_and_resource_window_precede_final_monitor_classification_change": true
+  },
+  "regression": {
+    "go": [
+      {
+        "mode": "unit",
+        "pass": 183,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/internal/admin": 0.007,
+          "rai/server/internal/analysis": 0.097,
+          "rai/server/internal/config": 0.072,
+          "rai/server/internal/httpapi": 0.011,
+          "rai/server/internal/jobs": 0.01,
+          "rai/server/internal/storage/postgres": 0.008,
+          "rai/server/internal/training": 0.031,
+          "rai/server/internal/syncing": 0.308
+        }
+      },
+      {
+        "mode": "race",
+        "pass": 183,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/internal/admin": 1.021,
+          "rai/server/internal/analysis": 1.538,
+          "rai/server/internal/config": 1.16,
+          "rai/server/internal/httpapi": 1.018,
+          "rai/server/internal/jobs": 1.015,
+          "rai/server/internal/storage/postgres": 1.025,
+          "rai/server/internal/training": 1.08,
+          "rai/server/internal/syncing": 4.714
+        }
+      },
+      {
+        "mode": "integration",
+        "pass": 363,
+        "fail": 0,
+        "skip": 0,
+        "package_seconds": {
+          "rai/server/integration": 336.189,
+          "rai/server/internal/admin": 2.789,
+          "rai/server/internal/analysis": 1.542,
+          "rai/server/internal/config": 1.202,
+          "rai/server/internal/httpapi": 1.017,
+          "rai/server/internal/jobs": 1.014,
+          "rai/server/internal/storage/postgres": 1.013,
+          "rai/server/internal/syncing": 4.535,
+          "rai/server/internal/training": 1.067
+        }
+      }
+    ],
+    "count_method": "Go JSON test pass events including subtests; integration-tag run repeats unit tests; not unique scenario counts",
+    "gofmt": "PASS",
+    "mod_verify": "PASS",
+    "vet": "PASS",
+    "build": "PASS",
+    "vet_integration_scale_p7capacity": "PASS",
+    "dependency_boundary_packages": 249,
+    "pure_analysis_training_boundaries": "PASS",
+    "docker": "PASS build/start/ready/kill/reconnect/repeated SIGTERM/stop/own cleanup",
+    "swift_tests": 39,
+    "ios_unsigned_release_build": "PASS minimum deployment18 strict concurrency",
+    "simulator_tests": 8,
+    "simulator_failures": 0,
+    "simulator_type": "new isolated iPhone12ProMax-class iOS26.5; RAITests/Normalizer; shutdown+deleted",
+    "api_contract": "unchanged OpenAPI1.0.0/P3protocol2; same Go integration contracts",
+    "real_device": "DEFERRED / NOT VERIFIED"
+  },
+  "commands": {
+    "backend": "scripts/test-remote.sh bash ../../scripts/check-p7.sh",
+    "release": "scripts/test-remote.sh env RAI_SOURCE_COMMIT=d11e7b29e339b3d33c84962611031a3f33a18a7c bash ../../scripts/test-p7-compose.sh",
+    "capacity": "scripts/test-remote.sh bash ../../scripts/check-p7-capacity.sh",
+    "backup_guards": "scripts/test-remote.sh bash ../../scripts/test-p7-backup-guards.sh",
+    "p7_roles_ops": "scripts/test-remote.sh go test -race -count=1 -tags=integration -p 1 -run ^TestP7 -v ./integration",
+    "swift": "cd ios/RAI && swift test",
+    "ios_build": "cd ios/RAI && xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Release -destination generic/platform=iOS -derivedDataPath /tmp/rai-p7-derived CODE_SIGNING_ALLOWED=NO SWIFT_STRICT_CONCURRENCY=complete build",
+    "simulator": "cd ios/RAI && xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -destination platform=iOS\\ Simulator,id=<new-own-UDID> -derivedDataPath /tmp/rai-p7-derived -resultBundlePath /tmp/rai-p7-simulator.xcresult -only-testing:RAITests -parallel-testing-enabled NO CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= SWIFT_STRICT_CONCURRENCY=complete test",
+    "secret_audit": "python3 scripts/p7-secret-audit.py",
+    "alerts": "python3 scripts/test-p7-alerts.py",
+    "gc_probe": "python3 scripts/test-p7-gc.py"
+  },
+  "log_evidence_sha256": {
+    "rai-p7-go-accepted.log": "b0b38c0fa83dee2463267e385628f60fe74fa032aa85f5ef6664a97cff62a058",
+    "rai-p7-compose-accepted.log": "54cb0eef3173973ae7691bf10bb0cc441916332601dd3aa237c2bddf1a1dfee9",
+    "rai-p7-capacity-final.log": "c642a4350b28a6677422f6c3a5138cecfe5d8be442c3fbd6432a32b9f33420ca",
+    "rai-p7-backup-guards-accepted.log": "d77cf32274a511397fa25972b4885521396e335811a6326770ead8e178ebaabe",
+    "rai-p7-monitoring-final.log": "0714338281b8e2ce17ead258e4338cbafb64e86c487e925916f5513d25b390cb",
+    "rai-p7-resource-window.log": "9cf6651c5d340b74fca1ccf531eba520c56af746ee1b3ae3596c04bc1f7e2155",
+    "rai-p7-soak-final.log": "a80a5bd0f7230993ce8f172ef83b7ad139637eba51caef6fd0f43bcc67c75402",
+    "rai-p7-swift-tests.log": "608dadcb3db9bec9ee30763f9d5a3cc451e256a071458d8574e8b376353686cf",
+    "rai-p7-ios-build.log": "6eb9c95b10ed154823a6c8f09c9f059fa1e8985a3445716949dcd717aad5442a",
+    "rai-p7-simulator-tests.log": "dd77ff6c8d92d6eb76ac9f3dcd51c799290d79e63498adf1cd4cbcdaa66b3678",
+    "rai-p7-gc-proof.log": "adc1fc6c16fcd74cce9159b7b00c7a9b06b3266e393e27e3a560d072b8f8cb61",
+    "rai-p7-environment.log": "be44a6bf4f64cfc1024a72debc0114abfab836c53f3a5c357a8401644d27c740",
+    "rai-p7-alerts-accepted.log": "5642871c8540bde2925547e0d92820f6630b899bca2928eb15e95f55147e2cc8",
+    "rai-p7-cpu.log": "d556c8509872c099c9e85f0ba90d96befae8fde7c834cb61cbcc1ed03a11f3af",
+    "rai-p7-cleanup.json": "083e63771dc75f4dab211eea8eb3ca3436cd4704cc0d64bc0a88f8c65c5df44e"
+  },
+  "known_risks": [
+    "P3/P6 real iPhone HealthKit/anchor/GPS/background URLSession/force-quit/real network/training execution deferred",
+    "iOS18 runtime, iPhone12ProMax performance and native Liquid Glass GPU not verified; WorkoutKit deferred",
+    "production PKI/ingress/firewall/secrets and reviewed commit/registry image digest not installed or accepted",
+    "off-host backup/key recovery/schedules/notification delivery and production-scale RPO/RTO not verified",
+    "restore of older snapshot can lose post-backup ACK facts and restore old revocation state; anchor and credential DR procedure needs approval before cutover",
+    "server history and staging retained; no replay-horizon proof for automatic GC",
+    "250000 observations/route-points analysis bound remains; million-point series protocol acceptance does not prove million-point analysis",
+    "short soak and low-density history do not prove years of operation, autovacuum/bloat, absence of leaks, hardware/power recovery",
+    "some earlier harness failures superseded by full passing rerun; old shared synthetic DB credentials and floor-rank P95 are not final evidence",
+    "old unattributed anonymous Docker volumes not pruned; Go-container test fallback cleanup code not separately exercised"
+  ],
+  "not_performed": [
+    "production deployment",
+    "existing production PostgreSQL read/write",
+    "real health data access/migration",
+    "old entry switch",
+    "public port opening",
+    "App publishing",
+    "Git commit",
+    "Git push",
+    "real-device gate removal",
+    "off-host/cloud data upload"
+  ]
+}

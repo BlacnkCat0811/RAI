@@ -3,6 +3,11 @@
 CREATE ROLE rai_api NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
 CREATE ROLE rai_worker NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+-- Runtime accounts may not shadow SECURITY DEFINER relations via pg_temp.
+DO $$ BEGIN
+ EXECUTE format('REVOKE TEMPORARY ON DATABASE %I FROM PUBLIC', current_database());
+END $$;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO rai_api, rai_worker;
 GRANT SELECT ON goose_db_version, datasets, devices, collector_leases, sync_streams, sync_batches, sync_pages,
     health_samples, workout_samples, workouts, workout_statistics, workout_events, workout_activities,
@@ -36,7 +41,7 @@ GRANT UPDATE(available_at) ON sync_request_budgets TO rai_api;
 GRANT SELECT, INSERT ON sync_upload_slots TO rai_api;
 GRANT UPDATE(device_id,token,expires_at) ON sync_upload_slots TO rai_api;
 
-GRANT SELECT ON datasets, dirty_scopes, jobs, job_attempts TO rai_worker;
+GRANT SELECT ON goose_db_version, datasets, dirty_scopes, jobs, job_attempts TO rai_worker;
 -- SELECT FOR UPDATE requires UPDATE privilege, even when the locked value is unchanged.
 GRANT UPDATE(commit_rev) ON datasets TO rai_worker;
 GRANT UPDATE ON jobs, job_attempts TO rai_worker;

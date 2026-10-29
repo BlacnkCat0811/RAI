@@ -86,6 +86,9 @@ public struct LocalState: Codable, Sendable {
     public var maintenanceCursor = 0
     public var readErrors: [String: String] = [:]
     public var factGeneration: Int64 = 0
+    // Optional for v1 state compatibility. Only fully delivered pages may mark
+    // files; orphan/cancelled-page reclamation requires a separate proof.
+    public var reclaimFiles: [String]?
 }
 
 // All authoritative transitions replace this one file. Payload files precede
@@ -181,6 +184,7 @@ public actor OutboxStore {
         next.receipts[page.id + ":" + String(cursor)] = receipt; next.lastACK = Date()
         if next.pages[index].cursor == page.operations.count {
             finish(page, in: &next); next.pages.remove(at: index)
+            markDelivered(page, in: &next)
             // An explicit HealthKit Workout deletion invalidates its pending
             // routes and associations. Preserve files; do not send stale work.
             for id in page.deletedWorkouts {
@@ -202,6 +206,55 @@ public actor OutboxStore {
     public func finishEmptyPage(_ page: PendingPage) throws {
         guard page.operations.isEmpty else { throw SyncFailure.localState("nonempty_page") }
         var next = state; finish(page, in: &next); try commit(next)
+    }
+    private func markDelivered(_ page: PendingPage, in next: inout LocalState) {
+        var marked = next.reclaimFiles ?? []
+        for (cursor, operation) in page.operations.enumerated() {
+            let identity = page.id + ":" + String(cursor)
+            switch operation {
+            case .request(let request): if let file = request.file { marked.append(file) }
+            case .batch(_, let file): marked.append(file)
+            }
+            marked.append(Wire.hash(Data(identity.utf8)) + ".transfer.json")
+            next.receipts.removeValue(forKey: identity)
+        }
+        next.reclaimFiles = Array(Set(marked)).sorted()
+    }
+    // Mark was persisted atomically with delivered anchor and page removal.
+    // Recheck pending references, sweep at most limit entries, then persist the
+    // remaining queue. Death before/after unlink is idempotent on reopening.
+    @discardableResult public func collectGarbage(limit: Int = 128, dryRun: Bool = true) throws -> Int {
+        guard (1...512).contains(limit) else { throw SyncFailure.localState("invalid_gc_limit") }
+        let candidates = Array((state.reclaimFiles ?? []).prefix(limit))
+        var referenced: Set<String> = []
+        for page in state.pages {
+            for (cursor, operation) in page.operations.enumerated() {
+                switch operation {
+                case .request(let request): if let file = request.file { referenced.insert(file) }
+                case .batch(_, let file): referenced.insert(file)
+                }
+                referenced.insert(Wire.hash(Data((page.id + ":" + String(cursor)).utf8)) + ".transfer.json")
+            }
+        }
+        guard candidates.allSatisfy({ !referenced.contains($0) }) else { throw SyncFailure.localState("gc_referenced_file") }
+        for file in candidates {
+            guard file.hasSuffix(".json") || file.hasSuffix(".gz") else { throw SyncFailure.localState("gc_unmanaged_file") }
+            let url = try fileURL(file)
+            guard file != "state.json" else { throw SyncFailure.localState("gc_authority_file") }
+            if FileManager.default.fileExists(atPath: url.path) {
+                let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+                guard values.isRegularFile == true, values.isSymbolicLink != true else { throw SyncFailure.localState("gc_unsafe_file") }
+            }
+        }
+        if dryRun { return candidates.count }
+        for file in candidates {
+            let url = try fileURL(file)
+            if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
+        }
+        if !candidates.isEmpty {
+            var next = state; next.reclaimFiles = Array((next.reclaimFiles ?? []).dropFirst(candidates.count)); try commit(next)
+        }
+        return candidates.count
     }
     private func finish(_ page: PendingPage, in next: inout LocalState) {
         next.tombstones.formUnion(page.deletedFacts)

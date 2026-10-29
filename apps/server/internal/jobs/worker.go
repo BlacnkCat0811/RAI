@@ -46,8 +46,10 @@ func Run(ctx context.Context, q Queue, log *slog.Logger) error {
 			}
 			lastRecovery = time.Now()
 		}
+		claimStart := time.Now()
 		l, e := q.Claim(ctx, kinds)
 		if e == nil {
+			log.Info("job_claim", "component", "worker", "operation", "claim", "status", "claimed", "duration_ms", time.Since(claimStart).Milliseconds())
 			Process(ctx, q, l, log)
 			continue
 		}
@@ -91,6 +93,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		var in training.Input
 		id := ""
 		var err error
+		publicationDuration := time.Duration(0)
 		tq, ok := q.(TrainingQueue)
 		if ok {
 			in, err = tq.LoadTraining(runCtx, l, time.Now().UTC())
@@ -102,7 +105,9 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 				base, err = training.Generate(in.Context)
 			}
 			if err == nil {
+				publicationStart := time.Now()
 				status, err = tq.PublishTraining(runCtx, l, id, in, base)
+				publicationDuration = time.Since(publicationStart)
 			}
 		}
 		cancel()
@@ -132,7 +137,11 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 				overrideCount = n
 			}
 		}
-		log.Info("training_execution", "plan_id", trainingPlanFromScope(l.ScopeKey), "generation", l.TargetGeneration, "base_version", baseID, "effective_version", effectiveID, "job_id", l.ID, "run_id", id, "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", time.Since(start).Milliseconds(), "status", status)
+		errorCode := ""
+		if err != nil {
+			errorCode = "training_failed"
+		}
+		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_id", trainingPlanFromScope(l.ScopeKey), "generation", l.TargetGeneration, "base_version", baseID, "effective_version", effectiveID, "job_id", l.ID, "run_id", id, "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
 		return
 	}
 	in, err := q.LoadAnalysis(runCtx, l, time.Now().UTC())
@@ -146,11 +155,14 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		id, err = q.StartAnalysisRun(runCtx, l, in)
 	}
 	var ms []analysis.Metric
+	publicationDuration := time.Duration(0)
 	if err == nil && in.Generation == l.TargetGeneration {
 		ms, err = analysis.Analyze(runCtx, l.Kind, in)
 	}
 	if err == nil {
+		publicationStart := time.Now()
 		status, err = q.PublishAnalysis(runCtx, l, id, in, ms)
+		publicationDuration = time.Since(publicationStart)
 	}
 	cancel()
 	<-renewalDone
@@ -161,7 +173,11 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		_ = q.FailAnalysis(failCtx, l, id, code, retryable)
 		c()
 	}
-	log.Info("analysis_execution", "job_id", l.ID, "scope_key", l.ScopeKey, "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.Version, "run_id", id, "duration_ms", time.Since(start).Milliseconds(), "result_status", status)
+	errorCode := ""
+	if err != nil {
+		errorCode, _ = analysis.ErrorCode(err)
+	}
+	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_id", l.ID, "scope_key", l.ScopeKey, "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.Version, "run_id", id, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
 }
 
 // TrainingQueue extends the same queue with a distinct domain handler.

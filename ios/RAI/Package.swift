@@ -11,6 +11,7 @@ let package = Package(
         .testTarget(name: "ProductCoreTests", dependencies: ["ProductCore"]),
         .executableTarget(name: "ProductProbe", dependencies: ["ProductCore", "SyncCore"], path: "Tools/ProductProbe"),
         .executableTarget(name: "SyncProbe", dependencies: ["SyncCore"], path: "Tools/SyncProbe"),
+        .executableTarget(name: "GCProbe", dependencies: ["SyncCore"], path: "Tools/GCProbe"),
         .testTarget(name: "SyncCoreTests", dependencies: ["SyncCore"], resources: [.copy("Fixtures")])
     ], swiftLanguageModes: [.v6]
 )

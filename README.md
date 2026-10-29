@@ -4,7 +4,7 @@
 
 架构依据：[原始方案](RAI-Go-PostgreSQL架构重设计与实施方案.md)。实际进度、验收证据与下一步见 [实施记录](docs/IMPLEMENTATION.md)；工程约定见 [AGENTS](AGENTS.md)，边界与回滚见 [ADR-001](docs/adr/001-new-project.md)。
 
-当前已实现 **Phase 6 Native iOS Product Integration**：五个原生Tab、Liquid Glass/Material主题、Published Analysis与Effective Plan、字段调整/冲突/命令恢复、执行快照和反馈。Debug/Release、两尺寸UI/无障碍、截图回归及真实隔离PostgreSQL门禁通过，结论 **PASS WITH RISKS**；无Metal宿主的GPU视觉/iOS18运行和真实iPhone行为仍未验证。见 [P6 Result](docs/V2_PHASE6_RESULT.md)、[产品合同](docs/P6_IOS_PRODUCT_CONTRACT.md) 与 [证据](docs/evidence/p6-ios-2026-10-28.json)。P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；WorkoutKit、独立Watch、P7实施与生产发布未开放。P4/P5历史合同和验收保留。
+P6原生产品与P3/P4/P5历史合同和验收保留，见 [P6 Result](docs/V2_PHASE6_RESULT.md)。本轮 **Phase 7 Production Hardening** 增加三服务发布模板、原生HTTPS、独立运行角色/文件secrets、加密备份与真实隔离恢复、聚合运维/告警、故障注入、容量工具与安全outbox GC；最终状态和未验证项见 [P7 Result](docs/V2_PHASE7_RESULT.md)。P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；PRODUCTION RELEASE READY: NO。WorkoutKit、独立Watch和正式发布未开放，无Metal/GPU、iOS18及真机风险不由P7测试解除。
 
 按 [ADR-002](docs/adr/002-fresh-healthkit-dataset.md)，本次不迁移旧数据库。开发、真机与部署验收完成后，由新 iOS 客户端首次读取手机可见的 HealthKit 历史，随后走 anchor 增量同步；旧服务端计划、人工修改和旧回执不随健康事实重建。
 
@@ -64,7 +64,21 @@ SQL 代码由 **sqlc 1.31.1** 生成，在 `apps/server` 执行 `sqlc generate`�
 docker build --platform linux/amd64 -t rai:dev apps/server
 ```
 
-一个镜像分别以 `api` / `worker` / `migrate` / `init` / `analysis` 模式执行，默认非 root。开发 Compose 提供隔离的 PostgreSQL、API 和 Worker，不是 fnOS 生产发布配置。生产网络、TLS、备份恢复和真机验收仍待后续阶段完成；旧数据迁移按 ADR-002 不在本次上线范围。
+一个镜像分别以 `api` / `worker` / `migrate` / `init` / `analysis` / 显式`ops`模式执行，默认非root；`version`输出发布版本，`resources`读取容器cgroup v2。开发Compose仅用于合成开发，发布准备使用 [独立模板](deploy/release/compose.yaml) 与 [部署步骤](docs/P7_DEPLOYMENT.md)，不自动migration/init。P7配置与隔离验收不等于正式上线；真实入口、离机备份、证书/secret安装、真机与用户发布批准仍是门禁。旧数据迁移按ADR-002不在本次范围。
+
+## P7 运维与验证
+
+见 [Operations](docs/P7_OPERATIONS.md)、[Backup/Restore](docs/P7_BACKUP_RESTORE.md)、[Security](docs/P7_SECURITY.md)、[Capacity](docs/P7_CAPACITY.md) 与 [Release Gate](docs/P7_RELEASE_CHECKLIST.md)。`rai ops snapshot`为受限聚合运维，不新增公开metrics；`ops retention-dry-run`不删除事实、回执或屏障；`ops verify`为显式管理核验，不在同步路径运行。正式任务、证书续期和通知渠道尚需现场批准配置。
+
+```bash
+scripts/test-remote.sh bash ../../scripts/check-p7.sh
+scripts/test-remote.sh env RAI_SOURCE_COMMIT=<verified-head> bash ../../scripts/test-p7-compose.sh
+python3 scripts/test-p7-alerts.py
+python3 scripts/test-p7-gc.py
+python3 scripts/p7-secret-audit.py
+```
+
+这些脚本使用新建合成实例、唯一项目/credentials/volume；故障测试只清理本次资源。生产DSN和既有数据库不作为测试输入，禁止prune、覆盖真实卷或自动部署。容量/规模命令及统计口径见Capacity文档。
 
 ## 分析管理
 

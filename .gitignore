@@ -10,3 +10,5 @@ secrets/
 coverage.out
 apps/server/rai
 *.test
+__pycache__/
+*.pyc

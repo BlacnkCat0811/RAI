@@ -1,6 +1,6 @@
 # RAI V2 — System Architecture
 
-Current Implementation / As-Built Architecture，2026-10-28（Asia/Shanghai）。仓库 `/Users/ta/rai`；P6基线 `62511f9b3e5998ccad79396a7e14540074e506e5`，入口干净，P4/P5已在该提交中。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
+Current Implementation / As-Built Architecture，2026-10-29（Asia/Shanghai）。仓库 `/Users/ta/rai`；P7基线 `d11e7b29e339b3d33c84962611031a3f33a18a7c`，入口干净，P6已提交；不能把旧P6_BASE_COMMIT当成本轮HEAD。P7增量见第14节。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
 
 **P3 REAL DEVICE ACCEPTANCE: DEFERRED BY USER / NOT VERIFIED。P4 DEVELOPMENT EXCEPTION: AUTHORIZED BY USER。** 这只改变开发入口，不把 P3.5 模拟器、macOS SIGKILL、合成网络或未签名编译变成真实 iPhone 验收。P5 后端闭环已实现；P6原生产品集成见第13节。
 
@@ -57,7 +57,7 @@ flowchart TB
 
 API/Worker 默认连接池上限仍为 8/4，保留 URL `pool_*` 覆盖；UTC、连接超时 3s、session statement timeout 2s、lock timeout 500ms、事务 statement timeout 5s、idle transaction timeout 5s。P4 未扩大池。进程监听、HTTP 超时和 SIGTERM 10s shutdown 沿用 P3。
 
-`GET /health`、`/livez` 只看进程；`/ready`、`/readyz` 检查关键表和 goose 最新 applied **恰为 13**。Worker 启动还检查 readiness，旧 schema 不消费任务。迁移为显式管理操作；无自动 migration/init。容器 probe 仍检查 liveness，生产编排必须使用 readiness。旧 binary 的 schema12 readiness 对 schema13 fail closed，不能混合滚动运行旧 Worker。
+`GET /health`、`/livez`只看进程；`/ready`、`/readyz`检查关键表和goose最新applied **恰为13**。Worker启动还检查readiness，旧schema不消费任务。迁移为显式管理操作；无自动migration/init。开发容器probe仍为liveness；P7发布模板使用`probe --ready`，通过有效TLS检查readiness，Worker依赖API healthy。旧binary的schema12 readiness对schema13 fail closed，不能混合滚动运行旧Worker。
 
 ## 4. PostgreSQL 模型
 
@@ -187,4 +187,16 @@ SwiftUI五个原生Tab统一使用RAITheme/RAIGlassSurface、暖暗背景和系�
 
 新增只读product DTO和四个GET路由：Workout列表/详情、两周overview、published analysis history。服务端只提供耐久raw summary与clean publication，缺失不补零；dataset隔离、ReadLane和有界keyset分页。没有新migration、route read API、P3wire变更或全历史重算。
 
-实际测试与风险见[P6 Result](V2_PHASE6_RESULT.md)、[Product Contract](P6_IOS_PRODUCT_CONTRACT.md)及[evidence](evidence/p6-ios-2026-10-28.json)。P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；WorkoutKit排程/Watch继续deferred，P7与生产发布未开始。
+实际测试与风险见[P6 Result](V2_PHASE6_RESULT.md)、[Product Contract](P6_IOS_PRODUCT_CONTRACT.md)及[evidence](evidence/p6-ios-2026-10-28.json)。P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；WorkoutKit排程/Watch继续deferred。P7当前增量见下，生产发布未开始。
+
+## 14. P7 Production Engineering（2026-10-29）
+
+保持 iOS → Go API → PostgreSQL → Worker 模块化单体与同镜像。没有新增客户端、Redis/消息队列/第二数据库/分析算法。00001–00013和wire protocol2不变。`deploy/release/compose.yaml`为独立准备模板：Go原生TLS最低1.2、正式cert/key必填、probe验证chain+hostname；PG内部网络无发布端口、默认回环HTTPS；API/Worker只读非root、资源/日志上限、unless-stopped及grace period。PG18 volume挂`/var/lib/postgresql`，PGDATA为18/docker。新bootstrap及runtime-grants不在HTTP图中。
+
+独立非superuser owner与API/Worker LOGIN、backup只读及monitor聚合管理身份。发布启动检查无DDL/TEMP/owner/superuser等权限；migration即使无待应用版本也拒绝runtime。Route继续由正式SECURITY DEFINER函数/投影保护，收紧public默认权限，不重写旧migration。SCRAM连接只走同宿主私有容器网络，不扩展到外部网络。
+
+`rai ops snapshot|verify|retention-dry-run`仅管理CLI；snapshot输出聚合大小、连接、锁、队列、lease、generation/发布状态，无个人ID或健康值。宿主脚本补磁盘/备份/证书/进程及阈值；无公开metrics或新增常驻平台，fnOS schedule/通知未安装。HTTP日志使用规范route pattern，durable commit与Worker claim/processing/publication耗时明确，SQL/token/DSN/payload不进普通日志。
+
+整库pg_dump custom → GPG加密 → 独立空PG实际restore → FK/不变量/45表计数hash/原回执与Effective/execution核验。备份恢复与全库verify不进入正常sync。离机存储/密钥取回、生产PKI/入口、真机与正式发布仍独立未验证；逻辑dump不是PITR或无损schema回滚。
+
+服务端facts/tombstones/receipts/jobs/analysis与training历史保留，unsafe retention明确DEFERRED。iOS仅新增完成页mark→verify→bounded sweep，delivered anchor与reclaim marker同一state commit，保护pending引用、不扫未知orphan。HealthKit/batch/seq/ACK/seal、训练UI和Liquid Glass不变。真实证据及剩余门禁见 [P7 Result](V2_PHASE7_RESULT.md)。

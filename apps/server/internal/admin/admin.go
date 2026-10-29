@@ -71,6 +71,9 @@ func Migrate(ctx context.Context, url string) error {
 		return err
 	}
 	defer db.Close()
+	if err = requireMigrationRole(ctx, db); err != nil {
+		return err
+	}
 	provider, err := goose.NewProvider(goose.DialectPostgres, db, migrations.Files)
 	if err != nil {
 		return err
@@ -79,6 +82,18 @@ func Migrate(ctx context.Context, url string) error {
 		_, err := provider.Up(ctx)
 		return err
 	})
+}
+
+func requireMigrationRole(ctx context.Context, db *sql.DB) error {
+	var allowed bool
+	err := db.QueryRowContext(ctx, `SELECT r.rolsuper OR pg_has_role(current_user,d.datdba,'MEMBER') FROM pg_roles r JOIN pg_database d ON d.datname=current_database() WHERE r.rolname=current_user`).Scan(&allowed)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return errors.New("migration requires database owner identity")
+	}
+	return nil
 }
 
 // MigrateDown rolls back one specifically approved migration, never an empty
@@ -93,6 +108,9 @@ func migrateDown(ctx context.Context, url string, files fs.FS, approved map[int6
 		return err
 	}
 	defer db.Close()
+	if err = requireMigrationRole(ctx, db); err != nil {
+		return err
+	}
 	provider, err := goose.NewProvider(goose.DialectPostgres, db, files)
 	if err != nil {
 		return err

@@ -1,6 +1,6 @@
 # RAI V2 实施合同与实际状态
 
-更新：2026-10-28（Asia/Shanghai）。工作仓库 `/Users/ta/rai`。本文件是实施主合同；[Phase 0 基线](V2_PHASE0_BASELINE.md) 规定领域、协议、状态、预算及禁止事项，[Phase 1 执行计划](V2_PHASE1_PLAN.md) 是本阶段执行入口。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；本轮用户冻结的 P0–P7 路线与其旧阶段编号、兼容和迁移设想不一致时，按本合同实施，不修改原文或追求旧系统兼容。
+更新：2026-10-29（Asia/Shanghai）。工作仓库 `/Users/ta/rai`。本文件是实施主合同；[Phase 0 基线](V2_PHASE0_BASELINE.md) 规定领域、协议、状态、预算及禁止事项，[Phase 1 执行计划](V2_PHASE1_PLAN.md) 是本阶段执行入口。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；本轮用户冻结的 P0–P7 路线与其旧阶段编号、兼容和迁移设想不一致时，按本合同实施，不修改原文或追求旧系统兼容。
 
 ## 目标与不变量
 
@@ -20,7 +20,7 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 
 当前 Worker 已消费 Workout、sample/series依赖与training-state任务；版本化run/results、原子publication、generation CAS、lease renewal/fencing、当前结果查询和受控重算已实现。Go纯算法与storage分离，参数不足/心率覆盖不足时返回unavailable；recovery/readiness只表达load-only模型，不假装使用睡眠/HRV。P4 fnOS验证与限制见末尾及 [P4 Result](V2_PHASE4_RESULT.md)。
 
-P3.5 原生iPhone同步工程已经实现，但真实授权、HealthKit读取、后台与iPhone kill/GPS/E2E仍NOT VERIFIED。用户本轮授权将真机验收延期，允许P4开发入口例外；保留历史P3/P3.5结果。客户端仍使用原子文件outbox，没有服务端SQLite。完整事实下载、P5训练计划与正式部署仍未实现或未验收。生产不依赖Node；独立OpenAPI lint仍使用Node。
+P3.5 原生iPhone同步工程已经实现，但真实授权、HealthKit读取、后台与iPhone kill/GPS/E2E仍NOT VERIFIED。用户本轮授权将真机验收延期，允许P4开发入口例外；保留历史P3/P3.5结果。客户端仍使用原子文件outbox，没有服务端SQLite。完整事实下载与正式部署仍未实现或未验收；P5/P6已实现，真实状态见后文。本轮P7增量见末节。生产不依赖Node；独立OpenAPI lint仍使用Node。
 
 ## 阶段路线与出口
 
@@ -33,7 +33,7 @@ P3.5 原生iPhone同步工程已经实现，但真实授权、HealthKit读取、
 | P4 | Go 异步分析、可重算结果、算法与输入版本 | PASS WITH RISKS；fnOS自动门禁通过，load-only模型与输入上限见P4 Result |
 | P5 | 训练基础计划、override、effective、执行与反馈闭环 | PASS WITH RISKS，见P5 Result |
 | P6 | iOS API、同步、分析查询、训练与执行集成 | PASS WITH RISKS；Debug/Release、两尺寸默认UI/无障碍/截图回归通过，GPU/真机风险见P6 Result |
-| P7 | fnOS Docker、TLS、资源、可观测、PG 备份恢复、性能和用户明确授权的发布 | 未验收；不自动部署、切入口或迁移真实数据 |
+| P7 | fnOS Docker、TLS、资源、可观测、PG 备份恢复、性能和发布准备 | 本轮实施与最终门禁见P7 Result；不自动部署、切入口或迁移真实数据 |
 
 旧文档/README 中旧 P0–P8 编号是历史表述；这里采用新 P0–P7，不能据编号推断既有工作消失或重复实施。详细责任、逻辑身份、路线比较、目标 SLO、资源预算及 Do Not Build 见 [基线](V2_PHASE0_BASELINE.md)。
 
@@ -171,3 +171,20 @@ P6_BASE_COMMIT=`62511f9b3e5998ccad79396a7e14540074e506e5`，main，入口干净�
 磁盘空间已由用户恢复，最终Debug/Release和Swift 6 complete strict concurrency构建通过。独立Hero摄影素材已打包，来源/提示词有记录；导航、生成成功状态、44pt操作区、同步图标和大字号反馈布局的问题已修正。两尺寸完整无障碍专项通过，大屏最终审计为避免宿主照片分析占满CPU而临时隔离该自建模拟器的后台进程；条件和历史失败均保留。真实滚动位置断言、3次时钟/内存、API/解码/状态发布/ACK和CPU采样已记录。宿主没有Metal设备：Material/同值Shape回退可运行，系统Tab及滚动合成存在异常，GPU视觉/帧率及iOS18运行不声称通过。未触碰生产/旧running。
 
 P6 DEVELOPMENT STATUS: PASS WITH RISKS；P7 DEVELOPMENT READY: YES（仅开发入口，未开始P7）；P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；DEVICE TEST: NOT RUN；PRODUCTION RELEASE READY: NO。
+
+## P7 Production Hardening / Operations（2026-10-29）
+
+**P7 ENGINEERING STATUS: PASS WITH RISKS；DEPLOYMENT PREPARATION: PARTIAL；PRODUCTION RELEASE READY: NO。** 本节是P7最新状态，不将上文历史的“未开始P7”改写成已验收。基线 `d11e7b29e339b3d33c84962611031a3f33a18a7c`，`main`，入口干净，P6已由用户提交；本轮为未提交增量。原方案、00001–00013、P3/P4/P5/P6合同与历史evidence逐字节保持；本轮新增证据见 [P7 Result](V2_PHASE7_RESULT.md)、[fnOS机器验收](evidence/p7-fnos-2026-10-29.json) 与 [逐表恢复](evidence/p7-restore-2026-10-29.json)。
+
+- P7-A/B：新release Compose维持PG/API/Worker同镜像，Go原生TLS、CA/hostname验证、PG18正确卷路径、默认回环/internal网络、显式迁移、readiness、非root/read-only、资源/日志上限与graceful shutdown。独立owner/API/Worker/backup/monitor身份、随机文件secrets与运行角色检查；真实LOGIN越权42501、跨dataset404、撤销401、Route受控投影边界验证。未为iOS放宽ATS或证书信任。
+- P7-C：只读整库custom dump→GPG AES256→另一独立新凭证PG实际恢复。45表计数/hash、schema13/FK/屏障/stream/receipt/publication/Effective/execution及原身份API核验通过；错key、损坏密文/替换metadata hash、未标记/非空目标拒绝且无部分写入。小库实测耗时与RPO24h/RTO60min设计目标分开；离机目的地/取回、密钥恢复与定时备份未验收。
+- P7-D：显式retention dry-run，不删除服务端facts/tombstones/receipts/active jobs或immutable history；无安全replay horizon的GC延期。仅iOS新完成页，在ACK/全部operations/封页/anchor同一state提交后mark→引用核验→有界回收；未知orphan/取消页/历史文件保留。Swift状态失败/缺载荷/重试/有界GC及macOS真实SIGKILL恢复通过，不等同iPhone强杀。
+- P7-E：规范路由日志避免原始URL泄漏，sync durable commit与Worker claim/processing/publication可观察；只读聚合snapshot补队列/lease/lag/训练/DB大小锁，宿主探针补TLS/进程/磁盘/备份，11类告警及真实健康实例通过。历史failed在新代际clean覆盖后解除当前告警，原审计不变；未安装schedule或外部通知。
+- P7-F/G：API/Worker/PG实际SIGKILL、真实60s lease恢复、网络断连、三轮SIGTERM/重启、独立256MiB tmpfs ENOSPC和P3/P4/P5原子故障回归通过。1/3/5年低密度合成容量及正式非空P3上传、长Route、大Workout、百万series、默认EXPLAIN、CPU/内存/WAL/磁盘和约3分钟soak有明确口径；不当作多年稳定或真机吞吐。
+- P7-H：deployment/security/backup/operations/capacity/release与result七份文档及版本Manifest、预检/回退边界完成；正式registry digest、入口/PKI/secrets/离机备份/通知与生产规模RPO/RTO尚未安装或验收，因此发布准备保守记PARTIAL。
+
+最终fnOS Go普通183项、race183项、完整真实PG/race命令共363个test pass事件（含单元及子测试），失败/跳过为0；integration包336.189s。gofmt、mod verify、vet、build、249包在线依赖边界与纯analysis/training边界通过，integration/scale/p7capacity标签vet通过。容量与故障演练命令、样本、量化结果、镜像ID和源码摘要保存在P7机器证据。Swift39 tests、Release/min18未签名严格并发构建、独立iOS26.5模拟器8项Normalizer回归通过；未新增UI或WorkoutKit功能。
+
+实际差异与失败轮均记录在P7 Result：修复Worker缺goose表权限、原始path日志风险、历史失败告警；测试用ANALYZE预算/secret权限/端口与注入时序问题经重跑，不把失败轮计PASS。remote-test现验证本轮容器label/ID并rm -fv自建匿名卷；无法确认归属的旧卷不prune。线上同步仍不导入admin/migration/备份/全库摘要，不改变事实/回执事务或P4/P5发布算法。
+
+**未验证项**：P3/P6 REAL DEVICE ACCEPTANCE仍DEFERRED / NOT VERIFIED；真实HealthKit/anchor/GPS/background URLSession/iPhone force-quit/网络/训练执行、iOS18 runtime、12ProMax性能、Liquid Glass GPU、WorkoutKit排程继续延期。真实入口/TLS/防火墙/凭证、离机与密钥取回、定时任务/通知、生产规模/长期vacuum/bloat与断电硬件恢复未验收。恢复旧快照会丢失之后ACK事实并可能恢复旧撤销状态，手机anchor/凭证灾难恢复方案是正式切换门禁。未读取真实数据库/健康值，未改旧工程/入口，未迁移、部署、开放公网、发App、commit或push；完成P7后停止。

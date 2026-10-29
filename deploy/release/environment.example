@@ -1,0 +1,7 @@
+# Non-secret settings only. Copy outside Git; use absolute paths.
+RAI_PROJECT=rai-v2-preproduction
+RAI_RELEASE_IMAGE=registry.example.invalid/rai@sha256:REPLACE_WITH_REVIEWED_DIGEST
+RAI_SECRETS_DIR=/restricted/rai/secrets
+RAI_TLS_SERVER_NAME=rai.example.invalid
+RAI_BIND_ADDRESS=127.0.0.1
+RAI_HTTPS_PORT=8443

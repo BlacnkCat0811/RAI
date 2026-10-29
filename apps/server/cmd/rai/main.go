@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 	_ "time/tzdata" // scratch image has no OS timezone database; freeze calendar support into the binary.
@@ -19,6 +21,8 @@ import (
 	"rai/server/internal/jobs"
 	"rai/server/internal/storage/postgres"
 )
+
+var sourceCommit = "unrecorded"
 
 func main() {
 	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
@@ -33,19 +37,22 @@ func run(log *slog.Logger) error {
 		return errors.New("usage: rai api|worker|migrate|migrate-down|migrate-status|init|probe")
 	}
 	mode := os.Args[1]
-	if mode == "probe" {
-		client := http.Client{Timeout: 2 * time.Second}
-		resp, err := client.Get("http://127.0.0.1:8080/health")
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			return errors.New("not ready")
-		}
-		return nil
+	if mode == "resources" {
+		return config.ContainerResources(os.Stdout)
 	}
-	if mode != "analysis" && mode != "api" && mode != "worker" && mode != "migrate" && mode != "migrate-down" && mode != "migrate-status" && mode != "init" {
+	if mode == "version" {
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": 13, "sync_protocol": 2, "openapi": "1.0.0", "analysis": []string{"workout.bundle/v1", "training_state.bundle/v1", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1"})
+	}
+	if mode == "probe" {
+		if len(os.Args) == 2 {
+			return config.Probe(false)
+		}
+		if len(os.Args) == 3 && os.Args[2] == "--ready" {
+			return config.Probe(true)
+		}
+		return errors.New("usage: rai probe [--ready]")
+	}
+	if mode != "ops" && mode != "worker-ready" && mode != "analysis" && mode != "api" && mode != "worker" && mode != "migrate" && mode != "migrate-down" && mode != "migrate-status" && mode != "init" {
 		return errors.New("unknown command")
 	}
 	url, err := config.DatabaseURL()
@@ -54,6 +61,9 @@ func run(log *slog.Logger) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if mode == "ops" {
+		return admin.Operations(ctx, url, os.Args[2:], os.Stdout)
+	}
 	if mode == "analysis" {
 		return admin.AnalysisCommand(ctx, url, os.Args[2:], os.Stdout)
 	}
@@ -94,6 +104,14 @@ func run(log *slog.Logger) error {
 		return errors.New("invalid database connection configuration")
 	}
 	defer store.Pool.Close()
+	if os.Getenv("RAI_ENFORCE_RUNTIME_ROLE") == "1" {
+		if err = store.RuntimeRoleSafe(ctx); err != nil {
+			return errors.New("unsafe database runtime role")
+		}
+	}
+	if mode == "worker-ready" {
+		return store.Ready(ctx)
+	}
 	if mode == "api" || mode == "worker" {
 		pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		err = store.Pool.Ping(pingCtx)
@@ -120,9 +138,16 @@ func run(log *slog.Logger) error {
 		return err
 	}
 	server := &http.Server{Addr: addr, Handler: httpapi.New(store, log), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 25 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	server.TLSConfig, err = config.TLS()
+	if err != nil {
+		return err
+	}
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return errors.New("HTTP listen failed")
+	}
+	if server.TLSConfig != nil {
+		listener = tls.NewListener(listener, server.TLSConfig)
 	}
 	result := make(chan error, 1)
 	go func() { result <- server.Serve(listener) }()

@@ -118,6 +118,7 @@ actor SyncCoordinator {
         }
         try await pipeline.drain()
         try await store.synced()
+        Metrics.value("outbox_reclaimed_entries", Double(try await store.collectGarbage(dryRun: false)))
     }
     private func localPage(key: String, anchor: Data, operations: [OutboxOperation], pipeline: OutboxPipeline) async throws {
         let page = PendingPage(anchorKey: key, candidateAnchor: anchor, operations: operations)
