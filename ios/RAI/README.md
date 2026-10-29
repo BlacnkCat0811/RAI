@@ -37,7 +37,7 @@ HTTPS is required in Release. Debug permits HTTP only for the exact host configu
 - Retryable transport/408/429/5xx errors keep the same identities and files, with exponential backoff capped at 60 seconds and Retry-After respected. Protocol, identity, authorization and receipt conflicts stop automatic retry. `Retry Saved Work` explicitly retries retained work after inspection.
 - Statistics logs contain only counts, byte sizes, retries and timings: HealthKit read, normalization, encode, gzip, network, batch ACK, route read/chunk/seal. `route_upload_ms` is total wall time from durable staging through seal, including queue wait, suspension and retries; per-chunk network time is separate. DB commit timing is not inferred from network time. No payload, GPS, heart-rate series or credentials are logged.
 
-Delivered payload/receipt files are currently retained in the app sandbox; storage growth and real-device memory/latency need measurement before accepting long-term operation.
+After all operations and the page seal are validated, the delivered anchor and GC markers are persisted in the same state update. Completed payload/transfer files and local receipt caches may then be reclaimed; the delivered anchor remains durable. Pending and unfinished work retains its identities and recovery state. GC rechecks pending references and processes a bounded marked queue (128 by default, at most 512); unknown orphans and older unmarked caches are retained rather than swept indiscriminately. Original exact-replay payloads and receipts are therefore not guaranteed to remain forever. Storage growth and real-device memory/latency still need measurement before accepting long-term operation.
 
 ## Synthetic fnOS checks
 

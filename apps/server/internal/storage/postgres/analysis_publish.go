@@ -44,8 +44,8 @@ func (s *Store) StartAnalysisRun(ctx context.Context, l Lease, in analysis.Snaps
 	}
 	id := syncing.NewID()
 	r, err := s.Pool.Exec(ctx, `INSERT INTO analysis_runs(dataset_id,id,job_id,fencing_token,scope_key,target_generation,algorithm_name,algorithm_version,input_version,input_hash,input_from,input_through,lineage,status)
- SELECT $1,$2,$3,$4,$5,$6,$7,'v1',$8,$9,$10,$11,$12,'RUNNING'
- WHERE EXISTS(SELECT 1 FROM jobs WHERE id=$3 AND dataset_id=$1 AND state='running' AND fencing_token=$4 AND lease_until>clock_timestamp())`, l.DatasetID, id, l.ID, l.FencingToken, l.ScopeKey, l.TargetGeneration, name, in.InputVersion, hash, in.From, in.Through, b)
+ SELECT $1,$2,$3,$4,$5,$6,$7,$13,$8,$9,$10,$11,$12,'RUNNING'
+ WHERE EXISTS(SELECT 1 FROM jobs WHERE id=$3 AND dataset_id=$1 AND state='running' AND fencing_token=$4 AND lease_until>clock_timestamp())`, l.DatasetID, id, l.ID, l.FencingToken, l.ScopeKey, l.TargetGeneration, name, in.InputVersion, hash, in.From, in.Through, b, analysis.BundleVersion(l.Kind))
 	if err != nil {
 		return "", err
 	}

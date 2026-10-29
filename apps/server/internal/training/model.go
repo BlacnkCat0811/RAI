@@ -15,6 +15,7 @@ import (
 const Generator = "training_plan/v1"
 const ParameterVersion = "coach_parameters/v1"
 const FeedbackVersion = "training_feedback/v1"
+const MergeVersion = "training_merge/v2"
 
 type Parameters struct {
 	MaxSessionM     float64 `json:"maxSessionM"`
@@ -123,6 +124,7 @@ type Override struct {
 	Status    string          `json:"status"`
 }
 type Effective struct {
+	MergeVersion     string `json:"mergeVersion,omitempty"`
 	ID               string `json:"effectiveVersionID"`
 	Number           int64  `json:"version"`
 	PlanID           string `json:"planID"`
@@ -222,8 +224,41 @@ type Audit struct {
 	Overrides []Override `json:"overrides"`
 }
 type History struct {
+	Versions []VersionSummary `json:"versions"`
+	Next     int64            `json:"next"`
+}
+type LegacyHistory struct {
 	Versions []Effective `json:"versions"`
 	Next     int64       `json:"next"`
+}
+
+// Product reads have byte budgets in addition to item counts. Immutable array
+// ordinals and version/revision numbers are stable cursors, never SQL offsets.
+const PageBudget = 256 << 10
+const SnapshotBudget = 1 << 20
+const AuditEntryBudget = 32 << 10
+
+type VersionSummary struct {
+	ID               string    `json:"effectiveVersionID"`
+	Number           int64     `json:"version"`
+	PlanID           string    `json:"planID"`
+	BaseID           string    `json:"baseVersionID"`
+	OverrideRevision int64     `json:"overrideRevision"`
+	MergeVersion     string    `json:"mergeVersion"`
+	Timezone         string    `json:"timezone"`
+	CreatedAt        time.Time `json:"createdAt"`
+}
+type AuditPage struct {
+	Version   VersionSummary `json:"version"`
+	Overrides []Override     `json:"overrides"`
+	Next      int64          `json:"next"`
+}
+type DetailPage struct {
+	Version  VersionSummary    `json:"version"`
+	Section  string            `json:"section"`
+	Metadata json.RawMessage   `json:"metadata"`
+	Items    []json.RawMessage `json:"items"`
+	Next     int64             `json:"next"`
 }
 type Input struct {
 	Generation int64

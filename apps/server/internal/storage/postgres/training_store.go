@@ -95,7 +95,10 @@ func materialize(ctx context.Context, tx pgx.Tx, dataset string, p training.Plan
 	if e = tx.QueryRow(ctx, `SELECT effective_number+1 FROM training_plans WHERE dataset_id=$1 AND id=$2 FOR UPDATE`, dataset, p.ID).Scan(&number); e != nil {
 		return training.Effective{}, e
 	}
-	out := training.Effective{ID: syncing.NewID(), Number: number, PlanID: p.ID, BaseID: baseID, OverrideRevision: p.OverrideRevision, Timezone: p.Timezone, Base: merged}
+	out := training.Effective{MergeVersion: training.MergeVersion, ID: syncing.NewID(), Number: number, PlanID: p.ID, BaseID: baseID, OverrideRevision: p.OverrideRevision, Timezone: p.Timezone, Base: merged}
+	if len(trainingJSON(out)) > training.SnapshotBudget-(64<<10) {
+		return out, syncing.Fail(422, "training_snapshot_limit")
+	}
 	_, e = tx.Exec(ctx, `INSERT INTO training_effective_versions(dataset_id,plan_id,id,number,base_id,override_revision,effective) VALUES($1,$2,$3,$4,$5,$6,$7)`, dataset, p.ID, out.ID, number, baseID, p.OverrideRevision, trainingJSON(out))
 	if e != nil {
 		return out, e
@@ -142,6 +145,9 @@ func (s *Store) trainingCommand(ctx context.Context, p syncing.Principal, id, ki
 	receipt, e = json.Marshal(value)
 	if e != nil {
 		return e
+	}
+	if len(receipt)+1 > training.SnapshotBudget {
+		return syncing.Fail(422, "training_snapshot_limit")
 	}
 	if _, e = tx.Exec(ctx, `INSERT INTO training_commands(dataset_id,id,plan_id,request_hash,receipt) VALUES($1,$2,$3,$4,$5)`, p.DatasetID, id, plan, hash, receipt); e != nil {
 		return e
@@ -341,6 +347,20 @@ func (s *Store) PutTrainingOverride(ctx context.Context, p syncing.Principal, id
 		if event.Anchor == nil && r.Operation != "revoke" {
 			return nil, "", syncing.Fail(404, "training_session_not_found")
 		}
+		// New edits must be applicable to the prescription the user is editing.
+		// Conflict projection is reserved for accepted facts rebased later.
+		if r.Operation == "edit" || r.Operation == "move" {
+			candidate := *event.Anchor
+			if candidate.TargetHR != nil {
+				candidate.TargetHR = training.Ptr(*candidate.TargetHR)
+			}
+			if candidate.PaceSPerKM != nil {
+				candidate.PaceSPerKM = training.Ptr(*candidate.PaceSPerKM)
+			}
+			if (r.Operation == "edit" && r.Path == "date") || (r.Operation == "move" && r.Path != "date") || training.ApplyField(&candidate, r.Path, r.Value) != nil {
+				return nil, "", syncing.Fail(422, "invalid_training_override")
+			}
+		}
 		if r.Operation != "edit" && r.Operation != "move" && (r.Path != "" || len(r.Value) > 0) {
 			return nil, "", syncing.Fail(422, "invalid_training_override")
 		}
@@ -363,6 +383,9 @@ func (s *Store) PutTrainingOverride(ctx context.Context, p syncing.Principal, id
 			if s.Date < start || s.Date >= end {
 				return nil, "", syncing.Fail(422, "training_date_out_of_range")
 			}
+		}
+		if len(trainingJSON(event)) > training.AuditEntryBudget {
+			return nil, "", syncing.Fail(422, "training_audit_entry_limit")
 		}
 		if _, e = tx.Exec(ctx, `INSERT INTO training_overrides(dataset_id,plan_id,id,session_id,revision,operation,event,command_id,request_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, p.DatasetID, id, event.ID, event.SessionID, event.Revision, event.Operation, trainingJSON(event), r.CommandID, contentHash); e != nil {
 			return nil, "", e
@@ -399,32 +422,32 @@ func (s *Store) TrainingAudit(ctx context.Context, p syncing.Principal, plan, id
 	return out, e
 }
 func (s *Store) TrainingHistory(ctx context.Context, p syncing.Principal, id string, after int64, limit int) (training.History, error) {
-	out := training.History{Versions: []training.Effective{}}
-	if e := trainingID(id); e != nil {
+	out := training.History{Versions: []training.VersionSummary{}}
+	if e := trainingPageQuery(id, after, limit); e != nil {
 		return out, e
 	}
-	if after < 0 || limit < 1 || limit > 50 {
-		return out, syncing.Fail(422, "invalid_training_query")
-	}
-	if _, e := loadPlan(ctx, s.Pool, p.DatasetID, id); e != nil {
+	var exists bool
+	if e := s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM training_plans WHERE dataset_id=$1 AND id=$2)`, p.DatasetID, id).Scan(&exists); e != nil {
 		return out, e
 	}
-	rows, e := s.Pool.Query(ctx, `SELECT effective FROM training_effective_versions WHERE dataset_id=$1 AND plan_id=$2 AND number>$3 ORDER BY number LIMIT $4`, p.DatasetID, id, after, limit)
+	if !exists {
+		return out, syncing.Fail(404, "training_not_found")
+	}
+	rows, e := s.Pool.Query(ctx, `SELECT `+trainingSummaryColumns+` FROM training_effective_versions e WHERE dataset_id=$1 AND plan_id=$2 AND number>$3 ORDER BY number LIMIT $4`, p.DatasetID, id, after, limit+1)
 	if e != nil {
 		return out, e
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var b []byte
-		var v training.Effective
-		if e = rows.Scan(&b); e != nil {
+		v, e := scanTrainingSummary(rows)
+		if e != nil {
 			return out, e
 		}
-		if e = json.Unmarshal(b, &v); e != nil {
-			return out, e
+		if len(out.Versions) == limit {
+			out.Next = out.Versions[len(out.Versions)-1].Number
+			break
 		}
 		out.Versions = append(out.Versions, v)
-		out.Next = v.Number
 	}
 	return out, rows.Err()
 }

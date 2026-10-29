@@ -229,8 +229,10 @@ func (e Event) Canonical() ([]byte, []byte) {
 	return b, h[:]
 }
 
-// DecodeJSON rejects unknown fields, duplicate keys at any depth, and trailing JSON.
-func DecodeJSON(b []byte, v any) error {
+// DecodeStrictJSON shares the wire boundary without coupling independent DTOs
+// to P3's required-field rules. RawMessage is validated lexically, then by its
+// owning command's typed semantics.
+func DecodeStrictJSON(b []byte, v any) error {
 	if !utf8.Valid(b) {
 		return Fail(422, "unsupported_payload")
 	}
@@ -252,6 +254,14 @@ func DecodeJSON(b []byte, v any) error {
 	d.DisallowUnknownFields()
 	if err := d.Decode(v); err != nil {
 		return Fail(422, "unsupported_payload")
+	}
+	return nil
+}
+
+// DecodeJSON adds P3's required fields and payload-specific nullability.
+func DecodeJSON(b []byte, v any) error {
+	if err := DecodeStrictJSON(b, v); err != nil {
+		return err
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(b, &fields); err != nil || fields == nil {
@@ -395,6 +405,9 @@ func DecodeJSON(b []byte, v any) error {
 func exactJSONFields(raw []byte, typ reflect.Type) error {
 	for typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
+	}
+	if typ == reflect.TypeOf(json.RawMessage{}) {
+		return nil
 	}
 	switch typ.Kind() {
 	case reflect.Struct:

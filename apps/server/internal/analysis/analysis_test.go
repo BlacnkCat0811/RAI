@@ -29,7 +29,7 @@ func find(ms []Metric, name string) Metric {
 	}
 	return Metric{}
 }
-func TestWorkoutGoldenV1(t *testing.T) {
+func TestWorkoutV2RetainsKnownV1Numerics(t *testing.T) {
 	b, e := os.ReadFile("testdata/workout.bundle.v1.json")
 	if e != nil {
 		t.Fatal(e)
@@ -79,7 +79,7 @@ func TestWorkoutGoldenV1(t *testing.T) {
 		t.Fatal("non deterministic")
 	}
 }
-func TestStateGoldenAndIncrementalV1(t *testing.T) {
+func TestStateV2RetainsKnownV1NumericsAndIncremental(t *testing.T) {
 	b, e := os.ReadFile("testdata/training_state.bundle.v1.json")
 	if e != nil {
 		t.Fatal(e)

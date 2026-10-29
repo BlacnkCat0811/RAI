@@ -16,6 +16,12 @@ final class ProductModel {
   var execution: JSON = .null
   var executionIDs: [String] = []
   var audit: JSON = .null
+  var auditNext: Int64 = 0
+  var auditLoading = false
+  var auditError: String?
+  private var auditVersion = ""
+  private var auditLoadingVersion = ""
+  private var auditReader: TrainingAuditReader?
   private var api: ProductAPI?
   private var journal: ProductJournal?
   private let log = Logger(subsystem: "com.rai.v2.ios", category: "product.performance")
@@ -112,12 +118,33 @@ final class ProductModel {
     } catch { return nil }
   }
   func loadAudit() async {
-    guard let api else { return }
     let plan = data.plan.string("planID")
     let version = data.effective.string("effectiveVersionID")
     guard !version.isEmpty else { return }
-    do { audit = try await api.get("/v2/training/plans/" + plan + "/effective/" + version) } catch {
-      self.error = "调整历史加载失败"
+    if auditVersion != version {
+      auditVersion = version
+      auditReader = TrainingAuditReader(plan: plan, version: version)
+      audit = .null
+      auditNext = 0
+      auditError = nil
+    }
+    await loadMoreAudit()
+  }
+  func loadMoreAudit() async {
+    guard let api, let reader = auditReader, auditLoadingVersion != auditVersion else { return }
+    let version = auditVersion
+    auditLoadingVersion = version
+    auditLoading = true
+    defer { if auditLoadingVersion == version { auditLoadingVersion = ""; auditLoading = false } }
+    do {
+      let page = try await reader.loadMore(using: api)
+      guard auditVersion == version else { return }
+      audit = .object(["overrides": .array(page.overrides)])
+      auditNext = page.next
+      auditError = nil
+    } catch {
+      guard auditVersion == version else { return }
+      auditError = "调整历史加载失败，可重试。"
     }
   }
   func command(path: String, fields: [String: JSON], observed: String = "") -> ProductCommand {

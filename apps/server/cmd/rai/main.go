@@ -41,7 +41,7 @@ func run(log *slog.Logger) error {
 		return config.ContainerResources(os.Stdout)
 	}
 	if mode == "version" {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": 13, "sync_protocol": 2, "openapi": "1.0.0", "analysis": []string{"workout.bundle/v1", "training_state.bundle/v1", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1"})
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": 13, "sync_protocol": 2, "openapi": "1.1.0", "analysis": []string{"workout.bundle/v2", "training_state.bundle/v2", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
 	}
 	if mode == "probe" {
 		if len(os.Args) == 2 {

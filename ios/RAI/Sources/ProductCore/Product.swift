@@ -65,7 +65,7 @@ public struct ProductSnapshot: Sendable {
   public func metric(_ name: String) -> Double? {
     guard let metric = state["metrics"].list.first(where: { $0.string("metric") == name }),
       ["available", "partial"].contains(metric.string("quality")),
-      metric.string("algorithmVersion") == "v1"
+      (metric.string("algorithmVersion") == "v1" || (metric.string("algorithmVersion") == "v2" && metric.string("algorithm") == "fitness_fatigue"))
     else { return nil }
     return metric.number("value")
   }

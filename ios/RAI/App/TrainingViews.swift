@@ -131,7 +131,10 @@ func statusText(_ status: String) -> String {
     status] ?? status
 }
 func reasonText(_ reason: String) -> String {
-  [
+  if reason.hasSuffix("_override_incompatible_with_session_structure/v1") {
+    return fieldTitle(reason.components(separatedBy: "_override")[0]) + "的历史调整与新课程结构不兼容；当前保留自动处方，请修改或撤销调整。"
+  }
+  return [
     "aerobic_base": "建立有氧耐力", "long_run_progression": "循序增加长距离训练",
     "minimum_recovery": "安排休息，控制训练负荷", "goal_specific_tempo": "目标相关节奏训练",
     "goal_specific_interval": "目标相关间歇训练", "load_only_advisory": "训练状态仅基于负荷估算",
@@ -143,6 +146,7 @@ func reasonText(_ reason: String) -> String {
     "weekly_load_constraint": "按周跑量预算安排训练", "weekly_progression": "按计划渐进增加周跑量",
     "recovery_week": "本周降低训练量", "recovery_after_hard_session": "关键训练后安排恢复",
     "base_session_removed_kept": "自动课程已移除，保留你的调整",
+    "override_rebase_conflict/v1": "历史调整需要确认；原调整仍保留在历史中。",
   ][reason] ?? "训练建议详情暂不可用"
 }
 struct SessionDetail: View {
@@ -232,6 +236,16 @@ struct SessionDetail: View {
               }
             }
           }.padding(22).raiGlass()
+        }
+        if model.auditLoading { ProgressView("正在加载调整历史") }
+        if let error = model.auditError { Text(error).font(.footnote).foregroundStyle(RAITheme.amber) }
+        if model.auditNext > 0 || model.auditError != nil {
+          Button(model.auditError == nil ? "加载更多调整" : "重试调整历史") {
+            Task { await model.loadMoreAudit() }
+          }.frame(minHeight: 44).disabled(model.auditLoading).accessibilityIdentifier("session.auditMore")
+        }
+        if !model.auditLoading && model.auditError == nil && model.audit["overrides"].list.isEmpty {
+          Text("暂无用户调整").font(.footnote).foregroundStyle(RAITheme.secondary)
         }
         if let error = model.error { Text(error).foregroundStyle(RAITheme.amber).font(.footnote) }
       }.padding(18)

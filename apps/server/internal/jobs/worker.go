@@ -177,7 +177,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 	if err != nil {
 		errorCode, _ = analysis.ErrorCode(err)
 	}
-	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_id", l.ID, "scope_key", l.ScopeKey, "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.Version, "run_id", id, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
+	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_id", l.ID, "scope_key", l.ScopeKey, "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.BundleVersion(l.Kind), "run_id", id, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
 }
 
 // TrainingQueue extends the same queue with a distinct domain handler.

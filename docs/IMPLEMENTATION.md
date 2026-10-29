@@ -220,3 +220,17 @@ fnOS最终Go普通183/race183、完整PG18 race命令365个pass事件（fail/ski
 最小恢复审查只比较A恢复旧库接续与B新空库/新身份。A保留备份内历史，但旧Scope不变、receipt/seq/墓碑回退及GC后payload缺失不能安全协调；B复用原Init与首次历史同步，但固定Outbox/Background session/Product journal尚不能安全切换。当前两者真实恢复都BLOCKED；按用户接受损失的范围建议以后验证B的显式独立本地会话，预期复用现有服务端协议，未实现按钮/会话切换/generation/新恢复流。SQL隔离恢复后的真实手机写入仍须关闭，禁止reset Anchor、清Outbox或静默接续。
 
 入口481个受保护文件（Go/Swift/合同/角色/migration/原方案/历史结果和证据）逐文件SHA一致。未操作生产、切换入口、安装正式调度、提交或推送。真实V2/云身份、目录权限/空间、真实上传→下载→新PG恢复、正式cron/监控及通知、生产规模RPO/RTO、B会话切换、HealthKit可见覆盖/删除/Route/GPS/后台/强杀/真实网络均未验收。P3/P6 REAL DEVICE ACCEPTANCE继续DEFERRED / NOT VERIFIED；PRODUCTION RELEASE READY继续NO。
+
+## Full Review Findings 定向修复（2026-10-29）
+
+`FIX_BASE_COMMIT=0308b8658adc304040e445bc7f6ab61d212472d3`，main；入口已有原全面审查报告及JSON两个untracked，本轮保留。仅修复RAI-FULL-001–007及明确授权的unused AssociationRequest.Canonical。完整逐项Root Cause/实现/Before/After/测试/风险见 [Fix Result](V2_FULL_PROJECT_REVIEW_FIX_RESULT_2026-10-29.md) 与 [机器证据](evidence/full-review-fix-2026-10-29.json)。原方案、00001–00013、历史阶段结果及旧证据未改写，无新migration、commit/push、部署、真实数据迁移或旧running变更。
+
+**FIX RESULT: PASS WITH RISKS；7/7 Finding FIXED。** 原反例先在当前HEAD复现。等时间Route只跳过不适用连接，保留raw与正常Workout publication；daily_load与180日窗口分别判断missing。新Workout/state bundle及features/fitness_fatigue为v2，TRIMP/recovery/readiness仍v1。P5使用training_merge/v2保留原Override事实、合法处方及明确rebase conflict，revoke清冲突，old Effective/started Execution不变；旧merge缺省v1可重放，Generator/parameters/feedback v1不变。
+
+Training wire复用P3严格解码并声明required/null规则，合法HR/pace清空和canonical命令重放保持。28日窗口先按IANA calendar转换绝对边界，SQL用event_start范围，具体Workout独立identity路径；默认planner在1/3/5年2920/8760/14600场合成历史均读取224场，单次10.723/11.736/12.281ms，非SLO。新history summaries、immutable audit/detail section分页跨端256KiB，原snapshot/同步1MiB不变；原聚合入口保留小响应、超限413/Link。256条audit分13页最大92046B，16周50版本summary分4页最大4028B；原事实和lineage可完整逐页重建。iOS当前README正确说明完成材料可GC、anchor持久与exact replay边界。
+
+严格按Wave1→完整回归→Wave2→完整回归→Wave3→Final执行。Wave1 PG/race326.045s；Wave2最新PG/race486.383s；最终gofmt、mod verify、普通/race、vet/build、249包边界及带integration/scale/p7capacity的vet通过，PG/race integration594.182s。最终Go合计872个test pass事件（含多轮重复和子测试，其中integration207），test fail/skip及package fail为0。P3/P4/P5/P7四组唯一项目Compose全部通过，1052.251s；实际TLS/角色、SIGKILL/真实lease、断连、45表恢复、生命周期及ENOSPC回归通过，未重做整套P7 capacity基线。OpenAPI1.1.0/Redocly2.71.1通过，原8项warning按identity逐个确认不变。
+
+Swift Testing45项/6 suites、Normalizer8项、Debug Simulator/Release generic iOS/min18/Swift6 complete strict concurrency均通过。真实Swift→隔离API/Worker/PG逐页读取256audit/13页、257summary/13页、112处方，原ACK重放/409草稿/生成与snapshot/feedback闭环通过；相关audit分页UI1项0失败（68.546s），未重新设计Liquid Glass或跑整套截图基线。失败轮保留：JSON矩阵先遭正常429、密集context Worker setup触发预算、UI初轮缺loopback Debug host及一次Probe构建目录错误，修正测试条件/按既有合同重跑，均未计作PASS。大context读取用明确预构造的已发布合成context，3584条/72页完整，不冒充密集loader/Worker容量验收。
+
+独立复核18个本轮root PG容器、6个Compose项目的容器/卷/网络均清理；Swift私有配置和本轮模拟器移除，fnOS只保留原rai-postgres/frpc。未连接旧库、读取真实健康值、提交凭证或改变真实入口。**P3/P6 REAL DEVICE ACCEPTANCE仍DEFERRED / NOT VERIFIED；DISASTER RECOVERY RESYNC仍BLOCKED / NOT IMPLEMENTED；PRODUCTION RELEASE READY仍NO。** iOS18 runtime、真实HealthKit/后台/强杀/GPS/网络、Metal/GPU、WorkoutKit、生产/真实云恢复和长期容量仍未验收。

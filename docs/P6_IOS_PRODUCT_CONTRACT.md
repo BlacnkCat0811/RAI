@@ -71,3 +71,9 @@ WorkoutKit/Watch系统行为在既有IMPLEMENTATION/基线为deferred，本轮�
 - `GET /v2/analysis/history?days=14`：1–90日clean published state，不启动回算。
 
 均复用Bearer、ReadLane、查询超时和dataset隔离；不新增migration或改变P3 ingestion合同。route read、跨设备execution列表、自动historical recompute不在本次补齐范围。
+
+## 2026-10-29 Training read correctness addendum
+
+ProductCore 新增 TrainingAuditReader、TrainingHistoryReader、TrainingVersionPage、TrainingDetailPage/Section；分别读取固定版本 `/audit`、摘要 `/history/versions` 和 `/detail` section。每次仅一页，保留 next、已加载行与不可变 version binding；请求/解码失败不推进游标，空页完成与失败分开，末页不重复请求。服务端/Swift 新页预算均256 KiB，其他现有响应仍1 MiB，没有全局扩容。fitness_fatigue/v2 的已发布数值可呈现，未知版本仍不可用。
+
+课程详情沿用原 Liquid Glass/Material 布局，只增加调整历史的加载状态、加载更多/重试和空态。版本改变时换用新 reader，旧在途结果不得混入；后台刷新不清草稿。rebase 冲突显示字段及原因，并明确原值仍保留、当前使用合法自动处方，可修改或撤销。没有新增主页面、Swift 合并算法或本地训练事实。

@@ -64,6 +64,27 @@ struct Configuration: Codable { let baseURL: URL, token: String, collectorEpoch:
       return
     }
     let hello = try await client.call("GET", "/v2/handshake")
+    if args[1] == "pagination-read" {
+      try await verifyPagination(api, plan: try await api.get("/v2/training/plans/current"))
+      return
+    }
+    if args[1] == "pagination" {
+      let current = try await api.get("/v2/training/plans/current")
+      var config = current["config"].fields
+      config["weeks"] = .int(16)
+      _ = try await api.send(command("/v2/training/plans", ["planID": .string(Wire.id()), "config": .object(config)]))
+      var plan = try await waitPlan(api) { $0["effective"] != .null && $0.string("generationState") == "succeeded" }
+      let session = plan["effective"]["sessions"].list[0].string("sessionID")
+      for _ in 0..<256 {
+        let effective = try await api.send(override(plan: plan, session: session, operation: "edit", path: "notes", value: .string(String(repeating: "x", count: 2000))))
+        var fields = plan.fields
+        fields["effective"] = effective
+        fields["overrideRevision"] = effective["overrideRevision"]
+        plan = .object(fields)
+      }
+      try await verifyPagination(api, plan: plan)
+      return
+    }
     if args[1] == "seed" {
       let scope = Scope(
         serviceID: hello.string("serviceID"), datasetID: hello.string("datasetID"),
@@ -276,6 +297,27 @@ struct Configuration: Codable { let baseURL: URL, token: String, collectorEpoch:
       "overrideSurvival": .bool(true), "snapshot": .bool(true), "feedback": .bool(true),
     ])
     try OutboxStore.write(report.data(), to: dir.appendingPathComponent("report.json"))
+  }
+  static func verifyPagination(_ api: ProductAPI, plan: JSON) async throws {
+    let reader = TrainingAuditReader(plan: plan.string("planID"), version: plan["effective"].string("effectiveVersionID"))
+    var auditPages = 0
+    repeat { _ = try await reader.loadMore(using: api); auditPages += 1 } while await reader.snapshot().next != 0
+    let audit = await reader.snapshot()
+    try require(audit.overrides.count == 256 && auditPages == 13, "actual_audit_pagination_incomplete")
+    let history = TrainingHistoryReader(plan: plan.string("planID"))
+    var historyPages = 0
+    repeat { _ = try await history.loadMore(using: api); historyPages += 1 } while await history.snapshot().next != 0
+    let versions = await history.snapshot()
+    try require(versions.versions.count == 257 && historyPages == 13, "actual_history_pagination_incomplete")
+    var cursor: Int64 = 0
+    var prescriptions = 0
+    repeat {
+      let detail = try await api.trainingDetail(plan: plan.string("planID"), version: plan["effective"].string("effectiveVersionID"), section: .effectiveSessions, after: cursor)
+      prescriptions += detail.items.count
+      cursor = detail.next
+    } while cursor != 0
+    try require(prescriptions == 112, "actual_detail_pagination_incomplete")
+    print("FULL_REVIEW_SWIFT_PAGINATION=PASS audit=256/13pages history=257/13pages prescriptions=112 weeks=16 actual_HTTP_decode=true")
   }
   static func request(_ client: RAIAPIClient, _ method: String, _ path: String, body: Data)
     async throws -> JSON

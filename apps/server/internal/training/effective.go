@@ -74,6 +74,16 @@ func ApplyField(s *Session, path string, v json.RawMessage) error {
 	return ValidateSession(*s)
 }
 func ResolveEffective(base Base, events []Override) (Base, error) {
+	return ResolveEffectiveVersion(base, events, MergeVersion)
+}
+
+// Missing mergeVersion in immutable pre-v2 Effective JSON means v1. Explicit
+// dispatch keeps its historical projection replayable without rewriting it.
+func ResolveEffectiveVersion(base Base, events []Override, version string) (Base, error) {
+	if version != "" && version != "training_merge/v1" && version != MergeVersion {
+		return Base{}, ErrInvalid
+	}
+	rebase := version == MergeVersion
 	b, _ := json.Marshal(base)
 	var out Base
 	if e := json.Unmarshal(b, &out); e != nil {
@@ -83,8 +93,20 @@ func ResolveEffective(base Base, events []Override) (Base, error) {
 	for _, s := range out.Sessions {
 		sessions[s.ID] = s
 	}
-	for _, o := range ActiveOverrides(events) {
+	active := ActiveOverrides(events)
+	latest := map[string]string{}
+	if rebase {
+		for _, o := range active {
+			if o.Status == "active" && (o.Operation == "edit" || o.Operation == "move") {
+				latest[o.SessionID+":"+o.Path] = o.ID
+			}
+		}
+	}
+	for _, o := range active {
 		if o.Status != "active" || o.Operation == "revoke" {
+			continue
+		}
+		if rebase && (o.Operation == "edit" || o.Operation == "move") && latest[o.SessionID+":"+o.Path] != o.ID {
 			continue
 		}
 		s, ok := sessions[o.SessionID]
@@ -93,6 +115,18 @@ func ResolveEffective(base Base, events []Override) (Base, error) {
 				return Base{}, ErrInvalid
 			}
 			s = cloneSession(*o.Anchor)
+			if rebase {
+				// Anchor prescriptions are facts; their old projection conflicts
+				// are not current conflicts. Recompute those after revoke/rebase.
+				s.Conflicts = nil
+				reasons := s.Reasons[:0]
+				for _, reason := range s.Reasons {
+					if reason != "override_rebase_conflict/v1" {
+						reasons = append(reasons, reason)
+					}
+				}
+				s.Reasons = reasons
+			}
 			if o.Operation != "add" {
 				s.Conflicts = append(s.Conflicts, "base_session_removed_kept")
 			}
@@ -108,8 +142,21 @@ func ResolveEffective(base Base, events []Override) (Base, error) {
 			if o.Path == "date" {
 				return Base{}, ErrInvalid
 			}
-			if e := ApplyField(&s, o.Path, o.Value); e != nil {
-				return Base{}, e
+			candidate := cloneSession(s)
+			if e := ApplyField(&candidate, o.Path, o.Value); e != nil {
+				// Only an originally valid fact can become a rebase conflict.
+				// Keep the current legal prescription and expose the field conflict.
+				if !rebase || o.Anchor == nil {
+					return Base{}, e
+				}
+				anchor := cloneSession(*o.Anchor)
+				if ApplyField(&anchor, o.Path, o.Value) != nil {
+					return Base{}, e
+				}
+				s.Conflicts = append(s.Conflicts, o.Path+"_override_incompatible_with_session_structure/v1")
+				s.Reasons = append(s.Reasons, "override_rebase_conflict/v1")
+			} else {
+				s = candidate
 			}
 		case "move":
 			if o.Path != "date" {

@@ -155,7 +155,7 @@ func (s *Store) FailTraining(ctx context.Context, l Lease, id string, err error)
 		retry = false
 	}
 	var se *syncing.Error
-	if errors.As(err, &se) && se.Code == "training_input_limit" {
+	if errors.As(err, &se) && (se.Code == "training_input_limit" || se.Code == "training_snapshot_limit") {
 		code = se.Code
 		retry = false
 	}

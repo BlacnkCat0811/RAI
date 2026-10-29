@@ -62,7 +62,7 @@ func Recompute(ctx context.Context, s *postgres.Store, r RecomputeRequest) (Reco
 	}
 	kind := "analysis.workout"
 	if r.Scope == analysis.StateScope {
-		if r.Algorithm != analysis.StateAlgorithm+"/v1" {
+		if r.Algorithm != analysis.StateAlgorithm+"/"+analysis.StateVersion {
 			return out, errors.New("unsupported algorithm")
 		}
 		kind = "analysis.training_state"
@@ -100,7 +100,7 @@ func Recompute(ctx context.Context, s *postgres.Store, r RecomputeRequest) (Reco
 		}
 		out.Scopes = append(out.Scopes, r.Scope)
 	} else {
-		if r.Algorithm != analysis.WorkoutAlgorithm+"/v1" {
+		if r.Algorithm != analysis.WorkoutAlgorithm+"/"+analysis.WorkoutVersion {
 			return out, errors.New("unsupported algorithm")
 		}
 		id := strings.TrimPrefix(r.Scope, "workout:")

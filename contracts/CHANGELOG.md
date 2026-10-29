@@ -42,3 +42,7 @@
 ## 2026-10-28 P6 read projections
 
 `GET /v2/workouts[/{id}]`, `/v2/product/overview` and `/v2/analysis/history` add authenticated, dataset-scoped native product reads. Workout paging uses an opaque descending `(event_start, UUID)` cursor (max 50); overview covers two dataset calendar weeks; history reads at most 90 days of clean published state. Missing derived values stay null. No route point read API is advertised. No P3 upload, anchor, receipt, ingestion or migration contract changes.
+
+## 1.1.0 — 2026-10-29 Full Review Correctness Fix
+
+新增 bounded Training history summaries、immutable audit/detail section pagination；旧聚合入口小响应兼容，超限413并提供迁移Link。新页256 KiB，原snapshot/同步1 MiB不变；新命令/事件预算在COMMIT前检查。Training请求严格校验required/精确拼写/duplicate/null/type/unknown，合法HR/pace清空和command hash保留。新Effective保存training_merge/v2，旧缺省v1可重放；冲突事实保留、合法投影和可解释reason/conflict。P4升级workout.bundle/features v2和training_state.bundle/fitness_fatigue v2，其他组件v1不变；P3 wire protocol2、raw顺序、seal、receipt、墓碑和迁移00001–00013保持。

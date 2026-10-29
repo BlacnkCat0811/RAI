@@ -12,26 +12,55 @@ import (
 
 // Only current, clean publications supply features; raw rows filter identity and
 // running activity, but no raw measurements are read by the coach.
-const TrainingWorkoutsSQL = `SELECT w.workout_uuid::text,p.published_run_id::text,p.generation,
- (w.event_start AT TIME ZONE $2)::date::text,
- max(r.value) FILTER(WHERE r.metric='duration' AND r.quality IN ('available','partial') AND r.algorithm_name='workout.features'),
- max(r.value) FILTER(WHERE r.metric='distance' AND r.quality IN ('available','partial') AND r.algorithm_name='workout.features'),
- max(r.value) FILTER(WHERE r.metric='workout_load' AND r.quality IN ('available','partial') AND r.algorithm_name='training_load.trimp'),
- jsonb_agg(jsonb_build_object('runID',p.published_run_id::text,'generation',p.generation,'day',(w.event_start AT TIME ZONE $2)::date::text,'metric',r.metric,'algorithm',r.algorithm_name,'algorithmVersion',r.algorithm_version,'quality',r.quality,'value',r.value) ORDER BY r.metric)
- FROM analysis_publications p JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
- JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.algorithm_version='v1' AND r.metric IN ('duration','distance','workout_load')
+// The aggregate LATERAL lookup is parameterized by each selected Workout.
+// Historical publication/dirty rows are reached by identity, not scanned first.
+const trainingWorkoutsSelect = `SELECT w.workout_uuid::text,p.published_run_id::text,p.generation,
+ (w.event_start AT TIME ZONE $2)::date::text,p.duration,p.distance,p.load,p.metrics
+ FROM workouts w JOIN LATERAL (
+ SELECT p.published_run_id,p.generation,
+ max(r.value) FILTER(WHERE r.metric='duration' AND r.quality IN ('available','partial') AND r.algorithm_name='workout.features') duration,
+ max(r.value) FILTER(WHERE r.metric='distance' AND r.quality IN ('available','partial') AND r.algorithm_name='workout.features') distance,
+ max(r.value) FILTER(WHERE r.metric='workout_load' AND r.quality IN ('available','partial') AND r.algorithm_name='training_load.trimp') load,
+ jsonb_agg(jsonb_build_object('runID',p.published_run_id::text,'generation',p.generation,'day',(w.event_start AT TIME ZONE $2)::date::text,'metric',r.metric,'algorithm',r.algorithm_name,'algorithmVersion',r.algorithm_version,'quality',r.quality,'value',r.value) ORDER BY r.metric) metrics
+ FROM analysis_publications p
+ JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
+ JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND ((r.algorithm_name='workout.features' AND r.algorithm_version IN ('v1','v2')) OR (r.algorithm_name='training_load.trimp' AND r.algorithm_version='v1')) AND r.metric IN ('duration','distance','workout_load')
  JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation AND d.generation=p.generation
- JOIN workouts w ON w.dataset_id=p.dataset_id AND p.scope_key='workout:HKWorkoutTypeIdentifier:'||w.workout_uuid::text
- WHERE p.dataset_id=$1 AND p.metric_family='workout' AND w.activity_type=37
- AND (($3='' AND (w.event_start AT TIME ZONE $2)::date BETWEEN $4::date-27 AND $4::date) OR w.workout_uuid=NULLIF($3,'')::uuid)
+ WHERE p.dataset_id=$1 AND p.metric_family='workout' AND p.scope_key='workout:HKWorkoutTypeIdentifier:'||w.workout_uuid::text
  AND COALESCE((a.lineage->>'parameterVersion')::bigint,0)=COALESCE((SELECT max(version) FROM analysis_parameter_sets WHERE dataset_id=$1),0)
- GROUP BY w.workout_uuid,p.published_run_id,p.generation,w.event_start ORDER BY w.event_start,w.workout_uuid LIMIT 4097`
+ GROUP BY p.published_run_id,p.generation
+ ) p ON true WHERE w.dataset_id=$1 AND w.activity_type=37 `
+
+const TrainingWorkoutsSQL = trainingWorkoutsSelect + `AND w.event_start >= $3 AND w.event_start < $4
+ ORDER BY w.event_start,w.workout_uuid LIMIT 4097`
+const TrainingWorkoutSQL = trainingWorkoutsSelect + `AND w.workout_uuid=$3::uuid`
+
+// TrainingWindow resolves local calendar dates before SQL. AddDate handles DST
+// and offset changes; subtracting 28*24h would choose different local dates.
+func TrainingWindow(zone, day string) (time.Time, time.Time, error) {
+	loc, e := time.LoadLocation(zone)
+	if e != nil {
+		return time.Time{}, time.Time{}, training.ErrInvalid
+	}
+	end, e := time.ParseInLocation("2006-01-02", day, loc)
+	if e != nil || end.Format("2006-01-02") != day {
+		return time.Time{}, time.Time{}, training.ErrInvalid
+	}
+	return end.AddDate(0, 0, -27).UTC(), end.AddDate(0, 0, 1).UTC(), nil
+}
 
 func loadTrainingWorkouts(ctx context.Context, q trainingDB, dataset, zone, day, id string) ([]training.Workout, error) {
-	if day == "" {
-		day = "2000-01-01"
+	var rows pgx.Rows
+	var e error
+	if id != "" {
+		rows, e = q.Query(ctx, TrainingWorkoutSQL, dataset, zone, id)
+	} else {
+		start, end, err := TrainingWindow(zone, day)
+		if err != nil {
+			return nil, err
+		}
+		rows, e = q.Query(ctx, TrainingWorkoutsSQL, dataset, zone, start, end)
 	}
-	rows, e := q.Query(ctx, TrainingWorkoutsSQL, dataset, zone, id, day)
 	if e != nil {
 		return nil, e
 	}

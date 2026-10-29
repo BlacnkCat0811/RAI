@@ -52,3 +52,12 @@ recovery=max(0,min(1, F/max(F,A)))，只有 F>0；表示相对负荷恢复比例
 P3 输入 blocker：原 sample 删除级联 association 后未 dirty Workout；sealed series 未 dirty 关联 Workout。新增 migration 仅补依赖 dirty/job，保留 wire/anchor/batch/route-seal/receipt 身份。样本批次原每 UUID 建 job，1000 sample 产生1000 jobs；改为同 type/UTC 日合并依赖任务，回执仍为 queued + 原 job IDs（数量不固定，旧回执不变）。不增加第二队列。
 
 只保存稳定 error codes。暂保留所有 runs，不做 retention。没有 P5 计划、教练或排程。
+
+
+## 2026-10-29 Correctness addendum — workout.bundle/v2
+
+新发布使用 workout.bundle/v2，workout.features/v2；training_load.trimp/v1 不变。P3 raw point、sequence、chunk、manifest、seal 与 receipt 不变。坐标/范围/有限数值仍校验；同一 route 的相邻时间不递增仅使该 connection 不参与距离/高差/coverage，绝不排序、删除或改写 raw。其他合法连接继续累计；route_distance 有合法连接时 partial，否则 null/insufficient。details 暴露 validConnections 与 skippedNonIncreasingTimeConnections，coverage 的 0 是已观测有效连接比例，不代替缺失距离。Workout 的 duration/distance/HR/load 独立计算并正常 publication；旧 pointer 仍遵循 dirty 隐藏规则，成功新代际发布后恢复 current，不重写旧 run。相同 raw 可能得到不同结果，因此升级 bundle/features；旧 v1 历史保留。显式 CLI 只接受当前版本，旧请求需明确改用 v2，不自动以旧版本标签执行新语义；不自动全历史重算。
+
+## 2026-10-29 Correctness addendum — training_state.bundle/v2
+
+新 state publication 使用 training_state.bundle/v2、fitness_fatigue/v2；recovery/v1、readiness/v1 公式不变。daily_load 仅由当天 durable Workout 的 published load 决定：当天任一缺失则 null，无记录为 0 recorded load（不证明导入覆盖完整）。历史 180 日 unknown 继续使 fitness/fatigue/balance/recovery/readiness unavailable；窗口完全无 Workout 也不生成恢复/准备度。日与窗口可用性相互独立；历史缺失解决后按原有限核重新计算。相同 raw/lineage 的 daily_load 可能改变，因此升级 bundle 与组件，不复用 v1 标签；旧结果和 pointer 历史不重写。CLI 需明确当前 v2，不自动重算历史。旧 v1 golden 保留为已知数值基线，v2 对原完整输入的数值继续比对。

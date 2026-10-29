@@ -1,0 +1,2045 @@
+{
+  "format": "RAI-full-project-review/v1",
+  "recorded_at": "2026-10-29T15:16:14.030082+08:00",
+  "timezone": "Asia/Shanghai",
+  "repository": "/Users/ta/rai",
+  "source_commit": "0308b8658adc304040e445bc7f6ab61d212472d3",
+  "FULL_REVIEW_BASE_COMMIT": "0308b8658adc304040e445bc7f6ab61d212472d3",
+  "branch": "main",
+  "remote_refs": {
+    "origin": "https://gitee.com/tpandmr/rai.git",
+    "fetch_exit_code": 0,
+    "refs/remotes/origin/main": "0308b8658adc304040e445bc7f6ab61d212472d3",
+    "refs/remotes/origin/HEAD": "0308b8658adc304040e445bc7f6ab61d212472d3",
+    "ahead": 0,
+    "behind": 0
+  },
+  "working_tree": {
+    "entry_porcelain": "",
+    "entry_diff_stat": "",
+    "entry_diff_head": "",
+    "business_or_test_files_modified": false,
+    "authorized_outputs": [
+      "docs/V2_FULL_PROJECT_REVIEW_2026-10-29.md",
+      "docs/evidence/full-review-2026-10-29.json"
+    ],
+    "final_porcelain": "?? docs/V2_FULL_PROJECT_REVIEW_2026-10-29.md\n?? docs/evidence/full-review-2026-10-29.json\n"
+  },
+  "go_version": "go1.27.3 linux/amd64",
+  "swift_version": "Apple Swift 6.3.2 (swiftlang-6.3.2.1.108 clang-2100.1.1.101)",
+  "xcode_version": "26.5 (17F42)",
+  "postgres_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+  "docker_version": "28.5.2 (ecc6942)",
+  "compose_version": "v5.1.0",
+  "environment": {
+    "local_tools_unavailable": [
+      "go",
+      "docker",
+      "psql",
+      "postgres"
+    ],
+    "go_database_compose_host": "fnOS existing isolated harness",
+    "swift_host": "macOS x86_64",
+    "ios_runtime": "26.5 (23F77)",
+    "real_device_used": false,
+    "unknown_or_old_database_queried": false,
+    "synthetic_only": true,
+    "postgres_settings": {
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "data_checksums": "on",
+      "shared_buffers": "128MB"
+    }
+  },
+  "contracts_read": [
+    {
+      "path": "AGENTS.md",
+      "status": "READ",
+      "lines": 13,
+      "sha256": "a718e8490d49b540fb872fc893149da1b9449ae84cd4bdaab79c4250cb91715b"
+    },
+    {
+      "path": "README.md",
+      "status": "READ",
+      "lines": 96,
+      "sha256": "a84e91a4a593ee468fbf26a9be4c86e27a59461b043dd3cfe5d8a033bc5cbb5a"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "status": "READ",
+      "lines": 210,
+      "sha256": "a8c064688d37a069e3d74181bde6ca4d768d1861e3c2b250701a9cd06b9cf44c"
+    },
+    {
+      "path": "docs/IMPLEMENTATION.md",
+      "status": "READ",
+      "lines": 222,
+      "sha256": "6e80d5ec1c66fec26f290d6b28c6a7b78de2043ff1a93e8618fac796a14e3f97"
+    },
+    {
+      "path": "docs/V2_PHASE0_BASELINE.md",
+      "status": "READ",
+      "lines": 79,
+      "sha256": "5b96af2e5807534713e559bdff0d1a816d7ab052cac180cd2e15a774e4a86519"
+    },
+    {
+      "path": "docs/V2_PHASE3_SYNC_CONTRACT.md",
+      "status": "READ",
+      "lines": 487,
+      "sha256": "8353450f8467810568ec4d9535dbcc8397faeda2b9805b20982167b09f578862"
+    },
+    {
+      "path": "docs/V2_PHASE3_RESULT.md",
+      "status": "READ",
+      "lines": 307,
+      "sha256": "337c21418e3f35c6725a6fc2c508bdeb58376fe8e72699488f51d8fdf0a37611"
+    },
+    {
+      "path": "docs/P4_ALGORITHM_CONTRACT.md",
+      "status": "READ",
+      "lines": 54,
+      "sha256": "fb10798e74e930c5636615b0770871f5fd2a35fe00637b46f226863474085f61"
+    },
+    {
+      "path": "docs/V2_PHASE4_RESULT.md",
+      "status": "READ",
+      "lines": 166,
+      "sha256": "0769215561778b38de11f6dad731b27ba0d2f7666c6f85b30d65f31bf8af40f4"
+    },
+    {
+      "path": "docs/P5_COACH_CONTRACT.md",
+      "status": "READ",
+      "lines": 54,
+      "sha256": "97c8d33e0bfb937565d204896dcb7c94c2de0337de33b49ffdf961d0bcbdf753"
+    },
+    {
+      "path": "docs/V2_PHASE5_RESULT.md",
+      "status": "READ",
+      "lines": 278,
+      "sha256": "dd9c39ef1a58da5df7af05b846d774a659b155353acb3adfdc8f02b2396d33be"
+    },
+    {
+      "path": "docs/P6_IOS_PRODUCT_CONTRACT.md",
+      "status": "READ",
+      "lines": 73,
+      "sha256": "98709c205a7191c6347d73888817a9098e015d8fb5673d64a4359e3e938a1883"
+    },
+    {
+      "path": "docs/V2_PHASE6_RESULT.md",
+      "status": "READ",
+      "lines": 130,
+      "sha256": "fe16ba84b8294b2b6001a4c7b0fc007a9f18c3b670c2af20e1e9741e2a0fc301"
+    },
+    {
+      "path": "docs/V2_PHASE7_RESULT.md",
+      "status": "READ",
+      "lines": 183,
+      "sha256": "f00bc0b89e174bc75b47001f708e502629d1a20f417191316ebbd458a298a7cf"
+    },
+    {
+      "path": "docs/P7_DEPLOYMENT.md",
+      "status": "READ",
+      "lines": 68,
+      "sha256": "d8efe1cabbd671a21f0c58bce54bb5f28abbe641c420927fe49a4191d11de352"
+    },
+    {
+      "path": "docs/P7_OPERATIONS.md",
+      "status": "READ",
+      "lines": 83,
+      "sha256": "cd43a41fd5ecd3a51390c6aef1e7bb84c35cd6338c802f5f55cccdb0c6e39dfc"
+    },
+    {
+      "path": "docs/P7_BACKUP_RESTORE.md",
+      "status": "READ",
+      "lines": 49,
+      "sha256": "07fa0f21dadce76b6814f7230a9d77aff7ba8beb57b111496f34fd36b172c0cf"
+    },
+    {
+      "path": "docs/P7_SECURITY.md",
+      "status": "READ",
+      "lines": 41,
+      "sha256": "b4e4ecd9932f80e5343ddd88cd05f2f39228c7988c7351445c112ab11386fbd3"
+    },
+    {
+      "path": "docs/P7_CAPACITY.md",
+      "status": "READ",
+      "lines": 65,
+      "sha256": "c29d5f8e0895bd7928684de3e12069901971a8b39fed07b19b97706afbccba61"
+    },
+    {
+      "path": "docs/P7_RELEASE_CHECKLIST.md",
+      "status": "READ",
+      "lines": 109,
+      "sha256": "b5330c6d3e17cd9809f49781fcc92c1f80b9271e34279cd157f13af80535f556"
+    },
+    {
+      "path": "docs/RAI_MONTHLY_BACKUP.md",
+      "status": "READ",
+      "lines": 161,
+      "sha256": "cf668090ea87929068485bf6160d82ec1e884d5c2be93824f12dcbdc317fc188"
+    },
+    {
+      "path": "docs/RAI_DISASTER_RECOVERY.md",
+      "status": "READ",
+      "lines": 62,
+      "sha256": "932c9718e1f2fdfa7d3f244ad4eb3d0529fc84fdea07a4bccff462b73b4f1422"
+    },
+    {
+      "path": "docs/RAI_BACKUP_RECOVERY_RESULT.md",
+      "status": "READ",
+      "lines": 124,
+      "sha256": "55c69fa6cc08db070679ed2f57bcb6efe62ce1cfafcfd572e0bc906b93311a6c"
+    },
+    {
+      "path": "docs/RAI_MINIMAL_DISASTER_RECOVERY_REVIEW.md",
+      "status": "READ",
+      "lines": 88,
+      "sha256": "cbcdfea434c6d708344ecc6f463ab3cb36a4b31c8697accfb8c7dc224b66c92a"
+    }
+  ],
+  "migration_result": {
+    "status": "PASS",
+    "versions": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "checksums_match": true,
+    "old_files_changed_after_addition": false,
+    "application_table_count": 44,
+    "total_tables_with_goose": 45,
+    "fresh_to_13": true,
+    "repeated_up": true,
+    "schema_rebuild": true,
+    "tested_upgrade_starts": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      10,
+      11,
+      12
+    ],
+    "downgrade_allowlist_empty": true,
+    "readiness_exact_version": 13
+  },
+  "go_test": {
+    "status": "PASS",
+    "pass": 183,
+    "fail": 0,
+    "skip": 0,
+    "package_seconds": {
+      "rai/server/internal/admin": 0.007,
+      "rai/server/internal/analysis": 0.141,
+      "rai/server/internal/config": 0.093,
+      "rai/server/internal/httpapi": 0.01,
+      "rai/server/internal/jobs": 0.008,
+      "rai/server/internal/storage/postgres": 0.006,
+      "rai/server/internal/training": 0.021,
+      "rai/server/internal/syncing": 0.278
+    }
+  },
+  "go_test_race": {
+    "status": "PASS",
+    "pass": 183,
+    "fail": 0,
+    "skip": 0,
+    "package_seconds": {
+      "rai/server/internal/admin": 1.028,
+      "rai/server/internal/analysis": 1.528,
+      "rai/server/internal/config": 1.16,
+      "rai/server/internal/httpapi": 1.019,
+      "rai/server/internal/jobs": 1.014,
+      "rai/server/internal/storage/postgres": 1.017,
+      "rai/server/internal/training": 1.114,
+      "rai/server/internal/syncing": 4.504
+    }
+  },
+  "go_vet": {
+    "status": "PASS",
+    "tags": [
+      "default",
+      "integration,scale,p7capacity"
+    ]
+  },
+  "go_build": {
+    "status": "PASS"
+  },
+  "gofmt": {
+    "status": "PASS",
+    "output_empty": true
+  },
+  "go_mod_verify": {
+    "status": "PASS"
+  },
+  "postgres_integration": {
+    "status": "PASS",
+    "pass": 365,
+    "fail": 0,
+    "skip": 0,
+    "package_seconds": {
+      "rai/server/integration": 313.591,
+      "rai/server/internal/admin": 2.684,
+      "rai/server/internal/analysis": 1.536,
+      "rai/server/internal/config": 1.153,
+      "rai/server/internal/httpapi": 1.017,
+      "rai/server/internal/jobs": 1.014,
+      "rai/server/internal/storage/postgres": 1.013,
+      "rai/server/internal/syncing": 4.57,
+      "rai/server/internal/training": 1.067
+    },
+    "isolation": "new PG18 container, rai_test root, randomized per-test databases",
+    "event_count_note": "pass events include repeated unit tests and subtests; not 365 independent PG scenarios"
+  },
+  "dependency_boundary": {
+    "status": "PASS",
+    "online_packages": 249,
+    "total_dependency_packages": 276,
+    "online_admin_migrations_goose_reachable": false,
+    "analysis_training_io_reachable": false,
+    "direct_dependencies": [
+      "github.com/jackc/pgx/v5 v5.11.0",
+      "github.com/pressly/goose/v3 v3.29.0"
+    ],
+    "swift_external_packages": []
+  },
+  "sqlc": {
+    "status": "NOT_RUN",
+    "reason": "sqlc not available in remote PATH",
+    "historical_pinned_version": "1.31.1",
+    "historical_generation_evidence_reviewed": true,
+    "new_generation_pass_claimed": false
+  },
+  "compose_regression": {
+    "status": "PASS",
+    "command": "scripts/test-remote.sh env RAI_SOURCE_COMMIT=0308b8658adc304040e445bc7f6ab61d212472d3 bash ../../scripts/test-monthly-compose.sh",
+    "duration_seconds": 718.796,
+    "unique_projects_new_volumes": true,
+    "actual_tls": true,
+    "runtime_roles": true,
+    "api_worker_postgres_sigkill": true,
+    "network_failure": true,
+    "actual_private_enospc": true,
+    "lifecycle_rounds": 3,
+    "p7_restore_seconds": 39,
+    "monthly_ssh": {
+      "status": "PASS",
+      "successes": 5,
+      "retained": 3,
+      "oldest_removed": true,
+      "strict_host_key": true,
+      "ssh_failure_preserved": true,
+      "network_timeout_preserved": true,
+      "manual_retry_clears_failure": true,
+      "p7_monthly_monitor_preserves_worker_alert": true,
+      "archive_bytes": 2673588,
+      "sha256": "907464f9f4fddff62f7e93262b88277a2bbefad4c876af420be2869162eeef04"
+    },
+    "monthly_restore": {
+      "status": "PASS",
+      "table_count": 45,
+      "schema": 13,
+      "invariant_violations": 0,
+      "all_table_counts_and_hashes_equal": true,
+      "p3_original_receipt": true,
+      "p5_override_effective_execution_feedback": true
+    },
+    "soak": {
+      "seconds": 194.92,
+      "reads": 144,
+      "median_ms": 17.934275092557073,
+      "p95_ms": 39.29624194279313,
+      "p95_method": "nearest rank",
+      "errors": 0,
+      "incremental_uploads": 6,
+      "scope": "bounded synthetic HTTPS stable-publication reads, formal sync and six individually confirmed training regenerations; not mixed dirty-state availability or long-term endurance"
+    },
+    "cleanup_exit_code": 0,
+    "monthly_target_cleanup_exit_code": 0
+  },
+  "restore_inventory": {
+    "source": {
+      "schema_version": 13,
+      "tables": [
+        {
+          "table": "analysis_parameter_sets",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "analysis_publications",
+          "rows": 6,
+          "sha256": "0d8729c0efd6de8ff71e4405d39c38e3d63347400bc69e139997f01bef91c008"
+        },
+        {
+          "table": "analysis_results",
+          "rows": 178,
+          "sha256": "1495b5f8b66849e09d2ad34d416c8971ad34b63c61476a97acb46da87df500e8"
+        },
+        {
+          "table": "analysis_runs",
+          "rows": 36,
+          "sha256": "470af304374d2d7e8bdd3572c9084684d7847667cbab12c4a43420566150b502"
+        },
+        {
+          "table": "change_events",
+          "rows": 12011,
+          "sha256": "9746239d08cd70928ba5f557747b2068b9d45872b6098347a6d03c3d0f72d11d"
+        },
+        {
+          "table": "collector_leases",
+          "rows": 1,
+          "sha256": "e8bb80cf0f0f55808feb0c20dad61ab7271a422abb7a0d076da86324ed25fe7c"
+        },
+        {
+          "table": "datasets",
+          "rows": 1,
+          "sha256": "3f14e850fa1f5cdd6c5c3227abf95239f0a0e64aec9fd7d14db12a2b735e584c"
+        },
+        {
+          "table": "devices",
+          "rows": 1,
+          "sha256": "f855024fe404391dc38f7f2c7b8c6ed980a54a28ee35ea98c8429bc9bc0941f4"
+        },
+        {
+          "table": "dirty_scopes",
+          "rows": 8,
+          "sha256": "be0f8f743c1b69c972fc83385db26e13b2414414ea891ebc68a6ddacc6d02bb2"
+        },
+        {
+          "table": "entity_changes",
+          "rows": 12007,
+          "sha256": "336ddace027c29b1f61aae36a16ad1d78b314de93b30a2979252ef29c0e088b7"
+        },
+        {
+          "table": "entity_tombstones",
+          "rows": 1,
+          "sha256": "128046ca731c256e0d249b9dafab91c40af78fd69e8f86cf47114e6edaff69d1"
+        },
+        {
+          "table": "goose_db_version",
+          "rows": 14,
+          "sha256": "780afc3d8e0ee136ec39e72fded14e8519be2e34d8827a542790f1e7adfe2dec"
+        },
+        {
+          "table": "health_samples",
+          "rows": 12002,
+          "sha256": "e6dbbe9acf97cdd3cae2591ea696cbfeeed3ec6bfd604b9195abfeca240daaef"
+        },
+        {
+          "table": "job_attempts",
+          "rows": 44,
+          "sha256": "c968ee6f6a68b001a06a6bc2189172a6003ee058a6a352ca505520e3a33b6043"
+        },
+        {
+          "table": "jobs",
+          "rows": 46,
+          "sha256": "e8d86d791b23b3b989247ded6e18e68942e629fb1d6457457915c8239a2b26d9"
+        },
+        {
+          "table": "route_chunks",
+          "rows": 4,
+          "sha256": "f927ee2f86c8c78ff242796d310497495413bceb13449077a75e479e22031cff"
+        },
+        {
+          "table": "route_deletions",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "route_points",
+          "rows": 19400,
+          "sha256": "815a96d3ab9a6c09582cc33ec830e0c8a48f6e3d63843404fce76675873bfa88"
+        },
+        {
+          "table": "series_chunks",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "series_uploads",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "sync_batches",
+          "rows": 19,
+          "sha256": "b21a337984b4a8ca931913014f9f36cfb6928f3396f48932f1ce5b9491c3a5f9"
+        },
+        {
+          "table": "sync_pages",
+          "rows": 19,
+          "sha256": "83800a35528cb9261a7da22b9fb12f627ade0c6c09ef665c79559e35e61a4c6d"
+        },
+        {
+          "table": "sync_request_budgets",
+          "rows": 6,
+          "sha256": "d788928e1948a536f445b56ba9c5cd94547d06a79441b6eb8fcb9bd12eacd8c5"
+        },
+        {
+          "table": "sync_streams",
+          "rows": 7,
+          "sha256": "24c75f803500ff3a43a5e921b30aea660e0ca7305194f88e4a7c0d721e83ef6a"
+        },
+        {
+          "table": "sync_upload_slots",
+          "rows": 2,
+          "sha256": "38a28cfd55a90c24007cbee3b231b9c0d8e7a565c9132f3059bf0953f882c4f4"
+        },
+        {
+          "table": "training_base_versions",
+          "rows": 7,
+          "sha256": "d8c4186ec69a9b58388e7de02978f8de510eeb20f61f50202e3ce8cd2f5f1ddf"
+        },
+        {
+          "table": "training_commands",
+          "rows": 5,
+          "sha256": "3212d627af85865a6e1363b7d069b67127de3cfae48f54a6334ab38324cb1aab"
+        },
+        {
+          "table": "training_configs",
+          "rows": 1,
+          "sha256": "980dd7b5e17643325899dabefee5e309c2343b9abe57c0cf0c51e5823691cb80"
+        },
+        {
+          "table": "training_effective_versions",
+          "rows": 8,
+          "sha256": "a6ff560bc7c355e5e9eb205a3d4ca5836385d160bd835b92827449febaa74cd0"
+        },
+        {
+          "table": "training_executions",
+          "rows": 1,
+          "sha256": "d21e7773b623430f5bcf44a0c37dd873c848c7b001d8a900fcb7317555572124"
+        },
+        {
+          "table": "training_feedback",
+          "rows": 4,
+          "sha256": "09c6ef5c8f188cee5994ddbe668e3f6ce7079a9f5e772e93a2ad2f747a6c06b6"
+        },
+        {
+          "table": "training_generation_runs",
+          "rows": 8,
+          "sha256": "b14eb6dc30f23bd0830e944f28a457ff913a7f689be99208172334faadc00b09"
+        },
+        {
+          "table": "training_overrides",
+          "rows": 1,
+          "sha256": "d7cac7b9ed34ee24ba1d348e142e6e05207330f7bdcd8face69dcb8cbfe70416"
+        },
+        {
+          "table": "training_parameter_sets",
+          "rows": 1,
+          "sha256": "870499d1322c77c39bc02c9dfdcfa110d8ea7242a2b6ca1b0bf3a62b3e01165b"
+        },
+        {
+          "table": "training_plans",
+          "rows": 1,
+          "sha256": "96dd521b99fd55bbce3986236ccb5de8df7000e0658309ecaa5fc3e020f690f3"
+        },
+        {
+          "table": "training_sessions",
+          "rows": 56,
+          "sha256": "c33c737dcbbcc8c541e3fdf4ac679f84c724b18cf74f9546a9d6b4601c91a808"
+        },
+        {
+          "table": "workout_activities",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_enrichments",
+          "rows": 1,
+          "sha256": "351f87e04915300ba7cd5f81a20b77e168633a65f172c369a9b34375f592635c"
+        },
+        {
+          "table": "workout_events",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_package_chunks",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_packages",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_routes",
+          "rows": 2,
+          "sha256": "01441f8573de7492b6628a0706dc3a7e77d5c69209c718c16b5e0119e3833460"
+        },
+        {
+          "table": "workout_samples",
+          "rows": 1,
+          "sha256": "c65e3115f21ef3911dab838e3a844b1e54b35e65cba93b6a59ee56853e87aeff"
+        },
+        {
+          "table": "workout_statistics",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workouts",
+          "rows": 4,
+          "sha256": "b4416dc03cc664e421996fcd7baba8a246a8b891d3095493bd31ffb162b9ee73"
+        }
+      ],
+      "invariant_violations": 0,
+      "automatic_deletion": false
+    },
+    "restored": {
+      "schema_version": 13,
+      "tables": [
+        {
+          "table": "analysis_parameter_sets",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "analysis_publications",
+          "rows": 6,
+          "sha256": "0d8729c0efd6de8ff71e4405d39c38e3d63347400bc69e139997f01bef91c008"
+        },
+        {
+          "table": "analysis_results",
+          "rows": 178,
+          "sha256": "1495b5f8b66849e09d2ad34d416c8971ad34b63c61476a97acb46da87df500e8"
+        },
+        {
+          "table": "analysis_runs",
+          "rows": 36,
+          "sha256": "470af304374d2d7e8bdd3572c9084684d7847667cbab12c4a43420566150b502"
+        },
+        {
+          "table": "change_events",
+          "rows": 12011,
+          "sha256": "9746239d08cd70928ba5f557747b2068b9d45872b6098347a6d03c3d0f72d11d"
+        },
+        {
+          "table": "collector_leases",
+          "rows": 1,
+          "sha256": "e8bb80cf0f0f55808feb0c20dad61ab7271a422abb7a0d076da86324ed25fe7c"
+        },
+        {
+          "table": "datasets",
+          "rows": 1,
+          "sha256": "3f14e850fa1f5cdd6c5c3227abf95239f0a0e64aec9fd7d14db12a2b735e584c"
+        },
+        {
+          "table": "devices",
+          "rows": 1,
+          "sha256": "f855024fe404391dc38f7f2c7b8c6ed980a54a28ee35ea98c8429bc9bc0941f4"
+        },
+        {
+          "table": "dirty_scopes",
+          "rows": 8,
+          "sha256": "be0f8f743c1b69c972fc83385db26e13b2414414ea891ebc68a6ddacc6d02bb2"
+        },
+        {
+          "table": "entity_changes",
+          "rows": 12007,
+          "sha256": "336ddace027c29b1f61aae36a16ad1d78b314de93b30a2979252ef29c0e088b7"
+        },
+        {
+          "table": "entity_tombstones",
+          "rows": 1,
+          "sha256": "128046ca731c256e0d249b9dafab91c40af78fd69e8f86cf47114e6edaff69d1"
+        },
+        {
+          "table": "goose_db_version",
+          "rows": 14,
+          "sha256": "780afc3d8e0ee136ec39e72fded14e8519be2e34d8827a542790f1e7adfe2dec"
+        },
+        {
+          "table": "health_samples",
+          "rows": 12002,
+          "sha256": "e6dbbe9acf97cdd3cae2591ea696cbfeeed3ec6bfd604b9195abfeca240daaef"
+        },
+        {
+          "table": "job_attempts",
+          "rows": 44,
+          "sha256": "c968ee6f6a68b001a06a6bc2189172a6003ee058a6a352ca505520e3a33b6043"
+        },
+        {
+          "table": "jobs",
+          "rows": 46,
+          "sha256": "e8d86d791b23b3b989247ded6e18e68942e629fb1d6457457915c8239a2b26d9"
+        },
+        {
+          "table": "route_chunks",
+          "rows": 4,
+          "sha256": "f927ee2f86c8c78ff242796d310497495413bceb13449077a75e479e22031cff"
+        },
+        {
+          "table": "route_deletions",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "route_points",
+          "rows": 19400,
+          "sha256": "815a96d3ab9a6c09582cc33ec830e0c8a48f6e3d63843404fce76675873bfa88"
+        },
+        {
+          "table": "series_chunks",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "series_uploads",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "sync_batches",
+          "rows": 19,
+          "sha256": "b21a337984b4a8ca931913014f9f36cfb6928f3396f48932f1ce5b9491c3a5f9"
+        },
+        {
+          "table": "sync_pages",
+          "rows": 19,
+          "sha256": "83800a35528cb9261a7da22b9fb12f627ade0c6c09ef665c79559e35e61a4c6d"
+        },
+        {
+          "table": "sync_request_budgets",
+          "rows": 6,
+          "sha256": "d788928e1948a536f445b56ba9c5cd94547d06a79441b6eb8fcb9bd12eacd8c5"
+        },
+        {
+          "table": "sync_streams",
+          "rows": 7,
+          "sha256": "24c75f803500ff3a43a5e921b30aea660e0ca7305194f88e4a7c0d721e83ef6a"
+        },
+        {
+          "table": "sync_upload_slots",
+          "rows": 2,
+          "sha256": "38a28cfd55a90c24007cbee3b231b9c0d8e7a565c9132f3059bf0953f882c4f4"
+        },
+        {
+          "table": "training_base_versions",
+          "rows": 7,
+          "sha256": "d8c4186ec69a9b58388e7de02978f8de510eeb20f61f50202e3ce8cd2f5f1ddf"
+        },
+        {
+          "table": "training_commands",
+          "rows": 5,
+          "sha256": "3212d627af85865a6e1363b7d069b67127de3cfae48f54a6334ab38324cb1aab"
+        },
+        {
+          "table": "training_configs",
+          "rows": 1,
+          "sha256": "980dd7b5e17643325899dabefee5e309c2343b9abe57c0cf0c51e5823691cb80"
+        },
+        {
+          "table": "training_effective_versions",
+          "rows": 8,
+          "sha256": "a6ff560bc7c355e5e9eb205a3d4ca5836385d160bd835b92827449febaa74cd0"
+        },
+        {
+          "table": "training_executions",
+          "rows": 1,
+          "sha256": "d21e7773b623430f5bcf44a0c37dd873c848c7b001d8a900fcb7317555572124"
+        },
+        {
+          "table": "training_feedback",
+          "rows": 4,
+          "sha256": "09c6ef5c8f188cee5994ddbe668e3f6ce7079a9f5e772e93a2ad2f747a6c06b6"
+        },
+        {
+          "table": "training_generation_runs",
+          "rows": 8,
+          "sha256": "b14eb6dc30f23bd0830e944f28a457ff913a7f689be99208172334faadc00b09"
+        },
+        {
+          "table": "training_overrides",
+          "rows": 1,
+          "sha256": "d7cac7b9ed34ee24ba1d348e142e6e05207330f7bdcd8face69dcb8cbfe70416"
+        },
+        {
+          "table": "training_parameter_sets",
+          "rows": 1,
+          "sha256": "870499d1322c77c39bc02c9dfdcfa110d8ea7242a2b6ca1b0bf3a62b3e01165b"
+        },
+        {
+          "table": "training_plans",
+          "rows": 1,
+          "sha256": "96dd521b99fd55bbce3986236ccb5de8df7000e0658309ecaa5fc3e020f690f3"
+        },
+        {
+          "table": "training_sessions",
+          "rows": 56,
+          "sha256": "c33c737dcbbcc8c541e3fdf4ac679f84c724b18cf74f9546a9d6b4601c91a808"
+        },
+        {
+          "table": "workout_activities",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_enrichments",
+          "rows": 1,
+          "sha256": "351f87e04915300ba7cd5f81a20b77e168633a65f172c369a9b34375f592635c"
+        },
+        {
+          "table": "workout_events",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_package_chunks",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_packages",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workout_routes",
+          "rows": 2,
+          "sha256": "01441f8573de7492b6628a0706dc3a7e77d5c69209c718c16b5e0119e3833460"
+        },
+        {
+          "table": "workout_samples",
+          "rows": 1,
+          "sha256": "c65e3115f21ef3911dab838e3a844b1e54b35e65cba93b6a59ee56853e87aeff"
+        },
+        {
+          "table": "workout_statistics",
+          "rows": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "table": "workouts",
+          "rows": 4,
+          "sha256": "b4416dc03cc664e421996fcd7baba8a246a8b891d3095493bd31ffb162b9ee73"
+        }
+      ],
+      "invariant_violations": 0,
+      "automatic_deletion": false
+    },
+    "inventories_equal": true,
+    "encrypted_metadata": {
+      "format": "RAI-P7-pg_dump-custom-gpg/v1",
+      "started_at": "2026-10-29T04:06:43Z",
+      "completed_at": "2026-10-29T04:06:44.317892+00:00",
+      "source_commit": "0308b8658adc304040e445bc7f6ab61d212472d3",
+      "sha256": "40fc8953e49fb0f75ae6ea2c164df60522e99d890188aeb78bcb70db8a59b9e9",
+      "bytes": 2319825,
+      "restore_tested": false,
+      "off_host_verified": false
+    }
+  },
+  "backup_negative_controls": {
+    "status": "PASS",
+    "wrong_key": true,
+    "corrupt_ciphertext": true,
+    "replaced_sha_metadata_corruption": true,
+    "unlabelled_target": true,
+    "nonempty_target": true,
+    "failed_targets_remained_empty": true
+  },
+  "swift_test": {
+    "status": "PASS",
+    "test_count": 41,
+    "failed": 0,
+    "command": "swift test --scratch-path /tmp/rai-full-review-20261029/swift-build"
+  },
+  "swift_build": {
+    "status": "PASS",
+    "debug_simulator": true,
+    "release_generic_ios": true,
+    "minimum_target": "18.0",
+    "strict_concurrency": "complete",
+    "swift_language": "6",
+    "signed": false
+  },
+  "swift_ios_unit": {
+    "status": "PASS",
+    "test_count": 8,
+    "failed": 0,
+    "simulator_udid": "6CF01649-FA3B-411C-BFD7-B1FAE166DD40",
+    "model": "iPhone 12 Pro Max class",
+    "runtime": "iOS26.5",
+    "simulator_deleted": true
+  },
+  "swift_ui": {
+    "status": "NOT_RERUN",
+    "historical_evidence_reviewed": true,
+    "new_screenshots_generated": false,
+    "real_device": "DEFERRED / NOT VERIFIED",
+    "ios18_runtime": "NOT INSTALLED",
+    "gpu_metal": "NOT VERIFIED"
+  },
+  "swift_gc_sigkill": {
+    "status": "PASS",
+    "exit_signal": -9,
+    "anchor_preserved": true,
+    "marked_files_reclaimed_after_reopen": true
+  },
+  "python_tests": {
+    "status": "PASS",
+    "monthly_file_tests": 12,
+    "monthly_policy_tests": 7,
+    "calendar_months_checked": 72,
+    "p7_alert_controls": true
+  },
+  "openapi": {
+    "status": "PASS",
+    "tool": "Redocly 2.71.1",
+    "exit_code": 0,
+    "warnings": 8,
+    "warning_identities": [
+      "/health:get:operation-4xx-response",
+      "/ready:get:operation-4xx-response",
+      "/livez:get:operation-4xx-response",
+      "/readyz:get:operation-4xx-response",
+      "Event:no-unused-components",
+      "SeriesPoint:no-unused-components",
+      "WorkoutDetail:no-unused-components",
+      "RoutePoint:no-unused-components"
+    ],
+    "identities_compared_to_prior": true,
+    "ndjson_schemas_not_dead": true
+  },
+  "security": {
+    "secret_pattern_audit": "PASS",
+    "no_secret_payloads_recorded": true,
+    "runtime_role_and_cross_dataset_tests": "PASS",
+    "scope_caveat": "pattern audit and trusted API boundaries are not a formal proof against all leaks or a compromised API"
+  },
+  "finding_counts": {
+    "P0": 0,
+    "P1": 2,
+    "P2": 4,
+    "P3": 1
+  },
+  "findings": [
+    {
+      "id": "RAI-FULL-001",
+      "severity": "P1",
+      "domain": "P3/P4",
+      "title": "Valid sealed route with equal adjacent timestamps permanently fails workout analysis",
+      "status": "CONFIRMED",
+      "probe": "TestFullReviewEqualRouteTimestamp",
+      "evidence": [
+        "ios/RAI/Sources/SyncCore/RouteBuilder.swift:85",
+        "apps/server/internal/syncing/route.go:223",
+        "apps/server/internal/analysis/workout.go:255"
+      ],
+      "observed": {
+        "p3_sealed": true,
+        "worker_state": "failed",
+        "error_code": "analysis_invalid_input",
+        "previous_current_hidden": true
+      }
+    },
+    {
+      "id": "RAI-FULL-002",
+      "severity": "P1",
+      "domain": "P5",
+      "title": "Accepted distance override becomes incompatible after accepted schedule change and blocks generation",
+      "status": "CONFIRMED",
+      "probe": "TestFullReviewOverrideScheduleTransition",
+      "evidence": [
+        "apps/server/internal/training/model.go:302",
+        "apps/server/internal/training/effective.go:90",
+        "apps/server/internal/training/generator.go:183",
+        "apps/server/internal/storage/postgres/training_publish.go:96"
+      ],
+      "observed": {
+        "config_revision": 2,
+        "override_revision": 1,
+        "worker_state": "failed",
+        "error_code": "invalid_training_input",
+        "old_base_and_override_retained": true
+      }
+    },
+    {
+      "id": "RAI-FULL-003",
+      "severity": "P2",
+      "domain": "P4",
+      "title": "daily_load incorrectly inherits missing history from the full state window",
+      "status": "CONFIRMED",
+      "probe": "TestFullReviewDailyLoadIsolation",
+      "evidence": [
+        "apps/server/internal/analysis/state.go:62",
+        "apps/server/internal/analysis/state.go:79"
+      ],
+      "observed": {
+        "current_day_inputs_known": true,
+        "previous_day_has_unknown": true,
+        "daily_load_null": true,
+        "fitness_null_correctly": true
+      }
+    },
+    {
+      "id": "RAI-FULL-004",
+      "severity": "P2",
+      "domain": "API/P5",
+      "title": "Training JSON decoder accepts schema-invalid required fields, spelling, duplicate keys and null strings",
+      "status": "CONFIRMED",
+      "probe": "TestFullReviewTrainingJSONDrift",
+      "evidence": [
+        "apps/server/internal/httpapi/training.go:26",
+        "contracts/openapi-v2.yaml:1520",
+        "contracts/openapi-v2.yaml:1513"
+      ],
+      "observed": {
+        "missing_expected_revision": 200,
+        "case_variant": 200,
+        "duplicate_key": 200,
+        "null_notes": 200
+      }
+    },
+    {
+      "id": "RAI-FULL-005",
+      "severity": "P2",
+      "domain": "P5/Capacity",
+      "title": "Recent-window training query scans historical rows before filtering",
+      "status": "CONFIRMED",
+      "probe": "TestFullReviewTrainingQueryBound",
+      "evidence": [
+        "apps/server/internal/storage/postgres/training_input.go:15",
+        "apps/server/internal/storage/postgres/training_input.go:26"
+      ],
+      "observed": {
+        "synthetic_workouts": 1825,
+        "output_workouts": 28,
+        "workouts_rows_removed_by_filter": 1797,
+        "dirty_rows_scanned": 1825,
+        "join_pairs_removed": 51072,
+        "execution_ms": 14.845,
+        "shared_hit_blocks": 422,
+        "planner": "default; no enable_seqscan override",
+        "measurement_scope": "single observation, no production latency claim"
+      }
+    },
+    {
+      "id": "RAI-FULL-006",
+      "severity": "P2",
+      "domain": "P5/P6/API",
+      "title": "Valid training audit/history responses exceed shared Swift response limit",
+      "status": "CONFIRMED",
+      "probe": [
+        "TestFullReviewAuditBytes",
+        "TestFullReviewHistoryBytes"
+      ],
+      "evidence": [
+        "apps/server/internal/storage/postgres/training_store.go:379",
+        "ios/RAI/App/ProductModel.swift:114",
+        "ios/RAI/Sources/SyncCore/RAIAPIClient.swift:44"
+      ],
+      "observed": {
+        "audit_override_count": 256,
+        "audit_bytes": 1208155,
+        "history_versions": 50,
+        "history_bytes": 1696715,
+        "swift_limit_bytes": 1048576,
+        "ui_click_reproduced": false,
+        "client_rejection": "determined directly from size guard; actual server DTO measured"
+      }
+    },
+    {
+      "id": "RAI-FULL-007",
+      "severity": "P3",
+      "domain": "Documentation",
+      "title": "Active iOS README still says delivered payload/receipt files are retained",
+      "status": "CONFIRMED",
+      "evidence": [
+        "ios/RAI/README.md:40",
+        "ios/RAI/Sources/SyncCore/OutboxStore.swift:207",
+        "ios/RAI/App/SyncCoordinator.swift:121"
+      ],
+      "observed": {
+        "source_has_completed_page_gc": true,
+        "readme_says_all_delivered_files_retained": true
+      }
+    }
+  ],
+  "directed_review": {
+    "method": "ephemeral Go overlay of existing integration/training_test.go in disposable source snapshot; no repository edits",
+    "probes_assert_current_observations_not_desired_correctness": true,
+    "execution_rounds": [
+      {
+        "round": "targeted-review",
+        "observations": [
+          "daily_load_null=true although current-day input known; fitness_null=true correctly",
+          "valid zero-distance interval override + accepted schedule update => invalid_training_input, new Base not published; old Effective and override retained",
+          "invalid schema case=missing_expected_revision accepted_http=200",
+          "invalid schema case=case_variant accepted_http=200",
+          "invalid schema case=duplicate_key accepted_http=200",
+          "invalid schema case=null_notes accepted_http=200",
+          "history_versions=50 json_bytes=1696715 swift_response_limit=1048576"
+        ],
+        "package_elapsed_seconds": 11.339
+      },
+      {
+        "round": "targeted-review-followup",
+        "observations": [
+          "valid zero-distance interval override + accepted schedule update => invalid_training_input, new Base not published; old Effective and override retained",
+          "actual_P6_audit_endpoint_override_count=256 json_bytes=1208155 swift_response_limit=1048576"
+        ],
+        "package_elapsed_seconds": 9.604
+      },
+      {
+        "round": "targeted-route",
+        "observations": [
+          "route_with_equal_adjacent_timestamp accepted_and_sealed=true; workout_job=failed; error=analysis_invalid_input; previous_current_hidden=true"
+        ],
+        "package_elapsed_seconds": 1.657
+      }
+    ],
+    "review_probe_source_sha256": "ea2e960802dc5f35a25b952f2c2c0178ae3ebeac631c6bc00a585a4cedbd6fc7",
+    "review_probe_source": "\n// Ephemeral review probes. These assertions describe observations on the frozen\n// baseline, not the desired regression contract. No repository file is edited.\nfunc TestFullReviewDailyLoadIsolation(t *testing.T) {\n ms, e := analysis.TrainingState(context.Background(), analysis.StateInput{From:\"2026-10-29\",Through:\"2026-10-29\",Timezone:\"Asia/Shanghai\",Loads:[]analysis.Load{{WorkoutID:\"old\",RunID:\"old\",Day:\"2026-10-28\",Value:nil},{WorkoutID:\"today\",RunID:\"today\",Day:\"2026-10-29\",Value:analysis.Ptr(100)}}})\n if e!=nil {t.Fatal(e)}\n dailyNil,fitnessNil:=false,false\n for _,m:=range ms {if m.Name==\"daily_load\" {dailyNil=m.Value==nil};if m.Name==\"fitness\" {fitnessNil=m.Value==nil}}\n if !dailyNil||!fitnessNil {t.Fatal(\"baseline observation changed\")}\n t.Log(\"REVIEW_OBSERVATION daily_load_null=true although current-day input known; fitness_null=true correctly\")\n}\nfunc TestFullReviewOverrideScheduleTransition(t *testing.T) {\n f:=setup(t);ctx:=context.Background();cfg:=trainingConfig()\n p,e:=f.s.CreateTrainingPlan(ctx,f.p,training.CreateRequest{CommandID:syncing.NewID(),PlanID:syncing.NewID(),Config:cfg});if e!=nil {t.Fatal(e)}\n runTraining(t,f);p,e=f.s.TrainingPlan(ctx,f.p,p.ID);if e!=nil{t.Fatal(e)}\n var target training.Session\n for _,s:=range p.Effective.Sessions {if s.Slot==9 {target=s}}\n if target.Type!=\"INTERVAL\"||target.DurationS!=2880 {t.Fatal(\"unexpected fixture\")}\n editTraining(t,f,p,target.ID,\"distanceM\",0,0)\n cfg.AvailableDays=[]int{1,2,3,5,7}\n _,e=f.s.ChangeTrainingPlan(ctx,f.p,p.ID,training.ChangeRequest{CommandID:syncing.NewID(),Operation:\"update_config\",ExpectedConfigRevision:1,Config:&cfg});if e!=nil{t.Fatal(e)}\n l:=claimTraining(t,f);jobs.Process(ctx,f.s,l,analysisLog)\n latest,e:=f.s.TrainingPlan(ctx,f.p,p.ID);if e!=nil{t.Fatal(e)}\n if latest.ConfigRevision!=2||latest.GenerationState!=\"failed\"||latest.LastErrorCode!=\"invalid_training_input\"||latest.Effective.BaseID!=p.Effective.BaseID||latest.Effective.OverrideRevision!=1||sessionID(latest.Effective.Base,target.ID).DistanceM!=0 {t.Fatalf(\"unexpected observation status=%s code=%s\",latest.GenerationState,latest.LastErrorCode)}\n t.Log(\"REVIEW_OBSERVATION valid zero-distance interval override + accepted schedule update => invalid_training_input, new Base not published; old Effective and override retained\")\n}\nfunc TestFullReviewTrainingJSONDrift(t *testing.T) {\n cases:=[]string{\"missing_expected_revision\",\"case_variant\",\"duplicate_key\",\"null_notes\"}\n for _,name:=range cases {t.Run(name,func(t *testing.T){\n f,p:=trainingFixture(t);id:=p.Effective.Sessions[0].ID\n body:=map[string]any{\"commandID\":syncing.NewID(),\"overrideID\":syncing.NewID(),\"sessionID\":id,\"operation\":\"edit\",\"path\":\"distanceM\",\"value\":7000,\"expectedOverrideRevision\":0}\n if name==\"missing_expected_revision\"{delete(body,\"expectedOverrideRevision\")}\n if name==\"case_variant\"{body[\"CommandID\"]=body[\"commandID\"];delete(body,\"commandID\")}\n if name==\"null_notes\"{body[\"operation\"]=\"add\";sid:=syncing.NewID();body[\"sessionID\"]=sid;delete(body,\"path\");delete(body,\"value\");body[\"session\"]=map[string]any{\"sessionID\":sid,\"date\":p.Effective.Sessions[0].Date,\"type\":\"EASY\",\"distanceM\":1000,\"notes\":nil}}\n b,_:=json.Marshal(body);if name==\"duplicate_key\"{b=append([]byte(`{\"value\":6000,`),b[1:]...)}\n h:=httpapi.New(f.s,analysisLog);r:=httptest.NewRequest(\"POST\",\"/v2/training/plans/\"+p.ID+\"/overrides\",bytes.NewReader(b));r.Header.Set(\"Authorization\",\"Bearer \"+f.enrollment.Token);r.Header.Set(\"Content-Type\",\"application/json\");w:=httptest.NewRecorder();h.ServeHTTP(w,r)\n if w.Code!=200 {t.Fatalf(\"observation changed: %d\",w.Code)}\n t.Logf(\"REVIEW_OBSERVATION invalid schema case=%s accepted_http=200\",name)\n })}\n}\nfunc TestFullReviewTrainingQueryBound(t *testing.T) {\n f:=setup(t);seedAnalysisHistory(t,f,1825);ctx:=context.Background()\n if _,e:=f.s.Pool.Exec(ctx,\"ANALYZE workouts; ANALYZE analysis_publications; ANALYZE analysis_results; ANALYZE dirty_scopes; ANALYZE analysis_runs\");e!=nil {t.Fatal(e)}\n var raw []byte\n if e:=f.s.Pool.QueryRow(ctx,\"EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) \"+postgres.TrainingWorkoutsSQL,f.p.DatasetID,\"Asia/Shanghai\",\"\",time.Now().In(time.FixedZone(\"UTC+8\",8*3600)).Format(\"2006-01-02\")).Scan(&raw);e!=nil{t.Fatal(e)}\n var plan any;if e:=json.Unmarshal(raw,&plan);e!=nil{t.Fatal(e)}\n t.Log(\"REVIEW_PLAN=\"+string(raw))\n}\nfunc TestFullReviewHistoryBytes(t *testing.T) {\n f:=setup(t);ctx:=context.Background();cfg:=trainingConfig();cfg.Weeks=16\n p,e:=f.s.CreateTrainingPlan(ctx,f.p,training.CreateRequest{CommandID:syncing.NewID(),PlanID:syncing.NewID(),Config:cfg});if e!=nil{t.Fatal(e)};runTraining(t,f)\n for i:=0;i<49;i++ {recalcTraining(t,f,p);runTraining(t,f)}\n history,e:=f.s.TrainingHistory(ctx,f.p,p.ID,0,50);if e!=nil{t.Fatal(e)};b,e:=json.Marshal(history);if e!=nil{t.Fatal(e)}\n t.Logf(\"REVIEW_OBSERVATION history_versions=%d json_bytes=%d swift_response_limit=1048576\",len(history.Versions),len(b))\n if len(b)<=1048576 {t.Fatal(\"baseline payload not above client limit\")}\n}\n\nfunc TestFullReviewAuditBytes(t *testing.T) {\n f,p:=trainingFixture(t);ctx:=context.Background();sid:=p.Effective.Sessions[0].ID\n for i:=0;i<256;i++ { editTraining(t,f,p,sid,\"notes\",strings.Repeat(\"x\",2000),int64(i)) }\n latest,e:=f.s.TrainingPlan(ctx,f.p,p.ID);if e!=nil{t.Fatal(e)}\n audit,e:=f.s.TrainingAudit(ctx,f.p,p.ID,latest.Effective.ID);if e!=nil{t.Fatal(e)}\n b,e:=json.Marshal(audit);if e!=nil{t.Fatal(e)}\n if len(b)<=1048576{t.Fatal(\"baseline audit below limit\")}\n t.Logf(\"REVIEW_OBSERVATION actual_P6_audit_endpoint_override_count=%d json_bytes=%d swift_response_limit=1048576\",len(audit.Overrides),len(b))\n}\nfunc TestFullReviewEqualRouteTimestamp(t *testing.T) {\n f:=setup(t);ctx:=context.Background();workoutStream(t,f)\n start:=time.Now().UTC().Add(-time.Hour).Truncate(time.Second);w:=workoutAt(start,60);f.commit(t,[]syncing.Event{w},1,nil);runOne(t,f,\"analysis.workout\")\n if _,e:=f.s.CurrentWorkoutAnalysis(ctx,f.p,w.UUID);e!=nil{t.Fatal(e)}\n route:=syncing.NewID();registerTestRoute(t,f,w.UUID,route,start,start.Add(2*time.Second),1,3)\n points:=testRoutePoints(start,3,0);points[1].RecordedAtUs=points[0].RecordedAtUs\n uploadTestRouteChunk(t,f,route,0,points);manifest,payload:=routeStateChains(t,f,route);sealTestRoute(t,f,route,1,3,manifest,payload)\n l:=claimAnalysis(t,f,\"analysis.workout\");jobs.Process(ctx,f.s,l,analysisLog)\n var state,code string;if e:=f.s.Pool.QueryRow(ctx,\"SELECT state,COALESCE(last_error_code,'') FROM jobs WHERE id=$1\",l.ID).Scan(&state,&code);e!=nil{t.Fatal(e)}\n if state!=\"failed\"||code!=\"analysis_invalid_input\"{t.Fatalf(\"changed observation: %s %s\",state,code)}\n if _,e:=f.s.CurrentWorkoutAnalysis(ctx,f.p,w.UUID);e==nil{t.Fatal(\"expected hidden dirty publication\")}\n t.Log(\"REVIEW_OBSERVATION route_with_equal_adjacent_timestamp accepted_and_sealed=true; workout_job=failed; error=analysis_invalid_input; previous_current_hidden=true\")\n}\n",
+    "reproduction_overlay_driver": "import json,pathlib,subprocess,tempfile\n# Run via scripts/test-remote.sh in a fresh synthetic PG18. No repository edits.\n# Load review_probe_source from this evidence JSON before starting the remote run,\n# because the existing remote sync intentionally excludes docs/evidence.\nwith tempfile.TemporaryDirectory(prefix=\"rai-review-overlay-\") as d:\n    original=pathlib.Path(\"integration/training_test.go\").resolve()\n    replacement=pathlib.Path(d)/\"training_test.go\"\n    replacement.write_text(original.read_text()+review_probe_source)\n    overlay=pathlib.Path(d)/\"overlay.json\"\n    overlay.write_text(json.dumps({\"Replace\":{str(original):str(replacement)}}))\n    result=subprocess.run([\"go\",\"test\",\"-overlay\",str(overlay),\"-count=1\",\"-tags=integration\",\"-run\",\"^TestFullReview\",\"-v\",\"-timeout=10m\",\"./integration\"])\n    raise SystemExit(result.returncode)\n",
+    "training_query_explain": [
+      {
+        "Plan": {
+          "Node Type": "Limit",
+          "Parallel Aware": false,
+          "Async Capable": false,
+          "Startup Cost": 265.2,
+          "Total Cost": 265.3,
+          "Plan Rows": 1,
+          "Plan Width": 200,
+          "Actual Startup Time": 14.48,
+          "Actual Total Time": 14.747,
+          "Actual Rows": 28.0,
+          "Actual Loops": 1,
+          "Disabled": false,
+          "Shared Hit Blocks": 422,
+          "Shared Read Blocks": 0,
+          "Shared Dirtied Blocks": 0,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0,
+          "Plans": [
+            {
+              "Node Type": "Result",
+              "Parent Relationship": "InitPlan",
+              "Subplan Name": "InitPlan 2",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 5.5,
+              "Total Cost": 5.51,
+              "Plan Rows": 1,
+              "Plan Width": 8,
+              "Actual Startup Time": 0.006,
+              "Actual Total Time": 0.007,
+              "Actual Rows": 1.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Limit",
+                  "Parent Relationship": "InitPlan",
+                  "Subplan Name": "InitPlan 1",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 0.15,
+                  "Total Cost": 5.5,
+                  "Plan Rows": 1,
+                  "Plan Width": 8,
+                  "Actual Startup Time": 0.004,
+                  "Actual Total Time": 0.005,
+                  "Actual Rows": 0.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Shared Hit Blocks": 2,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0,
+                  "Plans": [
+                    {
+                      "Node Type": "Index Only Scan",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Scan Direction": "Backward",
+                      "Index Name": "analysis_parameter_sets_pkey",
+                      "Relation Name": "analysis_parameter_sets",
+                      "Alias": "analysis_parameter_sets",
+                      "Startup Cost": 0.15,
+                      "Total Cost": 16.2,
+                      "Plan Rows": 3,
+                      "Plan Width": 8,
+                      "Actual Startup Time": 0.004,
+                      "Actual Total Time": 0.004,
+                      "Actual Rows": 0.0,
+                      "Actual Loops": 1,
+                      "Disabled": false,
+                      "Index Cond": "(dataset_id = 'ad138267-bd38-4ec4-82b9-047b049bbfe0'::uuid)",
+                      "Rows Removed by Index Recheck": 0,
+                      "Heap Fetches": 0,
+                      "Index Searches": 1,
+                      "Shared Hit Blocks": 2,
+                      "Shared Read Blocks": 0,
+                      "Shared Dirtied Blocks": 0,
+                      "Shared Written Blocks": 0,
+                      "Local Hit Blocks": 0,
+                      "Local Read Blocks": 0,
+                      "Local Dirtied Blocks": 0,
+                      "Local Written Blocks": 0,
+                      "Temp Read Blocks": 0,
+                      "Temp Written Blocks": 0
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "Node Type": "Aggregate",
+              "Strategy": "Sorted",
+              "Partial Mode": "Simple",
+              "Parent Relationship": "Outer",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Startup Cost": 259.69,
+              "Total Cost": 259.79,
+              "Plan Rows": 1,
+              "Plan Width": 200,
+              "Actual Startup Time": 14.478,
+              "Actual Total Time": 14.74,
+              "Actual Rows": 28.0,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Group Key": [
+                "w.event_start",
+                "w.workout_uuid",
+                "p.published_run_id",
+                "p.generation"
+              ],
+              "Shared Hit Blocks": 422,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0,
+              "Plans": [
+                {
+                  "Node Type": "Sort",
+                  "Parent Relationship": "Outer",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Startup Cost": 259.69,
+                  "Total Cost": 259.7,
+                  "Plan Rows": 1,
+                  "Plan Width": 102,
+                  "Actual Startup Time": 14.424,
+                  "Actual Total Time": 14.433,
+                  "Actual Rows": 28.0,
+                  "Actual Loops": 1,
+                  "Disabled": false,
+                  "Sort Key": [
+                    "w.event_start",
+                    "w.workout_uuid",
+                    "p.published_run_id",
+                    "p.generation",
+                    "r.metric"
+                  ],
+                  "Sort Method": "quicksort",
+                  "Sort Space Used": 28,
+                  "Sort Space Type": "Memory",
+                  "Shared Hit Blocks": 422,
+                  "Shared Read Blocks": 0,
+                  "Shared Dirtied Blocks": 0,
+                  "Shared Written Blocks": 0,
+                  "Local Hit Blocks": 0,
+                  "Local Read Blocks": 0,
+                  "Local Dirtied Blocks": 0,
+                  "Local Written Blocks": 0,
+                  "Temp Read Blocks": 0,
+                  "Temp Written Blocks": 0,
+                  "Plans": [
+                    {
+                      "Node Type": "Nested Loop",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Join Type": "Inner",
+                      "Startup Cost": 0.83,
+                      "Total Cost": 259.68,
+                      "Plan Rows": 1,
+                      "Plan Width": 102,
+                      "Actual Startup Time": 0.117,
+                      "Actual Total Time": 14.402,
+                      "Actual Rows": 28.0,
+                      "Actual Loops": 1,
+                      "Disabled": false,
+                      "Inner Unique": true,
+                      "Join Filter": "(p.published_run_id = a.id)",
+                      "Rows Removed by Join Filter": 0,
+                      "Shared Hit Blocks": 422,
+                      "Shared Read Blocks": 0,
+                      "Shared Dirtied Blocks": 0,
+                      "Shared Written Blocks": 0,
+                      "Local Hit Blocks": 0,
+                      "Local Read Blocks": 0,
+                      "Local Dirtied Blocks": 0,
+                      "Local Written Blocks": 0,
+                      "Temp Read Blocks": 0,
+                      "Temp Written Blocks": 0,
+                      "Plans": [
+                        {
+                          "Node Type": "Nested Loop",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Join Type": "Inner",
+                          "Startup Cost": 0.56,
+                          "Total Cost": 259.16,
+                          "Plan Rows": 1,
+                          "Plan Width": 134,
+                          "Actual Startup Time": 0.1,
+                          "Actual Total Time": 14.289,
+                          "Actual Rows": 28.0,
+                          "Actual Loops": 1,
+                          "Disabled": false,
+                          "Inner Unique": false,
+                          "Shared Hit Blocks": 336,
+                          "Shared Read Blocks": 0,
+                          "Shared Dirtied Blocks": 0,
+                          "Shared Written Blocks": 0,
+                          "Local Hit Blocks": 0,
+                          "Local Read Blocks": 0,
+                          "Local Dirtied Blocks": 0,
+                          "Local Written Blocks": 0,
+                          "Temp Read Blocks": 0,
+                          "Temp Written Blocks": 0,
+                          "Plans": [
+                            {
+                              "Node Type": "Nested Loop",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Join Type": "Inner",
+                              "Startup Cost": 0.28,
+                              "Total Cost": 257.28,
+                              "Plan Rows": 1,
+                              "Plan Width": 64,
+                              "Actual Startup Time": 0.068,
+                              "Actual Total Time": 14.105,
+                              "Actual Rows": 28.0,
+                              "Actual Loops": 1,
+                              "Disabled": false,
+                              "Inner Unique": false,
+                              "Shared Hit Blocks": 249,
+                              "Shared Read Blocks": 0,
+                              "Shared Dirtied Blocks": 0,
+                              "Shared Written Blocks": 0,
+                              "Local Hit Blocks": 0,
+                              "Local Read Blocks": 0,
+                              "Local Dirtied Blocks": 0,
+                              "Local Written Blocks": 0,
+                              "Temp Read Blocks": 0,
+                              "Temp Written Blocks": 0,
+                              "Plans": [
+                                {
+                                  "Node Type": "Nested Loop",
+                                  "Parent Relationship": "Outer",
+                                  "Parallel Aware": false,
+                                  "Async Capable": false,
+                                  "Join Type": "Inner",
+                                  "Startup Cost": 0.0,
+                                  "Total Cost": 248.97,
+                                  "Plan Rows": 1,
+                                  "Plan Width": 141,
+                                  "Actual Startup Time": 0.043,
+                                  "Actual Total Time": 13.758,
+                                  "Actual Rows": 28.0,
+                                  "Actual Loops": 1,
+                                  "Disabled": false,
+                                  "Inner Unique": false,
+                                  "Join Filter": "(d.scope_key = ('workout:HKWorkoutTypeIdentifier:'::text || (w.workout_uuid)::text))",
+                                  "Rows Removed by Join Filter": 51072,
+                                  "Shared Hit Blocks": 165,
+                                  "Shared Read Blocks": 0,
+                                  "Shared Dirtied Blocks": 0,
+                                  "Shared Written Blocks": 0,
+                                  "Local Hit Blocks": 0,
+                                  "Local Read Blocks": 0,
+                                  "Local Dirtied Blocks": 0,
+                                  "Local Written Blocks": 0,
+                                  "Temp Read Blocks": 0,
+                                  "Temp Written Blocks": 0,
+                                  "Plans": [
+                                    {
+                                      "Node Type": "Seq Scan",
+                                      "Parent Relationship": "Outer",
+                                      "Parallel Aware": false,
+                                      "Async Capable": false,
+                                      "Relation Name": "dirty_scopes",
+                                      "Alias": "d",
+                                      "Startup Cost": 0.0,
+                                      "Total Cost": 61.38,
+                                      "Plan Rows": 9,
+                                      "Plan Width": 101,
+                                      "Actual Startup Time": 0.019,
+                                      "Actual Total Time": 0.359,
+                                      "Actual Rows": 1825.0,
+                                      "Actual Loops": 1,
+                                      "Disabled": false,
+                                      "Filter": "((dataset_id = 'ad138267-bd38-4ec4-82b9-047b049bbfe0'::uuid) AND (generation = clean_generation))",
+                                      "Rows Removed by Filter": 0,
+                                      "Shared Hit Blocks": 34,
+                                      "Shared Read Blocks": 0,
+                                      "Shared Dirtied Blocks": 0,
+                                      "Shared Written Blocks": 0,
+                                      "Local Hit Blocks": 0,
+                                      "Local Read Blocks": 0,
+                                      "Local Dirtied Blocks": 0,
+                                      "Local Written Blocks": 0,
+                                      "Temp Read Blocks": 0,
+                                      "Temp Written Blocks": 0
+                                    },
+                                    {
+                                      "Node Type": "Materialize",
+                                      "Parent Relationship": "Inner",
+                                      "Parallel Aware": false,
+                                      "Async Capable": false,
+                                      "Startup Cost": 0.0,
+                                      "Total Cost": 185.79,
+                                      "Plan Rows": 9,
+                                      "Plan Width": 40,
+                                      "Actual Startup Time": 0.0,
+                                      "Actual Total Time": 0.002,
+                                      "Actual Rows": 28.0,
+                                      "Actual Loops": 1825,
+                                      "Disabled": false,
+                                      "Storage": "Memory",
+                                      "Maximum Storage": 18,
+                                      "Shared Hit Blocks": 131,
+                                      "Shared Read Blocks": 0,
+                                      "Shared Dirtied Blocks": 0,
+                                      "Shared Written Blocks": 0,
+                                      "Local Hit Blocks": 0,
+                                      "Local Read Blocks": 0,
+                                      "Local Dirtied Blocks": 0,
+                                      "Local Written Blocks": 0,
+                                      "Temp Read Blocks": 0,
+                                      "Temp Written Blocks": 0,
+                                      "Plans": [
+                                        {
+                                          "Node Type": "Seq Scan",
+                                          "Parent Relationship": "Outer",
+                                          "Parallel Aware": false,
+                                          "Async Capable": false,
+                                          "Relation Name": "workouts",
+                                          "Alias": "w",
+                                          "Startup Cost": 0.0,
+                                          "Total Cost": 185.75,
+                                          "Plan Rows": 9,
+                                          "Plan Width": 40,
+                                          "Actual Startup Time": 0.017,
+                                          "Actual Total Time": 0.921,
+                                          "Actual Rows": 28.0,
+                                          "Actual Loops": 1,
+                                          "Disabled": false,
+                                          "Filter": "((dataset_id = 'ad138267-bd38-4ec4-82b9-047b049bbfe0'::uuid) AND (activity_type = 37) AND (((event_start AT TIME ZONE 'Asia/Shanghai'::text))::date >= '2026-10-02'::date) AND (((event_start AT TIME ZONE 'Asia/Shanghai'::text))::date <= '2026-10-29'::date))",
+                                          "Rows Removed by Filter": 1797,
+                                          "Shared Hit Blocks": 131,
+                                          "Shared Read Blocks": 0,
+                                          "Shared Dirtied Blocks": 0,
+                                          "Shared Written Blocks": 0,
+                                          "Local Hit Blocks": 0,
+                                          "Local Read Blocks": 0,
+                                          "Local Dirtied Blocks": 0,
+                                          "Local Written Blocks": 0,
+                                          "Temp Read Blocks": 0,
+                                          "Temp Written Blocks": 0
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "Node Type": "Index Scan",
+                                  "Parent Relationship": "Inner",
+                                  "Parallel Aware": false,
+                                  "Async Capable": false,
+                                  "Scan Direction": "Forward",
+                                  "Index Name": "analysis_publications_pkey",
+                                  "Relation Name": "analysis_publications",
+                                  "Alias": "p",
+                                  "Startup Cost": 0.28,
+                                  "Total Cost": 8.3,
+                                  "Plan Rows": 1,
+                                  "Plan Width": 109,
+                                  "Actual Startup Time": 0.012,
+                                  "Actual Total Time": 0.012,
+                                  "Actual Rows": 1.0,
+                                  "Actual Loops": 28,
+                                  "Disabled": false,
+                                  "Index Cond": "((dataset_id = 'ad138267-bd38-4ec4-82b9-047b049bbfe0'::uuid) AND (scope_key = d.scope_key) AND (metric_family = 'workout'::text))",
+                                  "Rows Removed by Index Recheck": 0,
+                                  "Filter": "(d.generation = generation)",
+                                  "Rows Removed by Filter": 0,
+                                  "Index Searches": 28,
+                                  "Shared Hit Blocks": 84,
+                                  "Shared Read Blocks": 0,
+                                  "Shared Dirtied Blocks": 0,
+                                  "Shared Written Blocks": 0,
+                                  "Local Hit Blocks": 0,
+                                  "Local Read Blocks": 0,
+                                  "Local Dirtied Blocks": 0,
+                                  "Local Written Blocks": 0,
+                                  "Temp Read Blocks": 0,
+                                  "Temp Written Blocks": 0
+                                }
+                              ]
+                            },
+                            {
+                              "Node Type": "Index Scan",
+                              "Parent Relationship": "Inner",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Scan Direction": "Forward",
+                              "Index Name": "analysis_results_pkey",
+                              "Relation Name": "analysis_results",
+                              "Alias": "r",
+                              "Startup Cost": 0.28,
+                              "Total Cost": 1.87,
+                              "Plan Rows": 1,
+                              "Plan Width": 86,
+                              "Actual Startup Time": 0.006,
+                              "Actual Total Time": 0.006,
+                              "Actual Rows": 1.0,
+                              "Actual Loops": 28,
+                              "Disabled": false,
+                              "Index Cond": "((dataset_id = 'ad138267-bd38-4ec4-82b9-047b049bbfe0'::uuid) AND (run_id = p.published_run_id) AND (metric = ANY ('{duration,distance,workout_load}'::text[])))",
+                              "Rows Removed by Index Recheck": 0,
+                              "Filter": "(algorithm_version = 'v1'::text)",
+                              "Rows Removed by Filter": 0,
+                              "Index Searches": 28,
+                              "Shared Hit Blocks": 87,
+                              "Shared Read Blocks": 0,
+                              "Shared Dirtied Blocks": 0,
+                              "Shared Written Blocks": 0,
+                              "Local Hit Blocks": 0,
+                              "Local Read Blocks": 0,
+                              "Local Dirtied Blocks": 0,
+                              "Local Written Blocks": 0,
+                              "Temp Read Blocks": 0,
+                              "Temp Written Blocks": 0
+                            }
+                          ]
+                        },
+                        {
+                          "Node Type": "Index Scan",
+                          "Parent Relationship": "Inner",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Scan Direction": "Forward",
+                          "Index Name": "analysis_runs_pkey",
+                          "Relation Name": "analysis_runs",
+                          "Alias": "a",
+                          "Startup Cost": 0.28,
+                          "Total Cost": 0.51,
+                          "Plan Rows": 1,
+                          "Plan Width": 32,
+                          "Actual Startup Time": 0.003,
+                          "Actual Total Time": 0.003,
+                          "Actual Rows": 1.0,
+                          "Actual Loops": 28,
+                          "Disabled": false,
+                          "Index Cond": "((dataset_id = 'ad138267-bd38-4ec4-82b9-047b049bbfe0'::uuid) AND (id = r.run_id))",
+                          "Rows Removed by Index Recheck": 0,
+                          "Filter": "((status = 'SUCCEEDED'::text) AND (COALESCE(((lineage ->> 'parameterVersion'::text))::bigint, '0'::bigint) = COALESCE((InitPlan 2).col1, '0'::bigint)))",
+                          "Rows Removed by Filter": 0,
+                          "Index Searches": 28,
+                          "Shared Hit Blocks": 86,
+                          "Shared Read Blocks": 0,
+                          "Shared Dirtied Blocks": 0,
+                          "Shared Written Blocks": 0,
+                          "Local Hit Blocks": 0,
+                          "Local Read Blocks": 0,
+                          "Local Dirtied Blocks": 0,
+                          "Local Written Blocks": 0,
+                          "Temp Read Blocks": 0,
+                          "Temp Written Blocks": 0
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "Planning": {
+          "Shared Hit Blocks": 285,
+          "Shared Read Blocks": 1,
+          "Shared Dirtied Blocks": 0,
+          "Shared Written Blocks": 0,
+          "Local Hit Blocks": 0,
+          "Local Read Blocks": 0,
+          "Local Dirtied Blocks": 0,
+          "Local Written Blocks": 0,
+          "Temp Read Blocks": 0,
+          "Temp Written Blocks": 0
+        },
+        "Planning Time": 3.199,
+        "Triggers": [],
+        "Execution Time": 14.845
+      }
+    ],
+    "actual_response_bodies_recorded": false
+  },
+  "searches": {
+    "required_keywords": [
+      "TODO",
+      "FIXME",
+      "HACK",
+      "TEMP",
+      "deprecated",
+      "legacy",
+      "compat",
+      "fallback",
+      "v1",
+      "manual",
+      "mock",
+      "fake",
+      "unsafe",
+      "panic",
+      "fatalError",
+      "TODO-P",
+      "PENDING",
+      "DEFERRED",
+      "BLOCKED",
+      "@unchecked Sendable",
+      "Task.detached",
+      "DispatchQueue.main.sync",
+      "sleep",
+      "time.Sleep",
+      "SELECT *",
+      "FOR UPDATE",
+      "ON CONFLICT",
+      "DELETE",
+      "TRUNCATE"
+    ],
+    "context_reviewed": true,
+    "logs": {
+      "keyword-search.log": {
+        "lines": 148,
+        "sha256": "5baf3469e97f0be8e37d35648401ffd38a2a4409704a58cb81bdd6ecb896b091"
+      },
+      "doc-keywords.log": {
+        "lines": 100,
+        "sha256": "21e9e06643aeb29b9b66b70063d8d341de58997661d6096a202a1dbb4fcbac75"
+      },
+      "concurrency-search.log": {
+        "lines": 157,
+        "sha256": "87f710dfd4dd52131de89fbdb7259f202f547a516bab1801489f8347a2ba8c53"
+      },
+      "test-patterns.log": {
+        "lines": 91,
+        "sha256": "75d3432be49bc9ee7918c16e0e5552ee80e9ac0c719f5586a54abcddcc3ce6e1"
+      },
+      "canonical-references.log": {
+        "lines": 39,
+        "sha256": "746f35accb79ed24c0a3249f2f8ed55b22e7a94841314c7425b24673915c2f45"
+      }
+    }
+  },
+  "repository_shape": {
+    "tracked_files": 566,
+    "tracked_bytes": 182089541,
+    "duplicate_media_groups": 55,
+    "duplicate_media_bytes": 71563711,
+    "tracked_xcresult_or_derived_data": false,
+    "historical_media_deleted": false
+  },
+  "source_integrity": {
+    "protected_files": 566,
+    "manifest_sha256": "ad96b48bafdbbfe059bcfedf1d244e5e00a3a7655f53a6696a7182b7ca1eb175",
+    "changed_protected_files": [],
+    "report_sha256": "1e194bc54f6f8bb0b2e1dae6c3642db9491c691e88f07c6a3e581db792cf728f"
+  },
+  "safe_removal_candidates": [
+    {
+      "symbol": "AssociationRequest.Canonical",
+      "file": "apps/server/internal/syncing/association.go:36",
+      "runtime_references": 0,
+      "test_references": 0,
+      "all_canonical_call_sites_reviewed": 39,
+      "risk": "LOW",
+      "removed": false
+    },
+    {
+      "file": "ios/RAI/README.md:40",
+      "kind": "stale current retention description",
+      "runtime_references": 0,
+      "risk": "LOW",
+      "removed": false
+    }
+  ],
+  "known_deferred_gates": {
+    "P3 REAL DEVICE ACCEPTANCE": "DEFERRED / NOT VERIFIED",
+    "P6 REAL DEVICE ACCEPTANCE": "DEFERRED / NOT VERIFIED",
+    "DISASTER RECOVERY RESYNC": "BLOCKED / NOT IMPLEMENTED",
+    "PRODUCTION RELEASE READY": "NO"
+  },
+  "not_rerun": [
+    "complete extreme integration,scale benchmarks",
+    "complete p7capacity tagged benchmark",
+    "full Swift UI screenshot/accessibility regression",
+    "sqlc regeneration",
+    "remote CI",
+    "physical device",
+    "real cloud install or download/restore round trip"
+  ],
+  "commands": [
+    {
+      "name": "go-gates",
+      "command": [
+        "bash",
+        "scripts/test-remote.sh",
+        "bash",
+        "-c",
+        "go version; docker --version; docker compose version; go list -deps ./... > /tmp/rai-full-review-deps-$$; go mod graph; bash ../../scripts/check-p7.sh"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T03:48:04.680914+00:00",
+      "duration_seconds": 379.895,
+      "exit_code": 0,
+      "log_sha256": "4b6cb353de73cf421be66e1e58461d9180421df7c7f3c093b9d204a636abe547"
+    },
+    {
+      "name": "swift-test",
+      "command": [
+        "swift",
+        "test",
+        "--scratch-path",
+        "/tmp/rai-full-review-20261029/swift-build"
+      ],
+      "cwd": "/Users/ta/rai/ios/RAI",
+      "started_at": "2026-10-29T03:48:05.870871+00:00",
+      "duration_seconds": 40.311,
+      "exit_code": 0,
+      "log_sha256": "3b55e36e0ced4b277643daf5e587a00ee7c492f3d71e114a4bc62d34cdf7e5f6"
+    },
+    {
+      "name": "xcode-debug",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "generic/platform=iOS Simulator",
+        "-derivedDataPath",
+        "/tmp/rai-full-review-20261029/DerivedData",
+        "CODE_SIGNING_ALLOWED=NO",
+        "SWIFT_STRICT_CONCURRENCY=complete",
+        "build"
+      ],
+      "cwd": "/Users/ta/rai/ios/RAI",
+      "started_at": "2026-10-29T03:52:23.400923+00:00",
+      "duration_seconds": 64.496,
+      "exit_code": 0,
+      "log_sha256": "0c1d7f3b488e36b1bfb271cca3e7a0aa230eb3a73ebbea19c84d4c5fe43042eb"
+    },
+    {
+      "name": "openapi",
+      "command": [
+        "npm",
+        "exec",
+        "--yes",
+        "--package=@redocly/cli@2.71.1",
+        "--",
+        "redocly",
+        "lint",
+        "contracts/openapi-v2.yaml"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T03:52:24.522654+00:00",
+      "duration_seconds": 13.415,
+      "exit_code": 0,
+      "log_sha256": "0a8a237ca0e2cbccbe154fb6cd97fa939d3718598e3b7b54d14e38cf8611b2b1"
+    },
+    {
+      "name": "compose-regression",
+      "command": [
+        "bash",
+        "scripts/test-remote.sh",
+        "env",
+        "RAI_SOURCE_COMMIT=0308b8658adc304040e445bc7f6ab61d212472d3",
+        "bash",
+        "../../scripts/test-monthly-compose.sh"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T04:00:26.504354+00:00",
+      "duration_seconds": 718.796,
+      "exit_code": 0,
+      "log_sha256": "1e74774f4d7662c7ef91acb7d604bbf79b433834e5ac122ffbd5dce682df6cdb"
+    },
+    {
+      "name": "xcode-release",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-configuration",
+        "Release",
+        "-destination",
+        "generic/platform=iOS",
+        "-derivedDataPath",
+        "/tmp/rai-full-review-20261029/DerivedData",
+        "CODE_SIGNING_ALLOWED=NO",
+        "SWIFT_STRICT_CONCURRENCY=complete",
+        "build"
+      ],
+      "cwd": "/Users/ta/rai/ios/RAI",
+      "started_at": "2026-10-29T04:00:27.629417+00:00",
+      "duration_seconds": 81.409,
+      "exit_code": 0,
+      "log_sha256": "f750880ec354ec0d3ec0043debeb56e794b00b0c84649c1a2a345900181d8174"
+    },
+    {
+      "name": "secret-audit",
+      "command": [
+        "python3",
+        "scripts/p7-secret-audit.py"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T04:03:18.852127+00:00",
+      "duration_seconds": 0.545,
+      "exit_code": 0,
+      "log_sha256": "b4fb4b6b3e0cde4202bef66ccae08f3c4fcada61c9f542315512974fc4e804be"
+    },
+    {
+      "name": "python-monthly-tests",
+      "command": [
+        "bash",
+        "-c",
+        "python3 scripts/test-monthly-backup.py && python3 scripts/test-monthly-policy.py && python3 scripts/test-p7-alerts.py"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T04:08:37.555383+00:00",
+      "duration_seconds": 13.793,
+      "exit_code": 0,
+      "log_sha256": "7a61b4ead281fcb4274647a6f3763ea87079c141d703f63a43629c201d840d09"
+    },
+    {
+      "name": "swift-gc",
+      "command": [
+        "python3",
+        "scripts/test-p7-gc.py"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T04:08:38.700639+00:00",
+      "duration_seconds": 15.494,
+      "exit_code": 0,
+      "log_sha256": "e58929cc52a0f02d5efa329fce98e8e43c5069667ac585ea2c3958ad49f77750"
+    },
+    {
+      "name": "xcode-normalizer",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=iOS Simulator,id=6CF01649-FA3B-411C-BFD7-B1FAE166DD40",
+        "-derivedDataPath",
+        "/tmp/rai-full-review-20261029/DerivedData",
+        "-resultBundlePath",
+        "/tmp/rai-full-review-20261029/Normalizer.xcresult",
+        "-only-testing:RAITests/NormalizerTests",
+        "-parallel-testing-enabled",
+        "NO",
+        "CODE_SIGNING_ALLOWED=NO",
+        "SWIFT_STRICT_CONCURRENCY=complete",
+        "test"
+      ],
+      "cwd": "/Users/ta/rai/ios/RAI",
+      "started_at": "2026-10-29T04:08:56.054331+00:00",
+      "duration_seconds": 276.723,
+      "exit_code": 0,
+      "log_sha256": "2e34ed894a059fcdff24d6119de904389e9798a556c65643a2d988c98c06fc9b"
+    },
+    {
+      "name": "targeted-review",
+      "command": [
+        "python3",
+        "/tmp/rai-full-review-20261029/targeted-run.py"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T04:15:50.077345+00:00",
+      "duration_seconds": 35.736,
+      "exit_code": 0,
+      "log_sha256": "b871295c72042121ebf5b2adf7fff144a103a6361707cd91eb258c7f128a77e1"
+    },
+    {
+      "name": "targeted-review-followup",
+      "command": [
+        "python3",
+        "/tmp/rai-full-review-20261029/targeted-run.py"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T04:18:26.164867+00:00",
+      "duration_seconds": 33.64,
+      "exit_code": 0,
+      "log_sha256": "634324019da9a6d52050693d3fc54f9129dbde80ecca115152837662e49bc1bf"
+    },
+    {
+      "name": "dependency-and-backup-guards",
+      "command": [
+        "bash",
+        "scripts/test-remote.sh",
+        "bash",
+        "-c",
+        "set -e\nprintf \"REVIEW_GO_DEPS_PACKAGES=\"\ngo list -deps ./... | wc -l\ngo mod verify\npython3 ../../scripts/check-boundaries.py\nif command -v sqlc >/dev/null; then\n sqlc version\n python3 - <<'PY'\nimport hashlib,pathlib,subprocess\npaths=sorted(pathlib.Path(\"internal/storage/postgres/dbgen\").glob(\"*.go\"));before={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths};subprocess.run([\"sqlc\",\"generate\"],check=True);after={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths};assert before==after;print(\"REVIEW_SQLC_IDENTICAL=PASS\")\nPY\nelse\n printf \"REVIEW_SQLC=NOT_AVAILABLE\\n\"\nfi\nbash ../../scripts/test-p7-backup-guards.sh"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T04:21:41.684959+00:00",
+      "duration_seconds": 57.157,
+      "exit_code": 0,
+      "log_sha256": "524d2d4ad1f8c87faba2cfe2473dbf21a91685ea9faccd878650ea16913b9b4d"
+    },
+    {
+      "name": "targeted-route",
+      "command": [
+        "python3",
+        "/tmp/rai-full-review-20261029/targeted-run.py"
+      ],
+      "cwd": "/Users/ta/rai",
+      "started_at": "2026-10-29T04:23:15.515680+00:00",
+      "duration_seconds": 25.416,
+      "exit_code": 0,
+      "log_sha256": "e30fa403c42bace11e4e3e8af2efdeb6efd086459fb0bbe4cc20eabf02fe5da2"
+    }
+  ],
+  "formal_go_subcommands": [
+    {
+      "command": "gofmt -l .",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go mod verify",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go list -deps ./...",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go mod graph",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go test -count=1 ./...",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go test -race -count=1 ./...",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go vet ./...",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go vet -tags=integration,scale,p7capacity ./...",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "go build ./...",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    },
+    {
+      "command": "python3 ../../scripts/check-boundaries.py",
+      "exit_code": 0,
+      "timing_scope": "contained in go-gates or dependency-and-backup-guards wrapper; individual wall duration not retained"
+    }
+  ],
+  "cleanup": {
+    "compose_and_monthly_cleanup_exit_code": 0,
+    "new_simulator_deleted": true,
+    "post_run_remote_running_containers": [
+      "rai-postgres",
+      "frpc"
+    ],
+    "unknown_postgres_read_or_modified": false,
+    "own_remote_dependency_list_removed": true,
+    "remote_source_snapshots_removed_by_harness": true,
+    "local_machine_logs_location": "/tmp/rai-full-review-20261029"
+  },
+  "final_verdict": "FIXES REQUIRED BEFORE DEVICE ACCEPTANCE",
+  "fix_waves_executed": false,
+  "commit_push_deploy_performed": false,
+  "final_verification": {
+    "protected_tracked_files": 566,
+    "changed_protected_files": [],
+    "tracked_diff_empty": true,
+    "only_two_authorized_outputs": true,
+    "report_sections": 27,
+    "json_valid": true,
+    "finding_counts_match_report": true,
+    "source_commit_unchanged": true
+  }
+}

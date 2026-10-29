@@ -66,7 +66,8 @@ func Generate(in Context) (Base, error) {
 	p := in.Parameters
 	fitness, fatigue, readiness := (*float64)(nil), (*float64)(nil), (*float64)(nil)
 	for _, s := range in.Signals {
-		if s.Version != "v1" || s.Value == nil || (s.Quality != "available" && s.Quality != "partial") || !Finite(*s.Value) {
+		supported := s.Version == "v1" || (s.Algorithm == "fitness_fatigue" && s.Version == "v2")
+		if !supported || s.Value == nil || (s.Quality != "available" && s.Quality != "partial") || !Finite(*s.Value) {
 			continue
 		}
 		switch s.Name {

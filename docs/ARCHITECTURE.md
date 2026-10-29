@@ -208,3 +208,7 @@ SwiftUI五个原生Tab统一使用RAITheme/RAIGlassSurface、暖暗背景和系�
 新增显式管理脚本 `rai-backup.sh backup|check|list`：复用 release Compose 与只读备份身份，整库 custom dump→本地归档检查/SHA→严格SSH→远端partial/大小及摘要重读核验→原子发布manifest→仅保留三份已核验成功副本。目录0700、文件0600、两端锁和不跟随symlink；失败不执行历史清理；无额外文件加密。cron只提供每月1日03:00显式时区模板，云端与真实任务未安装。`rai-restore.sh`只允许明确确认的labelled/空闲/空PG18隔离目标、单事务SQL恢复，随后需角色/FK/原回执与45表不变量验收。
 
 HealthKit灾难重同步为 **BLOCKED**：旧快照保持dataset/service/device身份，但可能丢失墓碑/receipt/stream进度；客户端已交付载荷可能已由P7合法GC。当前没有recovery generation和可证的恢复流/删除覆盖完成合同。本轮交付审查设计与Go/Swift边界反例，没有添加假可用恢复入口、清空Anchor/Outbox或绕过sequence。备份后的User Override/Execution/Feedback可能永久丢失；备份内历史由原P4/P5追加发布保护。详细限制和证据见 [Monthly Backup](RAI_MONTHLY_BACKUP.md)、[Disaster Recovery](RAI_DISASTER_RECOVERY.md) 与 [Result](RAI_BACKUP_RECOVERY_RESULT.md)。
+
+## 16. 2026-10-29 Full Review correctness addendum
+
+本轮仅修复 RAI-FULL-001–007。当前 P4 bundle 为 workout.bundle/v2、training_state.bundle/v2（组件见P4 addendum），新 Effective 保存 training_merge/v2，Generator/parameter/feedback v1不变。等时路线仅跳过不适用连接；daily_load 独立于历史窗口；rebase 冲突保留用户事件并发布合法处方。查询范围、严格Training wire与新分页合同见P5/P6 addendum和OpenAPI1.1.0。旧P3事实/回执/墓碑事务、Worker fencing、immutable历史和schema13不变，无新增migration或自动历史重算。上文阶段记录保留当时口径，最终验证/未验证项见 Full Review Fix Result。

@@ -17,9 +17,21 @@ const (
 	StateAlgorithm      = "training_state.bundle"
 	DependencyAlgorithm = "dependency.invalidate"
 	Version             = "v1"
+	WorkoutVersion      = "v2"
+	StateVersion        = "v2"
 	StateScope          = "athlete/default"
 	WindowDays          = 180
 )
+
+func BundleVersion(kind string) string {
+	if kind == "analysis.workout" {
+		return WorkoutVersion
+	}
+	if kind == "analysis.training_state" {
+		return StateVersion
+	}
+	return Version
+}
 
 type Lease struct {
 	ID               string

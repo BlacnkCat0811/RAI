@@ -1,10 +1,5 @@
 package syncing
 
-import (
-	"crypto/sha256"
-	"encoding/json"
-)
-
 type AssociationRequest struct {
 	ProtocolVersion int     `json:"protocolVersion"`
 	DatasetID       string  `json:"datasetID"`
@@ -31,12 +26,6 @@ func (r AssociationRequest) Validate() error {
 		return Fail(422, "unsupported_payload")
 	}
 	return nil
-}
-
-func (r AssociationRequest) Canonical() ([]byte, []byte) {
-	b, _ := json.Marshal(r)
-	h := func() []byte { h := sha256.Sum256(b); return h[:] }()
-	return b, h
 }
 
 type AssociationReceipt struct {

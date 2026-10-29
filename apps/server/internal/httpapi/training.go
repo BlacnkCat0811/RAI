@@ -17,7 +17,10 @@ type trainingStore interface {
 	TrainingPlan(context.Context, syncing.Principal, string) (training.Plan, error)
 	PutTrainingOverride(context.Context, syncing.Principal, string, training.OverrideRequest) (training.Effective, error)
 	TrainingAudit(context.Context, syncing.Principal, string, string) (training.Audit, error)
+	TrainingAuditPage(context.Context, syncing.Principal, string, string, int64, int) (training.AuditPage, error)
+	TrainingDetailPage(context.Context, syncing.Principal, string, string, string, int64, int) (training.DetailPage, error)
 	TrainingHistory(context.Context, syncing.Principal, string, int64, int) (training.History, error)
+	TrainingHistoryLegacy(context.Context, syncing.Principal, string, int64, int) (training.LegacyHistory, error)
 	StartTrainingExecution(context.Context, syncing.Principal, training.StartRequest) (training.Execution, error)
 	ChangeTrainingExecution(context.Context, syncing.Principal, string, training.ExecutionChange) (training.Execution, error)
 	TrainingExecution(context.Context, syncing.Principal, string) (training.Execution, error)
@@ -27,12 +30,8 @@ func trainingBody(w http.ResponseWriter, r *http.Request, out any) error {
 	if len(r.URL.Query()) > 0 {
 		return syncing.Fail(422, "invalid_training_query")
 	}
-	d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
-	d.DisallowUnknownFields()
-	if d.Decode(out) != nil {
-		return syncing.Fail(422, "invalid_training_request")
-	}
-	if d.Decode(new(any)) != io.EOF {
+	b, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<10))
+	if err != nil || syncing.DecodeStrictJSON(b, out) != nil || validateTrainingJSON(b, out) != nil {
 		return syncing.Fail(422, "invalid_training_request")
 	}
 	return nil
@@ -46,10 +45,11 @@ func (a *API) training(w http.ResponseWriter, r *http.Request, p syncing.Princip
 	var err error
 	id := r.PathValue("id")
 	if r.Method == "GET" {
-		if r.Pattern == "GET /v2/training/plans/{id}/history" {
+		paged := r.Pattern == "GET /v2/training/plans/{id}/history" || r.Pattern == "GET /v2/training/plans/{id}/history/versions" || r.Pattern == "GET /v2/training/plans/{id}/effective/{version}/audit" || r.Pattern == "GET /v2/training/plans/{id}/effective/{version}/detail"
+		if paged {
 			q := r.URL.Query()
 			for k, v := range q {
-				if (k != "after" && k != "limit") || len(v) != 1 {
+				if (k != "after" && k != "limit" && !(k == "section" && r.Pattern == "GET /v2/training/plans/{id}/effective/{version}/detail")) || len(v) != 1 {
 					return syncing.Fail(422, "invalid_training_query")
 				}
 			}
@@ -67,7 +67,18 @@ func (a *API) training(w http.ResponseWriter, r *http.Request, p syncing.Princip
 					return syncing.Fail(422, "invalid_training_query")
 				}
 			}
-			out, err = s.TrainingHistory(r.Context(), p, id, after, limit)
+			switch r.Pattern {
+			case "GET /v2/training/plans/{id}/history":
+				w.Header().Set("Deprecation", "true")
+				w.Header().Set("Link", "</v2/training/plans/"+id+"/history/versions>; rel=successor-version")
+				out, err = s.TrainingHistoryLegacy(r.Context(), p, id, after, limit)
+			case "GET /v2/training/plans/{id}/history/versions":
+				out, err = s.TrainingHistory(r.Context(), p, id, after, limit)
+			case "GET /v2/training/plans/{id}/effective/{version}/audit":
+				out, err = s.TrainingAuditPage(r.Context(), p, id, r.PathValue("version"), after, limit)
+			default:
+				out, err = s.TrainingDetailPage(r.Context(), p, id, r.PathValue("version"), q.Get("section"), after, limit)
+			}
 		} else {
 			if len(r.URL.Query()) > 0 {
 				return syncing.Fail(422, "invalid_training_query")
@@ -85,6 +96,8 @@ func (a *API) training(w http.ResponseWriter, r *http.Request, p syncing.Princip
 				}
 				out = plan.Effective
 			case "GET /v2/training/plans/{id}/effective/{version}":
+				w.Header().Set("Deprecation", "true")
+				w.Header().Set("Link", "</v2/training/plans/"+id+"/effective/"+r.PathValue("version")+"/audit>; rel=successor-version")
 				out, err = s.TrainingAudit(r.Context(), p, id, r.PathValue("version"))
 			case "GET /v2/training/executions/{id}":
 				out, err = s.TrainingExecution(r.Context(), p, id)
@@ -122,6 +135,19 @@ func (a *API) training(w http.ResponseWriter, r *http.Request, p syncing.Princip
 	if err != nil {
 		return err
 	}
-	respond(w, 200, out)
+	budget := training.SnapshotBudget
+	if r.Pattern == "GET /v2/training/plans/{id}/history/versions" || r.Pattern == "GET /v2/training/plans/{id}/effective/{version}/audit" || r.Pattern == "GET /v2/training/plans/{id}/effective/{version}/detail" {
+		budget = training.PageBudget
+	}
+	b, e := json.Marshal(out)
+	if e != nil {
+		return e
+	}
+	if len(b)+1 > budget {
+		return syncing.Fail(413, "training_response_requires_pagination")
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, _ = w.Write(append(b, '\n'))
 	return nil
 }

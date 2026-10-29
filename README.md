@@ -90,7 +90,7 @@ python3 scripts/p7-secret-audit.py
 
 ```bash
 rai analysis recompute --dataset <uuid> --scope athlete/default \
-  --algorithm training_state.bundle/v1 --from 2026-10-01 --through 2026-10-28 --dry-run
+  --algorithm training_state.bundle/v2 --from 2026-10-01 --through 2026-10-28 --dry-run
 ```
 
 去掉 `--dry-run` 才会耐久排队。每次最多366输出日或1000 Workout；不默认全库，不进入 HealthKit 热路径。

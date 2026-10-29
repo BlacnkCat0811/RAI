@@ -52,3 +52,23 @@ feedback/v1：基于snapshot与已发布duration/distance/workout_load，保留p
 第一版仅用目标日约束有界日历和可行性判断，不提供比赛日配速、赛前taper或目标时间优化；用户需明确确认实际比赛安排。
 
 结构化interval的duration被用户单独改写且与生成结构不同时，Effective转为无steps的interval时长/RPE处方，记录 `duration_override_unstructured`，不覆盖用户时长或携带矛盾的steps；修改成非interval类型也清除不适用的生成steps。
+
+
+## 2026-10-29 Correctness addendum — training_merge/v2
+
+新 Effective JSON 保存 mergeVersion=training_merge/v2；旧 immutable JSON 缺省表示 training_merge/v1，可由 ResolveEffectiveVersion 按旧语义重放。Generator training_plan/v1、coach_parameters/v1 与 stable slot UUID 不变；生成规则没有变化。published workout.features/v1/v2 均支持同单位 duration/distance；不重写旧 Context/Base/Effective。
+
+最新 active 字段覆盖按 revision/UUID 选择。新 Base 的同一 stable session 与已接受字段不兼容时，仅在该字段能在原 anchor 上合法应用的前提下保留当前合法处方，modifiedByUser=true、reasonCodes 包含 override_rebase_conflict/v1、conflicts 包含 <path>_override_incompatible_with_session_structure/v1。原事件 value、anchor、revision、identity 不变，审计仍可读；冲突不表示用户值已应用。适用字段和 move 继续应用，removed/REST 的旧 anchor 保留规则不变。revoke 后重新从 Base 投影，冲突消失；后续同字段合法覆盖取代旧冲突。新命令仍先按用户当前看到的处方严格校验，非法新值不能伪装成 rebase 冲突被接受。generation publication 在原事务中读取最新 override，started Execution snapshot 不变。
+
+## 2026-10-29 Bounded product read addendum — OpenAPI 1.1.0
+
+- `GET plans/{id}/history/versions?after=0&limit=20` 返回 VersionSummary，含 Effective/plan/Base identity、number、overrideRevision、mergeVersion、timezone 与 createdAt，不含完整处方或 context。按 number 升序；limit=1..50，next 是本页末 number，有后续时非零，完成为0。
+- `GET plans/{id}/effective/{version}/audit?after=0&limit=20` 按 override revision 分页，固定到该 immutable Effective 的 overrideRevision；revoke status/updatedAt 也按当时 revision 投影。后续用户编辑不能改变已固定版本的页面。原 event/value/anchor 全部可逐页读取。
+- `GET plans/{id}/effective/{version}/detail?section=...&after=0&limit=20` 分页读取 effective_sessions、base_sessions、context_workouts、context_signals、context_feedback；metadata 保留 Effective/Base recommendations、context config/parameters/as-of 与 lineage identity。after/next 是该不可变数组的 ordinality，绑定 version 与 section；没有 SQL OFFSET。收齐各数组及 audit 事件可以重建完整历史并按 mergeVersion 重放。
+- 上述新入口每响应最多 262144 UTF-8 bytes（含换行），同时限制条数；必要时少于 limit 并返回有效 next，不能丢事件。HTTP/Swift 预算一致。其余 training snapshot/command 及旧入口保留 1048576 bytes，P3 预算不变。客户端仍检查超限，失败保留已有内容和 cursor。
+- 旧 `/history`（整份 Effective 列表）及 `/effective/{version}`（整份 Audit）保留小响应的旧形状和 Deprecation/Link；超过1 MiB明确413 `training_response_requires_pagination`，迁移到 `/history/versions`、`/audit` 和 `/detail`。旧 history 的 last-number 游标保持旧语义；新 summary 的 next=0 明示完成。没有删除端点或改写旧回执。
+- 新 override event JSON 上限32768 bytes；Effective JSON上限983040 bytes，为Plan wrapper留64 KiB；command receipt含换行不得超过1 MiB。超限在原业务事务 COMMIT 前422 `training_audit_entry_limit` / `training_snapshot_limit`，不接受一份无法在客户端读取的命令。未删除已接受的历史事实。大 context 通过 section 分页，与当前 Effective snapshot 的预算分离。
+
+Training wire 现在与 P3 共用 UTF-8、重复键、精确拼写、未知字段和类型校验；独立声明所有 command/config/goal/manual session/step required fields 与 nullability。expectedOverrideRevision=0 对首次写有效，缺省拒绝；config/execution expected revision >=1。仅 targetHR/paceSPerKM 支持明确清空，notes:null 拒绝。合法请求的 canonical DTO/hash 不变。
+
+最近28日先按冻结 IANA timezone 计算本地首日和下一日午夜的绝对边界（AddDate，非28×24h），SQL直接使用 event_start 范围；具体 Workout identity 使用独立路径，保留迟到 association。publication/dirty/run/参数门禁、排序、4096 输入上限和 dataset 隔离不变。生成器继续 training_plan/v1/coach_parameters/v1；fitness_fatigue/v1/v2 数值/单位相同，v2 只改变 daily_load 的可用性，训练高层规则与参数没有变化。

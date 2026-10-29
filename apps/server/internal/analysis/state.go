@@ -76,7 +76,9 @@ func TrainingState(ctx context.Context, in StateInput) ([]Metric, error) {
 		}
 		q := "partial"
 		d := loads[day.Format("2006-01-02")]
-		dailyValue := value(d.sum)
+		// A day's recorded load has its own availability. Missing historical
+		// load only invalidates the convolution, never a known daily total.
+		dailyValue := Ptr(d.sum)
 		if d.unknown {
 			dailyValue = nil
 		}

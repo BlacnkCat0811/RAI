@@ -22,9 +22,13 @@ import (
 // separately. No existing or production database is ever used.
 func seedAnalysisHistory(t *testing.T, f *fixture, days int) string {
 	t.Helper()
+	return seedAnalysisHistoryDensity(t, f, days, 1)
+}
+func seedAnalysisHistoryDensity(t *testing.T, f *fixture, days, density int) string {
+	t.Helper()
 	ctx := context.Background()
 	if _, e := f.s.Pool.Exec(ctx, `CREATE TABLE p4_history AS SELECT gen_random_uuid() AS id,gen_random_uuid() AS job,gen_random_uuid() AS run,
- date_trunc('day',clock_timestamp(),'Asia/Shanghai')-n*interval '1 day'+interval '2 hours' AS at FROM generate_series(0,$1::integer-1) n`, days); e != nil {
+ date_trunc('day',clock_timestamp(),'Asia/Shanghai')-(n/$2::integer)*interval '1 day'+interval '2 hours'+(n%$2::integer)*interval '1 minute' AS at FROM generate_series(0,$1::integer-1) n`, days*density, density); e != nil {
 		t.Fatal(e)
 	}
 	if _, e := f.s.Pool.Exec(ctx, `INSERT INTO workouts(dataset_id,workout_uuid,event_start,event_end,activity_type,duration_us,source_bundle_id,content_sha256,entity_revision,payload)
@@ -68,7 +72,7 @@ func TestAnalysisPerformanceAndCapacity(t *testing.T) {
 			observations := map[string]any{"years": years, "syntheticWorkouts": 365 * years, "environment": "fnOS/N100; Go native; PG18.6 disposable; GOMAXPROCS=2", "seed": "set-based synthetic raw+derived capacity fixture"}
 			for _, days := range []int{7, 30, 365} {
 				start := time.Now()
-				r := admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: analysis.StateScope, Algorithm: "training_state.bundle/v1", From: today.AddDate(0, 0, 1-days).Format("2006-01-02"), Through: today.Format("2006-01-02")}
+				r := admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: analysis.StateScope, Algorithm: "training_state.bundle/v2", From: today.AddDate(0, 0, 1-days).Format("2006-01-02"), Through: today.Format("2006-01-02")}
 				if _, e := admin.Recompute(ctx, f.s, r); e != nil {
 					t.Fatal(e)
 				}
@@ -144,7 +148,7 @@ func TestAnalysisPerformanceAndCapacity(t *testing.T) {
 			if _, e := f.s.Pool.Exec(ctx, `ANALYZE health_samples;ANALYZE workout_samples;ANALYZE workout_routes;ANALYZE route_points`); e != nil {
 				t.Fatal(e)
 			}
-			r := admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: "workout:" + id, Algorithm: "workout.bundle/v1", From: today.Format("2006-01-02"), Through: today.Format("2006-01-02")}
+			r := admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: "workout:" + id, Algorithm: "workout.bundle/v2", From: today.Format("2006-01-02"), Through: today.Format("2006-01-02")}
 			if _, e := admin.Recompute(ctx, f.s, r); e != nil {
 				t.Fatal(e)
 			}

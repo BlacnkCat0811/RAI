@@ -47,7 +47,14 @@ func metric(name, algorithm, unit string, v *float64, q string, details map[stri
 	if details == nil {
 		details = map[string]any{}
 	}
-	return Metric{Day: WorkoutDay, Name: name, Algorithm: algorithm, Version: Version, Value: v, Unit: unit, Quality: q, Details: details}
+	version := Version
+	if algorithm == "workout.features" {
+		version = WorkoutVersion
+	}
+	if algorithm == "fitness_fatigue" {
+		version = StateVersion
+	}
+	return Metric{Day: WorkoutDay, Name: name, Algorithm: algorithm, Version: version, Value: v, Unit: unit, Quality: q, Details: details}
 }
 
 type trace struct {
@@ -230,6 +237,7 @@ func TrainingLoad(w WorkoutInput, hr trace) (Metric, error) {
 func routeFeatures(ctx context.Context, w WorkoutInput) ([]Metric, error) {
 	var distance, gain, loss float64
 	connections, elevations := 0, 0
+	skippedTime := 0
 	var spans []interval
 	for i, p := range w.Route {
 		if i%1024 == 0 {
@@ -253,7 +261,10 @@ func routeFeatures(ctx context.Context, w WorkoutInput) ([]Metric, error) {
 			continue
 		}
 		if p.At <= a.At {
-			return nil, Invalid()
+			// Raw order and timestamps remain facts. A non-increasing edge is
+			// unusable for time-derived metrics, not an invalid Workout.
+			skippedTime++
+			continue
 		}
 		if p.At-a.At > 30e6 || a.HorizontalAccuracy == nil || p.HorizontalAccuracy == nil || *a.HorizontalAccuracy < 0 || *p.HorizontalAccuracy < 0 || *a.HorizontalAccuracy > 25 || *p.HorizontalAccuracy > 25 {
 			continue
@@ -279,7 +290,8 @@ func routeFeatures(ctx context.Context, w WorkoutInput) ([]Metric, error) {
 		up = Ptr(gain)
 		down = Ptr(loss)
 	}
-	return []Metric{metric("route_distance", "workout.features", "m", dist, "partial", map[string]any{"method": "haversine", "earthRadiusM": 6371008.8}), metric("elevation_gain", "workout.features", "m", up, "partial", nil), metric("elevation_loss", "workout.features", "m", down, "partial", nil), metric("route_coverage", "workout.features", "1", Ptr(coverage(spans, w.Start, w.End)), "available", nil)}, nil
+	details := map[string]any{"method": "haversine", "earthRadiusM": 6371008.8, "validConnections": connections, "skippedNonIncreasingTimeConnections": skippedTime}
+	return []Metric{metric("route_distance", "workout.features", "m", dist, "partial", details), metric("elevation_gain", "workout.features", "m", up, "partial", nil), metric("elevation_loss", "workout.features", "m", down, "partial", nil), metric("route_coverage", "workout.features", "1", Ptr(coverage(spans, w.Start, w.End)), "available", details)}, nil
 }
 func haversine(a, b Point) float64 {
 	rad := math.Pi / 180

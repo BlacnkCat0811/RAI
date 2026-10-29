@@ -40,7 +40,7 @@ func (s *Store) LoadAnalysis(ctx context.Context, l Lease, asOf time.Time) (anal
 	if e != nil {
 		return in, e
 	}
-	if requested.Algorithm != "" && requested.Algorithm != expected+"/v1" {
+	if requested.Algorithm != "" && requested.Algorithm != expected+"/"+analysis.BundleVersion(l.Kind) {
 		return in, &analysis.Failure{Code: "analysis_unsupported_algorithm"}
 	}
 	// Old generations cannot be reconstructed from mutable availability. Record

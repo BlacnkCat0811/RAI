@@ -4,6 +4,10 @@ public protocol FileUploader: Sendable {
     func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?)
 }
 public struct RAIAPIClient: Sendable {
+    public static func responseBudget(for path: String) -> Int {
+        if path.hasPrefix("/v2/training/plans/") && ["/history/versions", "/audit", "/detail"].contains(where: path.hasSuffix) { return 262_144 }
+        return 1_048_576
+    }
     public let baseURL: URL
     private let token: String
     private let session: URLSession
@@ -41,7 +45,7 @@ public struct RAIAPIClient: Sendable {
                 guard let http = response as? HTTPURLResponse else { throw UploadError(code: "invalid_http_response") }
                 status = http.statusCode; retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init)
             }
-            guard data.count <= 1_048_576 else { throw UploadError(code: "oversized_response", status: 422) }
+            guard data.count <= Self.responseBudget(for: path) else { throw UploadError(code: "oversized_response", status: 422) }
             guard status == 200 else {
                 let decoded = try? JSON.decode(data)
                 let code = decoded?["code"].text

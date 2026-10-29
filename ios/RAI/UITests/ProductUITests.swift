@@ -240,6 +240,32 @@ final class ProductUITests: XCTestCase {
     XCTAssertTrue(element("feedback.card").waitForExistence(timeout: 15))
     try screen("Execution")
   }
+  func test06AuditPagination() async throws {
+    try await freshPlan()
+    var plan = try await call("/v2/training/plans/current")
+    let overview = try await call("/v2/product/overview")
+    let effective = plan["effective"] as! [String: Any]
+    let sessions = effective["sessions"] as! [[String: Any]]
+    let session = sessions.first { $0["date"] as? String == overview["today"] as? String }!
+    for _ in 0..<21 {
+      let result = try await call("/v2/training/plans/" + (plan["planID"] as! String) + "/overrides", body: [
+        "commandID": UUID().uuidString.lowercased(), "overrideID": UUID().uuidString.lowercased(),
+        "sessionID": session["sessionID"]!, "expectedOverrideRevision": plan["overrideRevision"]!,
+        "operation": "edit", "path": "notes", "value": "synthetic audit pagination",
+      ])
+      plan["overrideRevision"] = result["overrideRevision"]
+    }
+    try launchApp()
+    try tap("home.hero")
+    let more = element("session.auditMore")
+    if !more.isHittable { app.swipeUp() }
+    XCTAssertTrue(more.waitForExistence(timeout: 20))
+    try tap("session.auditMore")
+    let finished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: more)
+    XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 20), .completed)
+    XCTAssertTrue(element("session.revoke").exists)
+    try screen("AuditPagination")
+  }
   private func call(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
     let bytes = try Data(contentsOf: URL(fileURLWithPath: privateRoot + "/config.json"))
     let config = try JSONSerialization.jsonObject(with: bytes) as! [String: String]
@@ -250,9 +276,17 @@ final class ProductUITests: XCTestCase {
       request.httpMethod = "POST"
       request.httpBody = try JSONSerialization.data(withJSONObject: body)
     }
-    let (data, response) = try await URLSession.shared.data(for: request)
-    XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
-    return try JSONSerialization.jsonObject(with: data) as! [String: Any]
+    for attempt in 0..<5 {
+      let (data, response) = try await URLSession.shared.data(for: request)
+      let http = response as! HTTPURLResponse
+      if http.statusCode == 429 && attempt < 4 {
+        try await Task.sleep(for: .seconds(max(1, Double(http.value(forHTTPHeaderField: "Retry-After") ?? "1") ?? 1)))
+        continue
+      }
+      XCTAssertEqual(http.statusCode, 200)
+      return try JSONSerialization.jsonObject(with: data) as! [String: Any]
+    }
+    throw UIFlowFailure.missing("HTTP retry limit")
   }
   private func freshPlan() async throws {
     let current = try await call("/v2/training/plans/current")
