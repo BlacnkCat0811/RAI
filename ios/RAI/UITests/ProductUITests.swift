@@ -5,7 +5,7 @@ final class ProductUITests: XCTestCase {
   private let privateRoot = "/tmp/rai-p6-native-acceptance"
   private var app: XCUIApplication!
   private var timings: [String: Double] = [:]
-  private func launchApp() throws {
+  private func launchApp(expectHomeHero: Bool = true) throws {
     continueAfterFailure = false
     XCTAssertTrue(
       FileManager.default.fileExists(atPath: privateRoot + "/config-app.json"),
@@ -16,8 +16,9 @@ final class ProductUITests: XCTestCase {
     app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
     let launchStart = Date()
     app.launch()
-    guard element("home.hero").waitForExistence(timeout: 60) else {
-      throw UIFlowFailure.missing("home.hero after live API bootstrap")
+    let ready = expectHomeHero ? "home.hero" : "screen.home"
+    guard element(ready).waitForExistence(timeout: 60) else {
+      throw UIFlowFailure.missing(ready + " after live API bootstrap")
     }
     timings["process_launch_to_live_home_ms"] = Date().timeIntervalSince(launchStart) * 1000
   }
@@ -248,11 +249,13 @@ final class ProductUITests: XCTestCase {
     let sessions = effective["sessions"] as! [[String: Any]]
     let session = sessions.first { $0["date"] as? String == overview["today"] as? String }!
     for _ in 0..<21 {
-      let result = try await call("/v2/training/plans/" + (plan["planID"] as! String) + "/overrides", body: [
-        "commandID": UUID().uuidString.lowercased(), "overrideID": UUID().uuidString.lowercased(),
-        "sessionID": session["sessionID"]!, "expectedOverrideRevision": plan["overrideRevision"]!,
-        "operation": "edit", "path": "notes", "value": "synthetic audit pagination",
-      ])
+      let result = try await call(
+        "/v2/training/plans/" + (plan["planID"] as! String) + "/overrides",
+        body: [
+          "commandID": UUID().uuidString.lowercased(), "overrideID": UUID().uuidString.lowercased(),
+          "sessionID": session["sessionID"]!, "expectedOverrideRevision": plan["overrideRevision"]!,
+          "operation": "edit", "path": "notes", "value": "synthetic audit pagination",
+        ])
       plan["overrideRevision"] = result["overrideRevision"]
     }
     try launchApp()
@@ -261,10 +264,99 @@ final class ProductUITests: XCTestCase {
     if !more.isHittable { app.swipeUp() }
     XCTAssertTrue(more.waitForExistence(timeout: 20))
     try tap("session.auditMore")
-    let finished = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: more)
+    let finished = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "exists == false"), object: more)
     XCTAssertEqual(XCTWaiter.wait(for: [finished], timeout: 20), .completed)
     XCTAssertTrue(element("session.revoke").exists)
     try screen("AuditPagination")
+  }
+  func test07PendingSessionLocksDraftAndRetriesOriginalAfterRestart() async throws {
+    try await freshPlan(includingToday: true)
+    let plan = try await call("/v2/training/plans/current")
+    let overview = try await call("/v2/product/overview")
+    let effective = plan["effective"] as! [String: Any]
+    let sessions = effective["sessions"] as! [[String: Any]]
+    let session = sessions.first { $0["date"] as? String == overview["today"] as? String }!
+    let planID = plan["planID"] as! String
+    // The loopback fault proxy forwards to the actual server, then loses its
+    // successful ACK. The journal must keep the immutable original request.
+    _ = try await call(
+      "/__maintenance/drop-next", body: ["path": "/v2/training/plans/" + planID + "/overrides"])
+    try launchApp()
+    try tap("home.hero")
+    try tap("session.edit")
+    var value = app.textFields["edit.value"]
+    replace(value, with: "5000")
+    try tap("edit.save")
+    XCTAssertTrue(element("pending.message").waitForExistence(timeout: 20))
+    XCTAssertFalse(value.isEnabled)
+    XCTAssertFalse(element("edit.save").isEnabled)
+    XCTAssertEqual(value.value as? String, "5000")
+    app.terminate()
+    try launchApp()
+    try tap("home.hero")
+    try tap("session.edit")
+    value = app.textFields["edit.value"]
+    XCTAssertTrue(element("pending.retry").waitForExistence(timeout: 20))
+    XCTAssertFalse(value.isEnabled)
+    XCTAssertEqual(Double(value.value as? String ?? ""), 5000)
+    try tap("pending.retry")
+    XCTAssertTrue(element("session.edit").waitForExistence(timeout: 30))
+    let confirmed = try await call("/v2/training/plans/current")
+    XCTAssertEqual(confirmed["overrideRevision"] as? Int, 1)
+    try tap("session.edit")
+    value = app.textFields["edit.value"]
+    replace(value, with: "8000")
+    try tap("edit.save")
+    XCTAssertTrue(element("session.edit").waitForExistence(timeout: 20))
+    let current = try await call("/v2/training/plans/current")
+    let updated = (current["effective"] as! [String: Any])["sessions"] as! [[String: Any]]
+    XCTAssertEqual(
+      updated.first { $0["sessionID"] as? String == session["sessionID"] as? String }?["distanceM"]
+        as? Double, 8000)
+    XCTAssertEqual(
+      current["overrideRevision"] as? Int, 2,
+      "Retry must not create another override; changed draft must create a new command")
+  }
+  func test08CreatePlanPendingCannotSubmitAnotherDraft() async throws {
+    // Run first on the fresh synthetic dataset, before the native seed. The
+    // acceptance runner supplies its private configuration.
+    _ = try await call("/__maintenance/drop-next", body: ["path": "/v2/training/plans"])
+    try launchApp(expectHomeHero: false)
+    tab("训练")
+    try tap("training.create")
+    let target = app.textFields["create.target"]
+    replace(target, with: "21")
+    let baseline = app.textFields["当前每周跑量（km）"]
+    replace(baseline, with: "30")
+    let longest = app.textFields["最近最长距离（km）"]
+    replace(longest, with: "12")
+    XCTAssertEqual(target.value as? String, "21")
+    XCTAssertEqual(baseline.value as? String, "30")
+    XCTAssertEqual(longest.value as? String, "12")
+    try screen("MaintenanceCreateBeforeSave")
+    let createButton = app.buttons["创建"].firstMatch
+    XCTAssertTrue(createButton.waitForExistence(timeout: 15))
+    XCTAssertTrue(createButton.isEnabled)
+    createButton.tap()
+    try screen("MaintenanceCreateAfterSave")
+    XCTAssertTrue(element("pending.message").waitForExistence(timeout: 20))
+    XCTAssertFalse(target.isEnabled)
+    XCTAssertFalse(element("create.save").isEnabled)
+    let accepted = try await call("/v2/training/plans/current")
+    XCTAssertNotNil(accepted["planID"] as? String)
+    try tap("pending.retry")
+    let closed = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "exists == false"), object: target)
+    XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 30), .completed)
+    let replayed = try await call("/v2/training/plans/current")
+    XCTAssertEqual(replayed["planID"] as? String, accepted["planID"] as? String)
+  }
+  private func replace(_ field: XCUIElement, with text: String) {
+    XCTAssertTrue(field.waitForExistence(timeout: 10))
+    field.tap()
+    let old = field.value as? String ?? ""
+    field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count) + text)
   }
   private func call(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
     let bytes = try Data(contentsOf: URL(fileURLWithPath: privateRoot + "/config.json"))
@@ -280,7 +372,8 @@ final class ProductUITests: XCTestCase {
       let (data, response) = try await URLSession.shared.data(for: request)
       let http = response as! HTTPURLResponse
       if http.statusCode == 429 && attempt < 4 {
-        try await Task.sleep(for: .seconds(max(1, Double(http.value(forHTTPHeaderField: "Retry-After") ?? "1") ?? 1)))
+        try await Task.sleep(
+          for: .seconds(max(1, Double(http.value(forHTTPHeaderField: "Retry-After") ?? "1") ?? 1)))
         continue
       }
       XCTAssertEqual(http.statusCode, 200)
@@ -288,13 +381,15 @@ final class ProductUITests: XCTestCase {
     }
     throw UIFlowFailure.missing("HTTP retry limit")
   }
-  private func freshPlan() async throws {
+  private func freshPlan(includingToday: Bool = false) async throws {
     let current = try await call("/v2/training/plans/current")
+    var config = current["config"] as! [String: Any]
+    if includingToday { config["availableDays"] = [1, 2, 3, 4, 5, 7] }
     _ = try await call(
       "/v2/training/plans",
       body: [
         "commandID": UUID().uuidString.lowercased(), "planID": UUID().uuidString.lowercased(),
-        "config": current["config"]!,
+        "config": config,
       ])
     for _ in 0..<45 {
       let plan = try await call("/v2/training/plans/current")

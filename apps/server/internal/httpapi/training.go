@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"net/http"
 	"strconv"
 
@@ -30,8 +29,11 @@ func trainingBody(w http.ResponseWriter, r *http.Request, out any) error {
 	if len(r.URL.Query()) > 0 {
 		return syncing.Fail(422, "invalid_training_query")
 	}
-	b, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<10))
-	if err != nil || syncing.DecodeStrictJSON(b, out) != nil || validateTrainingJSON(b, out) != nil {
+	b, err := readJSONBytes(r, 64<<10, "training_request_too_large")
+	if err != nil {
+		return err
+	}
+	if syncing.DecodeStrictJSON(b, out) != nil || validateTrainingJSON(b, out) != nil {
 		return syncing.Fail(422, "invalid_training_request")
 	}
 	return nil

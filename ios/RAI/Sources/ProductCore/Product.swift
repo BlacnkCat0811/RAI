@@ -65,7 +65,9 @@ public struct ProductSnapshot: Sendable {
   public func metric(_ name: String) -> Double? {
     guard let metric = state["metrics"].list.first(where: { $0.string("metric") == name }),
       ["available", "partial"].contains(metric.string("quality")),
-      (metric.string("algorithmVersion") == "v1" || (metric.string("algorithmVersion") == "v2" && metric.string("algorithm") == "fitness_fatigue"))
+      metric.string("algorithmVersion") == "v1"
+        || (metric.string("algorithmVersion") == "v2"
+          && metric.string("algorithm") == "fitness_fatigue")
     else { return nil }
     return metric.number("value")
   }
@@ -130,8 +132,23 @@ public struct ProductCommand: Codable, Equatable, Sendable, Identifiable {
     self.observedEffectiveID = observedEffectiveID
   }
   public func hasSameIntent(as other: ProductCommand) -> Bool {
-    path == other.path
-      && ["operation", "sessionID", "path"].allSatisfy { body[$0] == other.body[$0] }
+    // Compare the existing canonical JSON representation, including every
+    // semantic field. Only per-submission command/override identities differ.
+    func intent(_ command: ProductCommand) -> Data? {
+      try? JSON.object(
+        command.body.fields.filter {
+          !["commandID", "overrideID"].contains($0.key)
+        }
+      ).data()
+    }
+    guard path == other.path, let a = intent(self), let b = intent(other) else { return false }
+    return a == b
+  }
+  public func resolvingPending(_ pending: ProductCommand?) throws -> ProductCommand {
+    guard pending == nil || pending == self else {
+      throw SyncFailure.localState("resolve_pending_command_first")
+    }
+    return self
   }
   public func validate(_ result: JSON) throws {
     func validID(_ key: String) -> Bool { result[key].text.flatMap(UUID.init(uuidString:)) != nil }
@@ -241,7 +258,13 @@ public enum ProductFormat {
 
 public enum ProductWriteFailure {
   public static func isDefinitiveRejection(_ error: UploadError) -> Bool {
-    error.status == 422
+    if error.status == 413 && error.code == "training_request_too_large" { return true }
+    if error.status == 415
+      && ["unsupported_media_type", "unsupported_content_encoding"].contains(error.code)
+    {
+      return true
+    }
+    return error.status == 422
       && !["invalid_response", "oversized_response", "invalid_http_response"].contains(error.code)
   }
 }

@@ -99,3 +99,12 @@ func checkUploadLease(ctx context.Context, tx pgx.Tx, p syncing.Principal, lease
 	}
 	return nil
 }
+
+// Exact chunk retries are read-only, but must recheck the lease before exposing
+// a durable receipt. The caller already holds the slot lock until rollback.
+func uploadRetryReceipt(ctx context.Context, tx pgx.Tx, p syncing.Principal, lease syncing.UploadLease, receipt []byte) ([]byte, error) {
+	if err := checkUploadLease(ctx, tx, p, lease); err != nil {
+		return nil, err
+	}
+	return receipt, nil
+}

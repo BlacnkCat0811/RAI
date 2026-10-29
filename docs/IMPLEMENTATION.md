@@ -22,6 +22,8 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 
 P3.5 原生iPhone同步工程已经实现，但真实授权、HealthKit读取、后台与iPhone kill/GPS/E2E仍NOT VERIFIED。用户本轮授权将真机验收延期，允许P4开发入口例外；保留历史P3/P3.5结果。客户端仍使用原子文件outbox，没有服务端SQLite。完整事实下载与正式部署仍未实现或未验收；P5/P6已实现，真实状态见后文。本轮P7增量见末节。生产不依赖Node；独立OpenAPI lint仍使用Node。
 
+当前 Final Maintenance 基线为 `945db85ee5ff2920158a559597e0dabcff4d58c6`，本轮未提交。在线依赖图按实际构建模式记录：fnOS linux/amd64、Go1.27.3、CGO_ENABLED=0（发布镜像模式）连续两次 **248 packages**；原生/race 的 CGO_ENABLED=1 连续两次 **249 packages**。下文历史阶段的249为当时观测，不批量改写成248；当前结果不能脱离构建模式引用。
+
 ## 阶段路线与出口
 
 | 阶段 | 内容与退出标准 | 实际状态 |
@@ -234,3 +236,15 @@ Training wire复用P3严格解码并声明required/null规则，合法HR/pace清
 Swift Testing45项/6 suites、Normalizer8项、Debug Simulator/Release generic iOS/min18/Swift6 complete strict concurrency均通过。真实Swift→隔离API/Worker/PG逐页读取256audit/13页、257summary/13页、112处方，原ACK重放/409草稿/生成与snapshot/feedback闭环通过；相关audit分页UI1项0失败（68.546s），未重新设计Liquid Glass或跑整套截图基线。失败轮保留：JSON矩阵先遭正常429、密集context Worker setup触发预算、UI初轮缺loopback Debug host及一次Probe构建目录错误，修正测试条件/按既有合同重跑，均未计作PASS。大context读取用明确预构造的已发布合成context，3584条/72页完整，不冒充密集loader/Worker容量验收。
 
 独立复核18个本轮root PG容器、6个Compose项目的容器/卷/网络均清理；Swift私有配置和本轮模拟器移除，fnOS只保留原rai-postgres/frpc。未连接旧库、读取真实健康值、提交凭证或改变真实入口。**P3/P6 REAL DEVICE ACCEPTANCE仍DEFERRED / NOT VERIFIED；DISASTER RECOVERY RESYNC仍BLOCKED / NOT IMPLEMENTED；PRODUCTION RELEASE READY仍NO。** iOS18 runtime、真实HealthKit/后台/强杀/GPS/网络、Metal/GPU、WorkoutKit、生产/真实云恢复和长期容量仍未验收。
+
+## Final Maintenance — 2×P2 + 3×P3（2026-10-29）
+
+`FINAL_MAINTENANCE_BASE_COMMIT=945db85ee5ff2920158a559597e0dabcff4d58c6`，main，入口干净。本轮仅处理P2-1/P2-2/P3-1/P3-2/P3-3，非P8或新审查。逐项复现、实现、回归、失败轮、未验证项见 [Maintenance Result](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-29.md) 和 [机器证据](evidence/final-maintenance-fix-2026-10-29.json)。
+
+合法sample混合页和全删除页按type/UTC日聚合，新增仍批量写入，已知删除保留旧范围，未知删除不虚构范围；事实/屏障/日志/dirty/job/receipt/stream/page仍同事务。原生iOS pending时锁定可冲突表单和保存，独立原操作重试保持完整身份，确认成功刷新并关闭已完成表单，失败/409保留草稿；提交层拒绝将新草稿替换成旧payload。Training五类JSON写接口共用HTTP媒体/encoding/有界读取，分别415/413/422，严格JSON及命令hash不变。三类chunk先验collector与upload lease并持有slot锁，再查原receipt；重试返回前及新写COMMIT前复验，有效租约lost-response恢复保持。
+
+Active Architecture、P4/P5/P6合同、开发Worker/schema说明、P7 OpenAPI及Changelog同步当前workout.bundle/features v2、training_state.bundle/fitness_fatigue v2、OpenAPI1.1.0/schema13。原始方案、00001–00013和历史阶段结果/旧evidence不改写。依赖计数按上方两种CGO模式保留实际差别，不强行替换历史249。
+
+本轮已完成真实fnOS隔离PG18与唯一Compose的复现、Wave A/B定向及完整普通PG、P3/P4/P5 Compose回归。最终质量门禁和Swift/Xcode/UI/OpenAPI以结果与机器证据为准，不以文件存在代替验收。未连接旧rai-postgres，未读取生产健康数据、部署、切换旧入口、迁移、commit或push。
+
+**P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；DISASTER RECOVERY RESYNC: BLOCKED / NOT IMPLEMENTED；PRODUCTION RELEASE READY: NO。** 架构、P3协议核心、P4算法权威、P5单计划模型和P6产品架构保持。

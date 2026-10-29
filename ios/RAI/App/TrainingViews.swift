@@ -132,7 +132,8 @@ func statusText(_ status: String) -> String {
 }
 func reasonText(_ reason: String) -> String {
   if reason.hasSuffix("_override_incompatible_with_session_structure/v1") {
-    return fieldTitle(reason.components(separatedBy: "_override")[0]) + "的历史调整与新课程结构不兼容；当前保留自动处方，请修改或撤销调整。"
+    return fieldTitle(reason.components(separatedBy: "_override")[0])
+      + "的历史调整与新课程结构不兼容；当前保留自动处方，请修改或撤销调整。"
   }
   return [
     "aerobic_base": "建立有氧耐力", "long_run_progression": "循序增加长距离训练",
@@ -238,11 +239,14 @@ struct SessionDetail: View {
           }.padding(22).raiGlass()
         }
         if model.auditLoading { ProgressView("正在加载调整历史") }
-        if let error = model.auditError { Text(error).font(.footnote).foregroundStyle(RAITheme.amber) }
+        if let error = model.auditError {
+          Text(error).font(.footnote).foregroundStyle(RAITheme.amber)
+        }
         if model.auditNext > 0 || model.auditError != nil {
           Button(model.auditError == nil ? "加载更多调整" : "重试调整历史") {
             Task { await model.loadMoreAudit() }
-          }.frame(minHeight: 44).disabled(model.auditLoading).accessibilityIdentifier("session.auditMore")
+          }.frame(minHeight: 44).disabled(model.auditLoading).accessibilityIdentifier(
+            "session.auditMore")
         }
         if !model.auditLoading && model.auditError == nil && model.audit["overrides"].list.isEmpty {
           Text("暂无用户调整").font(.footnote).foregroundStyle(RAITheme.secondary)
@@ -284,6 +288,24 @@ struct SessionDetail: View {
   }
 }
 struct EditorOperation: Identifiable { let id: String }
+struct PendingCommandNotice: View {
+  @Bindable var model: ProductModel
+  var onConfirmed: () -> Void = {}
+  var body: some View {
+    if model.pending != nil {
+      Section("待确认的提交") {
+        Text("上一次修改结果尚未确认。请先重试原操作或确认服务器状态。当前草稿已保留，确认前暂不能编辑或保存。")
+          .font(.footnote).accessibilityIdentifier("pending.message")
+        Button("重试原操作") { Task { if await model.retryPending() { onConfirmed() } } }
+          .disabled(model.loading).accessibilityIdentifier("pending.retry")
+        if model.conflict {
+          Button("查看最新状态并保留草稿") { Task { await model.reviewConflict() } }
+            .disabled(model.loading).accessibilityIdentifier("pending.review")
+        }
+      }
+    }
+  }
+}
 func stepTitle(_ kind: String) -> String {
   ["warmup": "热身", "work": "主训练", "repeat": "间歇", "cooldown": "放松"][kind] ?? kind
 }
@@ -316,55 +338,58 @@ struct SessionEditor: View {
   var body: some View {
     NavigationStack {
       Form {
-        Section {
-          Text(operation == "add" ? "新课程将加入同一份有效计划。" : "只修改选定字段；其余字段继续随自动计划更新。").font(.footnote)
-        }
-        if operation == "edit" {
+        PendingCommandNotice(model: model, onConfirmed: { dismiss() })
+        Group {
           Section {
-            Picker("字段", selection: $field) {
-              ForEach(fields, id: \.self) { Text(fieldTitle($0)).tag($0) }
-            }.accessibilityIdentifier("edit.field")
-            if field == "type" {
+            Text(operation == "add" ? "新课程将加入同一份有效计划。" : "只修改选定字段；其余字段继续随自动计划更新。").font(.footnote)
+          }
+          if operation == "edit" {
+            Section {
+              Picker("字段", selection: $field) {
+                ForEach(fields, id: \.self) { Text(fieldTitle($0)).tag($0) }
+              }.accessibilityIdentifier("edit.field")
+              if field == "type" {
+                typePicker
+              } else {
+                TextField(
+                  fieldTitle(field), text: $value, axis: field == "notes" ? .vertical : .horizontal
+                ).keyboardType(field == "notes" ? .default : .decimalPad).accessibilityIdentifier(
+                  "edit.value")
+              }
+              if ["targetHR", "paceSPerKM"].contains(field) { Text("留空可清除该可选目标").font(.caption) }
+            }
+          }
+          if operation == "move" || operation == "add" {
+            Section {
+              DatePicker("训练日期", selection: $date, displayedComponents: .date)
+                .accessibilityIdentifier("edit.date")
+              if operation == "move" {
+                HStack {
+                  Button("前一天", systemImage: "chevron.left") {
+                    date = Calendar.current.date(byAdding: .day, value: -1, to: date) ?? date
+                  }.accessibilityIdentifier("edit.previousDay")
+                  Spacer()
+                  Button("后一天", systemImage: "chevron.right") {
+                    date = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date
+                  }.accessibilityIdentifier("edit.nextDay")
+                }.buttonStyle(.borderless)
+              }
+            }
+          }
+          if operation == "skip" {
+            Section { Text("此次课程将保留，并标记为已跳过。").foregroundStyle(RAITheme.amber) }
+          }
+          if operation == "add" {
+            Section("训练处方") {
               typePicker
-            } else {
-              TextField(
-                fieldTitle(field), text: $value, axis: field == "notes" ? .vertical : .horizontal
-              ).keyboardType(field == "notes" ? .default : .decimalPad).accessibilityIdentifier(
-                "edit.value")
-            }
-            if ["targetHR", "paceSPerKM"].contains(field) { Text("留空可清除该可选目标").font(.caption) }
-          }
-        }
-        if operation == "move" || operation == "add" {
-          Section {
-            DatePicker("训练日期", selection: $date, displayedComponents: .date)
-              .accessibilityIdentifier("edit.date")
-            if operation == "move" {
-              HStack {
-                Button("前一天", systemImage: "chevron.left") {
-                  date = Calendar.current.date(byAdding: .day, value: -1, to: date) ?? date
-                }.accessibilityIdentifier("edit.previousDay")
-                Spacer()
-                Button("后一天", systemImage: "chevron.right") {
-                  date = Calendar.current.date(byAdding: .day, value: 1, to: date) ?? date
-                }.accessibilityIdentifier("edit.nextDay")
-              }.buttonStyle(.borderless)
+              TextField("距离（米）", text: $distance).keyboardType(.decimalPad).accessibilityIdentifier(
+                "add.distance")
+              TextField("时长（秒）", text: $duration).keyboardType(.decimalPad)
+              Stepper("RPE \(effort)", value: $effort, in: 0...10)
+              TextField("备注", text: $notes)
             }
           }
-        }
-        if operation == "skip" {
-          Section { Text("此次课程将保留，并标记为已跳过。").foregroundStyle(RAITheme.amber) }
-        }
-        if operation == "add" {
-          Section("训练处方") {
-            typePicker
-            TextField("距离（米）", text: $distance).keyboardType(.decimalPad).accessibilityIdentifier(
-              "add.distance")
-            TextField("时长（秒）", text: $duration).keyboardType(.decimalPad)
-            Stepper("RPE \(effort)", value: $effort, in: 0...10)
-            TextField("备注", text: $notes)
-          }
-        }
+        }.disabled(model.loading || model.pending != nil)
         if let error = validation ?? model.error {
           Section {
             Text(error).foregroundStyle(RAITheme.amber).accessibilityIdentifier("edit.error")
@@ -390,9 +415,6 @@ struct SessionEditor: View {
             Text("草稿仍保留；确认后提交到最新版本。").font(.footnote)
           }
         }
-        if model.pending != nil && !model.conflict {
-          Section { Text("原提交尚未确认；重试将使用原请求。请先恢复提交再修改草稿。").font(.footnote) }
-        }
       }.navigationTitle(
         operation == "add"
           ? "添加训练" : operation == "move" ? "调整日期" : operation == "skip" ? "跳过训练" : "编辑训练"
@@ -400,8 +422,9 @@ struct SessionEditor: View {
       .toolbar {
         ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
         ToolbarItem(placement: .confirmationAction) {
-          Button(model.pending != nil && !model.conflict ? "重试原提交" : "确认") { Task { await save() } }
-            .disabled(model.loading || model.conflict).accessibilityIdentifier("edit.save")
+          Button("确认") { Task { await save() } }
+            .disabled(model.loading || model.conflict || model.pending != nil)
+            .accessibilityIdentifier("edit.save")
         }
       }
     }.tint(RAITheme.orange).preferredColorScheme(.dark).onAppear {
@@ -409,7 +432,13 @@ struct SessionEditor: View {
       if session?.type == "REST" { field = "notes" }
       fillValue()
       if let d = session?.date { date = DateOnly.parse(d) ?? Date() }
-    }.onChange(of: field) { _, _ in fillValue() }.accessibilityIdentifier("screen.editor")
+      restorePendingDraft()
+    }.onChange(of: field) { _, _ in if model.pending == nil { fillValue() } }
+      .onChange(of: model.pending) { old, current in
+        if old != nil && current == nil && !model.conflict {
+          observed = model.data.effective.string("effectiveVersionID")
+        }
+      }.accessibilityIdentifier("screen.editor")
   }
   var typePicker: some View {
     Picker("训练类型", selection: $type) {
@@ -428,10 +457,7 @@ struct SessionEditor: View {
   }
   func save() async {
     validation = nil
-    if let pending = model.pending {
-      if await model.submit(pending) { dismiss() }
-      return
-    }
+    guard model.pending == nil else { return }
     var v: JSON = .null
     if operation == "edit" {
       if field == "type" {
@@ -470,6 +496,28 @@ struct SessionEditor: View {
       dismiss()
     }
   }
+  func restorePendingDraft() {
+    guard let pending = model.pending, pending.path.hasSuffix("/overrides"),
+      pending.body.string("operation") == operation,
+      operation == "add" || pending.body.string("sessionID") == session?.id
+    else { return }
+    let body = pending.body
+    if operation == "edit" {
+      field = body.string("path")
+      value = body["value"].text ?? body["value"].double.map { String($0) } ?? ""
+      if field == "type" { type = body.string("value") }
+    }
+    if operation == "move", let d = DateOnly.parse(body.string("value")) { date = d }
+    if operation == "add" {
+      let s = body["session"]
+      type = s.string("type")
+      notes = s.string("notes")
+      distance = s.number("distanceM").map { String($0) } ?? ""
+      duration = s.number("durationS").map { String($0) } ?? ""
+      effort = Int(s.number("effort") ?? 3)
+      if let d = DateOnly.parse(s.string("date")) { date = d }
+    }
+  }
 }
 enum DateOnly {
   static func formatter() -> DateFormatter {
@@ -498,35 +546,40 @@ struct CreatePlanView: View {
   var body: some View {
     NavigationStack {
       Form {
-        Section("训练目标") {
-          TextField("目标距离（km）", text: $target).keyboardType(.decimalPad)
-          DatePicker("开始日（周一）", selection: $start, displayedComponents: .date)
-          DatePicker("目标日", selection: $goal, displayedComponents: .date)
-          Stepper("\(weeks) 周", value: $weeks, in: 4...16)
-        }
-        Section("当前基础 · 请明确填写") {
-          TextField("当前每周跑量（km）", text: $baseline).keyboardType(.decimalPad)
-          TextField("最近最长距离（km）", text: $longest).keyboardType(.decimalPad)
-        }
-        Section("每周可训练日（2–6 天）") {
-          ForEach(1...7, id: \.self) { day in
-            Toggle(
-              "周" + ["一", "二", "三", "四", "五", "六", "日"][day - 1],
-              isOn: Binding(
-                get: { days.contains(day) },
-                set: { if $0 { days.insert(day) } else { days.remove(day) } }))
+        PendingCommandNotice(model: model, onConfirmed: { dismiss() })
+        Group {
+          Section("训练目标") {
+            TextField("目标距离（km）", text: $target).keyboardType(.decimalPad).accessibilityIdentifier(
+              "create.target")
+            DatePicker("开始日（周一）", selection: $start, displayedComponents: .date)
+            DatePicker("目标日", selection: $goal, displayedComponents: .date)
+            Stepper("\(weeks) 周", value: $weeks, in: 4...16)
           }
-          Picker("长跑日", selection: $longDay) {
-            ForEach(days.sorted(), id: \.self) {
-              Text("周" + ["一", "二", "三", "四", "五", "六", "日"][$0 - 1]).tag($0)
+          Section("当前基础 · 请明确填写") {
+            TextField("当前每周跑量（km）", text: $baseline).keyboardType(.decimalPad)
+            TextField("最近最长距离（km）", text: $longest).keyboardType(.decimalPad)
+          }
+          Section("每周可训练日（2–6 天）") {
+            ForEach(1...7, id: \.self) { day in
+              Toggle(
+                "周" + ["一", "二", "三", "四", "五", "六", "日"][day - 1],
+                isOn: Binding(
+                  get: { days.contains(day) },
+                  set: { if $0 { days.insert(day) } else { days.remove(day) } }))
+            }
+            Picker("长跑日", selection: $longDay) {
+              ForEach(days.sorted(), id: \.self) {
+                Text("周" + ["一", "二", "三", "四", "五", "六", "日"][$0 - 1]).tag($0)
+              }
             }
           }
-        }
+        }.disabled(model.loading || model.pending != nil)
         if let e = error ?? model.error { Text(e).foregroundStyle(RAITheme.amber) }
       }.navigationTitle("训练目标").toolbar {
         ToolbarItem(placement: .cancellationAction) { Button("关闭") { dismiss() } }
         ToolbarItem(placement: .confirmationAction) {
-          Button("创建") { Task { await create() } }.disabled(model.loading)
+          Button("创建") { Task { await create() } }.disabled(model.loading || model.pending != nil)
+            .accessibilityIdentifier("create.save")
         }
       }
     }.preferredColorScheme(.dark).onAppear {
@@ -535,17 +588,25 @@ struct CreatePlanView: View {
       let weekday = cal.component(.weekday, from: Date())
       start = cal.date(byAdding: .day, value: -((weekday + 5) % 7), to: Date()) ?? Date()
       goal = cal.date(byAdding: .day, value: 55, to: start) ?? Date()
+      if let pending = model.pending, pending.path == "/v2/training/plans" {
+        let c = pending.body["config"]
+        start = DateOnly.parse(c.string("startDate")) ?? start
+        goal = DateOnly.parse(c["goal"].string("date")) ?? goal
+        weeks = Int(c.number("weeks") ?? 8)
+        days = Set(c["availableDays"].list.compactMap { $0.integer.map(Int.init) })
+        longDay = Int(c.number("longRunDay") ?? 7)
+        target = c["goal"].number("distanceM").map { String($0 / 1000) } ?? ""
+        baseline = c.number("baselineWeeklyM").map { String($0 / 1000) } ?? ""
+        longest = c.number("previousLongM").map { String($0 / 1000) } ?? ""
+      }
     }
   }
   func create() async {
+    guard model.pending == nil else { return }
     guard let d = Double(target), let b = Double(baseline), let l = Double(longest), d.isFinite,
       b.isFinite, l.isFinite
     else {
       error = "请填写目标距离、当前跑量和最长跑。"
-      return
-    }
-    if let pending = model.pending, pending.path != "/v2/training/plans" {
-      error = "请先在我的页面恢复原提交。"
       return
     }
     let config: JSON = .object([
@@ -558,9 +619,8 @@ struct CreatePlanView: View {
       "previousLongM": .number(l * 1000),
     ])
     if await model.submit(
-      model.pending
-        ?? model.command(
-          path: "/v2/training/plans", fields: ["planID": .string(Wire.id()), "config": config]))
+      model.command(
+        path: "/v2/training/plans", fields: ["planID": .string(Wire.id()), "config": config]))
     {
       await model.refresh()
       dismiss()

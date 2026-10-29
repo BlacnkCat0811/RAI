@@ -61,7 +61,7 @@ PG healthcheck 等最终 TCP server；API healthcheck 使用 `/ready` 而非 `/h
 
 ## 更新、回退与失败处理
 
-发布清单必须包含 commit、源码差异摘要、Go/Swift/PG版本、migration13、实际镜像digest、protocol2、OpenAPI1.0.0、算法和训练版本；`rai version` 提供服务内版本。未提交工作不能被表示成那个 commit 已包含的代码，本轮 evidence 额外记录内容摘要。
+发布清单必须包含 commit、源码差异摘要、Go/Swift/PG版本、migration13、实际镜像digest、protocol2、OpenAPI1.1.0、算法和训练版本；`rai version` 提供服务内版本。未提交工作不能被表示成那个 commit 已包含的代码，本轮 evidence 额外记录内容摘要。
 
 更新前需有已验证备份及离机副本，停止Worker/写入口、审核兼容、显式迁移，再按readiness恢复。00001–00013 forward-only、down白名单为空；旧schema12 binary对13 fail closed。回旧app digest还须确认启动命令、TLS/probe、API及算法兼容；P6镜像不支持P7原生TLS/worker-ready，不能仅凭同为schema13直接回滚。不能混跑不兼容Worker。需回到不兼容schema时，在**新隔离实例**恢复验证，再由用户批准切换；会丢失备份点之后的变更，不是无损普通回滚。
 

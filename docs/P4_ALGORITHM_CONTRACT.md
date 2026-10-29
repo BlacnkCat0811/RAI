@@ -12,14 +12,14 @@ Go 纯函数；显式版本；float64，UTC 微秒输入，输出不允许 NaN/I
 
 | name | version | inputs | outputs / units | window |
 |---|---|---|---|---|
-| workout.features | v1 | durable Workout、approved enrichment、显式关联 quantity/已 sealed series、sealed route | duration s、distance m、speed m/s、pace s/m、HR count/min、cadence count/min、power W、coverage ratio；route distance/elevation m | 一个 Workout |
+| workout.features | v2 | durable Workout、approved enrichment、显式关联 quantity/已 sealed series、sealed route | duration s、distance m、speed m/s、pace s/m、HR count/min、cadence count/min、power W、coverage ratio；route distance/elevation m | 一个 Workout |
 | training_load.trimp | v1 | features、显式 parameter set：resting HR、max HR、A、B、provenance | load AU、method、missing components | 一个 Workout |
-| fitness_fatigue | v1 | published TRIMP、dataset timezone、daily window | daily load AU、fitness/fatigue AU/day、balance AU/day | 每日有限 180 天核 |
+| fitness_fatigue | v2 | published TRIMP、dataset timezone、daily window | daily load AU、fitness/fatigue AU/day、balance AU/day | 每日有限 180 天核 |
 | recovery | v1 | 同日 fitness/fatigue | load recovery ratio（0..1） | 同上 |
 | readiness | v1 | fitness/fatigue、recovery、缺失组件 | load-only score（0..100），组件和缺失项 | 同上 |
 | dependency.invalidate | v1 | sample/series scope | 已验证依赖传播的执行记录；不生成健康评分 | 当前 scope |
 
-Workout 与 TRIMP 同一 handler/run bundle（workout.bundle/v1）原子发布，结果每项带实际算法版本；state bundle（training_state.bundle/v1）发布日序列。只有 bundle 固定所列版本，不能混用不同版本而保留 bundle v1。
+Workout 与 TRIMP 同一 handler/run bundle（workout.bundle/v2）原子发布，结果每项带实际算法版本；state bundle（training_state.bundle/v2）发布日序列。当前 bundle 固定所列组件版本；旧 v1 历史保留，不能改变组件语义却沿用旧 bundle 标签。
 
 ## Features / Missing / Quality
 
@@ -49,7 +49,7 @@ recovery=max(0,min(1, F/max(F,A)))，只有 F>0；表示相对负荷恢复比例
 
 结果写入、run terminal、publication pointer、generation clean、job/attempt complete、下游 dirty 在同一事务。dataset → job → dirty 的锁顺序；publication 用当前有效 fencing token 与 clock_timestamp 验租约，最后再次校验。新 generation 到达旧 run 可存 SUPERSEDED，但不能发布/clean。Workout 删除查询立即隐藏旧结果；依赖变脏时 state 查询隐藏旧发布。
 
-P3 输入 blocker：原 sample 删除级联 association 后未 dirty Workout；sealed series 未 dirty 关联 Workout。新增 migration 仅补依赖 dirty/job，保留 wire/anchor/batch/route-seal/receipt 身份。样本批次原每 UUID 建 job，1000 sample 产生1000 jobs；改为同 type/UTC 日合并依赖任务，回执仍为 queued + 原 job IDs（数量不固定，旧回执不变）。不增加第二队列。
+P3 输入 blocker：原 sample 删除级联 association 后未 dirty Workout；sealed series 未 dirty 关联 Workout。新增 migration 仅补依赖 dirty/job，保留 wire/anchor/batch/route-seal/receipt 身份。样本批次原每 UUID 建 job，1000 sample 产生1000 jobs；当前新增及已知删除（含混合页、全删除页）按同 type/UTC 日合并依赖任务；未知删除无可用旧范围时只建屏障，回执仍为 queued + 原 job IDs（数量不固定，旧回执不变）。不增加第二队列。
 
 只保存稳定 error codes。暂保留所有 runs，不做 retention。没有 P5 计划、教练或排程。
 

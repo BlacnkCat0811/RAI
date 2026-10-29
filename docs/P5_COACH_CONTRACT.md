@@ -18,7 +18,7 @@ Generated session identity 是 plan UUID + 固定 slot ordinal 的确定性 UUID
 - baseline 仅接受 3–160 km/week、longest ≤ min(50 km, baseline)。首周 ≤ baseline；每周最多 +5%；每第四周为前周 80%；下一周仍最多 +5%（不跳回卸载前高点）。总距离以向下取整的米表示，下一周按实际已分配总量递进；每节自动课≤30km。
 - 强度：每周最多 1 个 TEMPO/INTERVAL，RPE≤7；仅 baseline≥20 km 且每周≥3天可训练、且有一个与其他周长跑/强度相隔至少48小时的 slot 时安排。相邻日不得 hard→hard 或 hard↔LONG。其余非训练日 REST，hard/LONG 次日可训练时 RECOVERY。长跑 RPE≤3、EASY≤3、RECOVERY≤2；没有 HRmax/阈值时不猜 HR/pace。
 - 长跑上限：min(周量35%, 之前最长跑×1.05, 30km, 目标距离)，不足时不强行补足目标。后续周最长跑最多 +5%。每周≥1个完全休息日，每周可训练日上限6。
-- low readiness：仅接受算法版本v1、quality available/partial、非null；readiness<50 或 fatigue>fitness×1.5 时首周距离×0.8并把 hard 改 RECOVERY。load-only 输入仅降低自动建议，不取消用户决定，保存 `readiness_adjustment`/`load_only_advisory`。
+- low readiness：readiness/recovery 接受 v1，fitness_fatigue 接受 v1/v2；均须 quality available/partial、非null；readiness<50 或 fatigue>fitness×1.5 时首周距离×0.8并把 hard 改 RECOVERY。load-only 输入仅降低自动建议，不取消用户决定，保存 `readiness_adjustment`/`load_only_advisory`。
 - 已完成/跳过 feedback 在其后最近一周触发保守×0.9（under/over/skip），不增加训练补偿。未来仍遵守周上限。过去日期不据无Workout自动标missed。
 - 目标可行性：目标距离>baseline按最大5%增长可达的目标日所在周量×0.6，或目标时间有明确速度要求时给 `goal_risk`/`target_time_not_optimized`，保持有界训练，不为达标硬增量。
 - interval 是有限 steps：10min warmup，4×(5min work RPE7+2min recovery RPE2)，10min cooldown。duration为48min；距离仍为周预算内的单独目标，不推算配速。无通用递归DSL。
@@ -29,11 +29,11 @@ Generated session identity 是 plan UUID + 固定 slot ordinal 的确定性 UUID
 
 合并按 revision+UUID 排序，较新 active field胜；revoke恢复下一有效override或Base。新Base缺失被编辑课程时使用override anchor保留，标记 `base_session_removed_kept`。用户新增无第二plan。取消add但仍有后续edit时同样保留anchor并暴露conflict。人工编辑可超出自动安全上限，Effective提供 `user_override_review` 建议而不静默覆盖。
 
-每次Base/override变化创建immutable Effective；历史可根据base+当时revision重放。计划日期必须在固定horizon内。修改type不会自动隐含改写其他字段；REST要求显式清空非零距离/时长，避免隐式丢字段。REST转换用一次add或多字段事务之外暂不提供；edit REST只接受原处方为零的session。
+每次Base/override变化创建immutable Effective，新投影记录 training_merge/v2；旧 JSON 缺省表示 v1，历史按对应 mergeVersion、base 和当时 revision 重放。计划日期必须在固定horizon内。修改type不会自动隐含改写其他字段；REST要求显式清空非零距离/时长，避免隐式丢字段。REST转换用一次add或多字段事务之外暂不提供；edit REST只接受原处方为零的session。
 
 ## Published context / provenance
 
-只读 analysis_publications 指向 SUCCEEDED 且scope clean的v1 results；running features按dataset timezone归日，最多最近28天、4096个Workout；state只读as-of当天且其计算timezone必须匹配Plan冻结timezone；dataset改时区后不兼容state降级为unavailable。记录publication run、generation、metric算法/version/quality、nullable值及context hash。未知算法/quality不用于决策，不能把unavailable当0。参数版本与config revision记录在run/base中。训练history由execution和feedback的结构化摘要提供，不复制raw。
+只读 analysis_publications 指向 SUCCEEDED 且 scope clean 的兼容版本结果：workout.features/v1/v2、fitness_fatigue/v1/v2；training_load.trimp、recovery、readiness 仍为 v1。未知算法或版本不参与决策；旧 v1 历史不重写。running features按dataset timezone归日，最多最近28天、4096个Workout；state只读as-of当天且其计算timezone必须匹配Plan冻结timezone；dataset改时区后不兼容state降级为unavailable。记录publication run、generation、metric算法/version/quality、nullable值及context hash。未知算法/quality不用于决策，不能把unavailable当0。参数版本与config revision记录在run/base中。训练history由execution和feedback的结构化摘要提供，不复制raw。
 
 ## Recalculation / queue
 
@@ -47,7 +47,7 @@ feedback/v1：基于snapshot与已发布duration/distance/workout_load，保留p
 
 ## API / 历史
 
-认证/限流沿用v2。显式DTO独立于dbgen。POST plans、POST plan/{id}/changes、POST overrides、GET current/id/effective、GET effective/{version}、GET history、POST executions、POST execution/{id}/changes、GET execution/{id}。所有命令commandID幂等，目标/执行修改带expected revision。history每页最多50个Effective，after为单调version number，按升序；单版本audit含base/context/overrides，执行查询含feedback历史。错误422、409、404均稳定code，不记录健康payload。
+认证/限流沿用v2。显式DTO独立于dbgen。POST plans、POST plan/{id}/changes、POST overrides、GET current/id/effective、GET effective/{version}、GET history、POST executions、POST execution/{id}/changes、GET execution/{id}。所有命令commandID幂等，目标/执行修改带expected revision。当前 history/versions 每页最多50个版本摘要，after 为单调 version number，按升序；固定版本 audit/detail 按事件/section 分页，完整 Base/context/overrides 均可收齐。旧聚合 history/audit 小响应兼容，超过1 MiB返回413并给出分页迁移 Link；执行查询含feedback历史。Training 写请求要求 application/json（标准参数允许）、无 Content-Encoding、body≤65536 bytes。缺失/错误媒体类型415 unsupported_media_type，encoding非空415 unsupported_content_encoding，超限413 training_request_too_large；严格JSON与语义错误422，认证401/403、冲突409保持稳定code，不记录健康payload。
 
 第一版仅用目标日约束有界日历和可行性判断，不提供比赛日配速、赛前taper或目标时间优化；用户需明确确认实际比赛安排。
 

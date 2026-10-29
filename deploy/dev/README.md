@@ -24,8 +24,9 @@ docker compose -f deploy/dev/compose.yaml down --volumes --remove-orphans
 ```
 
 Do not use `init` for this infrastructure check: it creates credentials. API and
-worker share the same image and use different subcommands. Worker only recovers
-expired leases; no analysis handler is implemented. The worker is monitored for
+worker share the same image and use different subcommands. Worker claims and renews jobs, processes Workout/sample/series/training-state
+analysis and training.plan, atomically publishes results with generation/fencing
+checks, and reclaims expired leases. It uses one processing slot. The worker is monitored for
 process exit, while the API healthcheck checks process liveness. Use `/ready`
 to check database and schema readiness separately.
 
@@ -33,7 +34,7 @@ to check database and schema readiness separately.
 their status. `migrate-down` requests a single rollback and exits nonzero
 unless the current SQL migration has been explicitly reviewed and its complete
 file hash added to the allowlist in `internal/admin/admin.go`. It rejects empty
-Down sections and unknown applied migrations. The existing 00001–00011
+Down sections and unknown applied migrations. The existing 00001–00013
 migrations are not approved: they contain durable facts, receipts, or fencing
 state, so the command refuses to downgrade them and preserves their version
 records. Correct those schemas through a reviewed forward migration; do not

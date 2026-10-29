@@ -135,7 +135,12 @@ final class ProductModel {
     let version = auditVersion
     auditLoadingVersion = version
     auditLoading = true
-    defer { if auditLoadingVersion == version { auditLoadingVersion = ""; auditLoading = false } }
+    defer {
+      if auditLoadingVersion == version {
+        auditLoadingVersion = ""
+        auditLoading = false
+      }
+    }
     do {
       let page = try await reader.loadMore(using: api)
       guard auditVersion == version else { return }
@@ -158,14 +163,9 @@ final class ProductModel {
     guard let api, let journal else { return false }
     guard !loading else { return false }
     let command: ProductCommand
-    if let pending {
-      guard pending.hasSameIntent(as: proposed) else {
-        error = "另有未确认的提交，请先在我的页面恢复原提交。"
-        return false
-      }
-      command = pending
-    } else {
-      command = proposed
+    do { command = try proposed.resolvingPending(pending) } catch {
+      self.error = "上一次修改结果尚未确认。当前草稿已保留，请先重试原操作或确认服务器状态。"
+      return false
     }
     loading = true
     error = nil
@@ -232,6 +232,12 @@ final class ProductModel {
       conflict = false
       error = nil
     } catch { self.error = "最新计划暂不可用，草稿仍保留。" }
+  }
+  @discardableResult func retryPending() async -> Bool {
+    guard let pending else { return false }
+    guard await submit(pending) else { return false }
+    await refresh()
+    return true
   }
   func override(
     session: String, operation: String, path: String = "", value: JSON = .null,

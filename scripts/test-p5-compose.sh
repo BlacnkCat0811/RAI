@@ -11,7 +11,18 @@ export RAI_DEV_GO_IMAGE="${RAI_DEV_GO_IMAGE:-docker.m.daocloud.io/library/golang
 export RAI_DEV_POSTGRES_IMAGE="${RAI_DEV_POSTGRES_IMAGE:-docker.m.daocloud.io/library/postgres:18.6-bookworm@sha256:bbf83594798e144bff365a9c191c5d779f181fb3135902064ab8ff11918020fc}"
 compose=(docker compose -f deploy/dev/compose.yaml)
 state_dir="$(mktemp -d)"
-cleanup(){ rc=$?;trap - EXIT INT TERM;rm -rf -- "$state_dir";"${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || rc=1;docker image rm "$RAI_DEV_IMAGE" >/dev/null 2>&1 || true;exit "$rc"; }
+if [[ "${RAI_MAINTENANCE_COMPOSE:-0}" == 1 ]];then
+  # Override only this unique synthetic project with fresh credentials.
+  umask 077
+  python3 - "$state_dir/credentials.json" <<'PY'
+import json,os,secrets,sys
+password=secrets.token_hex(24)
+dsn='postgres://rai_dev:'+password+'@postgres:5432/rai_dev?sslmode=disable'
+with open(sys.argv[1],'w') as f:json.dump({'services':{'postgres':{'environment':{'POSTGRES_PASSWORD':password}},'api':{'environment':{'RAI_DATABASE_URL':dsn},'build':{'args':{'SOURCE_REVISION':os.environ.get('RAI_SOURCE_COMMIT','unrecorded')}}},'worker':{'environment':{'RAI_DATABASE_URL':dsn}}}},f)
+PY
+  compose+=(-f "$state_dir/credentials.json")
+fi
+cleanup(){ rc=$?;trap - EXIT INT TERM;cleanup_rc=0;"${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || cleanup_rc=1;rm -rf -- "$state_dir";docker image rm "$RAI_DEV_IMAGE" >/dev/null 2>&1 || true;echo "P5_COMPOSE_CLEANUP=$cleanup_rc";if [[ "$cleanup_rc" != 0 ]];then rc=1;fi;exit "$rc"; }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -26,16 +37,23 @@ init_json="$("${compose[@]}" run --rm --no-deps api init)"
 read -r dataset_id dataset_epoch collector_epoch token < <(printf '%s' "$init_json" | python3 -c 'import json,sys;x=json.load(sys.stdin);print(x["datasetID"],x["datasetEpoch"],x["collectorEpoch"],x["token"])')
 export RAI_E2E_URL="http://127.0.0.1:$api_port" RAI_E2E_TOKEN="$token" RAI_E2E_COLLECTOR="$collector_epoch" RAI_E2E_STATE_DIR="$state_dir"
 python3 scripts/p3-e2e-client.py upload
+if [[ "${RAI_MAINTENANCE_COMPOSE:-0}" == 1 ]];then python3 scripts/final-maintenance-compose-client.py prepare;fi
 "${compose[@]}" stop api >/dev/null
 "${compose[@]}" up -d --wait api
 api_port="$("${compose[@]}" port api 8080 | awk -F: '{print $NF}')"
 export RAI_E2E_URL="http://127.0.0.1:$api_port"
 python3 scripts/p3-e2e-client.py retry
+if [[ "${RAI_MAINTENANCE_COMPOSE:-0}" == 1 ]];then python3 scripts/final-maintenance-compose-client.py retry;fi
 "${compose[@]}" stop postgres >/dev/null
 [[ "$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 3 "$RAI_E2E_URL/ready" || true)" == 503 ]]
 "${compose[@]}" up -d --wait postgres
 python3 scripts/p3-e2e-client.py retry
+if [[ "${RAI_MAINTENANCE_COMPOSE:-0}" == 1 ]];then python3 scripts/final-maintenance-compose-client.py retry;fi
 # Actual worker starts only after durable sync and restart recovery have passed.
+if [[ "${RAI_MAINTENANCE_COMPOSE:-0}" == 1 ]];then
+  [[ "$("${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -Atc "SELECT (SELECT count(*)=1998 FROM health_samples) AND (SELECT count(*)=1 FROM entity_tombstones) AND (SELECT count(*)=2 FROM jobs WHERE kind='analysis.sample') AND (SELECT count(*)=1 AND min(generation)=2 FROM dirty_scopes WHERE scope_key LIKE 'sample:%')")" == t ]]
+  echo 'MAINTENANCE_COMPOSE_DATABASE=PASS facts=1998 tombstones=1 sample_jobs=2 sample_scopes=1 generation=2; old receipt replay did not resurrect'
+fi
 "${compose[@]}" up -d worker
 api_image="$(docker inspect -f '{{.Image}}' "$("${compose[@]}" ps -q api)")"
 worker_image="$(docker inspect -f '{{.Image}}' "$("${compose[@]}" ps -q worker)")"
@@ -63,6 +81,12 @@ PY
 # Administrative dry-run is concrete but must not create another job.
 before="$("${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -Atc 'SELECT count(*) FROM jobs')"
 "${compose[@]}" run --rm --no-deps api analysis recompute --dataset "$dataset_id" --scope workouts --algorithm workout.bundle/v2 --from 2020-01-01 --through 2020-01-02 --dry-run >/dev/null
+if [[ "${RAI_MAINTENANCE_COMPOSE:-0}" == 1 ]];then
+  "${compose[@]}" run --rm --no-deps api version
+  "${compose[@]}" run --rm --no-deps api analysis recompute --dataset "$dataset_id" --scope athlete/default --algorithm training_state.bundle/v2 --from 2020-01-01 --through 2020-01-02 --dry-run >/dev/null
+  if "${compose[@]}" run --rm --no-deps api analysis recompute --dataset "$dataset_id" --scope workouts --algorithm workout.bundle/v1 --from 2020-01-01 --through 2020-01-02 --dry-run >/dev/null 2>&1;then exit 1;fi
+  echo 'MAINTENANCE_CLI=PASS workout.bundle/v2,training_state.bundle/v2 dry-runs; obsolete v1 rejected'
+fi
 after="$("${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -Atc 'SELECT count(*) FROM jobs')"
 [[ "$before" == "$after" ]]
 python3 - <<'PYTEST'
@@ -105,6 +129,27 @@ PYTEST
 "${compose[@]}" stop worker >/dev/null
 [[ "$(docker inspect -f '{{.State.ExitCode}}' "$("${compose[@]}" ps -aq worker)")" == 0 ]]
 "${compose[@]}" up -d worker
+if [[ "${RAI_MAINTENANCE_COMPOSE:-0}" == 1 ]];then
+python3 - <<'PY'
+import json,os,time,urllib.error,urllib.request,uuid
+def call(path,body=None):
+ for attempt in range(5):
+  request=urllib.request.Request(os.environ['RAI_E2E_URL']+path,data=None if body is None else json.dumps(body).encode(),headers={'Authorization':'Bearer '+os.environ['RAI_E2E_TOKEN'],'Content-Type':'application/json'})
+  try:
+   with urllib.request.urlopen(request,timeout=15) as response:return json.load(response)
+  except urllib.error.HTTPError as error:
+   if error.code!=429 or attempt==4:raise
+   time.sleep(max(1,int(error.headers.get('Retry-After','1'))))
+plan=call('/v2/training/plans/current');old=plan['effective']['baseVersionID']
+call('/v2/training/plans/'+plan['planID']+'/changes',{'commandID':str(uuid.uuid4()),'operation':'recalculate','expectedConfigRevision':plan['configRevision']})
+for _ in range(90):
+ current=call('/v2/training/plans/current')
+ if current['effective']['baseVersionID']!=old and current['generationState']=='succeeded':break
+ time.sleep(1)
+else:raise AssertionError('restarted Worker did not publish a new Base')
+print('MAINTENANCE_WORKER_RESTART=PASS real training regeneration after restart')
+PY
+fi
 "${compose[@]}" stop api worker >/dev/null
 [[ "$(docker inspect -f '{{.State.ExitCode}}' "$("${compose[@]}" ps -aq api)")" == 0 ]]
 [[ "$(docker inspect -f '{{.State.ExitCode}}' "$("${compose[@]}" ps -aq worker)")" == 0 ]]

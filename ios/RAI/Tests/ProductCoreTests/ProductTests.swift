@@ -4,6 +4,103 @@ import SyncCore
 import Testing
 
 struct ProductTests {
+  @Test func pendingIntentIncludesTheEntireSemanticPayload() {
+    let baseline = ProcessInfo.processInfo.environment["RAI_MAINTENANCE_BASELINE"] == "1"
+    let original = ProductCommand(
+      path: "/v2/training/plans/p/overrides",
+      body: .object([
+        "commandID": .string("original"), "overrideID": .string("override"),
+        "operation": .string("edit"), "sessionID": .string("s"), "path": .string("distanceM"),
+        "value": .int(5000), "expectedOverrideRevision": .int(0),
+      ]))
+    #expect(original.hasSameIntent(as: original))
+    for (key, value) in [
+      ("value", JSON.int(8000)), ("targetOverrideID", .string("other")),
+      (
+        "session",
+        .object(["distanceM": .int(8000), "date": .string("2026-10-30"), "type": .string("LONG")])
+      ),
+    ] {
+      var changed = original.body.fields
+      changed[key] = value
+      let proposal = ProductCommand(path: original.path, body: .object(changed))
+      #expect(original.hasSameIntent(as: proposal) == baseline)
+    }
+    for (operation, key, old, new) in [
+      ("move", "value", JSON.string("2026-10-29"), JSON.string("2026-10-30")),
+      ("revoke", "targetOverrideID", .string("X"), .string("Y")),
+      ("add", "session", .object(["distanceM": .int(5000)]), .object(["distanceM": .int(8000)])),
+    ] {
+      var a = original.body.fields
+      a["operation"] = .string(operation)
+      a[key] = old
+      var b = a
+      b[key] = new
+      #expect(
+        ProductCommand(path: original.path, body: .object(a)).hasSameIntent(
+          as:
+            ProductCommand(path: original.path, body: .object(b))) == baseline)
+    }
+  }
+  @Test func pendingSubmissionRequiresTheExactOriginalIdentity() async throws {
+    let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let original = ProductCommand(
+      path: "/v2/training/plans/p/overrides",
+      body: .object([
+        "commandID": .string(Wire.id()), "overrideID": .string(Wire.id()),
+        "operation": .string("edit"), "sessionID": .string("s"), "path": .string("distanceM"),
+        "value": .int(5000), "expectedOverrideRevision": .int(0),
+      ]))
+    let journal = try ProductJournal(directory: dir)
+    try await journal.stage(original)
+    let reopened = try ProductJournal(directory: dir)
+    let pending = await reopened.pending()
+    #expect(try original.resolvingPending(pending) == original)
+    var draft = original.body.fields
+    draft["commandID"] = .string(Wire.id())
+    draft["overrideID"] = .string(Wire.id())
+    draft["value"] = .number(5000)
+    let sameIntent = ProductCommand(path: original.path, body: .object(draft))
+    #expect(original.hasSameIntent(as: sameIntent))
+    #expect(throws: SyncFailure.self) { try sameIntent.resolvingPending(pending) }
+    draft["value"] = .int(8000)
+    let changed = ProductCommand(path: original.path, body: .object(draft))
+    #expect(throws: SyncFailure.self) { try changed.resolvingPending(pending) }
+    #expect(await reopened.pending() == original)
+    // Confirming the old receipt releases the pending identity. A new draft
+    // remains a separate command, even after restart or a definitive rejection.
+    try await reopened.finish(original, result: .object([:]))
+    #expect(try changed.resolvingPending(await reopened.pending()) == changed)
+    #expect(changed.id != original.id && changed.body["value"] == .int(8000))
+    try await reopened.stage(changed)
+    try await reopened.discardRejected()
+    #expect(changed.body["value"] == .int(8000))
+  }
+  @Test func manualAndCreateDraftChangesAreDistinct() {
+    let manual: JSON = .object([
+      "distanceM": .int(5000), "type": .string("EASY"), "date": .string("2026-10-29"),
+    ])
+    let add = ProductCommand(
+      path: "/p/overrides", body: .object(["operation": .string("add"), "session": manual]))
+    for (key, value) in [
+      ("distanceM", JSON.int(8000)), ("type", .string("LONG")), ("date", .string("2026-10-30")),
+    ] {
+      var session = manual.fields
+      session[key] = value
+      var body = add.body.fields
+      body["session"] = .object(session)
+      let changed = ProductCommand(path: add.path, body: .object(body))
+      #expect(!add.hasSameIntent(as: changed))
+      #expect(throws: SyncFailure.self) { try changed.resolvingPending(add) }
+    }
+    let create = ProductCommand(
+      path: "/v2/training/plans", body: .object(["config": .object(["weeks": .int(8)])]))
+    let changed = ProductCommand(
+      path: create.path, body: .object(["config": .object(["weeks": .int(12)])]))
+    #expect(!create.hasSameIntent(as: changed))
+    #expect(throws: SyncFailure.self) { try changed.resolvingPending(create) }
+  }
   @Test func missingAndQualityAreNotZero() {
     var state = ProductSnapshot()
     #expect(state.metric("readiness") == nil)
@@ -127,6 +224,18 @@ struct ProductTests {
     #expect(
       ProductWriteFailure.isDefinitiveRejection(
         UploadError(code: "invalid_training_override", status: 422)))
+    #expect(
+      ProductWriteFailure.isDefinitiveRejection(
+        UploadError(code: "training_request_too_large", status: 413)))
+    #expect(
+      ProductWriteFailure.isDefinitiveRejection(
+        UploadError(code: "unsupported_media_type", status: 415)))
+    #expect(
+      ProductWriteFailure.isDefinitiveRejection(
+        UploadError(code: "unsupported_content_encoding", status: 415)))
+    #expect(
+      !ProductWriteFailure.isDefinitiveRejection(
+        UploadError(code: "training_response_requires_pagination", status: 413)))
   }
 
   @Test func successfulGenerationDoesNotShowAnErrorSentinel() {

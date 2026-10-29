@@ -218,21 +218,31 @@ func respond(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 func readJSON(r *http.Request, v any) error {
-	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if err != nil || media != "application/json" {
-		return syncing.Fail(415, "unsupported_media_type")
-	}
-	if r.Header.Get("Content-Encoding") != "" {
-		return syncing.Fail(415, "unsupported_content_encoding")
-	}
-	b, err := io.ReadAll(io.LimitReader(r.Body, 16385))
+	b, err := readJSONBytes(r, 16384, "batch_too_large")
 	if err != nil {
-		return syncing.Fail(400, "body_read_failed")
-	}
-	if len(b) > 16384 {
-		return syncing.Fail(413, "batch_too_large")
+		return err
 	}
 	return syncing.DecodeJSON(b, v)
+}
+
+// Share the HTTP wire boundary while retaining each DTO's strict decoder and
+// endpoint-specific budget. Decode errors must not disguise media/size errors.
+func readJSONBytes(r *http.Request, limit int64, tooLargeCode string) ([]byte, error) {
+	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || media != "application/json" {
+		return nil, syncing.Fail(415, "unsupported_media_type")
+	}
+	if r.Header.Get("Content-Encoding") != "" {
+		return nil, syncing.Fail(415, "unsupported_content_encoding")
+	}
+	b, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
+	if err != nil {
+		return nil, syncing.Fail(400, "body_read_failed")
+	}
+	if int64(len(b)) > limit {
+		return nil, syncing.Fail(413, tooLargeCode)
+	}
+	return b, nil
 }
 func pathID(r *http.Request) (string, error) {
 	id := r.PathValue("id")

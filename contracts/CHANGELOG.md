@@ -46,3 +46,7 @@
 ## 1.1.0 — 2026-10-29 Full Review Correctness Fix
 
 新增 bounded Training history summaries、immutable audit/detail section pagination；旧聚合入口小响应兼容，超限413并提供迁移Link。新页256 KiB，原snapshot/同步1 MiB不变；新命令/事件预算在COMMIT前检查。Training请求严格校验required/精确拼写/duplicate/null/type/unknown，合法HR/pace清空和command hash保留。新Effective保存training_merge/v2，旧缺省v1可重放；冲突事实保留、合法投影和可解释reason/conflict。P4升级workout.bundle/features v2和training_state.bundle/fitness_fatigue v2，其他组件v1不变；P3 wire protocol2、raw顺序、seal、receipt、墓碑和迁移00001–00013保持。
+
+## 2026-10-29 Final Maintenance（OpenAPI 1.1.0）
+
+合法 sample upsert/delete 混合页与全删除页按 type/UTC 日聚合依赖任务，旧回执不重写。Training 五类 JSON 写接口明确 application/json、无 Content-Encoding、64 KiB 和415/413/422错误边界，required/duplicate/case/null/unknown严格规则及合法命令hash不变。Route/series/Workout package 的每次PUT（含exact retry）均校验collector及upload lease；有效租约返回原回执，无效租约409 upload_lease_lost。客户端pending锁定可冲突编辑，独立重试原命令，不用旧payload替换新草稿。protocolVersion2、schema13、P4/P5算法、原事实/屏障/回执事务及历史保持。

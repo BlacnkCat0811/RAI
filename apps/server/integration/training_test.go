@@ -454,6 +454,7 @@ func TestTrainingQueueCoalescingColdStartAndAPI(t *testing.T) {
 	}
 	req := httptest.NewRequest("POST", "/v2/training/plans", strings.NewReader(`{"commandID":"`+syncing.NewID()+`","unknown":true}`))
 	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
+	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 	if w.Code != 422 {
@@ -653,6 +654,7 @@ func TestTrainingHTTPMutationAndDefaultEffective(t *testing.T) {
 		b, _ := json.Marshal(value)
 		r := httptest.NewRequest(method, path, bytes.NewReader(b))
 		r.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
+		r.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		return w

@@ -213,11 +213,14 @@ func (s *Store) CommitSeriesChunk(ctx context.Context, p syncing.Principal, chun
 	if err = checkCollectorLease(ctx, tx, p, rec.CollectorEpoch); err != nil {
 		return nil, err
 	}
+	if err = lockUploadLease(ctx, tx, p, lease); err != nil {
+		return nil, err
+	}
 	q := dbgen.New(tx)
 	existing, err := q.SeriesChunk(ctx, dbgen.SeriesChunkParams{DatasetID: p.DatasetID, SeriesID: chunk.SeriesID, ChunkIndex: int32(chunk.ChunkIndex)})
 	if err == nil {
 		if bytes.Equal(existing.WireSha256, wireHash) {
-			return existing.Receipt, nil
+			return uploadRetryReceipt(ctx, tx, p, lease, existing.Receipt)
 		}
 		return nil, syncing.Fail(409, "series_chunk_conflict")
 	}

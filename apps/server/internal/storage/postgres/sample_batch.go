@@ -12,22 +12,53 @@ import (
 	"rai/server/internal/syncing"
 )
 
-func allSampleUpserts(events []syncing.Event) bool {
-	if len(events) == 0 {
-		return false
+type sampleDirtyRange struct{ start, end time.Time }
+type sampleDirtyScopes map[string]sampleDirtyRange
+
+func (scopes sampleDirtyScopes) add(sampleType string, start, end time.Time) {
+	scope := "sample:" + sampleType + ":" + start.UTC().Format("20060102")
+	g, ok := scopes[scope]
+	if !ok {
+		scopes[scope] = sampleDirtyRange{start, end}
+		return
 	}
-	for _, e := range events {
-		if e.Kind != "sample" || e.Op != "upsert" {
-			return false
+	if start.Before(g.start) {
+		g.start = start
+	}
+	if end.After(g.end) {
+		g.end = end
+	}
+	scopes[scope] = g
+}
+
+// One generation/job per affected type/UTC day, including known deletions.
+// Called inside the original fact/receipt transaction after all fact writes.
+func (scopes sampleDirtyScopes) enqueue(ctx context.Context, tx pgx.Tx, dataset string, rev int64) ([]string, error) {
+	keys := make([]string, 0, len(scopes))
+	for key := range scopes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	jobs := make([]string, 0, len(keys))
+	for _, scope := range keys {
+		g, job := scopes[scope], syncing.NewID()
+		_, err := tx.Exec(ctx, `WITH dirty AS (
+ INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through) VALUES($1,$2,1,$3,$4)
+ ON CONFLICT(dataset_id,scope_key) DO UPDATE SET generation=dirty_scopes.generation+1,
+ dirty_from=LEAST(dirty_scopes.dirty_from,EXCLUDED.dirty_from),dirty_through=GREATEST(dirty_scopes.dirty_through,EXCLUDED.dirty_through) RETURNING generation)
+ INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,payload) SELECT $5,$1,'analysis.sample',$2,generation,$6 FROM dirty`, dataset, scope, g.start, g.end, job, fmt.Sprintf(`{"inputRevision":%d}`, rev))
+		if err != nil {
+			return nil, err
 		}
+		jobs = append(jobs, job)
 	}
-	return true
+	return jobs, nil
 }
 
 // The dataset row is already locked and all events validated and collapsed.
 // Pipeline identity checks and writes without weakening the receipt, log,
 // delete barrier or dirty-generation transaction used by applyEvent.
-func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID string, events []syncing.Event, rev int64, counts *syncing.Counts) (int, []string, error) {
+func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID string, events []syncing.Event, rev int64, counts *syncing.Counts, scopes sampleDirtyScopes) (int, error) {
 	checks := &pgx.Batch{}
 	for _, e := range events {
 		checks.Queue(`SELECT EXISTS(SELECT 1 FROM entity_tombstones WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3),
@@ -40,7 +71,7 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 		var oldHash []byte
 		if err := results.QueryRow().Scan(&tombstone, &oldHash); err != nil {
 			_ = results.Close()
-			return 0, nil, err
+			return 0, err
 		}
 		if tombstone {
 			counts.Suppressed++
@@ -50,7 +81,7 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 			_, hash := e.Canonical()
 			if !bytes.Equal(oldHash, hash) {
 				_ = results.Close()
-				return 0, nil, syncing.Fail(409, "sample_identity_conflict")
+				return 0, syncing.Fail(409, "sample_identity_conflict")
 			}
 			counts.Unchanged++
 			continue
@@ -58,15 +89,9 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 		newEvents = append(newEvents, e)
 	}
 	if err := results.Close(); err != nil {
-		return 0, nil, err
+		return 0, err
 	}
 	writes := &pgx.Batch{}
-	jobs := make([]string, 0)
-	type group struct {
-		job        string
-		start, end time.Time
-	}
-	groups := map[string]group{}
 	for ordinal, e := range newEvents {
 		canonical, hash := e.Canonical()
 		start, end := time.UnixMicro(*e.StartUs).UTC(), time.UnixMicro(*e.EndUs).UTC()
@@ -81,21 +106,9 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 		}
 		meta, err := json.Marshal(metadata)
 		if err != nil {
-			return 0, nil, err
+			return 0, err
 		}
-		scope := "sample:" + e.Type + ":" + start.Format("20060102")
-		g, ok := groups[scope]
-		if !ok {
-			g = group{syncing.NewID(), start, end}
-		} else {
-			if start.Before(g.start) {
-				g.start = start
-			}
-			if end.After(g.end) {
-				g.end = end
-			}
-		}
-		groups[scope] = g
+		scopes.add(e.Type, start, end)
 		writes.Queue(`WITH fact AS (
 			INSERT INTO health_samples(dataset_id,sample_type,sample_uuid,event_start,event_end,value_numeric,value_category,unit,source_bundle_id,content_sha256,entity_revision,metadata)
 			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
@@ -112,30 +125,13 @@ func applySampleUpsertsBatch(ctx context.Context, tx pgx.Tx, dataset, batchID st
 		for range newEvents {
 			if _, err := results.Exec(); err != nil {
 				_ = results.Close()
-				return 0, nil, err
+				return 0, err
 			}
 		}
 		if err := results.Close(); err != nil {
-			return 0, nil, err
-		}
-	}
-	keys := make([]string, 0, len(groups))
-	for key := range groups {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, scope := range keys {
-		g := groups[scope]
-		jobs = append(jobs, g.job)
-		_, err := tx.Exec(ctx, `WITH dirty AS (
- INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through) VALUES($1,$2,1,$3,$4)
- ON CONFLICT(dataset_id,scope_key) DO UPDATE SET generation=dirty_scopes.generation+1,
- dirty_from=LEAST(dirty_scopes.dirty_from,EXCLUDED.dirty_from),dirty_through=GREATEST(dirty_scopes.dirty_through,EXCLUDED.dirty_through) RETURNING generation)
- INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,payload) SELECT $5,$1,'analysis.sample',$2,generation,$6 FROM dirty`, dataset, scope, g.start, g.end, g.job, fmt.Sprintf(`{"inputRevision":%d}`, rev))
-		if err != nil {
-			return 0, nil, err
+			return 0, err
 		}
 	}
 	counts.Inserted += len(newEvents)
-	return len(newEvents), jobs, nil
+	return len(newEvents), nil
 }

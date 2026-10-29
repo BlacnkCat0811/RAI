@@ -205,13 +205,16 @@ func (s *Store) CommitWorkoutPackageChunk(ctx context.Context, p syncing.Princip
 	if err = checkCollectorLease(ctx, tx, p, rec.CollectorEpoch); err != nil {
 		return nil, err
 	}
+	if err = lockUploadLease(ctx, tx, p, lease); err != nil {
+		return nil, err
+	}
 	var existingWire []byte
 	var existingReceipt []byte
 	err = tx.QueryRow(ctx, `SELECT wire_sha256,receipt FROM workout_package_chunks WHERE dataset_id=$1 AND workout_uuid=$2 AND chunk_index=$3`,
 		p.DatasetID, chunk.WorkoutID, chunk.ChunkIndex).Scan(&existingWire, &existingReceipt)
 	if err == nil {
 		if bytes.Equal(existingWire, wireHash) {
-			return existingReceipt, nil
+			return uploadRetryReceipt(ctx, tx, p, lease, existingReceipt)
 		}
 		return nil, syncing.Fail(409, "workout_package_chunk_conflict")
 	}

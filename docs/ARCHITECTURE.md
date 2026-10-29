@@ -1,6 +1,6 @@
 # RAI V2 — System Architecture
 
-Current Implementation / As-Built Architecture，2026-10-29（Asia/Shanghai）。仓库 `/Users/ta/rai`；P7基线 `d11e7b29e339b3d33c84962611031a3f33a18a7c`，入口干净，P6已提交；不能把旧P6_BASE_COMMIT当成本轮HEAD。P7增量见第14节。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
+Current Implementation / As-Built Architecture，2026-10-29（Asia/Shanghai）。仓库 `/Users/ta/rai`；Final Maintenance 基线 `945db85ee5ff2920158a559597e0dabcff4d58c6`，main，入口干净；本轮修复是未提交增量。P7历史实施见第14节，本轮证据见 [Maintenance Result](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-29.md)。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
 
 **P3 REAL DEVICE ACCEPTANCE: DEFERRED BY USER / NOT VERIFIED。P4 DEVELOPMENT EXCEPTION: AUTHORIZED BY USER。** 这只改变开发入口，不把 P3.5 模拟器、macOS SIGKILL、合成网络或未签名编译变成真实 iPhone 验收。P5 后端闭环已实现；P6原生产品集成见第13节。
 
@@ -86,7 +86,7 @@ HealthKit anchor 只在 iOS；clientSeq、dataset.commit_rev 和 anchor 是三�
 
 route/series/package chunk 是 staging；只有 seal 后进入完整分析输入。route seal 和双 manifest、投影触发器、5000点/块、100万点/route、删除屏障保持 P3。大 Workout pending package 不是 Workout；seal 后正式父事实与 child projections 同事务。
 
-唯一 P4 内部调度变化：同一 type/UTC 日的批量 sample 新增合并依赖 job，避免 1000 samples → 1000 jobs。`analysisJobIDs` 仍是实际耐久任务 ID，数量不固定，旧 receipt 不更新。anchor、outbox、batch identity、sequence、route seal 和 durable receipt 字段合同保持原样。
+sample 新增与已知删除在同一批次按 type/UTC 日合并依赖 job；含 delete 的合法混合页也走批量新增路径。未知删除仅建屏障，不虚构时间范围；其他业务依赖任务保持。`analysisJobIDs` 仍是实际耐久任务 ID，数量不固定，旧 receipt 不更新。anchor、outbox、batch identity、sequence、route seal 和 durable receipt 字段合同保持原样。
 
 ## 6. Worker 与快照
 
@@ -114,25 +114,25 @@ Workout 查询同时检查 raw 父存在、当前 clean generation 和参数版�
 
 | algorithm/version | 实现与真实限制 |
 |---|---|
-| workout.features/v1 | duration、distance、speed/pace、HR mean/max、真实 cadence/power、coverage、sealed route haversine/有精度条件的高差；缺失 null；不从 steps/pace 猜值 |
+| workout.features/v2 | duration、distance、speed/pace、HR mean/max、真实 cadence/power、coverage、sealed route haversine/有精度条件的高差；缺失 null；不从 steps/pace 猜值 |
 | training_load.trimp/v1 | D×r×A×exp(B×r)；参数显式、HR coverage≥0.9 且区间不歧义；没有隐式 sex、HRmax 或人口默认，缺失 unavailable |
-| fitness_fatigue/v1 | dataset calendar daily load，180日有限指数核，tau42/7；任一必要 load unknown 则受影响结果 null；不是无限 EWMA checkpoint，也不声称生理状态已校准 |
+| fitness_fatigue/v2 | dataset calendar daily load，180日有限指数核，tau42/7；当天 daily_load 独立判断；窗口必要 load unknown 时高层结果 null；不是无限 EWMA checkpoint，也不声称生理状态已校准 |
 | recovery/v1 | load-only fitness/fatigue 比例，0..1；不是完整身体恢复 |
 | readiness/v1 | load-only 0..100；保存组成、版本、缺失 sleep/HRV/resting-HR trend 和 import coverage；不是医疗/训练处方或 Garmin 等价 |
 
-bundle `workout.bundle/v1` 与 `training_state.bundle/v1` 固定组件版本，参数 provenance 进入 input hash。详细公式、精度、质量与缺失语义见 [冻结合同](P4_ALGORITHM_CONTRACT.md)。P4没有 HR zones（无配置）、splits 或ML。P5的训练计划与结构化建议见后文。
+当前 bundle `workout.bundle/v2` 与 `training_state.bundle/v2` 固定组件版本（features/fitness_fatigue v2；TRIMP/recovery/readiness v1；旧 v1 历史保留），参数 provenance 进入 input hash。详细公式、精度、质量与缺失语义见 [冻结合同](P4_ALGORITHM_CONTRACT.md)。P4没有 HR zones（无配置）、splits 或ML。P5的训练计划与结构化建议见后文。
 
 ## 9. 重算与管理
 
 正常路径 Workout dirty → 单 Workout publish → state dirty；T 的负荷只影响 T..T+179，截断至 as-of。输入范围再向前179日；首次历史导入不自动全历史回算。Worker 对已有 clean state scope 每天最多建立一个新 generation；后台失败靠现有队列恢复。
 
-`rai analysis recompute --dataset <uuid> --scope workout:<uuid>|workouts|athlete/default --algorithm workout.bundle/v1|training_state.bundle/v1 --from YYYY-MM-DD --through YYYY-MM-DD [--dry-run]`。
+`rai analysis recompute --dataset <uuid> --scope workout:<uuid>|workouts|athlete/default --algorithm workout.bundle/v2|training_state.bundle/v2 --from YYYY-MM-DD --through YYYY-MM-DD [--dry-run]`。
 
 必须明确范围，最多366输出日、1000 Workout；更长历史由操作者明确分段。无默认全库。state 有 pending dirty 时范围必须覆盖受影响输出日，禁止范围外待办被错误 clean。`--dry-run` 只列 scope，不改变 job/generation。参数命令要求 dataset、resting/max HR、A/B 和 provenance，追加参数版本并有界重新分析当前179日内 Workout；旧历史需要显式 recompute，不悄悄覆盖旧 run。
 
 ## 10. API 与客户端
 
-新增 `GET /v2/analysis/workouts/{id}`、`GET /v2/analysis/state`，相同 Bearer/dataset/read budget；额外 query 参数拒绝，未准备好为404 analysis_not_ready。DTO 与 dbgen 模型分离；返回 published run、generation、算法/输入版本/hash、时间、nullable metrics、quality 和解释。handshake analysis=true；changefeed 仍 false（有限通知不是完整事实下载）。OpenAPI 1.0.0，wire protocolVersion 仍2。
+新增 `GET /v2/analysis/workouts/{id}`、`GET /v2/analysis/state`，相同 Bearer/dataset/read budget；额外 query 参数拒绝，未准备好为404 analysis_not_ready。DTO 与 dbgen 模型分离；返回 published run、generation、算法/输入版本/hash、时间、nullable metrics、quality 和解释。handshake analysis=true；changefeed 仍 false（有限通知不是完整事实下载）。OpenAPI 1.1.0，wire protocolVersion 仍2。
 
 P3 API、limits、鉴权、持久 admission 与上传租约沿用既有实现。稳定错误码，日志不含 payload/HR/GPS/token/DSN。Worker 日志记录 job_id/scope/generation/algorithm/version/run_id/duration/result_status。现有 roles.sql 扩展 API 只读 derived，Worker 可读输入、写 derived/dirty/jobs，不能修改 raw；owner 连接仍可绕过权限，不称生产安全验收。
 
@@ -212,3 +212,9 @@ HealthKit灾难重同步为 **BLOCKED**：旧快照保持dataset/service/device�
 ## 16. 2026-10-29 Full Review correctness addendum
 
 本轮仅修复 RAI-FULL-001–007。当前 P4 bundle 为 workout.bundle/v2、training_state.bundle/v2（组件见P4 addendum），新 Effective 保存 training_merge/v2，Generator/parameter/feedback v1不变。等时路线仅跳过不适用连接；daily_load 独立于历史窗口；rebase 冲突保留用户事件并发布合法处方。查询范围、严格Training wire与新分页合同见P5/P6 addendum和OpenAPI1.1.0。旧P3事实/回执/墓碑事务、Worker fencing、immutable历史和schema13不变，无新增migration或自动历史重算。上文阶段记录保留当时口径，最终验证/未验证项见 Full Review Fix Result。
+
+## 17. 2026-10-29 Final Maintenance
+
+仅关闭本轮2个P2和3个P3，详见 [结果](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-29.md)。Training JSON 写请求要求 application/json（允许标准参数）、无 Content-Encoding、≤64 KiB；媒体/encoding错误415，超限413，严格JSON/业务错误422。三类 chunk 在原回执查询前锁定并校验 upload lease，返回旧回执前复验；新写入仍在COMMIT前复验。有效租约的lost-response恢复、collector fencing、不可变receipt、删除屏障和原事务保持。
+
+客户端pending时锁定可冲突表单和保存，独立按钮只重试原请求；新草稿不再被替换为旧命令。成功后刷新并关闭已完成表单；失败/409保留草稿和原处理路径。原方案、迁移、历史结果、P4/P5算法及生产/真机/灾难恢复门禁不变。

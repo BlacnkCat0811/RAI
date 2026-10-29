@@ -40,7 +40,7 @@ Analysis展示当前clean publication和最多90日已发布历史；默认14日
 
 原生Sheet支持字段级edit（type/durationS/distanceM/effort/targetHR/paceSPerKM/notes）、move、skip、add。选一个字段只发一个override，不锁整课。可选HR/pace允许显式清空。REST转换沿用P5限制，不暗中清除其他字段；用户可skip/add。调整历史读取Effective audit，active事件提供revoke。
 
-提交前先比较观察到的Effective UUID；版本已变则保留草稿并要求查看最新计划。服务端409同样保留原命令/草稿，显式review后才生成新command/override UUID。网络/未知结果保留不可变原请求，重试原commandID；不修改pending命令内容。422确定未接受时解除被拒命令并保留Sheet草稿供修正。429遵守Retry-After。
+提交前先比较观察到的Effective UUID；版本已变则保留草稿并要求查看最新计划。服务端409同样保留原命令/草稿，显式review后才生成新command/override UUID。网络/未知结果保留不可变原请求；pending 时可冲突表单字段与保存均禁用，显示待确认说明和独立「重试原操作」。只重发原 commandID/完整 payload，成功刷新并关闭已完成表单；失败仍保留原请求/草稿。重启后从 journal 恢复原操作，相关表单可恢复其原草稿；确认后的新修改使用新 command/override identity。提交层拒绝用 pending 替换不同的新草稿，hasSameIntent 按现有 canonical JSON 比较全部语义字段，仅排除逐次生成的 commandID/overrideID。422业务拒绝及明确的413 training_request_too_large / 415媒体或encoding拒绝时解除被拒命令并保留Sheet草稿供修正；响应超限或无法解码仍作为未知结果保留原命令。429遵守Retry-After。
 
 服务器返回receipt先验证identity/类型，再原子清理journal。原ACK重放如果落后于已显示Effective version，不倒退当前列表。新Base与override的合并完全由P5执行。
 

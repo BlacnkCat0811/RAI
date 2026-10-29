@@ -20,11 +20,19 @@ try:
  for filename,value in [('config.json',config),('config-app.json',{'configuration':{'baseURL':config['baseURL'],'collectorEpoch':config['collectorEpoch']},'token':config['token']})]:
   p=private/filename;p.write_text(json.dumps(value));p.chmod(0o600)
  probe=str(root/'ios/RAI/.build/debug/ProductProbe')
- for mode in ['seed','verify']:
+ maintenance=os.environ.get('RAI_MAINTENANCE_UI')=='1'
+ for mode in ([] if maintenance else ['seed','verify']):
   subprocess.run([probe,mode,str(private/'config.json'),str(private/'state')],check=True,timeout=480)
- print('P6_SWIFT_FNOS_READY=PASS simulator may connect using private config path',flush=True)
+ print('MAINTENANCE_EMPTY_DATASET_READY=PASS' if maintenance else 'P6_SWIFT_FNOS_READY=PASS simulator may connect using private config path',flush=True)
+ seeded=False
  for _ in range(7200):
   if (private/'done').exists():break
+  if maintenance and not seeded and (private/'seed').exists():
+   for mode in ['seed','verify']:
+    subprocess.run([probe,mode,str(private/'config.json'),str(private/'state')],check=True,timeout=480)
+   seeded=True
+   (private/'seeded').touch()
+   print('MAINTENANCE_NATIVE_SEED=PASS real Swift/API/Worker after empty-plan UI',flush=True)
   if tunnel.poll() is not None:raise RuntimeError('tunnel exited')
   time.sleep(1)
  else:raise RuntimeError('simulator acceptance timed out')

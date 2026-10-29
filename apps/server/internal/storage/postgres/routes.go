@@ -278,13 +278,16 @@ func (s *Store) CommitRouteChunk(ctx context.Context, p syncing.Principal, chunk
 	if err = checkCollectorLease(ctx, tx, p, rec.CollectorEpoch); err != nil {
 		return nil, err
 	}
+	if err = lockUploadLease(ctx, tx, p, lease); err != nil {
+		return nil, err
+	}
 	if rec.State == "sealed" {
 		var oldWire, oldReceipt []byte
 		err = tx.QueryRow(ctx, `SELECT wire_sha256,receipt FROM route_chunks
 			WHERE dataset_id=$1 AND route_uuid=$2 AND chunk_index=$3`,
 			p.DatasetID, chunk.RouteID, chunk.ChunkIndex).Scan(&oldWire, &oldReceipt)
 		if err == nil && bytes.Equal(oldWire, wireHash) {
-			return oldReceipt, nil
+			return uploadRetryReceipt(ctx, tx, p, lease, oldReceipt)
 		}
 		return nil, syncing.Fail(409, "route_already_sealed")
 	}

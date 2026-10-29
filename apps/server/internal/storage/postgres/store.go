@@ -363,25 +363,39 @@ func (s *Store) commit(ctx context.Context, p syncing.Principal, e syncing.Envel
 	}
 	receipt := syncing.Receipt{BatchID: e.BatchID, IngestStatus: "committed", DatasetEpoch: e.DatasetEpoch, ClientSeq: e.ClientSeq, PayloadSHA256: e.PayloadSHA256, CommitRevision: rev, AnalysisStatus: "not_required", AnalysisJobIDs: []string{}}
 	ordinal := 0
-	if allSampleUpserts(collapsed) {
-		ordinal, receipt.AnalysisJobIDs, err = applySampleUpsertsBatch(ctx, tx, p.DatasetID, e.BatchID, collapsed, rev+1, &receipt.Counts)
+	sampleScopes := sampleDirtyScopes{}
+	sampleUpserts := make([]syncing.Event, 0, len(collapsed))
+	otherEvents := make([]syncing.Event, 0, len(collapsed))
+	for _, ev := range collapsed {
+		if ev.Kind == "sample" && ev.Op == "upsert" {
+			sampleUpserts = append(sampleUpserts, ev)
+		} else {
+			otherEvents = append(otherEvents, ev)
+		}
+	}
+	if len(sampleUpserts) > 0 {
+		ordinal, err = applySampleUpsertsBatch(ctx, tx, p.DatasetID, e.BatchID, sampleUpserts, rev+1, &receipt.Counts, sampleScopes)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		for _, ev := range collapsed {
-			changed, job, err := applyEvent(ctx, tx, p.DatasetID, e.BatchID, ev, rev+1, ordinal, &receipt.Counts)
-			if err != nil {
-				return nil, err
-			}
-			if changed {
-				ordinal++
-			}
-			if job != "" {
-				receipt.AnalysisJobIDs = append(receipt.AnalysisJobIDs, job)
-			}
+	}
+	for _, ev := range otherEvents {
+		changed, job, err := applyEvent(ctx, tx, p.DatasetID, e.BatchID, ev, rev+1, ordinal, &receipt.Counts, sampleScopes)
+		if err != nil {
+			return nil, err
+		}
+		if changed {
+			ordinal++
+		}
+		if job != "" {
+			receipt.AnalysisJobIDs = append(receipt.AnalysisJobIDs, job)
 		}
 	}
+	sampleJobs, err := sampleScopes.enqueue(ctx, tx, p.DatasetID, rev+1)
+	if err != nil {
+		return nil, err
+	}
+	receipt.AnalysisJobIDs = append(receipt.AnalysisJobIDs, sampleJobs...)
 	if ordinal > 0 {
 		rev++
 		if _, err = tx.Exec(ctx, `UPDATE datasets SET commit_rev=$2 WHERE id=$1`, p.DatasetID, rev); err != nil {
@@ -422,7 +436,7 @@ func (s *Store) commit(ctx context.Context, p syncing.Principal, e syncing.Envel
 	return json.RawMessage(body), nil
 }
 
-func applyEvent(ctx context.Context, tx pgx.Tx, dataset, batch string, e syncing.Event, rev int64, ordinal int, counts *syncing.Counts) (bool, string, error) {
+func applyEvent(ctx context.Context, tx pgx.Tx, dataset, batch string, e syncing.Event, rev int64, ordinal int, counts *syncing.Counts, sampleScopes sampleDirtyScopes) (bool, string, error) {
 	q := dbgen.New(tx)
 	tombstone, err := q.TombstoneExists(ctx, dbgen.TombstoneExistsParams{DatasetID: dataset, SampleType: e.Type, SampleUuid: e.UUID})
 	if err != nil {
@@ -550,7 +564,8 @@ func applyEvent(ctx context.Context, tx pgx.Tx, dataset, batch string, e syncing
 	}
 	scope := e.Kind + ":" + e.Type + ":" + e.UUID
 	if e.Kind == "sample" {
-		scope = "sample:" + e.Type + ":" + start.UTC().Format("20060102")
+		sampleScopes.add(e.Type, *start, *end)
+		return true, "", nil
 	}
 	var generation int64
 	err = tx.QueryRow(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through) VALUES($1,$2,1,$3,$4)

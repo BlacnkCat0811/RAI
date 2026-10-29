@@ -32,6 +32,7 @@ func TestTrainingStrictWireMatrix(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out training.OverrideRequest
 			r := httptest.NewRequest("POST", "/v2/training/plans/p/overrides", strings.NewReader(tc.body))
+			r.Header.Set("Content-Type", "application/json")
 			if (trainingBody(httptest.NewRecorder(), r, &out) == nil) != tc.valid {
 				t.Fatal("wire validation mismatch")
 			}
@@ -42,6 +43,7 @@ func TestTrainingStrictWireMatrix(t *testing.T) {
 func TestTrainingAllRequestRequiredFields(t *testing.T) {
 	for _, out := range []any{&training.CreateRequest{}, &training.ChangeRequest{}, &training.StartRequest{}, &training.ExecutionChange{}} {
 		r := httptest.NewRequest("POST", "/v2/training/plans", strings.NewReader(`{}`))
+		r.Header.Set("Content-Type", "application/json")
 		if trainingBody(httptest.NewRecorder(), r, out) == nil {
 			t.Fatal("missing fields accepted")
 		}
