@@ -12,6 +12,26 @@ final class SyncModel {
     var lastSync: Date?
     var error: String?
     var busy = false
+    #if DEBUG
+    var inspectionStatus: String?
+    func inspectRunningWorkout() {
+        guard !busy else { return }
+        busy = true
+        inspectionStatus = "正在只读检查跑步结构…"
+        task = Task {
+            defer { busy = false }
+            do {
+                _ = try await HealthKitClient().inspectLatestRunningWorkout()
+                inspectionStatus = "脱敏结构报告已生成；没有推进同步 Anchor。"
+            } catch let failure as SyncFailure {
+                switch failure {
+                case .invalid(let code), .localState(let code): inspectionStatus = "结构检查失败（\(code)）。"
+                case .receiptMismatch: inspectionStatus = "结构检查失败。"
+                }
+            } catch { inspectionStatus = "结构检查失败（\((error as NSError).code)）。" }
+        }
+    }
+    #endif
     private(set) var transfers: BackgroundTransfers?
     private var coordinator: SyncCoordinator?
     private var store: OutboxStore?
@@ -116,11 +136,16 @@ struct SyncView: View {
     @State private var apiURL = ""
     @State private var collector = ""
     @State private var token = ""
+    @State private var configurationStatus: String?
     var body: some View {
         Form {
             Section("Health Authorization") {
                 Text(model.authorization).font(.footnote)
                 Button("Request Read Access") { model.authorize() }.disabled(model.busy)
+                #if DEBUG
+                Button("检查最近跑步结构（脱敏）") { model.inspectRunningWorkout() }.disabled(model.busy)
+                if let status = model.inspectionStatus { Text(status).font(.footnote) }
+                #endif
             }
             Section("Sync") {
                 LabeledContent("Status", value: model.status)
@@ -136,9 +161,21 @@ struct SyncView: View {
                 TextField("Collector epoch UUID", text: $collector).textInputAutocapitalization(.never).autocorrectionDisabled()
                 SecureField("Device bearer token", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
                 Button("Save to Keychain") {
-                    do { try ClientConfiguration.save(baseURL: apiURL, collectorEpoch: collector, token: token); token = ""; model.error = nil }
-                    catch { model.error = "Invalid configuration or Keychain write failed." }
+                    configurationStatus = nil
+                    do {
+                        try ClientConfiguration.save(baseURL: apiURL, collectorEpoch: collector, token: token)
+                        token = ""; model.error = nil
+                        configurationStatus = "Saved to Keychain. Request read access, then sync."
+                    } catch let failure as SyncFailure {
+                        let code: String
+                        switch failure {
+                        case .invalid(let value), .localState(let value): code = value
+                        case .receiptMismatch: code = "receipt_mismatch"
+                        }
+                        model.error = "Configuration not saved (\(code))."
+                    } catch { model.error = "Configuration not saved (configuration_encoding_failed)." }
                 }.disabled(model.busy)
+                if let configurationStatus { Text(configurationStatus).font(.footnote).foregroundStyle(.green) }
                 Text("Use an isolated dataset. A saved dataset/collector identity cannot be silently changed.").font(.caption)
             }
         }.navigationTitle("同步与诊断")

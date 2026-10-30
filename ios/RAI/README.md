@@ -1,5 +1,7 @@
 # RAI V2 P6 native iPhone product
 
+2026-10-30 device acceptance ended at the user's request when the phone became unavailable. Actual Debug installation/launch, configuration save, partial real sample ingestion and one redacted running-Workout inspection succeeded. Final four-type authorization, patched Workout sync, full P3/P4/P5 loop and Metal/GPU acceptance remain **NOT COMPLETED / NOT VERIFIED**. Preserve the existing Keychain, outbox and persistent `rai-v2-device` database; see [current device result](../../docs/V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md). Debug diagnostics can inspect the latest running Workout without advancing anchors; the report contains structure/counts/durations/fingerprints, never measurement values, coordinates or full UUIDs.
+
 Native SwiftUI iPhone target `RAI`, bundle `com.rai.v2.ios`, iOS 18+, Swift 6 with complete concurrency checks. Five native tabs integrate published analysis, effective training, overrides, frozen execution and feedback. Sync diagnostics remain under Profile. See `../../docs/P6_IOS_PRODUCT_CONTRACT.md` and `../../docs/V2_PHASE6_RESULT.md` for actual verification and remaining gates. The frozen layout is `ios/RAI`, as specified in `docs/V2_PHASE0_BASELINE.md`.
 
 ## Build and tests
@@ -26,7 +28,7 @@ HTTPS is required in Release. Debug permits HTTP only for the exact host configu
 ## Durable state and boundaries
 
 - `HealthKitClient` implements a small mockable `HealthKitReading` boundary, using Apple's anchored-query async descriptor. Global Workout/sample streams are unfiltered and retain their delivered anchor across launches. Query limits are 25 Workouts or 250 quantity changes; each foreground pass is bounded. Cadence is not fabricated: this SDK has no direct running-cadence quantity type. Running speed/power are read where available.
-- Read authorization is requested only for Workout, heart rate, walking/running distance, active energy, running speed, running power, step count and Workout routes. The UI reports that access was requested, because [HealthKit does not reveal read authorization status](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data).
+- Read authorization is requested for Workout/routes and ten quantity types: heart rate, walking/running distance, active and basal energy, running speed/power, step count, ground-contact time, stride length and vertical oscillation. The four added types (basal energy and the three running dynamics) require a fresh read-authorization request on an existing install; the prior six stream identities/anchors stay unchanged. The UI reports that access was requested, because [HealthKit does not reveal read authorization status](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data).
 - HealthKit anchors stay in protected, backup-excluded Application Support files. Immutable gzip payloads precede the atomic `state.json` replacement. A pending page owns its candidate anchor. Each validated batch ACK advances its sequence; the validated sealed page receipt and manifest are required before the delivered anchor advances.
 - Workout/sample deletion is a normal immutable stream event. Local tombstones prevent cached replay. Source-deleted parents cancel obsolete local relationship work without synthesizing server receipts or advancing the relationship anchor.
 - Workout body is immutable. Allowed nil-to-value total/allowlisted metadata additions use versioned enrichment. Unsupported statistics or incompatible source changes stop the affected stream with a retained anchor and an inspectable error; other fact streams continue. No source data is silently converted to a normal value.
@@ -51,7 +53,7 @@ RAI_TEST_GOPROXY=https://goproxy.cn,direct bash scripts/test-remote.sh bash ../.
 
 The Swift probe uses the same SyncCore but is a macOS command-line **test harness**, not a desktop client. Start its disposable fnOS API through `test-remote.sh bash ../../scripts/p35-client-host.sh`, redirecting output to a private log. Wait for `P35_CLIENT_READY`, then build `swift build --product SyncProbe` here and run `python3 ../../scripts/test-p35-client.py <host-log>`. The driver obtains a temporary device token privately, opens a loopback SSH tunnel, kills two synthetic macOS processes with SIGKILL and resumes the saved outbox. Host-side SQL checks exact fact/chunk/page counts and durable jobs, then the API and temporary PostgreSQL container are removed. No Worker is started. This is not iPhone E2E.
 
-## Remaining physical-device gate
+## Historical physical-device gate before 2026-10-30
 
 The user confirmed no physical iPhone is available for this run. Signing/install, actual read authorization, real Workout/sample/route reads, repeat incremental sync, foreground/background lifecycle, iPhone kill/network loss, server-commit response loss and API/PG restart recovery with that phone remain **NOT VERIFIED**. Real 20/45-minute records, GPS seal, latency and peak memory remain unmeasured. Delete tests must use disposable or mocked facts, never delete private HealthKit records for acceptance.
 

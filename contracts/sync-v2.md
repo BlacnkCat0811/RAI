@@ -142,6 +142,8 @@ schema 5→6 只追加空运行槽表，不改原事实、页／批回执或持�
 | OxygenSaturation | 1（比例值） |
 | RunningSpeed、WalkingSpeed | m/s |
 | RunningPower | W |
+| RunningGroundContactTime | ms |
+| RunningStrideLength、RunningVerticalOscillation | m（HealthKit 垂直振幅常用 cm，客户端显式转换为 m） |
 | RunningCadence、CyclingCadence、WalkingCadence | count/min |
 | HKCategoryTypeIdentifierSleepAnalysis | category 整数 0–5，无 quantity |
 

@@ -41,6 +41,41 @@ func TestWorkoutRoundTrip(t *testing.T) {
 	assertCode(t, err, "unsupported_payload")
 }
 
+func TestWorkoutRunningDynamicsUnitsAndRoundTrip(t *testing.T) {
+	for kind, unit := range map[string]string{
+		"HKQuantityTypeIdentifierRunningGroundContactTime":   "ms",
+		"HKQuantityTypeIdentifierRunningStrideLength":        "m",
+		"HKQuantityTypeIdentifierRunningVerticalOscillation": "m",
+	} {
+		t.Run(kind, func(t *testing.T) {
+			raw := bytes.ReplaceAll(workoutFixture(t), []byte("HKQuantityTypeIdentifierHeartRate"), []byte(kind))
+			raw = bytes.ReplaceAll(raw, []byte("count/min"), []byte(unit))
+			e, wire := payload(t, raw, 1)
+			events, err := ParseBody(bytes.NewReader(wire), e, WorkoutType)
+			if err != nil || len(events) != 1 {
+				t.Fatal("running ground contact time rejected", err)
+			}
+			stat := events[0].Workout.Statistics[0]
+			if stat.Type != kind || stat.Average.Unit != unit || stat.Average.Value != 140 || stat.Minimum.Value != 90 || stat.Maximum.Value != 170 {
+				t.Fatal("source statistic aggregates changed")
+			}
+			canonical, hash := events[0].Canonical()
+			var again Event
+			if err := DecodeJSON(canonical, &again); err != nil {
+				t.Fatal(err)
+			}
+			replayed, replayHash := again.Canonical()
+			if !bytes.Equal(canonical, replayed) || !bytes.Equal(hash, replayHash) {
+				t.Fatal("statistic identity changed")
+			}
+			wrong := bytes.ReplaceAll(raw, []byte(`"`+unit+`"`), []byte(`"s"`))
+			e, wire = payload(t, wrong, 1)
+			_, err = ParseBody(bytes.NewReader(wire), e, WorkoutType)
+			assertCode(t, err, "unsupported_payload")
+		})
+	}
+}
+
 func TestWorkoutRejectsIncompleteOrUnsupportedFields(t *testing.T) {
 	base := string(workoutFixture(t))
 	for name, edits := range map[string][2]string{

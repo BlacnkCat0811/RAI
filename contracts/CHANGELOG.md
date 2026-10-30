@@ -13,6 +13,12 @@
 
 # 合同变更记录
 
+## 2026-10-30 Device Acceptance — RunningGroundContactTime
+
+真实 Workout 先后因触地时间及步幅 statistics 被旧 Swift/Go 白名单拒绝。显式增加 HKQuantityTypeIdentifierRunningGroundContactTime（ms）、RunningStrideLength（m）及同组 SDK 定义的 RunningVerticalOscillation（m，从 cm 显式转换）。保留所有原始统计聚合。未知类型及错误单位继续拒绝，错误一次列出当前 Workout 的全部未知 statistic 类型；不跳过字段、不增加全局 HealthKit 读取权限或 stream。协议2、schema13、不可变身份/回执/删除事务和分析算法均保持；P4 不新增跑步动态派生算法。
+
+后续按用户要求在手机完整盘点一条跑步后，确认10类统计、6个metadata键及关联样本读取范围。客户端另将已支持的基础能量和三种跑步动态纳入只读授权/独立全局stream/原Workout关联路径，须在手机重新请求这4项权限；既有6条stream身份及anchor不变。Workout/event/activity 的已观察 METs、累计爬升、湿度、温度通过既有 metadata JSON 保存 `{value,unit}`，规范单位分别 kcal/(kg*hr)、m、1、degC；未知Workout metadata键或不兼容单位明确停止，不丢字段。已提交独立sample的metadata映射保持原合同，避免重写其不可变身份；不增加route metadata载荷、分析指标或schema。
+
 ## 0.8.0 — 2026-10-27
 
 - 新增超大 Workout 细节分块包协议（schema 9）：独立 `workoutID`、核心 Workout 登记、连续不可变分块、固定摘要链和显式 seal；seal 前不创建 Workout 事实，seal 才在同一事务发布事实、规范化细节、业务 revision、脏范围、`analysis.workout` 待办和 change event。

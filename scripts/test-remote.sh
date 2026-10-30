@@ -38,7 +38,7 @@ trap 'exit 143' TERM
 if ! ssh "${ssh_opts[@]}" "$host" true; then
   echo "SSH key not accepted for $host; install this Mac's public key first:" >&2
   cat ~/.ssh/id_ed25519_rai_fnos.pub >&2
-  echo "  ssh-copy-id -i ~/.ssh/id_ed25519_rai_fnos.pub -p 8022 tpandmr@101.33.202.40" >&2
+  echo "  ssh-copy-id -i ~/.ssh/id_ed25519_rai_fnos.pub $host" >&2
   exit 2
 fi
 if ! ssh "${ssh_opts[@]}" "$host" 'command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1'; then
