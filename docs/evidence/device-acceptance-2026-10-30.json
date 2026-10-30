@@ -1,0 +1,1146 @@
+{
+  "status": "NOT COMPLETED",
+  "date": "2026-10-30",
+  "timezone": "Asia/Shanghai",
+  "DEVICE_ACCEPTANCE_BASE_COMMIT": "1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+  "initial_git_status": [
+    " M docs/ARCHITECTURE.md",
+    " M docs/FNOS-ACCESS.md",
+    " M docs/IMPLEMENTATION.md",
+    " M scripts/test-remote.sh",
+    "?? docs/V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md",
+    "?? docs/evidence/final-maintenance-fix-2026-10-30.json",
+    "?? docs/evidence/ios-signing-2026-10-30/",
+    "?? docs/evidence/local-xcode-build-2026-10-30/"
+  ],
+  "requested_repository": "/Users/ta/rai (NOT PRESENT)",
+  "actual_repository": "/Users/tp/rai",
+  "device": {
+    "model": "iPhone 12 Pro Max",
+    "ios": "27.2",
+    "connection": "wired",
+    "developer_mode": "enabled",
+    "install": "PASS",
+    "launch": "PASS",
+    "configuration_saved": "USER CONFIRMED GREEN SUCCESS",
+    "healthkit_visible_sample_read": "CONFIRMED BY PHONE ACK AND AGGREGATE FACT COUNTS",
+    "healthkit_authorization_scope": "NOT INFERRED FROM REQUEST COMPLETION",
+    "final_read_scope_authorization": "NOT VERIFIED after adding BasalEnergyBurned and three running-dynamics types",
+    "final_workout_fix_device_retry": "NOT RUN before user requested wrap-up",
+    "structure_report": "docs/evidence/device-workout-structure-2026-10-30.json"
+  },
+  "environment": {
+    "project": "rai-v2-device",
+    "remote_directory": "/home/tpandmr/rai-v2-device",
+    "database_name": "rai_v2",
+    "persistent_volume": "rai-v2-device_pgdata",
+    "delete_volume_authorized": false,
+    "containers": [
+      {
+        "name": "rai-v2-device-postgres-1",
+        "image_reference": "postgres:18.6",
+        "image_config_digest": "sha256:79061104669bb30919d015b549c764e2d8021a18ee39cb175581a2588fe90dbe",
+        "running": true,
+        "health": "healthy",
+        "logging_driver": "none",
+        "runtime_user": "",
+        "ports": {}
+      },
+      {
+        "name": "rai-v2-device-api-1",
+        "image_reference": "rai-v2-device:device-dynamics",
+        "image_config_digest": "sha256:3e0292bf9073c80fe09cb886e30fa1f97db40b32f4c3b1d60ee48a727ab8fb85",
+        "running": true,
+        "health": "healthy",
+        "logging_driver": "none",
+        "runtime_user": "65532:65532",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "192.168.10.25",
+              "HostPort": "18087"
+            }
+          ]
+        }
+      },
+      {
+        "name": "rai-v2-device-worker-1",
+        "image_reference": "rai-v2-device:device-dynamics",
+        "image_config_digest": "sha256:3e0292bf9073c80fe09cb886e30fa1f97db40b32f4c3b1d60ee48a727ab8fb85",
+        "running": true,
+        "health": "healthy",
+        "logging_driver": "none",
+        "runtime_user": "65532:65532",
+        "ports": {}
+      }
+    ],
+    "migration_status": [
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00001_core.sql",
+          "Version": 1
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.286711Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00002_dirty_generations.sql",
+          "Version": 2
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.343407Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00003_workouts.sql",
+          "Version": 3
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.34938Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00004_page_receipts.sql",
+          "Version": 4
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.367147Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00005_request_budgets.sql",
+          "Version": 5
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.381131Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00006_upload_slots.sql",
+          "Version": 6
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.389074Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00007_workout_activities.sql",
+          "Version": 7
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.396504Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00008_quantity_series.sql",
+          "Version": 8
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.405462Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00009_workout_packages.sql",
+          "Version": 9
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.420642Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00010_route_foundation.sql",
+          "Version": 10
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.44168Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00011_p3_sync_v2.sql",
+          "Version": 11
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.473575Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00012_analysis.sql",
+          "Version": 12
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.505824Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00013_training.sql",
+          "Version": 13
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.536067Z"
+      }
+    ],
+    "checksums": {
+      "00001_core.sql": {
+        "sha256": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00002_dirty_generations.sql": {
+        "sha256": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00003_workouts.sql": {
+        "sha256": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00004_page_receipts.sql": {
+        "sha256": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00005_request_budgets.sql": {
+        "sha256": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00006_upload_slots.sql": {
+        "sha256": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00007_workout_activities.sql": {
+        "sha256": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00008_quantity_series.sql": {
+        "sha256": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00009_workout_packages.sql": {
+        "sha256": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00010_route_foundation.sql": {
+        "sha256": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00011_p3_sync_v2.sql": {
+        "sha256": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00012_analysis.sql": {
+        "sha256": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00013_training.sql": {
+        "sha256": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b",
+        "remote_match": true,
+        "frozen_match": true
+      }
+    },
+    "source_patch_sha256": "06120335db206930db24616442812743dee6aa8e410e49ae2b07624c226d8b99",
+    "application_repo_digests": [],
+    "server_version_manifest": {
+      "analysis": [
+        "workout.bundle/v2",
+        "training_state.bundle/v2",
+        "dependency.invalidate/v1"
+      ],
+      "coach_parameters": "coach_parameters/v1",
+      "feedback": "training_feedback/v1",
+      "go": "go1.27.3",
+      "openapi": "1.1.0",
+      "schema": 13,
+      "source_commit": "1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+      "sync_protocol": 2,
+      "training": "training_plan/v1",
+      "training_merge": "training_merge/v2"
+    },
+    "database_snapshot": {
+      "postgres_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "data_checksums": "on",
+      "schema": 13,
+      "counts": {
+        "datasets": 1,
+        "workouts": 0,
+        "samples": 6000,
+        "batches": 24,
+        "committed_batches": 24,
+        "pages": 24,
+        "sealed_pages": 24,
+        "routes": 0,
+        "sealed_routes": 0,
+        "route_chunks": 0,
+        "route_points": 0,
+        "associations": 0,
+        "tombstones": 0,
+        "analysis_runs": 45,
+        "analysis_publications": 0,
+        "training_plans": 0,
+        "training_overrides": 0,
+        "training_executions": 0,
+        "training_feedback": 0
+      },
+      "jobs": [
+        {
+          "kind": "analysis.sample",
+          "state": "succeeded",
+          "count": 47
+        }
+      ],
+      "analysis_errors": [
+        {
+          "status": "SUPERSEDED",
+          "error_code": null,
+          "count": 1
+        },
+        {
+          "status": "SUCCEEDED",
+          "error_code": null,
+          "count": 44
+        }
+      ],
+      "roles": [
+        {
+          "rolname": "rai_owner",
+          "rolsuper": false,
+          "rolcreatedb": false,
+          "rolcreaterole": false,
+          "rolbypassrls": false
+        },
+        {
+          "rolname": "rai_api_login",
+          "rolsuper": false,
+          "rolcreatedb": false,
+          "rolcreaterole": false,
+          "rolbypassrls": false
+        },
+        {
+          "rolname": "rai_worker_login",
+          "rolsuper": false,
+          "rolcreatedb": false,
+          "rolcreaterole": false,
+          "rolbypassrls": false
+        }
+      ]
+    },
+    "timestamp": "2026-10-30T17:22:18.541255+08:00"
+  },
+  "before_healthkit": {
+    "datasets": 1,
+    "workouts": 0,
+    "samples": 0,
+    "batches": 0,
+    "committed_batches": 0,
+    "pages": 0,
+    "sealed_pages": 0,
+    "routes": 0,
+    "sealed_routes": 0,
+    "route_chunks": 0,
+    "route_points": 0,
+    "associations": 0,
+    "tombstones": 0,
+    "analysis_runs": 0,
+    "analysis_publications": 0,
+    "training_plans": 0,
+    "training_overrides": 0,
+    "training_executions": 0,
+    "training_feedback": 0
+  },
+  "network": {
+    "origin": "http://192.168.10.25:18087",
+    "scope": "single exact Debug host",
+    "device_reachable": "CONFIRMED BY PHONE ACK AND REAL SAMPLE INGEST",
+    "tls": "NOT RUN — user selected scoped Debug HTTP"
+  },
+  "contracts": {
+    "AGENTS.md": {
+      "status": "PRESENT",
+      "sha256": "a718e8490d49b540fb872fc893149da1b9449ae84cd4bdaab79c4250cb91715b",
+      "lines": 13
+    },
+    "README.md": {
+      "status": "PRESENT",
+      "sha256": "e1d3d061677d332931464f80fbe28723dc0ae53b0e8716937fd9ec5c5e1e6e8a",
+      "lines": 96
+    },
+    "docs/ARCHITECTURE.md": {
+      "status": "PRESENT",
+      "sha256": "7306e05d88367910cbb518291084ecd6d75ab5250e52fc75c6abac84991fa075",
+      "lines": 220
+    },
+    "docs/IMPLEMENTATION.md": {
+      "status": "PRESENT",
+      "sha256": "6a025c7123e61061cd885d5ffdc80c3f787674a38125f07dc106353a349ead59",
+      "lines": 281
+    },
+    "docs/V2_PHASE3_SYNC_CONTRACT.md": {
+      "status": "PRESENT",
+      "sha256": "8353450f8467810568ec4d9535dbcc8397faeda2b9805b20982167b09f578862",
+      "lines": 487
+    },
+    "docs/V2_PHASE3_RESULT.md": {
+      "status": "PRESENT",
+      "sha256": "337c21418e3f35c6725a6fc2c508bdeb58376fe8e72699488f51d8fdf0a37611",
+      "lines": 307
+    },
+    "docs/P4_ALGORITHM_CONTRACT.md": {
+      "status": "PRESENT",
+      "sha256": "a10dea3b21f2a26a29d846af03b15d099e01203f7b8bc59ac2b51c9981f047e1",
+      "lines": 63
+    },
+    "docs/V2_PHASE4_RESULT.md": {
+      "status": "PRESENT",
+      "sha256": "0769215561778b38de11f6dad731b27ba0d2f7666c6f85b30d65f31bf8af40f4",
+      "lines": 166
+    },
+    "docs/P5_COACH_CONTRACT.md": {
+      "status": "PRESENT",
+      "sha256": "a43bced70072cba1062238581392e75a4249fedead53caa9c650554b0344d01a",
+      "lines": 74
+    },
+    "docs/V2_PHASE5_RESULT.md": {
+      "status": "PRESENT",
+      "sha256": "dd9c39ef1a58da5df7af05b846d774a659b155353acb3adfdc8f02b2396d33be",
+      "lines": 278
+    },
+    "docs/P6_IOS_PRODUCT_CONTRACT.md": {
+      "status": "PRESENT",
+      "sha256": "9855266aa73d8de827fa0d5f68a067237a8198766b339feec944f790be06cc46",
+      "lines": 79
+    },
+    "docs/V2_PHASE6_RESULT.md": {
+      "status": "PRESENT",
+      "sha256": "fe16ba84b8294b2b6001a4c7b0fc007a9f18c3b670c2af20e1e9741e2a0fc301",
+      "lines": 130
+    },
+    "docs/V2_PHASE7_RESULT.md": {
+      "status": "PRESENT",
+      "sha256": "f00bc0b89e174bc75b47001f708e502629d1a20f417191316ebbd458a298a7cf",
+      "lines": 183
+    },
+    "docs/V2_FULL_PROJECT_REVIEW_2026-10-29.md": {
+      "status": "PRESENT",
+      "sha256": "1e194bc54f6f8bb0b2e1dae6c3642db9491c691e88f07c6a3e581db792cf728f",
+      "lines": 431
+    },
+    "docs/V2_FULL_PROJECT_REVIEW_FIX_RESULT_2026-10-29.md": {
+      "status": "PRESENT",
+      "sha256": "b7144bae3c72bd7614252d22cdbd488b605d660d10d14b0357eaf026f8070b13",
+      "lines": 233
+    },
+    "docs/V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md": {
+      "status": "PRESENT",
+      "sha256": "e9ac0247132123b86125a300039da81fdee21165b03e9c026d902a29a2969da3",
+      "lines": 202
+    }
+  },
+  "maintenance": {
+    "P2-1": "FIXED",
+    "P2-2": "FIXED, supplemental Swift and UI gates complete",
+    "P3-1": "FIXED",
+    "P3-2": "FIXED",
+    "P3-3": "FIXED"
+  },
+  "swift": {
+    "testing": {
+      "count": 48,
+      "suites": 6,
+      "status": "PASS"
+    },
+    "normalizer_and_configuration": {
+      "count": 10,
+      "status": "PASS"
+    },
+    "ground_contact_normalizer": {
+      "count": 11,
+      "status": "PASS"
+    },
+    "ui": [
+      {
+        "test": "test08CreatePlanPendingCannotSubmitAnotherDraft",
+        "status": "PASS",
+        "seconds": 30.252,
+        "data": "SYNTHETIC",
+        "surface": "SIMULATOR"
+      },
+      {
+        "test": "test07PendingSessionLocksDraftAndRetriesOriginalAfterRestart",
+        "status": "PASS",
+        "seconds": 59.085,
+        "data": "SYNTHETIC",
+        "surface": "SIMULATOR"
+      }
+    ],
+    "final_gct_debug_device_build": "PASS",
+    "gct_release_build": "PASS",
+    "final_normalizer_configuration_metadata_and_privacy": {
+      "count": 14,
+      "status": "PASS",
+      "scope": "Synthetic iOS Simulator unit tests"
+    },
+    "final_debug_device_build": "PASS",
+    "final_release_generic_min18_build": "PASS (unsigned; not Release device install)"
+  },
+  "go": {
+    "initial": {
+      "log_sha256": "f36b9677a3f51c896bd51879b31a2431bbba8ed13c1e5472fe2f5dd8b2a825b3",
+      "package_results": [
+        "ok  \trai/server/internal/admin\t0.005s",
+        "ok  \trai/server/internal/analysis\t0.091s",
+        "ok  \trai/server/internal/config\t0.082s",
+        "ok  \trai/server/internal/httpapi\t0.014s",
+        "ok  \trai/server/internal/jobs\t0.008s",
+        "ok  \trai/server/internal/storage/postgres\t0.015s",
+        "ok  \trai/server/internal/syncing\t0.369s",
+        "ok  \trai/server/internal/training\t0.030s",
+        "ok  \trai/server/internal/admin\t1.022s",
+        "ok  \trai/server/internal/analysis\t1.620s",
+        "ok  \trai/server/internal/config\t1.220s",
+        "ok  \trai/server/internal/httpapi\t1.027s",
+        "ok  \trai/server/internal/jobs\t1.016s",
+        "ok  \trai/server/internal/storage/postgres\t1.021s",
+        "ok  \trai/server/internal/syncing\t4.842s",
+        "ok  \trai/server/internal/training\t1.109s",
+        "PASS: online import graph excludes admin, migration and goose (249 packages)",
+        "PASS: pure analysis domain excludes database, network and filesystem",
+        "PASS: pure training domain excludes database, network and filesystem",
+        "FAIL",
+        "FAIL\trai/server/integration\t513.831s",
+        "ok  \trai/server/internal/admin\t2.828s",
+        "ok  \trai/server/internal/analysis\t1.640s",
+        "ok  \trai/server/internal/config\t1.164s",
+        "ok  \trai/server/internal/httpapi\t1.028s",
+        "ok  \trai/server/internal/jobs\t1.015s",
+        "ok  \trai/server/internal/storage/postgres\t1.014s",
+        "ok  \trai/server/internal/syncing\t4.973s",
+        "ok  \trai/server/internal/training\t1.075s",
+        "FAIL"
+      ]
+    },
+    "rerun_before_gct": {
+      "log_sha256": "af257235fc3446d24cf2a6500619d3d0d081e14b3d4a44e850813b2af8c8bfe4",
+      "package_results": [
+        "ok  \trai/server/internal/admin\t0.010s",
+        "ok  \trai/server/internal/analysis\t0.144s",
+        "ok  \trai/server/internal/config\t0.070s",
+        "ok  \trai/server/internal/httpapi\t0.012s",
+        "ok  \trai/server/internal/jobs\t0.012s",
+        "ok  \trai/server/internal/storage/postgres\t0.008s",
+        "ok  \trai/server/internal/syncing\t0.348s",
+        "ok  \trai/server/internal/training\t0.028s",
+        "ok  \trai/server/internal/admin\t1.021s",
+        "ok  \trai/server/internal/analysis\t1.577s",
+        "ok  \trai/server/internal/config\t1.164s",
+        "ok  \trai/server/internal/httpapi\t1.040s",
+        "ok  \trai/server/internal/jobs\t1.014s",
+        "ok  \trai/server/internal/storage/postgres\t1.023s",
+        "ok  \trai/server/internal/syncing\t4.934s",
+        "ok  \trai/server/internal/training\t1.097s",
+        "PASS: online import graph excludes admin, migration and goose (249 packages)",
+        "PASS: pure analysis domain excludes database, network and filesystem",
+        "PASS: pure training domain excludes database, network and filesystem",
+        "ok  \trai/server/integration\t493.906s",
+        "ok  \trai/server/internal/admin\t2.824s",
+        "ok  \trai/server/internal/analysis\t1.640s",
+        "ok  \trai/server/internal/config\t1.197s",
+        "ok  \trai/server/internal/httpapi\t1.026s",
+        "ok  \trai/server/internal/jobs\t1.014s",
+        "ok  \trai/server/internal/storage/postgres\t1.014s",
+        "ok  \trai/server/internal/syncing\t5.030s",
+        "ok  \trai/server/internal/training\t1.085s",
+        "P6_GO_GATES=PASS"
+      ]
+    },
+    "ground_contact_directed": {
+      "log_sha256": "b89f0b7bb9f890eed1497d01f1a7d251a60345393771db234bb5b34338b41bc8",
+      "package_results": [
+        "ok  \trai/server/internal/syncing\t0.270s",
+        "ok  \trai/server/integration\t3.200s"
+      ]
+    },
+    "ground_contact_final": {
+      "log_sha256": "4ffba79d0671d99df88720b2db58ca0361c58f98b40cc6fc1ba712e83431f10f",
+      "package_results": [
+        "ok  \trai/server/internal/admin\t0.005s",
+        "ok  \trai/server/internal/analysis\t0.151s",
+        "ok  \trai/server/internal/config\t0.053s",
+        "ok  \trai/server/internal/httpapi\t0.010s",
+        "ok  \trai/server/internal/jobs\t0.006s",
+        "ok  \trai/server/internal/storage/postgres\t0.006s",
+        "ok  \trai/server/internal/syncing\t0.317s",
+        "ok  \trai/server/internal/training\t0.018s",
+        "ok  \trai/server/internal/admin\t1.020s",
+        "ok  \trai/server/internal/analysis\t1.607s",
+        "ok  \trai/server/internal/config\t1.173s",
+        "ok  \trai/server/internal/httpapi\t1.043s",
+        "ok  \trai/server/internal/jobs\t1.019s",
+        "ok  \trai/server/internal/storage/postgres\t1.020s",
+        "ok  \trai/server/internal/syncing\t5.160s",
+        "ok  \trai/server/internal/training\t1.097s",
+        "PASS: online import graph excludes admin, migration and goose (249 packages)",
+        "PASS: pure analysis domain excludes database, network and filesystem",
+        "PASS: pure training domain excludes database, network and filesystem",
+        "ok  \trai/server/integration\t499.397s",
+        "ok  \trai/server/internal/admin\t3.322s",
+        "ok  \trai/server/internal/analysis\t1.608s",
+        "ok  \trai/server/internal/config\t1.185s",
+        "ok  \trai/server/internal/httpapi\t1.025s",
+        "ok  \trai/server/internal/jobs\t1.021s",
+        "ok  \trai/server/internal/storage/postgres\t1.015s",
+        "ok  \trai/server/internal/syncing\t4.930s",
+        "ok  \trai/server/internal/training\t1.079s",
+        "P6_GO_GATES=PASS"
+      ]
+    },
+    "running_dynamics_directed": {
+      "log_sha256": "6e14b3a3d156085cac31a0446c840b98ad8ede29714b0a06c6068ab657a44d79",
+      "package_results": [
+        "ok  \trai/server/internal/syncing\t0.355s",
+        "ok  \trai/server/integration\t3.612s"
+      ]
+    },
+    "final_inventory_quality_and_directed_pg": {
+      "log_sha256": "b413b451511e6592248f670bc41b7768de426ebf2fac2d9e661aa26942f581df",
+      "package_results": [
+        "ok  \trai/server/internal/admin\t1.016s",
+        "ok  \trai/server/internal/analysis\t1.605s",
+        "ok  \trai/server/internal/config\t1.178s",
+        "ok  \trai/server/internal/httpapi\t1.037s",
+        "ok  \trai/server/internal/jobs\t1.017s",
+        "ok  \trai/server/internal/storage/postgres\t1.023s",
+        "ok  \trai/server/internal/syncing\t6.236s",
+        "ok  \trai/server/internal/training\t1.127s",
+        "PASS: online import graph excludes admin, migration and goose (249 packages)",
+        "PASS: pure analysis domain excludes database, network and filesystem",
+        "PASS: pure training domain excludes database, network and filesystem",
+        "ok  \trai/server/integration\t2.817s"
+      ]
+    },
+    "full_pg_scope_note": "Full PG/race 499.397s ran on the GCT patch; latest stride/oscillation/metadata source additionally passed current race units, vet, boundary checks and directed real isolated PG/race (2.817s). Not a claim of another complete full-PG run on final source."
+  },
+  "findings": [
+    {
+      "id": "DEVICE-CONFIG-DIAGNOSTIC",
+      "status": "DEVICE SAVE SUCCESS CONFIRMED BY USER",
+      "change": "Copied whitespace normalization; stable validation/OSStatus codes; explicit success indicator. Original generic failure root cause not established."
+    },
+    {
+      "id": "DEVICE-WORKOUT-RUNNING-DYNAMICS",
+      "status": "CODE AND SYNTHETIC PG/IOS TESTS PASS; FINAL DEVICE RETRY NOT VERIFIED",
+      "observed_errors": [
+        "unsupported_quantity_type:HKQuantityTypeIdentifierRunningGroundContactTime",
+        "unsupported_quantity_type:HKQuantityTypeIdentifierRunningStrideLength"
+      ],
+      "observed_additional_type": "HKQuantityTypeIdentifierRunningVerticalOscillation confirmed in complete device structure report",
+      "units": {
+        "RunningGroundContactTime": "ms",
+        "RunningStrideLength": "m",
+        "RunningVerticalOscillation": "m"
+      }
+    },
+    {
+      "id": "DEVICE-WORKOUT-METADATA",
+      "status": "CODE AND SYNTHETIC TESTS PASS; FINAL DEVICE RETRY NOT VERIFIED",
+      "observed_keys": [
+        "HKAverageMETs",
+        "HKElevationAscended",
+        "HKWeatherHumidity",
+        "HKWeatherTemperature"
+      ],
+      "encoding": "existing metadata JSON {value,unit}; unknown Workout metadata stops explicitly; existing independent sample mapping kept immutable"
+    },
+    {
+      "id": "DEVICE-READ-SCOPE",
+      "status": "FOUR READ TYPES ADDED; DEVICE REAUTHORIZATION NOT VERIFIED",
+      "types": [
+        "HKQuantityTypeIdentifierBasalEnergyBurned",
+        "HKQuantityTypeIdentifierRunningGroundContactTime",
+        "HKQuantityTypeIdentifierRunningStrideLength",
+        "HKQuantityTypeIdentifierRunningVerticalOscillation"
+      ],
+      "original_structure_query_error_code": 5
+    }
+  ],
+  "unverified": [
+    "Final four-type HealthKit reauthorization",
+    "Final running-dynamics/Workout metadata fix on real device",
+    "Complete initial visible-history import",
+    "Incremental anchor/no-duplicate device pass",
+    "Real Workout upload and analysis publication",
+    "Route upload/seal, new raw sample types and association closure",
+    "Safe disposable-source device deletion and stale replay",
+    "Phone network loss, commit-response loss, background and force-quit recovery",
+    "P5 actual plan/override/execution/feedback/regeneration loop",
+    "Runtime Metal probe, native Liquid Glass/Charts GPU trace, frame rate, memory and device accessibility",
+    "HTTPS/TLS device path (user chose Debug HTTP)"
+  ],
+  "privacy": {
+    "raw_health_in_evidence": false,
+    "gps_in_evidence": false,
+    "heart_rate_samples_in_evidence": false,
+    "tokens_in_evidence": false,
+    "healthkit_full_uuids_in_evidence": false,
+    "keychain_secrets_in_evidence": false,
+    "database_dump_created": false,
+    "persistent_volume_removed": false,
+    "old_database_queried": false,
+    "current_acceptance_token_in_repository": "ABSENT (exact-byte repository check)",
+    "generic_secret_audit": {
+      "status": "FAIL on pre-existing synthetic fixture",
+      "file": "scripts/test-p5-compose.sh",
+      "reason": "literal password-bearing database URI",
+      "file_unchanged_from_HEAD": true,
+      "no_matched_value_saved": true
+    }
+  },
+  "failures_preserved": [
+    "Swift old cache raI/rai duplicate module clang crash; fresh scratch passed",
+    "Unsigned Simulator Keychain bootstrap failed; ad hoc signed Simulator used",
+    "Generic .any save-element enabled assertion failed; precise Button selector passed",
+    "Initial complete PG/race TestFullReviewTrainingQueryBound/5y statement timeout SQLSTATE57014; unchanged full rerun passed",
+    "Environment binary permissions and wrong bootstrap role invocation corrected before readiness",
+    "LLDB configuration attempt did not complete; temporary phone staging file overwritten with empty object; user saved through normal UI"
+  ],
+  "stop_reason": "User reports device no longer available and explicitly requests documentation wrap-up; no further phone operations",
+  "stopped_by_user": true,
+  "completed_objective": false,
+  "environment_initial": {
+    "project": "rai-v2-device",
+    "remote_directory": "/home/tpandmr/rai-v2-device",
+    "database_name": "rai_v2",
+    "persistent_volume": "rai-v2-device_pgdata",
+    "delete_volume_authorized": false,
+    "containers": [
+      {
+        "name": "rai-v2-device-postgres-1",
+        "image_config_digest": "sha256:79061104669bb30919d015b549c764e2d8021a18ee39cb175581a2588fe90dbe",
+        "running": true,
+        "health": "healthy",
+        "logging_driver": "none",
+        "runtime_user": "",
+        "ports": {}
+      },
+      {
+        "name": "rai-v2-device-api-1",
+        "image_config_digest": "sha256:d4298e8b5a8088ef5592fd7802335f4091b9110faa3dfd7eca2f52f71e3d2248",
+        "running": true,
+        "health": "healthy",
+        "logging_driver": "none",
+        "runtime_user": "65532:65532",
+        "ports": {
+          "8080/tcp": [
+            {
+              "HostIp": "192.168.10.25",
+              "HostPort": "18087"
+            }
+          ]
+        }
+      },
+      {
+        "name": "rai-v2-device-worker-1",
+        "image_config_digest": "sha256:d4298e8b5a8088ef5592fd7802335f4091b9110faa3dfd7eca2f52f71e3d2248",
+        "running": true,
+        "health": "healthy",
+        "logging_driver": "none",
+        "runtime_user": "65532:65532",
+        "ports": {}
+      }
+    ],
+    "migration_status": [
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00001_core.sql",
+          "Version": 1
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.286711Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00002_dirty_generations.sql",
+          "Version": 2
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.343407Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00003_workouts.sql",
+          "Version": 3
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.34938Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00004_page_receipts.sql",
+          "Version": 4
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.367147Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00005_request_budgets.sql",
+          "Version": 5
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.381131Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00006_upload_slots.sql",
+          "Version": 6
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.389074Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00007_workout_activities.sql",
+          "Version": 7
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.396504Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00008_quantity_series.sql",
+          "Version": 8
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.405462Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00009_workout_packages.sql",
+          "Version": 9
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.420642Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00010_route_foundation.sql",
+          "Version": 10
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.44168Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00011_p3_sync_v2.sql",
+          "Version": 11
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.473575Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00012_analysis.sql",
+          "Version": 12
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.505824Z"
+      },
+      {
+        "Source": {
+          "Type": "sql",
+          "Path": "00013_training.sql",
+          "Version": 13
+        },
+        "State": "applied",
+        "AppliedAt": "2026-10-30T08:37:14.536067Z"
+      }
+    ],
+    "checksums": {
+      "00001_core.sql": {
+        "sha256": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00002_dirty_generations.sql": {
+        "sha256": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00003_workouts.sql": {
+        "sha256": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00004_page_receipts.sql": {
+        "sha256": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00005_request_budgets.sql": {
+        "sha256": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00006_upload_slots.sql": {
+        "sha256": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00007_workout_activities.sql": {
+        "sha256": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00008_quantity_series.sql": {
+        "sha256": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00009_workout_packages.sql": {
+        "sha256": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00010_route_foundation.sql": {
+        "sha256": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00011_p3_sync_v2.sql": {
+        "sha256": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00012_analysis.sql": {
+        "sha256": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+        "remote_match": true,
+        "frozen_match": true
+      },
+      "00013_training.sql": {
+        "sha256": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b",
+        "remote_match": true,
+        "frozen_match": true
+      }
+    },
+    "application_repo_digests": [],
+    "server_version_manifest": {
+      "analysis": [
+        "workout.bundle/v2",
+        "training_state.bundle/v2",
+        "dependency.invalidate/v1"
+      ],
+      "coach_parameters": "coach_parameters/v1",
+      "feedback": "training_feedback/v1",
+      "go": "go1.27.3",
+      "openapi": "1.1.0",
+      "schema": 13,
+      "source_commit": "1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+      "sync_protocol": 2,
+      "training": "training_plan/v1",
+      "training_merge": "training_merge/v2"
+    },
+    "database_snapshot": {
+      "postgres_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "data_checksums": "on",
+      "schema": 13,
+      "counts": {
+        "datasets": 1,
+        "workouts": 0,
+        "samples": 0,
+        "batches": 0,
+        "committed_batches": 0,
+        "pages": 0,
+        "sealed_pages": 0,
+        "routes": 0,
+        "sealed_routes": 0,
+        "route_chunks": 0,
+        "route_points": 0,
+        "associations": 0,
+        "tombstones": 0,
+        "analysis_runs": 0,
+        "analysis_publications": 0,
+        "training_plans": 0,
+        "training_overrides": 0,
+        "training_executions": 0,
+        "training_feedback": 0
+      },
+      "jobs": [],
+      "analysis_errors": [],
+      "roles": [
+        {
+          "rolname": "rai_owner",
+          "rolsuper": false,
+          "rolcreatedb": false,
+          "rolcreaterole": false,
+          "rolbypassrls": false
+        },
+        {
+          "rolname": "rai_api_login",
+          "rolsuper": false,
+          "rolcreatedb": false,
+          "rolcreaterole": false,
+          "rolbypassrls": false
+        },
+        {
+          "rolname": "rai_worker_login",
+          "rolsuper": false,
+          "rolcreatedb": false,
+          "rolcreaterole": false,
+          "rolbypassrls": false
+        }
+      ]
+    },
+    "timestamp": "2026-10-30T16:50:21.622799+08:00"
+  },
+  "inspection": {
+    "scope": "One latest visible running Workout complete object structure; bounded linked queries; no measurement values or coordinates exported",
+    "statistics_types": 10,
+    "activities": 1,
+    "parent_segment_events": 8,
+    "activity_segment_events": 8,
+    "metadata_keys": 6,
+    "visible_routes": 1,
+    "phone_declared_route_points": 1768,
+    "server_sealed_routes": 0,
+    "sample_query_cap_reached": false,
+    "route_query_cap_reached": false,
+    "preferred_display_units": "null in first report; build canonical mapping is not proof of HealthKit preference availability",
+    "metal_probe": "Added to Debug inspection after first report; no subsequent report read before wrap-up, so runtime Metal proof NOT VERIFIED"
+  },
+  "source_sha256_at_wrapup": {
+    "apps/server/internal/syncing/protocol.go": "b269a969d9d7e56ed1811c0e97e2cffbbf16479b862773874c731683394fa213",
+    "apps/server/internal/syncing/workout_test.go": "cc963f078199899d051cc21648d313965f7e163ddb1d78aa7bb8db40c924b0e1",
+    "apps/server/integration/device_workout_statistics_test.go": "3d479d8a0797b296caa1fd9da8788612f94cc3a743af46446ab89ce456c6218f",
+    "ios/RAI/App/ClientConfiguration.swift": "f82b90abe0ee914eb0bfa1a7347e694366c36b4b965695618fb036060dcf5cf3",
+    "ios/RAI/App/HealthKitClient.swift": "d13418cdb14aa3609ad91e4b12141cda6a5af85949a2d964ca0034ae141fed26",
+    "ios/RAI/App/RAIApp.swift": "7a04ba1c32c2423649bf23eefd5b8c7d3f273867be8f069cf8e9e029534fc67f",
+    "ios/RAI/AppTests/NormalizerTests.swift": "6cc2a5aef4eb42e02a0949c8c0b8d4919c8ffa478b1622365219b6e59c97b890",
+    "ios/RAI/UITests/ProductUITests.swift": "2656f71b904a8fb65e370391073851b04ab2e8222ce6404d5d533b9a654159a7",
+    "contracts/sync-v2.md": "d4e545705c371026093af747341d8f111a460d3f153128c1c094bf19b161140c",
+    "contracts/CHANGELOG.md": "04e225650f4b98abbd011875d2ebcaeea95a61fc9267c1932d354f68276513d4"
+  },
+  "last_task_build_executable_sha256": "1bba360fba296435281d8c58243074b375b676bce990223327ab3a4dac978ef9",
+  "concurrent_changes_not_owned_by_this_task": [
+    "ios/RAI/App/Assets.xcassets/",
+    "ios/RAI/RAI.xcodeproj/project.pbxproj",
+    "ios/RAI/project.yml",
+    "docs/evidence/ios-app-icon-2026-10-30/"
+  ],
+  "protected_files": {
+    "checked": 30,
+    "changed": 0,
+    "scope": "Original architecture proposal, migrations, historical phase/review results and original maintenance evidence against initial private fingerprints"
+  },
+  "final_git_status": [
+    " M README.md",
+    " M apps/server/internal/syncing/protocol.go",
+    " M apps/server/internal/syncing/workout_test.go",
+    " M contracts/CHANGELOG.md",
+    " M contracts/sync-v2.md",
+    " M docs/ARCHITECTURE.md",
+    " M docs/FNOS-ACCESS.md",
+    " M docs/IMPLEMENTATION.md",
+    " M ios/RAI/App/ClientConfiguration.swift",
+    " M ios/RAI/App/HealthKitClient.swift",
+    " M ios/RAI/App/RAIApp.swift",
+    " M ios/RAI/AppTests/NormalizerTests.swift",
+    " M ios/RAI/RAI.xcodeproj/project.pbxproj",
+    " M ios/RAI/README.md",
+    " M ios/RAI/UITests/ProductUITests.swift",
+    " M ios/RAI/project.yml",
+    " M scripts/test-remote.sh",
+    "?? apps/server/integration/device_workout_statistics_test.go",
+    "?? docs/V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md",
+    "?? docs/V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md",
+    "?? docs/evidence/device-acceptance-2026-10-30.json",
+    "?? docs/evidence/device-workout-structure-2026-10-30.json",
+    "?? docs/evidence/final-maintenance-fix-2026-10-30.json",
+    "?? docs/evidence/ios-app-icon-2026-10-30/",
+    "?? docs/evidence/ios-signing-2026-10-30/",
+    "?? docs/evidence/local-xcode-build-2026-10-30/",
+    "?? ios/RAI/App/Assets.xcassets/"
+  ],
+  "synthetic_cleanup": {
+    "scope": "task-owned synthetic resources only; persistent rai-v2-device excluded",
+    "hosts": [
+      {
+        "source_log": "synthetic-host-private.txt",
+        "cleanup_signal_exit_code": 1
+      },
+      {
+        "source_log": "synthetic-host2-private.txt",
+        "cleanup_signal_exit_code": 0
+      }
+    ],
+    "task_owned_simulator_delete_exit_code": 0,
+    "synthetic_private_configuration_removed": true,
+    "remote_verification": [
+      {
+        "host_log": "synthetic-host-private.txt",
+        "verification": "source_removed=0",
+        "exit_code": 0
+      },
+      {
+        "host_log": "synthetic-host2-private.txt",
+        "verification": "source_removed=0",
+        "exit_code": 0
+      }
+    ],
+    "final_exact_command_cleanup": [
+      "synthetic_fault_proxy",
+      "synthetic_fault_proxy"
+    ],
+    "persistent_project_untouched": true
+  },
+  "timestamp_at_wrapup": "2026-10-30T17:25:06.215299+08:00",
+  "report_sha256": "f80a9f9a014444134f5388eafed27ae4da97ceff5c1bb3a5fe01888df498a3e7",
+  "actual_workout_structure_sha256": "46b1bac77b5ac55e6f3385b52ca8b946299a839b50cd9027e4966fdbea2b57c9",
+  "final_verification": {
+    "json_valid": true,
+    "structure_contains_no_measurement_value_coordinate_token_or_uuid_fields": true,
+    "full_uuid_pattern_absent_in_structure": true,
+    "current_acceptance_token_absent_in_repository": true,
+    "source_fingerprints_match": true,
+    "git_diff_check": "PASS",
+    "new_report_links": "PASS"
+  }
+}

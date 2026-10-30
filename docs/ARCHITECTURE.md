@@ -1,6 +1,8 @@
 # RAI V2 — System Architecture
 
-Current Implementation / As-Built Architecture，2026-10-29（Asia/Shanghai）。仓库 `/Users/ta/rai`；Final Maintenance 基线 `945db85ee5ff2920158a559597e0dabcff4d58c6`，main，入口干净；本轮修复是未提交增量。P7历史实施见第14节，本轮证据见 [Maintenance Result](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-29.md)。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
+2026-10-30最新设备专项已按用户要求收尾：独立持久 `rai-v2-device` 运行PG18/API/Worker，schema13保持；手机已真实提交6,000条样本并完成一条跑步结构盘点。最小修复显式跑步动态单位、Workout metadata保留及4类读取范围，没有新算法/schema/协议版本。最终设备重试、P4/P5闭环与GPU未验证，**DEVICE ACCEPTANCE: NOT COMPLETED**；见[设备结果](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)。下文按原阶段保留。
+
+Current Implementation / As-Built Architecture，2026-10-30（Asia/Shanghai）。仓库 `/Users/tp/raI`；本轮复验基线 `1783517900520ed6aedc3c97ef497bc8fe0ef5ca`，main，入口干净。该提交已包含 Final Maintenance 修复；本轮增量为活跃文档和实际复验证据，见 [Maintenance Result](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md)。P7历史实施见第14节。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
 
 **P3 REAL DEVICE ACCEPTANCE: DEFERRED BY USER / NOT VERIFIED。P4 DEVELOPMENT EXCEPTION: AUTHORIZED BY USER。** 这只改变开发入口，不把 P3.5 模拟器、macOS SIGKILL、合成网络或未签名编译变成真实 iPhone 验收。P5 后端闭环已实现；P6原生产品集成见第13节。
 
@@ -215,6 +217,6 @@ HealthKit灾难重同步为 **BLOCKED**：旧快照保持dataset/service/device�
 
 ## 17. 2026-10-29 Final Maintenance
 
-仅关闭本轮2个P2和3个P3，详见 [结果](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-29.md)。Training JSON 写请求要求 application/json（允许标准参数）、无 Content-Encoding、≤64 KiB；媒体/encoding错误415，超限413，严格JSON/业务错误422。三类 chunk 在原回执查询前锁定并校验 upload lease，返回旧回执前复验；新写入仍在COMMIT前复验。有效租约的lost-response恢复、collector fencing、不可变receipt、删除屏障和原事务保持。
+提交 `1783517` 已实现2个P2和3个P3的定向修复；2026-10-30的复验及剩余门禁见 [结果](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md)。Training JSON 写请求要求 application/json（允许标准参数）、无 Content-Encoding、≤64 KiB；媒体/encoding错误415，超限413，严格JSON/业务错误422。三类 chunk 在原回执查询前锁定并校验 upload lease，返回旧回执前复验；新写入仍在COMMIT前复验。有效租约的lost-response恢复、collector fencing、不可变receipt、删除屏障和原事务保持。
 
-客户端pending时锁定可冲突表单和保存，独立按钮只重试原请求；新草稿不再被替换为旧命令。成功后刷新并关闭已完成表单；失败/409保留草稿和原处理路径。原方案、迁移、历史结果、P4/P5算法及生产/真机/灾难恢复门禁不变。
+客户端pending时锁定可冲突表单和保存，独立按钮只重试原请求；新草稿不再被替换为旧命令。成功后刷新并关闭已完成表单；失败/409保留草稿和原处理路径。本轮 ProductCore 补充探针不能代替 Swift Testing 或 SessionEditor/CreatePlan UI 验收；当前机器缺少 Testing 模块和完整 Xcode，客户端完整门禁仍未完成。原方案、迁移、历史结果、P4/P5算法及生产/真机/灾难恢复门禁不变。

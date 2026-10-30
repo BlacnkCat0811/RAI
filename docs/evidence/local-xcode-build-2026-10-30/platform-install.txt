@@ -1,0 +1,6 @@
+Finding content...
+Automatically resolved architecture variant for platform iOS as 'universal'.
+Downloading iOS 26.5 Universal Simulator (23F77) (universal): 99.6% (10.57 GB of 10.6 GB)
+Downloading iOS 26.5 Universal Simulator (23F77) (universal): Installing...              
+Downloading iOS 26.5 Universal Simulator (23F77) (universal): Done.        
+iOS 26.5 (23F77) - 7D26C2FD-8401-4BF5-A487-EB800C249102

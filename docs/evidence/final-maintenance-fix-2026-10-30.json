@@ -1,0 +1,2782 @@
+{
+  "title": "RAI V2 Final Maintenance Fix Result",
+  "date": "2026-10-30",
+  "timezone": "Asia/Shanghai",
+  "status": "BLOCKED",
+  "final_verdict": "BLOCKED",
+  "blocking_gate": "Full Swift Testing, iOS Debug/Release and related UI tests require an available full Xcode toolchain.",
+  "repository": "/Users/tp/raI",
+  "source_commit": "1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+  "FINAL_MAINTENANCE_BASE_COMMIT": "1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+  "historical_comparison_commit": "945db85ee5ff2920158a559597e0dabcff4d58c6",
+  "baseline_deviation_reason": "Current main already contains commit 1783517 Fix final maintenance findings. No business-source fix was repeated.",
+  "branch": "main",
+  "baseline_commands_executed": [
+    [
+      "pwd"
+    ],
+    [
+      "git",
+      "status",
+      "--short"
+    ],
+    [
+      "git",
+      "status",
+      "--porcelain=v1"
+    ],
+    [
+      "git",
+      "branch",
+      "--show-current"
+    ],
+    [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    [
+      "git",
+      "log",
+      "-10",
+      "--oneline"
+    ],
+    [
+      "git",
+      "diff",
+      "--stat"
+    ],
+    [
+      "git",
+      "remote",
+      "-v"
+    ]
+  ],
+  "working_tree_before": [],
+  "working_tree_after": [
+    " M docs/ARCHITECTURE.md",
+    " M docs/IMPLEMENTATION.md",
+    "?? docs/V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md",
+    "?? docs/evidence/final-maintenance-fix-2026-10-30.json"
+  ],
+  "go_version": "go1.27.3 linux/amd64",
+  "postgres_version": "18.6 (Debian 18.6-1.pgdg13+2)",
+  "docker_version": "28.5.2",
+  "docker_compose_version": "v5.1.0",
+  "swift_version": "Apple Swift 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101), x86_64-apple-macosx26.0",
+  "xcode_version": null,
+  "finding_reproductions": [
+    {
+      "id": "P2-1",
+      "status": "FIXED",
+      "reproduced_before_fix": "YES on isolated historical 945db85 snapshot",
+      "current_head_reproduction": "NOT REPRODUCIBLE ON CURRENT HEAD",
+      "tests": [
+        "TestFinalMaintenanceMixedSamples",
+        "TestFinalMaintenanceStreamTypeBoundary",
+        "TestFinalMaintenanceMultipleTypeStreams",
+        "TestFinalMaintenanceMixedIdentityConflictRollsBack"
+      ],
+      "risk": "Single synthetic observations are not production throughput evidence."
+    },
+    {
+      "id": "P2-2",
+      "status": "PARTIAL",
+      "reproduced_before_fix": "YES: historical Swift hasSameIntent executable probe",
+      "current_head_reproduction": "NOT REPRODUCIBLE in the current ProductCore supplemental probe; UI not verified",
+      "tests": [
+        "swift-pending-probe",
+        "swift-core-build"
+      ],
+      "blocked_tests": [
+        "swift test",
+        "ProductUITests.test07PendingSessionLocksDraftAndRetriesOriginalAfterRestart",
+        "ProductUITests.test08CreatePlanPendingCannotSubmitAnotherDraft"
+      ],
+      "risk": "Testing module and full Xcode unavailable; cannot close requested client acceptance."
+    },
+    {
+      "id": "P3-1",
+      "status": "FIXED",
+      "reproduced_before_fix": "YES: historical HTTP/PG matrix",
+      "current_head_reproduction": "NOT REPRODUCIBLE ON CURRENT HEAD",
+      "tests": [
+        "TestFinalMaintenanceTrainingHTTPWire"
+      ],
+      "risk": "Existing invalid requests must meet the strict wire contract."
+    },
+    {
+      "id": "P3-2",
+      "status": "FIXED",
+      "reproduced_before_fix": "YES on isolated historical 945db85 snapshot",
+      "current_head_reproduction": "NOT REPRODUCIBLE ON CURRENT HEAD",
+      "tests": [
+        "TestFinalMaintenanceChunkLeaseRetry"
+      ],
+      "risk": "Tested combinations do not exhaust all concurrent interleavings."
+    },
+    {
+      "id": "P3-3",
+      "status": "FIXED",
+      "reproduced_before_fix": "YES: historical source/document comparison; current entry had stale metadata and missing result links",
+      "current_head_reproduction": "Version/schema fixes already in 1783517; this run fixes active metadata/evidence links",
+      "tests": [
+        "version manifest",
+        "synthetic recompute dry-runs",
+        "migration checksum validation",
+        "OpenAPI lint",
+        "dependency boundaries"
+      ],
+      "risk": "Historical records retain their original observations."
+    }
+  ],
+  "mixed_sample_job_counts": {
+    "current-directed": [
+      {
+        "baseline": false,
+        "case": "A_all_upsert",
+        "deleted": 0,
+        "dirty_scopes": 1,
+        "duration_ms": 417.82,
+        "facts_written": 1000,
+        "generation_delta": 1,
+        "input_events": 1000,
+        "job_count": 1,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 1000,
+          "unchanged": 0,
+          "deleted": 0,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1,
+        "receipt_stable": true
+      },
+      {
+        "baseline": false,
+        "case": "B_mixed",
+        "deleted": 1,
+        "dirty_scopes": 1,
+        "duration_ms": 341.227,
+        "facts_written": 999,
+        "generation_delta": 1,
+        "input_events": 1000,
+        "job_count": 1,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 999,
+          "unchanged": 0,
+          "deleted": 1,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1,
+        "receipt_stable": true
+      },
+      {
+        "baseline": false,
+        "case": "D_multiple_deletes",
+        "deleted": 4,
+        "dirty_scopes": 1,
+        "duration_ms": 363.048,
+        "facts_written": 996,
+        "generation_delta": 1,
+        "input_events": 1000,
+        "job_count": 1,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 996,
+          "unchanged": 0,
+          "deleted": 4,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1,
+        "receipt_stable": true
+      },
+      {
+        "baseline": false,
+        "case": "E_all_deletes",
+        "deleted": 4,
+        "dirty_scopes": 1,
+        "duration_ms": 55.505,
+        "facts_written": 0,
+        "generation_delta": 1,
+        "input_events": 4,
+        "job_count": 1,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 0,
+          "unchanged": 0,
+          "deleted": 4,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1,
+        "receipt_stable": true
+      },
+      {
+        "baseline": false,
+        "case": "G_multiple_days",
+        "deleted": 4,
+        "dirty_scopes": 3,
+        "duration_ms": 433.384,
+        "facts_written": 996,
+        "generation_delta": 3,
+        "input_events": 1000,
+        "job_count": 3,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027",
+          "sample:HKQuantityTypeIdentifierHeartRate:20261028",
+          "sample:HKQuantityTypeIdentifierHeartRate:20261029"
+        ],
+        "receipt_counts": {
+          "inserted": 996,
+          "unchanged": 0,
+          "deleted": 4,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 3,
+        "receipt_stable": true
+      },
+      {
+        "baseline": false,
+        "case": "H_collapsed",
+        "deleted": 2,
+        "dirty_scopes": 1,
+        "duration_ms": 97.657,
+        "facts_written": 4,
+        "generation_delta": 1,
+        "input_events": 11,
+        "job_count": 1,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 4,
+          "unchanged": 0,
+          "deleted": 2,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1,
+        "receipt_stable": true
+      }
+    ],
+    "historical-reproduction": [
+      {
+        "baseline": true,
+        "case": "A_all_upsert",
+        "deleted": 0,
+        "dirty_scopes": 1,
+        "duration_ms": 275.45,
+        "facts_written": 1000,
+        "generation_delta": 1,
+        "input_events": 1000,
+        "job_count": 1,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 1000,
+          "unchanged": 0,
+          "deleted": 0,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1,
+        "receipt_stable": true
+      },
+      {
+        "baseline": true,
+        "case": "B_mixed",
+        "deleted": 1,
+        "dirty_scopes": 1,
+        "duration_ms": 2172.981,
+        "facts_written": 999,
+        "generation_delta": 1000,
+        "input_events": 1000,
+        "job_count": 1000,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 999,
+          "unchanged": 0,
+          "deleted": 1,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1000,
+        "receipt_stable": true
+      },
+      {
+        "baseline": true,
+        "case": "D_multiple_deletes",
+        "deleted": 4,
+        "dirty_scopes": 1,
+        "duration_ms": 2156.719,
+        "facts_written": 996,
+        "generation_delta": 1000,
+        "input_events": 1000,
+        "job_count": 1000,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 996,
+          "unchanged": 0,
+          "deleted": 4,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1000,
+        "receipt_stable": true
+      },
+      {
+        "baseline": true,
+        "case": "E_all_deletes",
+        "deleted": 4,
+        "dirty_scopes": 1,
+        "duration_ms": 121.381,
+        "facts_written": 0,
+        "generation_delta": 4,
+        "input_events": 4,
+        "job_count": 4,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 0,
+          "unchanged": 0,
+          "deleted": 4,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 4,
+        "receipt_stable": true
+      },
+      {
+        "baseline": true,
+        "case": "G_multiple_days",
+        "deleted": 4,
+        "dirty_scopes": 3,
+        "duration_ms": 3541.253,
+        "facts_written": 996,
+        "generation_delta": 1000,
+        "input_events": 1000,
+        "job_count": 1000,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027",
+          "sample:HKQuantityTypeIdentifierHeartRate:20261028",
+          "sample:HKQuantityTypeIdentifierHeartRate:20261029"
+        ],
+        "receipt_counts": {
+          "inserted": 996,
+          "unchanged": 0,
+          "deleted": 4,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 1000,
+        "receipt_stable": true
+      },
+      {
+        "baseline": true,
+        "case": "H_collapsed",
+        "deleted": 2,
+        "dirty_scopes": 1,
+        "duration_ms": 67.965,
+        "facts_written": 4,
+        "generation_delta": 6,
+        "input_events": 11,
+        "job_count": 6,
+        "job_keys": [
+          "sample:HKQuantityTypeIdentifierHeartRate:20261027"
+        ],
+        "receipt_counts": {
+          "inserted": 4,
+          "unchanged": 0,
+          "deleted": 2,
+          "tombstoned": 0,
+          "suppressed": 0
+        },
+        "receipt_jobs": 6,
+        "receipt_stable": true
+      }
+    ]
+  },
+  "lease_retry_matrix": {
+    "current-directed": [
+      {
+        "kind": "route",
+        "state": "pending",
+        "lease": "missing",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "pending",
+        "lease": "stale",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "pending",
+        "lease": "expired",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "pending",
+        "lease": "replaced",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "sealed",
+        "lease": "missing",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "sealed",
+        "lease": "stale",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "sealed",
+        "lease": "expired",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "sealed",
+        "lease": "replaced",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "series",
+        "state": "pending",
+        "lease": "missing",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "series",
+        "state": "pending",
+        "lease": "stale",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "series",
+        "state": "pending",
+        "lease": "expired",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "series",
+        "state": "pending",
+        "lease": "replaced",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "series",
+        "state": "sealed",
+        "lease": "missing",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "series",
+        "state": "sealed",
+        "lease": "stale",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "series",
+        "state": "sealed",
+        "lease": "expired",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "series",
+        "state": "sealed",
+        "lease": "replaced",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "package",
+        "state": "pending",
+        "lease": "missing",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "package",
+        "state": "pending",
+        "lease": "stale",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "package",
+        "state": "pending",
+        "lease": "expired",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "package",
+        "state": "pending",
+        "lease": "replaced",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "package",
+        "state": "sealed",
+        "lease": "missing",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "package",
+        "state": "sealed",
+        "lease": "stale",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "package",
+        "state": "sealed",
+        "lease": "expired",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "package",
+        "state": "sealed",
+        "lease": "replaced",
+        "receipt_disclosed": "false"
+      }
+    ],
+    "historical-reproduction": [
+      {
+        "kind": "route",
+        "state": "pending",
+        "lease": "missing",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "pending",
+        "lease": "stale",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "pending",
+        "lease": "expired",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "pending",
+        "lease": "replaced",
+        "receipt_disclosed": "false"
+      },
+      {
+        "kind": "route",
+        "state": "sealed",
+        "lease": "missing",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "route",
+        "state": "sealed",
+        "lease": "stale",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "route",
+        "state": "sealed",
+        "lease": "expired",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "route",
+        "state": "sealed",
+        "lease": "replaced",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "series",
+        "state": "pending",
+        "lease": "missing",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "series",
+        "state": "pending",
+        "lease": "stale",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "series",
+        "state": "pending",
+        "lease": "expired",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "series",
+        "state": "pending",
+        "lease": "replaced",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "series",
+        "state": "sealed",
+        "lease": "missing",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "series",
+        "state": "sealed",
+        "lease": "stale",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "series",
+        "state": "sealed",
+        "lease": "expired",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "series",
+        "state": "sealed",
+        "lease": "replaced",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "package",
+        "state": "pending",
+        "lease": "missing",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "package",
+        "state": "pending",
+        "lease": "stale",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "package",
+        "state": "pending",
+        "lease": "expired",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "package",
+        "state": "pending",
+        "lease": "replaced",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "package",
+        "state": "sealed",
+        "lease": "missing",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "package",
+        "state": "sealed",
+        "lease": "stale",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "package",
+        "state": "sealed",
+        "lease": "expired",
+        "receipt_disclosed": "true"
+      },
+      {
+        "kind": "package",
+        "state": "sealed",
+        "lease": "replaced",
+        "receipt_disclosed": "true"
+      }
+    ]
+  },
+  "training_http_wire_observations": {
+    "current-directed": [
+      {
+        "endpoint": "create",
+        "case": "missing_type",
+        "status": "415"
+      },
+      {
+        "endpoint": "create",
+        "case": "text",
+        "status": "415"
+      },
+      {
+        "endpoint": "create",
+        "case": "octet",
+        "status": "415"
+      },
+      {
+        "endpoint": "create",
+        "case": "gzip",
+        "status": "415"
+      },
+      {
+        "endpoint": "create",
+        "case": "other_encoding",
+        "status": "415"
+      },
+      {
+        "endpoint": "create",
+        "case": "oversize",
+        "status": "413"
+      },
+      {
+        "endpoint": "change",
+        "case": "missing_type",
+        "status": "415"
+      },
+      {
+        "endpoint": "change",
+        "case": "text",
+        "status": "415"
+      },
+      {
+        "endpoint": "change",
+        "case": "octet",
+        "status": "415"
+      },
+      {
+        "endpoint": "change",
+        "case": "gzip",
+        "status": "415"
+      },
+      {
+        "endpoint": "change",
+        "case": "other_encoding",
+        "status": "415"
+      },
+      {
+        "endpoint": "change",
+        "case": "oversize",
+        "status": "413"
+      },
+      {
+        "endpoint": "override",
+        "case": "missing_type",
+        "status": "415"
+      },
+      {
+        "endpoint": "override",
+        "case": "text",
+        "status": "415"
+      },
+      {
+        "endpoint": "override",
+        "case": "octet",
+        "status": "415"
+      },
+      {
+        "endpoint": "override",
+        "case": "gzip",
+        "status": "415"
+      },
+      {
+        "endpoint": "override",
+        "case": "other_encoding",
+        "status": "415"
+      },
+      {
+        "endpoint": "override",
+        "case": "oversize",
+        "status": "413"
+      },
+      {
+        "endpoint": "start",
+        "case": "missing_type",
+        "status": "415"
+      },
+      {
+        "endpoint": "start",
+        "case": "text",
+        "status": "415"
+      },
+      {
+        "endpoint": "start",
+        "case": "octet",
+        "status": "415"
+      },
+      {
+        "endpoint": "start",
+        "case": "gzip",
+        "status": "415"
+      },
+      {
+        "endpoint": "start",
+        "case": "other_encoding",
+        "status": "415"
+      },
+      {
+        "endpoint": "start",
+        "case": "oversize",
+        "status": "413"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "missing_type",
+        "status": "415"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "text",
+        "status": "415"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "octet",
+        "status": "415"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "gzip",
+        "status": "415"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "other_encoding",
+        "status": "415"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "oversize",
+        "status": "413"
+      }
+    ],
+    "historical-reproduction": [
+      {
+        "endpoint": "create",
+        "case": "missing_type",
+        "status": "200"
+      },
+      {
+        "endpoint": "create",
+        "case": "text",
+        "status": "200"
+      },
+      {
+        "endpoint": "create",
+        "case": "octet",
+        "status": "200"
+      },
+      {
+        "endpoint": "create",
+        "case": "gzip",
+        "status": "200"
+      },
+      {
+        "endpoint": "create",
+        "case": "other_encoding",
+        "status": "200"
+      },
+      {
+        "endpoint": "create",
+        "case": "oversize",
+        "status": "422"
+      },
+      {
+        "endpoint": "change",
+        "case": "missing_type",
+        "status": "200"
+      },
+      {
+        "endpoint": "change",
+        "case": "text",
+        "status": "200"
+      },
+      {
+        "endpoint": "change",
+        "case": "octet",
+        "status": "200"
+      },
+      {
+        "endpoint": "change",
+        "case": "gzip",
+        "status": "200"
+      },
+      {
+        "endpoint": "change",
+        "case": "other_encoding",
+        "status": "200"
+      },
+      {
+        "endpoint": "change",
+        "case": "oversize",
+        "status": "422"
+      },
+      {
+        "endpoint": "override",
+        "case": "missing_type",
+        "status": "200"
+      },
+      {
+        "endpoint": "override",
+        "case": "text",
+        "status": "200"
+      },
+      {
+        "endpoint": "override",
+        "case": "octet",
+        "status": "200"
+      },
+      {
+        "endpoint": "override",
+        "case": "gzip",
+        "status": "200"
+      },
+      {
+        "endpoint": "override",
+        "case": "other_encoding",
+        "status": "200"
+      },
+      {
+        "endpoint": "override",
+        "case": "oversize",
+        "status": "422"
+      },
+      {
+        "endpoint": "start",
+        "case": "missing_type",
+        "status": "200"
+      },
+      {
+        "endpoint": "start",
+        "case": "text",
+        "status": "200"
+      },
+      {
+        "endpoint": "start",
+        "case": "octet",
+        "status": "200"
+      },
+      {
+        "endpoint": "start",
+        "case": "gzip",
+        "status": "200"
+      },
+      {
+        "endpoint": "start",
+        "case": "other_encoding",
+        "status": "200"
+      },
+      {
+        "endpoint": "start",
+        "case": "oversize",
+        "status": "422"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "missing_type",
+        "status": "200"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "text",
+        "status": "200"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "octet",
+        "status": "200"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "gzip",
+        "status": "200"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "other_encoding",
+        "status": "200"
+      },
+      {
+        "endpoint": "execution_change",
+        "case": "oversize",
+        "status": "422"
+      }
+    ]
+  },
+  "directed_pg": {
+    "current-directed": {
+      "command": {
+        "name": "current-directed",
+        "cwd": "/Users/tp/raI",
+        "command": [
+          "scripts/test-remote.sh",
+          "bash",
+          "../../scripts/test-final-maintenance-postgres.sh",
+          "go",
+          "test",
+          "-v",
+          "-count=1",
+          "-tags=integration",
+          "-p",
+          "1",
+          "-run",
+          "^TestFinalMaintenance",
+          "-timeout=15m",
+          "./integration"
+        ],
+        "started_at": "2026-10-29T19:38:37.919907+00:00",
+        "duration_seconds": 79.082,
+        "exit_code": 0,
+        "log": "current-directed.log"
+      },
+      "pass_events": 77,
+      "fail_events": 0
+    },
+    "historical-reproduction": {
+      "command": {
+        "name": "historical-reproduction",
+        "cwd": "/Users/tp/raI/.local/final-maintenance-2026-10-30/baseline",
+        "command": [
+          "scripts/test-remote.sh",
+          "bash",
+          "../../scripts/test-final-maintenance-postgres.sh",
+          "env",
+          "RAI_MAINTENANCE_BASELINE=1",
+          "go",
+          "test",
+          "-v",
+          "-count=1",
+          "-tags=integration",
+          "-p",
+          "1",
+          "-run",
+          "^TestFinalMaintenance(MixedSamples|StreamTypeBoundary|MultipleTypeStreams|ChunkLeaseRetry|TrainingHTTPWire)$",
+          "-timeout=15m",
+          "./integration"
+        ],
+        "started_at": "2026-10-29T19:39:18.176370+00:00",
+        "duration_seconds": 86.96,
+        "exit_code": 0,
+        "log": "historical-reproduction.log"
+      },
+      "pass_events": 76,
+      "fail_events": 0
+    }
+  },
+  "go_tests": {
+    "command": [
+      "go",
+      "test",
+      "-json",
+      "-count=1",
+      "./..."
+    ],
+    "pass": 221,
+    "fail": 0,
+    "skip": 0,
+    "package_seconds": {
+      "rai/server/internal/admin": 0.008,
+      "rai/server/internal/analysis": 0.145,
+      "rai/server/internal/config": 0.065,
+      "rai/server/internal/httpapi": 0.019,
+      "rai/server/internal/jobs": 0.015,
+      "rai/server/internal/storage/postgres": 0.006,
+      "rai/server/internal/training": 0.02,
+      "rai/server/internal/syncing": 0.284
+    },
+    "integration_pass_names": []
+  },
+  "go_race": {
+    "command": [
+      "go",
+      "test",
+      "-json",
+      "-race",
+      "-count=1",
+      "./..."
+    ],
+    "pass": 221,
+    "fail": 0,
+    "skip": 0,
+    "package_seconds": {
+      "rai/server/internal/admin": 1.013,
+      "rai/server/internal/analysis": 1.5819999999999999,
+      "rai/server/internal/config": 1.173,
+      "rai/server/internal/httpapi": 1.033,
+      "rai/server/internal/jobs": 1.018,
+      "rai/server/internal/storage/postgres": 1.017,
+      "rai/server/internal/training": 1.078,
+      "rai/server/internal/syncing": 4.819
+    },
+    "integration_pass_names": []
+  },
+  "pg_integration": {
+    "plain_integration_package_seconds": 429.23,
+    "race": {
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "-tags=integration",
+        "-p",
+        "1",
+        "-timeout=30m",
+        "./..."
+      ],
+      "pass": 507,
+      "fail": 0,
+      "skip": 0,
+      "package_seconds": {
+        "rai/server/integration": 465.678,
+        "rai/server/internal/admin": 2.87,
+        "rai/server/internal/analysis": 1.665,
+        "rai/server/internal/config": 1.175,
+        "rai/server/internal/httpapi": 1.03,
+        "rai/server/internal/jobs": 1.015,
+        "rai/server/internal/storage/postgres": 1.017,
+        "rai/server/internal/syncing": 5.497,
+        "rai/server/internal/training": 1.077
+      },
+      "integration_pass_names": [
+        "TestAdmissionDurableAtomicBudgets",
+        "TestAdmissionSharedAcrossConcurrentPools",
+        "TestAdmissionDatasetAggregateAndScopeIsolation",
+        "TestAdmissionFailureAndCancellationRollBackBothBuckets",
+        "TestHTTPActiveDeviceUploadRejectsBeforeReadingAndReleases",
+        "TestHTTPAdmissionBeforeBodyAndReceiptRecovery",
+        "TestSchema4UpgradeKeepsReceiptsAndStartsWithEmptyBudgets",
+        "TestAnalysisPerformanceAndCapacity/1y",
+        "TestAnalysisPerformanceAndCapacity/3y",
+        "TestAnalysisPerformanceAndCapacity/5y",
+        "TestAnalysisPerformanceAndCapacity",
+        "TestAnalysisPublishImmutableQueryAndDelete",
+        "TestAnalysisGenerationCASAndLostFence",
+        "TestAnalysisPublishFaultAtomicity/analysis_results",
+        "TestAnalysisPublishFaultAtomicity/analysis_publications",
+        "TestAnalysisPublishFaultAtomicity/dirty_scopes",
+        "TestAnalysisPublishFaultAtomicity/jobs",
+        "TestAnalysisPublishFaultAtomicity/job_attempts",
+        "TestAnalysisPublishFaultAtomicity",
+        "TestAnalysisLateSamplesRouteEnrichmentAndSeries",
+        "TestAnalysisSchema11UpgradeReadiness",
+        "TestAnalysisSeriesSealAndFailureClassification",
+        "TestAnalysisLeaseExpiryDuringPublishAndRecomputeDryRun",
+        "TestAnalysisActualWorkerLoopAndDayRollover",
+        "TestAnalysisExplicitRangeCannotCleanUncoveredDirtyDays",
+        "TestAnalysisCLIExplicitDryRun",
+        "TestAnalysisWorkerRoleBoundary",
+        "TestAnalysisOldGenerationCannotReplaceNewPublication",
+        "TestChangeNotificationsPagingAndIsolation",
+        "TestDisasterRecoveryManualHistoryBoundary",
+        "TestDisasterRecoveryExistingContractBoundary",
+        "TestFinalMaintenanceTrainingHTTPWire/create/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/create/text",
+        "TestFinalMaintenanceTrainingHTTPWire/create/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/create/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/create/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/create/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/create/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/create/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/create/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/create/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/create/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/create",
+        "TestFinalMaintenanceTrainingHTTPWire/change/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/change/text",
+        "TestFinalMaintenanceTrainingHTTPWire/change/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/change/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/change/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/change/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/change/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/change/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/change/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/change/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/change/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/change",
+        "TestFinalMaintenanceTrainingHTTPWire/override/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/override/text",
+        "TestFinalMaintenanceTrainingHTTPWire/override/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/override/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/override/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/override/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/override/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/override/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/override/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/override/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/override/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/override",
+        "TestFinalMaintenanceTrainingHTTPWire/start/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/start/text",
+        "TestFinalMaintenanceTrainingHTTPWire/start/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/start/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/start/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/start/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/start/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/start/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/start/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/start/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/start/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/start",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/text",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change",
+        "TestFinalMaintenanceTrainingHTTPWire",
+        "TestFinalMaintenanceMixedSamples/A_all_upsert",
+        "TestFinalMaintenanceMixedSamples/B_mixed",
+        "TestFinalMaintenanceMixedSamples/D_multiple_deletes",
+        "TestFinalMaintenanceMixedSamples/E_all_deletes",
+        "TestFinalMaintenanceMixedSamples/G_multiple_days",
+        "TestFinalMaintenanceMixedSamples/H_collapsed",
+        "TestFinalMaintenanceMixedSamples",
+        "TestFinalMaintenanceStreamTypeBoundary/workout",
+        "TestFinalMaintenanceStreamTypeBoundary/sample",
+        "TestFinalMaintenanceStreamTypeBoundary",
+        "TestFinalMaintenanceMultipleTypeStreams",
+        "TestFinalMaintenanceMixedIdentityConflictRollsBack",
+        "TestFinalMaintenanceChunkLeaseRetry/route",
+        "TestFinalMaintenanceChunkLeaseRetry/series",
+        "TestFinalMaintenanceChunkLeaseRetry/package",
+        "TestFinalMaintenanceChunkLeaseRetry",
+        "TestFullReviewEqualRouteTimestamp/increasing",
+        "TestFullReviewEqualRouteTimestamp/equal_first",
+        "TestFullReviewEqualRouteTimestamp/equal_last",
+        "TestFullReviewEqualRouteTimestamp/all_equal",
+        "TestFullReviewEqualRouteTimestamp/chunk_boundary",
+        "TestFullReviewEqualRouteTimestamp/multiple_routes",
+        "TestFullReviewEqualRouteTimestamp/missing_accuracy",
+        "TestFullReviewEqualRouteTimestamp/bad_adjacent",
+        "TestFullReviewEqualRouteTimestamp",
+        "TestFullReviewOverrideScheduleTransition",
+        "TestFullReviewTrainingJSONDrift/missing_expected_revision",
+        "TestFullReviewTrainingJSONDrift/case_variant",
+        "TestFullReviewTrainingJSONDrift/duplicate_key",
+        "TestFullReviewTrainingJSONDrift/null_notes",
+        "TestFullReviewTrainingJSONDrift/unknown",
+        "TestFullReviewTrainingJSONDrift/type",
+        "TestFullReviewTrainingJSONDrift/null_revision",
+        "TestFullReviewTrainingJSONDrift/nested_case",
+        "TestFullReviewTrainingJSONDrift",
+        "TestFullReviewTrainingQueryBound/1y",
+        "TestFullReviewTrainingQueryBound/3y",
+        "TestFullReviewTrainingQueryBound/5y",
+        "TestFullReviewTrainingQueryBound",
+        "TestFullReviewAuditResponseBudget",
+        "TestFullReviewHistoryResponseBudget",
+        "TestTrainingAuditByteLimitAdjustsItemCount",
+        "TestTrainingLargeVersionContextDetailBudget",
+        "TestHealthEndpointsWithPostgres",
+        "TestConcurrentJobClaimAndCrashRecovery",
+        "TestJobFailureRetryAndAttemptLimit",
+        "TestPermanentFailureAndAttemptUpdateAtomicity",
+        "TestRouteSealJobFailureRollsBackPublication",
+        "TestRouteDeleteReceiptFailureRollsBackBarrier",
+        "TestAssociationAndEnrichmentJobFailureAtomicity/association",
+        "TestAssociationAndEnrichmentJobFailureAtomicity/enrichment",
+        "TestAssociationAndEnrichmentJobFailureAtomicity",
+        "TestLateSampleWorkoutAssociationIdempotencyAndConflict",
+        "TestWorkoutEnrichmentVersioningStaleAndConflict",
+        "TestRouteDeleteAndStaleReplayBarrier",
+        "TestP3HTTPRoutesAssociationsEnrichmentAndErrors",
+        "TestConcurrentRouteChunkAndSeal",
+        "TestSchema10UpgradePreservesP2AndEnablesP3",
+        "TestWorkoutDeleteFencesLateRouteAndAssociation",
+        "TestWorkoutEnrichmentCannotOverwriteBaseFacts",
+        "TestUnsupportedUnitAndProtocolAreStableCodes",
+        "TestUnknownRouteDeleteCreatesBarrierAndIsIdempotent",
+        "TestAPIStoreRestartRetainsRegisteredBatchAndReceipt",
+        "TestRouteSealResponseLossRecoveredByGET",
+        "TestP7RealLoginBoundariesAndRevocation",
+        "TestP7OperationsInvariantInventoryAndSanitization",
+        "TestP7FailedJobAlertResolvesOnlyAfterNewGenerationIsClean",
+        "TestPageFragmentsSealAndImmutableReceipts/sample",
+        "TestPageFragmentsSealAndImmutableReceipts/workout",
+        "TestPageFragmentsSealAndImmutableReceipts",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges/fragment_count",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges/repeated_index",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges/missing_fragment",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges/interleaved_page",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges",
+        "TestPageSealFailureRollsBackFinalFragment/sample_insert",
+        "TestPageSealFailureRollsBackFinalFragment/sample_delete",
+        "TestPageSealFailureRollsBackFinalFragment/workout_insert",
+        "TestPageSealFailureRollsBackFinalFragment/workout_delete",
+        "TestPageSealFailureRollsBackFinalFragment",
+        "TestConcurrentFinalPageFragmentSealsOnce",
+        "TestHTTPPageRecoveryAfterLostFinalResponse",
+        "TestSchema3UpgradePreservesBatchReceiptsWithoutInventingPageSeals",
+        "TestPageSequenceBounds",
+        "TestProductReadPublicationPaginationAndIsolation",
+        "TestCoreIndexAvailability",
+        "TestWorkoutSampleAssociationConstraints",
+        "TestSyntheticWorkoutDurationsAndRouteBatches",
+        "TestRouteChunkRetryConflictGapAndSeal",
+        "TestRouteProjectionAndWorkoutCascade",
+        "TestSampleBatchPipelineAndIdempotency",
+        "TestFreshDatabaseSchemaRebuild",
+        "TestQuantitySeriesChunksAndSeal",
+        "TestSeriesFailureRollsBackSealAndLease",
+        "TestHTTPSeriesUploadAndSeal",
+        "TestSchema7UpgradeAddsSeriesWithoutRewritingFacts",
+        "TestMaximumSeriesChunksSeal",
+        "TestCommitRetryAndDeletionBarrier",
+        "TestUnknownDeleteAndSamePageDeleteWins",
+        "TestIdentitySequenceAndFencing",
+        "TestConflictRollsBackEntireBatch",
+        "TestConcurrentSameBatchReturnsOriginal",
+        "TestDatasetLockOrdersCommitAndTimeout",
+        "TestQueueLeaseAndDirtyGeneration",
+        "TestHTTPUploadReceiptAndAuthentication/sample",
+        "TestHTTPUploadReceiptAndAuthentication/workout",
+        "TestHTTPUploadReceiptAndAuthentication/workout_activities",
+        "TestHTTPUploadReceiptAndAuthentication",
+        "TestReceiptFailureRollsBackFactsAndWork",
+        "TestCommitResponseLossRecoveredByGET/sample",
+        "TestCommitResponseLossRecoveredByGET/workout",
+        "TestCommitResponseLossRecoveredByGET/workout_activities",
+        "TestCommitResponseLossRecoveredByGET",
+        "TestAPIRoleCannotMigrateOrMaintain",
+        "TestCleanScopeKeepsMonotonicGeneration",
+        "TestMaximumDeleteBatchAndEmptyBatch",
+        "TestReadOnlyDeviceAndForeignDatasetIsolation",
+        "TestCancellationDoesNotAdvanceStream",
+        "TestReconnectAfterTerminatedConnection",
+        "TestCommitRevisionCannotOvertakeUncommittedWrite",
+        "TestMigrationsIdempotentAndInitializationProtected",
+        "TestTrainingPerformanceAndCapacity/52weeks",
+        "TestTrainingPerformanceAndCapacity/3years",
+        "TestTrainingPerformanceAndCapacity",
+        "TestTrainingClosedLoopOverrideSurvivalE2E",
+        "TestTrainingUserEditDuringGenerationAndStaleFence",
+        "TestTrainingConcurrentOverridesIdempotencyAndRevocation",
+        "TestTrainingAddMoveSkipDeleteAndScheduleConflict",
+        "TestTrainingPublicationFaultAtomicity/training_base_versions",
+        "TestTrainingPublicationFaultAtomicity/training_plans",
+        "TestTrainingPublicationFaultAtomicity/training_effective_versions",
+        "TestTrainingPublicationFaultAtomicity/dirty_scopes",
+        "TestTrainingPublicationFaultAtomicity/jobs",
+        "TestTrainingPublicationFaultAtomicity/job_attempts",
+        "TestTrainingPublicationFaultAtomicity",
+        "TestTrainingOverrideAndFeedbackFaultAtomicity",
+        "TestTrainingQueueCoalescingColdStartAndAPI",
+        "TestTrainingSchema12UpgradeAndReadiness",
+        "TestTrainingRestrictedRoles",
+        "TestTrainingExecutionScheduledSkipAndHistory",
+        "TestTrainingPublishedReadinessFieldSurvival",
+        "TestTrainingArchiveRetainsStartedExecution",
+        "TestTrainingHTTPMutationAndDefaultEffective",
+        "TestTrainingLeaseExpiresDuringPublishRollsBack",
+        "TestTrainingContextExcludesUnpublishedAndDirtyFeatures",
+        "TestTrainingFrozenTimezoneAndLateAnalysisFeedback",
+        "TestBatchRegistrationFailureRollsBack",
+        "TestCommitFailureInjectionAtomicity/fact",
+        "TestCommitFailureInjectionAtomicity/tombstone",
+        "TestCommitFailureInjectionAtomicity/change_log",
+        "TestCommitFailureInjectionAtomicity/job",
+        "TestCommitFailureInjectionAtomicity/receipt",
+        "TestCommitFailureInjectionAtomicity",
+        "TestUploadLeaseSharedDurableAndFenced",
+        "TestUploadLeaseDatasetCapacityAndIsolation",
+        "TestUploadLeaseConcurrentDatasetCap",
+        "TestUploadLeaseAcquisitionFaultAndCancellation",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction/sample_upsert",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction/sample_delete",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction/workout_upsert",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction/workout_delete",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction",
+        "TestHTTPUploadLeaseAcrossHandlersAndRecoveryReads",
+        "TestHTTPUploadCancellationClosesBodyAndReleasesLease",
+        "TestHTTPUploadReleaseFailurePreservesReceiptAndExpires",
+        "TestSchema5UpgradePreservesReceiptsAndBudgets",
+        "TestWorkoutActivitiesDurabilityAndDeletion",
+        "TestWorkoutActivityConflictRollsBackWholeBatch",
+        "TestWorkoutActivityDeleteWinsAndUnknownBarrier",
+        "TestWorkoutActivitiesAtomicFailures/activity_insert_upsert",
+        "TestWorkoutActivitiesAtomicFailures/receipt_upsert",
+        "TestWorkoutActivitiesAtomicFailures/receipt_delete",
+        "TestWorkoutActivitiesAtomicFailures/seal_upsert",
+        "TestWorkoutActivitiesAtomicFailures/seal_delete",
+        "TestWorkoutActivitiesAtomicFailures/lease_upsert",
+        "TestWorkoutActivitiesAtomicFailures/lease_delete",
+        "TestWorkoutActivitiesAtomicFailures",
+        "TestSchema6UpgradePreservesV1IdentityAndRuntimeState",
+        "TestMaximumWorkoutActivitiesCommitAndCascade",
+        "TestWorkoutPackageChunksSealAndFacts",
+        "TestWorkoutPackageMaxChunksAndDelete",
+        "TestWorkoutPackageSealFailureRollsBack",
+        "TestSchema8UpgradeAddsWorkoutPackagesWithoutRewritingFacts",
+        "TestWorkoutPackageGapOrderAndSealChecks",
+        "TestWorkoutPackageNormalWorkoutIdentityConflict",
+        "TestHTTPWorkoutPackageUploadAndSeal",
+        "TestWorkoutFactsChildrenRetryAndDelete",
+        "TestWorkoutUnknownDeletionWins",
+        "TestWorkoutConflictRollsBackChildren",
+        "TestWorkoutReceiptFailureRollsBackInsertAndDelete/insert",
+        "TestWorkoutReceiptFailureRollsBackInsertAndDelete/delete",
+        "TestWorkoutReceiptFailureRollsBackInsertAndDelete"
+      ]
+    },
+    "settings": {
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "data_checksums": "on"
+    },
+    "isolated_compose": true,
+    "synthetic_only": true
+  },
+  "quality_checks": [
+    {
+      "command": [
+        "go",
+        "version"
+      ],
+      "duration_seconds": 0.004,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "go",
+        "mod",
+        "verify"
+      ],
+      "duration_seconds": 0.257,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-count=1",
+        "./..."
+      ],
+      "duration_seconds": 7.044,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "./..."
+      ],
+      "duration_seconds": 15.261,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "go",
+        "vet",
+        "./..."
+      ],
+      "duration_seconds": 0.605,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "go",
+        "vet",
+        "-tags=integration,scale,p7capacity",
+        "./..."
+      ],
+      "duration_seconds": 0.942,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "go",
+        "build",
+        "./..."
+      ],
+      "duration_seconds": 0.819,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "go",
+        "mod",
+        "tidy",
+        "-diff"
+      ],
+      "duration_seconds": 4.272,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "../../scripts/check-boundaries.py"
+      ],
+      "duration_seconds": 0.403,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "python3",
+        "../../scripts/check-boundaries.py"
+      ],
+      "duration_seconds": 0.399,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "env",
+        "CGO_ENABLED=0",
+        "python3",
+        "../../scripts/check-boundaries.py"
+      ],
+      "duration_seconds": 0.391,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "env",
+        "CGO_ENABLED=0",
+        "python3",
+        "../../scripts/check-boundaries.py"
+      ],
+      "duration_seconds": 0.379,
+      "exit_code": 0
+    }
+  ],
+  "failed_full_race": {
+    "result": {
+      "name": "final-go-race-attempt",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "env",
+        "GOPROXY=https://goproxy.cn,direct",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "bash",
+        "../../scripts/check-final-maintenance.sh"
+      ],
+      "started_at": "2026-10-29T19:53:20.874069+00:00",
+      "duration_seconds": 552.207,
+      "exit_code": 1,
+      "log": "final-go-race-attempt.log"
+    },
+    "summary": {
+      "command": [
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "-tags=integration",
+        "-p",
+        "1",
+        "-timeout=30m",
+        "./..."
+      ],
+      "pass": 504,
+      "fail": 3,
+      "skip": 0,
+      "package_seconds": {
+        "rai/server/integration": 465.832,
+        "rai/server/internal/admin": 2.731,
+        "rai/server/internal/analysis": 1.589,
+        "rai/server/internal/config": 1.162,
+        "rai/server/internal/httpapi": 1.027,
+        "rai/server/internal/jobs": 1.014,
+        "rai/server/internal/storage/postgres": 1.016,
+        "rai/server/internal/syncing": 4.828,
+        "rai/server/internal/training": 1.093
+      },
+      "integration_pass_names": [
+        "TestAdmissionDurableAtomicBudgets",
+        "TestAdmissionSharedAcrossConcurrentPools",
+        "TestAdmissionDatasetAggregateAndScopeIsolation",
+        "TestAdmissionFailureAndCancellationRollBackBothBuckets",
+        "TestHTTPActiveDeviceUploadRejectsBeforeReadingAndReleases",
+        "TestHTTPAdmissionBeforeBodyAndReceiptRecovery",
+        "TestSchema4UpgradeKeepsReceiptsAndStartsWithEmptyBudgets",
+        "TestAnalysisPerformanceAndCapacity/1y",
+        "TestAnalysisPerformanceAndCapacity/3y",
+        "TestAnalysisPerformanceAndCapacity/5y",
+        "TestAnalysisPerformanceAndCapacity",
+        "TestAnalysisPublishImmutableQueryAndDelete",
+        "TestAnalysisGenerationCASAndLostFence",
+        "TestAnalysisPublishFaultAtomicity/analysis_results",
+        "TestAnalysisPublishFaultAtomicity/analysis_publications",
+        "TestAnalysisPublishFaultAtomicity/dirty_scopes",
+        "TestAnalysisPublishFaultAtomicity/jobs",
+        "TestAnalysisPublishFaultAtomicity/job_attempts",
+        "TestAnalysisPublishFaultAtomicity",
+        "TestAnalysisLateSamplesRouteEnrichmentAndSeries",
+        "TestAnalysisSchema11UpgradeReadiness",
+        "TestAnalysisSeriesSealAndFailureClassification",
+        "TestAnalysisLeaseExpiryDuringPublishAndRecomputeDryRun",
+        "TestAnalysisActualWorkerLoopAndDayRollover",
+        "TestAnalysisExplicitRangeCannotCleanUncoveredDirtyDays",
+        "TestAnalysisCLIExplicitDryRun",
+        "TestAnalysisWorkerRoleBoundary",
+        "TestAnalysisOldGenerationCannotReplaceNewPublication",
+        "TestChangeNotificationsPagingAndIsolation",
+        "TestDisasterRecoveryManualHistoryBoundary",
+        "TestDisasterRecoveryExistingContractBoundary",
+        "TestFinalMaintenanceTrainingHTTPWire/create/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/create/text",
+        "TestFinalMaintenanceTrainingHTTPWire/create/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/create/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/create/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/create/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/create/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/create/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/create/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/create/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/create/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/create",
+        "TestFinalMaintenanceTrainingHTTPWire/change/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/change/text",
+        "TestFinalMaintenanceTrainingHTTPWire/change/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/change/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/change/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/change/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/change/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/change/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/change/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/change/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/change/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/change",
+        "TestFinalMaintenanceTrainingHTTPWire/override/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/override/text",
+        "TestFinalMaintenanceTrainingHTTPWire/override/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/override/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/override/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/override/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/override/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/override/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/override/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/override/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/override/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/override",
+        "TestFinalMaintenanceTrainingHTTPWire/start/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/start/text",
+        "TestFinalMaintenanceTrainingHTTPWire/start/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/start/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/start/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/start/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/start/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/start/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/start/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/start/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/start/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/start",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/missing_type",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/text",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/octet",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/gzip",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/other_encoding",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/oversize",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/malformed",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/duplicate",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/unknown",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/valid",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change/charset",
+        "TestFinalMaintenanceTrainingHTTPWire/execution_change",
+        "TestFinalMaintenanceTrainingHTTPWire",
+        "TestFinalMaintenanceMixedSamples/A_all_upsert",
+        "TestFinalMaintenanceMixedSamples/B_mixed",
+        "TestFinalMaintenanceMixedSamples/D_multiple_deletes",
+        "TestFinalMaintenanceMixedSamples/E_all_deletes",
+        "TestFinalMaintenanceMixedSamples/G_multiple_days",
+        "TestFinalMaintenanceMixedSamples/H_collapsed",
+        "TestFinalMaintenanceMixedSamples",
+        "TestFinalMaintenanceStreamTypeBoundary/workout",
+        "TestFinalMaintenanceStreamTypeBoundary/sample",
+        "TestFinalMaintenanceStreamTypeBoundary",
+        "TestFinalMaintenanceMultipleTypeStreams",
+        "TestFinalMaintenanceMixedIdentityConflictRollsBack",
+        "TestFinalMaintenanceChunkLeaseRetry/route",
+        "TestFinalMaintenanceChunkLeaseRetry/series",
+        "TestFinalMaintenanceChunkLeaseRetry/package",
+        "TestFinalMaintenanceChunkLeaseRetry",
+        "TestFullReviewEqualRouteTimestamp/increasing",
+        "TestFullReviewEqualRouteTimestamp/equal_first",
+        "TestFullReviewEqualRouteTimestamp/equal_last",
+        "TestFullReviewEqualRouteTimestamp/all_equal",
+        "TestFullReviewEqualRouteTimestamp/chunk_boundary",
+        "TestFullReviewEqualRouteTimestamp/multiple_routes",
+        "TestFullReviewEqualRouteTimestamp/missing_accuracy",
+        "TestFullReviewEqualRouteTimestamp/bad_adjacent",
+        "TestFullReviewEqualRouteTimestamp",
+        "TestFullReviewOverrideScheduleTransition",
+        "TestFullReviewTrainingJSONDrift/missing_expected_revision",
+        "TestFullReviewTrainingJSONDrift/case_variant",
+        "TestFullReviewTrainingJSONDrift/duplicate_key",
+        "TestFullReviewTrainingJSONDrift/null_notes",
+        "TestFullReviewTrainingJSONDrift/unknown",
+        "TestFullReviewTrainingJSONDrift/type",
+        "TestFullReviewTrainingJSONDrift/null_revision",
+        "TestFullReviewTrainingJSONDrift/nested_case",
+        "TestFullReviewTrainingJSONDrift",
+        "TestFullReviewTrainingQueryBound/1y",
+        "TestFullReviewTrainingQueryBound/3y",
+        "TestFullReviewAuditResponseBudget",
+        "TestFullReviewHistoryResponseBudget",
+        "TestTrainingAuditByteLimitAdjustsItemCount",
+        "TestTrainingLargeVersionContextDetailBudget",
+        "TestHealthEndpointsWithPostgres",
+        "TestConcurrentJobClaimAndCrashRecovery",
+        "TestJobFailureRetryAndAttemptLimit",
+        "TestPermanentFailureAndAttemptUpdateAtomicity",
+        "TestRouteSealJobFailureRollsBackPublication",
+        "TestRouteDeleteReceiptFailureRollsBackBarrier",
+        "TestAssociationAndEnrichmentJobFailureAtomicity/association",
+        "TestAssociationAndEnrichmentJobFailureAtomicity/enrichment",
+        "TestAssociationAndEnrichmentJobFailureAtomicity",
+        "TestLateSampleWorkoutAssociationIdempotencyAndConflict",
+        "TestWorkoutEnrichmentVersioningStaleAndConflict",
+        "TestRouteDeleteAndStaleReplayBarrier",
+        "TestP3HTTPRoutesAssociationsEnrichmentAndErrors",
+        "TestConcurrentRouteChunkAndSeal",
+        "TestSchema10UpgradePreservesP2AndEnablesP3",
+        "TestWorkoutDeleteFencesLateRouteAndAssociation",
+        "TestWorkoutEnrichmentCannotOverwriteBaseFacts",
+        "TestUnsupportedUnitAndProtocolAreStableCodes",
+        "TestUnknownRouteDeleteCreatesBarrierAndIsIdempotent",
+        "TestAPIStoreRestartRetainsRegisteredBatchAndReceipt",
+        "TestRouteSealResponseLossRecoveredByGET",
+        "TestP7RealLoginBoundariesAndRevocation",
+        "TestP7OperationsInvariantInventoryAndSanitization",
+        "TestP7FailedJobAlertResolvesOnlyAfterNewGenerationIsClean",
+        "TestPageFragmentsSealAndImmutableReceipts/sample",
+        "TestPageFragmentsSealAndImmutableReceipts/workout",
+        "TestPageFragmentsSealAndImmutableReceipts",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges/fragment_count",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges/repeated_index",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges/missing_fragment",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges/interleaved_page",
+        "TestPageRegistrationRejectsGapsAndIdentityChanges",
+        "TestPageSealFailureRollsBackFinalFragment/sample_insert",
+        "TestPageSealFailureRollsBackFinalFragment/sample_delete",
+        "TestPageSealFailureRollsBackFinalFragment/workout_insert",
+        "TestPageSealFailureRollsBackFinalFragment/workout_delete",
+        "TestPageSealFailureRollsBackFinalFragment",
+        "TestConcurrentFinalPageFragmentSealsOnce",
+        "TestHTTPPageRecoveryAfterLostFinalResponse",
+        "TestSchema3UpgradePreservesBatchReceiptsWithoutInventingPageSeals",
+        "TestPageSequenceBounds",
+        "TestProductReadPublicationPaginationAndIsolation",
+        "TestCoreIndexAvailability",
+        "TestWorkoutSampleAssociationConstraints",
+        "TestSyntheticWorkoutDurationsAndRouteBatches",
+        "TestRouteChunkRetryConflictGapAndSeal",
+        "TestRouteProjectionAndWorkoutCascade",
+        "TestSampleBatchPipelineAndIdempotency",
+        "TestFreshDatabaseSchemaRebuild",
+        "TestQuantitySeriesChunksAndSeal",
+        "TestSeriesFailureRollsBackSealAndLease",
+        "TestHTTPSeriesUploadAndSeal",
+        "TestSchema7UpgradeAddsSeriesWithoutRewritingFacts",
+        "TestMaximumSeriesChunksSeal",
+        "TestCommitRetryAndDeletionBarrier",
+        "TestUnknownDeleteAndSamePageDeleteWins",
+        "TestIdentitySequenceAndFencing",
+        "TestConflictRollsBackEntireBatch",
+        "TestConcurrentSameBatchReturnsOriginal",
+        "TestDatasetLockOrdersCommitAndTimeout",
+        "TestQueueLeaseAndDirtyGeneration",
+        "TestHTTPUploadReceiptAndAuthentication/sample",
+        "TestHTTPUploadReceiptAndAuthentication/workout",
+        "TestHTTPUploadReceiptAndAuthentication/workout_activities",
+        "TestHTTPUploadReceiptAndAuthentication",
+        "TestReceiptFailureRollsBackFactsAndWork",
+        "TestCommitResponseLossRecoveredByGET/sample",
+        "TestCommitResponseLossRecoveredByGET/workout",
+        "TestCommitResponseLossRecoveredByGET/workout_activities",
+        "TestCommitResponseLossRecoveredByGET",
+        "TestAPIRoleCannotMigrateOrMaintain",
+        "TestCleanScopeKeepsMonotonicGeneration",
+        "TestMaximumDeleteBatchAndEmptyBatch",
+        "TestReadOnlyDeviceAndForeignDatasetIsolation",
+        "TestCancellationDoesNotAdvanceStream",
+        "TestReconnectAfterTerminatedConnection",
+        "TestMigrationsIdempotentAndInitializationProtected",
+        "TestTrainingPerformanceAndCapacity/52weeks",
+        "TestTrainingPerformanceAndCapacity/3years",
+        "TestTrainingPerformanceAndCapacity",
+        "TestTrainingClosedLoopOverrideSurvivalE2E",
+        "TestTrainingUserEditDuringGenerationAndStaleFence",
+        "TestTrainingConcurrentOverridesIdempotencyAndRevocation",
+        "TestTrainingAddMoveSkipDeleteAndScheduleConflict",
+        "TestTrainingPublicationFaultAtomicity/training_base_versions",
+        "TestTrainingPublicationFaultAtomicity/training_plans",
+        "TestTrainingPublicationFaultAtomicity/training_effective_versions",
+        "TestTrainingPublicationFaultAtomicity/dirty_scopes",
+        "TestTrainingPublicationFaultAtomicity/jobs",
+        "TestTrainingPublicationFaultAtomicity/job_attempts",
+        "TestTrainingPublicationFaultAtomicity",
+        "TestTrainingOverrideAndFeedbackFaultAtomicity",
+        "TestTrainingQueueCoalescingColdStartAndAPI",
+        "TestTrainingSchema12UpgradeAndReadiness",
+        "TestTrainingRestrictedRoles",
+        "TestTrainingExecutionScheduledSkipAndHistory",
+        "TestTrainingPublishedReadinessFieldSurvival",
+        "TestTrainingArchiveRetainsStartedExecution",
+        "TestTrainingHTTPMutationAndDefaultEffective",
+        "TestTrainingLeaseExpiresDuringPublishRollsBack",
+        "TestTrainingContextExcludesUnpublishedAndDirtyFeatures",
+        "TestTrainingFrozenTimezoneAndLateAnalysisFeedback",
+        "TestBatchRegistrationFailureRollsBack",
+        "TestCommitFailureInjectionAtomicity/fact",
+        "TestCommitFailureInjectionAtomicity/tombstone",
+        "TestCommitFailureInjectionAtomicity/change_log",
+        "TestCommitFailureInjectionAtomicity/job",
+        "TestCommitFailureInjectionAtomicity/receipt",
+        "TestCommitFailureInjectionAtomicity",
+        "TestUploadLeaseSharedDurableAndFenced",
+        "TestUploadLeaseDatasetCapacityAndIsolation",
+        "TestUploadLeaseConcurrentDatasetCap",
+        "TestUploadLeaseAcquisitionFaultAndCancellation",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction/sample_upsert",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction/sample_delete",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction/workout_upsert",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction/workout_delete",
+        "TestUploadLeaseLossRollsBackEntireFactTransaction",
+        "TestHTTPUploadLeaseAcrossHandlersAndRecoveryReads",
+        "TestHTTPUploadCancellationClosesBodyAndReleasesLease",
+        "TestHTTPUploadReleaseFailurePreservesReceiptAndExpires",
+        "TestSchema5UpgradePreservesReceiptsAndBudgets",
+        "TestWorkoutActivitiesDurabilityAndDeletion",
+        "TestWorkoutActivityConflictRollsBackWholeBatch",
+        "TestWorkoutActivityDeleteWinsAndUnknownBarrier",
+        "TestWorkoutActivitiesAtomicFailures/activity_insert_upsert",
+        "TestWorkoutActivitiesAtomicFailures/receipt_upsert",
+        "TestWorkoutActivitiesAtomicFailures/receipt_delete",
+        "TestWorkoutActivitiesAtomicFailures/seal_upsert",
+        "TestWorkoutActivitiesAtomicFailures/seal_delete",
+        "TestWorkoutActivitiesAtomicFailures/lease_upsert",
+        "TestWorkoutActivitiesAtomicFailures/lease_delete",
+        "TestWorkoutActivitiesAtomicFailures",
+        "TestSchema6UpgradePreservesV1IdentityAndRuntimeState",
+        "TestMaximumWorkoutActivitiesCommitAndCascade",
+        "TestWorkoutPackageChunksSealAndFacts",
+        "TestWorkoutPackageMaxChunksAndDelete",
+        "TestWorkoutPackageSealFailureRollsBack",
+        "TestSchema8UpgradeAddsWorkoutPackagesWithoutRewritingFacts",
+        "TestWorkoutPackageGapOrderAndSealChecks",
+        "TestWorkoutPackageNormalWorkoutIdentityConflict",
+        "TestHTTPWorkoutPackageUploadAndSeal",
+        "TestWorkoutFactsChildrenRetryAndDelete",
+        "TestWorkoutUnknownDeletionWins",
+        "TestWorkoutConflictRollsBackChildren",
+        "TestWorkoutReceiptFailureRollsBackInsertAndDelete/insert",
+        "TestWorkoutReceiptFailureRollsBackInsertAndDelete/delete",
+        "TestWorkoutReceiptFailureRollsBackInsertAndDelete"
+      ]
+    },
+    "missing_pass_identities": [
+      "TestCommitRevisionCannotOvertakeUncommittedWrite",
+      "TestFullReviewTrainingQueryBound/5y",
+      "TestFullReviewTrainingQueryBound"
+    ],
+    "failure_diagnostics_not_preserved_by_original_runner": true,
+    "directed_replay": {
+      "name": "race-failure-directed",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "env",
+        "GOPROXY=https://goproxy.cn,direct",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "go",
+        "test",
+        "-v",
+        "-race",
+        "-count=1",
+        "-tags=integration",
+        "-p",
+        "1",
+        "-run",
+        "^Test(CommitRevisionCannotOvertakeUncommittedWrite|FullReviewTrainingQueryBound)$",
+        "-timeout=15m",
+        "./integration"
+      ],
+      "started_at": "2026-10-29T20:03:49.683112+00:00",
+      "duration_seconds": 60.518,
+      "exit_code": 0,
+      "log": "race-failure-directed.log"
+    },
+    "cause": "NOT ESTABLISHED; no business-source, timeout or assertion changes made"
+  },
+  "prior_quality_attempts": [
+    {
+      "name": "final-go-attempt",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "bash",
+        "-c",
+        "go test -count=1 -tags=integration -p 1 -timeout=30m ./... && bash ../../scripts/check-final-maintenance.sh"
+      ],
+      "started_at": "2026-10-29T19:40:23.006831+00:00",
+      "duration_seconds": 570.115,
+      "exit_code": 1,
+      "log": "final-go-attempt.log"
+    },
+    {
+      "name": "final-go-proxy-attempt",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "bash",
+        "../../scripts/check-final-maintenance.sh"
+      ],
+      "started_at": "2026-10-29T19:50:38.727372+00:00",
+      "duration_seconds": 116.211,
+      "exit_code": 1,
+      "log": "final-go-proxy-attempt.log",
+      "local_environment_not_forwarded": {
+        "RAI_TEST_GOPROXY": "https://goproxy.cn,direct"
+      }
+    }
+  ],
+  "prior_failure": "Default Go module proxy timed out fetching test-only dependencies during go mod tidy -diff; second attempt set a local-only environment variable that the SSH wrapper did not forward; final retry explicitly passes env GOPROXY=https://goproxy.cn,direct in the remote command.",
+  "compose": {
+    "result": {
+      "name": "compose",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "env",
+        "RAI_MAINTENANCE_COMPOSE=1",
+        "RAI_SOURCE_COMMIT=1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+        "bash",
+        "../../scripts/test-p5-compose.sh"
+      ],
+      "started_at": "2026-10-29T19:40:56.066763+00:00",
+      "duration_seconds": 279.42,
+      "exit_code": 0,
+      "log": "compose.log"
+    },
+    "markers": [
+      "MAINTENANCE_COMPOSE_PREPARE=PASS events=1000 sample_jobs=1 types=route,series,package pending_retries=PASS sealed=PASS",
+      "MAINTENANCE_COMPOSE_RETRY=PASS mixed,route,series,package original receipts with new valid leases",
+      "MAINTENANCE_COMPOSE_RETRY=PASS mixed,route,series,package original receipts with new valid leases",
+      "MAINTENANCE_COMPOSE_DATABASE=PASS facts=1998 tombstones=1 sample_jobs=2 sample_scopes=1 generation=2; old receipt replay did not resurrect",
+      "P4_CURRENT_API=PASS (nullable missing personal parameters; no invented load)",
+      "MAINTENANCE_CLI=PASS workout.bundle/v2,training_state.bundle/v2 dry-runs; obsolete v1 rejected",
+      "P5_HTTP_CLOSED_LOOP=PASS (immutable retry, published base, override survives feedback recalculation, frozen execution, late association)",
+      "MAINTENANCE_WORKER_RESTART=PASS real training regeneration after restart",
+      "P5_COMPOSE=PASS (P3 restart/worker-offline regression, same image, actual worker, current API, dry-run, SIGTERM)",
+      "P5_COMPOSE_CLEANUP=0"
+    ],
+    "manifest": {
+      "analysis": [
+        "workout.bundle/v2",
+        "training_state.bundle/v2",
+        "dependency.invalidate/v1"
+      ],
+      "coach_parameters": "coach_parameters/v1",
+      "feedback": "training_feedback/v1",
+      "go": "go1.27.3",
+      "openapi": "1.1.0",
+      "schema": 13,
+      "source_commit": "1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+      "sync_protocol": 2,
+      "training": "training_plan/v1",
+      "training_merge": "training_merge/v2"
+    },
+    "unique_project_random_credentials_fresh_volumes": true,
+    "p7_full_capacity_backup_matrix_sigkill_not_repeated": true
+  },
+  "swift": {
+    "swift_test": {
+      "result": {
+        "name": "swift-tests",
+        "cwd": "/Users/tp/raI/ios/RAI",
+        "command": [
+          "swift",
+          "test"
+        ],
+        "started_at": "2026-10-29T19:39:48.471086+00:00",
+        "duration_seconds": 1.659,
+        "exit_code": 1,
+        "log": "swift-tests.log"
+      },
+      "status": "BLOCKED",
+      "diagnostic": "no such module 'Testing'",
+      "tests_executed": 0
+    },
+    "strict_concurrency_core_build": {
+      "name": "swift-core-build",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "swift",
+        "build",
+        "--product",
+        "ProductProbe",
+        "-Xswiftc",
+        "-strict-concurrency=complete"
+      ],
+      "started_at": "2026-10-29T19:40:57.223020+00:00",
+      "duration_seconds": 5.468,
+      "exit_code": 0,
+      "log": "swift-core-build.log"
+    },
+    "pending_supplemental_probe": {
+      "name": "swift-pending-probe",
+      "cwd": "/Users/tp/raI/.local/final-maintenance-2026-10-30/pending-probe",
+      "command": [
+        "swift",
+        "run",
+        "-Xswiftc",
+        "-strict-concurrency=complete",
+        "PendingProbe"
+      ],
+      "started_at": "2026-10-29T19:42:01.324532+00:00",
+      "duration_seconds": 44.755,
+      "exit_code": 0,
+      "log": "swift-pending-probe.log"
+    },
+    "historical_intent_probe": {
+      "name": "swift-historical-intent",
+      "cwd": "/Users/tp/raI/.local/final-maintenance-2026-10-30/historical-intent-probe",
+      "command": [
+        "swift",
+        "run",
+        "-Xswiftc",
+        "-strict-concurrency=complete",
+        "Probe"
+      ],
+      "started_at": "2026-10-29T19:42:54.833693+00:00",
+      "duration_seconds": 44.6,
+      "exit_code": 0,
+      "log": "swift-historical-intent.log"
+    },
+    "supplemental_probe_is_not_swift_testing_or_ui": true,
+    "supplemental_probe_source_sha256": "ec0020b79986e37a1ae376aac779147bab5d33158a3621a67a07430ca5c3b0dd",
+    "historical_probe_source_sha256": "bb0d924c3deeb739929e86fab0e9bdfd897a97e05060a5ba438adcbc80495fed"
+  },
+  "xcode": {
+    "debug_simulator": {
+      "name": "xcode-debug",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "generic/platform=iOS Simulator",
+        "SWIFT_VERSION=6",
+        "SWIFT_STRICT_CONCURRENCY=complete",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "started_at": "2026-10-29T19:39:48.471081+00:00",
+      "duration_seconds": 0.004,
+      "exit_code": 1,
+      "log": "xcode-debug.log"
+    },
+    "release_generic_ios": {
+      "name": "xcode-release",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-configuration",
+        "Release",
+        "-destination",
+        "generic/platform=iOS",
+        "SWIFT_VERSION=6",
+        "SWIFT_STRICT_CONCURRENCY=complete",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "started_at": "2026-10-29T19:39:48.471195+00:00",
+      "duration_seconds": 0.004,
+      "exit_code": 1,
+      "log": "xcode-release.log"
+    },
+    "related_ui": {
+      "name": "xcode-ui",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-destination",
+        "generic/platform=iOS Simulator",
+        "-only-testing:RAIUITests/ProductUITests/test07PendingSessionLocksDraftAndRetriesOriginalAfterRestart",
+        "-only-testing:RAIUITests/ProductUITests/test08CreatePlanPendingCannotSubmitAnotherDraft",
+        "test"
+      ],
+      "started_at": "2026-10-29T19:40:58.384366+00:00",
+      "duration_seconds": 0.004,
+      "exit_code": 1,
+      "log": "xcode-ui.log"
+    },
+    "status": "BLOCKED",
+    "diagnostic": "xcodebuild requires Xcode; active developer directory is CommandLineTools",
+    "ui_tests_executed": 0
+  },
+  "openapi": {
+    "name": "openapi-lint",
+    "cwd": "/Users/tp/raI",
+    "command": [
+      "/Users/tp/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/pnpm",
+      "--package=@redocly/cli@2.71.1",
+      "dlx",
+      "redocly",
+      "lint",
+      "contracts/openapi-v2.yaml",
+      "--format=json"
+    ],
+    "started_at": "2026-10-29T19:40:24.166340+00:00",
+    "duration_seconds": 2.372,
+    "exit_code": 0,
+    "log": "openapi-lint.log"
+  },
+  "warning_identity": {
+    "tool": "@redocly/cli",
+    "version": "2.71.1",
+    "openapi_version": "1.1.0",
+    "errors": 0,
+    "count": 8,
+    "identities": [
+      {
+        "rule": "operation-4xx-response",
+        "pointer": "#/paths/~1health/get/responses",
+        "message": "Operation must have at least one `4XX` response."
+      },
+      {
+        "rule": "operation-4xx-response",
+        "pointer": "#/paths/~1ready/get/responses",
+        "message": "Operation must have at least one `4XX` response."
+      },
+      {
+        "rule": "operation-4xx-response",
+        "pointer": "#/paths/~1livez/get/responses",
+        "message": "Operation must have at least one `4XX` response."
+      },
+      {
+        "rule": "operation-4xx-response",
+        "pointer": "#/paths/~1readyz/get/responses",
+        "message": "Operation must have at least one `4XX` response."
+      },
+      {
+        "rule": "no-unused-components",
+        "pointer": "#/components/schemas/Event",
+        "message": "Component: \"Event\" is never used."
+      },
+      {
+        "rule": "no-unused-components",
+        "pointer": "#/components/schemas/SeriesPoint",
+        "message": "Component: \"SeriesPoint\" is never used."
+      },
+      {
+        "rule": "no-unused-components",
+        "pointer": "#/components/schemas/WorkoutDetail",
+        "message": "Component: \"WorkoutDetail\" is never used."
+      },
+      {
+        "rule": "no-unused-components",
+        "pointer": "#/components/schemas/RoutePoint",
+        "message": "Component: \"RoutePoint\" is never used."
+      }
+    ],
+    "comparison_source": "docs/evidence/full-review-fix-2026-10-29.json#/openapi/warnings",
+    "identities_equal_to_previous": true
+  },
+  "boundary_package_count": {
+    "CGO_ENABLED=1": [
+      249,
+      249
+    ],
+    "CGO_ENABLED=0": [
+      248,
+      248
+    ],
+    "historical_counts_preserved": true
+  },
+  "source_integrity": {
+    "tracked_files_checked": 586,
+    "tracked_files_changed": [
+      "docs/ARCHITECTURE.md",
+      "docs/IMPLEMENTATION.md"
+    ],
+    "business_source_tests_contracts_scripts_deploy_original_plan_historical_reports_and_existing_evidence_unchanged": true,
+    "migration_count": 13,
+    "all_migration_checksums_match": true,
+    "read_source_manifest": {
+      "AGENTS.md": {
+        "sha256_at_entry": "a718e8490d49b540fb872fc893149da1b9449ae84cd4bdaab79c4250cb91715b",
+        "line_count": 13
+      },
+      "README.md": {
+        "sha256_at_entry": "e1d3d061677d332931464f80fbe28723dc0ae53b0e8716937fd9ec5c5e1e6e8a",
+        "line_count": 96
+      },
+      "docs/ARCHITECTURE.md": {
+        "sha256_at_entry": "2aa307c38f3cfd472245c9c466b4df0cc414c1a6858d77ac803b988dd60acf16",
+        "line_count": 220
+      },
+      "docs/IMPLEMENTATION.md": {
+        "sha256_at_entry": "b50f3f791a6b4ec201db38c0e22cf728a62e9b998ddcb86aa13ee71e66b3c3fd",
+        "line_count": 250
+      },
+      "docs/P4_ALGORITHM_CONTRACT.md": {
+        "sha256_at_entry": "a10dea3b21f2a26a29d846af03b15d099e01203f7b8bc59ac2b51c9981f047e1",
+        "line_count": 63
+      },
+      "docs/P5_COACH_CONTRACT.md": {
+        "sha256_at_entry": "a43bced70072cba1062238581392e75a4249fedead53caa9c650554b0344d01a",
+        "line_count": 74
+      },
+      "contracts/CHANGELOG.md": {
+        "sha256_at_entry": "c5ed0e1779297f83c839c5fadd9e7fe24ca1ae809158dc265a0050909239de49",
+        "line_count": 52
+      },
+      "docs/V2_FULL_PROJECT_REVIEW_2026-10-29.md": {
+        "sha256_at_entry": "1e194bc54f6f8bb0b2e1dae6c3642db9491c691e88f07c6a3e581db792cf728f",
+        "line_count": 431
+      },
+      "docs/V2_FULL_PROJECT_REVIEW_FIX_RESULT_2026-10-29.md": {
+        "sha256_at_entry": "b7144bae3c72bd7614252d22cdbd488b605d660d10d14b0357eaf026f8070b13",
+        "line_count": 233
+      },
+      "apps/server/internal/storage/postgres/store.go": {
+        "sha256_at_entry": "d9aa08dd76b67ea25fac2c9a970d123bfd880f3568c82809e104173b7770fcaf",
+        "line_count": 581
+      },
+      "apps/server/internal/storage/postgres/sample_batch.go": {
+        "sha256_at_entry": "c57878a16ef50fcbc55247562e61cdc9e08ad6b0b6b76b4fca114935816e933b",
+        "line_count": 137
+      },
+      "apps/server/internal/httpapi/training.go": {
+        "sha256_at_entry": "4f23d406a94239798af0b0eaed0926cb0a382da4e94607bd900ab42e6d9b3d66",
+        "line_count": 155
+      },
+      "apps/server/internal/httpapi/server.go": {
+        "sha256_at_entry": "9464139fb05976baa0ef60414aba574e7cc740303ef133629254807e6d868bf2",
+        "line_count": 790
+      },
+      "apps/server/internal/storage/postgres/routes.go": {
+        "sha256_at_entry": "930264dcfb931d564cffca34dc5f2a1a2928eee5350430c72c575d2372a7b8f9",
+        "line_count": 516
+      },
+      "apps/server/internal/storage/postgres/series.go": {
+        "sha256_at_entry": "584ec8fa23a85d88d855e51ba08697ac6bbeec472bdfb38a3408bee6e7c12db5",
+        "line_count": 388
+      },
+      "apps/server/internal/storage/postgres/workout_packages.go": {
+        "sha256_at_entry": "a167730730de580a40bce022e5e041b82d029b644f012f74439677cea41a54a8",
+        "line_count": 499
+      },
+      "ios/RAI/Sources/ProductCore/Product.swift": {
+        "sha256_at_entry": "79879e2b6154aa595581e89df392dc89b6fbd75a2a096214d617f7d2dd18b133",
+        "line_count": 270
+      },
+      "ios/RAI/App/ProductModel.swift": {
+        "sha256_at_entry": "3c94c9e9884704d39b49b18ee881a01248ffd932d8e7dd80e6f3e5b67971f654",
+        "line_count": 301
+      },
+      "ios/RAI/App/TrainingViews.swift": {
+        "sha256_at_entry": "14d8ab13e053291595fa48235fb6d0c4b5515d8838511d68b2d5f51cd582265f",
+        "line_count": 629
+      }
+    }
+  },
+  "cleanup": {
+    "projects": {
+      "rai-maintenance-pg-1793302733-1436309": {
+        "containers": [],
+        "volumes": [],
+        "networks": [],
+        "task_images": []
+      },
+      "rai-maintenance-pg-1793302786-1439424": {
+        "containers": [],
+        "volumes": [],
+        "networks": [],
+        "task_images": []
+      },
+      "rai-maintenance-pg-1793302845-1443099": {
+        "containers": [],
+        "volumes": [],
+        "networks": [],
+        "task_images": []
+      },
+      "rai-maintenance-pg-1793303453-1469280": {
+        "containers": [],
+        "volumes": [],
+        "networks": [],
+        "task_images": []
+      },
+      "rai-maintenance-pg-1793303615-1474882": {
+        "containers": [],
+        "volumes": [],
+        "networks": [],
+        "task_images": []
+      },
+      "rai-maintenance-pg-1793304246-1494146": {
+        "containers": [],
+        "volumes": [],
+        "networks": [],
+        "task_images": []
+      },
+      "rai-maintenance-pg-1793304362-1497588": {
+        "containers": [],
+        "volumes": [],
+        "networks": [],
+        "task_images": []
+      },
+      "rai-p5-1793302881-1445725": {
+        "containers": [],
+        "volumes": [],
+        "networks": [],
+        "task_images": []
+      }
+    },
+    "root_runs": {
+      "20261030033838-1435419": {
+        "containers": [],
+        "networks": []
+      },
+      "20261030033918-1437552": {
+        "containers": [],
+        "networks": []
+      },
+      "20261030034023-1441456": {
+        "containers": [],
+        "networks": []
+      },
+      "20261030034056-1443746": {
+        "containers": [],
+        "networks": []
+      },
+      "20261030035039-1468379": {
+        "containers": [],
+        "networks": []
+      },
+      "20261030035321-1474056": {
+        "containers": [],
+        "networks": []
+      },
+      "20261030040350-1493277": {
+        "containers": [],
+        "networks": []
+      },
+      "20261030040547-1496747": {
+        "containers": [],
+        "networks": []
+      }
+    },
+    "running_container_names": [
+      "rai-postgres",
+      "frpc"
+    ],
+    "independent_verification": "PASS",
+    "verified_at_utc": "2026-10-29T20:14:40.480180+00:00",
+    "legacy_database_queried": false,
+    "root_anonymous_volume_cleanup": "remote-test.sh checks removal for its own captured volume names; no global prune",
+    "ssh_control_connection_closed": true,
+    "task_owned_ssh_socket_config_known_hosts_and_wrapper_removed": true
+  },
+  "commands": [
+    {
+      "name": "current-directed",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "go",
+        "test",
+        "-v",
+        "-count=1",
+        "-tags=integration",
+        "-p",
+        "1",
+        "-run",
+        "^TestFinalMaintenance",
+        "-timeout=15m",
+        "./integration"
+      ],
+      "started_at": "2026-10-29T19:38:37.919907+00:00",
+      "duration_seconds": 79.082,
+      "exit_code": 0
+    },
+    {
+      "name": "historical-reproduction",
+      "cwd": "/Users/tp/raI/.local/final-maintenance-2026-10-30/baseline",
+      "command": [
+        "scripts/test-remote.sh",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "env",
+        "RAI_MAINTENANCE_BASELINE=1",
+        "go",
+        "test",
+        "-v",
+        "-count=1",
+        "-tags=integration",
+        "-p",
+        "1",
+        "-run",
+        "^TestFinalMaintenance(MixedSamples|StreamTypeBoundary|MultipleTypeStreams|ChunkLeaseRetry|TrainingHTTPWire)$",
+        "-timeout=15m",
+        "./integration"
+      ],
+      "started_at": "2026-10-29T19:39:18.176370+00:00",
+      "duration_seconds": 86.96,
+      "exit_code": 0
+    },
+    {
+      "name": "openapi",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "/Users/tp/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/pnpm",
+        "--store-dir",
+        "/Users/tp/raI/.local/final-maintenance-2026-10-30/pnpm-store",
+        "dlx",
+        "@redocly/cli@2.71.1",
+        "lint",
+        "contracts/openapi-v2.yaml",
+        "--format=json"
+      ],
+      "started_at": "2026-10-29T19:39:28.068038+00:00",
+      "duration_seconds": 0.727,
+      "exit_code": 1
+    },
+    {
+      "name": "xcode-debug",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "generic/platform=iOS Simulator",
+        "SWIFT_VERSION=6",
+        "SWIFT_STRICT_CONCURRENCY=complete",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "started_at": "2026-10-29T19:39:48.471081+00:00",
+      "duration_seconds": 0.004,
+      "exit_code": 1
+    },
+    {
+      "name": "swift-tests",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "swift",
+        "test"
+      ],
+      "started_at": "2026-10-29T19:39:48.471086+00:00",
+      "duration_seconds": 1.659,
+      "exit_code": 1
+    },
+    {
+      "name": "openapi-retry",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "/Users/tp/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/pnpm",
+        "dlx",
+        "@redocly/cli@2.71.1",
+        "lint",
+        "contracts/openapi-v2.yaml",
+        "--format=json"
+      ],
+      "started_at": "2026-10-29T19:39:48.471184+00:00",
+      "duration_seconds": 5.452,
+      "exit_code": 1
+    },
+    {
+      "name": "xcode-release",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-configuration",
+        "Release",
+        "-destination",
+        "generic/platform=iOS",
+        "SWIFT_VERSION=6",
+        "SWIFT_STRICT_CONCURRENCY=complete",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ],
+      "started_at": "2026-10-29T19:39:48.471195+00:00",
+      "duration_seconds": 0.004,
+      "exit_code": 1
+    },
+    {
+      "name": "final-go-attempt",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "bash",
+        "-c",
+        "go test -count=1 -tags=integration -p 1 -timeout=30m ./... && bash ../../scripts/check-final-maintenance.sh"
+      ],
+      "started_at": "2026-10-29T19:40:23.006831+00:00",
+      "duration_seconds": 570.115,
+      "exit_code": 1
+    },
+    {
+      "name": "openapi-lint",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "/Users/tp/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/pnpm",
+        "--package=@redocly/cli@2.71.1",
+        "dlx",
+        "redocly",
+        "lint",
+        "contracts/openapi-v2.yaml",
+        "--format=json"
+      ],
+      "started_at": "2026-10-29T19:40:24.166340+00:00",
+      "duration_seconds": 2.372,
+      "exit_code": 0
+    },
+    {
+      "name": "compose",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "env",
+        "RAI_MAINTENANCE_COMPOSE=1",
+        "RAI_SOURCE_COMMIT=1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+        "bash",
+        "../../scripts/test-p5-compose.sh"
+      ],
+      "started_at": "2026-10-29T19:40:56.066763+00:00",
+      "duration_seconds": 279.42,
+      "exit_code": 0
+    },
+    {
+      "name": "swift-core-build",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "swift",
+        "build",
+        "--product",
+        "ProductProbe",
+        "-Xswiftc",
+        "-strict-concurrency=complete"
+      ],
+      "started_at": "2026-10-29T19:40:57.223020+00:00",
+      "duration_seconds": 5.468,
+      "exit_code": 0
+    },
+    {
+      "name": "xcode-ui",
+      "cwd": "/Users/tp/raI/ios/RAI",
+      "command": [
+        "xcodebuild",
+        "-project",
+        "RAI.xcodeproj",
+        "-scheme",
+        "RAI",
+        "-destination",
+        "generic/platform=iOS Simulator",
+        "-only-testing:RAIUITests/ProductUITests/test07PendingSessionLocksDraftAndRetriesOriginalAfterRestart",
+        "-only-testing:RAIUITests/ProductUITests/test08CreatePlanPendingCannotSubmitAnotherDraft",
+        "test"
+      ],
+      "started_at": "2026-10-29T19:40:58.384366+00:00",
+      "duration_seconds": 0.004,
+      "exit_code": 1
+    },
+    {
+      "name": "swift-pending-probe",
+      "cwd": "/Users/tp/raI/.local/final-maintenance-2026-10-30/pending-probe",
+      "command": [
+        "swift",
+        "run",
+        "-Xswiftc",
+        "-strict-concurrency=complete",
+        "PendingProbe"
+      ],
+      "started_at": "2026-10-29T19:42:01.324532+00:00",
+      "duration_seconds": 44.755,
+      "exit_code": 0
+    },
+    {
+      "name": "swift-historical-intent",
+      "cwd": "/Users/tp/raI/.local/final-maintenance-2026-10-30/historical-intent-probe",
+      "command": [
+        "swift",
+        "run",
+        "-Xswiftc",
+        "-strict-concurrency=complete",
+        "Probe"
+      ],
+      "started_at": "2026-10-29T19:42:54.833693+00:00",
+      "duration_seconds": 44.6,
+      "exit_code": 0
+    },
+    {
+      "name": "final-go-proxy-attempt",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "bash",
+        "../../scripts/check-final-maintenance.sh"
+      ],
+      "started_at": "2026-10-29T19:50:38.727372+00:00",
+      "duration_seconds": 116.211,
+      "exit_code": 1,
+      "local_environment_not_forwarded": {
+        "RAI_TEST_GOPROXY": "https://goproxy.cn,direct"
+      }
+    },
+    {
+      "name": "final-go-race-attempt",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "env",
+        "GOPROXY=https://goproxy.cn,direct",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "bash",
+        "../../scripts/check-final-maintenance.sh"
+      ],
+      "started_at": "2026-10-29T19:53:20.874069+00:00",
+      "duration_seconds": 552.207,
+      "exit_code": 1
+    },
+    {
+      "name": "race-failure-directed",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "env",
+        "GOPROXY=https://goproxy.cn,direct",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "go",
+        "test",
+        "-v",
+        "-race",
+        "-count=1",
+        "-tags=integration",
+        "-p",
+        "1",
+        "-run",
+        "^Test(CommitRevisionCannotOvertakeUncommittedWrite|FullReviewTrainingQueryBound)$",
+        "-timeout=15m",
+        "./integration"
+      ],
+      "started_at": "2026-10-29T20:03:49.683112+00:00",
+      "duration_seconds": 60.518,
+      "exit_code": 0
+    },
+    {
+      "name": "final-go",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "scripts/test-remote.sh",
+        "env",
+        "GOPROXY=https://goproxy.cn,direct",
+        "bash",
+        "../../scripts/test-final-maintenance-postgres.sh",
+        "go",
+        "test",
+        "-json",
+        "-race",
+        "-count=1",
+        "-tags=integration",
+        "-p",
+        "1",
+        "-timeout=30m",
+        "./..."
+      ],
+      "started_at": "2026-10-29T20:05:47.198762+00:00",
+      "duration_seconds": 527.77,
+      "exit_code": 0
+    },
+    {
+      "name": "cleanup-verification",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "python3",
+        ".local/final-maintenance-2026-10-30/cleanup-check.py"
+      ],
+      "started_at": "2026-10-29T20:14:39.388301+00:00",
+      "duration_seconds": 1.097,
+      "exit_code": 0
+    },
+    {
+      "name": "artifact-verification",
+      "cwd": "/Users/tp/raI",
+      "command": [
+        "python3",
+        ".local/final-maintenance-2026-10-30/check-artifacts.py"
+      ],
+      "started_at": "2026-10-29T20:14:47.029107+00:00",
+      "duration_seconds": 0.401,
+      "exit_code": 0
+    }
+  ],
+  "deferred_gates": {
+    "P3 REAL DEVICE ACCEPTANCE": "DEFERRED / NOT VERIFIED",
+    "P6 REAL DEVICE ACCEPTANCE": "DEFERRED / NOT VERIFIED",
+    "DISASTER RECOVERY RESYNC": "BLOCKED / NOT IMPLEMENTED",
+    "PRODUCTION RELEASE READY": "NO"
+  },
+  "deviations": [
+    "Actual checkout is /Users/tp/raI on 1783517, not /Users/ta/rai on 945db85.",
+    "Existing source fixes were verified; historical source was unpacked into a private temporary snapshot with current directed test files for comparison, without resetting the checkout.",
+    "Stream contracts reject mixed sample/non-sample and mixed sample types; those cases assert rejection without facts/jobs, and different types are tested in separate legal streams.",
+    "2026-10-29 maintenance result/evidence files referenced by entry documents were absent; new artifacts use the actual 2026-10-30 date.",
+    "No full Xcode is installed. Swift core supplemental executable probes cannot substitute for required Swift Testing and UI tests."
+  ],
+  "generated_at_utc": "2026-10-29T20:15:40.681897+00:00"
+}

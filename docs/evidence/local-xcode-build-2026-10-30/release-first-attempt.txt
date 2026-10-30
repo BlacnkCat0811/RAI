@@ -1,0 +1,15 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Release -sdk iphoneos -derivedDataPath /tmp/rai-xcode-build-2026-10-30/DerivedData CODE_SIGNING_ALLOWED=NO build
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    SDKROOT = iphoneos26.5
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  RAIClient: /Users/tp/raI/ios/RAI
+
+2026-10-30 15:44:12.944 xcodebuild[53300:614985] Writing error result bundle to /var/folders/00/lkyg082n1731gpk2zd6md7ch0000gn/T/ResultBundle_2026-30-10_15-44-0012.xcresult
+xcodebuild: error: Found no destinations for the scheme 'RAI' and action build.

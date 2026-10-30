@@ -1,5 +1,7 @@
 # RAI
 
+2026-10-30真机专项已收尾：iPhone12ProMax已实际安装/启动并提交6,000条样本，但完整初始/增量、Workout→Analysis→Training闭环及GPU验收尚未完成；用户因设备不再可用要求结束。独立 `rai-v2-device` 数据库与volume保留，最终状态 **DEVICE ACCEPTANCE: NOT COMPLETED**，见[设备验收结果](docs/V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)。下文阶段描述及历史延期不代替本次结论。
+
 在本目录从零建设的原生 iOS 跑步与健康分析系统：SwiftUI / HealthKit 客户端、Go 模块化单体、PostgreSQL 持久事实与任务队列。旧目录 `../running` 不参与构建和运行。
 
 架构依据：[原始方案](RAI-Go-PostgreSQL架构重设计与实施方案.md)。实际进度、验收证据与下一步见 [实施记录](docs/IMPLEMENTATION.md)；工程约定见 [AGENTS](AGENTS.md)，边界与回滚见 [ADR-001](docs/adr/001-new-project.md)。

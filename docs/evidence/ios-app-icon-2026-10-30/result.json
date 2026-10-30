@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-30",
+  "scope": "Generate and integrate an iOS app icon for the RAI running and training app.",
+  "asset": {
+    "source": "built-in image_gen",
+    "path": "ios/RAI/App/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+    "dimensions_px": [1024, 1024],
+    "palette": "pearl silver, ice cyan, pale lavender highlights, deep indigo background; no orange or gold",
+    "sha256": "fe529cd36280c9270ec2c3c6a3cfd47779433ff2f7c38d820da8276d2f67dc4e"
+  },
+  "integration": {
+    "asset_catalog": "ios/RAI/App/Assets.xcassets/AppIcon.appiconset/Contents.json",
+    "xcodegen_manifest": "ios/RAI/project.yml",
+    "xcode_project": "ios/RAI/RAI.xcodeproj/project.pbxproj",
+    "app_icon_name": "AppIcon"
+  },
+  "verification": {
+    "xcode": "26.6 (17F113)",
+    "project_yml_yaml": "PASS",
+    "build_command": "xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-appicon-build CODE_SIGNING_ALLOWED=NO build -quiet",
+    "build_exit_code": 0,
+    "compiled_asset_catalog": "/tmp/rai-appicon-build/Build/Products/Debug-iphoneos/RAI.app/Assets.car",
+    "compiled_app_icon_name": "AppIcon",
+    "assetutil_icon_entries": 4
+  },
+  "not_verified": [
+    "Physical iPhone home screen appearance and masking.",
+    "Dark and tinted alternate icon appearances."
+  ]
+}

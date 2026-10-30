@@ -1,10 +1,12 @@
 # fnOS SSH 与数据库隧道
 
-本机 macOS 的 `~/.ssh/config` 已配置独立别名，未保存密码，已有 cloud 配置保留。
+本机 macOS 的 `~/.ssh/config` 已配置独立别名，未保存密码；默认走局域网。公网入口 `101.33.202.40:8022` 仍可作为外部备用入口，但本机当前配置不依赖它。
 
 ```bash
-# 登录 NAS：101.33.202.40:8022，用户 tpandmr
+# 登录 NAS（局域网）：192.168.10.25:22，用户 tpandmr
 ssh rai-fnos
+# 同义别名
+ssh rai-fnos-lan
 
 # 开启隧道，保持终端打开，Ctrl-C 关闭
 ssh rai-fnos-db
@@ -20,7 +22,7 @@ nc -vz 127.0.0.1 15433
 | 连接方式 | 客户端 SSH 页 | 数据库页 |
 |---|---|---|
 | 使用上述外部隧道 | 关闭客户端 SSH | Host `127.0.0.1`，Port `15433` |
-| 客户端内建隧道 | Host `101.33.202.40`，Port `8022`，User `tpandmr`，密码认证 | Host `127.0.0.1`，Port `5433` |
+| 客户端内建隧道 | Host `192.168.10.25`，Port `22`，User `tpandmr` | Host `127.0.0.1`，Port `5433` |
 
 用户提供的库名和数据库用户均为 `rai`。密码由用户自行从 NAS 秘密配置获取，不读取或输出整个 `.env`。两种方式选一种。认证、转发和数据库版本需实际连接验证，配置通过不代表连接成功。
 
@@ -29,7 +31,7 @@ nc -vz 127.0.0.1 15433
 本地 SSH 配置不随仓库分发。Windows 可执行：
 
 ```powershell
-ssh -p 8022 -N -o ExitOnForwardFailure=yes -L 127.0.0.1:15433:127.0.0.1:5433 tpandmr@101.33.202.40
+ssh -p 22 -N -o ExitOnForwardFailure=yes -L 127.0.0.1:15433:127.0.0.1:5433 tpandmr@192.168.10.25
 # 另一个 PowerShell
 Test-NetConnection 127.0.0.1 -Port 15433
 ```
@@ -79,5 +81,5 @@ N100 是 4 核低功耗机器（约 8 GB 内存），默认 `GOMAXPROCS=2`；同
 | `RAI_USE_RSYNC` | `1` | 设为 `0` 时改用 tar 同步 |
 | `RAI_KEEP_REMOTE` | `0` | 设为 `1` 保留失败现场，便于排查 |
 
-前置条件：本机公钥已安装到 `tpandmr@101.33.202.40:8022`，远端用户可执行 `docker`；host 模式还要求远端 `go version` 为 `go1.27.3` 且有 `gcc`。SSH 主机密钥按首次核对结果固定；不要用 `StrictHostKeyChecking=no` 绕过。
+前置条件：本机公钥已安装到 `tpandmr@192.168.10.25:22`，远端用户可执行 `docker`；host 模式还要求远端 `go version` 为 `go1.27.3` 且有 `gcc`。SSH 主机密钥按首次核对结果固定；不要用 `StrictHostKeyChecking=no` 绕过。
 

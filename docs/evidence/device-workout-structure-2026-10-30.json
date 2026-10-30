@@ -1,0 +1,443 @@
+{
+  "activities": [
+    {
+      "activityType": 37,
+      "durationS": 1903.8650439977646,
+      "endDatePresent": true,
+      "events": [
+        {
+          "durationS": 441.50759530067444,
+          "eventType": 7,
+          "metadata": []
+        },
+        {
+          "durationS": 693.3388184309006,
+          "eventType": 7,
+          "metadata": []
+        },
+        {
+          "durationS": 411.7169954776764,
+          "eventType": 7,
+          "metadata": []
+        },
+        {
+          "durationS": 800.9380080699921,
+          "eventType": 7,
+          "metadata": []
+        },
+        {
+          "durationS": 546.0056937932968,
+          "eventType": 7,
+          "metadata": []
+        },
+        {
+          "durationS": 420.11993181705475,
+          "eventType": 7,
+          "metadata": []
+        },
+        {
+          "durationS": 407.0574094057083,
+          "eventType": 7,
+          "metadata": []
+        },
+        {
+          "durationS": 81.98401951789856,
+          "eventType": 7,
+          "metadata": []
+        }
+      ],
+      "lapLengthPresent": false,
+      "metadata": [],
+      "ordinal": 0,
+      "statistics": [
+        {
+          "aggregatesPresent": [
+            "sum"
+          ],
+          "canonicalUnitInBuild": "kcal",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierActiveEnergyBurned"
+        },
+        {
+          "aggregatesPresent": [
+            "sum"
+          ],
+          "canonicalUnitInBuild": "kcal",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierBasalEnergyBurned"
+        },
+        {
+          "aggregatesPresent": [
+            "sum"
+          ],
+          "canonicalUnitInBuild": "m",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierDistanceWalkingRunning"
+        },
+        {
+          "aggregatesPresent": [
+            "average",
+            "minimum",
+            "maximum"
+          ],
+          "canonicalUnitInBuild": "count/min",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierHeartRate"
+        },
+        {
+          "aggregatesPresent": [
+            "average",
+            "minimum",
+            "maximum"
+          ],
+          "canonicalUnitInBuild": "ms",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierRunningGroundContactTime"
+        },
+        {
+          "aggregatesPresent": [
+            "average",
+            "minimum",
+            "maximum"
+          ],
+          "canonicalUnitInBuild": "W",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierRunningPower"
+        },
+        {
+          "aggregatesPresent": [
+            "average",
+            "minimum",
+            "maximum"
+          ],
+          "canonicalUnitInBuild": "m/s",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierRunningSpeed"
+        },
+        {
+          "aggregatesPresent": [
+            "average",
+            "minimum",
+            "maximum"
+          ],
+          "canonicalUnitInBuild": "m",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierRunningStrideLength"
+        },
+        {
+          "aggregatesPresent": [
+            "average",
+            "minimum",
+            "maximum"
+          ],
+          "canonicalUnitInBuild": "m",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierRunningVerticalOscillation"
+        },
+        {
+          "aggregatesPresent": [
+            "sum"
+          ],
+          "canonicalUnitInBuild": "count",
+          "durationS": 1903.8650439977646,
+          "preferredDisplayUnit": null,
+          "type": "HKQuantityTypeIdentifierStepCount"
+        }
+      ]
+    }
+  ],
+  "activityType": 37,
+  "anchorsReadOrAdvanced": false,
+  "associatedSamples": [
+    {
+      "countCappedAt1001": false,
+      "multiPointSampleCount": 0,
+      "status": "visible_only_not_authorization_proof",
+      "type": "HKQuantityTypeIdentifierActiveEnergyBurned",
+      "visibleSampleCount": 693,
+      "visibleSeriesPointCount": 693
+    },
+    {
+      "errorCode": 5,
+      "status": "query_failed",
+      "type": "HKQuantityTypeIdentifierBasalEnergyBurned"
+    },
+    {
+      "countCappedAt1001": false,
+      "multiPointSampleCount": 0,
+      "status": "visible_only_not_authorization_proof",
+      "type": "HKQuantityTypeIdentifierDistanceWalkingRunning",
+      "visibleSampleCount": 704,
+      "visibleSeriesPointCount": 704
+    },
+    {
+      "countCappedAt1001": false,
+      "multiPointSampleCount": 0,
+      "status": "visible_only_not_authorization_proof",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "visibleSampleCount": 349,
+      "visibleSeriesPointCount": 349
+    },
+    {
+      "errorCode": 5,
+      "status": "query_failed",
+      "type": "HKQuantityTypeIdentifierRunningGroundContactTime"
+    },
+    {
+      "countCappedAt1001": false,
+      "multiPointSampleCount": 0,
+      "status": "visible_only_not_authorization_proof",
+      "type": "HKQuantityTypeIdentifierRunningPower",
+      "visibleSampleCount": 667,
+      "visibleSeriesPointCount": 667
+    },
+    {
+      "countCappedAt1001": false,
+      "multiPointSampleCount": 0,
+      "status": "visible_only_not_authorization_proof",
+      "type": "HKQuantityTypeIdentifierRunningSpeed",
+      "visibleSampleCount": 695,
+      "visibleSeriesPointCount": 695
+    },
+    {
+      "errorCode": 5,
+      "status": "query_failed",
+      "type": "HKQuantityTypeIdentifierRunningStrideLength"
+    },
+    {
+      "errorCode": 5,
+      "status": "query_failed",
+      "type": "HKQuantityTypeIdentifierRunningVerticalOscillation"
+    },
+    {
+      "countCappedAt1001": false,
+      "multiPointSampleCount": 0,
+      "status": "visible_only_not_authorization_proof",
+      "type": "HKQuantityTypeIdentifierStepCount",
+      "visibleSampleCount": 706,
+      "visibleSeriesPointCount": 706
+    }
+  ],
+  "durationS": 1903.8650439977646,
+  "elapsedS": 1903.8650439977646,
+  "events": [
+    {
+      "durationS": 441.50759530067444,
+      "eventType": 7,
+      "metadata": []
+    },
+    {
+      "durationS": 693.3388184309006,
+      "eventType": 7,
+      "metadata": []
+    },
+    {
+      "durationS": 411.7169954776764,
+      "eventType": 7,
+      "metadata": []
+    },
+    {
+      "durationS": 800.9380080699921,
+      "eventType": 7,
+      "metadata": []
+    },
+    {
+      "durationS": 546.0056937932968,
+      "eventType": 7,
+      "metadata": []
+    },
+    {
+      "durationS": 420.11993181705475,
+      "eventType": 7,
+      "metadata": []
+    },
+    {
+      "durationS": 407.0574094057083,
+      "eventType": 7,
+      "metadata": []
+    },
+    {
+      "durationS": 81.98401951789856,
+      "eventType": 7,
+      "metadata": []
+    }
+  ],
+  "fieldsPresent": {
+    "device": true,
+    "endDate": true,
+    "startDate": true,
+    "totalDistance": true
+  },
+  "fullUUIDsIncluded": false,
+  "gpsIncluded": false,
+  "healthValuesIncluded": false,
+  "metadata": [
+    {
+      "key": "HKAverageMETs",
+      "normalizerAllowlisted": false,
+      "valueType": "quantity"
+    },
+    {
+      "key": "HKElevationAscended",
+      "normalizerAllowlisted": false,
+      "valueType": "quantity"
+    },
+    {
+      "key": "HKIndoorWorkout",
+      "normalizerAllowlisted": true,
+      "valueType": "number"
+    },
+    {
+      "key": "HKTimeZone",
+      "normalizerAllowlisted": true,
+      "valueType": "string"
+    },
+    {
+      "key": "HKWeatherHumidity",
+      "normalizerAllowlisted": false,
+      "valueType": "quantity"
+    },
+    {
+      "key": "HKWeatherTemperature",
+      "normalizerAllowlisted": false,
+      "valueType": "quantity"
+    }
+  ],
+  "reportVersion": 1,
+  "routes": {
+    "coordinatesRead": false,
+    "countCappedAt100": false,
+    "declaredPointCount": 1768,
+    "metadata": [
+      [
+        {
+          "key": "HKMetadataKeySyncIdentifier",
+          "normalizerAllowlisted": false,
+          "valueType": "string"
+        },
+        {
+          "key": "HKMetadataKeySyncVersion",
+          "normalizerAllowlisted": false,
+          "valueType": "number"
+        }
+      ]
+    ],
+    "visibleRouteCount": 1
+  },
+  "scope": "latest_visible_running_workout_complete_structure; associated query counts bounded; no health measurement values",
+  "sourceFingerprint": "4b9cf9c43da9948d6ad58b743eda426758a10ec7bed53bf654a125741c71bed8",
+  "statistics": [
+    {
+      "aggregatesPresent": [
+        "sum"
+      ],
+      "canonicalUnitInBuild": "kcal",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierActiveEnergyBurned"
+    },
+    {
+      "aggregatesPresent": [
+        "sum"
+      ],
+      "canonicalUnitInBuild": "kcal",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierBasalEnergyBurned"
+    },
+    {
+      "aggregatesPresent": [
+        "sum"
+      ],
+      "canonicalUnitInBuild": "m",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierDistanceWalkingRunning"
+    },
+    {
+      "aggregatesPresent": [
+        "average",
+        "minimum",
+        "maximum"
+      ],
+      "canonicalUnitInBuild": "count/min",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierHeartRate"
+    },
+    {
+      "aggregatesPresent": [
+        "average",
+        "minimum",
+        "maximum"
+      ],
+      "canonicalUnitInBuild": "ms",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierRunningGroundContactTime"
+    },
+    {
+      "aggregatesPresent": [
+        "average",
+        "minimum",
+        "maximum"
+      ],
+      "canonicalUnitInBuild": "W",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierRunningPower"
+    },
+    {
+      "aggregatesPresent": [
+        "average",
+        "minimum",
+        "maximum"
+      ],
+      "canonicalUnitInBuild": "m/s",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierRunningSpeed"
+    },
+    {
+      "aggregatesPresent": [
+        "average",
+        "minimum",
+        "maximum"
+      ],
+      "canonicalUnitInBuild": "m",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierRunningStrideLength"
+    },
+    {
+      "aggregatesPresent": [
+        "average",
+        "minimum",
+        "maximum"
+      ],
+      "canonicalUnitInBuild": "m",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierRunningVerticalOscillation"
+    },
+    {
+      "aggregatesPresent": [
+        "sum"
+      ],
+      "canonicalUnitInBuild": "count",
+      "durationS": 1903.8650439977646,
+      "preferredDisplayUnit": null,
+      "type": "HKQuantityTypeIdentifierStepCount"
+    }
+  ],
+  "workoutFingerprint": "f105384cfb11e8275cf0576948462dc597c7e754b98395436ae8b7a94fce37c3"
+}

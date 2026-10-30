@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-30",
+  "timezone": "Asia/Shanghai",
+  "scope": "iPhone 12 Pro Max simulator only; synthetic data",
+  "status": "PARTIAL — SEVEN UI FLOWS PASS; ACCESSIBILITY AUDIT BLOCKED BY SIMULATOR SETTING",
+  "repository": "/Users/tp/rai",
+  "head": "1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+  "environment": {
+    "xcode": "Xcode 26.6\nBuild version 17F113",
+    "simulator": {
+      "name": "RAI iPhone 12 Pro Max",
+      "model": "iPhone 12 Pro Max",
+      "model_identifier": "iPhone13,4",
+      "runtime": "iOS 26.5 (23F77)",
+      "udid": "D44B6925-BB19-4556-B8AE-94B758B3B532"
+    },
+    "build_setting": "RAI_DEV_HTTP_HOST=127.0.0.1; local simulator signing",
+    "backend": "isolated fnOS PostgreSQL 18.6 + real API + real Worker; synthetic data"
+  },
+  "results": {
+    "debug_build": "PASS",
+    "install": "PASS",
+    "launch": "PASS",
+    "unit": {
+      "passed": 14,
+      "failed": 0,
+      "suite": "RAITests.NormalizerTests"
+    },
+    "ui": [
+      {
+        "test": "test01NavigationVisualBaselineAndDiagnostics",
+        "status": "PASS",
+        "seconds": 28.947
+      },
+      {
+        "test": "test02EditConflictMoveSkipAddRevokeExecutionFeedback",
+        "status": "PASS",
+        "seconds": 118.666,
+        "note": "passed after test-only re-entry fix"
+      },
+      {
+        "test": "test03LaunchAndHomeScrollPerformance",
+        "status": "PASS",
+        "seconds": 47.148,
+        "metrics": {
+          "clock_s": {
+            "avg": 7.575,
+            "values": [
+              7.683111,
+              7.499764,
+              7.541706
+            ]
+          },
+          "absolute_memory_kb": {
+            "avg": 66714.283,
+            "values": [
+              66510.848,
+              66465.792,
+              67166.208
+            ]
+          },
+          "scope": "XCTest simulator automation overhead"
+        }
+      },
+      {
+        "test": "test04AccessibilityLayout",
+        "status": "BLOCKED",
+        "attempts": 4,
+        "error": "precondition failed: transparency=false, type=accessibility5, motion=true",
+        "note": "Reduce Transparency could not be enabled on this simulator; accessibility audits were not reached"
+      },
+      {
+        "test": "test05VisualRegressionCandidate",
+        "status": "PASS",
+        "seconds": 37.932
+      },
+      {
+        "test": "test06AuditPagination",
+        "status": "PASS",
+        "seconds": 34.805
+      },
+      {
+        "test": "test07PendingSessionLocksDraftAndRetriesOriginalAfterRestart",
+        "status": "PASS",
+        "seconds": 58.249
+      },
+      {
+        "test": "test08CreatePlanPendingCannotSubmitAnotherDraft",
+        "status": "PASS",
+        "seconds": 29.793,
+        "note": "passed after clearing stale app container"
+      }
+    ],
+    "synthetic_swift_host": {
+      "seed": "PASS",
+      "home_real_api": "PASS",
+      "lost_ack": "PASS",
+      "conflict": "PASS",
+      "regeneration": "PASS",
+      "feedback": "PASS"
+    }
+  },
+  "test_changes": [
+    {
+      "file": "ios/RAI/UITests/ProductUITests.swift",
+      "sha256": "df385edb953252c220d34b25ce45fc265f3f2277a0f50ba883ae045b9b65d042",
+      "change": "After revoke, pop the iOS 26.5 zoom detail and re-open the hero instead of issuing a downward app swipe that dismisses the detail. Test-only; product source unchanged."
+    }
+  ],
+  "snapshot_comparison": {
+    "status": "NOT ACCEPTED",
+    "reason": "Old 2026-10-28 baseline has different synthetic dates/values; candidate captures also show known simulator compositor artifacts (black images) on several tabs. No visual regression claim."
+  },
+  "not_verified": [
+    "physical iPhone/HealthKit",
+    "real backend/TLS/production",
+    "iOS18 runtime",
+    "GPU/Liquid Glass/frame rate",
+    "accessibility clipping matrix",
+    "snapshot pixel regression",
+    "release/archive/signing"
+  ]
+}

@@ -1,6 +1,8 @@
 # RAI V2 实施合同与实际状态
 
-更新：2026-10-29（Asia/Shanghai）。工作仓库 `/Users/ta/rai`。本文件是实施主合同；[Phase 0 基线](V2_PHASE0_BASELINE.md) 规定领域、协议、状态、预算及禁止事项，[Phase 1 执行计划](V2_PHASE1_PLAN.md) 是本阶段执行入口。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；本轮用户冻结的 P0–P7 路线与其旧阶段编号、兼容和迁移设想不一致时，按本合同实施，不修改原文或追求旧系统兼容。
+最新专项已按用户要求收尾：2026-10-30真机不再可用，**DEVICE ACCEPTANCE: NOT COMPLETED**。已验证iPhone12ProMax Debug签名安装/启动、Keychain保存、真实6,000条样本/24个durable批页及一条完整跑步的脱敏结构。Maintenance两项pending UI已补齐；跑步动态、Workout metadata和新增4类读取范围的代码/合成回归通过，最终真机重试尚未验证。独立持久 `rai-v2-device` PG18/API/Worker/schema13及volume保留。最终证据、失败轮与未验项见 [Device Acceptance](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)；下文阶段报告保留当时口径。
+
+更新：2026-10-30（Asia/Shanghai）。工作仓库 `/Users/tp/raI`。本文件是实施主合同；[Phase 0 基线](V2_PHASE0_BASELINE.md) 规定领域、协议、状态、预算及禁止事项，[Phase 1 执行计划](V2_PHASE1_PLAN.md) 是本阶段执行入口。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；本轮用户冻结的 P0–P7 路线与其旧阶段编号、兼容和迁移设想不一致时，按本合同实施，不修改原文或追求旧系统兼容。
 
 ## 目标与不变量
 
@@ -22,7 +24,7 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 
 P3.5 原生iPhone同步工程已经实现，但真实授权、HealthKit读取、后台与iPhone kill/GPS/E2E仍NOT VERIFIED。用户本轮授权将真机验收延期，允许P4开发入口例外；保留历史P3/P3.5结果。客户端仍使用原子文件outbox，没有服务端SQLite。完整事实下载与正式部署仍未实现或未验收；P5/P6已实现，真实状态见后文。本轮P7增量见末节。生产不依赖Node；独立OpenAPI lint仍使用Node。
 
-当前 Final Maintenance 基线为 `945db85ee5ff2920158a559597e0dabcff4d58c6`，本轮未提交。在线依赖图按实际构建模式记录：fnOS linux/amd64、Go1.27.3、CGO_ENABLED=0（发布镜像模式）连续两次 **248 packages**；原生/race 的 CGO_ENABLED=1 连续两次 **249 packages**。下文历史阶段的249为当时观测，不批量改写成248；当前结果不能脱离构建模式引用。
+当前 Final Maintenance 复验基线为 `1783517900520ed6aedc3c97ef497bc8fe0ef5ca`，该提交已包含五项修复；本轮没有重复修改业务源码。入口干净，当前文档与证据增量未提交。在线依赖图必须按实际构建模式引用：fnOS linux/amd64、Go1.27.3，CGO_ENABLED=0为发布镜像模式，CGO_ENABLED=1为原生/race模式；本轮重复观测见末节和机器证据。下文历史阶段的249保留为当时观测，不批量改写。
 
 ## 阶段路线与出口
 
@@ -239,12 +241,59 @@ Swift Testing45项/6 suites、Normalizer8项、Debug Simulator/Release generic i
 
 ## Final Maintenance — 2×P2 + 3×P3（2026-10-29）
 
-`FINAL_MAINTENANCE_BASE_COMMIT=945db85ee5ff2920158a559597e0dabcff4d58c6`，main，入口干净。本轮仅处理P2-1/P2-2/P3-1/P3-2/P3-3，非P8或新审查。逐项复现、实现、回归、失败轮、未验证项见 [Maintenance Result](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-29.md) 和 [机器证据](evidence/final-maintenance-fix-2026-10-29.json)。
+先前实施基线 `945db85ee5ff2920158a559597e0dabcff4d58c6`，修复已包含在 `1783517`，不再是当前未提交源码。本节保留实现说明；2026-10-30以实际HEAD复验的逐项结果、失败轮及未验证项见 [Maintenance Result](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md) 和 [机器证据](evidence/final-maintenance-fix-2026-10-30.json)。范围仅P2-1/P2-2/P3-1/P3-2/P3-3，非P8或新审查。
 
 合法sample混合页和全删除页按type/UTC日聚合，新增仍批量写入，已知删除保留旧范围，未知删除不虚构范围；事实/屏障/日志/dirty/job/receipt/stream/page仍同事务。原生iOS pending时锁定可冲突表单和保存，独立原操作重试保持完整身份，确认成功刷新并关闭已完成表单，失败/409保留草稿；提交层拒绝将新草稿替换成旧payload。Training五类JSON写接口共用HTTP媒体/encoding/有界读取，分别415/413/422，严格JSON及命令hash不变。三类chunk先验collector与upload lease并持有slot锁，再查原receipt；重试返回前及新写COMMIT前复验，有效租约lost-response恢复保持。
 
 Active Architecture、P4/P5/P6合同、开发Worker/schema说明、P7 OpenAPI及Changelog同步当前workout.bundle/features v2、training_state.bundle/fitness_fatigue v2、OpenAPI1.1.0/schema13。原始方案、00001–00013和历史阶段结果/旧evidence不改写。依赖计数按上方两种CGO模式保留实际差别，不强行替换历史249。
 
-本轮已完成真实fnOS隔离PG18与唯一Compose的复现、Wave A/B定向及完整普通PG、P3/P4/P5 Compose回归。最终质量门禁和Swift/Xcode/UI/OpenAPI以结果与机器证据为准，不以文件存在代替验收。未连接旧rai-postgres，未读取生产健康数据、部署、切换旧入口、迁移、commit或push。
+先前记录所引用的2026-10-29最终Maintenance报告及JSON在本轮入口不存在，不能据此认定当时验收完成。本轮重新执行真实fnOS隔离PG、Compose及可用的客户端验证，实际结果见以下复验节；源码存在或补充探针通过不能替代Swift Testing、Xcode和UI门禁。未连接旧rai-postgres，未读取生产健康数据、部署、切换旧入口、迁移、commit或push。
 
 **P3 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；DISASTER RECOVERY RESYNC: BLOCKED / NOT IMPLEMENTED；PRODUCTION RELEASE READY: NO。** 架构、P3协议核心、P4算法权威、P5单计划模型和P6产品架构保持。
+
+## Final Maintenance 当前HEAD复验（2026-10-30）
+
+`FINAL_MAINTENANCE_BASE_COMMIT=1783517900520ed6aedc3c97ef497bc8fe0ef5ca`，main，入口干净。该HEAD已包含五项修复，本轮仅更新active文档与结果/证据。旧945db85独立快照真实PG复现混合1000事件→1000jobs及无效chunk lease回执绕过；当前定向PG35.736s通过，混合页1job、跨3日3jobs、24个无效lease均无回执，幂等/墓碑/冲突回滚保持。单页多type或sample/non-sample按原stream合同拒绝，多type使用正式独立stream验证。
+
+当前完整普通PG429.230s、完整PG/race465.678s通过；普通/race单元各221pass事件，PG/race命令507个pass事件（含单元/子测试，integration 284），fail/skip=0。gofmt、mod verify、vet（含integration,scale,p7capacity）、build、tidy -diff最终通过。首次默认模块代理超时、第二次本机变量未转发的失败保留，最终显式远端GOPROXY重跑通过，模块文件未改。CGO_ENABLED=0连续两次248 online packages，CGO_ENABLED=1连续两次249；历史249不改写。
+
+此前首轮完整race有3个失败事件（提交顺序、5年训练查询子例及父测试），原门禁脚本未保留失败明细。两项定向race及最终完整race均在不改源码、断言或超时的条件下通过；首次失败原因仍未确定，失败记录和风险保留，不能以重跑通过将其抹去。
+
+唯一项目/新凭证/新卷Compose279.420s通过，覆盖混合页及三类chunk重放、API/PG重启、Worker离线ACK、P4/P5实际发布与Worker重启后新Base，清理exit0并独立复核。Redocly2.71.1/OpenAPI1.1.0通过，8项warning的rule+pointer与历史证据完全一致。13项migration checksum、原方案、业务源码/测试/部署/合同和历史报告/evidence逐字节保持。未连接旧库、读取真实健康值、commit/push/deploy或迁移。
+
+**本轮STATUS: BLOCKED；P2-1/P3-1/P3-2/P3-3 FIXED；P2-2 PARTIAL。** Swift6.3.3核心严格并发构建、历史intent及当前pending补充探针通过；正式swift test因缺Testing模块编译失败，Debug Simulator/Release generic iOS及SessionEditor/CreatePlan UI因缺完整Xcode未执行。不能用补充探针或历史PASS替代这些门禁。完整逐项closure、命令/耗时/退出码、24格lease及job计数见[本轮报告](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md)和[机器证据](evidence/final-maintenance-fix-2026-10-30.json)。
+
+P3/P6 REAL DEVICE ACCEPTANCE继续DEFERRED / NOT VERIFIED；DISASTER RECOVERY RESYNC继续BLOCKED / NOT IMPLEMENTED；PRODUCTION RELEASE READY继续NO。完成本轮可执行验证及报告后停止。
+
+
+## 本机 Xcode 配置与构建（2026-10-30）
+
+按用户要求配置新本机并构建。当前选中 `/Applications/Xcode.app/Contents/Developer`，Xcode 26.6（17F113）、Swift 6.3.3、iOS 26.5 SDK；运行首次初始化和组件检查，安装 iOS 26.5（23F77）Universal Simulator，并通过 `xcrun simctl runtime scan-and-mount` 恢复运行时识别。沿用已提交 Xcode 工程和本地 Swift package，未修改业务源码或签名团队。
+
+`xcrun swift test` 正式通过：48 tests / 6 suites。RAI scheme 的 Debug 与 Release 均以 `generic/platform=iOS`、`CODE_SIGNING_ALLOWED=NO` 构建成功，保持 iOS18 最低版本与 Swift6 complete strict concurrency。首次构建因平台未安装失败，安装后重试成功；完整日志及命令见[本机构建证据](evidence/local-xcode-build-2026-10-30/result.json)。AppIntents 元数据提取跳过警告保留。
+
+本轮仅补充本机构建证据，不将此前 Maintenance 的 UI 门禁标记完成。模拟器已可识别，但未执行模拟器 App、Normalizer 或 SessionEditor/CreatePlan UI；真机签名安装、HealthKit 和后台恢复继续 NOT VERIFIED。本机缺少 Go，尝试 `go test -race ./...`、`go vet ./...` 与依赖边界检查均因找不到 Go 未执行；未改后端或事务，不以历史回归替代本轮检查。未部署、接触生产数据或修改旧 running。
+
+## 真机开发签名配置（2026-10-30）
+
+按用户要求使用本机 Xcode 已登录的免费 Personal Team 配置真机开发签名。Team ID 只写入被 `.gitignore` 排除的 `ios/RAI/Config/Developer.xcconfig`，不提交到仓库；`project.yml`/pbxproj 保持 Automatic Signing，App bundle 为 `com.rai.v2.ios`，并保留只读 HealthKit entitlement。
+
+`xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-signing-probe -allowProvisioningUpdates build` 实际 exit 0。生成物由 Apple Development 身份签名，`codesign` 验证 `TeamIdentifier`、`application-identifier` 与 `com.apple.developer.healthkit` 均存在；Xcode 自动生成的 iOS Team Provisioning Profile 到期时间为 2026-11-06T08:01:14Z（免费 Personal Team 的 7 天有效期）。命令和脱敏结果见[签名证据](evidence/ios-signing-2026-10-30/result.json)。
+
+当前 `xcrun devicectl list devices` 没有连接设备，因此只完成“可签名构建”，未安装、未启动 App、未触发 HealthKit 授权，也未验证后台 URLSession/强杀恢复。连接并信任 iPhone 后仍需用 `-allowProvisioningDeviceRegistration` 或 Xcode Run 完成设备注册和安装；真机安装及 HealthKit 继续 **NOT VERIFIED**。
+
+## iOS App 图标（2026-10-30）
+
+按用户反馈，放弃字母感抽象玻璃标志，改为液态玻璃跑者与环形跑道；之后依用户配色意见移除橙金色，更新为珍珠银、冰青、淡紫高光和深靛蓝背景。1024×1024 图标已加入 `ios/RAI/App/Assets.xcassets/AppIcon.appiconset`；XcodeGen 配置和现有 Xcode 工程均将其注册为 `AppIcon`。
+
+本机 Xcode 26.6（17F113）Debug generic iOS 未签名构建 exit 0；产物 `Assets.car` 存在，编译后 Info.plist 的 `CFBundleIconName=AppIcon`，`assetutil` 检出4个 AppIcon 图标条目。配置 YAML 解析通过。命令、SHA-256及产物位置见[图标证据](evidence/ios-app-icon-2026-10-30/result.json)。
+
+真机主屏裁切/遮罩效果及深色、染色替代图标未验证；本轮未安装到设备、未运行业务测试，也未修改后端、HealthKit或服务端状态。
+
+## iPhone 12 Pro Max 模拟器验收（2026-10-30）
+
+用户要求启动 12 Pro Max 模拟器并执行可在模拟器完成的验收。已创建并启动 `RAI iPhone 12 Pro Max`（iPhone13,4，iOS 26.5/23F77），Xcode 26.6；使用 fnOS 一次性隔离 PostgreSQL 18.6、真实 API/Worker 和合成数据。
+
+Debug 构建、安装、启动通过；`RAITests` 14/14 通过。UI 结果：test01/02/03/05/06/07/08 共 7 项通过，覆盖导航与诊断、编辑/409/改期/跳过/添加/执行/反馈、首页滚动性能采集、截图候选、调整历史分页、pending 原命令重启重试、空计划 pending 锁定；test04 在无障碍审计前因该模拟器无法实际切换 Reduce Transparency 而 **BLOCKED**，未执行裁切审计，不记作无障碍通过。test02 的测试脚本仅将 iOS 26.5 zoom 详情下滑关闭改为返回后重新进入，产品源码未修改；test08 在清理旧 app 容器后通过。旧截图基线日期/数据不同且本机候选截图有已知黑图合成异常，快照像素比较 **NOT ACCEPTED**。
+
+完整命令结果与失败留痕见 [模拟器验收报告](SIMULATOR_ACCEPTANCE_RESULT_2026-10-30.md) 和 [机器证据](evidence/simulator-acceptance-2026-10-30.json)。真实 iPhone/HealthKit、GPS/后台强杀、TLS/生产、iOS18 runtime、GPU/Liquid Glass、完整无障碍矩阵和正式签名发布仍未验证，不能以模拟器结果替代。

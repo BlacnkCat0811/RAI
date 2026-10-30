@@ -1,0 +1,7 @@
+== Runtimes ==
+iOS 26.5 (26.5 - 23F77) - com.apple.CoreSimulator.SimRuntime.iOS-26-5
+nvrm: b81 PERF_BOOST flags 0x12 INFINITE rc 0x0
+nvrm: b72 host-pointer import ON (probe NV_STATUS 0)
+nvrm: b80 LOCAL+mapped memory -> system RAM (b79 placement) (BAR1 8192 MB, VRAM 12282 MB, default)
+nvrm: upload queue async copy engine: found (engine type 0xb, 3D class 0xc997)
+nvrm: b81 SET_LG_SECTOR_PROMOTION 64B rc 0x56

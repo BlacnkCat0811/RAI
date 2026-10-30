@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-10-30T16:01:29+08:00",
+  "xcode_version": "26.6 (17F113)",
+  "configuration": "Debug",
+  "destination": "generic/platform=iOS",
+  "build_command": "cd ios/RAI && xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-signing-probe -allowProvisioningUpdates build",
+  "result": "PASS",
+  "signing_style": "Automatic",
+  "team_configured_locally": true,
+  "team_id_committed": false,
+  "bundle_id": "com.rai.v2.ios",
+  "signature_authority": "Apple Development",
+  "healthkit_entitlement": true,
+  "provisioning_profile": "iOS Team Provisioning Profile: com.rai.v2.ios",
+  "profile_expiration": "2026-11-06T08:01:14Z",
+  "signed_app": "/tmp/rai-signing-probe/Build/Products/Debug-iphoneos/RAI.app",
+  "executable_sha256": "8bb29dd21801c173f3e66bc09e5aa383f6c6b586adff77cb27b9294db82d098c",
+  "device_connected": false,
+  "installed": false,
+  "unverified": [
+    "physical-device installation",
+    "app launch",
+    "HealthKit read authorization",
+    "background URLSession and force-quit recovery",
+    "real-device network and performance"
+  ]
+}

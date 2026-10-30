@@ -1,0 +1,844 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -destination generic/platform=iOS -derivedDataPath /tmp/rai-xcode-build-2026-10-30/DerivedData CODE_SIGNING_ALLOWED=NO build
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  RAIClient: /Users/tp/raI/ios/RAI
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (6 targets)
+    Target 'RAI' in project 'RAI'
+        ➜ Explicit dependency on target 'SyncCore' in project 'RAIClient'
+        ➜ Explicit dependency on target 'ProductCore' in project 'RAIClient'
+    Target 'ProductCore' in project 'RAIClient'
+        ➜ Explicit dependency on target 'ProductCore' in project 'RAIClient'
+        ➜ Explicit dependency on target 'RAICompression' in project 'RAIClient'
+        ➜ Explicit dependency on target 'SyncCore' in project 'RAIClient'
+    Target 'ProductCore' in project 'RAIClient'
+        ➜ Explicit dependency on target 'RAICompression' in project 'RAIClient'
+        ➜ Explicit dependency on target 'SyncCore' in project 'RAIClient'
+    Target 'SyncCore' in project 'RAIClient'
+        ➜ Explicit dependency on target 'SyncCore' in project 'RAIClient'
+        ➜ Explicit dependency on target 'RAICompression' in project 'RAIClient'
+    Target 'SyncCore' in project 'RAIClient'
+        ➜ Explicit dependency on target 'RAICompression' in project 'RAIClient'
+    Target 'RAICompression' in project 'RAIClient' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 41c0afc6ff70a632f3af03f5dd11b42b
+Build description path: /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/XCBuildData/41c0afc6ff70a632f3af03f5dd11b42b.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -o /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache
+
+CreateBuildDirectory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-create-build-directory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products
+
+CreateBuildDirectory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-create-build-directory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex
+
+CreateBuildDirectory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-create-build-directory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos
+
+CreateBuildDirectory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-create-build-directory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+
+CreateBuildDirectory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-create-build-directory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules
+
+CreateBuildDirectory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-create-build-directory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI-a4d15807654ccd5bc00d2f3c319db38d-VFS-iphoneos/all-product-headers.yaml
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI-a4d15807654ccd5bc00d2f3c319db38d-VFS-iphoneos/all-product-headers.yaml
+
+CreateBuildDirectory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-create-build-directory /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.hmap (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.hmap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-generated-files.hmap (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-generated-files.hmap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-project-headers.hmap (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-project-headers.hmap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-own-target-headers.hmap (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-own-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-all-target-headers.hmap (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-all-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-all-non-framework-target-headers.hmap (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-all-non-framework-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-DebugDylibPath-normal-arm64.txt (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-DebugDylibPath-normal-arm64.txt
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-DebugDylibInstallName-normal-arm64.txt (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-DebugDylibInstallName-normal-arm64.txt
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.DependencyMetadataFileList (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.DependencyMetadataFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.DependencyStaticMetadataFileList (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_const_extract_protocols.json (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_const_extract_protocols.json
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-OutputFileMap.json (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-OutputFileMap.json
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftFileList (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftConstValuesFileList (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.modulemap (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.modulemap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/RAICompression.modulemap (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/RAICompression.modulemap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/RAICompression.DependencyStaticMetadataFileList (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/RAICompression.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.DependencyStaticMetadataFileList (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/RAICompression.DependencyMetadataFileList (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/RAICompression.DependencyMetadataFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.DependencyMetadataFileList (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.DependencyMetadataFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-OutputFileMap.json (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-OutputFileMap.json
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftFileList (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.LinkFileList (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.LinkFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftConstValuesFileList (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore_const_extract_protocols.json (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore_const_extract_protocols.json
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/7187679823f38a2a940e0043cdf9d637-common-args.resp (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/7187679823f38a2a940e0043cdf9d637-common-args.resp
+-fmodules -gmodules '-fmodules-cache-path=/tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex' '-fmodule-name=RAICompression' -fpascal-strings -O0 -DSWIFT_PACKAGE '-DDEBUG=1' -g -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/DerivedSources-normal/arm64 -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/DerivedSources/arm64 -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/DerivedSources -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -DXcode
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/RAICompression.LinkFileList (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/RAICompression.LinkFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.LinkFileList (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.LinkFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.modulemap (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.modulemap
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.DependencyStaticMetadataFileList (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.DependencyStaticMetadataFileList
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/RAICompression.modulemap (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/RAICompression.modulemap /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SyncCore.modulemap /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.modulemap (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.modulemap /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.DependencyMetadataFileList (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.DependencyMetadataFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore_const_extract_protocols.json (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore_const_extract_protocols.json
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.LinkFileList (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.LinkFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftFileList (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftFileList
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-OutputFileMap.json (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-OutputFileMap.json
+
+WriteAuxiliaryFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftConstValuesFileList (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    write-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftConstValuesFileList
+
+MkDir /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    /bin/mkdir -p /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/ProductCore.modulemap /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.modulemap (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.modulemap /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos
+
+ScanDependencies /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.o /Users/tp/raI/ios/RAI/Sources/RAICompression/gzip.c normal arm64 c com.apple.compilers.llvm.clang.1_0.compiler (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+    Using response file: /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/7187679823f38a2a940e0043cdf9d637-common-args.resp
+    
+    builtin-ScanDependencies -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.o.scan -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x c -ivfsstatcache /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -target arm64-apple-ios18.0 -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wnon-modular-include-in-framework-module -Werror\=non-modular-include-in-framework-module -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Wno-return-type -Wno-missing-braces -Wparentheses -Wswitch -Wno-unused-function -Wno-unused-label -Wno-unused-parameter -Wno-unused-variable -Wunused-value -Wno-empty-body -Wno-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wno-constant-conversion -Wno-int-conversion -Wno-bool-conversion -Wno-enum-conversion -Wno-float-conversion -Wno-non-literal-null-conversion -Wno-objc-literal-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-implicit-fallthrough -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -fstrict-aliasing -Wdeprecated-declarations -Wno-sign-conversion -Wno-infinite-recursion -Wno-comma -Wno-block-capture-autoreleasing -Wno-strict-prototypes -Wno-semicolon-before-method-body -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/7187679823f38a2a940e0043cdf9d637-common-args.resp -MMD -MT dependencies -MF /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.d --serialize-diagnostics /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.dia -c /Users/tp/raI/ios/RAI/Sources/RAICompression/gzip.c -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.o -index-unit-output-path /RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.o
+
+SwiftDriver SyncCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SyncCore -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name rai -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore_const_extract_protocols.json -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-Swift.h -working-directory /Users/tp/raI/ios/RAI/RAI.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_Builtin_stdarg-2ZNYKMGZAGOMKJO389L1AENBC.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_Builtin_stdarg-2ZNYKMGZAGOMKJO389L1AENBC.scan
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/ptrcheck-B9GC7M84ENBMYCBLOMFFIQ4BR.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/ptrcheck-B9GC7M84ENBMYCBLOMFFIQ4BR.scan
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_Builtin_stddef-CJ1028OYI5QO5T5ZS5Z9DNXNJ.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_Builtin_stddef-CJ1028OYI5QO5T5ZS5Z9DNXNJ.scan
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_AvailabilityInternal-4Z9P7AKBSCV3XFJ7U13ES2J22.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_AvailabilityInternal-4Z9P7AKBSCV3XFJ7U13ES2J22.scan
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_DarwinFoundation1-AJRIWHQWIME5XVV58EN1S8FG4.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_DarwinFoundation1-AJRIWHQWIME5XVV58EN1S8FG4.scan
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_Builtin_limits-4U9VIZQ1ZON7CZO9LMUOX28PW.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_Builtin_limits-4U9VIZQ1ZON7CZO9LMUOX28PW.scan
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_DarwinFoundation2-DYG2UJEJBFEZB42UEHS7E1IZQ.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_DarwinFoundation2-DYG2UJEJBFEZB42UEHS7E1IZQ.scan
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_Builtin_stdint-8PQQMVKWZ2KH4JTE1CH9BB308.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_Builtin_stdint-8PQQMVKWZ2KH4JTE1CH9BB308.scan
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_DarwinFoundation3-4P02P5NVQ4M7JMI8L75WS2GMH.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/_DarwinFoundation3-4P02P5NVQ4M7JMI8L75WS2GMH.scan
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stddef-22NBBHX5M9BY5SN7JMW5HE9B1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_AvailabilityInternal-7AUD57N44SOWOIE9ZR2INZ18J.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_float-CVUEJSFUIP27X2BCEA6RF79WD.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stdarg-EXU0TW08JST3F8Q1A9X3TZDFZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/ptrauth-2G92EUC4CDKTF8M2NC7ESP5CW.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/ptrcheck-MSTSMTV91XKJFKFVAB3KMEW5.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_SwiftConcurrencyShims-6SVEBYM9D6KUJY6TJ9EC3QDXL.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stdbool-BVV1B4IEUFX35R63V2WASE94X.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/SwiftShims-8IMVLWDC16BMLH9B6KIXD4KFN.pcm
+
+PrecompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/zlib-CO7K549B15AS0WXZZGYWZ7GVY.scan
+    cd /
+    builtin-precompileModule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/ExplicitPrecompiledModules/zlib-CO7K549B15AS0WXZZGYWZ7GVY.scan
+
+CompileC /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.o /Users/tp/raI/ios/RAI/Sources/RAICompression/gzip.c normal arm64 c com.apple.compilers.llvm.clang.1_0.compiler (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+    Using response file: /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/7187679823f38a2a940e0043cdf9d637-common-args.resp
+    
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -x c -ivfsstatcache /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -target arm64-apple-ios18.0 -fmessage-length\=0 -fdiagnostics-show-note-include-stack -fmacro-backtrace-limit\=0 -fno-color-diagnostics -fmodules-prune-interval\=86400 -fmodules-prune-after\=345600 -fbuild-session-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -fmodules-validate-once-per-build-session -Wnon-modular-include-in-framework-module -Werror\=non-modular-include-in-framework-module -Wno-trigraphs -Wno-missing-field-initializers -Wno-missing-prototypes -Wno-return-type -Wno-missing-braces -Wparentheses -Wswitch -Wno-unused-function -Wno-unused-label -Wno-unused-parameter -Wno-unused-variable -Wunused-value -Wno-empty-body -Wno-uninitialized -Wno-unknown-pragmas -Wno-shadow -Wno-four-char-constants -Wno-conversion -Wno-constant-conversion -Wno-int-conversion -Wno-bool-conversion -Wno-enum-conversion -Wno-float-conversion -Wno-non-literal-null-conversion -Wno-objc-literal-conversion -Wshorten-64-to-32 -Wpointer-sign -Wno-newline-eof -Wno-implicit-fallthrough -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -fstrict-aliasing -Wdeprecated-declarations -Wno-sign-conversion -Wno-infinite-recursion -Wno-comma -Wno-block-capture-autoreleasing -Wno-strict-prototypes -Wno-semicolon-before-method-body -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/7187679823f38a2a940e0043cdf9d637-common-args.resp -MMD -MT dependencies -MF /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.d --serialize-diagnostics /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.dia -c /Users/tp/raI/ios/RAI/Sources/RAICompression/gzip.c -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.o -index-unit-output-path /RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/gzip.o
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/RAICompression-8T71AL6XN2NR0MH3KWXUBBQJ4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_DarwinFoundation1-21LU7OVFLT72A0EQAGH7P7O41.pcm
+
+Ld /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAICompression.o normal (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios18.0 -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -filelist /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/RAICompression.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/RAICompression_lto.o -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/RAICompression.build/Objects-normal/arm64/RAICompression_dependency_info.dat -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAICompression.o
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_limits-B2FEORYGMIMHE5SLWEFJX14RP.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_DarwinFoundation2-618NRUSNIHKXXSGTLMJQ0BTFP.pcm
+
+RegisterExecutionPolicyException /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAICompression.o (in target 'RAICompression' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-RegisterExecutionPolicyException /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAICompression.o
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/sys_types-79DOHYYO9HVRT0SWI4MSCSO4S.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stdint-EC0OIVLCQ02DX5Y6SCX2A8V3K.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_DarwinFoundation3-8G2ZMDSR3RWGA78RR752PO02M.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_inttypes-3GQYYLJTXUODEDXBTIIK7XD7C.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Darwin-CPDCVD2A8L3BBFT1VIMBH44BT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/ObjectiveC-W23KJ0QBUR4EDMMK8TZFFZB4.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/os_object-6V9ILCMHJNF7YUKPFAZM004LU.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/os_workgroup-ADG3CJ5VL880LX2Q1BOLD114B.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Dispatch-3EYV7DW0LAJMDC4ZXEFKR3GZC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreFoundation-6NAC6D6M8CS6EYBTRDTBIOXJA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/XPC-DNGU32OBVQYHSBRJIW2NS8IH8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CFNetwork-DBJCMSVL3OOLC1W6VQSO33A29.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Security-89FEZB81MJTFON5X9VQNTCUEG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Foundation-32B7YLL36B0CFFUTDYUI93ANJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/LocalAuthentication-8OPZEM7M0YGPPD9XQZ2O3HBXJ.pcm
+
+SwiftCompile normal arm64 Compiling\ SyncMetrics.swift /Users/tp/raI/ios/RAI/Sources/SyncCore/SyncMetrics.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/SyncCore/SyncMetrics.swift (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ SyncCore (in target 'SyncCore' from project 'RAIClient')
+
+EmitSwiftModule normal arm64 (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftCompile normal arm64 Compiling\ RouteBuilder.swift /Users/tp/raI/ios/RAI/Sources/SyncCore/RouteBuilder.swift (in target 'SyncCore' from project 'RAIClient')
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/SyncCore/RouteBuilder.swift (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftCompile normal arm64 Compiling\ Supplements.swift /Users/tp/raI/ios/RAI/Sources/SyncCore/Supplements.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/SyncCore/Supplements.swift (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftCompile normal arm64 Compiling\ Wire.swift /Users/tp/raI/ios/RAI/Sources/SyncCore/Wire.swift (in target 'SyncCore' from project 'RAIClient')
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/SyncCore/Wire.swift (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftCompile normal arm64 Compiling\ RAIAPIClient.swift /Users/tp/raI/ios/RAI/Sources/SyncCore/RAIAPIClient.swift (in target 'SyncCore' from project 'RAIClient')
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/SyncCore/RAIAPIClient.swift (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftCompile normal arm64 Compiling\ OutboxStore.swift /Users/tp/raI/ios/RAI/Sources/SyncCore/OutboxStore.swift (in target 'SyncCore' from project 'RAIClient')
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/SyncCore/OutboxStore.swift (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftCompile normal arm64 Compiling\ BatchBuilder.swift /Users/tp/raI/ios/RAI/Sources/SyncCore/BatchBuilder.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/SyncCore/BatchBuilder.swift (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for SyncCore (in target 'SyncCore' from project 'RAIClient')
+
+SwiftDriver\ Compilation\ Requirements SyncCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SyncCore -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name rai -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore_const_extract_protocols.json -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-Swift.h -working-directory /Users/tp/raI/ios/RAI/RAI.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SyncCore-Swift.h /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-Swift.h (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-swiftHeaderTool -arch arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-Swift.h -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/SyncCore-Swift.h
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.swiftmodule/arm64-apple-ios.abi.json /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.abi.json (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.abi.json /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.swiftmodule/arm64-apple-ios.abi.json
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.swiftmodule/arm64-apple-ios.swiftdoc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftdoc (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftdoc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.swiftmodule/arm64-apple-ios.swiftdoc
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.swiftmodule/arm64-apple-ios.swiftmodule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftmodule (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftmodule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.swiftmodule/arm64-apple-ios.swiftmodule
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftsourceinfo (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftsourceinfo /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo
+
+SwiftDriver ProductCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProductCore -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name rai -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore_const_extract_protocols.json -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-Swift.h -working-directory /Users/tp/raI/ios/RAI/RAI.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ Product.swift /Users/tp/raI/ios/RAI/Sources/ProductCore/Product.swift (in target 'ProductCore' from project 'RAIClient')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/ProductCore/Product.swift (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftCompile normal arm64 Compiling\ TrainingPages.swift /Users/tp/raI/ios/RAI/Sources/ProductCore/TrainingPages.swift (in target 'ProductCore' from project 'RAIClient')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/Sources/ProductCore/TrainingPages.swift (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ ProductCore (in target 'ProductCore' from project 'RAIClient')
+
+EmitSwiftModule normal arm64 (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for ProductCore (in target 'ProductCore' from project 'RAIClient')
+
+SwiftDriver\ Compilation\ Requirements ProductCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProductCore -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name rai -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore_const_extract_protocols.json -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-Swift.h -working-directory /Users/tp/raI/ios/RAI/RAI.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/ProductCore-Swift.h /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-Swift.h (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-swiftHeaderTool -arch arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-Swift.h -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/ProductCore-Swift.h
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.swiftmodule/arm64-apple-ios.swiftdoc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftdoc (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftdoc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.swiftmodule/arm64-apple-ios.swiftdoc
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.swiftmodule/arm64-apple-ios.swiftmodule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftmodule (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftmodule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.swiftmodule/arm64-apple-ios.swiftmodule
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.swiftmodule/arm64-apple-ios.abi.json /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.abi.json (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.abi.json /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.swiftmodule/arm64-apple-ios.abi.json
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftsourceinfo (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftsourceinfo /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo
+
+SwiftDriver RAI normal arm64 com.apple.xcode.tools.swift.compiler (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name RAI -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-generated-files.hmap -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-own-target-headers.hmap -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI-a4d15807654ccd5bc00d2f3c319db38d-VFS-iphoneos/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-project-headers.hmap -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-Swift.h -working-directory /Users/tp/raI/ios/RAI -experimental-emit-module-separately -disable-cmo
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/DeveloperToolsSupport-46CCNDBY7K2IEYQ1V5L9VULTX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stdarg-664RZNE43TCMS7XJLV9L3SKEN.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stddef-94553MLPSP3WSMJ6KE6OENEET.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_AvailabilityInternal-5256YEBEIBZLKKJMA4R5DAJAX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_SwiftConcurrencyShims-DRB0NG7KKH4DMFRQO2IO69STC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_float-ZYLK9G59TEUAQ8T8C8XHMZG2.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stdbool-CWMSOX7WU0DBDLK5S871EPFCZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/ptrauth-3NDAJ6IO4CUK78P9TD5V4S1WG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/SwiftShims-5Q2ZZ456QGVE81BAM0OOJ17VA.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/ptrcheck-9B142WTBU8H11CD4OMY9RSZ28.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/RAICompression-8V97P6URXBJP0SHL1CI3553TA.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling SyncMetrics.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_DarwinFoundation1-522FBPMKUUU3G3TQYGNT8DJPP.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling BatchBuilder.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Supplements.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftDriverJobDiscovery normal arm64 Compiling TrainingPages.swift (in target 'ProductCore' from project 'RAIClient')
+
+SwiftDriverJobDiscovery normal arm64 Compiling RouteBuilder.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_DarwinFoundation2-3FZ3JEEWAQVLLPJ2DLE38N82A.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_limits-B1XZ8AQ0F36HCYL0JT2C1GOWO.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling Wire.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftDriverJobDiscovery normal arm64 Compiling Product.swift (in target 'ProductCore' from project 'RAIClient')
+
+SwiftDriver\ Compilation ProductCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name ProductCore -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name rai -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore_const_extract_protocols.json -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-Swift.h -working-directory /Users/tp/raI/ios/RAI/RAI.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/sys_types-2X4R4LWP2Q580TTFYLO8DB87M.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stdint-6VKSBNEZA6TA0C302LP1MPYVZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_tgmath-43SJLBVRPMKE52T8ENJF26666.pcm
+
+SwiftDriverJobDiscovery normal arm64 Compiling RAIAPIClient.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftDriverJobDiscovery normal arm64 Compiling OutboxStore.swift (in target 'SyncCore' from project 'RAIClient')
+
+SwiftDriver\ Compilation SyncCore normal arm64 com.apple.xcode.tools.swift.compiler (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI/RAI.xcodeproj
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name SyncCore -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftFileList -DSWIFT_PACKAGE -DDEBUG -DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -DXcode -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -F /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -package-name rai -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore_const_extract_protocols.json -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/DerivedSources -Xcc -DSWIFT_PACKAGE -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-Swift.h -working-directory /Users/tp/raI/ios/RAI/RAI.xcodeproj -experimental-emit-module-separately -disable-cmo
+
+Ld /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.o normal (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios18.0 -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -filelist /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore_lto.o -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftmodule @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-linker-args.resp -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.o
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_stdatomic-9TQU6BLULG3O02L45BF2SKPAS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_intrinsics-3LZS833GWVIYDWD1J92YMXO2V.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_DarwinFoundation3-2ZV1K68ND1AZ4PI47WZ6YSHKQ.pcm
+
+ExtractAppIntentsMetadata (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name SyncCore --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 18.0 --bundle-identifier rai.SyncCore --output /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.appintents --target-triple arm64-apple-ios18.0 --binary-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.o --dependency-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore_dependency_info.dat --stringsdata-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftFileList --metadata-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.DependencyMetadataFileList --static-metadata-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/SyncCore.DependencyStaticMetadataFileList --swift-const-vals-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-30 15:46:20.543 appintentsmetadataprocessor[53631:618835] Starting appintentsmetadataprocessor export
+2026-10-30 15:46:20.574 appintentsmetadataprocessor[53631:618835] Extracted no relevant App Intents symbols, skipping writing output
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_Builtin_inttypes-FGUZNV8LR2KD7T5Z4LLG7P13.pcm
+
+RegisterExecutionPolicyException /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.o (in target 'SyncCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-RegisterExecutionPolicyException /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/SyncCore.o
+
+Ld /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.o normal (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios18.0 -r -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/Frameworks -iframework /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk/Developer/Library/Frameworks -filelist /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.LinkFileList -nostdlib -Xlinker -object_path_lto -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore_lto.o -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftmodule @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-linker-args.resp -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.o
+
+ExtractAppIntentsMetadata (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name ProductCore --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 18.0 --bundle-identifier rai.ProductCore --output /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.appintents --target-triple arm64-apple-ios18.0 --binary-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.o --dependency-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore_dependency_info.dat --stringsdata-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftFileList --metadata-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.DependencyMetadataFileList --static-metadata-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/ProductCore.DependencyStaticMetadataFileList --swift-const-vals-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.SwiftConstValuesFileList --force --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-30 15:46:20.648 appintentsmetadataprocessor[53636:618865] Starting appintentsmetadataprocessor export
+2026-10-30 15:46:20.657 appintentsmetadataprocessor[53636:618865] Extracted no relevant App Intents symbols, skipping writing output
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Darwin-3GTYRXX9X77P4GIOPFVOEHZYG.pcm
+
+RegisterExecutionPolicyException /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.o (in target 'ProductCore' from project 'RAIClient')
+    cd /Users/tp/raI/ios/RAI
+    builtin-RegisterExecutionPolicyException /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/ProductCore.o
+
+Ld /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/__preview.dylib normal (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios18.0 -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -L/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -install_name @rpath/RAI.debug.dylib -Xlinker -dead_strip -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_dependency_info.dat -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/__preview.dylib
+
+CpResource /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/TrainingHero.jpg /Users/tp/raI/ios/RAI/App/Resources/TrainingHero.jpg (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks /Users/tp/raI/ios/RAI/App/Resources/TrainingHero.jpg /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app
+
+ProcessInfoPlistFile /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/Info.plist /Users/tp/raI/ios/RAI/Config/Info-Debug.plist (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-infoPlistUtility /Users/tp/raI/ios/RAI/Config/Info-Debug.plist -producttype com.apple.product-type.application -genpkginfo /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/PkgInfo -expandbuildsettings -format binary -platform iphoneos -requiredArchitecture arm64 -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/Info.plist
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/simd-AE63Z49XX0FQC1BCSXAGR6ECG.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/ObjectiveC-ACGAMILXVMC39FFDDLBOJN72L.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/MachO-2TEBEFK6J33VFU6K1LFM2VUIS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/os_object-3NW3FUERHZN20EM8K11R0XTGC.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/os_workgroup-AZNLOEUIU1IWTFB7TBSJU19FB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Dispatch-9PWV6XP76YTIVD72QT8PHDT0X.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreFoundation-3MVHG3YDEEFA4SCPZIC44GJY1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/XPC-42AZ6WOUZVGCVWGHS61O7KVKO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/os-AF9TZG2H2O1LBZGAZDKLL4VBO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Spatial-3IHZJQOLFH2GWO41QD2KOVRYH.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CFNetwork-AHK44H632S1HLV43U992FPKEY.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Security-4382WLPQDAT5F87J0SXKXYMAF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreGraphics-2V4R237KC6C4QSXP03Y3IIAH2.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Foundation-2QRIZ424BI6EWYBNMLS0Z1VYZ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/ImageIO-E7J0QYQZCKJ5BI9E49CZK7RFJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreText-F2OJ7678TQJB88VHEIIHR5XSX.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/_LocationEssentials-BAXTSCHVRL6UQANR77J4AM7UQ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/UserNotifications-72L95N2QTG3CNO142DJ8K4KET.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreTransferable-B3DGDNB6IAQR4RSYYJS883K8.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/UIUtilities-MX62QR6MN8RLYSURPVWHCTB1.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Symbols-D1I5RKBNL6S8F7DBMJXSEX5C9.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreData-EYR7BHLW3ARTH5XPODVUR5AKE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/OSLog-L4Q4W9CM2GATEG1CPDAFZILT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/UniformTypeIdentifiers-29A7R74KWJDMMTJW63QJX1KC3.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/LocalAuthentication-T2KD1FX7WXDJ9HYFX2T472GR.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/FileProvider-3K8URQGM559F4BFVZBQ7FLNWT.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/DataDetection-AH67RM3EKVSUBX3TN34SFC3HS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/IOSurface-E04PTFGQWRJT42MBQKNKC2F13.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Accessibility-3PCYE84NRSO9TWMZK0I8UF5XB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreLocation-AT2I5H4YQA3T4O35M9LWLR32M.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/HealthKit-B5N1RXJ89OA1F9JEZPNAH41NO.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/OpenGLES-CWCRJCGZKM52TIDIZVBDULE0N.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Metal-7NN8NJ70SJ2KWIE2P432QT1CJ.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreVideo-62OOXZ1LC5TP9050QL72YRK1N.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/QuartzCore-7AVZJ4NKN2RADOVJH362I0MTF.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/CoreImage-DVX3C6YH8BS721CQJPZSHWNMB.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/SwiftUICore-6QE9O9F3KKHYSVR8XRC4GGLGS.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/UIKit-97EPL0WWGIG4RYKYAQ6EH269F.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/SwiftUI-DFDHGH642PT30M6EXOY1VIRRO.pcm
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ RAI (in target 'RAI' from project 'RAI')
+
+EmitSwiftModule normal arm64 (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ SyncCoordinator.swift /Users/tp/raI/ios/RAI/App/SyncCoordinator.swift (in target 'RAI' from project 'RAI')
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/SyncCoordinator.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ RAIApp.swift /Users/tp/raI/ios/RAI/App/RAIApp.swift (in target 'RAI' from project 'RAI')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/RAIApp.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ TrainingViews.swift /Users/tp/raI/ios/RAI/App/TrainingViews.swift (in target 'RAI' from project 'RAI')
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/TrainingViews.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ ProductViews.swift /Users/tp/raI/ios/RAI/App/ProductViews.swift (in target 'RAI' from project 'RAI')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/ProductViews.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ RAITheme.swift /Users/tp/raI/ios/RAI/App/RAITheme.swift (in target 'RAI' from project 'RAI')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/RAITheme.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ ProductModel.swift /Users/tp/raI/ios/RAI/App/ProductModel.swift (in target 'RAI' from project 'RAI')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/ProductModel.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ ExecutionView.swift /Users/tp/raI/ios/RAI/App/ExecutionView.swift (in target 'RAI' from project 'RAI')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/ExecutionView.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ HealthKitClient.swift /Users/tp/raI/ios/RAI/App/HealthKitClient.swift (in target 'RAI' from project 'RAI')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/HealthKitClient.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ BackgroundTransfers.swift /Users/tp/raI/ios/RAI/App/BackgroundTransfers.swift (in target 'RAI' from project 'RAI')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/BackgroundTransfers.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftCompile normal arm64 Compiling\ ClientConfiguration.swift /Users/tp/raI/ios/RAI/App/ClientConfiguration.swift (in target 'RAI' from project 'RAI')
+
+SwiftCompile normal arm64 /Users/tp/raI/ios/RAI/App/ClientConfiguration.swift (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling ClientConfiguration.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for RAI (in target 'RAI' from project 'RAI')
+
+SwiftDriver\ Compilation\ Requirements RAI normal arm64 com.apple.xcode.tools.swift.compiler (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name RAI -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-generated-files.hmap -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-own-target-headers.hmap -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI-a4d15807654ccd5bc00d2f3c319db38d-VFS-iphoneos/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-project-headers.hmap -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-Swift.h -working-directory /Users/tp/raI/ios/RAI -experimental-emit-module-separately -disable-cmo
+
+SwiftMergeGeneratedHeaders /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources/RAI-Swift.h /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-Swift.h (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-swiftHeaderTool -arch arm64 /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-Swift.h -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources/RAI-Swift.h
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.swiftmodule/arm64-apple-ios.swiftmodule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftmodule (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftmodule /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.swiftmodule/arm64-apple-ios.swiftmodule
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.swiftmodule/arm64-apple-ios.swiftdoc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftdoc (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftdoc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.swiftmodule/arm64-apple-ios.swiftdoc
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.swiftmodule/arm64-apple-ios.abi.json /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.abi.json (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.abi.json /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.swiftmodule/arm64-apple-ios.abi.json
+
+Copy /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftsourceinfo (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftsourceinfo /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.swiftmodule/Project/arm64-apple-ios.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling HealthKitClient.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Compiling BackgroundTransfers.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ExecutionView.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Compiling RAIApp.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Compiling RAITheme.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ProductModel.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Compiling SyncCoordinator.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ProductViews.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriverJobDiscovery normal arm64 Compiling TrainingViews.swift (in target 'RAI' from project 'RAI')
+
+SwiftDriver\ Compilation RAI normal arm64 com.apple.xcode.tools.swift.compiler (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name RAI -Onone @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftFileList -DDEBUG -Xcc -fmodule-map-file\=/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/GeneratedModuleMaps-iphoneos/RAICompression.modulemap -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios18.0 -g -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -enable-testing -index-store-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 6 -I /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -c -j16 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/SDKStatCaches.noindex/iphoneos26.5-23F81a-32daed1954a7d5dd0789fcaf2a9bb78b.sdkstatcache -output-file-map /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -sdk-module-cache-path /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/rai-xcode-build-2026-10-30/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-generated-files.hmap -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-own-target-headers.hmap -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI-a4d15807654ccd5bc00d2f3c319db38d-VFS-iphoneos/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-project-headers.hmap -Xcc -I/Users/tp/raI/ios/RAI/Sources/RAICompression/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/include -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources-normal/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources/arm64 -Xcc -I/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-Swift.h -working-directory /Users/tp/raI/ios/RAI -experimental-emit-module-separately -disable-cmo
+
+Ld /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/RAI.debug.dylib normal (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios18.0 -dynamiclib -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -L/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -L/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/EagerLinkingTBDs/Debug-iphoneos -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -filelist /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.LinkFileList -install_name @rpath/RAI.debug.dylib -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -Xlinker -dead_strip -Xlinker -object_path_lto -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -dependency_info -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_dependency_info.dat -fobjc-link-runtime -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/iphoneos -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.swiftmodule @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI-linker-args.resp -Wl,-no_warn_duplicate_libraries -Wl,-no_warn_duplicate_libraries -Wl,-no_warn_duplicate_libraries -lz -Xlinker -alias -Xlinker _main -Xlinker ___debug_main_executable_dylib_entry_point -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/RAI.debug.dylib -Xlinker -add_ast_path -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore.swiftmodule @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/SyncCore.build/Objects-normal/arm64/SyncCore-linker-args.resp -Xlinker -add_ast_path -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore.swiftmodule @/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAIClient.build/Debug-iphoneos/ProductCore.build/Objects-normal/arm64/ProductCore-linker-args.resp
+
+ConstructStubExecutorLinkFileList /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-ExecutorLinkFileList-normal-arm64.txt (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    construct-stub-executor-link-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/RAI.debug.dylib /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/libPreviewsJITStubExecutor_no_swift_entry_point.a /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/libPreviewsJITStubExecutor.a --output /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-ExecutorLinkFileList-normal-arm64.txt
+note: Using stub executor library with Swift entry point. (in target 'RAI' from project 'RAI')
+
+Ld /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/RAI normal (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-ios18.0 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -O0 -L/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -F/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos -Xlinker -rpath -Xlinker @executable_path -Xlinker -rpath -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/PackageFrameworks -Xlinker -rpath -Xlinker @executable_path/Frameworks -rdynamic -Xlinker -no_deduplicate -e ___debug_blank_executor_main -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_dylib -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-DebugDylibPath-normal-arm64.txt -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __debug_instlnm -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-DebugDylibInstallName-normal-arm64.txt -Xlinker -filelist -Xlinker /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI-ExecutorLinkFileList-normal-arm64.txt /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/RAI.debug.dylib -o /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/RAI
+
+CopySwiftLibs /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-swiftStdLibTool --copy --verbose --scan-executable /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/RAI.debug.dylib --scan-folder /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/Frameworks --scan-folder /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/PlugIns --scan-folder /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/SystemExtensions --scan-folder /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/Extensions --platform iphoneos --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+Ignoring --strip-bitcode because --sign was not passed
+
+ExtractAppIntentsMetadata (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --module-name RAI --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk --xcode-version 17F113 --platform-family iOS --deployment-target 18.0 --bundle-identifier com.rai.v2.ios --output /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app --target-triple arm64-apple-ios18.0 --binary-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/RAI --dependency-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI_dependency_info.dat --stringsdata-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftFileList --metadata-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.DependencyMetadataFileList --static-metadata-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.DependencyStaticMetadataFileList --swift-const-vals-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/Objects-normal/arm64/RAI.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-10-30 15:46:29.052 appintentsmetadataprocessor[53709:619194] Starting appintentsmetadataprocessor export
+2026-10-30 15:46:29.055 appintentsmetadataprocessor[53709:619194] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+AppIntentsSSUTraining (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsnltrainingprocessor --infoplist-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/Info.plist --temp-dir-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/ssu --bundle-id com.rai.v2.ios --product-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app --extracted-metadata-path /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/Metadata.appintents --metadata-file-list /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Intermediates.noindex/RAI.build/Debug-iphoneos/RAI.build/RAI.DependencyMetadataFileList --source-file /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app/Info.plist --archive-ssu-assets
+2026-10-30 15:46:29.086 appintentsnltrainingprocessor[53710:619195] Parsing options for appintentsnltrainingprocessor
+2026-10-30 15:46:29.086 appintentsnltrainingprocessor[53710:619195] Starting AppIntents SSU YAML Generation
+2026-10-30 15:46:29.090 appintentsnltrainingprocessor[53710:619195] No AppShortcuts found - Skipping.
+
+RegisterExecutionPolicyException /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-RegisterExecutionPolicyException /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app
+
+Validate /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    builtin-validationUtility /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app -shallow-bundle -infoplist-subpath Info.plist
+
+Touch /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app (in target 'RAI' from project 'RAI')
+    cd /Users/tp/raI/ios/RAI
+    /usr/bin/touch -c /tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app
+
+** BUILD SUCCEEDED **
+

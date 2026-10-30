@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "1783517900520ed6aedc3c97ef497bc8fe0ef5ca",
+  "environment": {
+    "xcode": "26.6 (17F113)",
+    "swift": "6.3.3",
+    "ios_sdk": "26.5 (23F81a)",
+    "ios_simulator": "26.5 (23F77)",
+    "deployment_target": "iOS 18.0",
+    "developer_directory": "/Applications/Xcode.app/Contents/Developer"
+  },
+  "configuration": [
+    "xcodebuild -runFirstLaunch (exit 0)",
+    "xcodebuild -runFirstLaunch -checkForNewerComponents (exit 0, no new updates)",
+    "xcodebuild -downloadPlatform iOS (exit 0)",
+    "xcrun simctl runtime scan-and-mount (exit 0)"
+  ],
+  "builds": [
+    {
+      "configuration": "Debug",
+      "command": "xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-xcode-build-2026-10-30/DerivedData CODE_SIGNING_ALLOWED=NO build",
+      "exit_code": 0,
+      "result": "BUILD SUCCEEDED",
+      "app_path": "/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Debug-iphoneos/RAI.app"
+    },
+    {
+      "configuration": "Release",
+      "command": "xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Release -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-xcode-build-2026-10-30/DerivedData CODE_SIGNING_ALLOWED=NO build",
+      "exit_code": 0,
+      "result": "BUILD SUCCEEDED",
+      "app_path": "/tmp/rai-xcode-build-2026-10-30/DerivedData/Build/Products/Release-iphoneos/RAI.app"
+    }
+  ],
+  "swift_tests": {
+    "command": "xcrun swift test",
+    "exit_code": 0,
+    "tests": 48,
+    "suites": 6,
+    "result": "PASS"
+  },
+  "initial_failures": [
+    "Debug destination rejected: iOS 26.5 not installed",
+    "Release SDK-only attempt: no destinations",
+    "After platform installation, runtime absent until scan-and-mount; duplicate runtime registration also reported"
+  ],
+  "warnings": [
+    "AppIntents metadata extraction skipped: no AppIntents.framework dependency",
+    "Release log includes CoreSimulator connection interruption during service refresh; build exited 0"
+  ],
+  "not_verified": [
+    "Code signing, physical iPhone installation and HealthKit acceptance",
+    "Simulator app execution and Xcode unit/UI tests",
+    "Backend race/vet/dependency boundary checks attempted but Go executable absent; no backend code changed"
+  ],
+  "source_changes": false,
+  "logs_sha256": {
+    "release-build.txt": "d72ab2bbf0e85de9bdb622d774966400459a78fe9459142acfb22663150d0490",
+    "runtimes.txt": "ebc62178fa203ee5ae1e50d34e124dbdbb1e39f8d4987082b499c594285ab476",
+    "swift-test.txt": "42288e7c599daa156363088c34dbf83b628b394aa042ef691c5f2a7faa144942",
+    "platform-install.txt": "36bcc0dcfd3a0225f9725dc7ce4fa959986c0cd26f2ff54fd209b2edd17d9a5e",
+    "debug-first-attempt.txt": "6a0fd71b3e10580830b782e5a1a81d4199c6d432ce172c87b5fcaada452744c9",
+    "release-first-attempt.txt": "3feeb530c70e98b8ac832798309ad2cdd4fc5a92358ecd9fb58e3b6e394af6a5",
+    "debug-build.txt": "1bf1351c47c8e01d2e4141191cb2c5d2b926ccce042f46af66e906cd1e7e0131"
+  }
+}
