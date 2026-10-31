@@ -25,6 +25,7 @@
 		CE77CC555CD1BF81346F22E2 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C22EC825B004D4C177125E /* SyncCoordinator.swift */; };
 		D9156F70077CC7BD59084BB8 /* ClientConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE18C52EB6E3A1E357E8DCB7 /* ClientConfiguration.swift */; };
 		E643ACCBB0EEE14443B39F98 /* ProductViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07A341B735C9EDE82516D5B7 /* ProductViews.swift */; };
+		96528C42F0F2AF0B7AB0C666 /* WorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C2FDB10010A581B0F9F5385 /* WorkoutDetailView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		CC0CE59185A6582157B523D9 /* ProductModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductModel.swift; sourceTree = "<group>"; };
 		D573336D2D55F14E12765B60 /* RAITheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RAITheme.swift; sourceTree = "<group>"; };
 		DE18C52EB6E3A1E357E8DCB7 /* ClientConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClientConfiguration.swift; sourceTree = "<group>"; };
+		6C2FDB10010A581B0F9F5385 /* WorkoutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,6 +140,7 @@
 				0A1A32C1617C2BC49ED32899 /* HealthKitClient.swift */,
 				CC0CE59185A6582157B523D9 /* ProductModel.swift */,
 				07A341B735C9EDE82516D5B7 /* ProductViews.swift */,
+				6C2FDB10010A581B0F9F5385 /* WorkoutDetailView.swift */,
 				3F1C943D1E266CB2CE42EA95 /* RAIApp.swift */,
 				D573336D2D55F14E12765B60 /* RAITheme.swift */,
 				50C22EC825B004D4C177125E /* SyncCoordinator.swift */,
@@ -319,6 +322,7 @@
 				0F43DCD4C0C05BF9FFDF53F8 /* HealthKitClient.swift in Sources */,
 				017785EB305BF2D0F0C922C8 /* ProductModel.swift in Sources */,
 				E643ACCBB0EEE14443B39F98 /* ProductViews.swift in Sources */,
+				96528C42F0F2AF0B7AB0C666 /* WorkoutDetailView.swift in Sources */,
 				AA50E8F4DA8B6A9BE235AD89 /* RAIApp.swift in Sources */,
 				74409469EFBA71F64DB591A7 /* RAITheme.swift in Sources */,
 				CE77CC555CD1BF81346F22E2 /* SyncCoordinator.swift in Sources */,

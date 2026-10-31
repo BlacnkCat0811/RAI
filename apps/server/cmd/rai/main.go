@@ -59,6 +59,11 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	if mode == "api" || mode == "worker" {
+		if err = config.ApplyRateBudgets(); err != nil {
+			return err
+		}
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if mode == "ops" {

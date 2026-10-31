@@ -3,15 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>en</string>
+	<string>zh-Hans</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleDisplayName</key>
+	<string>RAI 跑步训练</string>
 	<key>CFBundleName</key>
-	<string>RAI V2</string>
+	<string>RAI 跑步训练</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -26,7 +28,7 @@
 		<true/>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>$(RAI_DEV_HTTP_HOST)</key>
+			<key>rai-dev.local</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<true/>
@@ -36,9 +38,9 @@
 		</dict>
 	</dict>
 	<key>NSHealthShareUsageDescription</key>
-	<string>RAI reads selected workouts, running measurements and routes to synchronize them to your private RAI server.</string>
+	<string>RAI 读取你选择的运动记录、跑步测量数据和路线，并同步到你的私有 RAI 服务。</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Connect to an isolated RAI development server on your local network.</string>
+	<string>连接局域网中的隔离 RAI 开发服务。</string>
 	<key>RAIDevelopmentHTTPHost</key>
 	<string>$(RAI_DEV_HTTP_HOST)</string>
 	<key>UIApplicationSceneManifest</key>

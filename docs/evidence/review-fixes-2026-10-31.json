@@ -1,0 +1,78 @@
+{
+  "generated_at": "2026-10-31T16:53:45.752148+08:00",
+  "scope": "Eight review findings fixed; synthetic tests only; no production database, deployment or migration",
+  "checks": [
+    {
+      "command": "go test -race ./...",
+      "result": "passed"
+    },
+    {
+      "command": "go vet ./...",
+      "result": "passed"
+    },
+    {
+      "command": "go vet -tags=integration ./...",
+      "result": "passed"
+    },
+    {
+      "command": "PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration ./...",
+      "result": "passed",
+      "integration_seconds": 219.505,
+      "postgresql": "18.6 (Postgres.app)",
+      "isolated": true,
+      "tcp_listening": false,
+      "fsync": true,
+      "full_page_writes": true,
+      "synchronous_commit": true,
+      "data_checksums": true,
+      "leftover_databases": 0,
+      "cluster_removed": true
+    },
+    {
+      "command": "python3 scripts/check-boundaries.py",
+      "result": "passed",
+      "online_packages": 249
+    },
+    {
+      "command": "gofmt -l . (apps/server)",
+      "result": "passed",
+      "unformatted_files": 0
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "xcrun swift test",
+      "result": "passed",
+      "tests": 52,
+      "suites": 7
+    },
+    {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -destination \"platform=iOS Simulator,id=<dedicated-empty-simulator>\" -derivedDataPath .local/review-fixes-derived -resultBundlePath .local/review-fixes-unit.xcresult -only-testing:RAITests -parallel-testing-enabled NO test",
+      "result": "passed",
+      "tests": 15,
+      "failures": 0,
+      "simulator": "iPhone 16 Pro, iOS 26.5",
+      "simulator_removed": true,
+      "log": ".local/review-fixes-xcode.log",
+      "result_bundle": ".local/review-fixes-unit.xcresult"
+    }
+  ],
+  "regressions": [
+    "Route skew seals and publishes analysis without changing raw points/manifests; out-of-tolerance registration rejected",
+    "Saved association uploads with readHealth=false and no HealthKit calls",
+    "Normal BatchBuilder series page executes concurrently; confirmed partial receipts survive 429 and restart; final page receipt gates anchor",
+    "Single parent activity falls back to actual segment events; gaps are not invented",
+    "HealthKit lap=3 / segment=7 accepted; pause/resume request=8 ignored",
+    "Duplicate HR intervals counted once; conflicting overlaps excluded from exposure and confidence",
+    "Pending/failed detail and series preserve raw facts and omit derived results; publication releases them",
+    "Planned Effort fallback labeled at confidence 0.4; actual RPE remains null in load and override"
+  ],
+  "not_verified": [
+    "Physical iPhone/Watch/HealthKit or GPS",
+    "Background, force-kill and network-loss recovery on physical device",
+    "UI screenshot and accessibility visual regression",
+    "Production scale or deployment"
+  ]
+}

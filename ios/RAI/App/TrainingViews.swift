@@ -25,7 +25,7 @@ struct TrainingView: View {
             CardHeading(title: "当前训练计划", icon: "flag.checkered")
             MetricText(
               value: ProductFormat.distance(model.data.plan["config"]["goal"].number("distanceM")),
-              unit: "km 目标")
+              unit: "公里目标")
             Text("目标日 \(model.data.plan["config"]["goal"].string("date"))").font(.subheadline)
               .foregroundStyle(RAITheme.secondary)
             if model.data.plan.string("generationState") == "succeeded" {
@@ -35,10 +35,10 @@ struct TrainingView: View {
                 .foregroundStyle(RAITheme.amber)
             }
             if let code = model.data.generationFailure {
-              Text("生成未完成：\(code)").font(.caption).foregroundStyle(RAITheme.amber)
+              Text("生成未完成：\(UserFacingText.generationFailure(code))").font(.caption).foregroundStyle(RAITheme.amber)
             }
             Text(
-              "\(Int(model.data.plan["config"].number("weeks") ?? 0)) 周 · 有效计划 v\(Int(model.data.effective.number("version") ?? 0))"
+              "\(Int(model.data.plan["config"].number("weeks") ?? 0)) 周 · 有效计划第 \(Int(model.data.effective.number("version") ?? 0)) 版"
             ).font(.caption).foregroundStyle(RAITheme.secondary)
           }.frame(maxWidth: .infinity, alignment: .leading).padding(22).raiGlass()
           ScrollView(.horizontal) {
@@ -119,7 +119,7 @@ struct SessionCard: View {
       Text(session.title).font(.title2.bold())
       Text(prescription(session)).font(.subheadline).monospacedDigit()
       HStack {
-        Text("RPE \(Int(session.raw.number("effort") ?? 0))")
+        Text("自感用力 \(Int(session.raw.number("effort") ?? 0))")
         Spacer()
         Text(statusText(session.raw.string("status")))
       }.font(.caption).foregroundStyle(RAITheme.secondary)
@@ -127,8 +127,8 @@ struct SessionCard: View {
   }
 }
 func statusText(_ status: String) -> String {
-  ["scheduled": "已安排", "started": "进行中", "completed": "已完成", "skipped": "已跳过", "cancelled": "已取消"][
-    status] ?? status
+  ["scheduled": "已安排", "planned": "已计划", "started": "进行中", "completed": "已完成", "skipped": "已跳过", "cancelled": "已取消"][
+    status] ?? "状态未知"
 }
 func reasonText(_ reason: String) -> String {
   if reason.hasSuffix("_override_incompatible_with_session_structure/v1") {
@@ -148,6 +148,9 @@ func reasonText(_ reason: String) -> String {
     "recovery_week": "本周降低训练量", "recovery_after_hard_session": "关键训练后安排恢复",
     "base_session_removed_kept": "自动课程已移除，保留你的调整",
     "override_rebase_conflict/v1": "历史调整需要确认；原调整仍保留在历史中。",
+    "explicit_skip": "本次训练已明确跳过", "analysis_pending": "运动分析尚未发布",
+    "no_comparable_target": "没有可比较的计划目标", "duration_distance_disagree": "距离与时长表现不一致",
+    "user_added": "用户新增训练",
   ][reason] ?? "训练建议详情暂不可用"
 }
 struct SessionDetail: View {
@@ -164,7 +167,7 @@ struct SessionDetail: View {
           Text(current.date).font(.subheadline)
           Text(current.title).font(.system(.largeTitle, design: .rounded, weight: .bold))
           Text(prescription(current)).font(.title2).monospacedDigit()
-          Text("RPE \(Int(current.raw.number("effort") ?? 0))").font(.subheadline)
+          Text("自感用力 \(Int(current.raw.number("effort") ?? 0))").font(.subheadline)
           if current.modified {
             Text("已调整 · 仅保护你修改的字段").font(.caption).foregroundStyle(RAITheme.amber)
           }
@@ -186,14 +189,14 @@ struct SessionDetail: View {
         VStack(alignment: .leading, spacing: 12) {
           CardHeading(title: "训练处方", icon: "list.bullet")
           if let hr = current.raw.number("targetHR") {
-            Text("目标心率 \(ProductFormat.decimal(hr)) bpm")
+            Text("目标心率 \(ProductFormat.decimal(hr)) 次/分")
           }
           if let pace = current.raw.number("paceSPerKM") {
-            Text("目标配速 \(ProductFormat.duration(pace))/km")
+            Text("目标配速 \(ProductFormat.duration(pace))/公里")
           }
           ForEach(Array(current.raw["steps"].list.enumerated()), id: \.offset) { _, step in
             Text(
-              "\(stepTitle(step.string("kind"))) · \(ProductFormat.duration(step.number("durationS"))) · RPE \(Int(step.number("effort") ?? 0))"
+              "\(stepTitle(step.string("kind"))) · \(ProductFormat.duration(step.number("durationS"))) · 自感用力 \(Int(step.number("effort") ?? 0))"
             )
             if let repeats = step.number("repeats"), repeats > 0 {
               Text(
@@ -202,7 +205,7 @@ struct SessionDetail: View {
             }
           }
           if current.raw["steps"].list.isEmpty {
-            Text("按距离 / 时长与 RPE 执行；当前处方没有独立热身、主训练和放松分段。").font(.subheadline).foregroundStyle(
+            Text("按距离 / 时长与自感用力执行；当前处方没有独立热身、主训练和放松分段。").font(.subheadline).foregroundStyle(
               RAITheme.secondary)
           }
           if !current.raw.string("notes").isEmpty { Text(current.raw.string("notes")) }
@@ -307,14 +310,14 @@ struct PendingCommandNotice: View {
   }
 }
 func stepTitle(_ kind: String) -> String {
-  ["warmup": "热身", "work": "主训练", "repeat": "间歇", "cooldown": "放松"][kind] ?? kind
+  ["warmup": "热身", "work": "主训练", "repeat": "间歇", "cooldown": "放松"][kind] ?? "训练步骤"
 }
 func fieldTitle(_ field: String) -> String {
   [
-    "type": "训练类型", "durationS": "时长（秒）", "distanceM": "距离（米）", "effort": "RPE",
-    "targetHR": "目标心率（bpm）", "paceSPerKM": "配速（秒/公里）", "notes": "备注", "move": "日期", "skip": "跳过",
-    "add": "新增训练", "date": "日期",
-  ][field] ?? field
+    "type": "训练类型", "durationS": "时长（秒）", "distanceM": "距离（米）", "effort": "自感用力",
+    "targetHR": "目标心率（次/分）", "paceSPerKM": "配速（秒/公里）", "notes": "备注", "move": "日期", "skip": "跳过",
+    "add": "新增训练", "date": "日期", "edit": "编辑", "revoke": "撤销",
+  ][field] ?? "其他字段"
 }
 struct SessionEditor: View {
   @Bindable var model: ProductModel
@@ -385,7 +388,7 @@ struct SessionEditor: View {
               TextField("距离（米）", text: $distance).keyboardType(.decimalPad).accessibilityIdentifier(
                 "add.distance")
               TextField("时长（秒）", text: $duration).keyboardType(.decimalPad)
-              Stepper("RPE \(effort)", value: $effort, in: 0...10)
+              Stepper("自感用力 \(effort)", value: $effort, in: 0...10)
               TextField("备注", text: $notes)
             }
           }
@@ -549,15 +552,15 @@ struct CreatePlanView: View {
         PendingCommandNotice(model: model, onConfirmed: { dismiss() })
         Group {
           Section("训练目标") {
-            TextField("目标距离（km）", text: $target).keyboardType(.decimalPad).accessibilityIdentifier(
+            TextField("目标距离（公里）", text: $target).keyboardType(.decimalPad).accessibilityIdentifier(
               "create.target")
             DatePicker("开始日（周一）", selection: $start, displayedComponents: .date)
             DatePicker("目标日", selection: $goal, displayedComponents: .date)
             Stepper("\(weeks) 周", value: $weeks, in: 4...16)
           }
           Section("当前基础 · 请明确填写") {
-            TextField("当前每周跑量（km）", text: $baseline).keyboardType(.decimalPad)
-            TextField("最近最长距离（km）", text: $longest).keyboardType(.decimalPad)
+            TextField("当前每周跑量（公里）", text: $baseline).keyboardType(.decimalPad)
+            TextField("最近最长距离（公里）", text: $longest).keyboardType(.decimalPad)
           }
           Section("每周可训练日（2–6 天）") {
             ForEach(1...7, id: \.self) { day in

@@ -140,15 +140,29 @@ func (activity WorkoutActivity) Validate(start, end int64) error {
 		(c.LapLength != nil && !validQuantity(c.LapLength, "m", true)) {
 		return bad()
 	}
-	if err := validateWorkoutDetails(activity.Statistics, activity.Events, *activity.StartUs, bound); err != nil {
+	if err := validateWorkoutStatistics(activity.Statistics, *activity.StartUs, bound); err != nil {
+		return err
+	}
+	// HealthKit attaches the parent workout's segment events to each activity;
+	// a segment can legitimately span across child activity boundaries while
+	// still belonging to the parent workout. Bound activity events by the
+	// parent window, never by the narrower activity interval.
+	if err := validateWorkoutEvents(activity.Events, start, end); err != nil {
 		return err
 	}
 	return nil
 }
 
 func validateWorkoutDetails(statistics []WorkoutStatistic, events []WorkoutEvent, start, end int64) error {
+	if err := validateWorkoutStatistics(statistics, start, end); err != nil {
+		return err
+	}
+	return validateWorkoutEvents(events, start, end)
+}
+
+func validateWorkoutStatistics(statistics []WorkoutStatistic, start, end int64) error {
 	bad := func() error { return Fail(422, "unsupported_payload") }
-	if len(statistics) > MaxWorkoutStatistics || len(events) > MaxWorkoutEvents {
+	if len(statistics) > MaxWorkoutStatistics {
 		return bad()
 	}
 	previous := ""
@@ -171,6 +185,14 @@ func validateWorkoutDetails(statistics []WorkoutStatistic, events []WorkoutEvent
 		if !found {
 			return bad()
 		}
+	}
+	return nil
+}
+
+func validateWorkoutEvents(events []WorkoutEvent, start, end int64) error {
+	bad := func() error { return Fail(422, "unsupported_payload") }
+	if len(events) > MaxWorkoutEvents {
+		return bad()
 	}
 	for _, event := range events {
 		if event.Type == nil || *event.Type < 1 || *event.Type > math.MaxInt32 || event.StartUs == nil || event.EndUs == nil ||

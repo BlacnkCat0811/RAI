@@ -68,7 +68,7 @@ actor HealthKitClient: HealthKitReading {
         } else { previous = nil }
         // Apple's async descriptor uses the anchored query mechanism and stops
         // its underlying query on cancellation. Never substitutes a zero anchor.
-        let limit = type == HKObjectType.workoutType() ? 25 : (type == HKSeriesType.workoutRoute() ? 1 : 250)
+        let limit = type == HKObjectType.workoutType() ? 25 : (type == HKSeriesType.workoutRoute() ? 1 : 1000)
         let query = HKAnchoredObjectQueryDescriptor(predicates: [.sample(type: type, predicate: workout.map { HKQuery.predicateForObjects(from: $0) })], anchor: previous, limit: limit)
         let result = try await query.result(for: health)
         return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
@@ -131,7 +131,7 @@ enum WorkoutInspection {
             case is Data: kind = "data"
             default: kind = "other"
             }
-            return .object(["key": .string(key), "valueType": .string(kind), "normalizerAllowlisted": .bool([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout, HKMetadataKeyAverageMETs, HKMetadataKeyElevationAscended, HKMetadataKeyWeatherHumidity, HKMetadataKeyWeatherTemperature].contains(key))])
+            return .object(["key": .string(key), "valueType": .string(kind), "normalizerAllowlisted": .bool([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout, HKMetadataKeyAverageMETs, HKMetadataKeyElevationAscended, HKMetadataKeyElevationDescended, HKMetadataKeyWeatherHumidity, HKMetadataKeyWeatherTemperature, HKMetadataKeyAverageSpeed, HKMetadataKeyMaximumSpeed].contains(key))])
         })
     }
     static func statistics(_ values: [HKQuantityType: HKStatistics], preferredUnits: [HKQuantityType: HKUnit]) -> JSON {
@@ -170,7 +170,13 @@ enum Normalizer {
         "HKQuantityTypeIdentifierRespiratoryRate": "count/min", "HKQuantityTypeIdentifierOxygenSaturation": "1",
         "HKQuantityTypeIdentifierRunningSpeed": "m/s", "HKQuantityTypeIdentifierWalkingSpeed": "m/s", "HKQuantityTypeIdentifierRunningPower": "W",
         "HKQuantityTypeIdentifierRunningGroundContactTime": "ms",
-        "HKQuantityTypeIdentifierRunningStrideLength": "m", "HKQuantityTypeIdentifierRunningVerticalOscillation": "m"
+        "HKQuantityTypeIdentifierRunningStrideLength": "m", "HKQuantityTypeIdentifierRunningVerticalOscillation": "m",
+        "HKQuantityTypeIdentifierDistanceCycling": "m", "HKQuantityTypeIdentifierDistanceSwimming": "m",
+        "HKQuantityTypeIdentifierDistanceWheelchair": "m", "HKQuantityTypeIdentifierDistanceDownhillSnowSports": "m",
+        "HKQuantityTypeIdentifierSwimmingStrokeCount": "count", "HKQuantityTypeIdentifierFlightsClimbed": "count",
+        "HKQuantityTypeIdentifierCyclingPower": "W", "HKQuantityTypeIdentifierCyclingSpeed": "m/s",
+        "HKQuantityTypeIdentifierCyclingCadence": "count/min", "HKQuantityTypeIdentifierWalkingCadence": "count/min",
+        "HKQuantityTypeIdentifierRunningCadence": "count/min", "HKQuantityTypeIdentifierHeartRateRecoveryOneMinute": "count/min"
     ]
     static func hkUnit(_ canonical: String) throws -> HKUnit {
         switch canonical {
@@ -209,12 +215,13 @@ enum Normalizer {
         let units: [String: (HKUnit, String)] = [
             HKMetadataKeyAverageMETs: (.kilocalorie().unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .hour())), "kcal/(kg*hr)"),
             HKMetadataKeyElevationAscended: (.meter(), "m"),
+            HKMetadataKeyElevationDescended: (.meter(), "m"),
             HKMetadataKeyWeatherHumidity: (.percent(), "1"),
             HKMetadataKeyWeatherTemperature: (.degreeCelsius(), "degC"),
+            HKMetadataKeyAverageSpeed: (.meter().unitDivided(by: .second()), "m/s"),
+            HKMetadataKeyMaximumSpeed: (.meter().unitDivided(by: .second()), "m/s"),
         ]
         let allowed = Set(units.keys).union([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout])
-        let unsupported = values.keys.filter { !allowed.contains($0) }.sorted()
-        guard unsupported.isEmpty else { throw SyncFailure.invalid("unsupported_workout_metadata_keys:" + unsupported.joined(separator: ",")) }
         var output = self.metadata(values)?.fields ?? [:]
         for (key, (unit, label)) in units where values[key] != nil {
             guard let quantity = values[key] as? HKQuantity, quantity.is(compatibleWith: unit) else { throw SyncFailure.invalid("unsupported_workout_metadata_unit:" + key) }
@@ -222,8 +229,31 @@ enum Normalizer {
             guard value.isFinite else { throw SyncFailure.invalid("nonfinite_workout_metadata") }
             output[key] = .object(["value": .number(value), "unit": .string(label)])
         }
+        // Third-party workout metadata is an explicitly supported scalar map:
+        // strings, booleans and finite numbers are preserved in the existing
+        // JSONB metadata field. Unknown object/quantity metadata still stops
+        // the workout instead of being silently dropped.
+        var unsupported: [String] = []
+        for (key, value) in values where !allowed.contains(key) {
+            guard key.count <= 128, output.count < 64 else { throw SyncFailure.invalid("workout_metadata_limit") }
+            if let string = value as? String {
+                output[key] = .string(string)
+            } else if let number = value as? NSNumber {
+                if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                    output[key] = .bool(number.boolValue)
+                } else {
+                    let double = number.doubleValue
+                    guard double.isFinite else { throw SyncFailure.invalid("nonfinite_workout_metadata") }
+                    output[key] = .number(double)
+                }
+            } else {
+                unsupported.append(key + ":" + String(describing: type(of: value)))
+            }
+        }
+        guard unsupported.isEmpty else { throw SyncFailure.invalid("unsupported_workout_metadata_types:" + unsupported.sorted().joined(separator: ",")) }
         return output.isEmpty ? nil : .object(output)
     }
+
     static func event(_ sample: HKSample) throws -> JSON {
         var object: [String: JSON] = ["op": .string("upsert"), "kind": .string(sample is HKWorkout ? "workout" : "sample"),
             "type": .string(sample.sampleType.identifier), "uuid": .string(sample.uuid.uuidString.lowercased()),

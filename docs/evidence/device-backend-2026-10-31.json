@@ -1,0 +1,366 @@
+{
+  "timestamp": "2026-10-31T14:48:20+08:00",
+  "task": "prepare existing fnOS rai-v2-device backend for manual physical-device testing",
+  "host": "rai-fnos",
+  "directory": "/home/tpandmr/rai-v2-device",
+  "compose_project": "rai-v2-device",
+  "source": {
+    "git_head": "3cbc5b8c46954e028eb6f2112d5392c9a7c772f0",
+    "working_tree": "dirty (pre-existing workout-detail and local environment changes)",
+    "binary_source_revision": "3cbc5b8-workout-detail-20261031",
+    "binary_sha256": "dc099fa67f19b7898d84cce81619020eceedcab6835dade99c702e98b2f414a3",
+    "build": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags '-s -w -X main.sourceCommit=...'"
+  },
+  "image": {
+    "tag": "rai-v2-device:workout-detail-20261031",
+    "id": "sha256:68f23d43a29d04df7b9a718ceff6ad7c3ab7b88b378bde7d4b232ffb28d20eb4",
+    "previous_tag": "rai-v2-device:device-dynamics",
+    "previous_image_retained": true,
+    "compose_backup": "compose.yaml.bak-20261031-1435"
+  },
+  "containers": {
+    "api": {
+      "image": "rai-v2-device:workout-detail-20261031",
+      "health": "healthy",
+      "port": "192.168.10.25:18087->8080/tcp"
+    },
+    "worker": {
+      "image": "rai-v2-device:workout-detail-20261031",
+      "health": "healthy"
+    },
+    "postgres": {
+      "image": "postgres:18.6",
+      "health": "healthy",
+      "untouched": true
+    }
+  },
+  "checks": {
+    "health": 200,
+    "ready": 200,
+    "worker_ready_exit": 0,
+    "schema": 13,
+    "handshake_protocol": 2,
+    "dataset_id": "d2582bb2-01f8-47a9-b0a1-767326befa23",
+    "workout_detail_status": 200,
+    "workout_detail_bytes": 1560,
+    "go_test": "PASS",
+    "go_vet": "PASS"
+  },
+  "counts_before_after": {
+    "datasets": [
+      1,
+      1
+    ],
+    "devices": [
+      2,
+      2
+    ],
+    "health_samples": [
+      20750,
+      20750
+    ],
+    "workouts": [
+      316,
+      316
+    ],
+    "sync_batches": [
+      263,
+      263
+    ],
+    "sync_pages": [
+      263,
+      263
+    ],
+    "workout_routes": [
+      14,
+      14
+    ],
+    "analysis_publications": [
+      496,
+      496
+    ],
+    "training_plans": [
+      0,
+      0
+    ]
+  },
+  "ios": {
+    "bundle_id": "com.rai.v2.ios",
+    "version": "0.6.0",
+    "build_number": "1",
+    "build": "Debug device build from current tree, signed with Apple Development",
+    "installed": true,
+    "app_state_reset": true,
+    "reason_for_reset": "phone state was bound to local dataset 8847a338-c8a5-4534-af3b-8d62e7ce3120, whose local database had been reset at 00:29; that state could not connect to fnOS",
+    "debug_http_host": "192.168.10.25",
+    "ats": "exact-host Debug exception via RAI_DEV_HTTP_HOST; no global arbitrary loads",
+    "target_backend": "fnOS rai-v2-device, dataset d2582bb2-01f8-47a9-b0a1-767326befa23",
+    "credentials_file": ".local/run/fnos-device-credentials.txt (0600, gitignored; contains collector epoch and token, not committed)",
+    "final_reinstall_at": "2026-10-31T14:48:05+08:00"
+  },
+  "not_verified": [
+    "HealthKit read authorization and real sample/workout/route sync",
+    "workout detail UI rendering on device",
+    "background URLSession, force-quit and network interruption recovery",
+    "TLS, production roles and deployment"
+  ],
+  "notes": "No token, payload, measurement values or database dump recorded. Existing fnOS dataset and volume preserved. Phone app state was reset after user confirmation; app now points to fnOS when credentials are entered. No commit/push.",
+  "phone_state_before_reset": {
+    "scope_dataset_id": "8847a338-c8a5-4534-af3b-8d62e7ce3120",
+    "scope_collector_epoch": "76574984-5ba4-4e64-a763-fb6b87118022",
+    "workouts": 316,
+    "pages": 0,
+    "next_sequence": 42,
+    "last_ack": "2026-10-30T23:21:44+08:00"
+  },
+  "first_sync_attempt": {
+    "result": "no new rows; app handshake and dataset binding succeeded",
+    "stream_registrations": {
+      "total": 11,
+      "conflict_409": 11,
+      "error_code": "stream_identity_conflict"
+    },
+    "cause": "app was reinstalled with a fresh local state but reused the existing collector epoch, so its newly generated stream IDs collided with the server's existing stream identities",
+    "repair": "restored the 11 existing server stream IDs, last_client_seq+1 and last_batch_id into the app's local RAIV2Sync/state.json; cleared failed pages; relaunched app",
+    "counts_after_attempt": {
+      "health_samples": 20750,
+      "workouts": 316,
+      "sync_batches": 263,
+      "sync_pages": 263
+    },
+    "latest_commit_before_attempt": "2026-10-30T14:12:31.184801+00"
+  },
+  "second_sync_attempt": {
+    "timestamp": "2026-10-31T15:02:00+08:00",
+    "new_batches": 93,
+    "by_stream": {
+      "HKWorkoutTypeIdentifier": {
+        "batches": 92,
+        "empty": 79,
+        "events": 316
+      },
+      "HKQuantityTypeIdentifierHeartRate": {
+        "batches": 1,
+        "empty": 0,
+        "events": 250
+      }
+    },
+    "fact_counts_unchanged": {
+      "health_samples": 20750,
+      "workouts": 316,
+      "workout_samples": 0,
+      "workout_routes": 14,
+      "route_points": 26783
+    },
+    "result": "all events unchanged; no new fact rows",
+    "latest_commit_at": "2026-10-31T15:04:25+08:00",
+    "sync_pages": 356
+  },
+  "rate_limit": {
+    "code": "device_rate_exceeded",
+    "status": 429,
+    "observed_at": "2026-10-31T15:03:56+08:00",
+    "observed_wait_seconds": {
+      "read": 13.24,
+      "write": 2.61,
+      "upload": 1.65
+    },
+    "budgets_cleared_at": "2026-10-31T15:05:29+08:00",
+    "policy": {
+      "read": {
+        "device_per_minute": 120,
+        "dataset_per_minute": 240,
+        "device_burst": 30,
+        "dataset_burst": 60
+      },
+      "write": {
+        "device_per_minute": 60,
+        "dataset_per_minute": 120,
+        "device_burst": 10,
+        "dataset_burst": 20
+      },
+      "upload": {
+        "device_per_minute": 30,
+        "dataset_per_minute": 60,
+        "device_burst": 2,
+        "dataset_burst": 4
+      }
+    },
+    "cause": "client produced 79 empty Workout batches in addition to 13 duplicate batches; the shared write/upload budgets were exhausted"
+  },
+  "empty_page_fix": {
+    "file": "ios/RAI/App/SyncCoordinator.swift",
+    "change": "when a full Workout page has no events, supplements or deletions, persist candidateAnchor with finishEmptyPage instead of sealing an empty batch",
+    "build": "Debug device build PASS; installed",
+    "status": "pending on-device sync verification",
+    "swift_tests": "51 tests / 7 suites PASS"
+  },
+  "live_ingestion": {
+    "observed_at": "2026-10-31T15:12:03+08:00",
+    "health_samples": 34423,
+    "health_samples_baseline": 20750,
+    "health_samples_added": 13673,
+    "workouts": 316,
+    "sync_batches": 432,
+    "sync_pages": 432,
+    "heart_rate_stream_last_seq": 99,
+    "workout_stream_last_seq": 272,
+    "rate_limit": {
+      "device_upload_wait_seconds": 0.88,
+      "status": "throttled but progressing"
+    },
+    "empty_workout_batches_after_fix": 0,
+    "conclusion": "actual HealthKit heart-rate samples are being inserted; the visible 429 is the intended 30 uploads/min device budget, not a stalled sync"
+  },
+  "data_export_estimate": {
+    "source": "/Users/tp/Desktop/导出.zip",
+    "archive_bytes": 20971520,
+    "export_xml_bytes": 352750953,
+    "records_total": 800443,
+    "workouts": 316,
+    "activity_summaries": 471,
+    "route_files": 72,
+    "route_points": 160979,
+    "supported_sample_records": 534839,
+    "supported_types": 10,
+    "date_range": "2020-02-26 to 2026-10-31"
+  },
+  "rate_limit_override": {
+    "image": "rai-v2-device:rate-personal-20261031",
+    "compose_backup": "compose.yaml.bak-20261031-1537",
+    "mechanism": "RAI_RATE_BUDGETS deployment JSON override; defaults unchanged when unset",
+    "policy": {
+      "read": {
+        "device_per_minute": 1200,
+        "dataset_per_minute": 2400,
+        "device_burst": 120,
+        "dataset_burst": 240
+      },
+      "write": {
+        "device_per_minute": 600,
+        "dataset_per_minute": 1200,
+        "device_burst": 60,
+        "dataset_burst": 120
+      },
+      "upload": {
+        "device_per_minute": 600,
+        "dataset_per_minute": 1200,
+        "device_burst": 30,
+        "dataset_burst": 60
+      }
+    },
+    "verified_by": "/v2/handshake limits.requests",
+    "app_page_size": {
+      "quantity_samples": 1000,
+      "workouts": 25,
+      "route": 1
+    }
+  },
+  "relaxed_rate_sync_observation": {
+    "observed_at": "2026-10-31T15:55:13+08:00",
+    "health_samples_baseline": 46923,
+    "health_samples": 118410,
+    "health_samples_added": 71487,
+    "sync_batches": 565,
+    "workouts": 316,
+    "workout_samples": 415,
+    "workout_routes": 17,
+    "route_points": 30751,
+    "latest_batch_committed_at": "2026-10-31T15:48:01.833445+08:00",
+    "latest_batch_stream": "HKQuantityTypeIdentifierHeartRate",
+    "client_parked_association_pages": 36,
+    "client_parked_error": "association_unavailable",
+    "client_state_last_progress_at": "2026-10-31T15:50:29+08:00",
+    "client_restarted_at": "2026-10-31T15:56:17+08:00",
+    "rate_limit_429": false,
+    "budget_wait_seconds": {
+      "read": -7.1,
+      "write": -397.2,
+      "upload": -545.1
+    },
+    "conclusion": "relaxed budgets no longer produce device_rate_exceeded; ingestion reached 118410 samples, 17 routes and 415 associations. The client then stopped making server requests while 36 association pages were parked as association_unavailable; app restart released the client wait without changing server facts. A further foreground sync is required to resume the bounded import."
+  },
+  "speed_optimization_2026_10_31": {
+    "observed_at": "2026-10-31T16:15:00+08:00",
+    "health_samples": 152410,
+    "supported_export_samples": 534839,
+    "remaining_samples": 382429,
+    "workout_samples": 415,
+    "workout_routes": 17,
+    "route_points": 30751,
+    "client_changes": [
+      "quantity page walk limit increased from 8 to 500 pages per stream per foreground pass",
+      "association pages are paused while any supported quantity stream is still incomplete; no 409 retry storm during sample catch-up",
+      "idle timer disabled during sync so HealthKit reads are not suspended by screen lock"
+    ],
+    "build": {
+      "configuration": "Debug",
+      "destination": "iPhone 12 Pro Max iOS 27.2",
+      "result": "BUILD SUCCEEDED",
+      "installed": true,
+      "swift_tests": "51 tests / 7 suites PASS"
+    },
+    "observed_server_batch_interval_seconds": 5,
+    "observed_client_stall": {
+      "last_server_batch_at": "2026-10-31T16:05:21.672510+08:00",
+      "client_state_last_progress_at": "2026-10-31T16:08:17+08:00",
+      "server_requests_during_stall": false,
+      "note": "the client waited in a HealthKit/background phase; app relaunched at 16:15:10 with local state preserved"
+    },
+    "rate_limit_429": false,
+    "conclusion": "rate limits are not the current bottleneck. The main wasted time was repeated association 409 retries and the eight-page per-pass cap. The optimized build is installed; one more foreground sync is required to measure end-to-end throughput. If the client stalls again without server requests, add a bounded HealthKit read timeout before claiming completion."
+  },
+  "series_parallelization_2026_10_31": {
+    "observed_at": "2026-10-31T16:23:30+08:00",
+    "root_cause": "a single quantity page can contain hundreds of multi-point HKQuantitySamples; each series is registration + chunk + seal. The old pipeline sent all operations one at a time, so a 909-operation HeartRate page blocked for many minutes.",
+    "active_page_evidence": {
+      "anchor_stream": "HKQuantityTypeIdentifierHeartRate",
+      "operations": 909,
+      "cursor_before_restart": 429,
+      "serial_tail_before_restart": 480,
+      "series_completed_by_parallel_drain": 159
+    },
+    "changes": [
+      "series registration/chunk/seal groups for distinct samples execute with bounded concurrency 8",
+      "per-series operation order is preserved",
+      "the page cursor and receipts are committed once after the whole series tail succeeds; failures replay idempotently"
+    ],
+    "build": {
+      "configuration": "Debug",
+      "result": "BUILD SUCCEEDED",
+      "installed": true,
+      "swift_tests": "51 tests / 7 suites PASS"
+    },
+    "counts_after": {
+      "health_samples": 198410,
+      "sync_batches": 645,
+      "series_uploads": 1261,
+      "series_points": 106281,
+      "workout_samples": 415,
+      "workout_routes": 17,
+      "route_points": 30751
+    },
+    "client_after": {
+      "pending_pages": 34,
+      "active_pages": 0,
+      "parked_association_pages": 34
+    },
+    "rate_limit_429": false,
+    "conclusion": "the parallel series drain completed the previously stalled HeartRate page and moved 159 series in about 20 seconds. The app is idle with 34 parked association pages; one more foreground tap is required to continue the remaining quantity pages.",
+    "latest_observation": {
+      "observed_at": "2026-10-31T16:30:56+08:00",
+      "health_samples": 200410,
+      "sync_batches": 647,
+      "series_uploads": 1995,
+      "workout_samples": 424,
+      "workout_routes": 17,
+      "route_points": 30751,
+      "active_stream": "HKQuantityTypeIdentifierHeartRate",
+      "active_operations": 1299,
+      "active_cursor": 888,
+      "parked_association_pages": 34,
+      "rate_limit_429": false,
+      "note": "series tail is advancing at roughly 3.5 samples/second with 8-way bounded concurrency; the server is responding and the client has no stalled network request."
+    }
+  }
+}

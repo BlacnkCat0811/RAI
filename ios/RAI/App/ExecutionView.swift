@@ -22,7 +22,7 @@ struct ExecutionView: View {
                 .system(.largeTitle, design: .rounded, weight: .bold)
               ).monospacedDigit()
             }
-            Text("这是训练执行记录；运动测量来自 HealthKit。").font(.caption).foregroundStyle(RAITheme.secondary)
+            Text("这是训练执行记录；运动测量来自健康数据。").font(.caption).foregroundStyle(RAITheme.secondary)
           }
         }.padding(24).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
         let steps = session.raw["steps"].list
@@ -33,7 +33,7 @@ struct ExecutionView: View {
             Text("当前步骤 · 手动切换").font(.caption).foregroundStyle(RAITheme.secondary)
             Text(stepTitle(step.string("kind"))).font(.title.bold())
             Text(
-              "目标 \(ProductFormat.duration(step.number("durationS"))) · RPE \(Int(step.number("effort") ?? 0))"
+              "目标 \(ProductFormat.duration(step.number("durationS"))) · 自感用力 \(Int(step.number("effort") ?? 0))"
             ).monospacedDigit()
             if index + 1 < steps.count {
               Button("下一步：" + stepTitle(steps[index + 1].string("kind"))) {
@@ -49,7 +49,7 @@ struct ExecutionView: View {
             CardHeading(title: "训练步骤 · 按处方执行", icon: "list.number")
             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
               Text(
-                "\(index+1). \(stepTitle(step.string("kind"))) · \(ProductFormat.duration(step.number("durationS"))) · RPE \(Int(step.number("effort") ?? 0))"
+                "\(index+1). \(stepTitle(step.string("kind"))) · \(ProductFormat.duration(step.number("durationS"))) · 自感用力 \(Int(step.number("effort") ?? 0))"
               )
               if let count = step.number("repeats"), count > 0 {
                 Text("\(Int(count)) 次，每次恢复 \(ProductFormat.duration(step.number("recoveryS")))")
@@ -123,16 +123,16 @@ struct FeedbackCard: View {
         columns: [GridItem(.adaptive(minimum: typeSize.isAccessibilitySize ? 280 : 120))],
         alignment: .leading, spacing: 18
       ) {
-        item("计划距离", ProductFormat.distance(feedback["distance"].number("planned")) + " km")
-        item("实际距离", ProductFormat.distance(feedback["distance"].number("actual")) + " km")
+        item("计划距离", ProductFormat.distance(feedback["distance"].number("planned")) + " 公里")
+        item("实际距离", ProductFormat.distance(feedback["distance"].number("actual")) + " 公里")
         item(
           "距离完成度",
           ProductFormat.decimal(feedback["distance"].number("ratio").map { $0 * 100 }) + "%")
-        item("训练负荷", ProductFormat.decimal(feedback.number("actualLoad")) + " AU")
+        item("训练负荷", ProductFormat.decimal(feedback.number("actualLoad")) + " 负荷单位")
         item("计划时长", ProductFormat.duration(feedback["duration"].number("planned")))
         item("实际时长", ProductFormat.duration(feedback["duration"].number("actual")))
       }
-      Text("数值来自服务端 Feedback；缺失等待运动分析发布。").font(.caption).foregroundStyle(RAITheme.secondary)
+      Text("数值来自服务端训练反馈；缺失数据会等待运动分析发布。").font(.caption).foregroundStyle(RAITheme.secondary)
     }.padding(22).raiGlass().accessibilityIdentifier("feedback.card")
   }
   func item(_ title: String, _ value: String) -> some View {

@@ -170,7 +170,12 @@ func (s *Store) RegisterRoute(ctx context.Context, p syncing.Principal, req sync
 		return syncing.RouteState{}, err
 	}
 	first, last := time.UnixMicro(req.FirstRecordedAtUs).UTC(), time.UnixMicro(req.LastRecordedAtUs).UTC()
-	if first.Before(workoutStart) || last.After(workoutEnd) {
+	// HealthKit route points can carry GPS timestamps a few hundred
+	// milliseconds outside the parent workout window; do not reject a valid
+	// route for that clock skew. This is a narrow tolerance, not a redefinition
+	// of the workout interval.
+	const routeTimeTolerance = 5 * time.Second
+	if first.Before(workoutStart.Add(-routeTimeTolerance)) || last.After(workoutEnd.Add(routeTimeTolerance)) {
 		return syncing.RouteState{}, syncing.Fail(422, "unsupported_payload")
 	}
 	var expectedPayload []byte

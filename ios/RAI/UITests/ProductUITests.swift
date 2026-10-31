@@ -93,7 +93,7 @@ final class ProductUITests: XCTestCase {
     try screen("Training")
     tab("我的")
     try tap("profile.sync")
-    XCTAssertTrue(app.buttons["Request Read Access"].exists || app.buttons["请求读取权限"].exists)
+    XCTAssertTrue(app.buttons["请求读取权限"].exists)
     tab("首页")
     try tap("home.hero")
     XCTAssertTrue(element("session.edit").waitForExistence(timeout: 10))
@@ -178,12 +178,12 @@ final class ProductUITests: XCTestCase {
     let flags = element("profile.a11y")
     if !flags.isHittable { app.swipeUp() }
     XCTAssertTrue(flags.waitForExistence(timeout: 10))
-    guard flags.label.contains("accessibility") else {
+    guard flags.label.contains("辅助功能字号") else {
       throw XCTSkip("Run the dedicated matrix with an Accessibility Dynamic Type size")
     }
-    XCTAssertTrue(flags.label.contains("motion=true"), flags.label)
-    XCTAssertTrue(flags.label.contains("transparency=true"), flags.label)
-    XCTAssertTrue(flags.label.contains("accessibility"), flags.label)
+    XCTAssertTrue(flags.label.contains("动态效果=减弱"), flags.label)
+    XCTAssertTrue(flags.label.contains("透明度=降低"), flags.label)
+    XCTAssertTrue(flags.label.contains("辅助功能字号"), flags.label)
     tab("首页")
     try auditVisibleText()
     try screen("HomeAccessibility")
@@ -328,9 +328,9 @@ final class ProductUITests: XCTestCase {
     try tap("training.create")
     let target = app.textFields["create.target"]
     replace(target, with: "21")
-    let baseline = app.textFields["当前每周跑量（km）"]
+    let baseline = app.textFields["当前每周跑量（公里）"]
     replace(baseline, with: "30")
-    let longest = app.textFields["最近最长距离（km）"]
+    let longest = app.textFields["最近最长距离（公里）"]
     replace(longest, with: "12")
     XCTAssertEqual(target.value as? String, "21")
     XCTAssertEqual(baseline.value as? String, "30")
@@ -419,4 +419,31 @@ final class ProductUITests: XCTestCase {
 private enum UIFlowFailure: Error {
   case missing(String)
   case disabled(String)
+}
+
+extension ProductUITests {
+  func test90WorkoutDetailNativeSections() throws {
+    try launchApp(expectHomeHero: false)
+    tab("运动")
+    XCTAssertTrue(element("screen.activities").waitForExistence(timeout: 20))
+    let row = element("workout.row")
+    XCTAssertTrue(row.waitForExistence(timeout: 20), "workout row missing after live API sync")
+    row.tap()
+    XCTAssertTrue(element("screen.workout.detail").waitForExistence(timeout: 30))
+    XCTAssertTrue(element("workout.route").waitForExistence(timeout: 20))
+    XCTAssertTrue(element("workout.summary").exists)
+    Thread.sleep(forTimeInterval: 1.0)
+    try screen("WorkoutDetailTop")
+    app.swipeUp()
+    try screen("WorkoutDetailEffect")
+    app.swipeUp()
+    app.swipeUp()
+    try screen("WorkoutDetailSeries")
+    app.swipeUp()
+    app.swipeUp()
+    try screen("WorkoutDetailSplits")
+    app.swipeUp()
+    app.swipeUp()
+    try screen("WorkoutDetailDynamicsQuality")
+  }
 }

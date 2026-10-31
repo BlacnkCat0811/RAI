@@ -132,3 +132,7 @@ PRODUCTION RELEASE READY: NO
 下次有设备后沿用现有身份、Keychain、数据库和Outbox：先完成新增4类只读授权及再次脱敏检查，再Retry Saved Work/有界Sync；闭合真实Workout与route/association，验证增量不重增及安全删除/网络/后台恢复；随后验证P4 publication和P5目标、override、frozen execution、显式Workout关联、feedback及再生成。Metal/Liquid Glass/Charts、内存/帧率、无障碍及TLS仍需各自证据。不得用合成PASS替代这些门禁。
 
 **本次工作已按用户要求结束；DEVICE ACCEPTANCE未完成，不是PASS。**
+
+## 2026-10-31 接续环境
+
+用户重新连接 iPhone 后选择保留 fnOS 服务端数据集，仅把隔离后端升级到当前工作区源码。`rai-v2-device:device-dynamics` 已由 `rai-v2-device:workout-detail-20261031` 替代（旧镜像保留），PostgreSQL、volume、dataset、设备 token 摘要和计数未变；API/Worker 重启后 healthy，详情接口 `GET /v2/workouts/{id}/detail` 返回 200。检查发现手机 App 当时绑定的是本机已重置的旧数据集 `8847a338…`，不是 fnOS；经用户确认已卸载重装并清除旧本地状态，需手工填入 fnOS 的采集器/令牌后连接。真实 HealthKit、详情 UI、后台恢复和 TLS 仍未验证，DEVICE ACCEPTANCE 状态不变。证据见 [device-backend-2026-10-31.json](evidence/device-backend-2026-10-31.json)。

@@ -56,3 +56,11 @@
 ## 2026-10-29 Final Maintenance（OpenAPI 1.1.0）
 
 合法 sample upsert/delete 混合页与全删除页按 type/UTC 日聚合依赖任务，旧回执不重写。Training 五类 JSON 写接口明确 application/json、无 Content-Encoding、64 KiB 和415/413/422错误边界，required/duplicate/case/null/unknown严格规则及合法命令hash不变。Route/series/Workout package 的每次PUT（含exact retry）均校验collector及upload lease；有效租约返回原回执，无效租约409 upload_lease_lost。客户端pending锁定可冲突编辑，独立重试原命令，不用旧payload替换新草稿。protocolVersion2、schema13、P4/P5算法、原事实/屏障/回执事务及历史保持。
+
+## 2026-10-30 Native Workout Detail Read Projections
+
+新增三个认证、dataset 范围的只读投影：`GET /v2/workouts/{id}/detail`、`GET /v2/workouts/{id}/series`、`GET /v2/workouts/{id}/freshness`。detail 返回事实头、环境观测/修正、Minetti 等强配速摘要、已发布负荷/区间、采样路线（≤500 点）与执行快照覆盖；series 返回八条展示时序（每项 ≤600 点，保留首尾/极值）、公里分段、实测 activities 分段、坡度和跑姿动态；freshness 逐指标返回 `present | not_seen_yet`。未发布分析保持 `null`/pending，不以 0 冒充。路线每点速度/海拔/时间戳和时序 `totalSamples` 保留在接口但不逐点渲染。无 migration，P3 上传/回执/anchor、schema 13、protocolVersion 2 不变。
+
+## 2026-10-31 Workout Detail Correctness Fixes
+
+路线 ±5 秒偏差保留原始事实，仅在分析输入和派生投影中排除窗口外点。活动分段要求至少两个连续活动，事件回退显式支持 HealthKit lap=3 / segment=7。心率区间去除同值重复、排除冲突重叠时间。未发布分析时仅返回事实及原始展示时序，环境观测保留而修正状态为 pending。执行快照 Effort 明确为计划强度：负荷回退来源改为 planned_effort_fallback/v1（置信度 0.4），实际 RPE 不填充。无 migration，不改写历史事实、回执、已发布结果或下载水位。

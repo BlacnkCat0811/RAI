@@ -23,7 +23,7 @@ public struct ProductSession: Identifiable, Hashable, Sendable {
     [
       "REST": "休息日", "EASY": "基础跑", "LONG": "长距离跑", "TEMPO": "节奏跑", "INTERVAL": "间歇训练",
       "RECOVERY": "恢复跑",
-    ][type] ?? type
+    ][type] ?? "训练"
   }
   public var distance: Double { raw.number("distanceM") ?? 0 }
   public var duration: Double { raw.number("durationS") ?? 0 }

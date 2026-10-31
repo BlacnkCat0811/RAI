@@ -137,8 +137,9 @@ func TestAnalysisPublishImmutableQueryAndDelete(t *testing.T) {
 		t.Fatal("dirty state exposed")
 	}
 	runOne(t, f, "analysis.workout")
-	if count(t, f, "analysis_publications") != 1 {
-		t.Fatal("workout pointer not removed")
+	var workoutPublications int
+	if err := f.s.Pool.QueryRow(context.Background(), `SELECT count(*) FROM analysis_publications WHERE dataset_id=$1 AND metric_family='workout'`, f.p.DatasetID).Scan(&workoutPublications); err != nil || workoutPublications != 0 {
+		t.Fatalf("workout pointer not removed: count=%d err=%v", workoutPublications, err)
 	}
 }
 func TestAnalysisGenerationCASAndLostFence(t *testing.T) {

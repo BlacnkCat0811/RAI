@@ -157,8 +157,19 @@ public actor OutboxStore {
         guard let index = state.pages.firstIndex(where: { $0.id == id }) else { return }
         var next = state
         next.pages[index].uploading = false; next.pages[index].retryCount += 1; next.pages[index].error = error
-        next.pages[index].nextAttempt = Date().addingTimeInterval(max(error.retryAfter ?? 0, UploadError.backoff(next.pages[index].retryCount)))
-        if error.code == "association_unavailable" { next.pages[index].waitingForFactGeneration = state.factGeneration }
+        // A 429 already tells us how long the shared bucket needs. Exponential
+        // backoff on top of it would leave the bucket idle for up to a minute
+        // per page and stretch an initial sync into hours.
+        let delay: TimeInterval = error.status == 429
+            ? max(error.retryAfter ?? 1, 1.2)
+            : max(error.retryAfter ?? 0, UploadError.backoff(next.pages[index].retryCount))
+        next.pages[index].nextAttempt = Date().addingTimeInterval(delay)
+        // Only an unavailable parent waits for a later fact generation. Any
+        // other failure (for example the shared 429 bucket) must respect the
+        // normal backoff; otherwise a stale waiting marker would make this
+        // page due on every pass and produce a 429 storm.
+        next.pages[index].waitingForFactGeneration =
+            error.code == "association_unavailable" ? state.factGeneration : nil
         try commit(next)
     }
     public func retryBlocked() throws {
@@ -200,6 +211,37 @@ public actor OutboxStore {
             }
             for candidate in cancelled { next.cancellations[candidate.id] = "source_fact_deleted; anchor retained for rediscovery" }
             let ids = Set(cancelled.map(\.id)); next.pages.removeAll { ids.contains($0.id) }
+        }
+        try commit(next)
+    }
+    /// Persist verified series successes, including out-of-order groups. Move
+    /// the operation cursor only across a contiguous prefix of receipts. A
+    /// trailing page-receipt request must still succeed before anchor promotion.
+    public func acknowledgeSeries(_ id: String, receipts: [Int: JSON]) throws {
+        guard let index = state.pages.firstIndex(where: { $0.id == id }) else { throw SyncFailure.localState("unknown_page") }
+        let page = state.pages[index]
+        var next = state
+        for (cursor, receipt) in receipts {
+            guard cursor >= page.cursor, cursor < page.operations.count,
+                  case .request(let request) = page.operations[cursor],
+                  request.path == "/v2/sync/series" || request.path.hasPrefix("/v2/sync/series/") else {
+                throw SyncFailure.localState("invalid_series_receipt")
+            }
+            try request.validate(receipt)
+            next.receipts[page.id + ":" + String(cursor)] = receipt
+        }
+        while next.pages[index].cursor < page.operations.count,
+              next.receipts[page.id + ":" + String(next.pages[index].cursor)] != nil {
+            next.pages[index].cursor += 1
+        }
+        next.pages[index].uploading = false
+        next.pages[index].error = nil
+        next.pages[index].waitingForFactGeneration = nil
+        next.lastACK = Date()
+        if next.pages[index].cursor == page.operations.count {
+            finish(page, in: &next)
+            next.pages.remove(at: index)
+            markDelivered(page, in: &next)
         }
         try commit(next)
     }

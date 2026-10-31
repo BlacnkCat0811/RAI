@@ -5,6 +5,74 @@ import SyncCore
 import UIKit
 import os
 
+enum UserFacingText {
+  static func error(_ code: String) -> String {
+    if code.hasPrefix("keychain_") { return "钥匙串读写失败" }
+    if code.hasPrefix("unsupported_workout_metadata_types") { return "运动记录包含暂不支持的健康元数据" }
+    if code.hasPrefix("unsupported_workout_quantity_types") { return "运动记录包含暂不支持的健康统计类型" }
+    return [
+      "device_rate_exceeded": "服务限流，正在等待自动重试",
+      "dataset_rate_exceeded": "私有服务繁忙，正在等待自动重试",
+      "association_unavailable": "关联样本尚未到达，稍后自动重试",
+      "analysis_not_ready": "分析尚未就绪",
+      "training_not_found": "未找到训练计划",
+      "connection_unavailable": "无法连接私有服务",
+      "configure_development_api_first": "请先配置私有服务",
+      "product_dataset_changed": "私有数据集已更改",
+      "resolve_pending_command_first": "请先处理待确认的提交",
+      "command_identity_mismatch": "提交标识不匹配",
+      "invalid_api_origin": "服务地址无效",
+      "invalid_collector_epoch": "采集器周期标识无效",
+      "missing_device_token": "缺少设备访问令牌",
+      "device_token_contains_whitespace": "设备访问令牌不能包含空白",
+      "http_requires_configured_debug_host": "调试环境服务地址未配置",
+      "https_required": "服务地址必须使用加密连接",
+      "unsupported_handshake": "服务协议不兼容",
+      "capability_or_limit_mismatch": "服务能力或限制不匹配",
+      "request_retry_limit": "请求重试次数已用尽",
+      "healthkit_unavailable": "设备不支持健康数据",
+      "no_visible_running_workout": "没有可读取的跑步记录",
+      "invalid_healthkit_anchor": "健康数据同步位置无效",
+      "healthkit_read_failed": "健康数据读取失败",
+      "workout_enrichment_mapping_conflict": "运动记录补充信息冲突",
+      "workout_total_conflict": "运动总距离或总能量与已保存记录不一致",
+      "workout_metadata_conflict": "运动元数据与已保存记录不一致",
+      "immutable_workout_changed": "运动记录内容发生变化",
+      "workout_enrichment_conflict": "服务端已有不同的补充信息",
+      "workout_enrichment_stale": "补充信息版本已过期",
+      "unsupported_workout_metadata_types": "运动元数据类型暂不支持",
+      "route_read_or_mapping_failed": "路线读取失败",
+      "receipt_mismatch": "服务返回结果与请求不一致",
+      "invalid_response": "服务返回结果异常",
+      "oversized_response": "服务返回结果过大",
+      "invalid_http_response": "服务返回了无效响应",
+      "invalid_training_override": "训练调整无效",
+      "training_request_too_large": "训练修改内容过大",
+      "unsupported_media_type": "不支持的数据格式",
+      "unsupported_content_encoding": "不支持的数据编码",
+      "training_response_requires_pagination": "训练结果需要分页读取",
+    ][code] ?? "操作未完成，请稍后重试"
+  }
+
+  static func syncFailure(_ failure: SyncFailure) -> String {
+    switch failure {
+    case .invalid(let code), .localState(let code): return error(code)
+    case .receiptMismatch: return "服务返回结果与请求不一致"
+    }
+  }
+
+  static func generationFailure(_ code: String) -> String {
+    [
+      "insufficient_context": "训练基础信息不足",
+      "goal_unreachable": "目标与当前基础不匹配",
+      "schedule_conflict": "训练日期安排存在冲突",
+      "invalid_config": "训练目标配置无效",
+      "provider_unavailable": "训练服务暂不可用",
+      "timeout": "训练计划生成超时",
+    ][code] ?? "训练计划暂未生成"
+  }
+}
+
 @MainActor @Observable
 final class ProductModel {
   var data = ProductSnapshot()
@@ -65,7 +133,7 @@ final class ProductModel {
       }
     } catch let failure as UploadError {
       log.error("product_bootstrap_transport=\(failure.code, privacy: .public)")
-      error = "服务暂不可用，请在同步与诊断中检查连接。"
+      error = "服务暂不可用：\(UserFacingText.error(failure.code))。请在同步与诊断中检查连接。"
     } catch let failure as SyncFailure {
       let code: String
       switch failure {
@@ -73,7 +141,7 @@ final class ProductModel {
       case .receiptMismatch: code = "receipt_mismatch"
       }
       log.error("product_bootstrap_failure=\(code, privacy: .public)")
-      error = "产品配置暂不可用；原文件已保留。"
+      error = "产品配置暂不可用：\(UserFacingText.error(code))。原文件已保留。"
     } catch {
       log.error("product_bootstrap_local_code=\((error as NSError).code, privacy: .public)")
       self.error = "服务连接或本地命令恢复失败；原文件已保留。"
@@ -116,6 +184,39 @@ final class ProductModel {
     do {
       return try await api.get("/v2/workouts/" + id)["items"].list.first.map(ProductWorkout.init)
     } catch { return nil }
+  }
+  var workoutDetail: WorkoutDetailResponse?
+  var workoutSeries: WorkoutSeriesResponse?
+  var workoutFreshness: WorkoutFreshness?
+  var workoutDetailLoading = false
+  var workoutDetailError: String?
+  func loadWorkoutDetail(_ id: String) async {
+    guard let api else {
+      workoutDetailError = "请先配置私有服务。"
+      return
+    }
+    if workoutDetail?.workout.workoutID != id {
+      workoutDetail = nil
+      workoutSeries = nil
+      workoutFreshness = nil
+      workoutDetailError = nil
+    }
+    workoutDetailLoading = true
+    defer { workoutDetailLoading = false }
+    do {
+      let detail = try await api.workoutDetail(id)
+      guard detail.workout.workoutID == id else { throw SyncFailure.invalid("invalid_response") }
+      workoutDetail = detail
+      workoutDetailError = nil
+    } catch let failure as UploadError {
+      workoutDetailError = "训练详情暂不可用：\(UserFacingText.error(failure.code))"
+      return
+    } catch {
+      workoutDetailError = "训练详情暂不可用，请稍后重试。"
+      return
+    }
+    workoutSeries = try? await api.workoutSeries(id)
+    workoutFreshness = try? await api.workoutFreshness(id)
   }
   func loadAudit() async {
     let plan = data.plan.string("planID")
@@ -210,9 +311,9 @@ final class ProductModel {
           self.error = "被拒绝的请求仍保留，请重新打开后检查。"
           return false
         }
-        error = "处方未被接受（\(e.code)），请修改草稿后重试。"
+        error = "训练处方未被接受：\(UserFacingText.error(e.code))。请修改草稿后重试。"
       } else {
-        error = conflict ? "训练计划已更新。草稿已保留，请查看最新计划后再次确认。" : "提交未确认（\(e.code)）；请重试原命令。"
+        error = conflict ? "训练计划已更新。草稿已保留，请查看最新计划后再次确认。" : "提交结果尚未确认：\(UserFacingText.error(e.code))。请重试原命令。"
       }
     } catch { self.error = "命令已保留，请恢复原提交。" }
     return false

@@ -14,9 +14,13 @@ P6原生产品与P3/P4/P5历史合同和验收保留，见 [P6 Result](docs/V2_P
 
 后续部署准备及月度监控适配见 [Monthly Deploy Result](docs/RAI_MONTHLY_BACKUP_DEPLOY_RESULT.md)；只比较恢复旧库与新建数据集的简化方案见 [Minimal Recovery Review](docs/RAI_MINIMAL_DISASTER_RECOVERY_REVIEW.md)。真实V2/云备份身份与正式调度仍待配置和明确批准，灾难恢复实现未开始。
 
+## 原生训练详情页
+
+运动列表中的训练详情已实现为原生 SwiftUI 页面：补齐状态横幅、**Apple MapKit** 路线（起点/终点/公里标记）、训练摘要与环境修正、训练效果、固定八条指标时序、心率/配速区间、公里/课表分段、跑姿动态、质量与模型及人工覆盖。Go 端只读接口为 `GET /v2/workouts/{id}/detail`、`/series`、`/freshness`；路线与八条时序均为有界展示采样（路线 ≤500 点、每项时序 ≤600 点），分析未发布时派生字段保持 `null` 并显示“分析中”。实现口径、合成验收截图与未验证项见 [原生训练详情](docs/WORKOUT_DETAIL_NATIVE.md)。
+
 ## 本地启动
 
-开发环境使用 Go **1.27.3** 和 PostgreSQL **18.6**。三服务 Compose 的显式迁移与启动步骤见 [开发 Compose](deploy/dev/README.md)。该配置仅用于合成开发数据，生产必须配置独立最小权限角色和秘密。
+开发环境使用 Go **1.27.3** 和 PostgreSQL **18.6**。macOS 本机可直接使用无需 sudo、Homebrew 或 Docker 的原生脚本，工具链固定在 `.local/toolchain`，步骤见 [本地原生环境](deploy/local/README.md)：`scripts/local/bootstrap.sh`、`scripts/local/pg.sh init`、`scripts/local/stack.sh migrate|start`。三服务 Compose 的显式迁移与启动步骤见 [开发 Compose](deploy/dev/README.md)。两种配置都只用于合成开发数据，生产必须配置独立最小权限角色和秘密。
 
 API 默认只监听 `127.0.0.1:8080`；容器配置监听 `0.0.0.0:8080`。`RAI_LISTEN_ADDR` 可更改监听地址。使用挂载秘密文件时配置 `RAI_DATABASE_URL_FILE`，不能同时设置两种数据库 URL 来源。API 不自动执行 migration 或创建数据集。仅在确需创建开发数据集时手动运行 `rai init`；其一次性设备凭证必须安全保存，不提交或写入普通日志。
 
@@ -27,6 +31,10 @@ NAS 连接见 [fnOS 访问说明](docs/FNOS-ACCESS.md)。远端现有库不作�
 ## 验证
 
 ```bash
+# 本机原生环境（Go/PostgreSQL 已由 scripts/local/bootstrap.sh 安装）
+scripts/local/verify.sh   # 空库迁移、API/Worker、健康检查、备份恢复
+scripts/local/test.sh     # 单元、vet、race 及一次性隔离 PostgreSQL 集成测试
+
 cd apps/server
 go test ./...
 go vet ./...

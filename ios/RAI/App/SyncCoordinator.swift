@@ -12,13 +12,14 @@ enum Metrics {
 actor SyncCoordinator {
     let store: OutboxStore
     let health: any HealthKitReading
+    private let session: URLSession
     private var running = false
-    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient()) { self.store = store; self.health = health }
+    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared) { self.store = store; self.health = health; self.session = session }
     func authorize() async throws { try await health.authorize() }
-    func sync(secret: ClientConfiguration.Secret, transfers: BackgroundTransfers, readHealth: Bool = true) async throws {
+    func sync(secret: ClientConfiguration.Secret, transfers: any FileUploader, readHealth: Bool = true) async throws {
         guard !running else { return }; running = true; defer { running = false }
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
-        let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, uploader: transfers, metrics: metrics)
+        let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, session: session, uploader: transfers, metrics: metrics)
         let hello = try await api.call("GET", "/v2/handshake")
         guard hello["protocolVersion"].integer == 2, let service = hello["serviceID"].text,
               let dataset = hello["datasetID"].text, let epoch = hello["datasetEpoch"].text else { throw SyncFailure.invalid("unsupported_handshake") }
@@ -31,11 +32,26 @@ actor SyncCoordinator {
         let scope = Scope(serviceID: service, datasetID: dataset, datasetEpoch: epoch, collectorEpoch: secret.configuration.collectorEpoch)
         try await store.bind(scope)
         let pipeline = OutboxPipeline(store: store, api: api, metrics: metrics)
+        // Pause associations only while reading a quantity catch-up. A saved
+        // work drain must retry due associations even without HealthKit reads.
+        await pipeline.setAssociationsPaused(readHealth)
         try await pipeline.drain()
         guard readHealth else { return }
+        var quantityIncomplete = false
         for type in HealthKitClient.types {
+          // When the shared device bucket is exhausted, keep advancing the
+          // Workout stream only: the product's newest-run view must not wait
+          // behind association backfill. All other reads resume later.
+          if await pipeline.pausedUntil != nil && type.identifier != HKObjectType.workoutType().identifier { break }
           do {
-            for _ in 0..<8 {
+            // Workout pages are 25 objects and gate the product's entire
+            // newest-run view. Quantity pages are 1,000 samples; allow a
+            // single foreground import pass to walk the whole stream instead
+            // of stopping after eight pages and requiring repeated taps.
+            let isWorkout = type.identifier == HKObjectType.workoutType().identifier
+            let pageLimit = isWorkout ? 40 : 500
+            var reachedEnd = false
+            for _ in 0..<pageLimit {
                 try Task.checkCancellation()
                 let snapshot = await store.snapshot()
                 if snapshot.pages.contains(where: { $0.anchorKey == type.identifier }) { break }
@@ -71,11 +87,23 @@ actor SyncCoordinator {
                 Metrics.milliseconds("normalization_ms", since: normalizeStart)
                 Metrics.value("batch_fact_count", Double(events.count))
                 let deletedWorkouts = type == HKObjectType.workoutType() ? Array(deletes) : []
+                if events.isEmpty && supplements.isEmpty && page.deleted.isEmpty {
+                    // A full page can contain only already-known Workouts. Persist its anchor
+                    // locally instead of sealing an empty wire batch, which would consume the
+                    // write/upload budget and can pin the stream in a 429 retry loop.
+                    let empty = PendingPage(anchorKey: stream.type, candidateAnchor: page.anchor, operations: [],
+                        workouts: workouts, deletedWorkouts: deletedWorkouts)
+                    try await store.finishEmptyPage(empty)
+                    if !page.isFull { reachedEnd = true; break }
+                    continue
+                }
                 let pending = try await BatchBuilder.page(scope: scope, stream: stream, events: events, anchor: page.anchor, store: store,
                     workouts: workouts, deletedWorkouts: deletedWorkouts, supplements: supplements, metrics: metrics)
                 try await store.stage(pending); try await pipeline.drain()
-                if !page.isFull { break }
+                if await pipeline.pausedUntil != nil && type.identifier != HKObjectType.workoutType().identifier { return }
+                if !page.isFull { reachedEnd = true; break }
             }
+            if !isWorkout && !reachedEnd { quantityIncomplete = true }
             try await store.readResult(key: type.identifier, error: nil)
           } catch is CancellationError { throw CancellationError() }
           catch let error as SyncFailure {
@@ -84,6 +112,22 @@ actor SyncCoordinator {
             try await store.readResult(key: type.identifier, error: code)
           } catch { try await store.readResult(key: type.identifier, error: "healthkit_read_failed") }
         }
+        guard await pipeline.pausedUntil == nil else { return }
+        // Do not spend the user's foreground time on Workout enrichment,
+        // route reads and association queries while quantity streams still
+        // have pages to upload. The maintenance cursor is left untouched so
+        // that once samples are complete it resumes from the same Workout
+        // instead of skipping association backfill for a whole cycle.
+        if quantityIncomplete {
+            try await pipeline.drain()
+            guard await pipeline.pausedUntil == nil else { return }
+            try await store.synced()
+            Metrics.value("outbox_reclaimed_entries", Double(try await store.collectGarbage(dryRun: false)))
+            return
+        }
+        await pipeline.setAssociationsPaused(false)
+        try await pipeline.drain()
+        guard await pipeline.pausedUntil == nil else { return }
         // Every relationship query has its own local anchor. This catches
         // sample-first and Workout-first without blocking independent samples.
         let snapshot = await store.snapshot()
@@ -91,6 +135,7 @@ actor SyncCoordinator {
         if !workouts.isEmpty {
             let count = min(8, workouts.count)
             for offset in 0..<count {
+                guard await pipeline.pausedUntil == nil else { return }
                 let reference = workouts[(snapshot.maintenanceCursor + offset) % workouts.count]
                 guard let workout = try await health.workout(reference.id) else { continue }
                 let currentState = await store.snapshot()
@@ -100,23 +145,49 @@ actor SyncCoordinator {
                         if !update.operations.isEmpty {
                             let pending = PendingPage(anchorKey: "enrichment:" + reference.id, candidateAnchor: Data(), operations: update.operations, workouts: [update.reference])
                             try await store.stage(pending); try await pipeline.drain()
+                            guard await pipeline.pausedUntil == nil else { return }
                         }
                         try await store.readResult(key: "enrichment:" + reference.id, error: nil)
                     } catch is CancellationError { throw CancellationError() }
-                    catch { try await store.readResult(key: "enrichment:" + reference.id, error: "workout_enrichment_mapping_conflict") }
+                    catch let failure as SyncFailure {
+                        let code: String
+                        switch failure {
+                        case .invalid(let value), .localState(let value): code = value
+                        case .receiptMismatch: code = "receipt_mismatch"
+                        }
+                        try await store.readResult(key: "enrichment:" + reference.id, error: code)
+                    } catch let failure as UploadError {
+                        try await store.readResult(key: "enrichment:" + reference.id, error: failure.code)
+                    } catch {
+                        try await store.readResult(key: "enrichment:" + reference.id, error: "workout_enrichment_mapping_conflict")
+                    }
                 }
                 do {
                     try await routes(workout: workout, reference: reference, scope: scope, pipeline: pipeline)
                     try await store.readResult(key: "route:" + reference.id, error: nil)
                 } catch is CancellationError { throw CancellationError() }
-                catch { try await store.readResult(key: "route:" + reference.id, error: "route_read_or_mapping_failed") }
+                catch let failure as SyncFailure {
+                    let code: String
+                    switch failure {
+                    case .invalid(let value), .localState(let value): code = value
+                    case .receiptMismatch: code = "receipt_mismatch"
+                    }
+                    try await store.readResult(key: "route:" + reference.id, error: code)
+                } catch let failure as UploadError {
+                    try await store.readResult(key: "route:" + reference.id, error: failure.code)
+                } catch {
+                    try await store.readResult(key: "route:" + reference.id, error: "route_read_or_mapping_failed")
+                }
+                guard await pipeline.pausedUntil == nil else { return }
                 for type in HealthKitClient.quantityTypes {
                     try await associations(workout: workout, reference: reference, type: type, scope: scope, pipeline: pipeline)
+                    guard await pipeline.pausedUntil == nil else { return }
                 }
             }
             try await store.advanceMaintenance(count)
         }
         try await pipeline.drain()
+        guard await pipeline.pausedUntil == nil else { return }
         try await store.synced()
         Metrics.value("outbox_reclaimed_entries", Double(try await store.collectGarbage(dryRun: false)))
     }

@@ -1,0 +1,175 @@
+{
+  "date": "2026-10-30",
+  "timezone": "Asia/Shanghai",
+  "stage": "local development environment verification, synthetic data only",
+  "environment": {
+    "os": "macOS 26.7.2",
+    "arch": "x86_64",
+    "go": "1.27.3",
+    "postgresql": "18.6",
+    "toolchain_location": ".local/toolchain (gitignored, installed without sudo/Homebrew/Docker)",
+    "head": "3cbc5b8c46954e028eb6f2112d5392c9a7c772f0",
+    "working_tree_dirty": true
+  },
+  "commands": [
+    "scripts/local/test.sh",
+    "gofmt -l .",
+    "go mod verify",
+    "go test -count=1 ./...",
+    "go vet ./...",
+    "go vet -tags=integration ./...",
+    "go build ./...",
+    "PGBIN=.local/toolchain/Postgres.app/Contents/Versions/18/bin scripts/test-postgres.sh go test -race -count=1 -tags=integration ./...",
+    "python3 scripts/check-boundaries.py"
+  ],
+  "unit_packages": [
+    {
+      "package": "rai/server/cmd/rai",
+      "status": "?",
+      "detail": "[no test files]"
+    },
+    {
+      "package": "rai/server/internal/admin",
+      "status": "ok",
+      "detail": "0.014s"
+    },
+    {
+      "package": "rai/server/internal/analysis",
+      "status": "ok",
+      "detail": "0.081s"
+    },
+    {
+      "package": "rai/server/internal/config",
+      "status": "ok",
+      "detail": "0.039s"
+    },
+    {
+      "package": "rai/server/internal/httpapi",
+      "status": "ok",
+      "detail": "0.017s"
+    },
+    {
+      "package": "rai/server/internal/jobs",
+      "status": "ok",
+      "detail": "0.019s"
+    },
+    {
+      "package": "rai/server/internal/product",
+      "status": "?",
+      "detail": "[no test files]"
+    },
+    {
+      "package": "rai/server/internal/storage/postgres",
+      "status": "ok",
+      "detail": "0.012s"
+    },
+    {
+      "package": "rai/server/internal/storage/postgres/dbgen",
+      "status": "?",
+      "detail": "[no test files]"
+    },
+    {
+      "package": "rai/server/internal/syncing",
+      "status": "ok",
+      "detail": "0.243s"
+    },
+    {
+      "package": "rai/server/internal/training",
+      "status": "ok",
+      "detail": "0.021s"
+    },
+    {
+      "package": "rai/server/migrations",
+      "status": "?",
+      "detail": "[no test files]"
+    }
+  ],
+  "race_packages": [
+    {
+      "package": "rai/server/cmd/rai",
+      "status": "?",
+      "detail": "[no test files]"
+    },
+    {
+      "package": "rai/server/integration",
+      "status": "ok",
+      "detail": "157.860s"
+    },
+    {
+      "package": "rai/server/internal/admin",
+      "status": "ok",
+      "detail": "1.794s"
+    },
+    {
+      "package": "rai/server/internal/analysis",
+      "status": "ok",
+      "detail": "1.542s"
+    },
+    {
+      "package": "rai/server/internal/config",
+      "status": "ok",
+      "detail": "1.092s"
+    },
+    {
+      "package": "rai/server/internal/httpapi",
+      "status": "ok",
+      "detail": "1.055s"
+    },
+    {
+      "package": "rai/server/internal/jobs",
+      "status": "ok",
+      "detail": "1.040s"
+    },
+    {
+      "package": "rai/server/internal/product",
+      "status": "?",
+      "detail": "[no test files]"
+    },
+    {
+      "package": "rai/server/internal/storage/postgres",
+      "status": "ok",
+      "detail": "1.054s"
+    },
+    {
+      "package": "rai/server/internal/storage/postgres/dbgen",
+      "status": "?",
+      "detail": "[no test files]"
+    },
+    {
+      "package": "rai/server/internal/syncing",
+      "status": "ok",
+      "detail": "3.283s"
+    },
+    {
+      "package": "rai/server/internal/training",
+      "status": "ok",
+      "detail": "1.097s"
+    },
+    {
+      "package": "rai/server/migrations",
+      "status": "?",
+      "detail": "[no test files]"
+    }
+  ],
+  "integration_package_elapsed": "157.860s",
+  "counts": {
+    "ok_packages": 17,
+    "failed_packages": 0,
+    "skipped": 0
+  },
+  "isolated_database": {
+    "root": "/tmp/rai-pg.*",
+    "leftover_databases": 0,
+    "cluster_removed": true,
+    "server": "18.6",
+    "data_checksums": true,
+    "fsync": true
+  },
+  "boundaries": {
+    "online_packages": 248,
+    "passed": true
+  },
+  "result": "PASS",
+  "note": "Integration suite ran on a fresh Unix-socket-only PostgreSQL 18 cluster with synthetic data; no remote or production database was used. This is the final run after local script hardening.",
+  "log_sha256": "e7baf5cc5d7e186bacc4995198cfb5c080de1cc21f8053912539f4c1a51a8df1"
+}

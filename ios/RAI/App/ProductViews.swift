@@ -156,7 +156,7 @@ struct TrainingHero: View {
       Text(prescription(session)).font(.title3).monospacedDigit()
       HStack {
         Text(trainingTag(session.type))
-        if session.type != "REST" { Text("RPE \(Int(session.raw.number("effort") ?? 0))") }
+        if session.type != "REST" { Text("自感用力 \(Int(session.raw.number("effort") ?? 0))") }
         if session.modified { Text("已调整").foregroundStyle(RAITheme.amber) }
       }.font(.caption).foregroundStyle(.white.opacity(0.85))
       HStack {
@@ -175,8 +175,8 @@ struct TrainingHero: View {
 func prescription(_ s: ProductSession) -> String {
   if s.type == "REST" { return "给身体一点恢复时间" }
   var parts: [String] = []
-  if s.distance > 0 { parts.append(ProductFormat.distance(s.distance) + " km") }
-  if s.duration > 0 { parts.append(ProductFormat.decimal(s.duration / 60) + " min") }
+  if s.distance > 0 { parts.append(ProductFormat.distance(s.distance) + " 公里") }
+  if s.duration > 0 { parts.append(ProductFormat.decimal(s.duration / 60) + " 分钟") }
   return parts.joined(separator: " · ")
 }
 struct BodyStatusCard: View {
@@ -199,7 +199,7 @@ struct BodyStatusCard: View {
           metrics
         }
       }
-      Text("负荷状态估算 · Fitness/Fatigue：AU/日，同尺度").font(.caption2).foregroundStyle(RAITheme.secondary)
+      Text("负荷状态估算 · 体能与疲劳：负荷单位/日，同尺度").font(.caption2).foregroundStyle(RAITheme.secondary)
     }.padding(18).raiGlass().foregroundStyle(.white)
   }
   private func relative(_ name: String) -> Double? {
@@ -210,13 +210,13 @@ struct BodyStatusCard: View {
   private var metrics: some View {
     VStack(spacing: 12) {
       MetricBar(
-        name: "Fitness", symbol: "figure.run", value: data.metric("fitness"),
+        name: "体能", symbol: "figure.run", value: data.metric("fitness"),
         color: RAITheme.orange, ratio: relative("fitness"))
       MetricBar(
-        name: "Fatigue", symbol: "moon.zzz", value: data.metric("fatigue"), color: RAITheme.purple,
+        name: "疲劳", symbol: "moon.zzz", value: data.metric("fatigue"), color: RAITheme.purple,
         ratio: relative("fatigue"))
       MetricBar(
-        name: "Recovery", symbol: "leaf", value: data.metric("recovery").map { $0 * 100 },
+        name: "恢复", symbol: "leaf", value: data.metric("recovery").map { $0 * 100 },
         color: RAITheme.green, ratio: data.metric("recovery"))
     }
   }
@@ -238,10 +238,10 @@ struct ReadinessRing: View {
         Text(ProductFormat.decimal(value)).font(
           .system(.largeTitle, design: .rounded, weight: .bold)
         ).monospacedDigit()
-        Text(value == nil ? "暂无数据" : "Readiness").font(.caption)
+        Text(value == nil ? "暂无数据" : "准备度").font(.caption)
       }
     }.padding(6).accessibilityElement(children: .ignore).accessibilityLabel(
-      "Readiness \(ProductFormat.decimal(value))，训练负荷估算")
+      "准备度 \(ProductFormat.decimal(value))，训练负荷估算")
   }
 }
 struct MetricBar: View {
@@ -288,18 +288,18 @@ struct WeeklyCard: View {
       }
       if typeSize.isAccessibilitySize {
         VStack(spacing: 18) {
-          column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "km")
-          column("训练负荷", "load", ProductFormat.decimal(total("load")), "AU")
+          column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "公里")
+          column("训练负荷", "load", ProductFormat.decimal(total("load")), "负荷单位")
         }
       } else {
         ViewThatFits(in: .horizontal) {
           HStack(alignment: .top, spacing: 20) {
-            column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "km")
-            column("训练负荷", "load", ProductFormat.decimal(total("load")), "AU")
+            column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "公里")
+            column("训练负荷", "load", ProductFormat.decimal(total("load")), "负荷单位")
           }
           VStack(spacing: 18) {
-            column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "km")
-            column("训练负荷", "load", ProductFormat.decimal(total("load")), "AU")
+            column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "公里")
+            column("训练负荷", "load", ProductFormat.decimal(total("load")), "负荷单位")
           }
         }
       }
@@ -358,7 +358,7 @@ struct ActivityRow: View {
       VStack(alignment: .leading, spacing: 4) {
         Text(workout.title).font(.headline)
         Text(
-          "\(ProductFormat.distance(workout.raw.number("distanceM"))) km · \(ProductFormat.duration(workout.raw.number("durationS"))) · \(ProductFormat.pace(workout.metric("average_pace")))/km"
+          "\(ProductFormat.distance(workout.raw.number("distanceM"))) 公里 · \(ProductFormat.duration(workout.raw.number("durationS"))) · \(ProductFormat.pace(workout.metric("average_pace")))/公里"
         ).font(.caption).monospacedDigit()
         Text(workout.date, format: .dateTime.month().day().hour().minute()).font(.caption2)
           .foregroundStyle(RAITheme.secondary)
@@ -374,7 +374,7 @@ struct ActivitiesView: View {
     ScrollView {
       LazyVStack(spacing: 12) {
         if model.data.workouts.isEmpty {
-          EmptyCard(title: "还没有运动记录", detail: "HealthKit 同步后，记录会出现在这里。")
+          EmptyCard(title: "还没有运动记录", detail: "健康数据同步后，记录会出现在这里。")
         }
         ForEach(model.data.workouts) { w in
           NavigationLink {
@@ -386,41 +386,12 @@ struct ActivitiesView: View {
                 .caption2
               ).foregroundStyle(RAITheme.secondary)
             }.padding(16).raiGlass()
-          }.buttonStyle(RAIPressStyle())
+          }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("workout.row")
         }
         if !model.data.next.isEmpty { Button("加载更多") { Task { await model.loadMore() } } }
       }.padding(18)
     }.navigationTitle("运动").raiScreen().refreshable { await model.refresh() }
       .accessibilityIdentifier("screen.activities")
-  }
-}
-struct WorkoutDetail: View {
-  @Bindable var model: ProductModel
-  @State var workout: ProductWorkout
-  var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 16) {
-        MetricText(value: ProductFormat.distance(workout.raw.number("distanceM")), unit: "km")
-          .padding(.top, 20)
-        Text(workout.date, format: .dateTime.year().month().day().hour().minute()).foregroundStyle(
-          RAITheme.secondary)
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], alignment: .leading, spacing: 24) {
-          detailMetric("时长", ProductFormat.duration(workout.raw.number("durationS")))
-          detailMetric("平均配速", ProductFormat.pace(workout.metric("average_pace")) + "/km")
-          detailMetric("平均心率", ProductFormat.decimal(workout.metric("heart_rate")) + " bpm")
-          detailMetric("训练负荷", ProductFormat.decimal(workout.metric("workout_load")) + " AU")
-        }.padding(22).raiGlass()
-        EmptyCard(title: "路线不可用", detail: "当前服务没有路线读取 API。同步封口状态不等于可展示的地图。")
-      }.padding(20)
-    }.navigationTitle(workout.title).toolbar(.visible, for: .navigationBar).raiScreen().task {
-      if let latest = await model.loadWorkout(workout.id) { workout = latest }
-    }
-  }
-  func detailMetric(_ title: String, _ value: String) -> some View {
-    VStack(alignment: .leading, spacing: 5) {
-      Text(title).font(.caption).foregroundStyle(RAITheme.secondary)
-      Text(value).font(.title3.bold()).monospacedDigit()
-    }
   }
 }
 struct AnalysisView: View {
@@ -439,7 +410,7 @@ struct AnalysisView: View {
             }.padding(20).raiGlass()
           }.buttonStyle(RAIPressStyle())
         }
-        Text("恢复与准备度为 load-only 训练状态估算。仅使用近期已发布训练负荷，未纳入睡眠、HRV 或静息心率趋势。历史缺失保持空白。").font(.footnote)
+        Text("恢复与准备度是仅基于训练负荷的训练状态估算。仅使用近期已发布训练负荷，未纳入睡眠、心率变异性或静息心率趋势。历史缺失保持空白。").font(.footnote)
           .foregroundStyle(RAITheme.secondary)
       }.padding(18)
     }.navigationTitle("分析").raiScreen().refreshable { await model.refresh() }
@@ -448,9 +419,9 @@ struct AnalysisView: View {
 }
 func metricTitle(_ name: String) -> String {
   [
-    "daily_load": "训练负荷", "fitness": "Fitness · 体能", "fatigue": "Fatigue · 疲劳",
-    "recovery": "Recovery · 负荷恢复", "readiness": "Readiness · 准备度",
-  ][name] ?? name
+    "daily_load": "训练负荷", "fitness": "体能", "fatigue": "疲劳",
+    "recovery": "负荷恢复", "readiness": "准备度",
+  ][name] ?? "训练指标"
 }
 struct TrendChart: View {
   let metrics: [JSON], name: String
@@ -485,7 +456,7 @@ struct MetricDetail: View {
           value: ProductFormat.decimal(model.data.metric(name)),
           unit: name == "recovery" ? "比例" : "")
         TrendChart(metrics: model.data.history["metrics"].list, name: name).frame(height: 220)
-        Text("基于已发布的训练负荷。缺失值不补零；恢复与准备度并非医疗诊断。算法与质量标记随服务器 publication 返回。").foregroundStyle(
+        Text("基于已发布的训练负荷。缺失值不补零；恢复与准备度并非医疗诊断。算法与质量标记随服务器发布结果返回。").foregroundStyle(
           RAITheme.secondary)
       }.padding(22).raiGlass().padding(18)
     }.navigationTitle(metricTitle(name)).raiScreen()
@@ -518,7 +489,7 @@ struct ProfileView: View {
       }
       if let pending = model.pending {
         Section("待确认的提交") {
-          Text("提交结果尚未确认。重试会使用原命令 ID。").font(.footnote)
+          Text("提交结果尚未确认。重试会使用原命令标识。").font(.footnote)
           if model.conflict { Button("查看最新状态并解除冲突") { Task { await model.reviewConflict() } } }
           Button("恢复原提交") {
             Task {
@@ -532,7 +503,7 @@ struct ProfileView: View {
         if ProcessInfo.processInfo.environment["RAI_SYNTHETIC_ACCEPTANCE"] == "1" {
           Section("验收诊断") {
             Text(
-              "metal=\(RAIRenderer.metalAvailable), motion=\(reduced), transparency=\(opaque), type=\(typeSize)"
+              "图形加速=\(RAIRenderer.metalAvailable ? "可用" : "不可用")，动态效果=\(reduced ? "减弱" : "正常")，透明度=\(opaque ? "降低" : "正常")，字号=\(typeSize.isAccessibilitySize ? "辅助功能字号" : "标准字号")"
             )
             .accessibilityIdentifier("profile.a11y")
           }
@@ -540,7 +511,7 @@ struct ProfileView: View {
       #endif
       Section("关于") {
         Text("RAI · 原生跑步训练")
-        Text("HealthKit 只读；WorkoutKit 排程暂未开放。").font(.footnote)
+        Text("健康数据只读；训练排程暂未开放。").font(.footnote)
         Text("训练建议与负荷状态估算来自私有 RAI 服务。").font(.footnote)
       }
       if let error = model.error { Section { Text(error).foregroundStyle(RAITheme.amber) } }

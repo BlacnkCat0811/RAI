@@ -243,6 +243,11 @@ func (s *Store) loadWorkoutInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 			w.Lineage = append(w.Lineage, "route:"+p.Route+":"+h)
 			last = p.Route
 		}
+		// Registration permits a small GPS clock skew. Keep the immutable
+		// route/hash intact, but only analyze points in the Workout window.
+		if stamp.Before(start) || stamp.After(end) {
+			continue
+		}
 		w.Route = append(w.Route, p)
 		if len(w.Route) > maxAnalysisPoints {
 			rows.Close()

@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-10-30T14:26:44.130597+00:00",
+  "platform": "macOS x86_64, no sudo, no Docker",
+  "go": "1.27.3",
+  "postgresql": "18.6 (Postgres.app)",
+  "migrations": {
+    "applied": 13,
+    "total": 13,
+    "from_empty": true
+  },
+  "backup_restore": {
+    "dump": "/Users/tp/rai/.local/backups/rai_dev-verify.dump",
+    "dump_sha256": "20be44392ef8e6c673d7a725f6c40e873d644f17669b84e8b671978868be6c5b",
+    "restored_schema_version": 13,
+    "restored_public_tables": 45
+  },
+  "checks": [
+    "postgres_start",
+    "migrations_empty_db",
+    "api_db_connect",
+    "worker_start",
+    "worker_ready",
+    "health",
+    "livez",
+    "ready",
+    "readyz",
+    "backup_restore"
+  ],
+  "note": "Synthetic development environment only; no production or device data."
+}

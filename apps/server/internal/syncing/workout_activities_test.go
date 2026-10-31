@@ -75,6 +75,18 @@ func TestWorkoutActivitiesRoundTripAndIdentity(t *testing.T) {
 	}
 }
 
+func TestWorkoutActivityEventsUseParentWindow(t *testing.T) {
+	event := activityEvent(t)
+	// HealthKit segment events can start after the child activity ends while
+	// still belonging to the parent workout interval.
+	start, end := int64(1793060200000002), int64(1793060200000002)
+	event.Workout.Activities[0].Events[0].StartUs = &start
+	event.Workout.Activities[0].Events[0].EndUs = &end
+	if err := event.Validate(WorkoutType); err != nil {
+		t.Fatal("parent-bounded activity segment rejected", err)
+	}
+}
+
 func TestWorkoutActivitiesRejectInvalidPayloads(t *testing.T) {
 	base := string(activityFixture(t))
 	for name, edit := range map[string][2]string{
@@ -112,7 +124,7 @@ func TestWorkoutActivitiesRejectInvalidPayloads(t *testing.T) {
 		"null_lap":                                {`"lapLength":{"value":25,"unit":"m"}`, `"lapLength":null`},
 		"activity_stat_outside":                   {`"startUs":1793059200000001,"endUs":1793060200000001,"average"`, `"startUs":1793059200000000,"endUs":1793060200000001,"average"`},
 		"activity_stat_missing_value":             {`"value":125,`, ``},
-		"activity_event_outside":                  {`"startUs":1793059201000001,"endUs":1793059201000001`, `"startUs":1793060200000002,"endUs":1793060200000002`},
+		"activity_event_outside_parent":           {`"startUs":1793059201000001,"endUs":1793059201000001`, `"startUs":1793062800000002,"endUs":1793062800000002`},
 		"configuration_unknown":                   {`"locationType":1`, `"locationType":1,"unknown":true`},
 		"configuration_case_alias":                {`"locationType":1`, `"locationType":1,"LocationType":2`},
 		"configuration_duplicate":                 {`"locationType":1`, `"locationType":1,"locationType":2`},

@@ -1,0 +1,83 @@
+{
+  "scope": "native iOS workout detail page and Go read projections; synthetic local data only",
+  "date": "2026-10-30",
+  "timezone": "Asia/Shanghai",
+  "environment": {
+    "os": "macOS",
+    "xcode": "26.6 (17F113)",
+    "swift": "6.3.3",
+    "simulator": "iPhone 12 Pro Max (iPhone13,4), iOS 26.5",
+    "postgres": "18.6 isolated local cluster",
+    "go": "1.27.3"
+  },
+  "endpoints": [
+    "GET /v2/workouts/{id}/detail",
+    "GET /v2/workouts/{id}/series",
+    "GET /v2/workouts/{id}/freshness"
+  ],
+  "ui_map": "Apple MapKit SwiftUI Map + MapPolyline; start/end annotations and kilometre badges; caption states Apple 地图",
+  "tests": {
+    "go_unit_race": "PASS: go test -race ./...",
+    "go_vet": "PASS: go vet ./... and go vet -tags=integration ./...",
+    "go_integration_full": "PASS: go test -count=1 -tags=integration ./... (integration package 79.567s)",
+    "go_integration_race_targeted": "PASS: -race TestWorkoutDetail|TestAnalysisPublishImmutableQueryAndDelete (2.243s)",
+    "go_boundaries": "PASS: 249 online packages; pure analysis/training domains clean",
+    "swift_package": "PASS: 51 tests / 7 suites",
+    "ios_debug_build": "PASS: generic/platform=iOS Debug CODE_SIGNING_ALLOWED=NO",
+    "ios_release_build": "PASS: generic/platform=iOS Release CODE_SIGNING_ALLOWED=NO",
+    "ios_unit_tests": "PASS: RAITests 14/14",
+    "ios_simulator_ui": "PASS: ProductUITests/test90WorkoutDetailNativeSections (1 test, 0 failures)"
+  },
+  "screenshots": [
+    {
+      "file": "top.png",
+      "bytes": 2539500,
+      "sha256": "5fd1d0323db000da40a9411043bb36399ddaf744ff6f1ff02a2da3ab013d70a3"
+    },
+    {
+      "file": "effect.png",
+      "bytes": 1711188,
+      "sha256": "a9d5a15762f12b830e6cae78f5bd0c1d0e1c3ed77ed4eea20640b02574b5e9b0"
+    },
+    {
+      "file": "series.png",
+      "bytes": 1955554,
+      "sha256": "46d35abcdec217fa4be9d630e03a7f7f7b6f5a5f02b6459d082d1545cdb9d5bb"
+    },
+    {
+      "file": "segments.png",
+      "bytes": 1345411,
+      "sha256": "852f0ac3fbca8d40f9626eddf00186496f073eab9460073821cf62b4148e9830"
+    },
+    {
+      "file": "dynamics-quality.png",
+      "bytes": 1345622,
+      "sha256": "44793ab870548442418d204e76e7f9cb13278778e407fd98220fcc542b7dff37"
+    }
+  ],
+  "verified_rendering": [
+    "Apple MapKit route with start/end/kilometre markers and Apple 地图 caption",
+    "summary and environment correction",
+    "training effect (explicitly unclassified when no matched plan)",
+    "heart-rate zones and explicitly unavailable pace zones",
+    "eight series sections with summary-only empty notes",
+    "measured activity segments",
+    "running dynamics",
+    "quality/model panel"
+  ],
+  "not_verified": [
+    "real iPhone HealthKit/GPS",
+    "real Apple Watch measured workout steps",
+    "pace zone threshold configuration",
+    "standalone workout override table/write UI",
+    "production scale",
+    "TLS/production deployment",
+    "disaster recovery"
+  ],
+  "notes": [
+    "Synthetic data only; no production database, credentials, or health values were read or committed.",
+    "Screenshots were captured from a Debug simulator build and are not a production release acceptance.",
+    "Integration assertion TestAnalysisPublishImmutableQueryAndDelete now counts only metric_family=workout publications; the old total count also included one or two state publication days around local midnight. Production code was unchanged.",
+    "Top screenshot is a simulator device capture because XCTest screenshot composition can omit MapKit layers on this host."
+  ]
+}

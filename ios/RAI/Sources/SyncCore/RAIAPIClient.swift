@@ -67,9 +67,22 @@ public actor OutboxPipeline {
     private let api: RAIAPIClient
     private let metrics: SyncMetrics
     private var draining = false
+    /// While an initial quantity import is still catching up, association
+    /// pages can only fail with `association_unavailable` and would add a
+    /// 409 retry for every new fact generation. Keep them durable but skip
+    /// them until the sample streams have reached their end.
+    private var associationsPaused = false
+    /// Set when the server's device bucket is exhausted. The bucket is shared
+    /// by every page and every request, so continuing this pass can only
+    /// produce more 429s and grow each page's retry counter. The coordinator
+    /// stops reading HealthKit until the caller retries after this instant.
+    public private(set) var pausedUntil: Date?
     public init(store: OutboxStore, api: RAIAPIClient, metrics: SyncMetrics = .init()) { self.store = store; self.api = api; self.metrics = metrics }
+    public func setAssociationsPaused(_ paused: Bool) { associationsPaused = paused }
+    private let seriesConcurrency = 8
     public func drain() async throws {
         guard !draining else { return }; draining = true; defer { draining = false }
+        pausedUntil = nil
         let snapshot = await store.snapshot()
         let pages = snapshot.pages.sorted { first, second in
             let firstIsFact = snapshot.streams[first.anchorKey] != nil, secondIsFact = snapshot.streams[second.anchorKey] != nil
@@ -77,6 +90,7 @@ public actor OutboxPipeline {
             return first.createdAt < second.createdAt
         }
         for page in pages {
+            if associationsPaused && page.anchorKey.hasPrefix("association:") { continue }
             let generation = await store.snapshot().factGeneration
             let dependencyBecameAvailable = page.waitingForFactGeneration.map { generation > $0 } ?? false
             if let error = page.error, !error.retryable, !dependencyBecameAvailable { continue }
@@ -84,7 +98,8 @@ public actor OutboxPipeline {
             do {
                 metrics.value("retry_count", Double(page.retryCount))
                 try await store.begin(page.id)
-                for cursor in page.cursor..<page.operations.count {
+                let remainingCursor = try await executeSeriesPage(page)
+                for cursor in remainingCursor..<page.operations.count {
                     try Task.checkCancellation()
                     let receipt = try await execute(page.operations[cursor], identity: page.id + ":" + String(cursor))
                     try await store.acknowledge(page.id, cursor: cursor, receipt: receipt)
@@ -107,18 +122,121 @@ public actor OutboxPipeline {
                     }
                 } else { mapped = UploadError(code: "local_persistence_failed", status: 422) }
                 try await store.fail(page.id, error: mapped)
+                // The device budget is shared by all lanes/pages. Stop this
+                // pass instead of hammering the remaining pages.
+                if mapped.status == 429 {
+                    pausedUntil = Date().addingTimeInterval(max(1, mapped.retryAfter ?? 1))
+                    return
+                }
                 // Preserve other independent streams; failure blocks this page.
             }
         }
+    }
+    /// Run a contiguous series block concurrently, then let drain validate the
+    /// final page receipt. Individual successes survive failures and restarts;
+    /// only that final receipt may promote the delivered HealthKit anchor.
+    private func executeSeriesPage(_ page: PendingPage) async throws -> Int {
+        let operations = page.operations
+        var seriesStart = page.cursor
+        while seriesStart < operations.count && !isSeriesOperation(operations[seriesStart]) { seriesStart += 1 }
+        var seriesEnd = seriesStart
+        while seriesEnd < operations.count && isSeriesOperation(operations[seriesEnd]) { seriesEnd += 1 }
+        guard seriesStart < seriesEnd,
+              let groups = seriesGroups(operations, from: seriesStart, to: seriesEnd) else { return page.cursor }
+        for cursor in page.cursor..<seriesStart {
+            try Task.checkCancellation()
+            let receipt = try await execute(operations[cursor], identity: page.id + ":" + String(cursor))
+            try await store.acknowledge(page.id, cursor: cursor, receipt: receipt)
+        }
+        let savedReceipts = await store.snapshot().receipts
+        for start in stride(from: 0, to: groups.count, by: seriesConcurrency) {
+            try Task.checkCancellation()
+            let end = min(start + seriesConcurrency, groups.count)
+            let wave = Array(groups[start..<end])
+            try await withThrowingTaskGroup(of: SeriesOutcome.self) { group in
+                for item in wave {
+                    group.addTask { await self.executeSeriesGroup(item, pageID: page.id, saved: savedReceipts) }
+                }
+                var failure: (any Error)?
+                for try await outcome in group {
+                    if !outcome.receipts.isEmpty {
+                        try await store.acknowledgeSeries(page.id, receipts: outcome.receipts)
+                    }
+                    if let error = outcome.error {
+                        if failure == nil || (error as? UploadError)?.status == 429 { failure = error }
+                        group.cancelAll()
+                    }
+                }
+                if let failure { throw failure }
+            }
+        }
+        return seriesEnd
+    }
+    private struct SeriesOutcome: Sendable {
+        var receipts: [Int: JSON] = [:]
+        var error: (any Error)?
+    }
+    private func executeSeriesGroup(_ group: [(Int, OutboxOperation)], pageID: String, saved: [String: JSON]) async -> SeriesOutcome {
+        var outcome = SeriesOutcome()
+        do {
+            for (cursor, operation) in group {
+                try Task.checkCancellation()
+                let identity = pageID + ":" + String(cursor)
+                if let receipt = saved[identity], case .request(let request) = operation {
+                    try request.validate(receipt)
+                    continue
+                }
+                outcome.receipts[cursor] = try await execute(operation, identity: identity)
+            }
+        } catch { outcome.error = error }
+        return outcome
+    }
+    private func isSeriesOperation(_ operation: OutboxOperation) -> Bool {
+        guard case .request(let request) = operation else { return false }
+        return request.path == "/v2/sync/series" || request.path.hasPrefix("/v2/sync/series/")
+    }
+    private func seriesGroups(_ operations: [OutboxOperation], from start: Int, to end: Int) -> [[(Int, OutboxOperation)]]? {
+        var groups: [[(Int, OutboxOperation)]] = []
+        var current: [(Int, OutboxOperation)] = []
+        var currentID: String?
+        for index in start..<end {
+            guard case .request(let request) = operations[index], let id = seriesID(for: request) else { return nil }
+            if request.path == "/v2/sync/series" {
+                if !current.isEmpty { groups.append(current) }
+                current = [(index, operations[index])]; currentID = id
+            } else {
+                if currentID == nil { currentID = id }
+                guard currentID == id else { return nil }
+                current.append((index, operations[index]))
+            }
+        }
+        if !current.isEmpty { groups.append(current) }
+        for (index, group) in groups.enumerated() {
+            guard case .request(let first) = group.first!.1,
+                  index == 0 || first.path == "/v2/sync/series",
+                  case .request(let last) = group.last!.1, last.path.hasSuffix("/seal") else { return nil }
+        }
+        return groups
+    }
+    private func seriesID(for request: RequestOperation) -> String? {
+        if request.path == "/v2/sync/series" { return request.expected["seriesID"]?.text }
+        let parts = request.path.split(separator: "/")
+        guard parts.count >= 4, parts[0] == "v2", parts[1] == "sync", parts[2] == "series" else { return nil }
+        return String(parts[3])
     }
     private func execute(_ operation: OutboxOperation, identity: String) async throws -> JSON {
         switch operation {
         case .request(let request):
             let file: URL?
             if let name = request.file { file = try await store.fileURL(name) } else { file = nil }
-            let data = try file.map { try Data(contentsOf: $0) }
-            let response = try await api.call(request.method, request.path, body: request.gzip ? nil : data,
-                                              file: request.gzip ? file : nil, mediaType: request.mediaType, gzip: request.gzip, identity: identity)
+            // Associations are the only high-volume request pages. Send them
+            // through the background URLSession so a locked screen does not
+            // strand thousands of tiny writes mid-page. Batch bodies already
+            // use the same session via the `.batch` case.
+            let background = request.path == "/v2/sync/associations" || request.path == "/v2/sync/workout-enrichments"
+            let data = background || request.gzip ? nil : try file.map { try Data(contentsOf: $0) }
+            let response = try await api.call(request.method, request.path, body: data,
+                                              file: background || request.gzip ? file : nil, mediaType: request.mediaType, gzip: request.gzip, identity: identity)
             try request.validate(response)
             return response
         case .batch(let envelope, let name):

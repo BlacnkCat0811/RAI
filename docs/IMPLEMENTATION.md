@@ -297,3 +297,107 @@ P3/P6 REAL DEVICE ACCEPTANCE继续DEFERRED / NOT VERIFIED；DISASTER RECOVERY RE
 Debug 构建、安装、启动通过；`RAITests` 14/14 通过。UI 结果：test01/02/03/05/06/07/08 共 7 项通过，覆盖导航与诊断、编辑/409/改期/跳过/添加/执行/反馈、首页滚动性能采集、截图候选、调整历史分页、pending 原命令重启重试、空计划 pending 锁定；test04 在无障碍审计前因该模拟器无法实际切换 Reduce Transparency 而 **BLOCKED**，未执行裁切审计，不记作无障碍通过。test02 的测试脚本仅将 iOS 26.5 zoom 详情下滑关闭改为返回后重新进入，产品源码未修改；test08 在清理旧 app 容器后通过。旧截图基线日期/数据不同且本机候选截图有已知黑图合成异常，快照像素比较 **NOT ACCEPTED**。
 
 完整命令结果与失败留痕见 [模拟器验收报告](SIMULATOR_ACCEPTANCE_RESULT_2026-10-30.md) 和 [机器证据](evidence/simulator-acceptance-2026-10-30.json)。真实 iPhone/HealthKit、GPS/后台强杀、TLS/生产、iOS18 runtime、GPU/Liquid Glass、完整无障碍矩阵和正式签名发布仍未验证，不能以模拟器结果替代。
+
+## iOS 界面中文化（2026-10-30）
+
+按用户要求，将 App 内可见的英文文案统一改为中文或建立中文映射：五个主 Tab、首页/运动/训练/分析/我的、训练详情与编辑器、执行与反馈、同步与诊断页面均已中文化；跑步距离、时长、配速、心率、训练负荷和自感用力等单位改为中文；体能、疲劳、恢复、准备度指标以及分析状态、训练状态、调整字段、建议原因码和同步错误码均映射为中文。应用名称与健康数据/本地网络权限说明同步中文化，根视图固定中文区域格式，避免系统日期和时间控件回退英文。
+
+本轮实际执行并通过：`swift test`（48 tests / 6 suites）；`xcodebuild -project RAI.xcodeproj -scheme RAI -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build`；模拟器 `build-for-testing`；`RAITests` 14/14。未连接隔离 API 进行完整 UI 截图回归，未在真机逐屏视觉验收；服务端返回的用户备注等自由文本不作翻译，真机/生产门禁仍按上文 `DEFERRED / NOT VERIFIED`。
+
+## 真机同步阻塞修复（2026-10-30）
+
+用户反馈真机“最近运动”停在 7 月 15 日、同步长期显示“同步中”、待同步页数约 172 且几乎不下降。只读检查真机 Outbox（不导出健康值、不记录 UUID）后确认四个独立阻塞：iOS 27 的 Workout 元数据新增 `HKAverageSpeed`/`HKMaximumSpeed`/`HKElevationDescended`，客户端旧允许列表抛出 `unsupported_workout_metadata_types`，Workout stream 从该页起永久停读；429 限流页保留旧的 `waitingForFactGeneration`，每轮绕过 backoff 重试全部页，形成限流风暴；多活动 Workout 把父 Workout 的 segment 事件挂在子活动上，服务端按子活动窗口校验导致整批 422（`eventIndex=24`）；单次同步对 Workout 只读 8 页（25 条/页），历史较长时无法在用户一次操作内到达最新记录。
+
+修复：客户端显式支持上述三项元数据；服务端将活动事件边界改为父 Workout 窗口，活动统计仍按子活动窗口；Route 允许 GPS 时间戳相对 Workout 窗口 5 秒时钟偏差；Outbox 在 429 时停止当前 pass 并按 `Retry-After` 续传，非 409 失败清除陈旧等待标记；Workout 单次读取上限提高到 40 页，限流时仍优先推进 Workout stream；关联请求改走后台 URLSession；界面把等待样本的 `association_unavailable` 页单列为“历史关联待补全”，不再占用“待同步页数”和事实同步状态。
+
+实际证据：iPhone 12 Pro Max（iOS 27.2）通过既有隔离 `rai-v2-device` PG18/API/Worker；服务端镜像重建为 `rai-v2-device:device-dynamics`，二进制 source revision `device-activity-parent-20261030`。修复后本地 Outbox 的 Workout 从 50 条增加到 316 条，最新一条为 2026-10-26 19:50（Asia/Shanghai），Workout stream 从 seq 3 推进到 56；6 个 Route 页完成，159 个待同步页中 157 个为等待样本的关联页。Swift package 49 tests / 6 suites、`RAITests` 14/14、Go `go test -race -count=1 ./...`、`go vet ./...`、249 包依赖边界检查均通过；活动校验定向集成测试 12.493s 通过。
+
+本修复只针对隔离真机验收环境，未提交、未推送、未部署生产、未迁移真实数据。初始历史样本仍在按有界页继续补全，关联页会随样本到达自动解除等待；P3/P6 REAL DEVICE ACCEPTANCE 仍不能据此宣布完成，正式发布继续 `NO`。
+
+## 本地 Go + PostgreSQL 开发环境（2026-10-30）
+
+按用户要求，本阶段只处理本机开发环境。本轮开始时本机没有 Go、Docker、PostgreSQL 或 Homebrew，`sudo` 需要密码；因此没有安装系统级软件，而是把固定版本工具链放在工作区内被 `.gitignore` 排除的 `.local/toolchain`，不需要 sudo、Homebrew 或 Docker。此前“本机缺少 Go”的记录是当时事实，本轮已补齐，历史段不改写。
+
+- Go **1.27.3** darwin-amd64 官方 tar.gz，SHA-256 `b6f8e931e4ab497fcde6da8ae4499a58f9d258e55c8a80824a516eae5950a750`。
+- PostgreSQL **18.6**，来自 Postgres.app 2.9.6 的 `Postgres-2.9.6-18.dmg`，SHA-256 `9fc7d0dc08cf46dfd94bb32cbaaad81b41b37847a42d6dcb2f9fbd292813defb`；只使用其自带 server/client 二进制。
+- 新增 `scripts/local/bootstrap.sh`（下载校验与安装）、`lib.sh`（路径/端口/连接串）、`pg.sh`（初始化、启停、重置、psql、备份、恢复）、`stack.sh`（构建、显式迁移、API/Worker 启停与状态）、`verify.sh`（端到端验收）、`test.sh`（质量门禁）；说明见 [本地原生环境](../deploy/local/README.md)。没有为符合建议目录搬动现有代码；`deploy/dev/compose.yaml` 保留为有 Docker 时的另一条路径。
+
+实际验收使用专用本地 cluster：`127.0.0.1:55432`、UTF-8、`timezone=UTC`、data checksums，仅回环监听；数据库 `rai_dev` 为空库时重建。本地脚本会清除环境中的 `PG*`、`RAI_DATABASE_URL` 和 `RAI_DATABASE_URL_FILE`，固定连接该 cluster，避免误用生产 DSN。
+
+| 验收项 | 实际结果 |
+|---|---|
+| PostgreSQL 18 启动 | `18.6 (Postgres.app)`，data checksums=on，fsync/full_page_writes/synchronous_commit=on |
+| 空库迁移 | goose 00001–00013 全部 `applied`，13/13；schema 版本 13 |
+| Go API 连接数据库 | API 进程启动，`/ready` 与 `/readyz` 返回 200 `{"status":"ready"}`；迁移与 readiness 均实际查询该库 |
+| Worker 运行 | `rai worker-ready` exit 0；`worker_started`（handlers=5，processing_slots=1）；进程存活，`pg_stat_activity` 见 2 个应用会话 |
+| 健康检查 | `/health`、`/livez`、`/ready`、`/readyz` 均 200；前两者 `alive`，后两者 `ready` |
+| 备份与恢复 | `pg_dump -Fc` 生成 dump（SHA-256 `20be44392ef8e6c673d7a725f6c40e873d644f17669b84e8b671978868be6c5b`），恢复到新库后 schema 版本 13、public 表 45；临时恢复库已删除 |
+| 隔离数据库测试 | `scripts/local/test.sh` PASS：单元、`go vet`、`-race -tags=integration ./...` 全部通过；integration 包 157.860s，0 failed/skip；一次性 `/tmp/rai-pg.*` cluster 使用 Unix socket、结束后 `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`；依赖边界 248 包通过 |
+
+机器可读证据：[本地环境](evidence/local-dev-environment.json)、[测试结果](evidence/local-dev-tests.json) 与 [原始测试日志](evidence/local-dev-tests.log)。为让既有仓库 gofmt 门禁通过，仅对工作区原有未提交修改 `apps/server/internal/syncing/protocol.go` 做了 gofmt 对齐（纯空白，无语义修改）；其余既有未提交业务/iOS 改动未触碰。
+
+未验证/限制：本机没有 Docker，`deploy/dev` Compose 路径本轮未重跑；未执行 `rai init`、真实设备/HealthKit、TLS/生产角色、离机/加密备份或部署。Worker 的分析正确性由上述真实隔离 PostgreSQL 集成测试覆盖，本轮没有做长时间运行或吞吐浸泡。该环境仅用于合成开发数据，不能替代生产、真机或灾难恢复验收。**LOCAL DEV ENVIRONMENT: PASS；PRODUCTION RELEASE READY: NO（不变）。**
+
+## 原生训练详情页（2026-10-30）
+
+按用户提供的实际 iOS 训练详情页结构，在 `ios/RAI/App/WorkoutDetailView.swift` 实现原生详情页，地图使用 **Apple MapKit**；Go 端新增三个只读投影：
+
+- `GET /v2/workouts/{id}/detail`
+- `GET /v2/workouts/{id}/series`
+- `GET /v2/workouts/{id}/freshness`
+
+实现与口径详见 [原生训练详情](WORKOUT_DETAIL_NATIVE.md)。摘要包含平均配速、Minetti 等强配速、累计上升、训练负荷（TRIMP 优先，RPE/课型低置信回退）、环境修正与等效用时；时序固定八条并在服务端抽样到 ≤600 点（保留首尾/极值）；路线采样 ≤500 点；公里分段、实测 activities 分段、心率区间、跑姿动态、质量模型与执行快照人工覆盖均有真实读取路径。分析未发布时派生字段为 `null` 并显示“分析中”，不以 0 冒充。
+
+验证：`go test ./...`、`go vet ./...`、真实隔离 PostgreSQL 18.6 的 `TestWorkoutDetailFactsPendingAndFreshness` / `TestWorkoutDetailSeriesRouteAssociationAndSplits`、Swift `xcrun swift test`（51 tests / 7 suites）、iOS Debug 构建、iPhone 12 Pro Max 模拟器 `ProductUITests/test90WorkoutDetailNativeSections`（1 test，0 failures）均通过；截图与机器证据见 [evidence/workout-detail-2026-10-30](evidence/workout-detail-2026-10-30/result.json)。
+
+边界：真实 iPhone/HealthKit/GPS、真实 Apple Watch measured steps、阈值配速区间写入、独立 workout override 表/写入 UI、生产规模、TLS/部署与灾难恢复均未验收；本轮只使用合成数据，未修改 `../running`。
+
+## 真机手动测试后端恢复（2026-10-31）
+
+用户重新连接 iPhone 12 Pro Max 后，要求恢复一个可供手动真机测试的后端；用户选择保留 fnOS 上现有 `rai-v2-device` 数据集并把后端升级到当前工作区源码。检查发现手机 App 本地状态原先绑定的是已被本地重置的旧数据集 `8847a338…`，经用户确认清除 App 本地状态并重新安装；旧本地 Outbox/Anchor 丢弃，fnOS 服务端数据保持不变。本轮只准备隔离测试环境，不改变同步协议、migration、生产配置或旧 `../running`。
+
+- 当前后端源码为 `3cbc5b8`＋既有未提交 workout-detail 改动；以 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64` 交叉编译，二进制 SHA-256 `dc099fa67f19b7898d84cce81619020eceedcab6835dade99c702e98b2f414a3`，镜像 `rai-v2-device:workout-detail-20261031`（`sha256:68f23d43a29d04df7b9a718ceff6ad7c3ab7b88b378bde7d4b232ffb28d20eb4`）。旧 `rai-v2-device:device-dynamics` 镜像保留，compose 备份为 `compose.yaml.bak-20261031-1435`。
+- 只重建并重启 API/Worker，PostgreSQL 容器、`rai-v2-device_pgdata` 卷和数据未动；迁移 schema 仍为 13。API/Worker 均 healthy，`/health`、`/ready` 200，`rai worker-ready` exit 0。
+- 原数据集 `d2582bb2-01f8-47a9-b0a1-767326befa23`、设备身份和 token 摘要保持不变；握手 protocol 2，`GET /v2/workouts/{id}/detail` 实际返回 200（1,560 bytes）。升级前后计数不变：1 dataset / 2 devices / 20,750 samples / 316 Workouts / 263 batches / 263 pages / 14 routes / 496 publications / 0 training plans。
+- 用当前源码构建并安装 Debug `com.rai.v2.ios` 0.6.0（Apple Development 签名、HealthKit entitlement 保留），Debug HTTP 主机配置为 `192.168.10.25`；为清除旧数据集绑定，已按用户确认卸载并重装 App。fnOS 的采集器周期与令牌保存在本机 `.local/run/fnos-device-credentials.txt`（0600，gitignored），需在 App“开发接口”页手工填入后连接；未新增全局 ATS 放行或关闭 TLS 校验。
+- 首次配置后 App 已成功握手并绑定 fnOS 数据集（说明网络、ATS、token 均可达）；但 11 个 stream 注册全部返回 409 `stream_identity_conflict`：重装后 collector epoch 未变，客户端生成了新的 stream ID。已把服务端现有 11 个 stream 的 ID/last sequence/last batch 恢复到 App 本地 `RAIV2Sync/state.json` 并清空失败页，重新启动 App；服务端未因此产生新 batch/fact。等待操作者再次触发同步。
+- 第二次同步实际结果：新增 93 个 batch，其中 Workout 92 个（13 个共 316 条事件、79 个空 batch），HeartRate 1 个 250 条事件；所有事件均为 `unchanged`，`health_samples` 仍 20,750、`workouts` 仍 316，没有新增事实行。
+- 修复后重新同步：15:12:03 时 `health_samples` 已从 20,750 增至 34,423（+13,673），`sync_batches` 从 356 增至 432；HeartRate 流从 seq 23 推进到 99，Workout 流保持 seq 272，未再产生空 Workout batch。上传仍在继续，`device_rate_exceeded` 是 30 次/分钟设备上传预算的预期节流，不是停滞。
+- 用户提供整包导出 `~/Desktop/导出.zip`（352,750,953 bytes export XML）：800,443 条 Record、316 个 Workout、471 个 ActivitySummary、72 个 route、160,979 个 route point；按 App 当前支持的 10 类样本计约 534,839 条。为个人单用户部署新增 `RAI_RATE_BUDGETS` 显式覆盖，默认固定限额不变：read 1200/min·device、2400/min·dataset（burst 120/240），write 600/1200（60/120），upload 600/1200（30/60）。实际值已通过 `/v2/handshake` 的 `limits.requests` 核验。
+- 同时把 iOS quantity page 从 250 提到 1000（服务端 `MaxEvents=1000`），Debug 构建/安装通过；预计 534,839 条样本约 535 个 batch，而不是 2,140 个。
+- 客户端在 Workout 流末尾反复产生空页/batch，触发服务端 `device_rate_exceeded` 429；15:03:56 观测 read 等待 13.2s、write 2.6s、upload 1.7s。15:04:27 已停止 App，15:05:29 所有预算恢复为负等待（无限流）。服务端限额为 read 120/min·device、240/min·dataset（burst 30/60），write 60/120（10/20），upload 30/60（2/4）。
+- 已在客户端 `ios/RAI/App/SyncCoordinator.swift` 增加空页保护：无事件、无 supplement、无删除时只本地推进 anchor，不封空 wire batch；Debug 设备构建/安装通过，待解锁后再次同步验证。该 patch 不改变协议或服务端事务。
+- 放宽限流后的实际同步（15:42–15:55）：`health_samples` 从 46,923 增至 118,410（+71,487），`sync_batches` 565，`workout_samples` 415，`workout_routes` 17、`route_points` 30,751；最后一批为 15:48:01 的 1,000 条 HeartRate。服务端无 429，read/write/upload 预算在观测时均已恢复为可用的负等待。
+- 随后客户端停在历史运动关联阶段：本地状态最后推进于 15:50:29，服务端自 15:48:01 后无新 batch；Outbox 中 36 页均为 `association_unavailable`（对应样本尚未上传，属于既有“历史关联待补全”路径），不是新的服务端错误。15:56:17 已重启 App 释放客户端等待，服务端事实和本地队列均保留；重启后需再次点“立即同步”继续有界导入。该现象说明客户端等待/关联补全仍可能长时间占用“同步中”状态，后续需要为 HealthKit 读取和后台关联上传增加明确超时与进度展示。
+- 针对“太慢”的实测优化（16:07 Debug 构建/安装，Swift 51 tests / 7 suites 通过）：
+  - `SyncCoordinator` 将 quantity 流单轮上限从 8 页提高到 500 页（每页 1,000 条）；一次前台同步会连续走到当前流末尾，而不是每 8 页停一次等用户再点。
+  - 主样本流尚未补齐时暂停 `association:` 页；`OutboxPipeline` 不再每产生一个新事实批次就重试全部 `association_unavailable` 页，避免 36×N 次 409 和每轮数分钟的关联等待。样本补齐后才恢复关联补全和 Workout/Route maintenance。
+  - 同步期间设置 `isIdleTimerDisabled`，避免自动锁屏导致 HealthKit 读取被挂起。
+  - 实测服务端批量间隔约 5 秒/1,000 条；当前 `health_samples=152,410`，导出侧 App 支持样本 `534,839`，剩余约 `382,429`，纯上传下限约 32 分钟。优化前的“每轮 8 页 + 关联重试”是小时级。
+- 16:08–16:15 仍观察到一次客户端无服务端请求的长等待（最后服务端 batch 16:05:21，客户端状态最后推进 16:08:17）；16:15:10 已再次重启 App，本地状态和服务端事实保留。下一轮前台同步将验证优化后的端到端吞吐；若仍出现无请求长等待，需要在 HealthKit 读取和后台关联上传上加有界超时，不能把“同步中”当成成功。
+- 16:16–16:18 用户再次点击后，主数据实际进入高速上传：`health_samples` 152,410 → 188,410、`sync_batches` 599 → 636，约 1 秒/1,000 条；随后再次停止。只读取 Outbox 发现活动页是 **HeartRate 的 909 个 operation 页，cursor=429**，其中 302 个多值 `HKQuantitySample` 每个要发 series 注册、chunk、seal 三次请求，旧 `OutboxPipeline` 逐条串行上传，导致一页要十几分钟。这不是限流，也不是普通样本 batch 卡住。
+- 已新增 series 并行上传：独立样本的 registration→chunk→seal 仍保持组内顺序，不同样本最多 8 组并发；整页 series 尾部全部成功后一次提交 page cursor/receipts，失败则保持原 cursor 幂等重放。Debug 构建/安装通过，Swift 51 tests / 7 suites 通过。新构建启动后把上述卡住页剩余的 159 个 series 在约 20 秒内完成，`series_uploads` 从 1,102 增至 1,261，活动页清空；服务端无 429。当前 `health_samples=198,410`、`sync_batches=645`、34 个 parked 关联页、0 个活动页，需要用户再点一次继续下一批。
+- 本机 `go test ./...`、`go vet ./...` 通过；本轮未重跑真实 PostgreSQL 集成套件，不能替代数据库回归。
+
+未验证项：真实 HealthKit 读取授权、样本/Workout/Route 增量同步、训练详情页真机渲染、后台 URLSession/强杀/断网恢复、TLS 与生产部署均未验收。未记录 token、健康值、坐标或数据库 dump。证据见 [后端恢复证据](evidence/device-backend-2026-10-31.json)。
+
+## 审查发现的八项修复（2026-10-31）
+
+本轮按审查结果修复当前工作区，不修改旧工程，不读取生产数据库；测试仅使用新建的合成数据和空白模拟器。
+
+| 问题 | 当前行为与回归证据 |
+|---|---|
+| 路线 ±5 秒容差与分析校验不一致 | `LoadAnalysis` 与详情派生投影只使用 Workout 窗口内的点；原始 route points、manifest 和路线展示事实保留。`TestRouteClockSkewAnalysisPreservesRawFacts` 覆盖两端 ±5 秒可封口并发布分析、原始点/摘要不变、超出容差 1 微秒仍拒绝。 |
+| 自动恢复跳过关联页 | 仅在 `readHealth=true` 的样本补齐阶段暂停关联；前台 `readHealth=false` 可正常重试保存页。新增可注入的 URLSession/FileUploader 边界，模拟器 `testSavedAssociationDrainDoesNotRequireHealthReads` 验证无 HealthKit 调用且关联 anchor 正常提交。 |
+| 正常数量页无法进入 series 并发 | 并发处理连续 series block，之后独立验证正常 BatchBuilder 页尾的 GET page receipt。每组 registration→chunk→seal 顺序保留，最多 8 组并发；按 operation 持久化已验证的成功回执，cursor 只越过连续已确认前缀。429、取消、重启后跳过已确认请求；最终页回执成功前不推进 delivered anchor。`seriesConcurrencyKeepsReceiptsAndWaitsForPageSeal` 使用正常 BatchBuilder 页、并发峰值观测、429、重启和页回执 503 覆盖这些边界。 |
+| 单个活动遮蔽实测 segment | 至少两个有效且连续的活动才提供活动分段；单个整场 activity 回退到事件，不合成活动间隙或整场步骤。纯计算测试覆盖单活动加两个实测事件、有间隙的活动及无真实分段时为空。 |
+| 计圈原始枚举错误 | 显式支持 HealthKit lap=3 / segment=7，排除 pause/resume request=8；iOS 也显示事件回退分段，不再只显示 activities 路径。测试同时覆盖两类事件及无关事件。 |
+| 心率重叠重复计时 | 用时间边界扫描，同值重叠只计一次，冲突重叠区间从暴露/覆盖中排除并标原因码；完全歧义不产出区间或刺激评分。测试验证 600 秒重复记录不会变成 1200 秒，部分冲突只计有效时间，低于静息心率的有效正值归最低区间。 |
+| 未发布分析时显示派生结果 | `detail`/`series` 统一使用干净发布门槛：等强配速、爬升/路线质量、负荷、区间/刺激、环境修正、跑姿动态和可信度不提前出现；原始事实、温湿度、展示时序和实测分段仍可读。环境状态为 pending。存储单元测试覆盖 pending/failed/published；真实数据库详情测试验证发布前为空、Worker 发布后有值。 |
+| 计划 Effort 冒充实际 RPE | 快照 Effort 仅作为处方强度估算，来源 `planned_effort_fallback/v1`、置信度 0.4；缺少计划强度则用课型估算。训练负荷与人工覆盖中的实际 RPE 均保持 null，新增 `actual_rpe_unavailable` 原因。测试同时验证两种回退和人工覆盖不伪造 RPE。 |
+
+已完成验证：`go test -race ./...`、`go vet ./...`、`go vet -tags=integration ./...`、249 包依赖边界检查、gofmt 与 `git diff --check` 通过；`xcrun swift test` 52 tests / 7 suites 通过；专用空白 iPhone 16 Pro 模拟器（iOS 26.5）Debug 构建及 RAITests 15/15 通过。模拟器仅运行单元/协调器测试，未连接真实服务或真实 HealthKit；测试日志和 xcresult 位于本机 `.local/review-fixes-xcode.log`、`.local/review-fixes-unit.xcresult`。
+
+完整真实隔离 PostgreSQL 18.6 race 集成套件通过：`PGBIN="$rai_pgbin" scripts/test-postgres.sh go test -race -count=1 -tags=integration ./...`，integration 包 219.505s，包含上述路线时间容差及发布门槛回归；fsync/full_page_writes/synchronous_commit/data_checksums 均 on，仅 Unix socket，无 TCP 监听。结束时 `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`。本轮专用空白模拟器已关闭并删除。机器证据见 [review-fixes-2026-10-31.json](evidence/review-fixes-2026-10-31.json)。
+
+未验证项：真实 iPhone/Watch/HealthKit 采集、真实 GPS、后台/强杀/断网恢复、UI 截图及无障碍视觉回归、生产规模和部署均未在本轮验收。传输 mock 与空白模拟器不替代真机验收；未新增 migration，不重写历史分析发布，不自动部署或迁移真实数据。
