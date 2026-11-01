@@ -1,0 +1,229 @@
+{
+  "date": "2026-11-01",
+  "timezone": "Asia/Shanghai",
+  "scope": [
+    "RQ-005",
+    "RQ-006",
+    "RQ-009"
+  ],
+  "conclusion": "PASS WITH RISKS",
+  "head": "aeb769c82f6af6c47d7cac82874f48ff37f635fc",
+  "workspace": {
+    "baseline_manifest": "/tmp/rai-phase2-baseline/hashes.json",
+    "baseline_files": 660,
+    "changed_preexisting_files": [
+      "apps/server/internal/httpapi/server.go",
+      "apps/server/internal/syncing/protocol.go",
+      "contracts/CHANGELOG.md",
+      "contracts/openapi-v2.yaml",
+      "contracts/sync-v3.md",
+      "docs/IMPLEMENTATION.md",
+      "ios/RAI/App/BackgroundTransfers.swift",
+      "ios/RAI/App/RAIApp.swift",
+      "ios/RAI/App/SyncCoordinator.swift",
+      "ios/RAI/AppTests/NormalizerTests.swift",
+      "ios/RAI/Sources/SyncCore/OutboxStore.swift",
+      "ios/RAI/Sources/SyncCore/RAIAPIClient.swift",
+      "ios/RAI/Sources/SyncCore/WorkoutSync.swift",
+      "ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift"
+    ],
+    "new_phase2_files": [
+      "apps/server/integration/workout_reliability_swift_test.go",
+      "apps/server/integration/workout_reliability_test.go",
+      "apps/server/internal/syncing/bundle_decode.go",
+      "apps/server/internal/syncing/bundle_decode_test.go",
+      "docs/audits/RQrun_PHASE2_RELIABILITY_REVIEW.md",
+      "docs/evidence/rqrun-phase2-2026-11-01.json",
+      "docs/evidence/rqrun-phase2-failed-runs.txt",
+      "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift",
+      "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift",
+      "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift"
+    ],
+    "preexisting_files_deleted": [],
+    "commit_push_deployment": false
+  },
+  "schema": {
+    "version": 15,
+    "new_migrations": false,
+    "checksums_match": true,
+    "original_plan_unchanged": true,
+    "phase1_storage_unchanged": true
+  },
+  "database": {
+    "version": "18.6",
+    "fresh_disposable_cluster": true,
+    "synthetic_only": true,
+    "tcp_listener": false,
+    "fsync": true,
+    "full_page_writes": true,
+    "synchronous_commit": true,
+    "data_checksums": true,
+    "leftover_test_databases": 0,
+    "test_cluster_removed": true
+  },
+  "results": {
+    "go_test": "PASS",
+    "go_race": "PASS",
+    "go_vet": "PASS",
+    "go_build": "PASS",
+    "boundaries": "PASS",
+    "postgres_full_seconds": 209.056,
+    "phase1_and_cross_seconds": 110.791,
+    "final_cross_language_cases": 15,
+    "final_cross_language_seconds": 46.729,
+    "swift_testing_tests": 79,
+    "swift_testing_suites": 9,
+    "swift_xctest_unit_passed": 2,
+    "swift_live_xctest_without_harness_skipped": 1,
+    "swift_live_xctest_pg_harness_passed": 15,
+    "field_presence_unit_cases": 62,
+    "simulator_app_tests_passed": 17,
+    "iphoneos_debug": "PASS unsigned build only",
+    "iphoneos_release": "PASS unsigned build only",
+    "openapi": "PASS",
+    "openapi_warnings": 31
+  },
+  "verification_sequence": "Full backend race/integration passed; additional fault-matrix test cases and removal of failed-recovery lastSync write were then covered by final 15-case cross run, full Swift package, App tests and both iPhoneOS builds. Backend production source unchanged after full PG run.",
+  "phase1_regression": {
+    "RQ-001": "PASS automated",
+    "RQ-002": "PASS automated",
+    "RQ-003": "PASS automated",
+    "real_healthkit_deletion": "NOT VERIFIED"
+  },
+  "source_sha256": {
+    "apps/server/integration/workout_reliability_swift_test.go": "d246fc1ea6b744e1c940c2c137f028505be3d09fec1f253d4ba9c7ae8ecf0d38",
+    "apps/server/integration/workout_reliability_test.go": "3132babbc00c9d6dd21ea86f35bf66ed0c30efb8e086f9b7c9448aae988eaeb3",
+    "apps/server/internal/httpapi/server.go": "f409799c982ab6087a373518cbcdb0667bb4bdf05cfe8133d47970a036cd730c",
+    "apps/server/internal/syncing/bundle_decode.go": "bc5105f4c7ef959a196f320d4e50fff4725877b528b965dfacc2edbd31a5e5cd",
+    "apps/server/internal/syncing/bundle_decode_test.go": "c85430bc36ba511471988b02f1af04e56688834b0c14f5fccacc893083bf3cba",
+    "apps/server/internal/syncing/protocol.go": "839b5df38c7255481cdf29f9ddef1c8a6b5809bf87c89ad335f7a7163d21a767",
+    "contracts/openapi-v2.yaml": "4da5b768648abe7bcf3fad593fddde3a3ea60cee01bc7e01700a5476d77a8188",
+    "ios/RAI/App/BackgroundTransfers.swift": "6c16815d0fef67041001cd6488670aab54a6855fbc66f08b36985a5247e389de",
+    "ios/RAI/App/RAIApp.swift": "bbd9f09a17543be6779638c9d9434dfefb98307450fdc845ea518beecdfe760d",
+    "ios/RAI/App/SyncCoordinator.swift": "ae0d2a524378f063591f11e71e87d8c00edff087f094341f1c5d2562452a5927",
+    "ios/RAI/AppTests/NormalizerTests.swift": "71059b3f93a4c2a5faf25c6ff03a8ebb5aaca5e3dda68ab506672b4bf9649ca6",
+    "ios/RAI/Sources/SyncCore/OutboxStore.swift": "2c7c46e2545a1157b798a634ae11371b6685a2a828e09b5851efbadb7a7a3c64",
+    "ios/RAI/Sources/SyncCore/RAIAPIClient.swift": "ddedfad217927f4b20fe5890a46b2ab0bfe27457bc46ff2098e1ddb65946ffaa",
+    "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift": "ba0494c53d270b4d645c0a1862e2274f5b2129880bf8c637e3f50e4b66b0d297",
+    "ios/RAI/Sources/SyncCore/WorkoutSync.swift": "f32555289ff0edfdf3cfb63b43c50533423a79996f84f21e83d674202bedd69b",
+    "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift": "b73b95704f5b9ccae3c7415fc0cbe2af0892ea89455f7a904bbbae5ec66e4330",
+    "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift": "3ea9bc4f7f76137b523bd3dd9d52071c21e943cb575a67ac19579de4f419f58d",
+    "ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift": "3e652b27a325ec2460a2e0f4b9620f5ceebdac3845efa2501b6225a7ddbd563f"
+  },
+  "logs": {
+    "go_test": {
+      "path": "/tmp/rai-phase2-go-test.log",
+      "sha256": "cccfe216e0589cd93028bb0a4023dc70586ce358301c73cfb6371dc567369f14",
+      "result": "PASS"
+    },
+    "go_race": {
+      "path": "/tmp/rai-phase2-race-delivery.log",
+      "sha256": "12836a641e8f45bf8ebc045659a3615a9d9bb8205fabb6632da706003f467708",
+      "result": "PASS"
+    },
+    "go_vet": {
+      "path": "/tmp/rai-phase2-vet-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": "PASS"
+    },
+    "go_vet_integration": {
+      "path": "/tmp/rai-phase2-vet-integration-delivery.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": "PASS"
+    },
+    "go_build": {
+      "path": "/tmp/rai-phase2-go-build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": "PASS"
+    },
+    "postgres_full": {
+      "path": "/tmp/rai-phase2-full-pg-final.log",
+      "sha256": "44f3466cc5f568ace7e30f10e220edc06a9f68de9e74451f96ef04d656f3b2cc",
+      "result": "PASS"
+    },
+    "postgres_phase1_and_cross": {
+      "path": "/tmp/rai-phase2-regression-cross-final.log",
+      "sha256": "0d63f249a4072c7590a34d2dfeb4192af2f7f55383c6233237d5e5cccefa93bd",
+      "result": "PASS"
+    },
+    "postgres_cross_final_15": {
+      "path": "/tmp/rai-phase2-cross-complete.log",
+      "sha256": "9f11fa15ffbdaa5966ec06ca5f6968b22ee2cb7b1a3c3ff061b22cedd0d399f8",
+      "result": "PASS"
+    },
+    "swift": {
+      "path": "/tmp/rai-phase2-swift-complete.log",
+      "sha256": "6db382681007a6e2de670fe3756c5de4854bbe3e6a74a3a476d99109aeb09efa",
+      "result": "PASS"
+    },
+    "ios_app_tests": {
+      "path": "/tmp/rai-phase2-ios-tests-verified.log",
+      "sha256": "9d8bc43156ca67c41d37126f464bcd8d2623861dad72a2433ceec5b92730f270",
+      "result": "PASS"
+    },
+    "iphoneos_debug": {
+      "path": "/tmp/rai-phase2-iphoneos-debug.log",
+      "sha256": "3a306f28d35a4892787b15748cec99d23375eac364bb491605ae9633b1d0570b",
+      "result": "PASS"
+    },
+    "iphoneos_release": {
+      "path": "/tmp/rai-phase2-iphoneos-release.log",
+      "sha256": "02614ff4d1bef086f05680d6a7e7f63d2af76b5b5a63ec89a13638f04cb66d9d",
+      "result": "PASS"
+    },
+    "openapi": {
+      "path": "/tmp/rai-phase2-openapi-final.log",
+      "sha256": "15dca69aca4dfe7d116ad43d851dd3a7fc58c4e0b38225eef0a5b3b4d12b4aab",
+      "result": "PASS"
+    },
+    "boundaries": {
+      "path": "/tmp/rai-phase2-boundaries-final.log",
+      "sha256": "4b1d722d2981eb06ed7b4cb06fcebf79765cc778769a99dacf9475986c5d1c4d",
+      "result": "PASS"
+    },
+    "field_unit": {
+      "path": "/tmp/rai-phase2-fields-unit.log",
+      "sha256": "f9601020a95aef681c1f06694cd5f8f23e839b76a34672ff5b8033b9ea1b77c1",
+      "result": "PASS"
+    }
+  },
+  "failed_runs": {
+    "artifact": "docs/evidence/rqrun-phase2-failed-runs.txt",
+    "sha256": "66a86cd4e5b15044c912c09db6823a873901bc95bd2c27a0ec1c81cfc2257bd0",
+    "result": "Historical failed attempts retained; corresponding final reruns passed",
+    "reasons": [
+      "incorrect command working directories and partial implementation",
+      "stale Swift incremental initializer linkage",
+      "test fixture member/column mismatch",
+      "COMMIT error test expected 500 but established API emits 503",
+      "Swift test Comment / await autoclosure / Sendable closure compilation",
+      "Swift source modified while a full/cross build was running"
+    ]
+  },
+  "not_verified": [
+    "Real iPhone 12 Pro Max / HealthKit / URLSession background kill and network E2E",
+    "Physical power loss / storage fault / database process crash recovery",
+    "Actual device token rotation",
+    "fnOS or production deployment",
+    "v3 explicit Sample/Route deletion capture",
+    "Historical incorrect tombstone remediation"
+  ],
+  "deferred": [
+    "RQ-004",
+    "RQ-007",
+    "RQ-008",
+    "RQ-010",
+    "RQ-011",
+    "RQ-012",
+    "RQ-013",
+    "RQ-014",
+    "RQ-015",
+    "RQ-016"
+  ],
+  "simulator": {
+    "created_for_this_task": true,
+    "id": "4CBE9160-1159-4864-9B92-F96DA96CB423",
+    "deleted": true,
+    "real_device": false
+  }
+}

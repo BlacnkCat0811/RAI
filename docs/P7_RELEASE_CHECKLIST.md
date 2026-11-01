@@ -33,7 +33,7 @@
 - [x] 只读角色整库pg_dump custom机制与加密/权限/密钥分离完成。
 - [x] SHA与完整解密认证验证；错key/损坏/替换hash/未标记/非空目标拒绝且无SQL部分写入。
 - [x] 另一全新凭证/卷实例实际SQL恢复，非仅list检查。
-- [x] 45表hash/count、schema13/FK/raw/sync/屏障/回执/current publication验证。
+- [x] 46表hash/count、schema16/FK/raw/sync/屏障/回执/current publication验证。
 - [x] Training Effective/override/frozen execution/feedback与原身份API验证。
 - [x] queued job身份/状态与lease历史保留。
 - [x] off-host策略、保留和加密设计明确；实际离机另列未完成门禁。

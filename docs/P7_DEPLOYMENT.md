@@ -53,7 +53,7 @@ dc exec -T worker /rai worker-ready
 
 ## 服务生命周期
 
-PG healthcheck 等最终 TCP server；API healthcheck 使用 `/ready` 而非 `/health`；Worker 依赖 API healthy，启动再次验证 schema13/运行角色。`worker-ready` 检查 DB/schema/role；它不是队列有进展的证据，应配合任务/租约监控。Compose unhealthy 本身不会自动重启容器；`restart: unless-stopped` 处理进程退出，外部监控处理持续 unhealthy，避免重启风暴。
+PG healthcheck 等最终 TCP server；API healthcheck 使用 `/ready` 而非 `/health`；Worker 依赖 API healthy，启动再次验证 schema16/运行角色。`worker-ready` 检查 DB/schema/role；它不是队列有进展的证据，应配合任务/租约监控。Compose unhealthy 本身不会自动重启容器；`restart: unless-stopped` 处理进程退出，外部监控处理持续 unhealthy，避免重启风暴。
 
 停止使用 `dc stop worker api`，最后才 `dc stop postgres`。API SIGTERM 停止接入并给请求10s完成；容器15s grace。Worker取消计算、停止续租，不伪造完成；未结束的lease由后继Worker在到期后回收。PG grace60s。启动失败查稳定错误码、角色与readiness，不能用自动 migration 或 owner runtime 规避错误。
 
@@ -63,6 +63,6 @@ PG healthcheck 等最终 TCP server；API healthcheck 使用 `/ready` 而非 `/h
 
 发布清单必须包含 commit、源码差异摘要、Go/Swift/PG版本、migration13、实际镜像digest、protocol2、OpenAPI1.1.0、算法和训练版本；`rai version` 提供服务内版本。未提交工作不能被表示成那个 commit 已包含的代码，本轮 evidence 额外记录内容摘要。
 
-更新前需有已验证备份及离机副本，停止Worker/写入口、审核兼容、显式迁移，再按readiness恢复。00001–00013 forward-only、down白名单为空；旧schema12 binary对13 fail closed。回旧app digest还须确认启动命令、TLS/probe、API及算法兼容；P6镜像不支持P7原生TLS/worker-ready，不能仅凭同为schema13直接回滚。不能混跑不兼容Worker。需回到不兼容schema时，在**新隔离实例**恢复验证，再由用户批准切换；会丢失备份点之后的变更，不是无损普通回滚。
+更新前需有已验证备份及离机副本，停止Worker/写入口、审核兼容、显式迁移，再按readiness恢复。00001–00016 forward-only、down白名单为空；旧schema12 binary对13 fail closed。回旧app digest还须确认启动命令、TLS/probe、API及算法兼容；P6镜像不支持P7原生TLS/worker-ready，不能仅凭同为schema16直接回滚。不能混跑不兼容Worker。需回到不兼容schema时，在**新隔离实例**恢复验证，再由用户批准切换；会丢失备份点之后的变更，不是无损普通回滚。
 
 证书或 DSN 文件原子替换后，文件 bind mount 可能仍引用旧 inode。预检新文件后用受控 `up -d --force-recreate api`（DB凭证则还需Worker）装入新挂载，验证证书指纹/hostname/readiness与原身份重试；只 restart 不保证读到新文件。避免同时重启PG。正式入口切换、部署、迁移真实数据、App发布和Git提交均不由这些说明自动授权。

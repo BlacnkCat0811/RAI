@@ -8,7 +8,7 @@
 
 P6原生产品与P3/P4/P5历史合同和验收保留，见 [P6 Result](docs/V2_PHASE6_RESULT.md)。本轮 **Phase 7 Production Hardening** 增加三服务发布模板、原生HTTPS、独立运行角色/文件secrets、加密备份与真实隔离恢复、聚合运维/告警、故障注入、容量工具与安全outbox GC；最终状态和未验证项见 [P7 Result](docs/V2_PHASE7_RESULT.md)。P3/P6 REAL DEVICE ACCEPTANCE: DEFERRED / NOT VERIFIED；PRODUCTION RELEASE READY: NO。WorkoutKit、独立Watch和正式发布未开放，无Metal/GPU、iOS18及真机风险不由P7测试解除。
 
-按 [ADR-002](docs/adr/002-fresh-healthkit-dataset.md)，本次不迁移旧数据库。开发、真机与部署验收完成后，由新 iOS 客户端首次读取手机可见的 HealthKit 历史，随后走 anchor 增量同步；旧服务端计划、人工修改和旧回执不随健康事实重建。
+按 [ADR-002](docs/adr/002-fresh-healthkit-dataset.md)，本次不迁移旧数据库。Protocol 3 采用单 Workout bundle 全量快照；旧 v2 事实必须在部署前由 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts` 显式清空。删除只由显式 Workout `HKDeletedObject` 或完整类型快照触发，空读取/权限撤销不删除事实。
 
 后续独立专项 [Monthly Backup](docs/RAI_MONTHLY_BACKUP.md) 提供每月1日03:00、无额外文件加密的整库 SSH 备份、最近三份成功副本保留及隔离恢复入口；保留原 P7 工具。正式云端/cron 尚未安装。[灾难恢复审查](docs/RAI_DISASTER_RECOVERY.md) 明确当前 HealthKit recovery resync 为 BLOCKED，不能通过 reset Anchor 或清空 Outbox 处理旧数据库回退；本轮验证和逐项门禁见 [Backup/Recovery Result](docs/RAI_BACKUP_RECOVERY_RESULT.md)。
 
@@ -24,7 +24,7 @@ P6原生产品与P3/P4/P5历史合同和验收保留，见 [P6 Result](docs/V2_P
 
 API 默认只监听 `127.0.0.1:8080`；容器配置监听 `0.0.0.0:8080`。`RAI_LISTEN_ADDR` 可更改监听地址。使用挂载秘密文件时配置 `RAI_DATABASE_URL_FILE`，不能同时设置两种数据库 URL 来源。API 不自动执行 migration 或创建数据集。仅在确需创建开发数据集时手动运行 `rai init`；其一次性设备凭证必须安全保存，不提交或写入普通日志。
 
-Worker 默认单 processing slot，消费 Workout、依赖、training-state 与 training.plan 任务，20秒续租；结果写入、publication、generation clean 和 job complete 原子提交。`GET /health` 和 `/livez` 检查进程；`GET /ready` 和 `/readyz` 检查数据库和 schema 版本。所有 `/v2` 接口都需要 `Authorization: Bearer <init 返回的 token>`。上传流程、单位及错误见 [同步合同](contracts/sync-v2.md)、[Phase 3 同步合同](docs/V2_PHASE3_SYNC_CONTRACT.md)、[OpenAPI](contracts/openapi-v2.yaml)、[合同变更记录](contracts/CHANGELOG.md)，跨语言固定输入见 [fixtures](contracts/fixtures/envelope.json)。
+Worker 默认单 processing slot，消费 Workout、依赖、training-state 与 training.plan 任务，20秒续租；结果写入、publication、generation clean 和 job complete 原子提交。`GET /health` 和 `/livez` 检查进程；`GET /ready` 和 `/readyz` 检查数据库和 schema 版本。所有 `/v2` 接口都需要 `Authorization: Bearer <init 返回的 token>`。上传流程、单位及错误见 [Protocol 3 同步合同](contracts/sync-v3.md)、[OpenAPI](contracts/openapi-v2.yaml)、[合同变更记录](contracts/CHANGELOG.md)。Protocol 3 的旧 fixtures 仅保留历史用途。
 
 NAS 连接见 [fnOS 访问说明](docs/FNOS-ACCESS.md)。远端现有库不作为开发／测试默认数据库。
 

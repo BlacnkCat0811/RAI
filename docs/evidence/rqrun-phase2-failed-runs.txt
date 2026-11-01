@@ -1,0 +1,983 @@
+# RQrun Phase 2 retained failed-run evidence
+
+Synthetic data / local disposable environments only. These attempts failed; final reruns are recorded separately.
+
+
+===== /tmp/rai-phase2-swift-initial.log =====
+[0/1] Planning build
+Building for debugging...
+[0/13] Write sources
+[1/13] Write swift-version--58304C5D6DBC2206.txt
+[3/17] Compiling SyncCore RAIAPIClient.swift
+[4/17] Compiling SyncCore WorkoutSync.swift
+[5/17] Emitting module SyncCore
+[6/17] Compiling SyncCore WorkoutBundleDelivery.swift
+/Users/tp/rai/ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift:39:42: error: value of type 'OutboxStore' has no member 'claimBundle'
+ 37 | 
+ 38 |     @discardableResult public func deliver(_ id: String, now: Date = Date()) async throws -> Bool {
+ 39 |         guard let task = try await store.claimBundle(id, now: now) else { return false }
+    |                                          `- error: value of type 'OutboxStore' has no member 'claimBundle'
+ 40 |         let hash = task.bundleSHA256!, identity = id + ":" + hash
+ 41 |         do {
+
+/Users/tp/rai/ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift:71:29: error: value of type 'OutboxStore' has no member 'acknowledgeBundle'
+ 69 |                 }
+ 70 |             }
+ 71 |             try await store.acknowledgeBundle(id, receipt: receipt)
+    |                             `- error: value of type 'OutboxStore' has no member 'acknowledgeBundle'
+ 72 |             api.discardUploadResult(identity)
+ 73 |             await store.endBundleAttempt(id)
+
+/Users/tp/rai/ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift:73:25: error: value of type 'OutboxStore' has no member 'endBundleAttempt'
+ 71 |             try await store.acknowledgeBundle(id, receipt: receipt)
+ 72 |             api.discardUploadResult(identity)
+ 73 |             await store.endBundleAttempt(id)
+    |                         `- error: value of type 'OutboxStore' has no member 'endBundleAttempt'
+ 74 |             return true
+ 75 |         } catch {
+
+/Users/tp/rai/ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift:80:34: error: value of type 'OutboxStore' has no member 'failBundle'
+ 78 |             if !(error is CancellationError) { api.discardUploadResult(identity) }
+ 79 |             let failure = Self.failure(error)
+ 80 |             do { try await store.failBundle(id, error: failure, now: now) }
+    |                                  `- error: value of type 'OutboxStore' has no member 'failBundle'
+ 81 |             catch { await store.endBundleAttempt(id); throw error }
+ 82 |             await store.endBundleAttempt(id)
+
+/Users/tp/rai/ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift:81:33: error: value of type 'OutboxStore' has no member 'endBundleAttempt'
+ 79 |             let failure = Self.failure(error)
+ 80 |             do { try await store.failBundle(id, error: failure, now: now) }
+ 81 |             catch { await store.endBundleAttempt(id); throw error }
+    |                                 `- error: value of type 'OutboxStore' has no member 'endBundleAttempt'
+ 82 |             await store.endBundleAttempt(id)
+ 83 |             throw failure
+
+/Users/tp/rai/ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift:82:25: error: value of type 'OutboxStore' has no member 'endBundleAttempt'
+ 80 |             do { try await store.failBundle(id, error: failure, now: now) }
+ 81 |             catch { await store.endBundleAttempt(id); throw error }
+ 82 |             await store.endBundleAttempt(id)
+    |                         `- error: value of type 'OutboxStore' has no member 'endBundleAttempt'
+ 83 |             throw failure
+ 84 |         }
+[7/20] Compiling SyncCore RouteBuilder.swift
+[8/20] Compiling SyncCore Supplements.swift
+[9/20] Compiling SyncCore OutboxStore.swift
+error: fatalError
+
+
+===== /tmp/rai-phase2-swift-second.log =====
+[0/1] Planning build
+Building for debugging...
+[0/13] Write sources
+[1/13] Write swift-version--58304C5D6DBC2206.txt
+[3/16] Compiling SyncCore OutboxStore.swift
+[4/16] Emitting module SyncCore
+[5/16] Compiling SyncCore WorkoutBundleDelivery.swift
+[6/20] Compiling SyncCore BatchBuilder.swift
+[7/20] Compiling SyncCore RAIAPIClient.swift
+[8/20] Compiling SyncCore RouteBuilder.swift
+[9/20] Compiling SyncCore Supplements.swift
+[10/35] Emitting module GCProbe
+[11/35] Compiling GCProbe Probe.swift
+[11/35] Write Objects.LinkFileList
+[12/35] Linking GCProbe
+[13/35] Applying GCProbe
+[15/35] Compiling ProductCore Product.swift
+[16/35] Emitting module ProductCore
+[17/35] Compiling ProductCore WorkoutDetail.swift
+[18/35] Compiling ProductCore TrainingPages.swift
+[19/37] Compiling SyncCoreTests WorkoutBundleTests.swift
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift:21:24: warning: no calls to throwing functions occur within 'try' expression
+19 |         XCTAssertEqual(value["completeSampleTypes"].list.count, 0)
+20 |         XCTAssertEqual(value["completeRoutes"], .bool(false))
+21 |         XCTAssertEqual(try data, try WorkoutBundleAssembler.data(scope: scope, workoutID: "55555555-5555-4555-8555-555555555555",
+   |                        `- warning: no calls to throwing functions occur within 'try' expression
+22 |             workout: workout, samples: [], series: [], routes: [],
+23 |             completeSampleTypes: [], completeRoutes: false))
+[20/37] Compiling SyncCoreTests SyncCoreTests.swift
+[21/37] Compiling SyncCoreTests WorkoutTaskTests.swift
+[22/37] Compiling SyncCoreTests RecoveryBoundaryTests.swift
+[23/37] Compiling SyncCoreTests GarbageCollectionTests.swift
+[24/37] Emitting module SyncCoreTests
+[25/37] Compiling SyncCoreTests APITests.swift
+[25/37] Write Objects.LinkFileList
+error: link command failed with exit code 1 (use -v to see invocation)
+ld: warning: Could not parse or use implicit file '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/SwiftUICore.framework/Versions/A/SwiftUICore.tbd': cannot link directly with 'SwiftUICore' because product being built is not an allowed client of it
+Undefined symbols for architecture x86_64:
+  "SyncCore.RAIAPIClient.init(baseURL: Foundation.URL, token: Swift.String, session: __C.NSURLSession, uploader: SyncCore.FileUploader?, metrics: SyncCore.SyncMetrics) -> SyncCore.RAIAPIClient", referenced from:
+      ProductCoreTests.TrainingPageTests.(api in _5AA93BD95CEDAE8C41720A8BCC9613BE)(_: Swift.String, failure: Swift.Bool) -> ProductCore.ProductAPI in TrainingPageTests.swift.o
+ld: symbol(s) not found for architecture x86_64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+[26/37] Linking RAIClientPackageTests
+[27/37] Emitting module ProductProbe
+[28/37] Emitting module SyncProbe
+error: fatalError
+
+
+===== /tmp/rai-phase2-swift-third.log =====
+error: Could not find Package.swift in this directory or any of its parent directories.
+
+
+===== /tmp/rai-phase2-swift-fourth.log =====
+Building for debugging...
+[0/26] Write sources
+[3/26] Write GCProbe-entitlement.plist
+[8/26] Write ProductProbe-entitlement.plist
+[8/26] /tmp/rai-phase2-swift-build/x86_64-apple-macosx/debug/RAIClientPackageTests.derived/runner.swift
+[9/26] Write SyncProbe-entitlement.plist
+[11/26] Write sources
+[12/26] Copying Fixtures
+[13/26] Write swift-version--58304C5D6DBC2206.txt
+[14/26] Compiling RAICompression gzip.c
+[16/37] Compiling SyncCore WorkoutSync.swift
+[17/37] Compiling SyncCore Wire.swift
+[18/37] Compiling SyncCore SyncMetrics.swift
+[19/37] Compiling SyncCore Supplements.swift
+[20/37] Compiling SyncCore OutboxStore.swift
+[21/37] Compiling SyncCore WorkoutBundle.swift
+[22/37] Compiling SyncCore WorkoutBundleDelivery.swift
+[23/37] Compiling SyncCore BatchBuilder.swift
+[24/37] Emitting module SyncCore
+[25/37] Compiling SyncCore RouteBuilder.swift
+[26/37] Compiling SyncCore RAIAPIClient.swift
+[27/54] Emitting module GCProbe
+[28/54] Compiling GCProbe Probe.swift
+[28/54] Write Objects.LinkFileList
+[29/54] Linking GCProbe
+[30/54] Applying GCProbe
+[32/54] Compiling ProductCore TrainingPages.swift
+[33/54] Compiling ProductCore WorkoutDetail.swift
+[34/54] Emitting module ProductCore
+[35/54] Compiling ProductCore Product.swift
+[36/60] Compiling SyncProbe Probe.swift
+[37/60] Emitting module SyncProbe
+[37/60] Write Objects.LinkFileList
+[38/60] Linking SyncProbe
+[39/60] Applying SyncProbe
+[41/60] Compiling ProductCoreTests WorkoutDetailTests.swift
+[42/60] Emitting module ProductCoreTests
+[43/60] Compiling ProductCoreTests TrainingPageTests.swift
+[44/60] Compiling ProductCoreTests ProductTests.swift
+[45/60] Emitting module ProductProbe
+[46/60] Compiling ProductProbe Probe.swift
+[46/60] Write Objects.LinkFileList
+[47/60] Linking ProductProbe
+[48/60] Applying ProductProbe
+[50/60] Compiling SyncCoreTests WorkoutTaskTests.swift
+[51/60] Compiling SyncCoreTests WorkoutReliabilityTests.swift
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift:109:121: error: referencing operator function '+' on 'Sequence' requires the types 'String.Element' (aka 'Character') and 'String' be equivalent
+107 |         if variant == "json" { reply.body = Data("{broken".utf8) }
+108 |         ReliabilityProtocol.state.withLock { $0.replies = [reply] }
+109 |         do { try await WorkoutBundleDelivery(store: store, api: api).deliver(id); Issue.record("invalid ACK accepted: " + variant) } catch { }
+    |                                                                                                                         `- error: referencing operator function '+' on 'Sequence' requires the types 'String.Element' (aka 'Character') and 'String' be equivalent
+110 |         #expect(FileManager.default.fileExists(atPath: file.path))
+111 |         let task = try #require(await store.task(id))
+
+Swift.Sequence:1:11: note: where 'Self.Element' = 'String.Element' (aka 'Character')
+1 | extension Sequence where Self.Element == String {
+  |           `- note: where 'Self.Element' = 'String.Element' (aka 'Character')
+2 |     @available(*, unavailable, message: "Operator '+' cannot be used to append a String to a sequence of strings")
+3 |     public static func + (lhs: Self, rhs: String) -> Never
+[52/60] Compiling SyncCoreTests RecoveryBoundaryTests.swift
+[53/60] Compiling SyncCoreTests resource_bundle_accessor.swift
+[54/60] Compiling SyncCoreTests WorkoutBundleTests.swift
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift:21:24: warning: no calls to throwing functions occur within 'try' expression
+19 |         XCTAssertEqual(value["completeSampleTypes"].list.count, 0)
+20 |         XCTAssertEqual(value["completeRoutes"], .bool(false))
+21 |         XCTAssertEqual(try data, try WorkoutBundleAssembler.data(scope: scope, workoutID: "55555555-5555-4555-8555-555555555555",
+   |                        `- warning: no calls to throwing functions occur within 'try' expression
+22 |             workout: workout, samples: [], series: [], routes: [],
+23 |             completeSampleTypes: [], completeRoutes: false))
+[55/60] Compiling SyncCoreTests GarbageCollectionTests.swift
+[56/60] Compiling SyncCoreTests APITests.swift
+[57/60] Emitting module SyncCoreTests
+[58/60] Compiling SyncCoreTests SyncCoreTests.swift
+error: fatalError
+
+
+===== /tmp/rai-phase2-swift-sixth.log =====
+[0/1] Planning build
+Building for debugging...
+[0/11] Write sources
+[2/11] Write swift-version--58304C5D6DBC2206.txt
+[4/13] Emitting module SyncCore
+[5/13] Compiling SyncCore OutboxStore.swift
+[5/16] Write Objects.LinkFileList
+[8/18] Linking GCProbe
+[9/18] Linking SyncProbe
+[10/18] Applying GCProbe
+[11/18] Applying SyncProbe
+[12/18] Linking ProductProbe
+[13/18] Applying ProductProbe
+[15/18] Emitting module SyncCoreTests
+[16/18] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:29:46: error: call to actor-isolated instance method 'task' in a synchronous nonisolated context [#ActorIsolatedCall]
+27 |         catch { first = false }
+28 |         let evidence = try await api.call("GET", "/v2/test-evidence")
+29 |         let task = try XCTUnwrap(await store.task(id))
+   |                                              `- error: call to actor-isolated instance method 'task' in a synchronous nonisolated context [#ActorIsolatedCall]
+30 |         // Even successful delivery only marks GC; the bytes still exist here.
+31 |         XCTAssertEqual(try Data(contentsOf: file), body)
+
+/Users/tp/rai/ios/RAI/Sources/SyncCore/OutboxStore.swift:258:17: note: calls to instance method 'task' from outside of its actor context are implicitly asynchronous
+256 |     }
+257 |     public func allTasks() -> [WorkoutSyncTask] { (state.tasks ?? [:]).values.sorted { $0.createdAt < $1.createdAt } }
+258 |     public func task(_ id: String) -> WorkoutSyncTask? { state.tasks?[id] }
+    |                 `- note: calls to instance method 'task' from outside of its actor context are implicitly asynchronous
+259 |     public func beginTask(_ id: String, resetBundle: Bool = true) throws {
+260 |         var next = state
+
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:52:57: error: call to actor-isolated instance method 'task' in a synchronous nonisolated context [#ActorIsolatedCall]
+50 |             let finished = try await WorkoutBundleDelivery(store: reopened, api: api).deliver(id, now: due)
+51 |             XCTAssertTrue(finished)
+52 |             let restored = try XCTUnwrap(await reopened.task(id))
+   |                                                         `- error: call to actor-isolated instance method 'task' in a synchronous nonisolated context [#ActorIsolatedCall]
+53 |             XCTAssertEqual(restored.phase, .acknowledged)
+54 |             XCTAssertNotNil(restored.uploadReceipt)
+
+/Users/tp/rai/ios/RAI/Sources/SyncCore/OutboxStore.swift:258:17: note: calls to instance method 'task' from outside of its actor context are implicitly asynchronous
+256 |     }
+257 |     public func allTasks() -> [WorkoutSyncTask] { (state.tasks ?? [:]).values.sorted { $0.createdAt < $1.createdAt } }
+258 |     public func task(_ id: String) -> WorkoutSyncTask? { state.tasks?[id] }
+    |                 `- note: calls to instance method 'task' from outside of its actor context are implicitly asynchronous
+259 |     public func beginTask(_ id: String, resetBundle: Bool = true) throws {
+260 |         var next = state
+
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:29:34: error: 'await' in an autoclosure that does not support concurrency
+27 |         catch { first = false }
+28 |         let evidence = try await api.call("GET", "/v2/test-evidence")
+29 |         let task = try XCTUnwrap(await store.task(id))
+   |                                  `- error: 'await' in an autoclosure that does not support concurrency
+30 |         // Even successful delivery only marks GC; the bytes still exist here.
+31 |         XCTAssertEqual(try Data(contentsOf: file), body)
+
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:52:42: error: 'await' in an autoclosure that does not support concurrency
+50 |             let finished = try await WorkoutBundleDelivery(store: reopened, api: api).deliver(id, now: due)
+51 |             XCTAssertTrue(finished)
+52 |             let restored = try XCTUnwrap(await reopened.task(id))
+   |                                          `- error: 'await' in an autoclosure that does not support concurrency
+53 |             XCTAssertEqual(restored.phase, .acknowledged)
+54 |             XCTAssertNotNil(restored.uploadReceipt)
+
+[#ActorIsolatedCall]: <https://docs.swift.org/compiler/documentation/diagnostics/actor-isolated-call>
+error: fatalError
+
+
+===== /tmp/rai-phase2-pg-initial.log =====
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+# rai/server/integration [rai/server/integration.test]
+integration/workout_reliability_test.go:99:14: f.pool undefined (type *fixture has no field or method pool)
+integration/workout_reliability_test.go:102:14: f.pool undefined (type *fixture has no field or method pool)
+integration/workout_reliability_test.go:139:14: f.pool undefined (type *fixture has no field or method pool)
+FAIL	rai/server/integration [build failed]
+FAIL
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1
+
+
+===== /tmp/rai-phase2-pg-second.log =====
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_workout_uuid
+2026/11/01 10:23:51 INFO http_request request_id=4c6a2deb-18e0-46ff-8ed8-15da064b49c4 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_start
+2026/11/01 10:23:51 INFO http_request request_id=b256a1df-2197-4be8-b16b-cdff76a0365c component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_end
+2026/11/01 10:23:51 INFO http_request request_id=f148576b-f9ce-43ed-a173-64915c3e35bf component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_latitude
+2026/11/01 10:23:52 INFO http_request request_id=e5888fda-94c3-4c80-a24f-56c79c621e36 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_longitude
+2026/11/01 10:23:52 INFO http_request request_id=db3852f5-62f5-4237-a9bd-9d710903b85d component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_timestamp
+2026/11/01 10:23:52 INFO http_request request_id=d9dfb081-1af5-4b6f-934c-c3120dff15a8 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_quantity
+2026/11/01 10:23:53 INFO http_request request_id=b958e09f-5ff0-4b8c-bab3-8076d41e7fc2 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_value
+2026/11/01 10:23:53 INFO http_request request_id=72c7f1fe-7c8d-479c-b42b-3528b48fea43 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/null_value
+2026/11/01 10:23:53 INFO http_request request_id=c97c9ac2-c678-479e-b244-679e4af77d7a component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/null_optional
+2026/11/01 10:23:54 INFO http_request request_id=0d49e5a2-68ae-4914-9a0b-2d1fef0e1480 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/wrong_type
+2026/11/01 10:23:54 INFO http_request request_id=a417cb42-bf3f-47d0-8da9-2975971108f4 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/wrong_unit
+2026/11/01 10:23:54 INFO http_request request_id=24158ef5-93c1-46b0-9f85-7570000f300b component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/invalid_range
+2026/11/01 10:23:55 INFO http_request request_id=be2c9a3e-26c4-4c66-916b-26e1bfc22942 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/bad_latitude
+2026/11/01 10:23:55 INFO http_request request_id=40397744-bacf-458f-9b7e-07f0a1b9a9e0 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/series_missing_value
+2026/11/01 10:23:55 INFO http_request request_id=e4eb2c55-7269-409f-978c-98c433b3acae component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/distance_missing_value
+2026/11/01 10:23:56 INFO http_request request_id=ec391030-6979-4337-9342-7f4613c1b4ab component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/source_missing
+2026/11/01 10:23:56 INFO http_request request_id=1403031e-cdee-4586-9d0a-bef2ee573304 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_protocol
+2026/11/01 10:23:57 INFO http_request request_id=763ba693-03bf-4884-a1bb-a687756ba1d3 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+--- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic (6.45s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_workout_uuid (0.41s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_start (0.34s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_end (0.34s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_latitude (0.34s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_longitude (0.35s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_timestamp (0.35s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_quantity (0.34s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_value (0.33s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/null_value (0.33s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/null_optional (0.33s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/wrong_type (0.33s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/wrong_unit (0.35s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/invalid_range (0.34s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/bad_latitude (0.36s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/series_missing_value (0.43s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/distance_missing_value (0.45s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/source_missing (0.37s)
+    --- PASS: TestWorkoutBundleRequiredFieldsHTTPAtomic/missing_protocol (0.36s)
+=== RUN   TestWorkoutBundleZeroAndLegacyOptionalHTTP
+2026/11/01 10:23:57 INFO http_request request_id=7c9c4ce2-7cbb-42a9-93e6-0103530025c2 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=33
+--- PASS: TestWorkoutBundleZeroAndLegacyOptionalHTTP (0.55s)
+=== RUN   TestWorkoutBundleNonfiniteAndMalformedHTTP
+=== RUN   TestWorkoutBundleNonfiniteAndMalformedHTTP/NaN
+2026/11/01 10:23:58 INFO http_request request_id=263f86fc-7a74-4b96-9e69-dfc1846a72fa component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleNonfiniteAndMalformedHTTP/Infinity
+2026/11/01 10:23:58 INFO http_request request_id=99af5910-b66c-455e-b249-ed4cd6bb0816 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+=== RUN   TestWorkoutBundleNonfiniteAndMalformedHTTP/1e999
+2026/11/01 10:23:58 INFO http_request request_id=b6e5dea7-df56-49cc-b7c3-72d937ead6c0 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+--- PASS: TestWorkoutBundleNonfiniteAndMalformedHTTP (1.17s)
+    --- PASS: TestWorkoutBundleNonfiniteAndMalformedHTTP/NaN (0.38s)
+    --- PASS: TestWorkoutBundleNonfiniteAndMalformedHTTP/Infinity (0.40s)
+    --- PASS: TestWorkoutBundleNonfiniteAndMalformedHTTP/1e999 (0.38s)
+=== RUN   TestWorkoutBundleCommitFailureHasNoACK
+2026/11/01 10:23:59 ERROR request_failed reason=storage_unavailable
+2026/11/01 10:23:59 INFO http_request request_id=97cb6c2e-9034-4951-899b-cb98c34ff13b component=api operation="POST /v2/sync/workout-bundles" status=503 error_code=temporarily_unavailable duration_ms=19
+    workout_reliability_test.go:146: uncommitted ACK: 503 {"code":"temporarily_unavailable"}
+--- FAIL: TestWorkoutBundleCommitFailureHasNoACK (0.39s)
+=== RUN   TestWorkoutBundleLostACKAnd404ThenIdempotentPOST
+2026/11/01 10:23:59 INFO http_request request_id=4ccbbe6d-cc48-4e05-af5f-863c9f572a89 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=22
+--- PASS: TestWorkoutBundleLostACKAnd404ThenIdempotentPOST (0.41s)
+FAIL
+FAIL	rai/server/integration	9.001s
+FAIL
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1
+
+
+===== /tmp/rai-phase2-go-race.log =====
+# ./...
+pattern ./...: directory prefix . does not contain main module or its selected dependencies
+FAIL	./... [setup failed]
+FAIL
+
+
+===== /tmp/rai-phase2-full-pg.log =====
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+?   	rai/server/cmd/rai	[no test files]
+2026/11/01 10:30:53 INFO http_request request_id=0478dbbf-342e-4d2c-9680-31480b605aaf component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=22
+2026/11/01 10:30:53 INFO http_request request_id=21561296-e466-49d1-a9df-665c5f1a9d7a component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=2
+2026/11/01 10:30:53 INFO http_request request_id=83dbb3c0-1307-46ae-91a9-f83be4084cdc component=api operation=unmatched status=404 error_code="" duration_ms=0
+2026/11/01 10:31:04 INFO http_request request_id=2e782e38-02a9-45e3-89a6-cdae4363cf10 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=33
+2026/11/01 10:31:04 INFO http_request request_id=df0ca88c-9a3e-430d-8cd7-52360c18e0a2 component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=3
+2026/11/01 10:31:04 INFO http_request request_id=ad2a0063-97d0-4ff3-ae5b-84bf591366f3 component=api operation="DELETE /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=9
+2026/11/01 10:31:04 INFO http_request request_id=fff3792e-d8b2-4b17-8ce8-54e30685b55e component=api operation="GET /v2/sync/workout-bundles/{id}" status=404 error_code=workout_import_not_found duration_ms=1
+2026/11/01 10:31:15 INFO http_request request_id=58a0e28e-2d0f-4033-adf8-3b26ab3bb2ce component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+2026/11/01 10:31:16 INFO http_request request_id=6ef63175-b84f-4f0a-a38c-e3822805a4dc component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+2026/11/01 10:31:16 INFO http_request request_id=bbf2a486-6cf8-44e5-8612-0eb4d1fc4248 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+2026/11/01 10:31:17 INFO http_request request_id=64d7fda0-c182-41d5-b45b-8e16d1a57a18 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+2026/11/01 10:31:18 INFO http_request request_id=87c270f5-1ea9-4cd5-a34b-d04091c00c16 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=5
+2026/11/01 10:31:19 INFO http_request request_id=5e7bc228-1942-4db8-b0bb-6cf20903eb92 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+2026/11/01 10:31:20 INFO http_request request_id=a392d209-a79b-47bb-8535-1227fd2bd19c component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+2026/11/01 10:31:21 INFO http_request request_id=c6b772a8-a029-4db9-b384-4361d2ae1b85 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+2026/11/01 10:31:21 INFO http_request request_id=6ff9f4d4-6937-470d-96d9-63115e9f3d4b component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+2026/11/01 10:31:22 INFO http_request request_id=8c3fc815-ba20-45e6-908d-0f9552277c38 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+2026/11/01 10:31:23 INFO http_request request_id=c0c9815f-2900-4e95-92cb-91dbcb6f1511 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=5
+2026/11/01 10:31:24 INFO http_request request_id=b8d5da40-9ace-4ed5-8b51-4eda7a78d409 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=6
+2026/11/01 10:31:24 INFO http_request request_id=347de23d-1012-416b-8244-d126430140e2 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=7
+2026/11/01 10:31:25 INFO http_request request_id=bcb64a78-728c-414b-804e-94f2b2915f6a component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=6
+2026/11/01 10:31:26 INFO http_request request_id=d1ecd827-a96d-4b7f-88e6-2c212ecbcb43 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+2026/11/01 10:31:27 INFO http_request request_id=50339176-e55d-485a-bac8-51e88b71bfec component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=4
+2026/11/01 10:31:28 INFO http_request request_id=ef6991fb-6cb1-4786-a5df-68b79b53171f component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+2026/11/01 10:31:28 INFO http_request request_id=42dbb59f-6767-4169-8282-227b84ed76e9 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+2026/11/01 10:31:29 INFO http_request request_id=18a19043-f4a7-4c02-a171-10d2f25705d9 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=25
+2026/11/01 10:31:29 INFO http_request request_id=b3d946aa-a123-4771-b87d-43b506051ae8 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+2026/11/01 10:31:30 INFO http_request request_id=0eff9dfe-6f82-41df-9e0e-177a1338ab3d component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=1
+2026/11/01 10:31:30 INFO http_request request_id=4ce73770-3a28-49f7-b496-6fd1b042baf9 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=2
+2026/11/01 10:31:31 ERROR request_failed reason=storage_unavailable
+2026/11/01 10:31:31 INFO http_request request_id=14cac026-a76d-45ac-b058-8be72c2f3beb component=api operation="POST /v2/sync/workout-bundles" status=503 error_code=temporarily_unavailable duration_ms=18
+2026/11/01 10:31:31 INFO http_request request_id=4cfcd7a0-3c37-4842-8baa-6926ad08b641 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=22
+2026/11/01 10:32:31 INFO http_request request_id=39890588-5547-42ce-8801-fd154c6dc508 component=api operation="GET /v2/sync/workout-bundles/{id}" status=404 error_code=workout_import_not_found duration_ms=4
+2026/11/01 10:32:31 INFO http_request request_id=17c4dbb6-7056-4765-8605-49857286fa67 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=20
+2026/11/01 10:32:31 INFO http_request request_id=958b9235-b224-4160-a913-3c59c5718dd0 component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=2
+2026/11/01 10:32:33 ERROR request_failed reason=storage_unavailable
+2026/11/01 10:32:33 INFO http_request request_id=23ad11cf-1408-496f-ba58-55d8c5db6233 component=api operation="POST /v2/sync/workout-bundles" status=503 error_code=temporarily_unavailable duration_ms=30
+2026/11/01 10:32:33 INFO http_request request_id=c3ce4a03-4c5c-4b3b-8529-101c38125ae5 component=api operation="GET /v2/sync/workout-bundles/{id}" status=404 error_code=workout_import_not_found duration_ms=3
+2026/11/01 10:32:33 INFO http_request request_id=f9268690-17a8-490a-96c3-723fdc7c1778 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=26
+2026/11/01 10:32:33 INFO http_request request_id=547f801b-4976-44aa-af32-5476bb0e72dc component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=1
+2026/11/01 10:32:34 INFO http_request request_id=1e6f4fce-00f5-4f03-b1da-bb9c6e0510a8 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=25
+2026/11/01 10:32:34 INFO http_request request_id=03ef96f9-92a2-4a70-a354-4abd3cd56d4c component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=2
+2026/11/01 10:32:34 INFO http_request request_id=2dbff0e4-3ff2-4363-baa7-b83687de0c41 component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=1
+2026/11/01 10:32:36 INFO http_request request_id=6c390585-8ca6-4b06-a1e5-2b79e7ef82c2 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=22
+2026/11/01 10:32:36 INFO http_request request_id=36cc443e-80ba-4fb4-9277-30fef849c240 component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=2
+2026/11/01 10:32:36 INFO http_request request_id=649f2e73-c147-43f7-b372-ccbdddc87350 component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=1
+2026/11/01 10:32:38 INFO http_request request_id=8b18e246-b46f-45a0-b2d9-e5621bd9963e component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=22
+2026/11/01 10:32:38 INFO http_request request_id=d5a6fa8e-a84d-4232-9c65-6fdbb972a269 component=api operation="POST /v2/sync/workout-bundles" status=200 error_code="" duration_ms=6
+2026/11/01 10:32:38 INFO http_request request_id=68259421-6f7f-480d-8053-279c14d85972 component=api operation="GET /v2/sync/workout-bundles/{id}" status=200 error_code="" duration_ms=2
+2026/11/01 10:32:40 INFO http_request request_id=76ae3359-b471-41ce-be7a-d84c79eecc79 component=api operation="POST /v2/sync/workout-bundles" status=422 error_code=unsupported_payload duration_ms=3
+2026/11/01 10:32:41 INFO http_request request_id=ee142218-25c4-4fc1-89c2-b0d05a588a2d component=api operation="POST /v2/sync/workout-bundles" status=409 error_code=workout_deleted duration_ms=6
+--- FAIL: TestWorkoutReliabilitySwiftClientPostgres (70.56s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/before_send (46.61s)
+        workout_reliability_test.go:313: Swift client failed: exit status 1
+            Building for debugging...
+            [0/26] /var/folders/00/lkyg082n1731gpk2zd6md7ch0000gn/T/TestWorkoutReliabilitySwiftClientPostgres2256364614/001/swift-build/x86_64-apple-macosx/debug/RAIClientPackageTests.derived/runner.swift
+            [1/26] Write sources
+            [1/26] Write SyncProbe-entitlement.plist
+            [1/26] Write sources
+            [6/26] Write GCProbe-entitlement.plist
+            [7/26] Write ProductProbe-entitlement.plist
+            [11/26] Write sources
+            [12/26] Copying Fixtures
+            [13/26] Write swift-version--58304C5D6DBC2206.txt
+            [14/26] Compiling RAICompression gzip.c
+            [16/37] Compiling SyncCore WorkoutBundleDelivery.swift
+            [17/37] Compiling SyncCore WorkoutSync.swift
+            [18/37] Compiling SyncCore WorkoutBundle.swift
+            [19/37] Compiling SyncCore Wire.swift
+            [20/37] Compiling SyncCore OutboxStore.swift
+            [21/37] Compiling SyncCore SyncMetrics.swift
+            [22/37] Compiling SyncCore BatchBuilder.swift
+            [23/37] Emitting module SyncCore
+            [24/37] Compiling SyncCore RAIAPIClient.swift
+            [25/37] Compiling SyncCore RouteBuilder.swift
+            [26/37] Compiling SyncCore Supplements.swift
+            [27/55] Emitting module GCProbe
+            [28/55] Compiling GCProbe Probe.swift
+            [28/55] Write Objects.LinkFileList
+            [29/55] Linking GCProbe
+            [30/55] Applying GCProbe
+            [32/55] Compiling ProductCore TrainingPages.swift
+            [33/55] Emitting module ProductCore
+            [34/55] Compiling ProductCore Product.swift
+            [35/55] Compiling ProductCore WorkoutDetail.swift
+            [36/61] Compiling SyncProbe Probe.swift
+            [37/61] Emitting module SyncProbe
+            [37/61] Write Objects.LinkFileList
+            [39/61] Emitting module ProductCoreTests
+            [40/61] Compiling ProductCoreTests ProductTests.swift
+            [41/61] Compiling ProductCoreTests WorkoutDetailTests.swift
+            [42/61] Compiling ProductCoreTests TrainingPageTests.swift
+            [42/61] Linking SyncProbe
+            [43/61] Applying SyncProbe
+            [45/61] Compiling ProductProbe Probe.swift
+            [46/61] Emitting module ProductProbe
+            [46/61] Write Objects.LinkFileList
+            [47/61] Linking ProductProbe
+            [48/61] Applying ProductProbe
+            [50/61] Compiling SyncCoreTests resource_bundle_accessor.swift
+            [51/61] Compiling SyncCoreTests GarbageCollectionTests.swift
+            [52/61] Compiling SyncCoreTests WorkoutTaskTests.swift
+            [53/61] Compiling SyncCoreTests WorkoutBundleTests.swift
+            /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift:21:24: warning: no calls to throwing functions occur within 'try' expression
+            19 |         XCTAssertEqual(value["completeSampleTypes"].list.count, 0)
+            20 |         XCTAssertEqual(value["completeRoutes"], .bool(false))
+            21 |         XCTAssertEqual(try data, try WorkoutBundleAssembler.data(scope: scope, workoutID: "55555555-5555-4555-8555-555555555555",
+               |                        `- warning: no calls to throwing functions occur within 'try' expression
+            22 |             workout: workout, samples: [], series: [], routes: [],
+            23 |             completeSampleTypes: [], completeRoutes: false))
+            [54/61] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+            [55/61] Compiling SyncCoreTests WorkoutReliabilityTests.swift
+            [56/61] Emitting module SyncCoreTests
+            [57/61] Compiling SyncCoreTests APITests.swift
+            [58/61] Compiling SyncCoreTests RecoveryBoundaryTests.swift
+            [59/61] Compiling SyncCoreTests SyncCoreTests.swift
+            error: input file '/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift' was modified during the build
+            error: input file '/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift' was modified during the build
+            error: fatalError
+FAIL
+FAIL	rai/server/integration	283.493s
+ok  	rai/server/internal/admin	1.512s
+ok  	rai/server/internal/analysis	1.403s
+ok  	rai/server/internal/config	1.057s
+ok  	rai/server/internal/httpapi	1.022s
+ok  	rai/server/internal/jobs	1.020s
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/storage/postgres	1.021s
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	3.088s
+ok  	rai/server/internal/training	1.053s
+ok  	rai/server/internal/workoutdetail	1.014s
+?   	rai/server/migrations	[no test files]
+FAIL
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1
+
+
+===== /tmp/rai-phase2-swift-delivery.log =====
+[0/1] Planning build
+Building for debugging...
+[0/9] Write sources
+[1/9] Write swift-version--58304C5D6DBC2206.txt
+[3/5] Emitting module SyncCoreTests
+[4/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+26 |         let refreshes = Mutex(0)
+27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+28 |                               refreshToken: mode == "auth_refresh" ? {
+   |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+29 |                                   refreshes.withLock { $0 += 1 }; return token
+30 |                               } : nil)
+
+/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+36 |                 let outcomes = try await [a, b]
+   |                                `- warning: no calls to throwing functions occur within 'try' expression
+37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+38 |                 first = outcomes.contains(true)
+error: fatalError
+
+
+===== /tmp/rai-phase2-cross-expanded.log =====
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/before_send
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        Building for debugging...
+        [0/26] /var/folders/00/lkyg082n1731gpk2zd6md7ch0000gn/T/TestWorkoutReliabilitySwiftClientPostgres3268651761/001/swift-build/x86_64-apple-macosx/debug/RAIClientPackageTests.derived/runner.swift
+        [1/26] Write sources
+        [3/26] Write ProductProbe-entitlement.plist
+        [3/26] Write sources
+        [3/26] Write SyncProbe-entitlement.plist
+        [4/26] Write sources
+        [7/26] Write GCProbe-entitlement.plist
+        [11/26] Write sources
+        [12/26] Copying Fixtures
+        [13/26] Write swift-version--58304C5D6DBC2206.txt
+        [14/26] Compiling RAICompression gzip.c
+        [16/37] Compiling SyncCore WorkoutBundleDelivery.swift
+        [17/37] Compiling SyncCore RouteBuilder.swift
+        [18/37] Compiling SyncCore SyncMetrics.swift
+        [19/37] Compiling SyncCore OutboxStore.swift
+        [20/37] Emitting module SyncCore
+        [21/37] Compiling SyncCore WorkoutSync.swift
+        [22/37] Compiling SyncCore Wire.swift
+        [23/37] Compiling SyncCore WorkoutBundle.swift
+        [24/37] Compiling SyncCore Supplements.swift
+        [25/37] Compiling SyncCore BatchBuilder.swift
+        [26/37] Compiling SyncCore RAIAPIClient.swift
+        [27/55] Emitting module GCProbe
+        [28/55] Compiling GCProbe Probe.swift
+        [28/55] Write Objects.LinkFileList
+        [29/55] Linking GCProbe
+        [30/55] Applying GCProbe
+        [32/55] Emitting module ProductCore
+        [33/55] Compiling ProductCore WorkoutDetail.swift
+        [34/55] Compiling ProductCore Product.swift
+        [35/55] Compiling ProductCore TrainingPages.swift
+        [36/61] Emitting module SyncProbe
+        [37/61] Compiling SyncProbe Probe.swift
+        [37/61] Write Objects.LinkFileList
+        [38/61] Linking SyncProbe
+        [39/61] Applying SyncProbe
+        [41/61] Compiling ProductCoreTests ProductTests.swift
+        [42/61] Compiling ProductCoreTests TrainingPageTests.swift
+        [43/61] Emitting module ProductCoreTests
+        [44/61] Compiling ProductCoreTests WorkoutDetailTests.swift
+        [45/61] Compiling ProductProbe Probe.swift
+        [46/61] Emitting module ProductProbe
+        [46/61] Write Objects.LinkFileList
+        [47/61] Linking ProductProbe
+        [48/61] Applying ProductProbe
+        [50/61] Compiling SyncCoreTests resource_bundle_accessor.swift
+        [51/61] Compiling SyncCoreTests WorkoutReliabilityTests.swift
+        [52/61] Compiling SyncCoreTests WorkoutTaskTests.swift
+        [53/61] Emitting module SyncCoreTests
+        [54/61] Compiling SyncCoreTests WorkoutBundleTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift:21:24: warning: no calls to throwing functions occur within 'try' expression
+        19 |         XCTAssertEqual(value["completeSampleTypes"].list.count, 0)
+        20 |         XCTAssertEqual(value["completeRoutes"], .bool(false))
+        21 |         XCTAssertEqual(try data, try WorkoutBundleAssembler.data(scope: scope, workoutID: "55555555-5555-4555-8555-555555555555",
+           |                        `- warning: no calls to throwing functions occur within 'try' expression
+        22 |             workout: workout, samples: [], series: [], routes: [],
+        23 |             completeSampleTypes: [], completeRoutes: false))
+        [55/61] Compiling SyncCoreTests GarbageCollectionTests.swift
+        [56/61] Compiling SyncCoreTests APITests.swift
+        [57/61] Compiling SyncCoreTests RecoveryBoundaryTests.swift
+        [58/61] Compiling SyncCoreTests SyncCoreTests.swift
+        [59/61] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: input file '/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift' was modified during the build
+        error: input file '/Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift' was modified during the build
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/during_send
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/10] Write sources
+        [1/10] Write swift-version--58304C5D6DBC2206.txt
+        [3/6] Emitting module SyncCoreTests
+        [4/6] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/before_commit_timeout
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/lost_ack
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/corrupt_ack
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/commit_404
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/validation_missing
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/tombstone
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/rate_limit
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/status_500
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/status_502
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/status_503
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/auth_refresh
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/two_workers
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+=== RUN   TestWorkoutReliabilitySwiftClientPostgres/duplicate_post
+    workout_reliability_swift_test.go:155: Swift client failed: exit status 1
+        [0/1] Planning build
+        Building for debugging...
+        [0/9] Write swift-version--58304C5D6DBC2206.txt
+        [2/5] Emitting module SyncCoreTests
+        [3/5] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:28:68: error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        26 |         let refreshes = Mutex(0)
+        27 |         let api = RAIAPIClient(baseURL: url, token: mode == "auth_refresh" ? "synthetic-expired" : token,
+        28 |                               refreshToken: mode == "auth_refresh" ? {
+           |                                                                    `- error: converting non-Sendable function value to '@Sendable () async throws -> String' may introduce data races
+        29 |                                   refreshes.withLock { $0 += 1 }; return token
+        30 |                               } : nil)
+        
+        /Users/tp/rai/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:36:32: warning: no calls to throwing functions occur within 'try' expression
+        34 |                 async let a = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        35 |                 async let b = WorkoutBundleDelivery(store: store, api: api).deliver(id)
+        36 |                 let outcomes = try await [a, b]
+           |                                `- warning: no calls to throwing functions occur within 'try' expression
+        37 |                 XCTAssertEqual(outcomes.filter { $0 }.count, 1)
+        38 |                 first = outcomes.contains(true)
+        error: fatalError
+--- FAIL: TestWorkoutReliabilitySwiftClientPostgres (67.61s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/before_send (24.22s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/during_send (2.20s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/before_commit_timeout (2.23s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/lost_ack (2.31s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/corrupt_ack (2.54s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/commit_404 (6.89s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/validation_missing (4.33s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/tombstone (4.22s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/rate_limit (3.86s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/status_500 (2.15s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/status_502 (2.38s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/status_503 (3.38s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/auth_refresh (2.32s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/two_workers (2.14s)
+    --- FAIL: TestWorkoutReliabilitySwiftClientPostgres/duplicate_post (2.17s)
+FAIL
+FAIL	rai/server/integration	67.634s
+FAIL
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1

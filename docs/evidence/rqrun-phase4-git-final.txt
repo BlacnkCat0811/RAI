@@ -1,0 +1,169 @@
+$ git status --short --branch
+## main...origin/main
+ M README.md
+ M apps/server/cmd/rai/main.go
+ M apps/server/integration/admission_test.go
+ M apps/server/integration/p3_sync_test.go
+ M apps/server/integration/p7_security_test.go
+ M apps/server/integration/page_test.go
+ M apps/server/integration/series_test.go
+ M apps/server/integration/sync_test.go
+ M apps/server/integration/upload_test.go
+ M apps/server/integration/workout_package_test.go
+ M apps/server/internal/admin/operations.go
+ M apps/server/internal/httpapi/server.go
+ M apps/server/internal/jobs/worker.go
+ M apps/server/internal/storage/postgres/analysis_input.go
+ M apps/server/internal/storage/postgres/analysis_publish.go
+ M apps/server/internal/storage/postgres/store.go
+ M apps/server/internal/syncing/protocol.go
+ M apps/server/internal/syncing/store.go
+ M apps/server/migrations/checksums.json
+ M contracts/CHANGELOG.md
+ M contracts/openapi-v2.yaml
+ M deploy/postgres/roles.sql
+ M docs/ARCHITECTURE.md
+ M docs/IMPLEMENTATION.md
+ M docs/P7_BACKUP_RESTORE.md
+ M docs/P7_DEPLOYMENT.md
+ M docs/P7_OPERATIONS.md
+ M docs/P7_RELEASE_CHECKLIST.md
+ M docs/RAI_MONTHLY_BACKUP.md
+ M ios/RAI/App/BackgroundTransfers.swift
+ M ios/RAI/App/HealthKitClient.swift
+ M ios/RAI/App/ProductModel.swift
+ M ios/RAI/App/ProductViews.swift
+ M ios/RAI/App/RAIApp.swift
+ M ios/RAI/App/SyncCoordinator.swift
+ M ios/RAI/AppTests/NormalizerTests.swift
+ M ios/RAI/Config/RAI.entitlements
+ M ios/RAI/README.md
+ M ios/RAI/Sources/RAICompression/gzip.c
+ M ios/RAI/Sources/SyncCore/BatchBuilder.swift
+ M ios/RAI/Sources/SyncCore/OutboxStore.swift
+ M ios/RAI/Sources/SyncCore/RAIAPIClient.swift
+ M ios/RAI/Sources/SyncCore/RouteBuilder.swift
+ M ios/RAI/Sources/SyncCore/Wire.swift
+ M ios/RAI/Tests/SyncCoreTests/APITests.swift
+ M ios/RAI/Tools/SyncProbe/Probe.swift
+ M ios/RAI/UITests/ProductUITests.swift
+ M scripts/rai-backup.py
+ M scripts/rai-restore.py
+ M scripts/test-monthly-restore.sh
+?? apps/server/integration/per_workout_sync_test.go
+?? apps/server/integration/workout_bundle_test.go
+?? apps/server/integration/workout_device_acceptance_test.go
+?? apps/server/integration/workout_integrity_test.go
+?? apps/server/integration/workout_performance_fault_test.go
+?? apps/server/integration/workout_performance_test.go
+?? apps/server/integration/workout_reliability_swift_test.go
+?? apps/server/integration/workout_reliability_test.go
+?? apps/server/integration/workout_safety_test.go
+?? apps/server/integration/workout_transport_test.go
+?? apps/server/internal/httpapi/bundle_admission_test.go
+?? apps/server/internal/httpapi/bundle_body.go
+?? apps/server/internal/httpapi/bundle_body_test.go
+?? apps/server/internal/httpapi/bundle_timeout_test.go
+?? apps/server/internal/httpapi/timeouts.go
+?? apps/server/internal/storage/postgres/bundle_integrity.go
+?? apps/server/internal/storage/postgres/workout_bundles.go
+?? apps/server/internal/syncing/bundle_decode.go
+?? apps/server/internal/syncing/bundle_decode_test.go
+?? apps/server/internal/syncing/bundle_integrity_test.go
+?? apps/server/internal/syncing/bundle_observation.go
+?? apps/server/internal/syncing/phase_timing.go
+?? apps/server/internal/syncing/workout_bundle.go
+?? apps/server/internal/syncing/workout_bundle_test.go
+?? apps/server/internal/syncing/workout_delete.go
+?? apps/server/migrations/00014_workout_imports.sql
+?? apps/server/migrations/00015_workout_import_history.sql
+?? apps/server/migrations/00016_route_timestamp_envelope.sql
+?? apps/server/migrations/00017_analysis_sample_lookup.sql
+?? contracts/sync-v3.md
+?? "docs/RQrun-HealthKit-\344\270\212\344\274\240\345\215\217\350\256\256.md"
+?? docs/RQrun_PHASE1_RESULT.md
+?? docs/V2_PER_WORKOUT_SYNC_AUDIT.md
+?? docs/V2_PER_WORKOUT_SYNC_RESULT.md
+?? docs/audits/
+?? docs/evidence/per-workout-sync-acceptance.json
+?? docs/evidence/rqrun-phase1-2026-11-01.json
+?? docs/evidence/rqrun-phase2-2026-11-01.json
+?? docs/evidence/rqrun-phase2-failed-runs.txt
+?? docs/evidence/rqrun-phase3-2026-11-01.json
+?? docs/evidence/rqrun-phase3-device-2026-11-01.json
+?? docs/evidence/rqrun-phase3-workspace-baseline.json
+?? docs/evidence/rqrun-phase4-2026-11-01.json
+?? docs/evidence/rqrun-phase4-device-2026-11-01.json
+?? docs/evidence/rqrun-phase4-git-final.txt
+?? docs/evidence/rqrun-phase4-logs/
+?? docs/evidence/rqrun-phase4-workspace-baseline.json
+?? docs/evidence/workout-bundle-2026-10-31.json
+?? ios/RAI/Sources/SyncCore/HealthDiscovery.swift
+?? ios/RAI/Sources/SyncCore/HealthIntegrity.swift
+?? ios/RAI/Sources/SyncCore/WorkoutBundle.swift
+?? ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift
+?? ios/RAI/Sources/SyncCore/WorkoutSync.swift
+?? ios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift
+?? ios/RAI/Tests/SyncCoreTests/HealthIntegrityTests.swift
+?? ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift
+?? ios/RAI/Tests/SyncCoreTests/WorkoutPerformanceTests.swift
+?? ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift
+?? ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift
+?? ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift
+?? scripts/rai-reset-v2-data.sh
+
+$ git diff --stat
+ README.md                                          |    4 +-
+ apps/server/cmd/rai/main.go                        |    4 +-
+ apps/server/integration/admission_test.go          |  168 ---
+ apps/server/integration/p3_sync_test.go            |  210 ----
+ apps/server/integration/p7_security_test.go        |   31 +-
+ apps/server/integration/page_test.go               |   94 --
+ apps/server/integration/series_test.go             |   80 --
+ apps/server/integration/sync_test.go               |  166 ---
+ apps/server/integration/upload_test.go             |  209 ----
+ apps/server/integration/workout_package_test.go    |   73 --
+ apps/server/internal/admin/operations.go           |    2 +-
+ apps/server/internal/httpapi/server.go             |  165 ++-
+ apps/server/internal/jobs/worker.go                |    7 +-
+ .../internal/storage/postgres/analysis_input.go    |   30 +
+ .../internal/storage/postgres/analysis_publish.go  |    6 +
+ apps/server/internal/storage/postgres/store.go     |    2 +-
+ apps/server/internal/syncing/protocol.go           |   13 +
+ apps/server/internal/syncing/store.go              |    3 +
+ apps/server/migrations/checksums.json              |    6 +-
+ contracts/CHANGELOG.md                             |   40 +
+ contracts/openapi-v2.yaml                          | 1237 +++-----------------
+ deploy/postgres/roles.sql                          |    6 +-
+ docs/ARCHITECTURE.md                               |   27 +-
+ docs/IMPLEMENTATION.md                             |  136 ++-
+ docs/P7_BACKUP_RESTORE.md                          |    2 +-
+ docs/P7_DEPLOYMENT.md                              |    4 +-
+ docs/P7_OPERATIONS.md                              |    4 +-
+ docs/P7_RELEASE_CHECKLIST.md                       |    2 +-
+ docs/RAI_MONTHLY_BACKUP.md                         |    6 +-
+ ios/RAI/App/BackgroundTransfers.swift              |   25 +-
+ ios/RAI/App/HealthKitClient.swift                  |  355 +++++-
+ ios/RAI/App/ProductModel.swift                     |   24 +
+ ios/RAI/App/ProductViews.swift                     |  284 ++++-
+ ios/RAI/App/RAIApp.swift                           |  511 ++++++--
+ ios/RAI/App/SyncCoordinator.swift                  |  686 +++++++----
+ ios/RAI/AppTests/NormalizerTests.swift             |  225 +++-
+ ios/RAI/Config/RAI.entitlements                    |    2 +-
+ ios/RAI/README.md                                  |    2 +
+ ios/RAI/Sources/RAICompression/gzip.c              |    5 +-
+ ios/RAI/Sources/SyncCore/BatchBuilder.swift        |    5 +-
+ ios/RAI/Sources/SyncCore/OutboxStore.swift         |  385 +++++-
+ ios/RAI/Sources/SyncCore/RAIAPIClient.swift        |   96 +-
+ ios/RAI/Sources/SyncCore/RouteBuilder.swift        |   11 +-
+ ios/RAI/Sources/SyncCore/Wire.swift                |    1 +
+ ios/RAI/Tests/SyncCoreTests/APITests.swift         |   93 +-
+ ios/RAI/Tools/SyncProbe/Probe.swift                |   50 +
+ ios/RAI/UITests/ProductUITests.swift               |   19 +
+ scripts/rai-backup.py                              |    4 +-
+ scripts/rai-restore.py                             |    2 +-
+ scripts/test-monthly-restore.sh                    |    2 +-
+ 50 files changed, 2956 insertions(+), 2568 deletions(-)
+
+$ git diff --cached --stat
+

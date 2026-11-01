@@ -1,0 +1,2031 @@
+{
+  "manifest_schema": "rai.delivery-freeze-manifest/v1",
+  "generated_at": "2026-11-01T19:11:35+08:00",
+  "timezone": "Asia/Shanghai",
+  "head": "aeb769c82f6af6c47d7cac82874f48ff37f635fc",
+  "branch": "main",
+  "remote_ref": {
+    "origin_main": "aeb769c82f6af6c47d7cac82874f48ff37f635fc",
+    "fetched": false,
+    "note": "local origin/main ref only; no network fetch performed"
+  },
+  "schema_version": 17,
+  "protocol_version": 3,
+  "verdict": "READY_WITH_RISKS",
+  "baseline": {
+    "tracked_files": 636,
+    "tracked_modified": 50,
+    "untracked_not_ignored": 89,
+    "staged": 0,
+    "ignored_snapshot_files": 17,
+    "audit_untracked_snapshot": 84,
+    "delta_since_audit": "audit report + audit manifest + new workout_admission_http_test.go + this freeze review + this freeze manifest"
+  },
+  "classification": {
+    "REQUIRED_PRODUCTION_UNTRACKED": [
+      "apps/server/internal/httpapi/bundle_body.go",
+      "apps/server/internal/httpapi/timeouts.go",
+      "apps/server/internal/storage/postgres/bundle_integrity.go",
+      "apps/server/internal/storage/postgres/workout_bundles.go",
+      "apps/server/internal/syncing/bundle_decode.go",
+      "apps/server/internal/syncing/bundle_observation.go",
+      "apps/server/internal/syncing/phase_timing.go",
+      "apps/server/internal/syncing/workout_bundle.go",
+      "apps/server/internal/syncing/workout_delete.go",
+      "ios/RAI/Sources/SyncCore/HealthDiscovery.swift",
+      "ios/RAI/Sources/SyncCore/HealthIntegrity.swift",
+      "ios/RAI/Sources/SyncCore/WorkoutBundle.swift",
+      "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift",
+      "ios/RAI/Sources/SyncCore/WorkoutSync.swift"
+    ],
+    "REQUIRED_TEST_UNTRACKED": [
+      "apps/server/integration/per_workout_sync_test.go",
+      "apps/server/integration/workout_admission_http_test.go",
+      "apps/server/integration/workout_bundle_test.go",
+      "apps/server/integration/workout_device_acceptance_test.go",
+      "apps/server/integration/workout_integrity_test.go",
+      "apps/server/integration/workout_performance_fault_test.go",
+      "apps/server/integration/workout_performance_test.go",
+      "apps/server/integration/workout_reliability_swift_test.go",
+      "apps/server/integration/workout_reliability_test.go",
+      "apps/server/integration/workout_safety_test.go",
+      "apps/server/integration/workout_transport_test.go",
+      "apps/server/internal/httpapi/bundle_admission_test.go",
+      "apps/server/internal/httpapi/bundle_body_test.go",
+      "apps/server/internal/httpapi/bundle_timeout_test.go",
+      "apps/server/internal/syncing/bundle_decode_test.go",
+      "apps/server/internal/syncing/bundle_integrity_test.go",
+      "apps/server/internal/syncing/workout_bundle_test.go",
+      "ios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift",
+      "ios/RAI/Tests/SyncCoreTests/HealthIntegrityTests.swift",
+      "ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift",
+      "ios/RAI/Tests/SyncCoreTests/WorkoutPerformanceTests.swift",
+      "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift",
+      "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift",
+      "ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift"
+    ],
+    "REQUIRED_MIGRATION_UNTRACKED": [
+      "apps/server/migrations/00014_workout_imports.sql",
+      "apps/server/migrations/00015_workout_import_history.sql",
+      "apps/server/migrations/00016_route_timestamp_envelope.sql",
+      "apps/server/migrations/00017_analysis_sample_lookup.sql"
+    ],
+    "REQUIRED_CONTRACT_UNTRACKED": [
+      "contracts/sync-v3.md"
+    ],
+    "OPTIONAL_EVIDENCE_UNTRACKED": [
+      "docs/evidence/rqrun-phase4-logs/baseline_go.txt",
+      "docs/evidence/rqrun-phase4-logs/baseline_swift.txt",
+      "docs/evidence/rqrun-phase4-logs/boundaries.txt",
+      "docs/evidence/rqrun-phase4-logs/device_isolated_pg.txt",
+      "docs/evidence/rqrun-phase4-logs/fresh_gzip_n100.txt",
+      "docs/evidence/rqrun-phase4-logs/go_race_vet.txt",
+      "docs/evidence/rqrun-phase4-logs/gzip_identity_corruption.txt",
+      "docs/evidence/rqrun-phase4-logs/index_explain.txt",
+      "docs/evidence/rqrun-phase4-logs/ios_app_tests.txt",
+      "docs/evidence/rqrun-phase4-logs/ios_debug_signed.txt",
+      "docs/evidence/rqrun-phase4-logs/ios_release.txt",
+      "docs/evidence/rqrun-phase4-logs/openapi.txt",
+      "docs/evidence/rqrun-phase4-logs/pg_faults.txt",
+      "docs/evidence/rqrun-phase4-logs/phase1_3_full_postgres.txt",
+      "docs/evidence/rqrun-phase4-logs/phase4_n100.txt",
+      "docs/evidence/rqrun-phase4-logs/real_socket_deadline_boundaries.txt",
+      "docs/evidence/rqrun-phase4-logs/real_socket_pauses.txt",
+      "docs/evidence/rqrun-phase4-logs/real_socket_throttling.txt",
+      "docs/evidence/rqrun-phase4-logs/swift_all.txt",
+      "docs/evidence/rqrun-phase4-logs/swift_performance.txt",
+      "docs/evidence/rqrun-phase4-logs/wire_gzip_resource_limits.txt"
+    ],
+    "DO_NOT_COMMIT": [
+      {
+        "path": ".local/run/device-enrollment.json",
+        "kind": "local credential",
+        "ignored": true,
+        "ignored_by": ".gitignore:8:.local/",
+        "in_index": false,
+        "in_staging_set": false
+      },
+      {
+        "path": ".local/run/fnos-device-credentials.txt",
+        "kind": "local credential",
+        "ignored": true,
+        "ignored_by": ".gitignore:8:.local/",
+        "in_index": false,
+        "in_staging_set": false
+      },
+      {
+        "path": ".local/run/device-connection.txt",
+        "kind": "local network/device metadata",
+        "ignored": true,
+        "ignored_by": ".gitignore:8:.local/",
+        "in_index": false,
+        "in_staging_set": false
+      },
+      {
+        "path": ".local/run/device-connection-fnos.txt",
+        "kind": "local network/device metadata",
+        "ignored": true,
+        "ignored_by": ".gitignore:8:.local/",
+        "in_index": false,
+        "in_staging_set": false
+      },
+      {
+        "path": "ios/RAI/Config/Developer.xcconfig",
+        "kind": "local signing/team configuration",
+        "ignored": true,
+        "ignored_by": "ios/RAI/.gitignore:3",
+        "in_index": false,
+        "in_staging_set": false
+      },
+      {
+        "path": ".local/",
+        "kind": "local toolchain, pgdata, logs, caches",
+        "ignored": true,
+        "ignored_by": ".gitignore:8:.local/",
+        "in_index": false,
+        "in_staging_set": false
+      }
+    ]
+  },
+  "feature_commit_candidates": [
+    {
+      "path": "apps/server/cmd/rai/main.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "63323aaa0a1af0222ec0c66a9df5410f9eb0f6069cb75f7f9528ef539363223d",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 4978
+    },
+    {
+      "path": "apps/server/integration/admission_test.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "6f7c84ceec8e300c3def7981ae0992ec5f4456ab230bbfcf8806d51abcec06b2",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 9594
+    },
+    {
+      "path": "apps/server/integration/p3_sync_test.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "542059d71c5c6ffb28d03bf8cc0d0f61b60f2b76b4187894f2d1c1a9b81a76d4",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 19858
+    },
+    {
+      "path": "apps/server/integration/p7_security_test.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "99d65e4c934b58d1ddf910b3834ee6d82ae7007ba300ebb4ffd016e3dacd5d62",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 6895
+    },
+    {
+      "path": "apps/server/integration/page_test.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "9bf7ed637e0806b62bcff054a0666b367e5feb3057be7b8e7449f44119a81a93",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 14832
+    },
+    {
+      "path": "apps/server/integration/per_workout_sync_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "c2b0280573a854f1c843b42d4ba2ef5bec37d75701bec973e3304c5eb97e3264",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 6824
+    },
+    {
+      "path": "apps/server/integration/series_test.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "070d708092ce16258c36e502d85b78a60016437bcd686a2e61618c3141bc92e9",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 17904
+    },
+    {
+      "path": "apps/server/integration/sync_test.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "fe3b78460dd4e24d517cb0ec99d4800a7d1a75ea380c25185e768c24a4b47adb",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 33635
+    },
+    {
+      "path": "apps/server/integration/upload_test.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "c4b6ba08d62937496660516ec17b4ea9a44315d4585617ccc01457f4dca8709e",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 12147
+    },
+    {
+      "path": "apps/server/integration/workout_admission_http_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "4a992d3b31491b6fefa7507ae4ab25faae978480580f773a315d26f749f66299",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 12032
+    },
+    {
+      "path": "apps/server/integration/workout_bundle_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "d898941bbae3ff7d39530ba43ab7882bb4c460afaf3331a1139c58915d963915",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 16760
+    },
+    {
+      "path": "apps/server/integration/workout_device_acceptance_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "e19c9fdba5677065c366d9efa1cd3a6b5cec023e693fda29fbbc74993f1d52c4",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 5501
+    },
+    {
+      "path": "apps/server/integration/workout_integrity_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "dae38d0121680d8a0cb273f6d1a857acf89fa1ea4c6a29043b465013318d2bff",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 17017
+    },
+    {
+      "path": "apps/server/integration/workout_package_test.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "ac88373a573569dd1421b5e7069c5b386a415f3d89ee53f9bd84687d22adfadc",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 18864
+    },
+    {
+      "path": "apps/server/integration/workout_performance_fault_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "b527883f871ee3b9795114d4ef31a7f1a7dad43954728b095d42b1458a3ed09f",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 4320
+    },
+    {
+      "path": "apps/server/integration/workout_performance_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "84493dfab723c6d4903a5a85403fa940c8836069627da18c1d70c1befcccda6e",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 11852
+    },
+    {
+      "path": "apps/server/integration/workout_reliability_swift_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "a76c029dfd92ac890011a624aff4dd2b93750aa9e73b1ba4e2fafbd2efcad5db",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 6833
+    },
+    {
+      "path": "apps/server/integration/workout_reliability_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "3132babbc00c9d6dd21ea86f35bf66ed0c30efb8e086f9b7c9448aae988eaeb3",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 8803
+    },
+    {
+      "path": "apps/server/integration/workout_safety_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "60d55094e25f6498c246ecb6b002456e83ad7db7270bcd4bd8a2f3e214aa0af3",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 19640
+    },
+    {
+      "path": "apps/server/integration/workout_transport_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "f39024e3879429e652d6969502740f470f059993fa6046e5dfd2aeba48e256b1",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 5907
+    },
+    {
+      "path": "apps/server/internal/admin/operations.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "6209770b25f39b2e668a277e1687197bb049db0a2ca89f5e50b9de9b627d421b",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 8751
+    },
+    {
+      "path": "apps/server/internal/httpapi/bundle_admission_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "6d8a1b9657565c97d6c7f0b886923ae6f94037875fcb494c527a3fccf5692b43",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 1307
+    },
+    {
+      "path": "apps/server/internal/httpapi/bundle_body.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "5232d58b34460b41b2cafeb24be9b9a25f2cc6f49f140b00675a51c6f2ad0d29",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 6558
+    },
+    {
+      "path": "apps/server/internal/httpapi/bundle_body_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "2dabdab1c5ab07773a342e8bbf957c88992d2b2f41f44818a127c6093523ba40",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 7606
+    },
+    {
+      "path": "apps/server/internal/httpapi/bundle_timeout_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "f474253a7655bbf057d604d26462d5c05b0d712965717386b143cec6368da7ec",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 10030
+    },
+    {
+      "path": "apps/server/internal/httpapi/server.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "59b8c5d823ff54cd2999e7d71070fa4376a2b13f9a062194cd508c0ca8ebbf60",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 30382
+    },
+    {
+      "path": "apps/server/internal/httpapi/timeouts.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "2b2bfe813aed23d2ac7674421855546087ec37c749ea1cfe43fe64f08ec05cef",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 844
+    },
+    {
+      "path": "apps/server/internal/jobs/worker.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "b701c800cd573f924e4713ec2fed1aeb5e3100efd092415c5cdb38f97611989e",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 7075
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/analysis_input.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "9bfae58d7e93bc09c404b7482d8314a42a2a464500774a846889ec517eddc664",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 15246
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/analysis_publish.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "a13fc561f0c91da5e0d908e9a57c71d36e13ebc8d0aa89d57c2532f24254f137",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 11303
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/bundle_integrity.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "7d97031bd79000d36cc934422620ad267d05046e6a8008df0881c84f3a273cf4",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 10319
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/store.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "80b997952df90e4b00b7a5711e46f8d72ca31b7d97430d2d096a80d7ba7569fa",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 22097
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/workout_bundles.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "57eb4512888c031d520b12582a3af862b64f514f6c8c60fb7ae0f9d512b67589",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 31035
+    },
+    {
+      "path": "apps/server/internal/syncing/bundle_decode.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "96141dd9616f49fb7226d48df8c19515c8623e6c8563ed61996c3c37eefd6651",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 10754
+    },
+    {
+      "path": "apps/server/internal/syncing/bundle_decode_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "c85430bc36ba511471988b02f1af04e56688834b0c14f5fccacc893083bf3cba",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 3769
+    },
+    {
+      "path": "apps/server/internal/syncing/bundle_integrity_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "98d6f3407bd4f810724fec1236cc84e471c261f400182547cc24ef3685d9c7a8",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 8878
+    },
+    {
+      "path": "apps/server/internal/syncing/bundle_observation.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "82380ca4ea439f6cc3ec68a18bbc7858b6c9e32605376bc5f9daa433ab477893",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 12921
+    },
+    {
+      "path": "apps/server/internal/syncing/phase_timing.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "0769932c8ca85ed7758eef7e47d8ea1f68e30e4a1690e591d47e8b0bcac3b08a",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 613
+    },
+    {
+      "path": "apps/server/internal/syncing/protocol.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "f329453e4f58740ca1a238a2e2a30bbb0a4531bba049621ac3a2f4ad53cddc60",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 20055
+    },
+    {
+      "path": "apps/server/internal/syncing/store.go",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "432a2b3540e55cc89f75a3cf18283c87d971ce420d4981562de072ac3e885ba0",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 5380
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_bundle.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "101cee0ac78ebfbffe413b1980406b66e6cc7084003a420c3ac8f0e8d5a5186f",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 11310
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_bundle_test.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "24fa47ba0be75dd37d5b95f6a9b23b4fdd41f24468655e5fcca327577acc1633",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 2639
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_delete.go",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "12c7e5822c08a8bf671c83b28781281e5f1df2b2279e288824b825a432dfbf05",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 1172
+    },
+    {
+      "path": "apps/server/migrations/00014_workout_imports.sql",
+      "tracked": false,
+      "git_status": "??",
+      "category": "MIGRATION",
+      "sha256": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8",
+      "staging_group": "feature",
+      "reason": "Schema migration 00014–00017 or checksum registry",
+      "size_bytes": 945
+    },
+    {
+      "path": "apps/server/migrations/00015_workout_import_history.sql",
+      "tracked": false,
+      "git_status": "??",
+      "category": "MIGRATION",
+      "sha256": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6",
+      "staging_group": "feature",
+      "reason": "Schema migration 00014–00017 or checksum registry",
+      "size_bytes": 811
+    },
+    {
+      "path": "apps/server/migrations/00016_route_timestamp_envelope.sql",
+      "tracked": false,
+      "git_status": "??",
+      "category": "MIGRATION",
+      "sha256": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8",
+      "staging_group": "feature",
+      "reason": "Schema migration 00014–00017 or checksum registry",
+      "size_bytes": 6255
+    },
+    {
+      "path": "apps/server/migrations/00017_analysis_sample_lookup.sql",
+      "tracked": false,
+      "git_status": "??",
+      "category": "MIGRATION",
+      "sha256": "73bc3b4a1281597e777727c96521bf16a692f8f8968ce09d4d175d1470cbb968",
+      "staging_group": "feature",
+      "reason": "Schema migration 00014–00017 or checksum registry",
+      "size_bytes": 643
+    },
+    {
+      "path": "apps/server/migrations/checksums.json",
+      "tracked": true,
+      "git_status": "M",
+      "category": "MIGRATION",
+      "sha256": "b3e8a140f684f238a1b1f69ce75003c250f85907be8c89fe3d16c2b7eec767bf",
+      "staging_group": "feature",
+      "reason": "Schema migration 00014–00017 or checksum registry",
+      "size_bytes": 1674
+    },
+    {
+      "path": "contracts/CHANGELOG.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "CONTRACT",
+      "sha256": "b82d5622f5c9ed1d358281d5fe5cb5a459188794a6b89427a81b4824fba5b870",
+      "staging_group": "feature",
+      "reason": "v3 protocol contract, OpenAPI, or changelog",
+      "size_bytes": 15472
+    },
+    {
+      "path": "contracts/openapi-v2.yaml",
+      "tracked": true,
+      "git_status": "M",
+      "category": "CONTRACT",
+      "sha256": "81f41128bb8bbe5d92dfe3ce43ff3b4e964c2530cab224b8ef99ee3f8e651246",
+      "staging_group": "feature",
+      "reason": "v3 protocol contract, OpenAPI, or changelog",
+      "size_bytes": 83006
+    },
+    {
+      "path": "contracts/sync-v3.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "CONTRACT",
+      "sha256": "41da75bd25a282c54479b12f77d6f88923a54bf26368ff596a84f6a3c57c16c0",
+      "staging_group": "feature",
+      "reason": "v3 protocol contract, OpenAPI, or changelog",
+      "size_bytes": 36012
+    },
+    {
+      "path": "deploy/postgres/roles.sql",
+      "tracked": true,
+      "git_status": "M",
+      "category": "DEPLOYMENT",
+      "sha256": "18e09734f4fbbaba179c4cf24f32a44eaa2b7914ceb8313322830531f5ab3c15",
+      "staging_group": "feature",
+      "reason": "Deployment/signing configuration changed by Phase 1–4",
+      "size_bytes": 5798
+    },
+    {
+      "path": "ios/RAI/App/BackgroundTransfers.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "18997ab2c3d145cd60228d8eb3771ef922b6bde77bef8b0fa1a2a8bd9924f4fa",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 6463
+    },
+    {
+      "path": "ios/RAI/App/HealthKitClient.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "e5dc5fa87eeebe7ffe44466ea0aabae2f5ddff050c23e8a19c611d67d0573956",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 45841
+    },
+    {
+      "path": "ios/RAI/App/ProductModel.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "94ff526387a69cffe1a93e881632c7cc664ab002d9350cc22a72f9e2f45139ee",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 18846
+    },
+    {
+      "path": "ios/RAI/App/ProductViews.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "9f6f6f19af2cc6c95141a2607fb3898fe2362306a6e48b6825eb38eb1a8cb590",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 35354
+    },
+    {
+      "path": "ios/RAI/App/RAIApp.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "6c0cbbdb5d9a483f3e1a8e756e1d16ce854ff1bb89d557e6519d25a5acb56a55",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 36277
+    },
+    {
+      "path": "ios/RAI/App/SyncCoordinator.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "0ee661fd6ffe94be2ef689ecdd2f1390f6dcf53359a093499041395368a18955",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 36518
+    },
+    {
+      "path": "ios/RAI/AppTests/NormalizerTests.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "d523e2610f7574975e48795b8c56737e3ef47509f9bbc743c0e4a93409e2b3c3",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 22208
+    },
+    {
+      "path": "ios/RAI/Config/RAI.entitlements",
+      "tracked": true,
+      "git_status": "M",
+      "category": "DEPLOYMENT",
+      "sha256": "2a0cbe6d42702b335b1b82b778223d6b820e86358bded202a5d0267e3f2eefd8",
+      "staging_group": "feature",
+      "reason": "Deployment/signing configuration changed by Phase 1–4",
+      "size_bytes": 299
+    },
+    {
+      "path": "ios/RAI/Sources/RAICompression/gzip.c",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "5e2ecfb207563b2265ff0ede896182c9d502e54a0ec780c1ed5327152efee04b",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 1133
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/BatchBuilder.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "1618208d5475cdc281470c1289b5f46e829746c42a98753e1db6cefc52f4b034",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 5535
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/HealthDiscovery.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "a89f168cd7f19d9a6aaa0a36c870c5287d2dcd3ffbae5d3659f05120ffd86d89",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 15451
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/HealthIntegrity.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "30d5cd60329284d7b203c40d2c5d9ee7c57da94e742eefa8be801d26264bc581",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 7150
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/OutboxStore.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "533f8a2abc506321786152f43bdbae08f1a7435f992c05ada175c93a9c019c56",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 40888
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/RAIAPIClient.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "7279108042fecd6dd12f8a1be92fd68c4818f10ae6bf3522c3e9066497089aab",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 21257
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/RouteBuilder.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "7acc3f80f2aa6d282d20625cc822beb6fb489689f7b880d44d34abafc7cd4265",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 8112
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/Wire.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "PRODUCTION_CODE",
+      "sha256": "75b6a8ab85595c79809b109f977c9b8c01bb61819dfadea5f9eb5332adc495ff",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 9198
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/WorkoutBundle.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "b8af0c67d50ec766cd5063a4ce07a8b08f0d3864d6659ab78307c315549cd4f3",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 2098
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "1d4c253d158e3d9dcc46def256e5c0e497c54f3f1ea2da4be44485abc4c97bb6",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 7711
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/WorkoutSync.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "PRODUCTION_CODE",
+      "sha256": "2e87abdf1ab745f4269e7e61539c6e3cdaf79dedc9fa6ee2e7322cf8df1e68e8",
+      "staging_group": "feature",
+      "reason": "Phase 1–4 v3 production implementation required for build/runtime",
+      "size_bytes": 6380
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/APITests.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "TEST_CODE",
+      "sha256": "b2a3559f592df1a6e6620ff3723744379793a110560a47e63cdec7f0a1f62f8f",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 26570
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "3f9bc59407afb1c37cbf9a5abea49ceae4e308b8287ba77b10b71b8afdce437c",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 15713
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/HealthIntegrityTests.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "033e3b0948a31c7afcde160cc1a6a580e49965aed9d2f326c52362edd1bea6d4",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 6550
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "17eaf3ac33fc516dd7bba889d36c39375b550cd3468234be5bc15cc659542681",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 1907
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutPerformanceTests.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "aa9ec1e87f6105fcf9df497cd109ecceaf046d845e4de972067cf117736e8fbe",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 5179
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "fcea5cd45bdd59be90716064d8f75252fddd8d47eabc0028f3aeb3d053e22319",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 7070
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "015baa75d16582709d24388aa85e034c7b699d6e0e3cd6eb18baae512ac0cf5f",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 20551
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_CODE",
+      "sha256": "3e652b27a325ec2460a2e0f4b9620f5ceebdac3845efa2501b6225a7ddbd563f",
+      "staging_group": "feature",
+      "reason": "Permanent regression test committed with the feature so source and tests enter Git together",
+      "size_bytes": 14674
+    },
+    {
+      "path": "ios/RAI/Tools/SyncProbe/Probe.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "DEV_TOOL",
+      "sha256": "4d2197af275de4d92db7767cc9a8a6c47b7b785dad2ef7acc1dcbc945fa603f4",
+      "staging_group": "feature",
+      "reason": "Developer sync probe used by Phase 1–4 acceptance work",
+      "size_bytes": 16365
+    },
+    {
+      "path": "ios/RAI/UITests/ProductUITests.swift",
+      "tracked": true,
+      "git_status": "M",
+      "category": "UI_TEST",
+      "sha256": "0b0e3d8b828e7ccaaa9f527e25607bc086959fc9aa828b7384e58bc3c2c0b9e0",
+      "staging_group": "feature",
+      "reason": "Permanent UI regression test",
+      "size_bytes": 20112
+    },
+    {
+      "path": "scripts/rai-backup.py",
+      "tracked": true,
+      "git_status": "M",
+      "category": "OPS_SCRIPT",
+      "sha256": "0804a3ecb863d9a7d5deb3c56fe7e9abd5fdd46a4bb436dab4b2191e1cf5c3ee",
+      "staging_group": "feature",
+      "reason": "Offline maintenance/ops script required by the delivery",
+      "size_bytes": 12043
+    },
+    {
+      "path": "scripts/rai-reset-v2-data.sh",
+      "tracked": false,
+      "git_status": "??",
+      "category": "OPS_SCRIPT",
+      "sha256": "1b835afcb44b77ce6bc4c23e7a1a4571e442e15543e5f693bfa0058bf5970c93",
+      "staging_group": "feature",
+      "reason": "Offline maintenance/ops script required by the delivery",
+      "size_bytes": 1670
+    },
+    {
+      "path": "scripts/rai-restore.py",
+      "tracked": true,
+      "git_status": "M",
+      "category": "OPS_SCRIPT",
+      "sha256": "1069b655284fb4d2bafc285d1f17b13cf716367b5ab1828119cb6520f0ebd9e8",
+      "staging_group": "feature",
+      "reason": "Offline maintenance/ops script required by the delivery",
+      "size_bytes": 4286
+    },
+    {
+      "path": "scripts/test-monthly-restore.sh",
+      "tracked": true,
+      "git_status": "M",
+      "category": "OPS_SCRIPT",
+      "sha256": "4dc4784f14d64a8cefbf102a355519d87310515d98f1e676a64e187f21a69cc1",
+      "staging_group": "feature",
+      "reason": "Offline maintenance/ops script required by the delivery",
+      "size_bytes": 3837
+    }
+  ],
+  "docs_commit_candidates": [
+    {
+      "path": "README.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "f410cbc6eeaa72d2ddc426d44d6a926acd144892d0f6fe8c2693947059521bdd",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 9983
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "96a72881c3b55069e33b0a3a2130b919dbbc1ad70d9be711ef1ff9f535d1a254",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 30781
+    },
+    {
+      "path": "docs/IMPLEMENTATION.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "0dfec82c2f746c534790ddf3b06fe9ae64973ae6ea85a0047099d487f8bff65b",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 106418
+    },
+    {
+      "path": "docs/P7_BACKUP_RESTORE.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "aea15cfc836260cdbd887c375952b55e2e09408e74bc345b95c40d13f5ea998d",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 6190
+    },
+    {
+      "path": "docs/P7_DEPLOYMENT.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "c991c3a1ccefe4267e4c4afe096e2034fc3d30f92ea4e5bc5bfe1c78715f47be",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 8191
+    },
+    {
+      "path": "docs/P7_OPERATIONS.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "965fbd1896c740f5bd05af71a8e9dad86bb03f9c824b81e8fcf5b51e47c21e12",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 10346
+    },
+    {
+      "path": "docs/P7_RELEASE_CHECKLIST.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "507c4aae3d8dc59585ed2c8c8bd63d3634c7a50fdd5e1d6b65f28043586ee383",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 7675
+    },
+    {
+      "path": "docs/RAI_MONTHLY_BACKUP.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "cff93aa1fdf3c80d674d5252dfbf1d028f0d3eee179dfd994679c8dc2855de94",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 17359
+    },
+    {
+      "path": "docs/RQrun-HealthKit-上传协议.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "DOC",
+      "sha256": "3492791ff3d4923b8e79ffbfcccb9bd4177d9270136e3ad22d5595248eee044a",
+      "staging_group": "docs",
+      "reason": "Workout sync protocol design document",
+      "size_bytes": 26773
+    },
+    {
+      "path": "docs/RQrun_PHASE1_RESULT.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "02bec19162bb5809d68fb227e1857d832b33ae13dcb075572290087e6bebc6ba",
+      "staging_group": "docs",
+      "reason": "Phase review or delivery audit report",
+      "size_bytes": 10678
+    },
+    {
+      "path": "docs/V2_PER_WORKOUT_SYNC_AUDIT.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "5c8733f65418406e638f40b101d87fe34b271c4bc9d282346ff1f70c3cc8caae",
+      "staging_group": "docs",
+      "reason": "Phase review or delivery audit report",
+      "size_bytes": 27065
+    },
+    {
+      "path": "docs/V2_PER_WORKOUT_SYNC_RESULT.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "131bcf50c4f7e591daf2c1f4b8528205ae5963c90ee3e08186fcdda85d6fbf06",
+      "staging_group": "docs",
+      "reason": "Phase review or delivery audit report",
+      "size_bytes": 11862
+    },
+    {
+      "path": "docs/audits/PHASE1_4_DELIVERY_FREEZE_REVIEW.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "8906500e3443dedf68ce67ca5fc4966775c3d83fef6f29786a3d6a3c0a618f4a",
+      "staging_group": "docs",
+      "reason": "Phase 1–4 delivery freeze review: answers the ten freeze questions and records the exact staging plan",
+      "size_bytes": 25524
+    },
+    {
+      "path": "docs/audits/PHASE1_4_GIT_DELIVERY_AUDIT.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "c54dc683a41da0b7896bb4be25a1aed3cd35cb86954c5a48407cd899ffaf792d",
+      "staging_group": "docs",
+      "reason": "Phase review or delivery audit report",
+      "size_bytes": 72627
+    },
+    {
+      "path": "docs/audits/RQrun_PHASE2_RELIABILITY_REVIEW.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "51fa64f6a490432e8bb3a4b180c5b4e368370c1d8cab14aed4c9fa34de34c47a",
+      "staging_group": "docs",
+      "reason": "Phase review or delivery audit report",
+      "size_bytes": 41138
+    },
+    {
+      "path": "docs/audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "761f1feade3af7269cf15cf9c826895099e72c940a0b8173c538fcf5669c9001",
+      "staging_group": "docs",
+      "reason": "Phase review or delivery audit report",
+      "size_bytes": 39098
+    },
+    {
+      "path": "docs/audits/RQrun_PHASE4_PERFORMANCE_REVIEW.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "702f1fd5bb798746a293f3c8b04cb1543a3fc34e012aa97f81e78ee78b5ad353",
+      "staging_group": "docs",
+      "reason": "Phase review or delivery audit report",
+      "size_bytes": 25607
+    },
+    {
+      "path": "docs/audits/RQrun_WORKOUT_SYNC_REVIEW.md",
+      "tracked": false,
+      "git_status": "??",
+      "category": "AUDIT_REPORT",
+      "sha256": "9be01166306562566b6bea94027b4370ab04f56b672c980ef8f98878cdd1be06",
+      "staging_group": "docs",
+      "reason": "Phase review or delivery audit report",
+      "size_bytes": 60960
+    },
+    {
+      "path": "docs/evidence/per-workout-sync-acceptance.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "c68c639347ef3818f746907103059309bd995c4dba212ac17b1076f5572b2785",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 6902
+    },
+    {
+      "path": "docs/evidence/phase1_4_git_delivery_manifest.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "9526a326cc08b505e5e9cc513b198553ac6a11aee956f9060d91625edea66323",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 1369571
+    },
+    {
+      "path": "docs/evidence/rqrun-phase1-2026-11-01.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "7463d66ad59ad0fcc37d9d3976163bbb1227b4ce33a31901916fa772ae5570f0",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 6467
+    },
+    {
+      "path": "docs/evidence/rqrun-phase2-2026-11-01.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "85c651787731a22ebc2a4096e379a9c2f09dca0d456e32d00842777527785103",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 9726
+    },
+    {
+      "path": "docs/evidence/rqrun-phase2-failed-runs.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG_SUMMARY",
+      "sha256": "66a86cd4e5b15044c912c09db6823a873901bc95bd2c27a0ec1c81cfc2257bd0",
+      "staging_group": "docs",
+      "reason": "Important failed-run summary retained for review",
+      "size_bytes": 75839
+    },
+    {
+      "path": "docs/evidence/rqrun-phase3-2026-11-01.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "82880481fbd863ec95d940aa7315234134c1e792e2194b6e489b55ce4b3f6f1f",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 30636
+    },
+    {
+      "path": "docs/evidence/rqrun-phase3-device-2026-11-01.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "d559899d0f9b34e1815bb2688b06aa8590fe1f66098832fdb143fe182807073a",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 8164
+    },
+    {
+      "path": "docs/evidence/rqrun-phase3-workspace-baseline.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "c82fa8869d6c48876c423bdbbf36ff873aed7fc792c85d79af5958a1b9cd0934",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 128412
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-2026-11-01.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "331824558035f297107c83049c8e8d32932cc6a5c7071dc87e8191a295f5f47a",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 570323
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-device-2026-11-01.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "df258f3a0f3966ce1f2bac73cdc55cdfdb0bc07f8d55e7984077e8f304a79733",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 8080
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-git-final.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "60990a8e0583f7abacfe08bee7836703011f0efe55c536ed09e39c3d0667f752",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 8294
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-workspace-baseline.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "7b3460f5d8fb2a93189b5b7b0070bd7997e200a842fa58889676c128a5b0ea8f",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 101522
+    },
+    {
+      "path": "docs/evidence/workout-bundle-2026-10-31.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": "b36d9ca14c408636b4c1d102b496bcbf6f95d1fc3fd46d4209e3ff6bf47dbcb7",
+      "staging_group": "docs",
+      "reason": "Machine-readable delivery evidence (sanitized summary/hash/count)",
+      "size_bytes": 3197
+    },
+    {
+      "path": "ios/RAI/README.md",
+      "tracked": true,
+      "git_status": "M",
+      "category": "ARCHITECTURE_DOC",
+      "sha256": "e83a364addc4507d61adaf7cbde1bc5420e8d45985fc4cce13278db881fed993",
+      "staging_group": "docs",
+      "reason": "Architecture/implementation record updated by Phase 1–4",
+      "size_bytes": 12418
+    },
+    {
+      "path": "docs/evidence/phase1_4_delivery_freeze_manifest.json",
+      "tracked": false,
+      "git_status": "??",
+      "category": "EVIDENCE",
+      "sha256": null,
+      "staging_group": "docs",
+      "self_referential": true,
+      "reason": "This freeze manifest; its own SHA-256 cannot be embedded because embedding would change the bytes"
+    }
+  ],
+  "do_not_commit": [
+    {
+      "path": ".local/run/device-enrollment.json",
+      "kind": "local credential",
+      "ignored": true,
+      "ignored_by": ".gitignore:8:.local/",
+      "in_index": false,
+      "in_staging_set": false
+    },
+    {
+      "path": ".local/run/fnos-device-credentials.txt",
+      "kind": "local credential",
+      "ignored": true,
+      "ignored_by": ".gitignore:8:.local/",
+      "in_index": false,
+      "in_staging_set": false
+    },
+    {
+      "path": ".local/run/device-connection.txt",
+      "kind": "local network/device metadata",
+      "ignored": true,
+      "ignored_by": ".gitignore:8:.local/",
+      "in_index": false,
+      "in_staging_set": false
+    },
+    {
+      "path": ".local/run/device-connection-fnos.txt",
+      "kind": "local network/device metadata",
+      "ignored": true,
+      "ignored_by": ".gitignore:8:.local/",
+      "in_index": false,
+      "in_staging_set": false
+    },
+    {
+      "path": "ios/RAI/Config/Developer.xcconfig",
+      "kind": "local signing/team configuration",
+      "ignored": true,
+      "ignored_by": "ios/RAI/.gitignore:3",
+      "in_index": false,
+      "in_staging_set": false
+    },
+    {
+      "path": ".local/",
+      "kind": "local toolchain, pgdata, logs, caches",
+      "ignored": true,
+      "ignored_by": ".gitignore:8:.local/",
+      "in_index": false,
+      "in_staging_set": false
+    }
+  ],
+  "keep_optional": [
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/baseline_go.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "2529a9a56ec085e9dba001b699193358c3f9c0ed5a5b7be5d7e8777beab97f07",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 858
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/baseline_swift.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "13294b45db035fbf6a3f7e5f8d91200a5a061bda48be351735b9b9037fc147a5",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 66
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/boundaries.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "4b1d722d2981eb06ed7b4cb06fcebf79765cc778769a99dacf9475986c5d1c4d",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 215
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/device_isolated_pg.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "41539af6546ec3634ebac09bb79bea5ec2d1dbb94531cc0b80d809c2d7f704aa",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 195
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/fresh_gzip_n100.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "b59e7795d1b9958ed8a9db4fe1ba3d05b967684bd6c3372e33ba02010bbdf061",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 929
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/go_race_vet.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "6bbfca9fa8ccd53b3dec2991f3426001fb76769fb2d0b2e6e511c8eb40dc1547",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 584
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/gzip_identity_corruption.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "c00ee5d97e9097dd1b6a902d379932c3a35ac5d552445ddc2f2a5402898f6aff",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 225
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/index_explain.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "cc141acb9eb0a3822ee2057944b596eff54fe106780ba2334b4655fbd7e2678c",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 280
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/ios_app_tests.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "5250920d30072965fb45f9e0bf46c91f1cbef57996688db50ce64e6cbbaff3d4",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 328
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/ios_debug_signed.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "3144fff8b32af1ef1bea4d15edb9c066c2f84da91ecacf049ab13d6cf64de4da",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 22
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/ios_release.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "3144fff8b32af1ef1bea4d15edb9c066c2f84da91ecacf049ab13d6cf64de4da",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 22
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/openapi.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 1
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/pg_faults.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "d1185dc6db4c169a4322dd9e45f1bc7db4dc8a787553eb6d0f900b3710fd3b8e",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 333
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/phase1_3_full_postgres.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "3837f14743a160a10ccc22e01901c861c5ad059d22cd5108d42fa28a24b4997d",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 662
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/phase4_n100.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "28541efd708ff8c2ea59df0edee521a3bfa8235b8327189e1fe6945067cb7653",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 2405
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/real_socket_deadline_boundaries.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "ea3ffd36646c41c2c8ebb1c223c7fc88c5ed11178510d688031f7ff919ce98fc",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 676
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/real_socket_pauses.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "595d20ee69c5620bc58f9d7ac733c3d502fa26b778c6672ab9e63bcc75c5ffca",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 3178
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/real_socket_throttling.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "a6ac5adef5fee1486554b4ce2eb68724a33fab94f38b2bb0170a7e36b2693001",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 377
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/swift_all.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "a03733ebf86de8d8af4138d8b637b7564884ca76a147050a265b51dfbaddb398",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 336
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/swift_performance.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "13294b45db035fbf6a3f7e5f8d91200a5a061bda48be351735b9b9037fc147a5",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 66
+    },
+    {
+      "path": "docs/evidence/rqrun-phase4-logs/wire_gzip_resource_limits.txt",
+      "tracked": false,
+      "git_status": "??",
+      "category": "TEST_LOG",
+      "sha256": "c443eaf5d52383529a4cf5c6baacb44149a3e86405416f187b7acccf49be61e0",
+      "staging_group": "keep_optional",
+      "reason": "Raw Phase 4 test log retained locally; excluded from the default commit as large/duplicative",
+      "size_bytes": 41
+    }
+  ],
+  "summary": {
+    "feature_commit_candidates": 85,
+    "docs_commit_candidates": 33,
+    "keep_optional": 21,
+    "do_not_commit_paths": 6,
+    "feature_total_bytes": 1128102,
+    "keep_optional_total_bytes": 11799,
+    "total_working_tree_changes": 139,
+    "untracked_not_ignored": 89,
+    "docs_total_bytes_excluding_self": 2877826,
+    "manifest_self_size_bytes_note": "self size grows when this note is added; compute final sha256 after write"
+  },
+  "migrations": {
+    "directory": "apps/server/migrations",
+    "count": 17,
+    "schema_target": 17,
+    "workout_protocol_version": 3,
+    "all_hashes_match": true,
+    "duplicate_numbers": false,
+    "missing_numbers": [],
+    "rows": [
+      {
+        "number": 1,
+        "path": "apps/server/migrations/00001_core.sql",
+        "sha256": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+        "registry_sha256": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+        "match": true,
+        "size_bytes": 6110
+      },
+      {
+        "number": 2,
+        "path": "apps/server/migrations/00002_dirty_generations.sql",
+        "sha256": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+        "registry_sha256": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+        "match": true,
+        "size_bytes": 325
+      },
+      {
+        "number": 3,
+        "path": "apps/server/migrations/00003_workouts.sql",
+        "sha256": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+        "registry_sha256": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+        "match": true,
+        "size_bytes": 1642
+      },
+      {
+        "number": 4,
+        "path": "apps/server/migrations/00004_page_receipts.sql",
+        "sha256": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+        "registry_sha256": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+        "match": true,
+        "size_bytes": 2070
+      },
+      {
+        "number": 5,
+        "path": "apps/server/migrations/00005_request_budgets.sql",
+        "sha256": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+        "registry_sha256": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+        "match": true,
+        "size_bytes": 686
+      },
+      {
+        "number": 6,
+        "path": "apps/server/migrations/00006_upload_slots.sql",
+        "sha256": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+        "registry_sha256": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+        "match": true,
+        "size_bytes": 649
+      },
+      {
+        "number": 7,
+        "path": "apps/server/migrations/00007_workout_activities.sql",
+        "sha256": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+        "registry_sha256": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+        "match": true,
+        "size_bytes": 832
+      },
+      {
+        "number": 8,
+        "path": "apps/server/migrations/00008_quantity_series.sql",
+        "sha256": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+        "registry_sha256": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+        "match": true,
+        "size_bytes": 2515
+      },
+      {
+        "number": 9,
+        "path": "apps/server/migrations/00009_workout_packages.sql",
+        "sha256": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+        "registry_sha256": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+        "match": true,
+        "size_bytes": 3164
+      },
+      {
+        "number": 10,
+        "path": "apps/server/migrations/00010_route_foundation.sql",
+        "sha256": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
+        "registry_sha256": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
+        "match": true,
+        "size_bytes": 6770
+      },
+      {
+        "number": 11,
+        "path": "apps/server/migrations/00011_p3_sync_v2.sql",
+        "sha256": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
+        "registry_sha256": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
+        "match": true,
+        "size_bytes": 16831
+      },
+      {
+        "number": 12,
+        "path": "apps/server/migrations/00012_analysis.sql",
+        "sha256": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+        "registry_sha256": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+        "match": true,
+        "size_bytes": 7872
+      },
+      {
+        "number": 13,
+        "path": "apps/server/migrations/00013_training.sql",
+        "sha256": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b",
+        "registry_sha256": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b",
+        "match": true,
+        "size_bytes": 11570
+      },
+      {
+        "number": 14,
+        "path": "apps/server/migrations/00014_workout_imports.sql",
+        "sha256": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8",
+        "registry_sha256": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8",
+        "match": true,
+        "size_bytes": 945
+      },
+      {
+        "number": 15,
+        "path": "apps/server/migrations/00015_workout_import_history.sql",
+        "sha256": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6",
+        "registry_sha256": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6",
+        "match": true,
+        "size_bytes": 811
+      },
+      {
+        "number": 16,
+        "path": "apps/server/migrations/00016_route_timestamp_envelope.sql",
+        "sha256": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8",
+        "registry_sha256": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8",
+        "match": true,
+        "size_bytes": 6255
+      },
+      {
+        "number": 17,
+        "path": "apps/server/migrations/00017_analysis_sample_lookup.sql",
+        "sha256": "73bc3b4a1281597e777727c96521bf16a692f8f8968ce09d4d175d1470cbb968",
+        "registry_sha256": "73bc3b4a1281597e777727c96521bf16a692f8f8968ce09d4d175d1470cbb968",
+        "match": true,
+        "size_bytes": 643
+      }
+    ],
+    "migration_17": {
+      "path": "apps/server/migrations/00017_analysis_sample_lookup.sql",
+      "sha256": "73bc3b4a1281597e777727c96521bf16a692f8f8968ce09d4d175d1470cbb968",
+      "uses_plain_create_index": true,
+      "concurrently": false,
+      "unique": false,
+      "partial": false,
+      "risk": "plain CREATE INDEX blocks writes on health_samples during production migration; schedule a maintenance window; do not change in this freeze"
+    }
+  },
+  "test_results": {
+    "validated_at": "2026-11-01T19:11:35+08:00",
+    "go_test": {
+      "command": "go test -count=1 ./...",
+      "result": "PASS",
+      "detail": "9 test packages ok; 4 no test files"
+    },
+    "go_test_race": {
+      "command": "go test -race -count=1 ./...",
+      "result": "PASS",
+      "duration_seconds": 11.99
+    },
+    "go_vet": {
+      "command": "go vet ./...",
+      "result": "PASS"
+    },
+    "go_vet_integration_swiftclient": {
+      "command": "go vet -tags=integration,swiftclient ./...",
+      "result": "PASS"
+    },
+    "go_build": {
+      "command": "go build ./...",
+      "result": "PASS"
+    },
+    "boundaries": {
+      "command": "python3 scripts/check-boundaries.py",
+      "result": "PASS",
+      "detail": "3/3"
+    },
+    "postgres_integration": {
+      "command": "PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration,swiftclient -p 1 -timeout=30m ./...",
+      "result": "PASS",
+      "detail": "integration 349.284s; all other packages ok",
+      "leftover_databases": 0,
+      "cluster_removed": true,
+      "persistent_db_used": false,
+      "production_db_used": false
+    },
+    "swift_package": {
+      "command": "cd ios/RAI && xcrun swift test",
+      "result": "PASS",
+      "tests": 98,
+      "suites": 11,
+      "duration_seconds": 0.643
+    },
+    "ios_debug_build": {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build",
+      "result": "BUILD SUCCEEDED",
+      "clean_build": true
+    },
+    "ios_release_build": {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build",
+      "result": "BUILD SUCCEEDED",
+      "clean_build": true
+    },
+    "ios_app_tests": {
+      "command": "xcodebuild test -project ios/RAI/RAI.xcodeproj -scheme RAI -only-testing:RAITests",
+      "result": "PASS",
+      "tests": 22,
+      "duration_seconds": 0.181,
+      "note": "first run failed on stale DerivedData module cache; xcodebuild clean fixed it; no source changed"
+    },
+    "openapi_lint": {
+      "command": "npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml",
+      "result": "valid",
+      "errors": 0,
+      "warnings": 31
+    },
+    "git_diff_check": {
+      "command": "git diff --check",
+      "result": "PASS",
+      "exit_code": 0
+    },
+    "admission_targeted": {
+      "command": "go test -race -count=1 -v -tags=integration -run 'TestWorkoutBundleHTTP' ./integration",
+      "result": "PASS",
+      "package_seconds": 8.14,
+      "tests": {
+        "TestWorkoutBundleHTTPUnauthorizedRejectsBeforeBody": {
+          "result": "PASS",
+          "seconds": 0.43
+        },
+        "TestWorkoutBundleHTTPDurableRejectBeforeBody": {
+          "result": "PASS",
+          "seconds": 2.51
+        },
+        "TestWorkoutBundleHTTPAdmissionStorageFailureBeforeBody": {
+          "result": "PASS",
+          "seconds": 0.48
+        },
+        "TestWorkoutBundleHTTPDeviceSlotBusyBeforeBody": {
+          "result": "PASS",
+          "seconds": 2.53
+        },
+        "TestWorkoutBundleHTTPClientCancelReleasesDeviceSlot": {
+          "result": "PASS",
+          "seconds": 0.82
+        },
+        "TestWorkoutBundleHTTPMultipartAndStatus": {
+          "result": "PASS",
+          "seconds": 0.35
+        }
+      }
+    }
+  },
+  "admission_coverage": {
+    "scope": "single API process / per-process admission",
+    "multi_instance_global_slot": "NOT IMPLEMENTED / NOT CLAIMED",
+    "process_uploads": 2,
+    "process_device_uploads": 1,
+    "durable_budget_table": "sync_request_budgets (rate only, not upload slot)",
+    "order": [
+      "authenticate",
+      "durable request budget",
+      "process upload slot",
+      "read body"
+    ],
+    "test_file": "apps/server/integration/workout_admission_http_test.go",
+    "gaps_closed": [
+      "unauthorized before body",
+      "durable budget reject before body",
+      "admission storage failure before body",
+      "device slot busy before body",
+      "client cancel releases slot and same device re-enters"
+    ]
+  },
+  "secret_scan": {
+    "candidate_files_scanned": 118,
+    "candidate_scope": "feature 85 + docs 31 before adding this manifest/review; 116 text files actually scanned",
+    "private_key_pem": 0,
+    "bearer_long_literal": 0,
+    "password_assignment": 0,
+    "dsn_password": 0,
+    "aws_github_openai_token": 0,
+    "jwt": 0,
+    "credential_named_fields": 0,
+    "signing_materials": {
+      "p12": 0,
+      "mobileprovision": 0,
+      "cer": 0,
+      "key": 0
+    },
+    "gps_literals": 4,
+    "gps_literals_note": "fixed synthetic Shanghai coordinates in apps/server/integration/workout_bundle_test.go and workout_reliability_test.go; not device data",
+    "raw_health_values_in_candidates": false,
+    "blocked_secret": false,
+    "local_credentials": {
+      "all_exist": true,
+      "all_ignored": true,
+      "in_index": false,
+      "in_staging_set": false
+    },
+    "historical_tracked_evidence_review": [
+      {
+        "path": "docs/evidence/device-backend-2026-10-31.json",
+        "finding": "contains 5 real dataset UUIDs and 2 private LAN addresses",
+        "status": "REVIEW_REQUIRED",
+        "history_rewritten": false
+      },
+      {
+        "path": "docs/evidence/device-acceptance-2026-10-30.json",
+        "finding": "contains 3 private LAN addresses",
+        "status": "REVIEW_REQUIRED",
+        "history_rewritten": false
+      }
+    ],
+    "candidate_evidence": {
+      "rqrun_phase2": "only one simulator UDID under /simulator/id",
+      "workspace_baselines": "UUIDs only in resumeSHA256[].path temporary test database paths",
+      "device_evidence": "healthValuesInEvidence=false and gpsCoordinatesInEvidence=false (phase4 gpsExported=false / healthValuesExported=false); workoutIDHash is a hash",
+      "acceptance": "dataset/collector epoch SHA-256 only"
+    },
+    "new_authored_files_scanned": 2,
+    "new_authored_secret_hits": 0
+  },
+  "known_risks": [
+    {
+      "id": "R1",
+      "severity": "high",
+      "risk": "00017 uses plain CREATE INDEX and will block health_samples writes during production migration",
+      "action": "schedule maintenance window in release notes; do not change in this freeze; no production migration executed"
+    },
+    {
+      "id": "R2",
+      "severity": "medium",
+      "risk": "upload slots are per-process; no cross-instance global admission",
+      "action": "documented in contracts/sync-v3.md §7.1; do not claim global coordination"
+    },
+    {
+      "id": "R3",
+      "severity": "medium",
+      "risk": "historical tracked device evidence contains real dataset UUIDs and private LAN addresses",
+      "action": "do not rewrite Git history; record as REVIEW_REQUIRED for a future privacy task"
+    },
+    {
+      "id": "R4",
+      "severity": "medium",
+      "risk": "Phase 1–3 source snapshots are unavailable; historical evidence cannot fully reproduce then-current code",
+      "action": "use this freeze commit as the reproducible rollback point"
+    },
+    {
+      "id": "R5",
+      "severity": "low",
+      "risk": "Phase 2 /tmp logs are gone and Phase 3 .log files are ignored by root *.log; Phase 4 raw logs are local only",
+      "action": "21 Phase 4 .txt logs retained as KEEP_OPTIONAL"
+    },
+    {
+      "id": "R6",
+      "severity": "low",
+      "risk": "OpenAPI lint reports 31 warnings while earlier docs recorded 7",
+      "action": "non-blocking; clean up in Phase 5"
+    },
+    {
+      "id": "R7",
+      "severity": "medium",
+      "risk": "real-device HealthKit, production deployment and target load were not rerun in this freeze",
+      "action": "retain NOT VERIFIED claims; require separate user authorization"
+    },
+    {
+      "id": "R8",
+      "severity": "low",
+      "risk": "first iOS app test run failed on stale DerivedData module cache",
+      "action": "xcodebuild clean then 22/22 passed; no source change"
+    },
+    {
+      "id": "R9",
+      "severity": "low",
+      "risk": "working tree contains cumulative P7 docs/scripts as well as v3 files",
+      "action": "include in the two cumulative commits per audit recommendation; do not split by phase"
+    }
+  ],
+  "staging_commands": {
+    "executed": false,
+    "feature_group": "git add -- <85 explicit paths>",
+    "docs_group": "git add -- <33 explicit paths>",
+    "note": "Exact path lists are recorded in docs/audits/PHASE1_4_DELIVERY_FREEZE_REVIEW.md section 12 and mirrored by feature_commit_candidates/docs_commit_candidates in this manifest. No wildcard, -A, or . form is permitted.",
+    "forbidden": [
+      "git add with -A/--all",
+      "git add with . path",
+      "git clean",
+      "git reset --hard",
+      "git restore",
+      "git checkout (rollback)",
+      "git stash"
+    ],
+    "commit_sequence": [
+      "stage feature paths",
+      "review staged diff and scan staged content",
+      "verify migration checksums",
+      "commit feat(sync): implement workout-centric HealthKit sync v3",
+      "stage docs paths",
+      "review staged diff",
+      "commit docs(sync): record workout sync v3 delivery evidence"
+    ],
+    "push_authorized": false
+  },
+  "manifest_self_hash": {
+    "path": "docs/evidence/phase1_4_delivery_freeze_manifest.json",
+    "sha256": null,
+    "policy": "Self-referential hash cannot be embedded; compute `shasum -a 256` after writing this file and record it in the commit message or release checklist."
+  },
+  "known_limitations": [
+    "No git add/commit/push/deploy was performed.",
+    "No production database or persistent development database was contacted.",
+    "No real HealthKit read was performed.",
+    "Manifest counts are from the final working tree at generation time; re-check before staging."
+  ]
+}

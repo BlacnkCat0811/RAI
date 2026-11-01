@@ -95,7 +95,7 @@ SHA 用于完整性检测，不提供文件加密或独立数字签名。没有 
 
 目前缺少正式V2 project/卷/数据库身份、安装目录、release环境及云端SSH host/port/user/key/专用目录。本机通用 `cloud`/`cloud-u` 别名不能证明它们是备份账户；用户也未确认配置。不得按旧系统目录猜测。以下命令是填入已审核配置后的操作清单，**尚未执行**。
 
-1. 先部署审核后的V2（独立发布任务），核对 `docker compose ... ps`、postgres容器完整ID、project/service label、`rai_v2`、`rai_backup_login`、schema13、PG18及明确卷；不得将旧 `rai` 或 `rai-p7-test-*` 标为正式来源。只复制已审核脚本和模板到新的绝对安装目录，不覆盖旧项目。
+1. 先部署审核后的V2（独立发布任务），核对 `docker compose ... ps`、postgres容器完整ID、project/service label、`rai_v2`、`rai_backup_login`、schema16、PG18及明确卷；不得将旧 `rai` 或 `rai-p7-test-*` 标为正式来源。只复制已审核脚本和模板到新的绝对安装目录，不覆盖旧项目。
 2. 把示例与已有release配置合并到仓库外 `monthly.env`，父目录0700、文件0600；同账户私钥0600，known_hosts来自可信指纹核对。配置中不得使用测试凭证或UNRECORDED源版本冒充发布版本。
 3. 填好配置后，仅做只读SSH探针（先人工核对目标身份，不运行backup来测试连接）：
 
@@ -154,8 +154,8 @@ chmod 600 "$download_dir/$backup_file" "$download_dir/$backup_file.sha256" "$dow
   EXACT_ISOLATED_CONTAINER --confirm-target FULL_INSPECTED_CONTAINER_ID
 ```
 
-4. 工具检查备份格式、来源库 `rai_v2`、schema13、PG18、文件权限/大小/SHA、容器 label/完整身份、目标 project API/Worker、数据库 owner/版本、连接数，以及 public 中没有任何 relation/function。拒绝未确认、非空或使用中的目标；不提供 `--clean`、DROP 或正式库覆盖模式。
-5. 单事务 `pg_restore --role=rai_owner --single-transaction --exit-on-error --no-owner --no-acl`。保持入口隔离，重新运行审核后的 `deploy/postgres/roles.sql` 与 `runtime-grants.sql`，检查 schema13、validated FK、原回执/stream/屏障、P4 publication、P5 Effective/Override/Execution/Feedback，以及 API readiness。`rai ops verify` 全表摘要仅在显式维护验收运行。
+4. 工具检查备份格式、来源库 `rai_v2`、schema16、PG18、文件权限/大小/SHA、容器 label/完整身份、目标 project API/Worker、数据库 owner/版本、连接数，以及 public 中没有任何 relation/function。拒绝未确认、非空或使用中的目标；不提供 `--clean`、DROP 或正式库覆盖模式。
+5. 单事务 `pg_restore --role=rai_owner --single-transaction --exit-on-error --no-owner --no-acl`。保持入口隔离，重新运行审核后的 `deploy/postgres/roles.sql` 与 `runtime-grants.sql`，检查 schema16、validated FK、原回执/stream/屏障、P4 publication、P5 Effective/Override/Execution/Feedback，以及 API readiness。`rai ops verify` 全表摘要仅在显式维护验收运行。
 6. **SQL 恢复不是 HealthKit 灾难恢复完成。** 当前自动 resync 为 BLOCKED，参照 [Disaster Recovery](RAI_DISASTER_RECOVERY.md)，不要启动真实客户端或清空手机状态。正式恢复/入口切换必须由用户另行批准；本工具本轮只验收隔离演练。
 
 运行前检查只能证明检查时刻安静，不能替代网络隔离和操作者维持停机。数据库角色由 P7 bootstrap/授权脚本重建，设备 token 摘要来自旧备份，可能恢复已撤销凭证；重新核对撤销/轮换后才能考虑正式切换。

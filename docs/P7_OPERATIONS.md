@@ -9,7 +9,7 @@
 ```bash
 dc ps
 dc exec -T api /rai probe           # TLS liveness：进程提供服务
-dc exec -T api /rai probe --ready   # TLS readiness：DB/schema13
+dc exec -T api /rai probe --ready   # TLS readiness：DB/schema16
 dc exec -T worker /rai worker-ready # 进程容器状态另查；此处DB/schema/role
 dc run --rm --no-deps monitor       # 聚合business health，不含个人健康测量
 dc exec -T api /rai version
@@ -48,7 +48,7 @@ feedback pending可以是合法的Workout尚未同步，不自动判失败；pub
 
 ## 排障与恢复
 
-- DB不可用：liveness可200、readiness503；检查PG最终TCP启动、volume和空间、schema13、SCRAM和runtime身份。恢复连接后pgx重连，使用原batch/route/command receipt。禁止reset stream或推进anchor“修复”。
+- DB不可用：liveness可200、readiness503；检查PG最终TCP启动、volume和空间、schema16、SCRAM和runtime身份。恢复连接后pgx重连，使用原batch/route/command receipt。禁止reset stream或推进anchor“修复”。
 - Worker卡住：检查running lease、attempt/error_code及backlog；正常重启后等待原60s lease +15s recovery poll +5s retry backoff。旧token不能发布；不手工改succeeded/clean。invalid input/unsupported version需修正对应实现/参数，不能把raw改成可分析。稳定失败的受控retry流程尚无通用CLI，先调查，不写无审查SQL强制重试。
 - 磁盘满：先限制新写入/停止API和Worker，保留PG卷；检查日志与已验证的备份副本，不删除PG/WAL文件，不直接删除健康表。扩容/释放经确认可移除的运维文件后检查PG WAL恢复、ready、原回执与jobs。只有隔离256MiB tmpfs允许本轮注入ENOSPC，绝不填满fnOS系统盘。
 - 半发布疑虑：`dc run --rm --no-deps admin ops verify` 为显式离线核验，不放在每次同步或普通health；它会扫描全库并计算hash，生产大库要在授权维护窗口评估，不能高频调用。发现违反不变量立即停止发布，保留备份，走调查/隔离恢复。

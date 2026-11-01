@@ -1,0 +1,467 @@
+{
+  "schema": "rai.rqrun.phase3.evidence/v2",
+  "generatedAt": "2026-11-01T15:50:46.538137+08:00",
+  "head": "aeb769c82f6af6c47d7cac82874f48ff37f635fc",
+  "protocolVersion": 3,
+  "schemaVersion": 16,
+  "overallStatus": "PASS_WITH_RISKS",
+  "automatedStatus": "PASS",
+  "realDeviceStatus": "PARTIAL_SINGLE_WORKOUT_E2E_PASS_REMAINING_SCENARIOS_NOT_VERIFIED",
+  "dataPolicy": {
+    "automatedTestsSyntheticOnly": true,
+    "designatedRealWorkoutTransferredOnlyToDisposableBackend": true,
+    "realHealthValuesInEvidenceOrLogs": false,
+    "realGPSCoordinatesInEvidenceOrLogs": false,
+    "allHealthHistoryExported": false,
+    "healthKitWritePerformed": false,
+    "productionDatabaseTouched": false,
+    "committed": false,
+    "pushed": false,
+    "deployed": false
+  },
+  "workspace": {
+    "protectionEvidence": "docs/evidence/rqrun-phase3-workspace-baseline.json",
+    "initialTemporarySnapshotCurrentlyAvailable": false,
+    "resumeBaselineFiles": 681,
+    "resumePreexistingFilesDeleted": [],
+    "resumeChangedFiles": [
+      "apps/server/integration/workout_integrity_test.go",
+      "apps/server/internal/storage/postgres/analysis_input.go",
+      "apps/server/internal/storage/postgres/bundle_integrity.go",
+      "apps/server/internal/storage/postgres/workout_bundles.go",
+      "apps/server/internal/syncing/bundle_integrity_test.go",
+      "apps/server/internal/syncing/bundle_observation.go",
+      "apps/server/internal/syncing/protocol.go",
+      "contracts/CHANGELOG.md",
+      "contracts/openapi-v2.yaml",
+      "contracts/sync-v3.md",
+      "docs/IMPLEMENTATION.md",
+      "docs/audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md",
+      "docs/evidence/rqrun-phase3-2026-11-01.json",
+      "ios/RAI/App/BackgroundTransfers.swift",
+      "ios/RAI/App/HealthKitClient.swift",
+      "ios/RAI/App/RAIApp.swift",
+      "ios/RAI/App/SyncCoordinator.swift",
+      "ios/RAI/AppTests/NormalizerTests.swift",
+      "ios/RAI/Sources/SyncCore/HealthDiscovery.swift",
+      "ios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift"
+    ],
+    "phase1OriginalPlanAndMigrations14_15Match": true,
+    "cachedDiffEmpty": true
+  },
+  "migration": {
+    "file": "apps/server/migrations/00016_route_timestamp_envelope.sql",
+    "purpose": "numeric microsecond envelope and exact integer-seconds/microseconds projection; no new table",
+    "freshInitialization": "PASS",
+    "sameDatabaseMigrateTwice": "PASS",
+    "all16ChecksumsValid": true,
+    "publishedMigrationsUnchanged": true
+  },
+  "tests": [
+    {
+      "name": "Go unit",
+      "command": "go test -count=1 ./...",
+      "result": "PASS"
+    },
+    {
+      "name": "Go race",
+      "command": "go test -race -count=1 ./...",
+      "result": "PASS"
+    },
+    {
+      "name": "Go vet",
+      "commands": [
+        "go vet ./...",
+        "go vet -tags=integration,swiftclient ./..."
+      ],
+      "result": "PASS"
+    },
+    {
+      "name": "Full PostgreSQL and cross-language regression",
+      "command": "source scripts/local/lib.sh; rai_go_env; PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration,swiftclient -p 1 -timeout=30m ./...",
+      "result": "PASS",
+      "integrationSeconds": 239.882,
+      "postgres": "18.6",
+      "durability": {
+        "fsync": "on",
+        "full_page_writes": "on",
+        "synchronous_commit": "on",
+        "data_checksums": "on",
+        "tcpDisabled": true
+      },
+      "leftoverDatabases": 0,
+      "clusterRemoved": true,
+      "swiftHTTPPostgreSQLScenarios": [
+        "before_send",
+        "during_send",
+        "before_commit_timeout",
+        "lost_ack",
+        "corrupt_ack",
+        "commit_404",
+        "validation_missing",
+        "tombstone",
+        "rate_limit",
+        "status_500",
+        "status_502",
+        "status_503",
+        "auth_refresh",
+        "two_workers",
+        "duplicate_post",
+        "phase3_observation",
+        "phase3_child_delete",
+        "phase3_deleted_parent"
+      ]
+    },
+    {
+      "name": "Phase3 targeted PostgreSQL",
+      "command": "go test -race -count=1 -tags=integration -run ^TestPhase3 -v ./integration",
+      "result": "PASS",
+      "integrationSeconds": 6.71,
+      "includes": [
+        "legacy_sample_metadata_enrichment",
+        "unknown_legacy_child_source_blocked",
+        "historical_positive_child_source_reused",
+        "exact_microseconds",
+        "child_delete_transaction_rollback",
+        "route_clock_counts_chunks_hashes"
+      ]
+    },
+    {
+      "name": "Swift package",
+      "command": "swift test --package-path ios/RAI --scratch-path /tmp/rai-phase3-final-swift",
+      "result": "PASS",
+      "swiftTestingTests": 96,
+      "suites": 11,
+      "ordinaryXCTestPassed": 2,
+      "liveXCTestSkippedOutsideGoHarness": 1,
+      "liveHarnessScenariosActuallyExecuted": 18
+    },
+    {
+      "name": "iOS App unit",
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Debug -destination <disposable_iPhone12ProMax_iOS26.5_simulator> -only-testing:RAITests test",
+      "result": "PASS",
+      "tests": 22,
+      "failures": 0
+    },
+    {
+      "name": "iOS Debug/Release",
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration <Debug|Release> -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO build",
+      "result": "PASS"
+    },
+    {
+      "name": "Signed device build",
+      "result": "PASS",
+      "bundleIdentifier": "com.rai.v2.phase3acceptance",
+      "scope": "dedicated acceptance app; scoped Debug ATS exception only"
+    },
+    {
+      "name": "OpenAPI lint",
+      "command": "npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml",
+      "result": "PASS",
+      "existingWarnings": 31
+    },
+    {
+      "name": "Dependency boundary",
+      "command": "python3 scripts/check-boundaries.py",
+      "result": "PASS",
+      "packages": 249
+    },
+    {
+      "name": "Whitespace",
+      "command": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "realDevice": {
+    "evidence": "docs/evidence/rqrun-phase3-device-2026-11-01.json",
+    "result": "PASS_SINGLE_WORKOUT_E2E",
+    "comparison": "PASS_COUNTS_SEQUENCE_PROJECTION_MANIFEST_AND_BUNDLE_HASH",
+    "scope": "single user-designated workout; no deletion",
+    "device": "iPhone 12 Pro Max",
+    "independentAnchors": 12,
+    "outOfScopeAnchors": 0,
+    "discoveryEvents": 5466,
+    "samples": 5464,
+    "routePoints": 1768,
+    "oneWorkoutOneImport": true,
+    "manifestMatches": true,
+    "noSpuriousFactGenerationDuringAssembly": true,
+    "remaining": [
+      "fresh_watch_workout_creation",
+      "real_background_delivery",
+      "mid_query_process_kill",
+      "network_disconnect_recovery",
+      "real_healthkit_deletion",
+      "real_ack_loss",
+      "physical_power_loss"
+    ],
+    "finalAnalysisSourceGateDeviceReplay": false,
+    "finalAnalysisSourceGateVerifiedWithSyntheticPG": true,
+    "cleanup": {
+      "isolatedAPIStopped": true,
+      "isolatedWorkerStopped": true,
+      "postgresClusterStoppedAndRemoved": true,
+      "localEphemeralCredentialsRemoved": true,
+      "deviceOriginalOutboxPreserved": true,
+      "productionTouched": false
+    }
+  },
+  "notVerified": [
+    "real_background_and_kill_network_delete_ack_loss_power_cases",
+    "large_route_memory_on_device",
+    "controlled_recovery_product_UI",
+    "production_deployment_and_migration",
+    "unavailable_initial_temporary_workspace_snapshot"
+  ],
+  "failedOrInterruptedAttempts": [
+    {
+      "attempt": "earlier_full_integration",
+      "result": "terminated by continuation; not counted as PASS; final frozen-source complete rerun passed"
+    },
+    {
+      "attempt": "legacy_device_outbox",
+      "result": "workout_core_change_requires_review; original files retained; final test uses a new namespace, not an overwrite"
+    },
+    {
+      "attempt": "initial_disposable_backend_setup",
+      "result": "console-login role mismatch before real data; failed empty cluster stopped and removed; rebuilt with effective OS owner"
+    },
+    {
+      "attempt": "temporary_readiness_probe",
+      "result": "incorrect health path; actual /readyz verified before device launch"
+    },
+    {
+      "attempt": "initial_metadata_and_source_normalization",
+      "result": "strict validation exposed source namespace/JSON number/SDK metadata key gaps; fixed without dropping metadata, and covered by final regressions"
+    }
+  ],
+  "files": {
+    "apps/server/cmd/rai/main.go": "7085bbbe2ce012a3c825a28bc0460077de00c08881baa5c0a94fdebd5a9e839e",
+    "apps/server/integration/admission_test.go": "6f7c84ceec8e300c3def7981ae0992ec5f4456ab230bbfcf8806d51abcec06b2",
+    "apps/server/integration/analysis_performance_test.go": "00516b771c3257e9be4bd6a3c22ff6773e777dde65a67e68ce2b57b9d40e41c2",
+    "apps/server/integration/analysis_test.go": "e773a05080701c900193b770b18770b19ef031ed8162b423b3f9e8da4e98f5b8",
+    "apps/server/integration/changes_test.go": "d3af331583b0608508925503cb7c314da6e6eec31eff2edcf18ada19d5e8aa69",
+    "apps/server/integration/device_workout_statistics_test.go": "3d479d8a0797b296caa1fd9da8788612f94cc3a743af46446ab89ce456c6218f",
+    "apps/server/integration/disaster_recovery_boundary_test.go": "6cc728f335ce2b07d75f4e2a36660ad39c847841e91887d641f11c9f163e49a0",
+    "apps/server/integration/final_maintenance_http_test.go": "4be4dbf3f3476dd11199f8ec038a0c9806c60f49f9b24099486cbaed1c02a0a9",
+    "apps/server/integration/final_maintenance_test.go": "c836a8ca4cf67c4c4bdd6935d658d1eff15b360fb6834c189f1e954a567b3941",
+    "apps/server/integration/full_review_fix_test.go": "423764a73e873af4106cf7bb39e9a409652c15f435f9dbe72a1e1991f027e9ca",
+    "apps/server/integration/full_review_wave2_test.go": "b58154109d08c2a3ecd24d3f65f4d11601c86c60d27553f5e2316bfa64b6202f",
+    "apps/server/integration/health_test.go": "3ef0fc0afe30f69b4a4cbf77ccdd3a419072e8ebe6538f94cc65d2d559034444",
+    "apps/server/integration/jobs_foundation_test.go": "2c6798a3974d3635f240632ad781f0b37a9844295626646e0c9b50c271466d91",
+    "apps/server/integration/p3_faults_test.go": "f8e8d1304d2bddbc0c30d6589a245d81b9b2a888e86711134e0c5d16a24a279d",
+    "apps/server/integration/p3_helpers_test.go": "ddaf0ece2939b41a74d0ced18a65429f342fe0fcc7f18f456cd0cb80f5c2d179",
+    "apps/server/integration/p3_performance_test.go": "fd948857e73c660551bbdc007a56093a4e10bf086680c1c83affcde9efe6f1f9",
+    "apps/server/integration/p3_sync_test.go": "542059d71c5c6ffb28d03bf8cc0d0f61b60f2b76b4187894f2d1c1a9b81a76d4",
+    "apps/server/integration/p7_capacity_test.go": "d9661a353ba0e627422e445f772559f6760bdbb54ad55c92ecdad571f7ee60e8",
+    "apps/server/integration/p7_security_test.go": "42f8481dea5e31aa248b8e264a4374b0b86b4eed89b276efa455cae0d671c8f9",
+    "apps/server/integration/page_test.go": "9bf7ed637e0806b62bcff054a0666b367e5feb3057be7b8e7449f44119a81a93",
+    "apps/server/integration/per_workout_sync_test.go": "c2b0280573a854f1c843b42d4ba2ef5bec37d75701bec973e3304c5eb97e3264",
+    "apps/server/integration/product_test.go": "2299fe1a4da74f2ff12ebb91ea785b4838ae5c98d9f48dc260fab9ca52e8376f",
+    "apps/server/integration/query_plans_test.go": "2c73352993895183c3e223782d9fb42c5f378bb6f4d826a881552f524a298e0b",
+    "apps/server/integration/routes_foundation_test.go": "0c960f81e831b6133ce4323ee98e37eefa471eebd4d9aab3838e095e1ed6e2d8",
+    "apps/server/integration/sample_batch_test.go": "16c232bc6fd8c17688d4c0f99cc5f084106fc2d1e37901402a2d8f5f105c3f06",
+    "apps/server/integration/scale_test.go": "9285b8c0464ccbf3d04378b9091904c415c3cf3a50bdb53359e0b9d10a5cd54b",
+    "apps/server/integration/schema_rebuild_test.go": "dc8b2cb5e062721af3d74b317ba51cfc117e7b28fe0577a543b73fb74ba4ef65",
+    "apps/server/integration/series_scale_test.go": "b1517d08dd2adf5dca25576b8b2055f6653d3314fd7efc6ac564705feabc7019",
+    "apps/server/integration/series_test.go": "070d708092ce16258c36e502d85b78a60016437bcd686a2e61618c3141bc92e9",
+    "apps/server/integration/sync_test.go": "fe3b78460dd4e24d517cb0ec99d4800a7d1a75ea380c25185e768c24a4b47adb",
+    "apps/server/integration/training_performance_test.go": "742a44e8632cbd6b2f96fba7514226274afe8216c149f37ea9c4d078ed8d1367",
+    "apps/server/integration/training_test.go": "1cd7d30a888ccec046e90a06addc40b17755a80b4dacef51bbb4d90ddb825286",
+    "apps/server/integration/transaction_failures_test.go": "1c9f757fc43d1a3be3d075bd874e15daed320f86c95a4aeb0f8d5f43617487be",
+    "apps/server/integration/upload_test.go": "c4b6ba08d62937496660516ec17b4ea9a44315d4585617ccc01457f4dca8709e",
+    "apps/server/integration/workout_activities_test.go": "a5b02e93ecb40b7b1048b8a8d156ead810578aa4e916e15fbc3f81aa5b766fe6",
+    "apps/server/integration/workout_bundle_test.go": "d898941bbae3ff7d39530ba43ab7882bb4c460afaf3331a1139c58915d963915",
+    "apps/server/integration/workout_detail_test.go": "ebb7bd071132b39ca2a700667dc670d2e9dc275c60e3f9d927fd43e1d4015b52",
+    "apps/server/integration/workout_integrity_test.go": "dae38d0121680d8a0cb273f6d1a857acf89fa1ea4c6a29043b465013318d2bff",
+    "apps/server/integration/workout_package_scale_test.go": "87be6be3eb3e0c32186a7242bcfdf585ff534b22b147772cdabf4b9e14589202",
+    "apps/server/integration/workout_package_test.go": "ac88373a573569dd1421b5e7069c5b386a415f3d89ee53f9bd84687d22adfadc",
+    "apps/server/integration/workout_reliability_swift_test.go": "a76c029dfd92ac890011a624aff4dd2b93750aa9e73b1ba4e2fafbd2efcad5db",
+    "apps/server/integration/workout_reliability_test.go": "3132babbc00c9d6dd21ea86f35bf66ed0c30efb8e086f9b7c9448aae988eaeb3",
+    "apps/server/integration/workout_safety_test.go": "60d55094e25f6498c246ecb6b002456e83ad7db7270bcd4bd8a2f3e214aa0af3",
+    "apps/server/integration/workout_test.go": "eefd9abd5bfd10c5714244d4df8aebacd1257a1c88b9088229e088cf5acf091d",
+    "apps/server/internal/admin/operations.go": "3c1a815d1db36795003f7824cd17105a52abf2d2f3ea0f22b480fda36c217b70",
+    "apps/server/internal/httpapi/server.go": "2057c905cd723d4399b67a935679c0333c2b5c7009cd473f9ce4d8152fdaf2bc",
+    "apps/server/internal/storage/postgres/admission.go": "c208e9d5fe113110b2a89259fffa3758eabdefbc53e0a38a1d6b1808f8d67133",
+    "apps/server/internal/storage/postgres/analysis_input.go": "4e5833d30e9c20364cc321b3c05567e28ff4f1649becd190db23621f4ba1c652",
+    "apps/server/internal/storage/postgres/analysis_publish.go": "d025dfb35ab4ec6e2d9ee715aa7fe894c77ce31acb221711830eef186229037b",
+    "apps/server/internal/storage/postgres/analysis_query.go": "61875ae847d57ee4139bfd1ea9788e584b3dd3246fa4b0420d20a1e368136f32",
+    "apps/server/internal/storage/postgres/associations.go": "62351aaed9df34039a4130e18d8c19e8c0d974d724a7eb154ab0bc2e2aaf42b5",
+    "apps/server/internal/storage/postgres/bundle_integrity.go": "7d97031bd79000d36cc934422620ad267d05046e6a8008df0881c84f3a273cf4",
+    "apps/server/internal/storage/postgres/changes.go": "fbf2dbef89543f635d1b8a0b2b34393baa1eb52ce09f70c85a29fbfa9986898f",
+    "apps/server/internal/storage/postgres/dbgen/core.sql.go": "7a523d7220e43ecd06e70a80d3e5b57c88d38131abb950cbce511a58b5ea96c0",
+    "apps/server/internal/storage/postgres/dbgen/db.go": "84f598c6b75bfcb2abf4c6fbe856276271ccb1899028c767b01f05ad1f13cd87",
+    "apps/server/internal/storage/postgres/dbgen/models.go": "26094de2b9fd0a1c98f3a45630db54be3bafa28b71d3fc0c407b1777a0dba488",
+    "apps/server/internal/storage/postgres/enrichments.go": "bd18e9c9069d3c8fa390ec99fe32a39e95cc73b3b59195f524e8882dd00cdaf7",
+    "apps/server/internal/storage/postgres/jobs.go": "c40ae7f7beb5a5571c26621607f8c753945b44a871ac82a2e7d38d589a59c301",
+    "apps/server/internal/storage/postgres/pages.go": "efe338d58281d82fb7cac21a6d41c15f6d62f968d6505779e760721522856fd3",
+    "apps/server/internal/storage/postgres/pool_test.go": "865e7c165a260fa6d9f5794e26cc07ada0b04c5440ab5acba9148742b3250b0a",
+    "apps/server/internal/storage/postgres/product_read.go": "00d6e03d1ee82c1f8e348318cf46f0f8fd0a2a3a03706f56e0accfee3a05720b",
+    "apps/server/internal/storage/postgres/routes.go": "d20cd3168ec641a0b92d5a14727001d70022d9383f88e1b8e7750320ab939628",
+    "apps/server/internal/storage/postgres/routes_test.go": "5eb7cadf93c0efefcd9f00068716ab306a801413ce5a437458de75ba7ac3b209",
+    "apps/server/internal/storage/postgres/runtime_role.go": "681b211bfa6c08b94c89666c87278001f087d710335e461932d15c6c5f6eeafe",
+    "apps/server/internal/storage/postgres/sample_batch.go": "c57878a16ef50fcbc55247562e61cdc9e08ad6b0b6b76b4fca114935816e933b",
+    "apps/server/internal/storage/postgres/series.go": "584ec8fa23a85d88d855e51ba08697ac6bbeec472bdfb38a3408bee6e7c12db5",
+    "apps/server/internal/storage/postgres/store.go": "fdaa83c3365a33236972e074c71a49a912e287579ba5f502448b576fb45d6a11",
+    "apps/server/internal/storage/postgres/training_execution.go": "6d7d4fdd9d2081375cfefd8891d106052f97ba8afdab0e4add51f059fb790a67",
+    "apps/server/internal/storage/postgres/training_input.go": "42b3a668e68c60a49dbec628ffa397b05a3f3d2a53afd2ed6bbf80442da656d2",
+    "apps/server/internal/storage/postgres/training_publish.go": "91ac254ba473d10570d9710f6bcae9e295fd699fd4431fe5db8870796f8726b1",
+    "apps/server/internal/storage/postgres/training_read.go": "ec97adecdb6e5d70872a465db1031fbd25577ac200c3c48fccbe2ed00e44f452",
+    "apps/server/internal/storage/postgres/training_store.go": "7dd78a2dc938708fc87426b8b62c5113613545da485f7d7052d5cf211dfa2edf",
+    "apps/server/internal/storage/postgres/training_window_test.go": "0d5d6c738b131222dfa17900e53d729828936a75a555f093689ab31c986efc73",
+    "apps/server/internal/storage/postgres/uploads.go": "b67e4a15776491d430e6dc754047c733bac17d8ed27458c54920c20874c39a9f",
+    "apps/server/internal/storage/postgres/workout_bundles.go": "859d2c8838edd93c6a1122ed9ab05588478b4f30b4cca076e99e0aebe46913aa",
+    "apps/server/internal/storage/postgres/workout_detail.go": "669dc6b5e049c267ead09572c4581ca54ed6445cf6d826dc03f7bf9880ecbd96",
+    "apps/server/internal/storage/postgres/workout_detail_test.go": "4ff28c42c3e9599477e5b93c4db82f07d787ada607fb39cf2982db81902f80c9",
+    "apps/server/internal/storage/postgres/workout_packages.go": "a167730730de580a40bce022e5e041b82d029b644f012f74439677cea41a54a8",
+    "apps/server/internal/storage/postgres/workouts.go": "aad3edb19ff043de3cc0ceaff870e63ca8f9c80f9a65604591b2db0e91e602a3",
+    "apps/server/internal/syncing/admission.go": "9e3a858bed8c3ad19229be165e48586914e919a70b00d45e44c0da13a3e99798",
+    "apps/server/internal/syncing/association.go": "2bb17d65a1d688a2d20489665eb23b4ac9b712ede2486117c51bcf9b43c9fb0f",
+    "apps/server/internal/syncing/bundle_decode.go": "486b689981cdcdb8a56aebe4fc115db5ebb1ed0967fb52590e653f3f6786e0ff",
+    "apps/server/internal/syncing/bundle_decode_test.go": "c85430bc36ba511471988b02f1af04e56688834b0c14f5fccacc893083bf3cba",
+    "apps/server/internal/syncing/bundle_integrity_test.go": "98d6f3407bd4f810724fec1236cc84e471c261f400182547cc24ef3685d9c7a8",
+    "apps/server/internal/syncing/bundle_observation.go": "82380ca4ea439f6cc3ec68a18bbc7858b6c9e32605376bc5f9daa433ab477893",
+    "apps/server/internal/syncing/changes.go": "1250e7e17904fd8f94213e0b4a8e5d2ae4a5aeaac742c12465ac2e4c1421b240",
+    "apps/server/internal/syncing/enrichment.go": "b7a513bc89e3e2b33d4abd4fe540737dca3997b33caaa0e4dbbd4dbeb92017af",
+    "apps/server/internal/syncing/page_test.go": "7892b33e1ce215aebe968d3f5981cc04413e99ea5734e7854f478a02bce63ea8",
+    "apps/server/internal/syncing/protocol.go": "f329453e4f58740ca1a238a2e2a30bbb0a4531bba049621ac3a2f4ad53cddc60",
+    "apps/server/internal/syncing/protocol_test.go": "b01433a1e948a8038b893046b640e66466dbc3ebc4b533628ce25ff0819acb19",
+    "apps/server/internal/syncing/route.go": "5cade2cacee3446ef2ba77ca04f595d30b55212bbb99634dc0926e5eafacd44b",
+    "apps/server/internal/syncing/route_test.go": "ea1b63a424d3068b30e28086c3db32c86036db443b550eb73fc5e7b2ef85342c",
+    "apps/server/internal/syncing/series.go": "4ef60a86757d6196d26fedb94ae37471e6da7be31335f32aadac32b993f06cf4",
+    "apps/server/internal/syncing/series_test.go": "252bcfc3425ee2668351fccd9e4562f4d2151fe258d2689ad204107ae945e307",
+    "apps/server/internal/syncing/store.go": "432a2b3540e55cc89f75a3cf18283c87d971ce420d4981562de072ac3e885ba0",
+    "apps/server/internal/syncing/workout.go": "d5248e1bc7fb57bc350883155d84ae01215428c0a587574dabf30b5d76c36593",
+    "apps/server/internal/syncing/workout_activities_test.go": "0d073e6d8da93aa33e9caa5ac645ba21b4744d83e1802ef36e7d9e8e3618c931",
+    "apps/server/internal/syncing/workout_bundle.go": "101cee0ac78ebfbffe413b1980406b66e6cc7084003a420c3ac8f0e8d5a5186f",
+    "apps/server/internal/syncing/workout_bundle_test.go": "24fa47ba0be75dd37d5b95f6a9b23b4fdd41f24468655e5fcca327577acc1633",
+    "apps/server/internal/syncing/workout_delete.go": "12c7e5822c08a8bf671c83b28781281e5f1df2b2279e288824b825a432dfbf05",
+    "apps/server/internal/syncing/workout_package.go": "d98945463c5104c8146d3c3a4f662e0232a7bbbf027076aac8bf045501cd4528",
+    "apps/server/internal/syncing/workout_package_fixture_test.go": "ad7dae0f105845e396fc0683dacbbaa2aa8aea25c926d04bda27ff6718af4914",
+    "apps/server/internal/syncing/workout_package_test.go": "26f0c397d581baefb4b916adb655a78dbef1dda48466a83596a9f7517eeb15c7",
+    "apps/server/internal/syncing/workout_test.go": "cc963f078199899d051cc21648d313965f7e163ddb1d78aa7bb8db40c924b0e1",
+    "apps/server/migrations/00016_route_timestamp_envelope.sql": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8",
+    "apps/server/migrations/checksums.json": "26c42cd42c3137fe5b863c9b6d7829be19b0187171092170c7b23e2b1454e487",
+    "contracts/CHANGELOG.md": "e37af66d11fdf4ac3bd99582d4fcb42c42155e52f21d688caf2d707f37506bcd",
+    "contracts/openapi-v2.yaml": "4130a3f4813320a27ebbfca8369ad13bd7bcd614754a69f34ea77c7949b1cc8f",
+    "contracts/sync-v3.md": "0b94b1b7f66c0e7d4bf36527ca8eb050d0d2c8963af5beb22d5a30c818c31323",
+    "deploy/postgres/roles.sql": "18e09734f4fbbaba179c4cf24f32a44eaa2b7914ceb8313322830531f5ab3c15",
+    "docs/ARCHITECTURE.md": "96a72881c3b55069e33b0a3a2130b919dbbc1ad70d9be711ef1ff9f535d1a254",
+    "docs/IMPLEMENTATION.md": "8a8aa9b5e07f039d1bb35ad046d04a5e1be4cd16d4822dcde2c9d332d1474549",
+    "docs/audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md": "761f1feade3af7269cf15cf9c826895099e72c940a0b8173c538fcf5669c9001",
+    "docs/evidence/rqrun-phase3-device-2026-11-01.json": "d559899d0f9b34e1815bb2688b06aa8590fe1f66098832fdb143fe182807073a",
+    "docs/evidence/rqrun-phase3-workspace-baseline.json": "c82fa8869d6c48876c423bdbbf36ff873aed7fc792c85d79af5958a1b9cd0934",
+    "ios/RAI/App/Assets.xcassets/AppIcon.appiconset/AppIcon.png": "fe529cd36280c9270ec2c3c6a3cfd47779433ff2f7c38d820da8276d2f67dc4e",
+    "ios/RAI/App/Assets.xcassets/AppIcon.appiconset/Contents.json": "3725fefca1cc2f15dcff52b03b7db47884c8141e5be1d4e559367b76117f8c48",
+    "ios/RAI/App/BackgroundTransfers.swift": "25e244d73a1c2034f8d38cfa3c44971713575a99dffdcdb2af8cc36ddbd5fb02",
+    "ios/RAI/App/ClientConfiguration.swift": "f82b90abe0ee914eb0bfa1a7347e694366c36b4b965695618fb036060dcf5cf3",
+    "ios/RAI/App/ExecutionView.swift": "e64850cb8253279481067c0f809027db92ea2cd2e203a179f5521e837a46779f",
+    "ios/RAI/App/HealthKitClient.swift": "e5dc5fa87eeebe7ffe44466ea0aabae2f5ddff050c23e8a19c611d67d0573956",
+    "ios/RAI/App/ProductModel.swift": "94ff526387a69cffe1a93e881632c7cc664ab002d9350cc22a72f9e2f45139ee",
+    "ios/RAI/App/ProductViews.swift": "9f6f6f19af2cc6c95141a2607fb3898fe2362306a6e48b6825eb38eb1a8cb590",
+    "ios/RAI/App/RAIApp.swift": "2870c650db4c9261510a2f88916bd379681a32b6f729395c75d0424030b9d1ee",
+    "ios/RAI/App/RAITheme.swift": "06e666e8dd11f4ca64c0f0001d3ea27930cff52076e1c3c0addb73a87bba5cbc",
+    "ios/RAI/App/Resources/TrainingHero.jpg": "33d2c9ae20bc5c408152323b2db71a1d69e05678a41dc0bb06a8134840617389",
+    "ios/RAI/App/SyncCoordinator.swift": "a30b92e1ad681c8145016b9dba0f5200a4ee4050c96ac2b493b53d5a786a733b",
+    "ios/RAI/App/TrainingViews.swift": "6ad491e01a63c7e63cc247cd81f86b5b6f1483b7007ca7563eb41e1d98151a85",
+    "ios/RAI/App/WorkoutDetailView.swift": "e2e1481adffc1d41163551650d692b5717ec90f91df6bea9451b368c2dcb9883",
+    "ios/RAI/AppTests/NormalizerTests.swift": "d523e2610f7574975e48795b8c56737e3ef47509f9bbc743c0e4a93409e2b3c3",
+    "ios/RAI/Config/RAI.entitlements": "2a0cbe6d42702b335b1b82b778223d6b820e86358bded202a5d0267e3f2eefd8",
+    "ios/RAI/Sources/SyncCore/BatchBuilder.swift": "1618208d5475cdc281470c1289b5f46e829746c42a98753e1db6cefc52f4b034",
+    "ios/RAI/Sources/SyncCore/HealthDiscovery.swift": "1809de0c2f1288f63ab314a3d06756346e84add875309e8189cee5f2a1aabc33",
+    "ios/RAI/Sources/SyncCore/HealthIntegrity.swift": "30d5cd60329284d7b203c40d2c5d9ee7c57da94e742eefa8be801d26264bc581",
+    "ios/RAI/Sources/SyncCore/OutboxStore.swift": "bbe639ed8447844bb38b6fd079d504aa870b57e523cae49069b1d03283278755",
+    "ios/RAI/Sources/SyncCore/RAIAPIClient.swift": "13a3ad930ec0f9bb715980af86a0f45c9ffe5ed6c0054ce7a70a2f09f6a147fa",
+    "ios/RAI/Sources/SyncCore/RouteBuilder.swift": "7acc3f80f2aa6d282d20625cc822beb6fb489689f7b880d44d34abafc7cd4265",
+    "ios/RAI/Sources/SyncCore/Supplements.swift": "bf5d48266fcb15b37136e9de7f2c50004e52b66bc09372b8fca9045778adb0b0",
+    "ios/RAI/Sources/SyncCore/SyncMetrics.swift": "416f1044f38b4bc7eacf2fb345b0b55dd0d64e9a3d841b081933e69634854b5b",
+    "ios/RAI/Sources/SyncCore/Wire.swift": "75b6a8ab85595c79809b109f977c9b8c01bb61819dfadea5f9eb5332adc495ff",
+    "ios/RAI/Sources/SyncCore/WorkoutBundle.swift": "c4bf5cef9937040f85a2d8b94b9abeb818493ca88b031554a961cb86c87db040",
+    "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift": "47e37798c475f232d2db63d6dd3168fbc9da9ad422dcf3fd7ddb77eb48880bd8",
+    "ios/RAI/Sources/SyncCore/WorkoutSync.swift": "7fd6c5ab702403fa836d20bb7167e0dcc9255f9d39ff34f9cf4f56314bb1f2a1",
+    "ios/RAI/Tests/SyncCoreTests/APITests.swift": "b2a3559f592df1a6e6620ff3723744379793a110560a47e63cdec7f0a1f62f8f",
+    "ios/RAI/Tests/SyncCoreTests/Fixtures/envelope.canonical.json": "bf6eeae8b3eeea73833d55bc91d554e7152e6863fd182f9d69d03e1fc98d33fa",
+    "ios/RAI/Tests/SyncCoreTests/Fixtures/page-manifest.json": "4f9db6f452f99e450ecd00e4b11d6455b3ac2c986629660e065aac5f5ca28f6c",
+    "ios/RAI/Tests/SyncCoreTests/Fixtures/route-vectors.json": "b1953663733965ae08d3f5713541648a5d609f06a819fa349faddbcb5455d3b1",
+    "ios/RAI/Tests/SyncCoreTests/GarbageCollectionTests.swift": "0eea0461153ee710a7dfea42490aa960c952a32c5fb8d2728cf4923a109294fd",
+    "ios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift": "3f9bc59407afb1c37cbf9a5abea49ceae4e308b8287ba77b10b71b8afdce437c",
+    "ios/RAI/Tests/SyncCoreTests/HealthIntegrityTests.swift": "033e3b0948a31c7afcde160cc1a6a580e49965aed9d2f326c52362edd1bea6d4",
+    "ios/RAI/Tests/SyncCoreTests/RecoveryBoundaryTests.swift": "d8f5ae81f6fc6ab3db34bf6f3e187dca7ea589f9ab527f06339fafef9d60e320",
+    "ios/RAI/Tests/SyncCoreTests/SyncCoreTests.swift": "6d705cad8bac74edf5e160c1c03e29c312fca3ae7ae9aa809962eaa29d18959c",
+    "ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift": "17eaf3ac33fc516dd7bba889d36c39375b550cd3468234be5bc15cc659542681",
+    "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift": "fcea5cd45bdd59be90716064d8f75252fddd8d47eabc0028f3aeb3d053e22319",
+    "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift": "3ea9bc4f7f76137b523bd3dd9d52071c21e943cb575a67ac19579de4f419f58d",
+    "ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift": "3e652b27a325ec2460a2e0f4b9620f5ceebdac3845efa2501b6225a7ddbd563f",
+    "ios/RAI/Tools/SyncProbe/Probe.swift": "4d2197af275de4d92db7767cc9a8a6c47b7b785dad2ef7acc1dcbc945fa603f4",
+    "scripts/rai-backup.py": "c79cc5f6ea6a3c17b2d2f9cfe544b821a04321b69eeffec28671070f9d9a64d2",
+    "scripts/rai-restore.py": "e271a0296f3ce0f45057eef15138da72db07226cb93346229e19300569ca674d",
+    "scripts/test-monthly-restore.sh": "e03a77ccf6852ca457c04389eae48800a07f52c80c7e634fd96fae5a29b2f3a1"
+  },
+  "logs": {
+    "docs/evidence/rqrun-phase3-logs/all.log": {
+      "sha256": "b6bde51f4914b58a5591526d996cd43ff53404a3a1106bd552921937cb97079d",
+      "bytes": 961,
+      "kind": "full synthetic test log"
+    },
+    "docs/evidence/rqrun-phase3-logs/app-tests-result.log": {
+      "sha256": "b3d28359e66cad71e9909c96be9e7874fcc78ab88eb0f10c7fc3cbd5665e4033",
+      "bytes": 5598,
+      "kind": "test/build status excerpt; full build log remained temporary"
+    },
+    "docs/evidence/rqrun-phase3-logs/boundaries.log": {
+      "sha256": "4b1d722d2981eb06ed7b4cb06fcebf79765cc778769a99dacf9475986c5d1c4d",
+      "bytes": 215,
+      "kind": "full synthetic test log"
+    },
+    "docs/evidence/rqrun-phase3-logs/debug-result.log": {
+      "sha256": "3144fff8b32af1ef1bea4d15edb9c066c2f84da91ecacf049ab13d6cf64de4da",
+      "bytes": 22,
+      "kind": "test/build status excerpt; full build log remained temporary"
+    },
+    "docs/evidence/rqrun-phase3-logs/openapi.log": {
+      "sha256": "07c6f059cebd530cce4178943c21c64eb301a2fb4d2a748ade7d87186d6ecbd4",
+      "bytes": 28748,
+      "kind": "full synthetic test log"
+    },
+    "docs/evidence/rqrun-phase3-logs/race.log": {
+      "sha256": "6fa46491e6f60aa489fc126561264f09157c4c509bf6266b451f211e9b685596",
+      "bytes": 567,
+      "kind": "full synthetic test log"
+    },
+    "docs/evidence/rqrun-phase3-logs/release-result.log": {
+      "sha256": "3144fff8b32af1ef1bea4d15edb9c066c2f84da91ecacf049ab13d6cf64de4da",
+      "bytes": 22,
+      "kind": "test/build status excerpt; full build log remained temporary"
+    },
+    "docs/evidence/rqrun-phase3-logs/signed-result.log": {
+      "sha256": "3144fff8b32af1ef1bea4d15edb9c066c2f84da91ecacf049ab13d6cf64de4da",
+      "bytes": 22,
+      "kind": "test/build status excerpt; full build log remained temporary"
+    },
+    "docs/evidence/rqrun-phase3-logs/swift.log": {
+      "sha256": "d443ae7b7a48e2f978d608940fc482d1309233dd7c8da6c85d00475752555e5b",
+      "bytes": 24529,
+      "kind": "full synthetic test log"
+    },
+    "docs/evidence/rqrun-phase3-logs/targeted-postgres.log": {
+      "sha256": "73724f1aca92bf8fab1dc3bbdb2f73d2b8a0b193299c155a44ebe739ca9a85e8",
+      "bytes": 2991,
+      "kind": "full synthetic test log"
+    },
+    "docs/evidence/rqrun-phase3-logs/unit.log": {
+      "sha256": "c4fc6eb465a1f3c99e4ff5f2b52ad6a81af83e5bb8b40fb29a1c383f5cfbc44d",
+      "bytes": 567,
+      "kind": "full synthetic test log"
+    },
+    "docs/evidence/rqrun-phase3-logs/vet-tags.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "kind": "full synthetic test log"
+    },
+    "docs/evidence/rqrun-phase3-logs/vet.log": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "kind": "full synthetic test log"
+    }
+  }
+}

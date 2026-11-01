@@ -38,7 +38,7 @@ scripts/p7-restore.sh /absolute/backup-dir exact-isolated-container /separate/pr
 ```
 
 3. 脚本先完整校验/解密，再 `pg_restore --role=rai_owner --single-transaction --exit-on-error --no-owner --no-acl`。这步只证明SQL恢复；`pg_restore --list`不算验收。FK在恢复时实际建立和验证。
-4. 在恢复实例执行 `roles.sql`、`runtime-grants.sql`，运行 `rai ops verify`；它在read-only repeatable-read快照中按PK遍历每张表，计算计数与SHA256，核验schema13、validated FK、receipt/stream连续水位、删除屏障、published run与generation、Base/Effective/override关系。对静止的合成源与目标逐表精确比较；生产备份期间有写入时，不能拿另一个时刻的源计数直接判失败，应使用同一导出快照或业务不变量验证。
+4. 在恢复实例执行 `roles.sql`、`runtime-grants.sql`，运行 `rai ops verify`；它在read-only repeatable-read快照中按PK遍历每张表，计算计数与SHA256，核验schema16、validated FK、receipt/stream连续水位、删除屏障、published run与generation、Base/Effective/override关系。对静止的合成源与目标逐表精确比较；生产备份期间有写入时，不能拿另一个时刻的源计数直接判失败，应使用同一导出快照或业务不变量验证。
 5. API使用runtime角色及TLS启动并通过readiness；查询原batch receipt、原override command、Effective、frozen execution、feedback；旧删除UUID重放须suppressed。确认queued/running lease状态保留。旧源Worker必须与实际入口隔离，避免操作错误；恢复库内新Worker按真实lease到期恢复，不能直接把所有job改succeeded或删除。
 6. 记录从准备目标、解密、SQL恢复、核验、API smoke到可用的墙钟时间及数据量；按数据量解释，不能把小库恢复观测宣传为生产RTO。
 

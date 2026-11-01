@@ -1,0 +1,266 @@
+{
+  "schema": "rai.phase3.device.evidence/v1",
+  "scope": "user_designated_workout_only",
+  "result": "PASS_SINGLE_WORKOUT_E2E",
+  "device": {
+    "bundleSHA256": "2c7ae413f32026f9f2c23121365f3d9d7ecf736c4381dd89a39f5f6f19bd2a44",
+    "coverage": {
+      "HKQuantityTypeIdentifierActiveEnergyBurned": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 693,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierBasalEnergyBurned": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 694,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierDistanceWalkingRunning": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 704,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierHeartRate": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 349,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningGroundContactTime": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 322,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningPower": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 667,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningSpeed": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 695,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningStrideLength": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 309,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningVerticalOscillation": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 325,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierStepCount": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 706,
+        "state": "complete"
+      },
+      "cadence": {
+        "localPersisted": true,
+        "queryCompleted": false,
+        "sampleCount": 0,
+        "state": "unsupported"
+      },
+      "elevation_sample": {
+        "localPersisted": true,
+        "queryCompleted": false,
+        "sampleCount": 0,
+        "state": "unsupported"
+      },
+      "metadata": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 6,
+        "state": "complete"
+      },
+      "route": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 1768,
+        "state": "complete"
+      },
+      "route:e583025051c1821bd73618065f0ed2445a715e36bd1a490aa910bfe7d4cfda98": {
+        "expectedCount": 1768,
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 1768,
+        "state": "complete"
+      },
+      "series:HKQuantityTypeIdentifierActiveEnergyBurned": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierBasalEnergyBurned": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierDistanceWalkingRunning": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierHeartRate": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningGroundContactTime": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningPower": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningSpeed": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningStrideLength": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningVerticalOscillation": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierStepCount": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "workout": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 1,
+        "state": "complete"
+      }
+    },
+    "device": "iPhone 12 Pro Max",
+    "discoveryEventCount": 5466,
+    "independentAnchors": 12,
+    "metadataKeys": [
+      "HKAverageMETs",
+      "HKElevationAscended",
+      "HKIndoorWorkout",
+      "HKTimeZone",
+      "HKWeatherHumidity",
+      "HKWeatherTemperature"
+    ],
+    "noPendingDiscoveryAfterACK": true,
+    "noSpuriousFactGenerationDuringAssembly": true,
+    "outOfScopeAnchors": 0,
+    "realDevice": true,
+    "result": "ACKNOWLEDGED",
+    "routeCaptures": [
+      {
+        "capturedPoints": 1768,
+        "chunkCount": 1,
+        "completed": true,
+        "declaredPoints": 1768,
+        "routeIDHash": "e583025051c1821bd73618065f0ed2445a715e36bd1a490aa910bfe7d4cfda98",
+        "sourceManifestSHA256": "af054182ed15a0551542f3af13a84c045635c01189ad5795ee47e9cc22c9957b"
+      }
+    ],
+    "scope": "user_designated_workout_only",
+    "sourceClassification": "apple_watch",
+    "sourceEvidence": {
+      "appleHealthDeviceNamespace": true,
+      "deviceNamespaceUUID": true,
+      "manufacturer": "Apple Inc.",
+      "model": "Watch",
+      "productType": "Watch8,3"
+    },
+    "sourceFieldsPresent": {
+      "device": true,
+      "os": true,
+      "productType": true,
+      "version": true
+    },
+    "stage": "single_workout_upload",
+    "unchangedReadCreatesNoWork": true,
+    "uploadAcknowledged": true,
+    "workoutIDHash": "c5c0c483742674f6a35e7d2ff11bc85459b887f90b14052bb929abcd505baa78",
+    "healthValuesInEvidence": false,
+    "gpsCoordinatesInEvidence": false
+  },
+  "isolatedPostgreSQL": {
+    "schemaVersion": 16,
+    "workouts": 1,
+    "samples": 5464,
+    "sampleAssociations": 5464,
+    "imports": 1,
+    "bundleSHA256": "2c7ae413f32026f9f2c23121365f3d9d7ecf736c4381dd89a39f5f6f19bd2a44",
+    "bundleSampleCount": 5464,
+    "bundleRoutePointCount": 1768,
+    "routes": [
+      {
+        "routeIDHash": "e583025051c1821bd73618065f0ed2445a715e36bd1a490aa910bfe7d4cfda98",
+        "expectedPoints": 1768,
+        "sealedPoints": 1768,
+        "sealed": true,
+        "expectedChunks": 1,
+        "manifestSHA256": "af054182ed15a0551542f3af13a84c045635c01189ad5795ee47e9cc22c9957b",
+        "payloadManifestSHA256": "af054182ed15a0551542f3af13a84c045635c01189ad5795ee47e9cc22c9957b",
+        "projectionPoints": 1768,
+        "chunkPoints": 1768,
+        "chunkOrdinals": [
+          0
+        ],
+        "projectionMatchesChunks": true
+      }
+    ],
+    "durability": {
+      "fsync": "on",
+      "fullPageWrites": "on",
+      "synchronousCommit": "on",
+      "dataChecksums": "on",
+      "tcpDisabled": true
+    }
+  },
+  "comparison": "PASS_COUNTS_SEQUENCE_PROJECTION_MANIFEST_AND_BUNDLE_HASH",
+  "notVerified": [
+    "fresh_watch_workout_creation",
+    "real_background_delivery",
+    "mid_query_process_kill",
+    "network_disconnect_recovery",
+    "real_healthkit_deletion",
+    "real_ack_loss",
+    "physical_power_loss"
+  ],
+  "cleanup": {
+    "isolatedAPIStopped": true,
+    "isolatedWorkerStopped": true,
+    "postgresClusterStoppedAndRemoved": true,
+    "localEphemeralCredentialsRemoved": true,
+    "deviceOriginalOutboxPreserved": true,
+    "productionTouched": false
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "phase": "RQrun Phase 1 — RQ-001 / RQ-002 / RQ-003",
+  "verified_at": "2026-11-01T09:59:16+08:00",
+  "head": "aeb769c82f6af6c47d7cac82874f48ff37f635fc",
+  "branch": "main",
+  "initial_worktree": {
+    "tracked_modified": 45,
+    "untracked_files": 21,
+    "staged_changes": false
+  },
+  "worktree_protection": {
+    "deleted_original_files": [],
+    "changed_original_files": [
+      "apps/server/integration/p7_security_test.go",
+      "apps/server/integration/workout_bundle_test.go",
+      "apps/server/internal/storage/postgres/workout_bundles.go",
+      "apps/server/internal/syncing/workout_bundle.go",
+      "apps/server/internal/syncing/workout_delete.go",
+      "contracts/CHANGELOG.md",
+      "contracts/openapi-v2.yaml",
+      "contracts/sync-v3.md",
+      "docs/IMPLEMENTATION.md",
+      "ios/RAI/App/SyncCoordinator.swift",
+      "ios/RAI/Sources/SyncCore/RAIAPIClient.swift",
+      "ios/RAI/Sources/SyncCore/WorkoutBundle.swift",
+      "ios/RAI/Tests/SyncCoreTests/APITests.swift"
+    ],
+    "unchanged_outside_phase_scope": true,
+    "new_files": [
+      "apps/server/integration/workout_safety_test.go",
+      "docs/RQrun_PHASE1_RESULT.md",
+      "docs/evidence/rqrun-phase1-2026-11-01.json"
+    ],
+    "commit_or_push": false,
+    "deployment_or_real_data_migration": false
+  },
+  "schema": {
+    "version": 15,
+    "new_migration": false,
+    "all_migration_checksums_valid": true,
+    "unchanged_files_sha256": {
+      "apps/server/migrations/00014_workout_imports.sql": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8",
+      "apps/server/migrations/00015_workout_import_history.sql": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6",
+      "apps/server/migrations/checksums.json": "6e7f0d507e771a739758be22295147f7e3872dcc158efd4e850fdff39b454e35",
+      "RAI-Go-PostgreSQL架构重设计与实施方案.md": "6951b1d938133a964cb06d28c3aa744ad05121f25da770e184041211df53e3de"
+    }
+  },
+  "database": {
+    "version": "18.6 (Postgres.app)",
+    "isolated_new_cluster": true,
+    "synthetic_only": true,
+    "fsync": true,
+    "full_page_writes": true,
+    "synchronous_commit": true,
+    "data_checksums": true,
+    "tcp_listener": false,
+    "leftover_test_databases": 0,
+    "test_cluster_removed": true
+  },
+  "checks": [
+    {
+      "command": "go test -race -count=1 ./...",
+      "result": "PASS"
+    },
+    {
+      "command": "go vet ./...",
+      "result": "PASS"
+    },
+    {
+      "command": "go vet -tags=integration ./...",
+      "result": "PASS"
+    },
+    {
+      "command": "go build ./...",
+      "result": "PASS"
+    },
+    {
+      "command": "python3 scripts/check-boundaries.py",
+      "result": "PASS",
+      "online_packages": 249
+    },
+    {
+      "command": "PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...",
+      "result": "PASS",
+      "integration_seconds": 164.383
+    },
+    {
+      "command": "Phase 1 focused PostgreSQL integration (exact selector in RQrun_PHASE1_RESULT.md)",
+      "result": "PASS",
+      "integration_seconds": 8.34
+    },
+    {
+      "command": "swift test",
+      "result": "PASS",
+      "tests": 69,
+      "suites": 8
+    },
+    {
+      "command": "xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -destination generic/platform=iOS -derivedDataPath /tmp/rai-phase1-xcode CODE_SIGNING_ALLOWED=NO build",
+      "result": "PASS",
+      "xcode": "26.6",
+      "device_installation": false
+    },
+    {
+      "command": "npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml",
+      "result": "PASS",
+      "warnings": 31,
+      "baseline_warnings": 31
+    },
+    {
+      "command": "git diff --check; scoped gofmt; migration SHA-256 checks",
+      "result": "PASS"
+    }
+  ],
+  "source_sha256": {
+    "apps/server/internal/storage/postgres/workout_bundles.go": "b11684ab8bc549e6d1a5209ed54c9e9cd32a1514477a9862db66e6f3dfabc1ac",
+    "apps/server/internal/syncing/workout_bundle.go": "8cf24f0abb2028a35fda931650f7744dfe78147deb076052d5629a58408821d8",
+    "apps/server/internal/syncing/workout_delete.go": "12c7e5822c08a8bf671c83b28781281e5f1df2b2279e288824b825a432dfbf05",
+    "apps/server/integration/workout_bundle_test.go": "d898941bbae3ff7d39530ba43ab7882bb4c460afaf3331a1139c58915d963915",
+    "apps/server/integration/workout_safety_test.go": "2e5338c7f954bc39daaac92943c95cca37ff273e14e6c8e39029169de610400a",
+    "apps/server/integration/p7_security_test.go": "ff33cee6767fc032c38b09da02e2dd2a0e644cbf9a93820c873e5205027d56c5",
+    "ios/RAI/App/SyncCoordinator.swift": "e8b2156e7e054ebc5ffa130f32517dae24ab89f20107f220fdec8dd7d40d8c40",
+    "ios/RAI/Sources/SyncCore/RAIAPIClient.swift": "68cce0a8f26a10da15266f42f584ce81c915c8f912481c88e0723702c07df80d",
+    "ios/RAI/Sources/SyncCore/WorkoutBundle.swift": "f5e4468037b0f82aa872858fd686b167ce2d03c6686f1f6a48ff9c3f9f2b0f7d",
+    "ios/RAI/Tests/SyncCoreTests/APITests.swift": "b2a3559f592df1a6e6620ff3723744379793a110560a47e63cdec7f0a1f62f8f"
+  },
+  "logs": {
+    "go_gates": {
+      "path": "/tmp/rai-phase1-go-gates.log",
+      "sha256": "74ef3bfd4b676c457e5e7702780fbf89c47e4340cc72e5f1e51a86107191d030"
+    },
+    "postgres_full": {
+      "path": "/tmp/rai-phase1-full-pg.log",
+      "sha256": "ab9db1f2bbeeaf0a57b118b447a0113e9e31476edd8a35956e1d2cb142b61d8c"
+    },
+    "postgres_focused": {
+      "path": "/tmp/rai-phase1-focused.log",
+      "sha256": "9bd000ecbcbab2bb2fa17eedda53382eb06785d077b4120f596fba91e0fe2d62"
+    },
+    "swift": {
+      "path": "/tmp/rai-phase1-swift.log",
+      "sha256": "30b6adddf2d0df7f3590138ba20ffa9a72f6dde145b69830b2bece8ca6ac6ef4"
+    },
+    "iphoneos_build": {
+      "path": "/tmp/rai-phase1-xcode.log",
+      "sha256": "78e2c1659cf120734088227f6e2c1e71c6ea2c0d5858ee6b39ff921b5d3bf484"
+    },
+    "openapi": {
+      "path": "/tmp/rai-phase1-openapi.log",
+      "sha256": "c25c6f5408a21de54fe7c7973ebfbbe9e0c5cc5e8e00fe378996371a7874bf59"
+    },
+    "openapi_baseline": {
+      "path": "/tmp/rai-phase1-openapi-baseline.log",
+      "sha256": "20f83497ec53afe0e313ae3d7efc58550cc53e93e24478ed18d48af4ae34f13d"
+    }
+  },
+  "not_verified": [
+    "Real iPhone / HealthKit deletion and background/kill/network E2E",
+    "fnOS or production deployment",
+    "Physical power-loss / database-process-crash recovery",
+    "Reliable v3 Sample / Route explicit deletion capture",
+    "Historical incorrect tombstone remediation and backfill"
+  ]
+}

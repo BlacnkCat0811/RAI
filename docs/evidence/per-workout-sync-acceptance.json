@@ -1,0 +1,164 @@
+{
+  "baselineCommit": "aeb769c82f6af6c47d7cac82874f48ff37f635fc",
+  "changedOrAddedFiles": {
+    "apps/server/integration/per_workout_sync_test.go": "c2b0280573a854f1c843b42d4ba2ef5bec37d75701bec973e3304c5eb97e3264",
+    "docs/IMPLEMENTATION.md": "1bedf8dd720d9ccf42fafb517deda12e38fe4698e79c22d0fa2e9a72b9c72075",
+    "docs/V2_PER_WORKOUT_SYNC_AUDIT.md": "3e188424bf63e9c3fe36ccd8894092552e163871d2dfdbcefe64dea5eb2898e1",
+    "docs/V2_PER_WORKOUT_SYNC_RESULT.md": "a56840acd5cbb85451366435e6285e5b8d2466d7e9bb692d45e2c2aa72f4b65d",
+    "ios/RAI/App/HealthKitClient.swift": "67a6fa844e08f5d6c8df97a034ed94911d1cf5435e5b40ef41ec6c60870c9bf5",
+    "ios/RAI/App/ProductModel.swift": "ccc43ed156318de36d9b62e55ca6fed9ad07e944796a6fad122fd1565dca4ecb",
+    "ios/RAI/App/ProductViews.swift": "ff12b8e51c9a3aaaf41b4ac578cbe38512f65c5c5da022021e89937773107899",
+    "ios/RAI/App/RAIApp.swift": "4be8a1e428d31b9d51b9dc4a85263760e85a9b52fc5a24c35f4b165ccbd70bc7",
+    "ios/RAI/App/SyncCoordinator.swift": "d764f75e4fca3b34498fc7dafbff6aae96c80c05c3a4b931a4fd6e64b0747ad2",
+    "ios/RAI/Sources/SyncCore/BatchBuilder.swift": "1618208d5475cdc281470c1289b5f46e829746c42a98753e1db6cefc52f4b034",
+    "ios/RAI/Sources/SyncCore/OutboxStore.swift": "51cb1ba3dd4587ac7998d9c5644dfbe9baae912ac32e222c1edf7bbf75959c9d",
+    "ios/RAI/Sources/SyncCore/WorkoutSync.swift": "2c47cb7ffcbc0c69ba1ade06a720b9912e2edf677520ff4e22f6a263fcc1b755",
+    "ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift": "9ac56b045ad98050fc367a0c870a01c724556564deabc7212bbe6f1d3a8b7985",
+    "ios/RAI/Tools/SyncProbe/Probe.swift": "4d2197af275de4d92db7767cc9a8a6c47b7b785dad2ef7acc1dcbc945fa603f4",
+    "ios/RAI/UITests/ProductUITests.swift": "0b0e3d8b828e7ccaaa9f527e25607bc086959fc9aa828b7384e58bc3c2c0b9e0"
+  },
+  "environment": {
+    "apiImageId": "sha256:00d54e814eb70e347ff732f1d9e4aebacc2a8c159e8dfd7c525d19b19e1a0b5b",
+    "collectorEpochSha256": "4caf9fa37963fdbf4dc82704cc356b7fdde632b7e50114f3af12f8b84533c64e",
+    "database": "rai_v2_perworkout",
+    "datasetSha256": "806a837b755d684f238daee33908b02b49113808ef05193b1b292e5cb4fa6994",
+    "host": "fnOS N100",
+    "note": "fresh isolated database in the existing RAI V2 device-acceptance PostgreSQL cluster; old rai-postgres and rai_v2 dataset untouched",
+    "postgres": "18.6",
+    "schemaVersion": 13,
+    "workerOnline": true
+  },
+  "generatedAt": "2026-10-31T10:37:16.624996+00:00",
+  "go": {
+    "dependencyBoundaries": {
+      "packages": 249,
+      "status": "PASS"
+    },
+    "gofmt": {
+      "status": "PASS"
+    },
+    "integrationRace": {
+      "command": "scripts/test-remote.sh go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...",
+      "seconds": 478.5,
+      "status": "PASS"
+    },
+    "perWorkoutIntegration": {
+      "seconds": 2.896,
+      "status": "PASS",
+      "test": "TestPerWorkoutIndependentStreamsAndIsolation"
+    },
+    "unitRace": {
+      "command": "scripts/test-remote.sh go test -race -count=1 ./...",
+      "status": "PASS"
+    },
+    "vet": {
+      "commands": [
+        "go vet ./...",
+        "go vet -tags=integration ./..."
+      ],
+      "status": "PASS"
+    }
+  },
+  "goProductionChanged": false,
+  "migrationsChanged": false,
+  "newMigrations": [],
+  "noCommitPushDeploy": true,
+  "performance": {
+    "instrumentedTaskMetrics": [
+      "workout_read_ms",
+      "sample_query_ms",
+      "package_build_ms",
+      "workout_upload_ms",
+      "sample_upload_ms",
+      "association_upload_ms",
+      "route_query_ms",
+      "route_upload_ms",
+      "upload_wire_bytes",
+      "workout_sync_ms",
+      "publication_ms"
+    ],
+    "knownRisk": "a real 31-minute run has ~3,800 single-value samples in the historical redacted structure; the existing protocol uses one association request per sample, so default write budgets make per-workout sync much slower than RQrun's single 641 KB request",
+    "realDevicePublicationLatency": "NOT MEASURED",
+    "realDeviceStageTimings": "NOT MEASURED",
+    "realDeviceUploadBytes": "NOT MEASURED"
+  },
+  "realDevice": {
+    "device": "iPhone 12 Pro Max (connected at start; user reported unavailable at wrap-up)",
+    "notSubstitutedBySyntheticOrSimulator": true,
+    "reason": "user stated real-device acceptance could not be performed at this time; no HealthKit authorization, real Workout read, real upload, network fault, app-kill or publication was executed",
+    "status": "NOT_VERIFIED"
+  },
+  "repository": "/Users/tp/rai",
+  "schema": "rai.per-workout-sync.acceptance/v2",
+  "scope": "single-workout independent sync specialty",
+  "swift": {
+    "appUnitTests": {
+      "command": "xcodebuild test -only-testing:RAITests",
+      "destination": "iPhone 17 Pro simulator iOS 26.5",
+      "status": "PASS"
+    },
+    "debugBuild": {
+      "destination": "generic/platform=iOS",
+      "status": "PASS"
+    },
+    "deviceSignedDebugBuild": {
+      "destination": "iPhone 12 Pro Max",
+      "note": "signed build only; not installed/run because user reported real-device acceptance unavailable",
+      "status": "PASS"
+    },
+    "releaseBuild": {
+      "destination": "generic/platform=iOS",
+      "signed": false,
+      "status": "PASS"
+    },
+    "syncCoreTests": {
+      "command": "swift test --scratch-path /tmp/rai-swift-6",
+      "count": 60,
+      "status": "PASS",
+      "suites": 8
+    },
+    "syncScreenUITest": {
+      "command": "xcodebuild test -only-testing:RAIUITests/WorkoutSyncScreenUITests",
+      "seconds": 12.552,
+      "status": "PASS"
+    }
+  },
+  "syntheticProbe": {
+    "databaseCounts": {
+      "associations": 2,
+      "batches": 4,
+      "committed_batches": 4,
+      "failed_jobs": 0,
+      "jobs": 16,
+      "pages": 4,
+      "route_points": 10,
+      "routes": 1,
+      "samples": 2,
+      "sealed_pages": 4,
+      "sealed_routes": 1,
+      "workout_publications": 2,
+      "workout_scopes": 2,
+      "workouts": 2
+    },
+    "mixedWorkoutBatchObserved": false,
+    "mode": "SyncProbe per-workout",
+    "note": "synthetic only; not a real-device result",
+    "status": "PASS",
+    "transport": "Swift SyncCore -> HTTP -> isolated API -> PostgreSQL 18.6",
+    "workoutScopeSha256": [
+      "e3286e8498df4c44188495e4905406ae6ae753b97c0538c2a4e911334ec4bdfe",
+      "9427577a3856761a24f635be5ef6e90754e9404ea375cd80c2945deb9dd368c5"
+    ]
+  },
+  "unverified": [
+    "real iPhone HealthKit authorization and Workout list",
+    "real per-Workout sample/route reads and deletions",
+    "SyncCoordinator.syncWorkout HealthKit adapter execution (compiled and code-reviewed only)",
+    "real network loss / API restart / app kill recovery on device",
+    "real device UI layout, dynamic type and performance",
+    "real P4 publication latency on device",
+    "production default request-budget throughput for thousands of association requests",
+    "sample deletion behavior of predicateForObjects(from:) on real HealthKit"
+  ],
+  "wireContractChanged": false
+}

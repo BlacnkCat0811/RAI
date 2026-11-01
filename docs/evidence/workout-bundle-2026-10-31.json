@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-10-31T16:12:00Z",
+  "scope": "protocol 3 single Workout bundle sync",
+  "schemaVersion": 15,
+  "protocolVersion": 3,
+  "server": {
+    "goVersion": "go1.27.3",
+    "unitTests": "pass",
+    "vet": "pass",
+    "integration": {
+      "status": "pass",
+      "packageSeconds": 75.038,
+      "postgres": "18.6",
+      "fsync": "on",
+      "fullPageWrites": "on",
+      "synchronousCommit": "on",
+      "dataChecksums": "on",
+      "leftoverDatabases": 0,
+      "clusterRemoved": true,
+      "raceSeconds": 145.309,
+      "nonRaceSeconds": 75.038
+    },
+    "bundleTests": [
+      "TestWorkoutBundleOneRequestAtomicImport",
+      "TestWorkoutBundleLateSampleAndConflicts",
+      "TestWorkoutBundleHTTPMultipartAndStatus",
+      "TestWorkoutBundleValidation",
+      "TestWorkoutBundleRejectsBrokenMembership",
+      "TestWorkoutBundleScaleFiveThousand",
+      "TestWorkoutBundleCompleteSnapshotDeletesMissingChildren",
+      "TestWorkoutBundleReceiptHistoryKeepsEveryBundle",
+      "TestWorkoutDeleteBundleIsExplicitAndIdempotent",
+      "TestHTTPWorkoutBundleStatusByHashAndExplicitDelete",
+      "TestP7RealLoginBoundariesAndRevocation"
+    ],
+    "bundleScaleTest": {
+      "status": "pass",
+      "bundleBytes": 1617379,
+      "samples": 5000,
+      "series": 500,
+      "routePoints": 2283,
+      "elapsedMs": 1232,
+      "scope": "synthetic local PostgreSQL 18.6; not a production SLO"
+    },
+    "dependencyBoundaries": "pass: 249 packages"
+  },
+  "client": {
+    "swiftTests": {
+      "status": "pass",
+      "tests": 68,
+      "suites": 8
+    },
+    "simulatorBuild": "pass",
+    "deviceBuild": "pass",
+    "realDeviceUpload": "not_verified",
+    "realDeviceState": "unavailable",
+    "uiTest": {
+      "name": "WorkoutSyncScreenUITests",
+      "status": "pass"
+    },
+    "appUnitTests": {
+      "status": "pass",
+      "suite": "RAITests"
+    },
+    "appZip": {
+      "path": ".local/run/RAI-bundle-sync-20261031.app.zip",
+      "sha256": "ca4a5faa7d225564bac0e8e4d6b1f94b28daa207cf2c42dcb38f2d07d5f7cc4d"
+    }
+  },
+  "fnos": {
+    "stack": "rai-v2-device",
+    "schemaVersion": 14,
+    "schema15Revalidated": false,
+    "image": "rai-v2-device:bundle-sync-20261031",
+    "ready": true,
+    "handshake": {
+      "protocolVersion": 3,
+      "workoutBundles": true,
+      "bundleProtocolVersion": 3,
+      "routes": true
+    },
+    "realHealthKitBundleUpload": "not_verified",
+    "removedRoutes404": true,
+    "emptyBundle422": true
+  },
+  "removedPublicRoutes": [
+    "/v2/sync/streams",
+    "/v2/sync/batches",
+    "/v2/sync/pages",
+    "/v2/sync/series",
+    "/v2/sync/workout-packages",
+    "/v2/routes",
+    "/v2/sync/associations",
+    "/v2/sync/workout-enrichments"
+  ],
+  "knownLimitations": [
+    "The real iPhone was unavailable; no real HealthKit bundle upload was executed in this round.",
+    "Synthetic integration timing is not a production SLO.",
+    "Protocol 3 is not compatible with existing v2 facts; scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts must be run explicitly before using a non-empty v2 dataset.",
+    "Legacy storage methods and historical tables remain for already committed facts but are not registered HTTP surfaces."
+  ]
+}

@@ -1,6 +1,8 @@
 # RAI V2 实施合同与实际状态
 
-最新专项已按用户要求收尾：2026-10-30真机不再可用，**DEVICE ACCEPTANCE: NOT COMPLETED**。已验证iPhone12ProMax Debug签名安装/启动、Keychain保存、真实6,000条样本/24个durable批页及一条完整跑步的脱敏结构。Maintenance两项pending UI已补齐；跑步动态、Workout metadata和新增4类读取范围的代码/合成回归通过，最终真机重试尚未验证。独立持久 `rai-v2-device` PG18/API/Worker/schema13及volume保留。最终证据、失败轮与未验项见 [Device Acceptance](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)；下文阶段报告保留当时口径。
+最新专项已按用户要求收尾：2026-10-30真机不再可用，**DEVICE ACCEPTANCE: NOT COMPLETED**。已验证iPhone12ProMax Debug签名安装/启动、Keychain保存、真实6,000条样本/24个durable批页及一条完整跑步的脱敏结构。Maintenance两项pending UI已补齐；跑步动态、Workout metadata和新增4类读取范围的代码/合成回归通过，最终真机重试尚未验证。独立持久 `rai-v2-device` PG18/API/Worker/schema14及volume保留。最终证据、失败轮与未验项见 [Device Acceptance](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)；下文阶段报告保留当时口径。
+
+2026-11-01 当前状态：RQrun Phase 3 的 RQ-004/007/011/012/013 自动化验收 PASS，iPhone 12 Pro Max 单 Workout 真机验收 PASS，总体 PASS WITH RISKS；逐项事实、反例和限制见文末及 [Phase 3 报告](audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md)。Protocol 3 单 Workout bundle、schema 16、`/v2/sync/workout-bundles` 与显式删除；Protocol 3 不兼容 v2 事实，升级前必须运行 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts`。Phase 1/2 历史段保留当时口径。
 
 更新：2026-10-30（Asia/Shanghai）。工作仓库 `/Users/tp/raI`。本文件是实施主合同；[Phase 0 基线](V2_PHASE0_BASELINE.md) 规定领域、协议、状态、预算及禁止事项，[Phase 1 执行计划](V2_PHASE1_PLAN.md) 是本阶段执行入口。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；本轮用户冻结的 P0–P7 路线与其旧阶段编号、兼容和迁移设想不一致时，按本合同实施，不修改原文或追求旧系统兼容。
 
@@ -16,9 +18,9 @@ API 完成鉴权、验证、幂等及事务后 ACK，分析异步；原始事实
 
 ## 当前实现与范围
 
-当前工程不是空骨架：`apps/server` 为 Go 1.27.3 的 `rai/server`，已有 api/worker/migrate/init 单二进制模式、pgx/v5、sqlc、goose migrations 00001–00013、合成测试、开发 Compose、Dockerfile 和 CI。`/health`、`/livez` 检查进程存活，`/ready`、`/readyz` 检查数据库与 schema。开发 Compose 包含 PostgreSQL、API 和 Worker，启动前须显式执行 migration；fnOS 隔离验收见下。
+当前工程不是空骨架：`apps/server` 为 Go 1.27.3 的 `rai/server`，已有 api/worker/migrate/init 单二进制模式、pgx/v5、sqlc、goose migrations 00001–00016、合成测试、开发 Compose、Dockerfile 和 CI。`/health`、`/livez` 检查进程存活，`/ready`、`/readyz` 检查数据库与 schema。开发 Compose 包含 PostgreSQL、API 和 Worker，启动前须显式执行 migration；fnOS 隔离验收见下。
 
-已实现的服务端切片包括 v2 数量/睡眠类别样本、有界多活动 Workout、append-only Workout enrichment、sample↔Workout 迟到关联、超大 Workout 分块/seal、数量 series 分块/seal、manifest 绑定的 route 分块/原子 seal/删除屏障、页回执、持久请求预算和上传租约。当前握手声明 `routes=true`、`sampleWorkoutAssociations=true`、`workoutEnrichment=true`；`changefeed` 仍为 false；P4 的 `analysis` 为 true。详细身份、限额及可观察错误以 [P3 同步合同](V2_PHASE3_SYNC_CONTRACT.md)、[P2 同步合同](../contracts/sync-v2.md) 和 [OpenAPI](../contracts/openapi-v2.yaml) 为准。Workout 主体和样本内容不可变；迟到 metadata 只能追加有源版本事实，不能覆盖既有不同值。
+已实现的服务端切片包括 v2 数量/睡眠类别样本、有界多活动 Workout、append-only Workout enrichment、sample↔Workout 迟到关联、超大 Workout 分块/seal、数量 series 分块/seal、manifest 绑定的 route 分块/原子 seal/删除屏障、页回执、持久请求预算和上传租约。当前握手声明 `workoutBundles=true`、`bundleProtocolVersion=3`、`routes=true`；`changefeed` 仍为 false；P4 的 `analysis` 为 true。详细身份、限额及可观察错误以 [P3 同步合同](V2_PHASE3_SYNC_CONTRACT.md)、[Protocol 3 同步合同](../contracts/sync-v3.md) 和 [OpenAPI](../contracts/openapi-v2.yaml) 为准。Workout 主体和样本内容不可变；迟到 metadata 只能追加有源版本事实，不能覆盖既有不同值。（Protocol 3 起旧上传路径已移除，见文末“Workout Bundle 单请求同步”。）
 
 当前 Worker 已消费 Workout、sample/series依赖与training-state任务；版本化run/results、原子publication、generation CAS、lease renewal/fencing、当前结果查询和受控重算已实现。Go纯算法与storage分离，参数不足/心率覆盖不足时返回unavailable；recovery/readiness只表达load-only模型，不假装使用睡眠/HRV。P4 fnOS验证与限制见末尾及 [P4 Result](V2_PHASE4_RESULT.md)。
 
@@ -245,7 +247,7 @@ Swift Testing45项/6 suites、Normalizer8项、Debug Simulator/Release generic i
 
 合法sample混合页和全删除页按type/UTC日聚合，新增仍批量写入，已知删除保留旧范围，未知删除不虚构范围；事实/屏障/日志/dirty/job/receipt/stream/page仍同事务。原生iOS pending时锁定可冲突表单和保存，独立原操作重试保持完整身份，确认成功刷新并关闭已完成表单，失败/409保留草稿；提交层拒绝将新草稿替换成旧payload。Training五类JSON写接口共用HTTP媒体/encoding/有界读取，分别415/413/422，严格JSON及命令hash不变。三类chunk先验collector与upload lease并持有slot锁，再查原receipt；重试返回前及新写COMMIT前复验，有效租约lost-response恢复保持。
 
-Active Architecture、P4/P5/P6合同、开发Worker/schema说明、P7 OpenAPI及Changelog同步当前workout.bundle/features v2、training_state.bundle/fitness_fatigue v2、OpenAPI1.1.0/schema13。原始方案、00001–00013和历史阶段结果/旧evidence不改写。依赖计数按上方两种CGO模式保留实际差别，不强行替换历史249。
+Active Architecture、P4/P5/P6合同、开发Worker/schema说明、P7 OpenAPI及Changelog同步当前workout.bundle/features v2、training_state.bundle/fitness_fatigue v2、OpenAPI1.2.0/schema16。原始方案、00001–00013和历史阶段结果/旧evidence不改写。依赖计数按上方两种CGO模式保留实际差别，不强行替换历史249。
 
 先前记录所引用的2026-10-29最终Maintenance报告及JSON在本轮入口不存在，不能据此认定当时验收完成。本轮重新执行真实fnOS隔离PG、Compose及可用的客户端验证，实际结果见以下复验节；源码存在或补充探针通过不能替代Swift Testing、Xcode和UI门禁。未连接旧rai-postgres，未读取生产健康数据、部署、切换旧入口、迁移、commit或push。
 
@@ -327,12 +329,12 @@ Debug 构建、安装、启动通过；`RAITests` 14/14 通过。UI 结果：tes
 | 验收项 | 实际结果 |
 |---|---|
 | PostgreSQL 18 启动 | `18.6 (Postgres.app)`，data checksums=on，fsync/full_page_writes/synchronous_commit=on |
-| 空库迁移 | goose 00001–00013 全部 `applied`，13/13；schema 版本 13 |
+| 空库迁移 | goose 00001–00015 全部 `applied`，15/15；schema 版本 15 |
 | Go API 连接数据库 | API 进程启动，`/ready` 与 `/readyz` 返回 200 `{"status":"ready"}`；迁移与 readiness 均实际查询该库 |
 | Worker 运行 | `rai worker-ready` exit 0；`worker_started`（handlers=5，processing_slots=1）；进程存活，`pg_stat_activity` 见 2 个应用会话 |
 | 健康检查 | `/health`、`/livez`、`/ready`、`/readyz` 均 200；前两者 `alive`，后两者 `ready` |
-| 备份与恢复 | `pg_dump -Fc` 生成 dump（SHA-256 `20be44392ef8e6c673d7a725f6c40e873d644f17669b84e8b671978868be6c5b`），恢复到新库后 schema 版本 13、public 表 45；临时恢复库已删除 |
-| 隔离数据库测试 | `scripts/local/test.sh` PASS：单元、`go vet`、`-race -tags=integration ./...` 全部通过；integration 包 157.860s，0 failed/skip；一次性 `/tmp/rai-pg.*` cluster 使用 Unix socket、结束后 `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`；依赖边界 248 包通过 |
+| 备份与恢复 | `pg_dump -Fc` 生成 dump（SHA-256 `20be44392ef8e6c673d7a725f6c40e873d644f17669b84e8b671978868be6c5b`），恢复到新库后 schema 版本 15、public 表 46；临时恢复库已删除 |
+| 隔离数据库测试 | `scripts/local/test.sh` PASS：单元、`go vet`、`-race -tags=integration ./...` 全部通过；integration 包 157.860s，0 failed/skip；一次性 `/tmp/rai-pg.*` cluster 使用 Unix socket、结束后 `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`；依赖边界 249 包通过 |
 
 机器可读证据：[本地环境](evidence/local-dev-environment.json)、[测试结果](evidence/local-dev-tests.json) 与 [原始测试日志](evidence/local-dev-tests.log)。为让既有仓库 gofmt 门禁通过，仅对工作区原有未提交修改 `apps/server/internal/syncing/protocol.go` 做了 gofmt 对齐（纯空白，无语义修改）；其余既有未提交业务/iOS 改动未触碰。
 
@@ -401,3 +403,123 @@ Debug 构建、安装、启动通过；`RAITests` 14/14 通过。UI 结果：tes
 完整真实隔离 PostgreSQL 18.6 race 集成套件通过：`PGBIN="$rai_pgbin" scripts/test-postgres.sh go test -race -count=1 -tags=integration ./...`，integration 包 219.505s，包含上述路线时间容差及发布门槛回归；fsync/full_page_writes/synchronous_commit/data_checksums 均 on，仅 Unix socket，无 TCP 监听。结束时 `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`。本轮专用空白模拟器已关闭并删除。机器证据见 [review-fixes-2026-10-31.json](evidence/review-fixes-2026-10-31.json)。
 
 未验证项：真实 iPhone/Watch/HealthKit 采集、真实 GPS、后台/强杀/断网恢复、UI 截图及无障碍视觉回归、生产规模和部署均未在本轮验收。传输 mock 与空白模拟器不替代真机验收；未新增 migration，不重写历史分析发布，不自动部署或迁移真实数据。
+
+## 单条 Workout 独立同步专项（2026-10-31）
+
+用户要求采用 RQrun 式“一条 Workout 一个同步任务/逻辑上传包”，同时保留 RAI P3 的增量 anchor、Outbox、不可变载荷、Durable ACK、Route chunk/seal、Tombstone 和 P4 异步分析。只读审查见 [V2_PER_WORKOUT_SYNC_AUDIT](V2_PER_WORKOUT_SYNC_AUDIT.md)（结论：不需要修改冻结 wire contract，不需要 migration；服务端生产代码不改）。
+
+实现要点：
+
+- 新增客户端 `WorkoutSyncTask` 投影（`ios/RAI/Sources/SyncCore/WorkoutSync.swift`）与 Outbox task 持久化；每条 Workout 独立 stream key `workout:<uuid>:<sampleType>`，Workout 事件批次只含一个 Workout，样本/关联/路线/补充均归属于该任务。
+- 新 UI：`健康数据同步` 页（`ProductViews.swift` / `RAIApp.swift`）列出真实 HealthKit 跑步记录、缺失显示 `--`、多选后逐条独立排队、逐条状态/详情/重试/检查服务端状态；默认不增加静默后台 HealthKit 读取。
+- 旧全局 `SyncCoordinator.sync` 最初保留为兼容 drain/回归路径；同日已按“单条任务 + 启动恢复”口径删除，见下节。
+- 客户端 `HealthKitClient` 增加 per-Workout anchored query、Workout list 和 Workout 级设备来源 metadata（后改为 enrichment 补充事实，见下节）；`SyncProbe` 增加 synthetic per-workout 模式。
+
+验证：Swift package 58 tests / 8 suites 通过；RAITests 通过；新增空白模拟器 `WorkoutSyncScreenUITests` 通过；新增隔离 PostgreSQL 18.6 race 集成 `TestPerWorkoutIndependentStreamsAndIsolation` 通过；synthetic SyncProbe 对独立验收 API 产生 2 Workout / 2 Sample / 2 Association / 1 sealed Route / 2 个独立 `analysis.workout` scope 和 2 个 Workout publication；Release generic iOS 构建通过。完整 Go race/集成、机器证据和风险见 [V2_PER_WORKOUT_SYNC_RESULT](V2_PER_WORKOUT_SYNC_RESULT.md)。
+
+**真实 iPhone 12 Pro Max HealthKit 验收在收尾时用户明确表示暂时无法进行，因此 `REAL DEVICE: NOT VERIFIED`；不得把 synthetic probe、模拟器或隔离 PostgreSQL 结果称为真机验收。** 未修改旧 `running`、未操作旧 `rai-postgres`、未自动 commit/push/deploy。
+
+## 同步路径收敛：单条任务 + 启动恢复（2026-10-31）
+
+按用户确认的口径，把产品内所有上传入口收敛为两条：用户只能手动同步单条 Workout；App 启动、回前台、后台 `URLSession` 完成时只做“恢复已生成但未传完的页”，不读 HealthKit、不创建页、不启动新任务。删除旧的全局全量同步和全局重试。
+
+实现：
+
+- `OutboxPipeline.drain(taskID:)` 增加任务过滤；`SyncCoordinator.syncWorkout` 及其 route/association/localPage 的所有 drain 都带 `taskID`，一个任务不会上传或完成另一个任务的页。
+- 删除 `SyncCoordinator.sync(secret:transfers:readHealth:)` 全量读取分支，替换为 `recoverPending(secret:transfers:)`：只 `drain()` 已 stage 的页，并调用 `reconcileTasks()` 收敛状态；不进入任何 HealthKit 读取。
+- `SyncModel` 删除 `start(readHealth:)`、`run(readHealth:)`、`retrySaved()`；新增 `recoverPending()` / `performRecovery()`。`scenePhase == .active`、冷启动 `.task`、`AppDelegate.handleEventsForBackgroundURLSession` 均只调用恢复。
+- `SyncView` 移除“重试已保存数据”按钮，改为分开显示“当前任务待恢复页”和“历史遗留页”（旧全局页不再混入任务页计数）；单条重试仍走 `retryBlocked(taskID:)`。
+- `OutboxStore.adoptLegacyPage(anchorKey:taskID:)`：旧全局 maintenance 留下的 `route:<workout>` / `association:<workout>:<type>` 页可被对应 Workout 任务收编，避免与新任务同名 anchorKey 互锁。`reconcileTasks()` 现在会把只剩永久 4xx 页的任务收敛为 `FAILED`，不再长期显示“上传中”。
+- `syncWorkout` 在 Durable ACK 后调用 `store.synced()` 和 `collectGarbage()`，更新 `lastSync` 并回收已交付文件；此前产品只用单条路径时不会触发 GC。
+- **Workout 身份载荷冻结**：`Normalizer.event` 只保留 HealthKit 自身 workout metadata，不再写入 `RAI:source*`；来源/设备 provenance 通过 `POST /v2/sync/workout-enrichments` 作为不可变补充事实发送。`WorkoutReference` 新增可选 `provenanceVersion`，成功后本地记录，重试不重复发送；旧本地状态里残留的 `RAI:*` 在比较时剥离，避免 `immutable_workout_changed`。
+- 旧全局遗留页和当前任务页在 `SyncModel.apply` 中分开统计：`pending` 只算带 `taskID` 的任务页，`legacyPending` 单独显示；首页徽标使用两者之和。
+
+验证（本机，2026-10-31）：
+
+| 门禁 | 结果 |
+|---|---|
+| `swift test`（ios/RAI） | **PASS**：68 tests / 8 suites |
+| `xcodebuild test -only-testing:RAITests`（iPhone 17 Pro 模拟器，iOS 26.5） | **PASS**：17/17 |
+| `xcodebuild test -only-testing:RAIUITests/WorkoutSyncScreenUITests` | **PASS**：1/1（13.7s） |
+| `xcodebuild build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` | **PASS** |
+
+新增测试覆盖：任务限定 `drain(taskID:)` 不影响其他 task 页和 legacy 页；legacy 关系页只能被一个任务收养；永久 409 页在 `reconcileTasks` 后任务收敛为 `FAILED`；恢复路径可在无 HealthKit 读取时清空已保存的 association 页（`NormalizerTests.testSavedAssociationDrainDoesNotRequireHealthReads`）；Workout identity 事件不含 `RAI:*`，provenance 只由独立 helper 生成；旧 `WorkoutReference` 缺少 `provenanceVersion` 仍可解码；旧构建产生的未提交 `sample_identity_conflict` 页可在重建前安全丢弃。
+
+**未验证**：真实 iPhone/HealthKit、后台/强杀/断网恢复未在本轮执行；服务端 Go 未改。`sample_identity_conflict` 的客户端根因已按冻结身份载荷 + enrichment 补充事实修复，但尚未在真机对已存在的 316 条 Workout 做重放验收；“旧全局页首次恢复清零”也只在模拟器/单元层面验证。
+
+## Workout Bundle 单请求同步（Protocol 3，2026-10-31）
+
+用户要求按 RQrun 的导入粒度彻底替换逐 sample 上传。当前实现已改为：一条 HKWorkout → 一个 `WorkoutBundle` JSON → 一次 `multipart/form-data`（字段 `file`，文件名 `workout.json`）→ 服务端一个事务提交 Workout、全部 scalar samples、`workout_samples` 关联、多值 quantity series 和 routes → 一个 `analysis.workout` job。客户端不再发送逐 sample association、page/batch、series 分块、route 分块或 workout package 请求。
+
+- 新接口：`POST /v2/sync/workout-bundles`、`GET /v2/sync/workout-bundles/{workoutID}?sha256=...`、`DELETE /v2/sync/workout-bundles/{workoutID}`；`protocolVersion=3`。
+- 新 migration `00014_workout_imports.sql` + `00015_workout_import_history.sql`：按 `(dataset, workout, bundle_sha256)` append-only 保存 bundle 精确 SHA-256、验证后的源 JSONB 和原回执；同一 Workout 的多个 bundle 回执互不覆盖。
+- 旧上传路由已从 `httpapi.New` 移除。Protocol 3 不兼容已有 v2 事实；升级前必须运行显式 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts` 清空旧 fact/analysis/training-derived 行（保留 datasets/devices/collector leases）。不得将该命令作为自动 migration。
+- `ImportWorkoutBundle` 在 dataset 行锁下重验身份；同一 Workout 核心内容不同返回 `workout_identity_conflict`，同一 sample/route/series 内容不同返回相应冲突；删除屏障优先。`completeSampleTypes`/`completeRoutes` 仅描述读取覆盖；普通快照缺席不再触发子事实 tombstone 或删除（2026-11-01 RQ-001 修正）。显式 DELETE 只由客户端收到 Workout `HKDeletedObject` 后调用。内容未变化不推进 `commit_rev`、不生成新 job。
+- 限额：32 MiB bundle、50,000 samples、16 routes、1,000,000 route points、1,000,000 series points。
+- 客户端 `SyncCoordinator` 已改为一次读取、一次上传、持久化 exact bundle 文件/哈希、按哈希状态恢复和 analysis 状态查询；HealthKit series 按类型一次查询并批量放入 bundle，不再逐 sample 查询。启动/回前台只重发已保存 bundle，不重新读取 HealthKit。
+
+历史验证（本机 macOS，2026-10-31；其中缺席删除语义与旧回归已被下述 Phase 1 修正替代）：
+
+- Go 单元测试、`go vet ./...` 通过。
+- 隔离 PostgreSQL 18.6 全量 integration 套件通过（`-race`，integration 包 race 145.309s；非 race 复跑 75.038s）；新增 `TestWorkoutBundleOneRequestAtomicImport`、`TestWorkoutBundleLateSampleAndConflicts`、`TestWorkoutBundleHTTPMultipartAndStatus`、`TestWorkoutBundleScaleFiveThousand`、`TestBundleRejectsBeforeReadingBodyWhenDeviceSlotBusy`、`TestWorkoutBundleCompleteSnapshotDeletesMissingChildren`、`TestWorkoutBundleReceiptHistoryKeepsEveryBundle`、`TestWorkoutDeleteBundleIsExplicitAndIdempotent`、`TestHTTPWorkoutBundleStatusByHashAndExplicitDelete`，覆盖单事务事实、series/route、重复/历史回执、迟到 sample、内容冲突、multipart HTTP、显式删除、按哈希状态恢复、缺失子事实 tombstone、旧 association 路由 404 和 5,000 samples 规模；`TestP7RealLoginBoundariesAndRevocation` 通过受限 API 角色实际执行 bundle 导入，验证新表/函数的运行时权限。
+- 合成 5,000 samples / 500 series / 2,283 route points bundle（1,617,379 B）在本地隔离 PostgreSQL 18.6 单次导入 1,232 ms（`TestWorkoutBundleScaleFiveThousand`）；这是功能规模观测，不是生产 SLO。
+- `RAITests` 与 `WorkoutSyncScreenUITests` 通过；iOS Simulator 与 iPhoneOS Debug 构建通过。
+- fnOS 隔离 `rai-v2-device` 记录为 schema 14；schema 15 变更尚未在 fnOS 重新部署验证，API/Worker 镜像 `rai-v2-device:bundle-sync-20261031`，`/ready` 200，handshake 实测 `protocolVersion=3`、`workoutBundles=true`、`bundleProtocolVersion=3`。
+
+未验证：当前连接设备状态 `unavailable`，尚未在真机完成一次真实 HealthKit bundle 上传；因此不能声称真实 iPhone E2E、实际 5,464 sample bundle 时延、后台 URLSession 强杀恢复或生产 SLO 已通过。下一步必须在设备解锁/连接后安装 Debug App，上传一条真实跑步并核对 `workout_imports`、`health_samples`、`workout_samples`、`series_uploads`、`workout_routes` 及 publication。
+
+
+## RQrun Phase 1 删除安全修复（2026-11-01）
+
+本节替代上文 2026-10-31 的“完整快照缺席可推断删除”行为与旧测试口径。详细设计、回归映射和限制见 [专项验收报告](RQrun_PHASE1_RESULT.md)。范围仅 RQ-001、RQ-002、RQ-003。
+
+- RQ-001：移除 `missingWorkoutChildren` 及导入中的缺席删除路径。`completeSampleTypes` / `completeRoutes` 仅描述读取覆盖；旧包不能删除已保存的 Sample、关联、Series 或 Route。事实身份冲突与现有显式删除屏障继续生效。
+- RQ-002：未知 Workout DELETE 同样在 dataset 行锁与 fencing 后写持久屏障；COMMIT 后 ACK。复用 `entity_tombstones.deleted_rev` 与 `change_events` 保存删除时间、有效 epoch/collector 和首次原回执；重复 DELETE 返回原 revision/receipt，不新增事件/工作。客户端只接受验证通过的删除 ACK，404 不再确认本地删除。
+- RQ-003：已知删除保存旧时间范围，同事务调用 P4 `rai_analysis_dirty` 登记 Workout dirty/job，现有依赖触发器立即使 Training State 失效。Worker 按已删除输入清理 current publication 指针，历史 run/result 原样保留，删除前载入输入的 Worker 受 generation CAS 约束。
+- 无新迁移；schema 15、00014/00015、所有 migration checksum 和原始架构方案保持原字节。一次 Workout / 一次 multipart、原事务和 Route seal 边界保留；未部署、未迁移真实数据、未修改旧系统、未提交或推送。
+
+验证：专项真实隔离 PostgreSQL 18.6 race 集成已通过（8.340s），包含两种可观测数据库锁顺序、跨 dataset、fencing、显式子删除、身份冲突、实际受限 API LOGIN、已发布 P4 失效、Worker superseded、六个写入/COMMIT 失败整体回滚；69 项 Swift 测试及 iPhoneOS Debug 无签名编译通过。Go `go test -race ./...`、`go vet ./...`、integration-tag vet、构建和依赖边界检查通过。全量 `go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...` 在一次性 PG18.6 集群通过（integration 164.383s）；测试库零残留、集群已删除。OpenAPI lint 通过（31 条既有 warning，与入口基线相同）。[机器证据](evidence/rqrun-phase1-2026-11-01.json) 已记录命令、源码摘要与结果。
+
+未验证：真实 iPhone/HealthKit 删除与后台/强杀/断网 E2E、fnOS/生产部署、物理断电恢复。v3 Sample / Route 显式删除捕获仍待后续完善；暂时保留缺席事实。未自动清除历史 tombstone、恢复过去误删数据或回填旧删除分析失效；不能从普通快照安全判定这些历史事实。
+
+
+## RQrun Phase 2 协议与回执可靠性（2026-11-01）
+
+结论：**PASS WITH RISKS**。范围仅 RQ-005 / RQ-006 / RQ-009；[正式验收报告](audits/RQrun_PHASE2_RELIABILITY_REVIEW.md) 包含字段矩阵、逐测试命令/断言、Phase 1 回归和工作区边界；[机器证据](evidence/rqrun-phase2-2026-11-01.json) 记录当前源码/日志 SHA-256，[失败记录](evidence/rqrun-phase2-failed-runs.txt) 保留未通过的开发/编译/执行尝试及后续复跑说明。
+
+- RQ-005：复用 WorkoutSyncTask 的 UPLOADING 表示待重试，增加兼容旧状态的可选 attemptCount/nextAttemptAt/lastUploadError。原文件/边界/hash 重用，GET 404 永不确认删除或终止上传；网络/408/5xx/异常 ACK 可 GET 核对，429 尊重 Retry-After，握手/认证失败也持久退避；Store actor claim 防双 Worker。当前静态设备 Bearer 无 refresh endpoint；提供者可刷新一次，否则 401 保留原包并等待配置更新。workout_deleted 终态冲突不伪装成功。
+- RQ-006：HTTP 入事务前递归检查 missing/null/type，再执行原值、成员和预算验证；quantity/series/route 等合法零值保留，不再以 Go 默认值伪造缺失数据。沿用扁平 Error，增加 field/reason；sync-v3/OpenAPI 补齐真实字段矩阵和完整 bundle schema。protocolVersion=3、合法旧请求/可选指标省略不变。
+- RQ-009：仅 200 application/json 的严格当前 UUID/hash/committed/正 revision/counts/jobs 回执可确认；原回执、确认状态和 GC 授权在一次本地状态替换中持久化，随后幂等清理文件。状态写失败保留原文件，清理失败保留原回执。旧分析结果不能确认新包；恢复失败不更新全局“上次同步”。DELETE ACK 独立严格验证并原子提交本地删除状态。Phase 1 服务端存储事务、屏障/fencing/P4 generation CAS 未修改。
+
+验证：Go `go test`、最终 `go test -race ./...`、`go vet`（含 integration,swiftclient）、构建和依赖边界通过。完整一次性隔离 PostgreSQL 18.6 race 套件通过（integration 209.056s），包含 migration/readiness/权限/回滚/HTTP 合同与全部 Phase 1 永久回归；之后扩展测试矩阵的跨语言专项 15/15 通过（46.729s），真实 Swift Outbox → URLSession → Go HTTP → PG18，覆盖断网、COMMIT 前超时、ACK 丢失/损坏、临时 404、429、500/502/503、401 刷新、双 Worker、重启、重复 POST、DTO 拒绝及 tombstone。所有隔离集群 fsync/full_page_writes/synchronous_commit/data_checksums=on，仅 Unix socket，退出零测试库残留、集群已删除。
+
+Swift package：79 项 Swift Testing + 2 项普通 XCTest 通过；数据库驱动 XCTest 在普通 swift test 无 harness 时明确跳过，在上述真实 PG harness 下逐场景实际执行 15 次通过（没有将跳过当作通过）。空白 iPhone 12 Pro Max 模拟器 App 测试 17/17；该测试设备已删除。最终 iPhoneOS Debug/Release 无签名构建均通过。OpenAPI lint 通过（31 条既有 warning），migration 全部 checksum、Phase 1 存储文件和原方案与入口字节一致。
+
+未验证：真实 iPhone/HealthKit、后台 URLSession/强杀/断网 E2E、物理断电/存储故障、数据库进程崩溃恢复、fnOS/生产部署与真实 token 轮换。源码曾在编译期间变更导致一次全量失败，冻结后完整重跑通过；新测试夹具的编译/断言失败及修正均留证据，没有跳过失败用例或放宽安全断言。保留 RQ-004、RQ-007、RQ-008、RQ-010 至 RQ-016 及 Sample/Route 显式删除捕获、历史 tombstone 修复。无新 migration，无生产数据/旧系统操作，无 commit/push/deploy。
+
+## RQrun Phase 3 数据完整性（2026-11-01）
+
+结论：**自动化 PASS；真机指定单 Workout 闭环 PASS，完整真机矩阵 PARTIAL（其余场景 BLOCKED/未验证）；总体 PASS WITH RISKS**。见 [完整报告](audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md)、[机器证据](evidence/rqrun-phase3-2026-11-01.json)、[真机计数与 hash 对比](evidence/rqrun-phase3-device-2026-11-01.json)、[续跑工作区保护](evidence/rqrun-phase3-workspace-baseline.json)。
+
+- RQ-004：按 contract/type/workoutID/initialization 持久独立 HKQueryAnchor；secure archive 原始对象、发现事件、父索引、work intent 先提交 state.json，再独立核验并推进 anchor。每流有界分页；损坏 anchor 隔离，显式受控重新发现保留旧状态；Workout/Sample/Route 显式删除和未知父 unresolved 均持久化。确定性事实摘要与档案校验摘要分离，避免归档对象图差异重复创建 work。
+- RQ-007：SourceRevision/HKDevice allowlist、保守 Apple Watch 来源政策、独立子 provenance，不合成缺失设备信息。metadata-only Sample 补充存 append-only bundle/观察历史，原 Sample 行/hash、原回执不改；数值、时间、单位、category、source 核心冲突继续拒绝。正式分析逐项核验保留子事实的当前/历史合格来源证据，父 Workout 不替未知历史子事实背书。
+- RQ-011：逐类型 not_queried/observed/no_records_observed/partial/complete/failed/unsupported/unknown；query/local/server/route seal/P4 阶段分开。空结果不推断权限拒绝或绝对无数据，complete 仅对应本次声明范围，coverage 不参与删除。
+- RQ-012/013：append-only Route capture 与精确前缀重放；声明点数、耗尽与持久化一致才完整；原序、相同/回跳时间均保留，无排序/修正/丢点；既有5000点chunk、双hash、seal不变。新增00016仅修复 route 微秒包络与投影转换；schema16/protocol3，00014/00015不改。
+- 最终自动化：Go unit/race/vet、完整隔离PG18.6 integration+swiftclient（239.882s；数据库/cluster已清理）、96项Swift Testing/11 suites、22项iOS App tests、Debug/Release、OpenAPI lint（31条既有warning）、249包边界检查通过。Live XCTest 在普通 Swift 测试中明确跳过，在真实 Go→Swift→HTTP→PG harness 中实际执行；原Phase1/2安全断言保留。
+- 真机：用户已授权2026-10-26约19:50记录；在保留旧Outbox的全新验收命名空间中，5466事件/12 scoped anchors/0范围外anchor，重复空变化不创建work，组包不产生虚假generation，ACK后无待交付generation。一个Workout/一次multipart/一个import、5464条Sample（HR349）、1768个source/bundle/chunk/projection GPS点；双manifest与本地采集一致，逐点projection比较通过。证据只含计数、hash和状态；仅本次隔离后端接收真实授权记录。API/Worker/一次性PG与本地临时凭证已清理，手机原始Outbox保留。
+
+未验证：新建Watch跑步、真实后台delivery、查询中途强杀、断网恢复、真实HealthKit删除、真实ACK丢失、物理掉电、超大路线真机内存/耗时、生产/部署。最后新增的历史子事实来源分析屏障以合成数据库验证，不冒充真机混合来源验收。未知metadata/来源、核心Workout变化和损坏尾行仍保守待审；受控恢复UI与历史升级留待后续。初次670文件临时基线续跑时已不在，不能重新复核该全量快照；续跑681文件基线已持久保存，原方案与00014/15和Phase1 SHA-256一致。无commit/push/deploy、生产库或旧running操作。
+
+
+## RQrun Phase 4 — 2026-11-01
+
+状态：**PASS WITH RISKS**。仅RQ-008/014/015/016；详见 [性能报告](audits/RQrun_PHASE4_PERFORMANCE_REVIEW.md) 和 [机器证据](evidence/rqrun-phase4-2026-11-01.json)。执行前683文件SHA-256基线已保存，原方案/Phase1–3/00001–00016保持；无用户文件删除、staged/commit/push/deploy或生产操作。
+
+- RQ-015先于gzip：整个HTTP body使用MaxBytesReader（32MiB+64KiB），framing64KiB、gzip file8MiB、decoded32MiB、100:1+64KiB ratio独立限制；严格单file part、chunked/无长度/preamble/epilogue均计费，拒绝不drain大part。词法流式presence/type/duplicate/unknown/null/count检查后一次typed decode，保留领域验证。
+- RQ-008：main与真实socket测试共享NewHTTPServer；header5s/body180s/processing60s/handler245s/ACK5s，server185/255s fallback；Import45s transaction/context、statement5s；snapshot5/20s、publication5/10s；iOS270s request/300s foreground resource、后台270/3600s。5/15/30s gzip暂停、160/16KiB/s pacing、179s合法、180s 408、ACK写出超时均实际执行通过；超时保持408/503可重试分类。
+- RQ-014：单multipart file可为application/gzip，plain兼容；bundleSHA256继续原JSON精确字节，与gzip header/实现无关。iOS固定level6/mtime0/OS255；同一Outbox保留原JSON权威文件与可重建wire文件/hash，崩溃/损坏/ACK/GC/停放删除回归通过。未新增API/数据库/Outbox或网络chunk。
+- RQ-016：原240m AnalysisSamplesSQL plan约3007ms，新增一个有同数据集EXPLAIN证据的覆盖身份索引；schema17、protocol仍3。N100同生成器20–240m plain和fresh gzip全部真实Import→Worker publication，240m样本查询约145ms；原SQL排序和完整输入语义不改。额外索引约6MB及WAL写成本记录在报告，未用无限timeout/并发取得PASS。
+- 真实验证：Go race/vet；完整隔离PG18.6 integration+swiftclient（integration269.127s，临时数据库0、cluster清理）；全部18个真实Swift→Go→PG故障模式；Swift98项/11 suites；iOS App22项；签名Debug、Release；OpenAPI31条既有warning；249包边界检查通过。长耗时/性能/真机测试在普通套件中opt-in SKIP，并已分别实际运行，不能拿SKIP或mock代替DB/设备证明。
+- 指定真机：用户再次授权2026-10-26约19:50唯一记录。iPhone12 Pro Max、Apple Watch来源、5464 Samples/HR349，source/bundle/chunk/projection各1768点、逐点一致；JSON4330123B→gzip multipart483242B，一个import和Durable ACK。只导出计数/hash/状态，UUID含字典key散列，未导出健康值/GPS/凭证。新验收命名空间保留原Outbox，App清理本轮临时配置，一次性PG/DNS已停止清理。
+
+未验证：真实手机断网/后台强杀、家庭公网/TLS反代/fnOS生产Docker、物理掉电、真实4小时Workout、长期anchor/极端Route容量、生产迁移/部署。iOS/Go/PG峰值RSS及事务峰值 **NOT MEASURED**；原修改前Import细分阶段未测，后补分段不冒称原始baseline。当前仅合成240m性能验收，不伪装长距离真机或生理模型验收。保留既有Raw Facts、DELETE fencing、Provenance、Coverage、点序和COMMIT后ACK不变量；未实施RQ-010/reset或真实数据迁移。

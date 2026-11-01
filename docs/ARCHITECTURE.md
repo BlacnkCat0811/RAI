@@ -1,6 +1,8 @@
 # RAI V2 — System Architecture
 
-2026-10-30最新设备专项已按用户要求收尾：独立持久 `rai-v2-device` 运行PG18/API/Worker，schema13保持；手机已真实提交6,000条样本并完成一条跑步结构盘点。最小修复显式跑步动态单位、Workout metadata保留及4类读取范围，没有新算法/schema/协议版本。最终设备重试、P4/P5闭环与GPU未验证，**DEVICE ACCEPTANCE: NOT COMPLETED**；见[设备结果](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)。下文按原阶段保留。
+2026-10-30最新设备专项已按用户要求收尾：独立持久 `rai-v2-device` 运行PG18/API/Worker，schema14保持；手机已真实提交6,000条样本并完成一条跑步结构盘点。最小修复显式跑步动态单位、Workout metadata保留及4类读取范围，没有新算法/schema/协议版本。最终设备重试、P4/P5闭环与GPU未验证，**DEVICE ACCEPTANCE: NOT COMPLETED**；见[设备结果](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)。下文按原阶段保留。
+
+2026-11-01 当前实现：Protocol 3 单 Workout bundle、schema 16、`/v2/sync/workout-bundles` 与显式删除；Protocol 3 不兼容 v2 事实，升级前必须运行 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts`。当前状态与未验证项以 [IMPLEMENTATION](IMPLEMENTATION.md) 和 [Protocol 3 合同](../contracts/sync-v3.md) 为准。
 
 Current Implementation / As-Built Architecture，2026-10-30（Asia/Shanghai）。仓库 `/Users/tp/raI`；本轮复验基线 `1783517900520ed6aedc3c97ef497bc8fe0ef5ca`，main，入口干净。该提交已包含 Final Maintenance 修复；本轮增量为活跃文档和实际复验证据，见 [Maintenance Result](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md)。P7历史实施见第14节。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
 
@@ -59,7 +61,7 @@ flowchart TB
 
 API/Worker 默认连接池上限仍为 8/4，保留 URL `pool_*` 覆盖；UTC、连接超时 3s、session statement timeout 2s、lock timeout 500ms、事务 statement timeout 5s、idle transaction timeout 5s。P4 未扩大池。进程监听、HTTP 超时和 SIGTERM 10s shutdown 沿用 P3。
 
-`GET /health`、`/livez`只看进程；`/ready`、`/readyz`检查关键表和goose最新applied **恰为13**。Worker启动还检查readiness，旧schema不消费任务。迁移为显式管理操作；无自动migration/init。开发容器probe仍为liveness；P7发布模板使用`probe --ready`，通过有效TLS检查readiness，Worker依赖API healthy。旧binary的schema12 readiness对schema13 fail closed，不能混合滚动运行旧Worker。
+`GET /health`、`/livez`只看进程；`/ready`、`/readyz`检查关键表和goose最新applied **恰为16**。Worker启动还检查readiness，旧schema不消费任务。迁移为显式管理操作；无自动migration/init。开发容器probe仍为liveness；P7发布模板使用`probe --ready`，通过有效TLS检查readiness，Worker依赖API healthy。旧binary的schema12 readiness对schema16 fail closed，不能混合滚动运行旧Worker。
 
 ## 4. PostgreSQL 模型
 
@@ -199,7 +201,7 @@ SwiftUI五个原生Tab统一使用RAITheme/RAIGlassSurface、暖暗背景和系�
 
 `rai ops snapshot|verify|retention-dry-run`仅管理CLI；snapshot输出聚合大小、连接、锁、队列、lease、generation/发布状态，无个人ID或健康值。宿主脚本补磁盘/备份/证书/进程及阈值；无公开metrics或新增常驻平台，fnOS schedule/通知未安装。HTTP日志使用规范route pattern，durable commit与Worker claim/processing/publication耗时明确，SQL/token/DSN/payload不进普通日志。
 
-整库pg_dump custom → GPG加密 → 独立空PG实际restore → FK/不变量/45表计数hash/原回执与Effective/execution核验。备份恢复与全库verify不进入正常sync。离机存储/密钥取回、生产PKI/入口、真机与正式发布仍独立未验证；逻辑dump不是PITR或无损schema回滚。
+整库pg_dump custom → GPG加密 → 独立空PG实际restore → FK/不变量/46表计数hash/原回执与Effective/execution核验。备份恢复与全库verify不进入正常sync。离机存储/密钥取回、生产PKI/入口、真机与正式发布仍独立未验证；逻辑dump不是PITR或无损schema回滚。
 
 服务端facts/tombstones/receipts/jobs/analysis与training历史保留，unsafe retention明确DEFERRED。iOS仅新增完成页mark→verify→bounded sweep，delivered anchor与reclaim marker同一state commit，保护pending引用、不扫未知orphan。HealthKit/batch/seq/ACK/seal、训练UI和Liquid Glass不变。真实证据及剩余门禁见 [P7 Result](V2_PHASE7_RESULT.md)。
 
@@ -207,7 +209,7 @@ SwiftUI五个原生Tab统一使用RAITheme/RAIGlassSurface、暖暗背景和系�
 
 基线 `09fb5bb38d32cdbe42c757277ab2431995818ac4`，不是 P8。正常 iOS/Go 同步、schema13、P3/P4/P5算法与不可变发布历史保持；未新增客户端、常驻服务或生产第二数据库。P7历史结果和加密工具保留。
 
-新增显式管理脚本 `rai-backup.sh backup|check|list`：复用 release Compose 与只读备份身份，整库 custom dump→本地归档检查/SHA→严格SSH→远端partial/大小及摘要重读核验→原子发布manifest→仅保留三份已核验成功副本。目录0700、文件0600、两端锁和不跟随symlink；失败不执行历史清理；无额外文件加密。cron只提供每月1日03:00显式时区模板，云端与真实任务未安装。`rai-restore.sh`只允许明确确认的labelled/空闲/空PG18隔离目标、单事务SQL恢复，随后需角色/FK/原回执与45表不变量验收。
+新增显式管理脚本 `rai-backup.sh backup|check|list`：复用 release Compose 与只读备份身份，整库 custom dump→本地归档检查/SHA→严格SSH→远端partial/大小及摘要重读核验→原子发布manifest→仅保留三份已核验成功副本。目录0700、文件0600、两端锁和不跟随symlink；失败不执行历史清理；无额外文件加密。cron只提供每月1日03:00显式时区模板，云端与真实任务未安装。`rai-restore.sh`只允许明确确认的labelled/空闲/空PG18隔离目标、单事务SQL恢复，随后需角色/FK/原回执与46表不变量验收。
 
 HealthKit灾难重同步为 **BLOCKED**：旧快照保持dataset/service/device身份，但可能丢失墓碑/receipt/stream进度；客户端已交付载荷可能已由P7合法GC。当前没有recovery generation和可证的恢复流/删除覆盖完成合同。本轮交付审查设计与Go/Swift边界反例，没有添加假可用恢复入口、清空Anchor/Outbox或绕过sequence。备份后的User Override/Execution/Feedback可能永久丢失；备份内历史由原P4/P5追加发布保护。详细限制和证据见 [Monthly Backup](RAI_MONTHLY_BACKUP.md)、[Disaster Recovery](RAI_DISASTER_RECOVERY.md) 与 [Result](RAI_BACKUP_RECOVERY_RESULT.md)。
 
@@ -220,3 +222,20 @@ HealthKit灾难重同步为 **BLOCKED**：旧快照保持dataset/service/device�
 提交 `1783517` 已实现2个P2和3个P3的定向修复；2026-10-30的复验及剩余门禁见 [结果](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md)。Training JSON 写请求要求 application/json（允许标准参数）、无 Content-Encoding、≤64 KiB；媒体/encoding错误415，超限413，严格JSON/业务错误422。三类 chunk 在原回执查询前锁定并校验 upload lease，返回旧回执前复验；新写入仍在COMMIT前复验。有效租约的lost-response恢复、collector fencing、不可变receipt、删除屏障和原事务保持。
 
 客户端pending时锁定可冲突表单和保存，独立按钮只重试原请求；新草稿不再被替换为旧命令。成功后刷新并关闭已完成表单；失败/409保留草稿和原处理路径。本轮 ProductCore 补充探针不能代替 Swift Testing 或 SessionEditor/CreatePlan UI 验收；当前机器缺少 Testing 模块和完整 Xcode，客户端完整门禁仍未完成。原方案、迁移、历史结果、P4/P5算法及生产/真机/灾难恢复门禁不变。
+
+## RQrun Phase 3 当前采集合同（2026-11-01）
+
+Protocol3 保持，schema16。发现层使用全局 Workout 与各 Workout/Quantity/Route 独立
+安全 anchor；原对象档案、父索引、发现意图与 candidate batch 先在现有 Outbox 持久化，
+再核验并提升 anchor。启动/observer 的发现与原 recoverPending 传输恢复分开，已选择
+Workout 的迟到事实继续单包补传；不恢复逐 Sample HTTP。首次可见历史无自设时间截断。
+
+Bundle 可选 observation v1 和显式子删除，能力由 handshake 声明。来源设备描述和
+逐类型 coverage 保存在 workout_imports 源 JSON 的不可变版本；dataset 锁、屏障、日志、
+dirty/job/回执同事务。metadata 不覆盖原 Workout payload；P4 快照绑定观察摘要，
+未分类 v3 来源不进入正式分析。完整 Route 使用原 chunk/seal/双 hash；查询中断的本地
+capture 保留前缀，非单调时间按原 sequence 保存，时间质量诊断独立于传输完整性。
+父删除后迟到子删除使用删除专用 bundle 和既有提交日志回执，不能复活父。
+
+真实验收、失败轮与未验证项以 [Phase3 报告](audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md)
+和 IMPLEMENTATION 最新记录为准；本节源码结构不代表真机后台或全部验收通过。

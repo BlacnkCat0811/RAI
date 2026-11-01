@@ -1,0 +1,262 @@
+{
+  "scope": "user-designated single workout; iPhone 12 Pro Max; Apple Watch source",
+  "device": {
+    "bundleSHA256": "93b25f20a2a59d7b064f7983a48a4a5bf54ebc9a746ce6d437bd4f499a687072",
+    "coverage": {
+      "HKQuantityTypeIdentifierActiveEnergyBurned": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 693,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierBasalEnergyBurned": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 694,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierDistanceWalkingRunning": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 704,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierHeartRate": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 349,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningGroundContactTime": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 322,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningPower": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 667,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningSpeed": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 695,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningStrideLength": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 309,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierRunningVerticalOscillation": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 325,
+        "state": "complete"
+      },
+      "HKQuantityTypeIdentifierStepCount": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 706,
+        "state": "complete"
+      },
+      "cadence": {
+        "localPersisted": true,
+        "queryCompleted": false,
+        "sampleCount": 0,
+        "state": "unsupported"
+      },
+      "elevation_sample": {
+        "localPersisted": true,
+        "queryCompleted": false,
+        "sampleCount": 0,
+        "state": "unsupported"
+      },
+      "metadata": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 6,
+        "state": "complete"
+      },
+      "route": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 1768,
+        "state": "complete"
+      },
+      "route:sha256-e583025051c1821bd73618065f0ed2445a715e36bd1a490aa910bfe7d4cfda98": {
+        "expectedCount": 1768,
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 1768,
+        "state": "complete"
+      },
+      "series:HKQuantityTypeIdentifierActiveEnergyBurned": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierBasalEnergyBurned": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierDistanceWalkingRunning": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierHeartRate": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningGroundContactTime": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningPower": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningSpeed": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningStrideLength": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierRunningVerticalOscillation": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "series:HKQuantityTypeIdentifierStepCount": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 0,
+        "state": "no_records_observed"
+      },
+      "workout": {
+        "localPersisted": true,
+        "queryCompleted": true,
+        "sampleCount": 1,
+        "state": "complete"
+      }
+    },
+    "device": "iPhone 12 Pro Max",
+    "discoveryEventCount": 5466,
+    "gpsExported": false,
+    "healthValuesExported": false,
+    "independentAnchors": 12,
+    "metadataKeys": [
+      "HKAverageMETs",
+      "HKElevationAscended",
+      "HKIndoorWorkout",
+      "HKTimeZone",
+      "HKWeatherHumidity",
+      "HKWeatherTemperature"
+    ],
+    "noPendingDiscoveryAfterACK": true,
+    "noSpuriousFactGenerationDuringAssembly": true,
+    "outOfScopeAnchors": 0,
+    "realDevice": true,
+    "result": "ACKNOWLEDGED",
+    "routeCaptures": [
+      {
+        "capturedPoints": 1768,
+        "chunkCount": 1,
+        "completed": true,
+        "declaredPoints": 1768,
+        "routeIDHash": "e583025051c1821bd73618065f0ed2445a715e36bd1a490aa910bfe7d4cfda98",
+        "sourceManifestSHA256": "af054182ed15a0551542f3af13a84c045635c01189ad5795ee47e9cc22c9957b"
+      }
+    ],
+    "scope": "user_designated_workout_only",
+    "sourceClassification": "apple_watch",
+    "sourceEvidence": {
+      "appleHealthDeviceNamespace": true,
+      "deviceNamespaceUUID": true,
+      "manufacturer": "Apple Inc.",
+      "model": "Watch",
+      "productType": "Watch8,3"
+    },
+    "sourceFieldsPresent": {
+      "device": true,
+      "os": true,
+      "productType": true,
+      "version": true
+    },
+    "stage": "single_workout_upload",
+    "transportMetrics": {
+      "bundle_build_ms": 14909.862041473389,
+      "bundle_bytes": 4330123,
+      "gzip_ms": 35.93707084655762,
+      "gzip_multipart_bytes": 483242,
+      "healthkit_read_ms": 13318.24505329132,
+      "route_read_ms": 304.33690547943115,
+      "upload_ms": 1649.839997291565,
+      "workout_sync_ms": 16591.578006744385
+    },
+    "unchangedReadCreatesNoWork": true,
+    "uploadAcknowledged": true,
+    "workoutIDHash": "c5c0c483742674f6a35e7d2ff11bc85459b887f90b14052bb929abcd505baa78"
+  },
+  "postgres": {
+    "bundle_points": 1768,
+    "bundle_sha256": "93b25f20a2a59d7b064f7983a48a4a5bf54ebc9a746ce6d437bd4f499a687072",
+    "gps_exported": false,
+    "health_values_exported": false,
+    "imports": 1,
+    "projection_points": 1768,
+    "protocol_version": 3,
+    "routes": [
+      {
+        "bundle_points": 1768,
+        "chunk_points": 1768,
+        "manifest_sha256": "af054182ed15a0551542f3af13a84c045635c01189ad5795ee47e9cc22c9957b",
+        "pointwise_equal": true,
+        "projection_points": 1768
+      }
+    ],
+    "samples": 5464,
+    "schema_version": 17,
+    "transport": [
+      {
+        "ack_total_ms": 1403.968,
+        "ack_write_ms": 0.097,
+        "decoded_bytes": 4330123,
+        "decompression_ms": 17.815,
+        "file_bytes": 483025,
+        "import_ms": 823.005,
+        "json_decode_ms": 122.43,
+        "msg": "workout_bundle_transport",
+        "multipart_ms": 426.386,
+        "stage": "complete",
+        "validation_ms": 14.21,
+        "wire_bytes": 483242
+      }
+    ]
+  },
+  "network_interruption": "NOT RUN on physical phone; synthetic real-HTTP/PG regressions cover retry",
+  "large_workout": "synthetic 240m only",
+  "peak_rss": "NOT MEASURED",
+  "temporary_database_removed": true
+}

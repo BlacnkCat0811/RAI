@@ -1,3 +1,5 @@
+> 2026-10-31: the app sync path is now one Workout → one `WorkoutBundle.json` → one multipart upload. The page/batch/association/series/route chunk text below is historical unless explicitly marked. See [Protocol 3 sync contract](../../contracts/sync-v3.md).
+
 # RAI V2 P6 native iPhone product
 
 2026-10-30 device acceptance ended at the user's request when the phone became unavailable. Actual Debug installation/launch, configuration save, partial real sample ingestion and one redacted running-Workout inspection succeeded. Final four-type authorization, patched Workout sync, full P3/P4/P5 loop and Metal/GPU acceptance remain **NOT COMPLETED / NOT VERIFIED**. Preserve the existing Keychain, outbox and persistent `rai-v2-device` database; see [current device result](../../docs/V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md). Debug diagnostics can inspect the latest running Workout without advancing anchors; the report contains structure/counts/durations/fingerprints, never measurement values, coordinates or full UUIDs.

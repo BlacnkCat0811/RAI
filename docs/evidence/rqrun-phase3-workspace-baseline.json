@@ -1,0 +1,2771 @@
+{
+  "schema": "rai.phase3.workspace.protection/v1",
+  "head": "aeb769c82f6af6c47d7cac82874f48ff37f635fc",
+  "initialSnapshot": {
+    "path": "/tmp/rai-phase3-baseline-20261101T110347",
+    "reportedFileCount": 670,
+    "currentlyAvailable": false,
+    "limitation": "Initial temporary snapshot was not present at continuation; no final 670-file comparison is claimed."
+  },
+  "resumeSnapshotAt": "2026-11-01T15:05:43+08:00",
+  "resumeSHA256": [
+    {
+      "path": ".env.example",
+      "sha256": "73c8e5bc7e86789b2c4ccd6e5a60e2b8d541d11525c4b3a712b40f0e36b202f1"
+    },
+    {
+      "path": ".github/workflows/contracts.yml",
+      "sha256": "5d1455b4f88c2e013dd338fc8448ebf0851db2a23523a2bc49d246002a0a3b7b"
+    },
+    {
+      "path": ".github/workflows/server.yml",
+      "sha256": "15cf2d16f094428629dd7e5c0d2c2f7cd423689c0c846f7064aab9b0eda20780"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "07078b460ddbce72031a7745ddebea560f65a7f2342f3989e48e941c97df2944"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "a718e8490d49b540fb872fc893149da1b9449ae84cd4bdaab79c4250cb91715b"
+    },
+    {
+      "path": "RAI-Go-PostgreSQL架构重设计与实施方案.md",
+      "sha256": "6951b1d938133a964cb06d28c3aa744ad05121f25da770e184041211df53e3de"
+    },
+    {
+      "path": "README.md",
+      "sha256": "f410cbc6eeaa72d2ddc426d44d6a926acd144892d0f6fe8c2693947059521bdd"
+    },
+    {
+      "path": "apps/server/.dockerignore",
+      "sha256": "3c3f6667cdeee6d974a160cefc2bbebd0087d95be0ab1bef8c392ac07cc952fe"
+    },
+    {
+      "path": "apps/server/.go-version",
+      "sha256": "55a45ba2851dc159876cb8854f80bf67b9eae781e67ce179708ea2e4f990fcd8"
+    },
+    {
+      "path": "apps/server/Dockerfile",
+      "sha256": "82992ccc604fdfe3d600d086ed3e5f72cf08dc84f39608ee0618050ac1969745"
+    },
+    {
+      "path": "apps/server/cmd/rai/main.go",
+      "sha256": "7085bbbe2ce012a3c825a28bc0460077de00c08881baa5c0a94fdebd5a9e839e"
+    },
+    {
+      "path": "apps/server/go.mod",
+      "sha256": "df62207c5f1a447c87ed1a9b030c0ea417ba742084c0e0ee10a4a98a15349a91"
+    },
+    {
+      "path": "apps/server/go.sum",
+      "sha256": "520dbc096b85c030e48627ae69cea490cebb2db5be64dc898ab652c740092455"
+    },
+    {
+      "path": "apps/server/integration/admission_test.go",
+      "sha256": "6f7c84ceec8e300c3def7981ae0992ec5f4456ab230bbfcf8806d51abcec06b2"
+    },
+    {
+      "path": "apps/server/integration/analysis_performance_test.go",
+      "sha256": "00516b771c3257e9be4bd6a3c22ff6773e777dde65a67e68ce2b57b9d40e41c2"
+    },
+    {
+      "path": "apps/server/integration/analysis_test.go",
+      "sha256": "e773a05080701c900193b770b18770b19ef031ed8162b423b3f9e8da4e98f5b8"
+    },
+    {
+      "path": "apps/server/integration/changes_test.go",
+      "sha256": "d3af331583b0608508925503cb7c314da6e6eec31eff2edcf18ada19d5e8aa69"
+    },
+    {
+      "path": "apps/server/integration/device_workout_statistics_test.go",
+      "sha256": "3d479d8a0797b296caa1fd9da8788612f94cc3a743af46446ab89ce456c6218f"
+    },
+    {
+      "path": "apps/server/integration/disaster_recovery_boundary_test.go",
+      "sha256": "6cc728f335ce2b07d75f4e2a36660ad39c847841e91887d641f11c9f163e49a0"
+    },
+    {
+      "path": "apps/server/integration/final_maintenance_http_test.go",
+      "sha256": "4be4dbf3f3476dd11199f8ec038a0c9806c60f49f9b24099486cbaed1c02a0a9"
+    },
+    {
+      "path": "apps/server/integration/final_maintenance_test.go",
+      "sha256": "c836a8ca4cf67c4c4bdd6935d658d1eff15b360fb6834c189f1e954a567b3941"
+    },
+    {
+      "path": "apps/server/integration/full_review_fix_test.go",
+      "sha256": "423764a73e873af4106cf7bb39e9a409652c15f435f9dbe72a1e1991f027e9ca"
+    },
+    {
+      "path": "apps/server/integration/full_review_wave2_test.go",
+      "sha256": "b58154109d08c2a3ecd24d3f65f4d11601c86c60d27553f5e2316bfa64b6202f"
+    },
+    {
+      "path": "apps/server/integration/health_test.go",
+      "sha256": "3ef0fc0afe30f69b4a4cbf77ccdd3a419072e8ebe6538f94cc65d2d559034444"
+    },
+    {
+      "path": "apps/server/integration/jobs_foundation_test.go",
+      "sha256": "2c6798a3974d3635f240632ad781f0b37a9844295626646e0c9b50c271466d91"
+    },
+    {
+      "path": "apps/server/integration/p3_faults_test.go",
+      "sha256": "f8e8d1304d2bddbc0c30d6589a245d81b9b2a888e86711134e0c5d16a24a279d"
+    },
+    {
+      "path": "apps/server/integration/p3_helpers_test.go",
+      "sha256": "ddaf0ece2939b41a74d0ced18a65429f342fe0fcc7f18f456cd0cb80f5c2d179"
+    },
+    {
+      "path": "apps/server/integration/p3_performance_test.go",
+      "sha256": "fd948857e73c660551bbdc007a56093a4e10bf086680c1c83affcde9efe6f1f9"
+    },
+    {
+      "path": "apps/server/integration/p3_sync_test.go",
+      "sha256": "542059d71c5c6ffb28d03bf8cc0d0f61b60f2b76b4187894f2d1c1a9b81a76d4"
+    },
+    {
+      "path": "apps/server/integration/p7_capacity_test.go",
+      "sha256": "d9661a353ba0e627422e445f772559f6760bdbb54ad55c92ecdad571f7ee60e8"
+    },
+    {
+      "path": "apps/server/integration/p7_security_test.go",
+      "sha256": "42f8481dea5e31aa248b8e264a4374b0b86b4eed89b276efa455cae0d671c8f9"
+    },
+    {
+      "path": "apps/server/integration/page_test.go",
+      "sha256": "9bf7ed637e0806b62bcff054a0666b367e5feb3057be7b8e7449f44119a81a93"
+    },
+    {
+      "path": "apps/server/integration/per_workout_sync_test.go",
+      "sha256": "c2b0280573a854f1c843b42d4ba2ef5bec37d75701bec973e3304c5eb97e3264"
+    },
+    {
+      "path": "apps/server/integration/product_test.go",
+      "sha256": "2299fe1a4da74f2ff12ebb91ea785b4838ae5c98d9f48dc260fab9ca52e8376f"
+    },
+    {
+      "path": "apps/server/integration/query_plans_test.go",
+      "sha256": "2c73352993895183c3e223782d9fb42c5f378bb6f4d826a881552f524a298e0b"
+    },
+    {
+      "path": "apps/server/integration/routes_foundation_test.go",
+      "sha256": "0c960f81e831b6133ce4323ee98e37eefa471eebd4d9aab3838e095e1ed6e2d8"
+    },
+    {
+      "path": "apps/server/integration/sample_batch_test.go",
+      "sha256": "16c232bc6fd8c17688d4c0f99cc5f084106fc2d1e37901402a2d8f5f105c3f06"
+    },
+    {
+      "path": "apps/server/integration/scale_test.go",
+      "sha256": "9285b8c0464ccbf3d04378b9091904c415c3cf3a50bdb53359e0b9d10a5cd54b"
+    },
+    {
+      "path": "apps/server/integration/schema_rebuild_test.go",
+      "sha256": "dc8b2cb5e062721af3d74b317ba51cfc117e7b28fe0577a543b73fb74ba4ef65"
+    },
+    {
+      "path": "apps/server/integration/series_scale_test.go",
+      "sha256": "b1517d08dd2adf5dca25576b8b2055f6653d3314fd7efc6ac564705feabc7019"
+    },
+    {
+      "path": "apps/server/integration/series_test.go",
+      "sha256": "070d708092ce16258c36e502d85b78a60016437bcd686a2e61618c3141bc92e9"
+    },
+    {
+      "path": "apps/server/integration/sync_test.go",
+      "sha256": "fe3b78460dd4e24d517cb0ec99d4800a7d1a75ea380c25185e768c24a4b47adb"
+    },
+    {
+      "path": "apps/server/integration/training_performance_test.go",
+      "sha256": "742a44e8632cbd6b2f96fba7514226274afe8216c149f37ea9c4d078ed8d1367"
+    },
+    {
+      "path": "apps/server/integration/training_test.go",
+      "sha256": "1cd7d30a888ccec046e90a06addc40b17755a80b4dacef51bbb4d90ddb825286"
+    },
+    {
+      "path": "apps/server/integration/transaction_failures_test.go",
+      "sha256": "1c9f757fc43d1a3be3d075bd874e15daed320f86c95a4aeb0f8d5f43617487be"
+    },
+    {
+      "path": "apps/server/integration/upload_test.go",
+      "sha256": "c4b6ba08d62937496660516ec17b4ea9a44315d4585617ccc01457f4dca8709e"
+    },
+    {
+      "path": "apps/server/integration/workout_activities_test.go",
+      "sha256": "a5b02e93ecb40b7b1048b8a8d156ead810578aa4e916e15fbc3f81aa5b766fe6"
+    },
+    {
+      "path": "apps/server/integration/workout_bundle_test.go",
+      "sha256": "d898941bbae3ff7d39530ba43ab7882bb4c460afaf3331a1139c58915d963915"
+    },
+    {
+      "path": "apps/server/integration/workout_detail_test.go",
+      "sha256": "ebb7bd071132b39ca2a700667dc670d2e9dc275c60e3f9d927fd43e1d4015b52"
+    },
+    {
+      "path": "apps/server/integration/workout_integrity_test.go",
+      "sha256": "f3ed4ab673bea0ee2620020c6c1e08b8d91344679ef84a57a97490a6580d3d51"
+    },
+    {
+      "path": "apps/server/integration/workout_package_scale_test.go",
+      "sha256": "87be6be3eb3e0c32186a7242bcfdf585ff534b22b147772cdabf4b9e14589202"
+    },
+    {
+      "path": "apps/server/integration/workout_package_test.go",
+      "sha256": "ac88373a573569dd1421b5e7069c5b386a415f3d89ee53f9bd84687d22adfadc"
+    },
+    {
+      "path": "apps/server/integration/workout_reliability_swift_test.go",
+      "sha256": "a76c029dfd92ac890011a624aff4dd2b93750aa9e73b1ba4e2fafbd2efcad5db"
+    },
+    {
+      "path": "apps/server/integration/workout_reliability_test.go",
+      "sha256": "3132babbc00c9d6dd21ea86f35bf66ed0c30efb8e086f9b7c9448aae988eaeb3"
+    },
+    {
+      "path": "apps/server/integration/workout_safety_test.go",
+      "sha256": "60d55094e25f6498c246ecb6b002456e83ad7db7270bcd4bd8a2f3e214aa0af3"
+    },
+    {
+      "path": "apps/server/integration/workout_test.go",
+      "sha256": "eefd9abd5bfd10c5714244d4df8aebacd1257a1c88b9088229e088cf5acf091d"
+    },
+    {
+      "path": "apps/server/internal/admin/admin.go",
+      "sha256": "53b3ce3e1c9e00194b00d1387ddb79be5bc30a702e21733cdb6b2d02fa982dd2"
+    },
+    {
+      "path": "apps/server/internal/admin/analysis.go",
+      "sha256": "250d7bf6bc3b56361ddeb5824fbb7d966dc11291f3be1175b6cfe2d071992843"
+    },
+    {
+      "path": "apps/server/internal/admin/down_integration_test.go",
+      "sha256": "9656d22be8bb0f3c7746199c9e525e97e662d38fc48e75f65dd705b81b3a39c0"
+    },
+    {
+      "path": "apps/server/internal/admin/down_test.go",
+      "sha256": "384a890310e20b830718f6390c657b8336c337fb7554898a7b227d79b1cb8dde"
+    },
+    {
+      "path": "apps/server/internal/admin/migrations_test.go",
+      "sha256": "fe0705491a20d65e75938ad67177af0d317f9da29b98b3c2d043a646770039b4"
+    },
+    {
+      "path": "apps/server/internal/admin/operations.go",
+      "sha256": "3c1a815d1db36795003f7824cd17105a52abf2d2f3ea0f22b480fda36c217b70"
+    },
+    {
+      "path": "apps/server/internal/analysis/analysis_test.go",
+      "sha256": "31725be48067c57cfc3486158d4b79196ca90beb73e10ddc67a51fde2be59445"
+    },
+    {
+      "path": "apps/server/internal/analysis/daily_load_test.go",
+      "sha256": "66578ee992321a7f13286f19059853ef9c8084c7ec9142c77d5d6ae8f4a4e529"
+    },
+    {
+      "path": "apps/server/internal/analysis/input.go",
+      "sha256": "67723daaa564b10a3603e3053d7dc3f97ead66996c45a27d3e0ef9ee322f7d65"
+    },
+    {
+      "path": "apps/server/internal/analysis/model.go",
+      "sha256": "1e2034d2cdf212772d86ef2d5c1183018cb7a60d4acd903101351be5a5801b17"
+    },
+    {
+      "path": "apps/server/internal/analysis/query.go",
+      "sha256": "68fda195bd53ae46e45ef11d9b70dc52f117d2b6d8c5ed8d08d7558000fdf75d"
+    },
+    {
+      "path": "apps/server/internal/analysis/state.go",
+      "sha256": "ebda0e11901a5339aa336a03e6e9de07ca9375da1457ae4c695666dee8870c7b"
+    },
+    {
+      "path": "apps/server/internal/analysis/testdata/training_state.bundle.v1.json",
+      "sha256": "fab5fe9676509ad5b7f68345eadad1f1fe3e20a2d1b0c2e435154d93cb0bab9c"
+    },
+    {
+      "path": "apps/server/internal/analysis/testdata/workout.bundle.v1.json",
+      "sha256": "2a0ffa5ead4e4571b6fb67408c000e56728e2c54b28ec6b447550d02ced348af"
+    },
+    {
+      "path": "apps/server/internal/analysis/workout.go",
+      "sha256": "7f8677302b294cd831e7d90c05b8ac7c610b7170b7fe79556a987dc8c31179f7"
+    },
+    {
+      "path": "apps/server/internal/config/config.go",
+      "sha256": "c67acefbf0aafdc4159e124196d7b2a0291cf51e01fbee16d9abe54b9feeb2a8"
+    },
+    {
+      "path": "apps/server/internal/config/config_test.go",
+      "sha256": "3c3b6091e6034627011226da3a95ea02931aa1836fb9073300201eb809bf5315"
+    },
+    {
+      "path": "apps/server/internal/config/rate.go",
+      "sha256": "c062f75626cd3bf55991faa37f41671d1b553115967c358c86265293c59f44ac"
+    },
+    {
+      "path": "apps/server/internal/config/rate_test.go",
+      "sha256": "085a54cd9efcb909f027a53a36b48e49b5c3c50245cf05b8bfa51731186af910"
+    },
+    {
+      "path": "apps/server/internal/config/resources.go",
+      "sha256": "9f136f0394e7bd30b2238e72ce5ee1b81162d7d682b5451e173bfa273069dbe1"
+    },
+    {
+      "path": "apps/server/internal/config/tls.go",
+      "sha256": "55889c93a6d55c7fc9486b2d2f8bb2a57747597c81fe28e3719764ad353ff119"
+    },
+    {
+      "path": "apps/server/internal/config/tls_test.go",
+      "sha256": "b682f6c484750ef146d8819299078a4ce1661f1cb6bcee913b7b006b2be15116"
+    },
+    {
+      "path": "apps/server/internal/httpapi/analysis.go",
+      "sha256": "1404977f7de14b2e286fad950997210d450f62fe3d4b268d13cc55c7877d7eda"
+    },
+    {
+      "path": "apps/server/internal/httpapi/bundle_admission_test.go",
+      "sha256": "6d8a1b9657565c97d6c7f0b886923ae6f94037875fcb494c527a3fccf5692b43"
+    },
+    {
+      "path": "apps/server/internal/httpapi/health_test.go",
+      "sha256": "bd0d3c3787561982ce5f5e2d394ab5510c17ec726e1d805eacd23f1053c5daf0"
+    },
+    {
+      "path": "apps/server/internal/httpapi/logging_test.go",
+      "sha256": "c6ed5bbb6e2a0910469303873c37c780d54b5929f084541d1c7c89931506994e"
+    },
+    {
+      "path": "apps/server/internal/httpapi/product.go",
+      "sha256": "500d45d41505fb9ece03bf1eb3c5333dba0f9e377a2e2231e191419ba783f07b"
+    },
+    {
+      "path": "apps/server/internal/httpapi/server.go",
+      "sha256": "2057c905cd723d4399b67a935679c0333c2b5c7009cd473f9ce4d8152fdaf2bc"
+    },
+    {
+      "path": "apps/server/internal/httpapi/training.go",
+      "sha256": "4f23d406a94239798af0b0eaed0926cb0a382da4e94607bd900ab42e6d9b3d66"
+    },
+    {
+      "path": "apps/server/internal/httpapi/training_json.go",
+      "sha256": "08c71335ea7feb1dc32109a72ebb94d05dff32b5ccc2f2112691b9664d82f22a"
+    },
+    {
+      "path": "apps/server/internal/httpapi/training_json_test.go",
+      "sha256": "fe2bab04769b6f744303ae06735e8a99e7145a3de9320c21ce205db62f1862ac"
+    },
+    {
+      "path": "apps/server/internal/httpapi/upload_test.go",
+      "sha256": "18083eea557d549255bf272cdf355c7ded11cbe195b542869ecd482ac4e05e7f"
+    },
+    {
+      "path": "apps/server/internal/httpapi/workout_detail.go",
+      "sha256": "135a701dd7006b5a76484117fe36ef125cf310ba31a11532418628a6c19b8bfd"
+    },
+    {
+      "path": "apps/server/internal/jobs/worker.go",
+      "sha256": "99dcf7f0e826cb6e61e08112942e3a16cf309caa222b9fedf4cf67d78a7ba96f"
+    },
+    {
+      "path": "apps/server/internal/jobs/worker_test.go",
+      "sha256": "47f2bfe9304872c8b4acb1440f7c52875e25770baac5b688f972143abefa330e"
+    },
+    {
+      "path": "apps/server/internal/product/model.go",
+      "sha256": "72a21d972ac3dbbcc847bedf63bf471b23335af9dabbbbc1ee8d71892cfd773e"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/admission.go",
+      "sha256": "c208e9d5fe113110b2a89259fffa3758eabdefbc53e0a38a1d6b1808f8d67133"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/analysis_input.go",
+      "sha256": "230e08598656d234278d9e16894249e4090f75c77dc8ef73e285690957efe048"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/analysis_publish.go",
+      "sha256": "d025dfb35ab4ec6e2d9ee715aa7fe894c77ce31acb221711830eef186229037b"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/analysis_query.go",
+      "sha256": "61875ae847d57ee4139bfd1ea9788e584b3dd3246fa4b0420d20a1e368136f32"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/associations.go",
+      "sha256": "62351aaed9df34039a4130e18d8c19e8c0d974d724a7eb154ab0bc2e2aaf42b5"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/bundle_integrity.go",
+      "sha256": "3d10354982330fc5abb612a3aa37bb8c775c019f2e6c39a9c13b018215013ebf"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/changes.go",
+      "sha256": "fbf2dbef89543f635d1b8a0b2b34393baa1eb52ce09f70c85a29fbfa9986898f"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/dbgen/core.sql.go",
+      "sha256": "7a523d7220e43ecd06e70a80d3e5b57c88d38131abb950cbce511a58b5ea96c0"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/dbgen/db.go",
+      "sha256": "84f598c6b75bfcb2abf4c6fbe856276271ccb1899028c767b01f05ad1f13cd87"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/dbgen/models.go",
+      "sha256": "26094de2b9fd0a1c98f3a45630db54be3bafa28b71d3fc0c407b1777a0dba488"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/enrichments.go",
+      "sha256": "bd18e9c9069d3c8fa390ec99fe32a39e95cc73b3b59195f524e8882dd00cdaf7"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/jobs.go",
+      "sha256": "c40ae7f7beb5a5571c26621607f8c753945b44a871ac82a2e7d38d589a59c301"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/pages.go",
+      "sha256": "efe338d58281d82fb7cac21a6d41c15f6d62f968d6505779e760721522856fd3"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/pool_test.go",
+      "sha256": "865e7c165a260fa6d9f5794e26cc07ada0b04c5440ab5acba9148742b3250b0a"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/product_read.go",
+      "sha256": "00d6e03d1ee82c1f8e348318cf46f0f8fd0a2a3a03706f56e0accfee3a05720b"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/routes.go",
+      "sha256": "d20cd3168ec641a0b92d5a14727001d70022d9383f88e1b8e7750320ab939628"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/routes_test.go",
+      "sha256": "5eb7cadf93c0efefcd9f00068716ab306a801413ce5a437458de75ba7ac3b209"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/runtime_role.go",
+      "sha256": "681b211bfa6c08b94c89666c87278001f087d710335e461932d15c6c5f6eeafe"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/sample_batch.go",
+      "sha256": "c57878a16ef50fcbc55247562e61cdc9e08ad6b0b6b76b4fca114935816e933b"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/series.go",
+      "sha256": "584ec8fa23a85d88d855e51ba08697ac6bbeec472bdfb38a3408bee6e7c12db5"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/store.go",
+      "sha256": "fdaa83c3365a33236972e074c71a49a912e287579ba5f502448b576fb45d6a11"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/training_execution.go",
+      "sha256": "6d7d4fdd9d2081375cfefd8891d106052f97ba8afdab0e4add51f059fb790a67"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/training_input.go",
+      "sha256": "42b3a668e68c60a49dbec628ffa397b05a3f3d2a53afd2ed6bbf80442da656d2"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/training_publish.go",
+      "sha256": "91ac254ba473d10570d9710f6bcae9e295fd699fd4431fe5db8870796f8726b1"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/training_read.go",
+      "sha256": "ec97adecdb6e5d70872a465db1031fbd25577ac200c3c48fccbe2ed00e44f452"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/training_store.go",
+      "sha256": "7dd78a2dc938708fc87426b8b62c5113613545da485f7d7052d5cf211dfa2edf"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/training_window_test.go",
+      "sha256": "0d5d6c738b131222dfa17900e53d729828936a75a555f093689ab31c986efc73"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/uploads.go",
+      "sha256": "b67e4a15776491d430e6dc754047c733bac17d8ed27458c54920c20874c39a9f"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/workout_bundles.go",
+      "sha256": "87cff3194ae9e9951ff76356c6ad8b4f1530e0a53e01284273152c44fb989951"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/workout_detail.go",
+      "sha256": "669dc6b5e049c267ead09572c4581ca54ed6445cf6d826dc03f7bf9880ecbd96"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/workout_detail_test.go",
+      "sha256": "4ff28c42c3e9599477e5b93c4db82f07d787ada607fb39cf2982db81902f80c9"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/workout_packages.go",
+      "sha256": "a167730730de580a40bce022e5e041b82d029b644f012f74439677cea41a54a8"
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/workouts.go",
+      "sha256": "aad3edb19ff043de3cc0ceaff870e63ca8f9c80f9a65604591b2db0e91e602a3"
+    },
+    {
+      "path": "apps/server/internal/syncing/admission.go",
+      "sha256": "9e3a858bed8c3ad19229be165e48586914e919a70b00d45e44c0da13a3e99798"
+    },
+    {
+      "path": "apps/server/internal/syncing/association.go",
+      "sha256": "2bb17d65a1d688a2d20489665eb23b4ac9b712ede2486117c51bcf9b43c9fb0f"
+    },
+    {
+      "path": "apps/server/internal/syncing/bundle_decode.go",
+      "sha256": "486b689981cdcdb8a56aebe4fc115db5ebb1ed0967fb52590e653f3f6786e0ff"
+    },
+    {
+      "path": "apps/server/internal/syncing/bundle_decode_test.go",
+      "sha256": "c85430bc36ba511471988b02f1af04e56688834b0c14f5fccacc893083bf3cba"
+    },
+    {
+      "path": "apps/server/internal/syncing/bundle_integrity_test.go",
+      "sha256": "e7e4ee9b605ed95dc57d2938d5c5cfd8f6fe675bcca3a353f74a6b802f923681"
+    },
+    {
+      "path": "apps/server/internal/syncing/bundle_observation.go",
+      "sha256": "2859f5882081210cbfb52b55a6101eef8d017ef6bfb2f5e1d5e1fb8fd50ec5f6"
+    },
+    {
+      "path": "apps/server/internal/syncing/changes.go",
+      "sha256": "1250e7e17904fd8f94213e0b4a8e5d2ae4a5aeaac742c12465ac2e4c1421b240"
+    },
+    {
+      "path": "apps/server/internal/syncing/enrichment.go",
+      "sha256": "b7a513bc89e3e2b33d4abd4fe540737dca3997b33caaa0e4dbbd4dbeb92017af"
+    },
+    {
+      "path": "apps/server/internal/syncing/page_test.go",
+      "sha256": "7892b33e1ce215aebe968d3f5981cc04413e99ea5734e7854f478a02bce63ea8"
+    },
+    {
+      "path": "apps/server/internal/syncing/protocol.go",
+      "sha256": "839b5df38c7255481cdf29f9ddef1c8a6b5809bf87c89ad335f7a7163d21a767"
+    },
+    {
+      "path": "apps/server/internal/syncing/protocol_test.go",
+      "sha256": "b01433a1e948a8038b893046b640e66466dbc3ebc4b533628ce25ff0819acb19"
+    },
+    {
+      "path": "apps/server/internal/syncing/route.go",
+      "sha256": "5cade2cacee3446ef2ba77ca04f595d30b55212bbb99634dc0926e5eafacd44b"
+    },
+    {
+      "path": "apps/server/internal/syncing/route_test.go",
+      "sha256": "ea1b63a424d3068b30e28086c3db32c86036db443b550eb73fc5e7b2ef85342c"
+    },
+    {
+      "path": "apps/server/internal/syncing/series.go",
+      "sha256": "4ef60a86757d6196d26fedb94ae37471e6da7be31335f32aadac32b993f06cf4"
+    },
+    {
+      "path": "apps/server/internal/syncing/series_test.go",
+      "sha256": "252bcfc3425ee2668351fccd9e4562f4d2151fe258d2689ad204107ae945e307"
+    },
+    {
+      "path": "apps/server/internal/syncing/store.go",
+      "sha256": "432a2b3540e55cc89f75a3cf18283c87d971ce420d4981562de072ac3e885ba0"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout.go",
+      "sha256": "d5248e1bc7fb57bc350883155d84ae01215428c0a587574dabf30b5d76c36593"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_activities_test.go",
+      "sha256": "0d073e6d8da93aa33e9caa5ac645ba21b4744d83e1802ef36e7d9e8e3618c931"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_bundle.go",
+      "sha256": "101cee0ac78ebfbffe413b1980406b66e6cc7084003a420c3ac8f0e8d5a5186f"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_bundle_test.go",
+      "sha256": "24fa47ba0be75dd37d5b95f6a9b23b4fdd41f24468655e5fcca327577acc1633"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_delete.go",
+      "sha256": "12c7e5822c08a8bf671c83b28781281e5f1df2b2279e288824b825a432dfbf05"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_package.go",
+      "sha256": "d98945463c5104c8146d3c3a4f662e0232a7bbbf027076aac8bf045501cd4528"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_package_fixture_test.go",
+      "sha256": "ad7dae0f105845e396fc0683dacbbaa2aa8aea25c926d04bda27ff6718af4914"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_package_test.go",
+      "sha256": "26f0c397d581baefb4b916adb655a78dbef1dda48466a83596a9f7517eeb15c7"
+    },
+    {
+      "path": "apps/server/internal/syncing/workout_test.go",
+      "sha256": "cc963f078199899d051cc21648d313965f7e163ddb1d78aa7bb8db40c924b0e1"
+    },
+    {
+      "path": "apps/server/internal/training/effective.go",
+      "sha256": "d7d5605b050a14461d77c34b9d7c733e84810733bb2db4b5be68e08a51c20f1d"
+    },
+    {
+      "path": "apps/server/internal/training/feedback.go",
+      "sha256": "0d4bd392752f4f7a467e760fe51350a0677909928f72316bd759d7ee0843f5d0"
+    },
+    {
+      "path": "apps/server/internal/training/generator.go",
+      "sha256": "bc41e9d39b4b679e34d16af4c898b5d0645d86a97107dbc088e54ece0caaaecf"
+    },
+    {
+      "path": "apps/server/internal/training/model.go",
+      "sha256": "378cf3ef068977a79314b85f5514f338ad850dac5b915b0c6e67605c15f6f52e"
+    },
+    {
+      "path": "apps/server/internal/training/rebase_test.go",
+      "sha256": "192fd26fbe90b972b5c53aa4b15422a203305257bbac7893e4764aab1bad3e00"
+    },
+    {
+      "path": "apps/server/internal/training/testdata/merge.v1.json",
+      "sha256": "6c3f3992a2948a041efc5872223c3af4363256c4f95bbb1651c18e0a3fc368f4"
+    },
+    {
+      "path": "apps/server/internal/training/testdata/plan.v1.json",
+      "sha256": "9515c183f8889013eacd49fa9a8f9aedf2209685bdf0d65cb757eff7dd2c6278"
+    },
+    {
+      "path": "apps/server/internal/training/training_test.go",
+      "sha256": "65cded220bf76ccfce0ec1bfd40bd60e20e727eae987cd87f6a631d6b28c9ee4"
+    },
+    {
+      "path": "apps/server/internal/workoutdetail/calc.go",
+      "sha256": "08ae2dc72cefa684e5d655d7b93c994a9fef61bfca155eaab0f4311c6bbb8ecb"
+    },
+    {
+      "path": "apps/server/internal/workoutdetail/calc_test.go",
+      "sha256": "01587aa79183b5ce14844b8bc271e7f615b9a48be499989950b870f96f0e37e9"
+    },
+    {
+      "path": "apps/server/internal/workoutdetail/model.go",
+      "sha256": "9a305b917f840231f9413a29a57b318e7c13cd4a07611cde68ce11f27c3a6aea"
+    },
+    {
+      "path": "apps/server/migrations/00001_core.sql",
+      "sha256": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe"
+    },
+    {
+      "path": "apps/server/migrations/00002_dirty_generations.sql",
+      "sha256": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23"
+    },
+    {
+      "path": "apps/server/migrations/00003_workouts.sql",
+      "sha256": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880"
+    },
+    {
+      "path": "apps/server/migrations/00004_page_receipts.sql",
+      "sha256": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75"
+    },
+    {
+      "path": "apps/server/migrations/00005_request_budgets.sql",
+      "sha256": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0"
+    },
+    {
+      "path": "apps/server/migrations/00006_upload_slots.sql",
+      "sha256": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5"
+    },
+    {
+      "path": "apps/server/migrations/00007_workout_activities.sql",
+      "sha256": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6"
+    },
+    {
+      "path": "apps/server/migrations/00008_quantity_series.sql",
+      "sha256": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d"
+    },
+    {
+      "path": "apps/server/migrations/00009_workout_packages.sql",
+      "sha256": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce"
+    },
+    {
+      "path": "apps/server/migrations/00010_route_foundation.sql",
+      "sha256": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56"
+    },
+    {
+      "path": "apps/server/migrations/00011_p3_sync_v2.sql",
+      "sha256": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4"
+    },
+    {
+      "path": "apps/server/migrations/00012_analysis.sql",
+      "sha256": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f"
+    },
+    {
+      "path": "apps/server/migrations/00013_training.sql",
+      "sha256": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b"
+    },
+    {
+      "path": "apps/server/migrations/00014_workout_imports.sql",
+      "sha256": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8"
+    },
+    {
+      "path": "apps/server/migrations/00015_workout_import_history.sql",
+      "sha256": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6"
+    },
+    {
+      "path": "apps/server/migrations/00016_route_timestamp_envelope.sql",
+      "sha256": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8"
+    },
+    {
+      "path": "apps/server/migrations/checksums.json",
+      "sha256": "26c42cd42c3137fe5b863c9b6d7829be19b0187171092170c7b23e2b1454e487"
+    },
+    {
+      "path": "apps/server/migrations/embed.go",
+      "sha256": "9f8086f8704f668285ece843dbbc53975967f7f63e0f2754ba1638f0d0c0a198"
+    },
+    {
+      "path": "apps/server/queries/core.sql",
+      "sha256": "bee90f9c4a788848fe0031f3fb980ae20689aa28ad716bbcbb329c567e15127e"
+    },
+    {
+      "path": "apps/server/sqlc.yaml",
+      "sha256": "00677ebf41d5acbc96d70f67a6c1e849d44e2f12d67f468d4e7f9dfc93961fd8"
+    },
+    {
+      "path": "contracts/CHANGELOG.md",
+      "sha256": "0715d879fd6d94fd0310d41250dc59744fbbf8b439451085ea1d01304b461db3"
+    },
+    {
+      "path": "contracts/fixtures/envelope.canonical.json",
+      "sha256": "bf6eeae8b3eeea73833d55bc91d554e7152e6863fd182f9d69d03e1fc98d33fa"
+    },
+    {
+      "path": "contracts/fixtures/envelope.json",
+      "sha256": "1c1d24e9d97fc3b730da38da6ee7b1d4b7fa8da71ad1a2e20ad7a22fad5849dd"
+    },
+    {
+      "path": "contracts/fixtures/envelope.sha256",
+      "sha256": "bd014695c8ca5eae9da528456fc14bd367864651818c935a221194d178586d22"
+    },
+    {
+      "path": "contracts/fixtures/page-manifest.json",
+      "sha256": "4f9db6f452f99e450ecd00e4b11d6455b3ac2c986629660e065aac5f5ca28f6c"
+    },
+    {
+      "path": "contracts/fixtures/sample.ndjson",
+      "sha256": "18a761778e199770c8eb214c7d81437ad5d50a1fd6c402eceee3fc9dd7478fcd"
+    },
+    {
+      "path": "contracts/fixtures/sample.ndjson.gz",
+      "sha256": "e22d6b6a5b8f1a919f0f99072584651c6482769988eff127cc7979f5cba4f163"
+    },
+    {
+      "path": "contracts/fixtures/series-manifest.json",
+      "sha256": "1da177719572e2d0769188ac7391c2f5586a1dfcc5dadb22b9caa3f91a1366c9"
+    },
+    {
+      "path": "contracts/fixtures/workout-activities.ndjson",
+      "sha256": "f7986a27287b42b39ba8ed108df18a02030d22c9fd63cc3d36a324167a55dbea"
+    },
+    {
+      "path": "contracts/fixtures/workout-activities.sha256",
+      "sha256": "6428fd45456be11e098d016ea57f6068324e4dec85cd96d666935266b40d0e65"
+    },
+    {
+      "path": "contracts/fixtures/workout-package-manifest.json",
+      "sha256": "b2fa2865fd7e0962c34943914a84c5386437426f041428c10745773c61c5a37c"
+    },
+    {
+      "path": "contracts/fixtures/workout.ndjson",
+      "sha256": "e89aeda9d58979b99ea8e4243015c26f36b671d441804987d86c2dbf5a12552f"
+    },
+    {
+      "path": "contracts/fixtures/workout.sha256",
+      "sha256": "2b565d68717ac9a687b736451282bed72dd9c9f81832cf655b29c1f1e863552d"
+    },
+    {
+      "path": "contracts/openapi-v2.yaml",
+      "sha256": "f86da2230f31d261fae1765528dae47936d5ad07f6e86fc07e9e4a20766fb918"
+    },
+    {
+      "path": "contracts/sync-v2.md",
+      "sha256": "d4e545705c371026093af747341d8f111a460d3f153128c1c094bf19b161140c"
+    },
+    {
+      "path": "contracts/sync-v3.md",
+      "sha256": "5391b0e0aee5d827e01823ceed5d3f9b20006dca536b7cd553d09f32a7f80631"
+    },
+    {
+      "path": "deploy/dev/README.md",
+      "sha256": "9977b178ad31e2c56a63cb40df1cebecf9f7a0f4df6a42a23842cf12cb28af21"
+    },
+    {
+      "path": "deploy/dev/compose.yaml",
+      "sha256": "99bbd4352fbd52fc06b4ecbfe61a8ed26db15104211f5c07185194b73cf949f6"
+    },
+    {
+      "path": "deploy/local/README.md",
+      "sha256": "ddebbe4e0cc4460dc1015493f0e83b525f8711caf12ffe2dd206ca04df47913d"
+    },
+    {
+      "path": "deploy/postgres/bootstrap.sh",
+      "sha256": "d6e13a86172ae76279ae9a95a5cd35923113176ca55e2a4ea0dc05bacca671e7"
+    },
+    {
+      "path": "deploy/postgres/roles.sql",
+      "sha256": "18e09734f4fbbaba179c4cf24f32a44eaa2b7914ceb8313322830531f5ab3c15"
+    },
+    {
+      "path": "deploy/postgres/runtime-grants.sql",
+      "sha256": "1299a5fef4248daedc092ac3e6fb2fc20ae9cddd8b49244722fbe0f2dcba1a5b"
+    },
+    {
+      "path": "deploy/release/compose.yaml",
+      "sha256": "d41ff1a17bd9030bef8b4f6a3032dc13aaebd380a74cf0bdc26673f77c236205"
+    },
+    {
+      "path": "deploy/release/environment.example",
+      "sha256": "4f0826a944163094171d4f9118bcaf4d234f3524873b5d8633e77713a78c1299"
+    },
+    {
+      "path": "deploy/release/monthly-backup.crontab.example",
+      "sha256": "864876a604aaf06f65e0a1504be9964ae13d4fc5a4ae9262940134485d2a2908"
+    },
+    {
+      "path": "deploy/release/monthly-backup.environment.example",
+      "sha256": "499cf3beeeb468ec913d2b337786f4d7acbdbc92ad7ea38eabaf1a492293b917"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "96a72881c3b55069e33b0a3a2130b919dbbc1ad70d9be711ef1ff9f535d1a254"
+    },
+    {
+      "path": "docs/FNOS-ACCESS.md",
+      "sha256": "6a38e0f74bd0701c7c4a63280a53586b028c14733dffdacb512be17aa077245e"
+    },
+    {
+      "path": "docs/IMPLEMENTATION.md",
+      "sha256": "570c30398866c1b4b0d835ea04a637ea4fc28974b03f38c09af890cc61f66cfe"
+    },
+    {
+      "path": "docs/P0-LEGACY-INVENTORY.md",
+      "sha256": "1c6b86816742b2ddcc5f77a9e3ec376ab158b70a342ad2e59685ee58593ea5f7"
+    },
+    {
+      "path": "docs/P0-TRAINING-PLAN-INTERFACES.md",
+      "sha256": "3920edf868bbe5e2f2e168d66094c84047f08b9418ae48e0dd525a62c41ed3f7"
+    },
+    {
+      "path": "docs/P4_ALGORITHM_CONTRACT.md",
+      "sha256": "a10dea3b21f2a26a29d846af03b15d099e01203f7b8bc59ac2b51c9981f047e1"
+    },
+    {
+      "path": "docs/P5_COACH_CONTRACT.md",
+      "sha256": "a43bced70072cba1062238581392e75a4249fedead53caa9c650554b0344d01a"
+    },
+    {
+      "path": "docs/P6_IOS_PRODUCT_CONTRACT.md",
+      "sha256": "9855266aa73d8de827fa0d5f68a067237a8198766b339feec944f790be06cc46"
+    },
+    {
+      "path": "docs/P7_BACKUP_RESTORE.md",
+      "sha256": "aea15cfc836260cdbd887c375952b55e2e09408e74bc345b95c40d13f5ea998d"
+    },
+    {
+      "path": "docs/P7_CAPACITY.md",
+      "sha256": "c29d5f8e0895bd7928684de3e12069901971a8b39fed07b19b97706afbccba61"
+    },
+    {
+      "path": "docs/P7_DEPLOYMENT.md",
+      "sha256": "c991c3a1ccefe4267e4c4afe096e2034fc3d30f92ea4e5bc5bfe1c78715f47be"
+    },
+    {
+      "path": "docs/P7_OPERATIONS.md",
+      "sha256": "965fbd1896c740f5bd05af71a8e9dad86bb03f9c824b81e8fcf5b51e47c21e12"
+    },
+    {
+      "path": "docs/P7_RELEASE_CHECKLIST.md",
+      "sha256": "507c4aae3d8dc59585ed2c8c8bd63d3634c7a50fdd5e1d6b65f28043586ee383"
+    },
+    {
+      "path": "docs/P7_SECURITY.md",
+      "sha256": "b4e4ecd9932f80e5343ddd88cd05f2f39228c7988c7351445c112ab11386fbd3"
+    },
+    {
+      "path": "docs/RAI_BACKUP_RECOVERY_RESULT.md",
+      "sha256": "55c69fa6cc08db070679ed2f57bcb6efe62ce1cfafcfd572e0bc906b93311a6c"
+    },
+    {
+      "path": "docs/RAI_DISASTER_RECOVERY.md",
+      "sha256": "932c9718e1f2fdfa7d3f244ad4eb3d0529fc84fdea07a4bccff462b73b4f1422"
+    },
+    {
+      "path": "docs/RAI_MINIMAL_DISASTER_RECOVERY_REVIEW.md",
+      "sha256": "cbcdfea434c6d708344ecc6f463ab3cb36a4b31c8697accfb8c7dc224b66c92a"
+    },
+    {
+      "path": "docs/RAI_MONTHLY_BACKUP.md",
+      "sha256": "cff93aa1fdf3c80d674d5252dfbf1d028f0d3eee179dfd994679c8dc2855de94"
+    },
+    {
+      "path": "docs/RAI_MONTHLY_BACKUP_DEPLOY_RESULT.md",
+      "sha256": "d3048f98ef8799859a224b3cf4e405e7bddb29ab46503a0a396fc6574dbceb72"
+    },
+    {
+      "path": "docs/RQrun-HealthKit-上传协议.md",
+      "sha256": "3492791ff3d4923b8e79ffbfcccb9bd4177d9270136e3ad22d5595248eee044a"
+    },
+    {
+      "path": "docs/RQrun_PHASE1_RESULT.md",
+      "sha256": "02bec19162bb5809d68fb227e1857d832b33ae13dcb075572290087e6bebc6ba"
+    },
+    {
+      "path": "docs/SIMULATOR_ACCEPTANCE_RESULT_2026-10-30.md",
+      "sha256": "bb7a45e83670faff933202dc8a28fd9aa9ba5681a6e46f59fc47f04737db05b9"
+    },
+    {
+      "path": "docs/UPLOAD-QUERY-BUDGETS.md",
+      "sha256": "c50194f2b5323d363c2902977572f340bfa08e8765ba03462e142b4bab453407"
+    },
+    {
+      "path": "docs/V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md",
+      "sha256": "20a8c6b7a3b338675e7fa5f4d1ad1bf1e37931a6164030219e2faa7e4a35c244"
+    },
+    {
+      "path": "docs/V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md",
+      "sha256": "e9ac0247132123b86125a300039da81fdee21165b03e9c026d902a29a2969da3"
+    },
+    {
+      "path": "docs/V2_FULL_PROJECT_REVIEW_2026-10-29.md",
+      "sha256": "1e194bc54f6f8bb0b2e1dae6c3642db9491c691e88f07c6a3e581db792cf728f"
+    },
+    {
+      "path": "docs/V2_FULL_PROJECT_REVIEW_FIX_RESULT_2026-10-29.md",
+      "sha256": "b7144bae3c72bd7614252d22cdbd488b605d660d10d14b0357eaf026f8070b13"
+    },
+    {
+      "path": "docs/V2_PER_WORKOUT_SYNC_AUDIT.md",
+      "sha256": "5c8733f65418406e638f40b101d87fe34b271c4bc9d282346ff1f70c3cc8caae"
+    },
+    {
+      "path": "docs/V2_PER_WORKOUT_SYNC_RESULT.md",
+      "sha256": "131bcf50c4f7e591daf2c1f4b8528205ae5963c90ee3e08186fcdda85d6fbf06"
+    },
+    {
+      "path": "docs/V2_PHASE0_BASELINE.md",
+      "sha256": "5b96af2e5807534713e559bdff0d1a816d7ab052cac180cd2e15a774e4a86519"
+    },
+    {
+      "path": "docs/V2_PHASE1_PLAN.md",
+      "sha256": "ba4b57ef0f1ed8b089a2bfcb35997ee9f4c3b14d7b6fb7576679316dd9d737c9"
+    },
+    {
+      "path": "docs/V2_PHASE1_RESULT.md",
+      "sha256": "165df1ebf0156585256bf9ba48554e978c41129f7c1e6626305c5f05c55d8554"
+    },
+    {
+      "path": "docs/V2_PHASE2_RESULT.md",
+      "sha256": "35473a6af285aba6d0f964c5ef5632d0f694d83ce13d0e8888545fe4dbe31b76"
+    },
+    {
+      "path": "docs/V2_PHASE3_RESULT.md",
+      "sha256": "337c21418e3f35c6725a6fc2c508bdeb58376fe8e72699488f51d8fdf0a37611"
+    },
+    {
+      "path": "docs/V2_PHASE3_SYNC_CONTRACT.md",
+      "sha256": "8353450f8467810568ec4d9535dbcc8397faeda2b9805b20982167b09f578862"
+    },
+    {
+      "path": "docs/V2_PHASE4_RESULT.md",
+      "sha256": "0769215561778b38de11f6dad731b27ba0d2f7666c6f85b30d65f31bf8af40f4"
+    },
+    {
+      "path": "docs/V2_PHASE5_RESULT.md",
+      "sha256": "dd9c39ef1a58da5df7af05b846d774a659b155353acb3adfdc8f02b2396d33be"
+    },
+    {
+      "path": "docs/V2_PHASE6_RESULT.md",
+      "sha256": "fe16ba84b8294b2b6001a4c7b0fc007a9f18c3b670c2af20e1e9741e2a0fc301"
+    },
+    {
+      "path": "docs/V2_PHASE7_RESULT.md",
+      "sha256": "f00bc0b89e174bc75b47001f708e502629d1a20f417191316ebbd458a298a7cf"
+    },
+    {
+      "path": "docs/WORKOUT_DETAIL_NATIVE.md",
+      "sha256": "4ffac7c05e916bfd55902f0e436893217890ab3881046ef3a047b91baef4b3e9"
+    },
+    {
+      "path": "docs/adr/001-new-project.md",
+      "sha256": "ae53158e4a7fdf60acaae6339887d48f958ff2dc4297341cc1b14eca6afa37a7"
+    },
+    {
+      "path": "docs/adr/002-fresh-healthkit-dataset.md",
+      "sha256": "7abcecf4f208b47f560e2281ecf6adbaaa2557517353005683cc7b39de3f64a8"
+    },
+    {
+      "path": "docs/audits/RQrun_PHASE2_RELIABILITY_REVIEW.md",
+      "sha256": "51fa64f6a490432e8bb3a4b180c5b4e368370c1d8cab14aed4c9fa34de34c47a"
+    },
+    {
+      "path": "docs/audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md",
+      "sha256": "174a5ccaa09526f9ac863f8de48e732f98fea6a93fc8cb76b692622e774e43a5"
+    },
+    {
+      "path": "docs/audits/RQrun_WORKOUT_SYNC_REVIEW.md",
+      "sha256": "9be01166306562566b6bea94027b4370ab04f56b672c980ef8f98878cdd1be06"
+    },
+    {
+      "path": "docs/evidence/admission-tests-2026-10-27.json",
+      "sha256": "27001d6abc24eac55048322c5204abc4f7ae41e937595700ddded605c3a489e8"
+    },
+    {
+      "path": "docs/evidence/backup-recovery-2026-10-29.json",
+      "sha256": "8d542fe1c405d69dbcbb094035b0da4c7636e7dbbebbe21382e45c8c10d5e4d0"
+    },
+    {
+      "path": "docs/evidence/device-acceptance-2026-10-30.json",
+      "sha256": "1a3b9f1e033e97af25595849fdcbb57b8848efdd3d9e70cee63d07b6a7daade7"
+    },
+    {
+      "path": "docs/evidence/device-backend-2026-10-31.json",
+      "sha256": "2028841e1f3a6a8c7595b26007af0298846819c94a0540b3004c3894d092abcb"
+    },
+    {
+      "path": "docs/evidence/device-workout-structure-2026-10-30.json",
+      "sha256": "46b1bac77b5ac55e6f3385b52ca8b946299a839b50cd9027e4966fdbea2b57c9"
+    },
+    {
+      "path": "docs/evidence/final-maintenance-fix-2026-10-30.json",
+      "sha256": "af84c9d555d8298006f1fcc90c60456eac1a451ae14ea8c506ce30ca14aca8d9"
+    },
+    {
+      "path": "docs/evidence/fnos-remote-tests-2026-10-27.json",
+      "sha256": "103b9eef4e0a3a256cededb9194972b4aefcd95c30dbf2f23090626eba6390c9"
+    },
+    {
+      "path": "docs/evidence/full-review-2026-10-29.json",
+      "sha256": "72909df24674f59ac36192235d41802b1517e0496cf6ce592bf96a18ccac4631"
+    },
+    {
+      "path": "docs/evidence/full-review-fix-2026-10-29.json",
+      "sha256": "5f5e47195c293f87b9c5165e515aeffe7f1a4f933cb69ab55a12a1e7e8f38297"
+    },
+    {
+      "path": "docs/evidence/ios-app-icon-2026-10-30/result.json",
+      "sha256": "19f056ed6332fda03158e570ef4473b01a9f33af5ac5af971ce56bd08deb6817"
+    },
+    {
+      "path": "docs/evidence/ios-signing-2026-10-30/result.json",
+      "sha256": "e61bce302a853d5b00d5ef4e7c68bfee5176b914d389462ed15c615cebf13303"
+    },
+    {
+      "path": "docs/evidence/local-dev-environment.json",
+      "sha256": "b84186c37796daa729b260a4b6461a8b54693c480961c61a90cd85c60ff7a45f"
+    },
+    {
+      "path": "docs/evidence/local-dev-tests.json",
+      "sha256": "1a578049a7f0de8ddef8df0ca04e0cbf737910cd31b5172dbcdbaf343be766b2"
+    },
+    {
+      "path": "docs/evidence/local-xcode-build-2026-10-30/debug-build.txt",
+      "sha256": "1bf1351c47c8e01d2e4141191cb2c5d2b926ccce042f46af66e906cd1e7e0131"
+    },
+    {
+      "path": "docs/evidence/local-xcode-build-2026-10-30/debug-first-attempt.txt",
+      "sha256": "6a0fd71b3e10580830b782e5a1a81d4199c6d432ce172c87b5fcaada452744c9"
+    },
+    {
+      "path": "docs/evidence/local-xcode-build-2026-10-30/platform-install.txt",
+      "sha256": "36bcc0dcfd3a0225f9725dc7ce4fa959986c0cd26f2ff54fd209b2edd17d9a5e"
+    },
+    {
+      "path": "docs/evidence/local-xcode-build-2026-10-30/release-build.txt",
+      "sha256": "d72ab2bbf0e85de9bdb622d774966400459a78fe9459142acfb22663150d0490"
+    },
+    {
+      "path": "docs/evidence/local-xcode-build-2026-10-30/release-first-attempt.txt",
+      "sha256": "3feeb530c70e98b8ac832798309ad2cdd4fc5a92358ecd9fb58e3b6e394af6a5"
+    },
+    {
+      "path": "docs/evidence/local-xcode-build-2026-10-30/result.json",
+      "sha256": "ce10eb36b081c9f741bf91292133811393636c35a142d8918860a2f9872cf03c"
+    },
+    {
+      "path": "docs/evidence/local-xcode-build-2026-10-30/runtimes.txt",
+      "sha256": "ebc62178fa203ee5ae1e50d34e124dbdbb1e39f8d4987082b499c594285ab476"
+    },
+    {
+      "path": "docs/evidence/local-xcode-build-2026-10-30/swift-test.txt",
+      "sha256": "42288e7c599daa156363088c34dbf83b628b394aa042ef691c5f2a7faa144942"
+    },
+    {
+      "path": "docs/evidence/monthly-backup-deploy-2026-10-29.json",
+      "sha256": "0ddad0bc7064797bcc1631d8c2d360689e87b4fcde17f8f961fb05a4e23dcdb0"
+    },
+    {
+      "path": "docs/evidence/monthly-backup-deploy-2026-10-29/scheduled-guard.json",
+      "sha256": "c83a77d442605aea589f187a3f91787306ebf50f2761e45cbd0403c33c49f737"
+    },
+    {
+      "path": "docs/evidence/p0-legacy-source-inventory-2026-10-27.json",
+      "sha256": "b38021965b31646b415ecd718a493bd498dd79a5743766715f61c5405dbf9319"
+    },
+    {
+      "path": "docs/evidence/p0-training-plan-sources-2026-10-27.json",
+      "sha256": "4433e307fd585b5bd883412a3c5dc22a71e9a961e319a42bc6d0b3dedd18c271"
+    },
+    {
+      "path": "docs/evidence/p3-fnos-2026-10-27.json",
+      "sha256": "ff0e1aedd613fa46d2583e1b88771534c18817b657cb70235ce4ac73ad572d55"
+    },
+    {
+      "path": "docs/evidence/p35-ios-2026-10-27.json",
+      "sha256": "f07ea1e900bc3c2bf06d5c6b940c31dad4dd935f5dd128c5e1e0152416498412"
+    },
+    {
+      "path": "docs/evidence/p4-baseline-2026-10-28.json",
+      "sha256": "9c050e2167f6f5d2549636ac6f9243fe9b984135e04aa29afd12cc896085a25f"
+    },
+    {
+      "path": "docs/evidence/p4-fnos-2026-10-28.json",
+      "sha256": "538a8888675792907f79bef4cff2e641490f7def0e0ce52d010cbeec969a82a4"
+    },
+    {
+      "path": "docs/evidence/p4-query-plans-2026-10-28.json",
+      "sha256": "6c69791bb368308b612fdcc7d979e27c8d0537a355e447b152096ea9776a2ef9"
+    },
+    {
+      "path": "docs/evidence/p5-baseline-2026-10-28.json",
+      "sha256": "ed6f105e8cf0c443b979c03f0622af98953150778b9e502d6b27962042c9c07f"
+    },
+    {
+      "path": "docs/evidence/p5-fnos-2026-10-28.json",
+      "sha256": "c88824a24d7cd4dcb11eb4ba4cf5444b10165940db147813b7dbbc4dccec05a7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/README.md",
+      "sha256": "c3235eeb11466a5457ba7a63baa228acd4bb9eba50c5729737368780db8b9ac1"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/accessibility-environment.json",
+      "sha256": "0b33cf73a09c7e23b77bd66bcab485392aef7388369f471def2d4cb02a44f6a0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/accessibility-feedback-clip-before-fix.json",
+      "sha256": "36cc2354d0372329fe7ee09673c12075d0fd31e8ca00581173cd8bcbee895fbf"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/debug-test-build.log",
+      "sha256": "e5cff132567a5408b0340d41e4867847e01938a45d41a8725871cc514041d345"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/fnos-final.log",
+      "sha256": "38c92f2c73a3a20113b65f29889417b90ce40bc112741950acbba848ee74f33d"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/fnos-synthetic-api.log",
+      "sha256": "84d15e73fa56a0351041c0d79b8bf634230625a17807ecabd892af9997a9d9b0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/fnos-synthetic-migrate.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/fnos-synthetic-worker.log",
+      "sha256": "2081d7f536dda3a455f5cb32672b10f2c403b6f59b8fc160ba9f8791013030dd"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/AnalysisAccessibility.png",
+      "sha256": "4176d61611a7fb6885f458f1ad5887701d952fdef634cd14bc7ac20ac07b7cf9"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/AnalysisTrendAccessibility.png",
+      "sha256": "11571e32abe1979948af4b54742f79b9524caa48a38d53bbacd6b577fa34b420"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/ExecutionAccessibility.png",
+      "sha256": "1e1a5a99b31fb68c6e004369c27a9d972718ea9d51ed95d502c2532d9dc4e530"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/FeedbackAccessibility.png",
+      "sha256": "1e1a5a99b31fb68c6e004369c27a9d972718ea9d51ed95d502c2532d9dc4e530"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/HomeAccessibility.png",
+      "sha256": "70d403e1fa5599f094c2534c5ecd8e4ee2f7de2f9d27d98c60e46f36327dd974"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/HomeAccessibilityScrolled.png",
+      "sha256": "a94fc6116442b8499a5e371964ec5b5a9e46d6443ae77aba03bdcc62769bab1c"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/SessionActionsAccessibility.png",
+      "sha256": "780be48c231c07bc9e8b506635f290d70f6ccb276bb0a6c8125ac1d60e346d2a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/SessionDetailAccessibility.png",
+      "sha256": "2d7dda81618b111a3ad448832bac65af45e7725c072c8f231d63e32b59125ee0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/TrainingAccessibility.png",
+      "sha256": "0002ed40b21edab8eb103f0884934e71a22244e9028c5fb4187686a207314c54"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/iphone17-pro-max-final-default-earlier-accessibility/WeeklyAccessibility.png",
+      "sha256": "a96b363c73f423963d05cd8659e6f0c7ed9218d67dadd8f3b18a5cfe3a3f31f0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/AnalysisAccessibility.png",
+      "sha256": "4176d61611a7fb6885f458f1ad5887701d952fdef634cd14bc7ac20ac07b7cf9"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/AnalysisTrendAccessibility.png",
+      "sha256": "11571e32abe1979948af4b54742f79b9524caa48a38d53bbacd6b577fa34b420"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/ExecutionAccessibility.png",
+      "sha256": "1e1a5a99b31fb68c6e004369c27a9d972718ea9d51ed95d502c2532d9dc4e530"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/FeedbackAccessibility.png",
+      "sha256": "1e1a5a99b31fb68c6e004369c27a9d972718ea9d51ed95d502c2532d9dc4e530"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/HomeAccessibility.png",
+      "sha256": "70d403e1fa5599f094c2534c5ecd8e4ee2f7de2f9d27d98c60e46f36327dd974"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/HomeAccessibilityScrolled.png",
+      "sha256": "a94fc6116442b8499a5e371964ec5b5a9e46d6443ae77aba03bdcc62769bab1c"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/SessionActionsAccessibility.png",
+      "sha256": "780be48c231c07bc9e8b506635f290d70f6ccb276bb0a6c8125ac1d60e346d2a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/SessionDetailAccessibility.png",
+      "sha256": "2d7dda81618b111a3ad448832bac65af45e7725c072c8f231d63e32b59125ee0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/TrainingAccessibility.png",
+      "sha256": "0002ed40b21edab8eb103f0884934e71a22244e9028c5fb4187686a207314c54"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-final-audit/WeeklyAccessibility.png",
+      "sha256": "a96b363c73f423963d05cd8659e6f0c7ed9218d67dadd8f3b18a5cfe3a3f31f0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/004AD7CA-F814-44DB-9141-DD67F2480210.png",
+      "sha256": "8c5c1e6d6b9246a52a8f3d0f24effd7d693418db97fc2f7271f4e3be2b0145cd"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/029389B5-484B-4411-9618-40CC9363E343",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/039DFBFB-696F-43E4-AE69-7631A30FC5DB",
+      "sha256": "43e827d9328f620cb007c4107fd26ff063c168625678d81ebaa48b60813590e4"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/0434F151-8176-4FDF-8B60-D967B93AA3F8.png",
+      "sha256": "a0283a3a4b5caf1aa2afe8ae2375367ce978118411eecf4c4b796a37c520ef81"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/0CF9C421-0108-4B6C-82C7-9F32C1A46A41",
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/1569D6DE-0448-45FB-9277-3F1F42F2A614.png",
+      "sha256": "b83323f6ad63581537715c2810a638f404e4edc7e34716e8921cdecb56c30af7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/1B5D3A8F-1074-4FD6-BA96-CB369F50852C",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/1C38FBE7-8A92-4AA0-A1F7-F3C5B85DD842",
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/2A05FEB7-2E1C-4F5E-9707-F2B1A17C4B06.png",
+      "sha256": "bc90c32681e60f2190a61c945ceb7c226b540fa60b6d2e66d26c005165a2fb2c"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/333EE95D-C38E-4595-B41C-A138C5B75670.png",
+      "sha256": "f99bd6021d8d25758797dd7c56466a51e970f66c8a2822e03d060c9f46d8f2a5"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/33C687CD-F578-4ACE-8F93-D78653897826",
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/3BB39F75-BED3-464E-BF79-710B5BACBD6D",
+      "sha256": "3c8ad6c9ad56ac46ee9120cb9818ac417c52633d44c2c49bff52b371b8dcd881"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/41C33D91-717B-4E76-9129-4E8ED6EFE1D2",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/445D1DC1-18BF-444B-A35E-28C8475BD159.png",
+      "sha256": "62bce4fc0d720af109b84fb3b98a1842969f6721d0022ffa35f57f7f80a6c410"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/493CB6DD-B57B-4017-AF89-FA0C7F452518",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/4A8D9171-BF0E-47EF-9270-8B145463F92A",
+      "sha256": "43e827d9328f620cb007c4107fd26ff063c168625678d81ebaa48b60813590e4"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/52537326-B909-4FF0-AF0C-D54BA57BB980",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/57F0DB87-4FDC-4DDC-B027-A1F637F5E930.png",
+      "sha256": "39853b5959bc52727fc79d03e9b58bd2a7c893e04ac12b69e28c7914be21631e"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/6660961E-C94C-4C7A-ADD2-AAB1FD028E8F",
+      "sha256": "bf695389669d6d0d3d7933b8a20e20a70fd6b0b550eae8f948610d7b21f0b475"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/6674F6E9-4514-4321-A5C7-7EBDD34E995B",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/6D27FC3D-3FF9-4375-A47A-848CFE895119",
+      "sha256": "c3eaf65daaea58ffa742fb9c0c69a9f1c431e3044bac2ba9979f61c1e9668752"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/6FD6E042-DD97-4A5C-8E38-DDADC8050B82.png",
+      "sha256": "81aba06e703baaa849f4e168e2e59bfcae88ccdf7986b14025b51cf2d41df580"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/703BC99D-B03C-437A-9CF4-E1D1901D3C66",
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/7179A440-BF5C-4FFD-8508-0593AEBA914C",
+      "sha256": "54ef6f29f91c2bd96a64f048dc8338331f6d51cdf016d01925b8fbf5774e4783"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/76664359-2A95-4E95-B9FB-1BAA325DBEB7",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/78397CB5-8E0D-456F-B3DA-084ABE8FEBCF.txt",
+      "sha256": "e01dcee805c8f6056948572e757953a799fe6d2a6a1a3e671e2e6fc81490eb46"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/7B984F7A-2F91-4549-8F4B-759C8AB36CA8",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/8B6B74F2-6C6B-444F-B58C-D2EE60266AE3",
+      "sha256": "b229e9382335f0c14fad11c4dd1cc5a305635d812c82da863c296289f6672343"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/93D34995-DFD7-4EE2-9DE8-4918A5EFAAFB",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/9B724143-DA3C-4CDD-875B-7648E58AEB11.mp4",
+      "sha256": "f61f8f7ecbcaf9b3a4eb709ee5bbb8c512311ee0f011ca4e794ea89bb204c16c"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/A15BA6A9-7341-4E12-9250-822385AB8F8F",
+      "sha256": "96e0035a41a6c893208c598b943bb6bb74e34d9739bc2096e83e4763cff04792"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/A2CAEA85-75F0-4168-B6FE-5CAC02E9FEEF.png",
+      "sha256": "b0af05c211667b21450e5052596da9b9bf24a5f967b9e57e783b23a376a5cec0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/A383AC10-F380-4202-84A2-052B0F2E898F",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/AC44A2EB-7968-4C61-AF81-B5C2774FDD0B",
+      "sha256": "b3b8d6d36f3114125d1ac334938b995c63b78836a0690119bff6b1ddda42b5c9"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/B270ACEE-CE54-478A-BD2F-B74B24750F64",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/B42B9A73-7701-41E7-BA41-D2D21285A43B",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/C34365F2-5146-456E-BBEC-9874BCAFE625",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/C424B454-2FDF-45C2-803C-161FD40E53F6.png",
+      "sha256": "8b0fbfd48b4ee8284a68858ab4a02601a12fb724dc6a48758e468aa3e477a462"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/C516D1FF-48E6-444F-8ED5-1B836A093795.png",
+      "sha256": "de0f2d843d795fe85bc5bb65250c2758ce56a45b9332874441091e10fd586f1f"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/C9AE37B0-842D-434D-B207-21F991B03407",
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/D441DFAA-E674-47D9-B50C-9E75D42467B3",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/D8CA4E78-4C39-4F10-8DE9-A7AA1FF2702D",
+      "sha256": "13bab2ca0fd22c3b8090c68b834469f15333b8f360ff74ce7bf6c8f9064fa8a0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/D96B6D0E-243F-46EF-889F-BE840AAD236E",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/DDDF13B0-BDB0-4D61-88C9-48631397CBBB",
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/DE8EDE4B-EC6D-44E3-BD6F-5E699C76C63F.png",
+      "sha256": "3574aa8b4e7e5b30a21f83fbac51bcea99d325eba54fa3cbb65de5f8a5bd6431"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/DF41B4BC-5655-4F0F-BACC-C18FF6ED4B78",
+      "sha256": "7fe2b8e918261f5a538089a452585c6434eff07b8e6e22c8cd5e74650000ea57"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/EA7A1C0E-FF47-469B-971F-85C7716906A0",
+      "sha256": "b35ecc542341cd3cef86a8b62371749727a4fa56aa3159b7fae4b66222f564c4"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/F7F460DB-EE21-4144-9EAB-38A4047E0189",
+      "sha256": "08f401a4f5c8348174852b678a55c94893406bb34e98d56d6cdffd53abfc39f2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/FAF6320D-BF6B-413F-8E8D-F84F6707A65D",
+      "sha256": "504a1082012d29279b289276bd03692ecf77b350bba0fe1f424182d4be3b0041"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/FFC9A8D4-14DB-410E-891F-F493F60E0B3D.png",
+      "sha256": "f639938e4dd257599a9f695c92b7922c1431f8df8dcf469255005218d0fbf0bc"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/large-a11y-before-grid-fit-fix/manifest.json",
+      "sha256": "7aef438dd3d20f62ce23fd5e528f9fbf29170bd09244964fdcffdc2227f23fff"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/history/performance-api-initial.json",
+      "sha256": "32fcf54ff549ae738881f5ded0729363a9808de18bcedd94e85b746afa0db04a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/initial-accessibility-tests.json",
+      "sha256": "29b8866d67da2ba73cee95bfb5ed07a27d2084f6ef2f134df148f22090369742"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/initial-snapshot-candidate-tests.json",
+      "sha256": "5c01ee37a6c58e32e13e8849515b471700b9d4160c05dc475d45cfccd8234868"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/initial-snapshot-comparison.log",
+      "sha256": "29a1ef6cdd531bc0b3841fc4de7723c7b3fc4c080817dfe6fa4ba3fcfe29b84f"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/instruments-attempt.json",
+      "sha256": "cadbe80409e9da24d4f04e8b4f9a4a7e1473760e10ae259e784973e1c8527473"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-accessibility-tests.json",
+      "sha256": "4b95137b1ac4b4f4bd5177df1a1310bdf3a8a94b921a50d4ebbe189ee3743f57"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-default-tests.json",
+      "sha256": "ecc4a42137c6a6c44b62df9ca36303d38812b1aa4ab7cdf609b6a8a7a5377245"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/ActivitiesAccessibility.png",
+      "sha256": "34345f8b8b8556b0661b86cd5e86692f070296479b3c0cde01833c58b07706ba"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/AnalysisAccessibility.png",
+      "sha256": "a36d92d2525d8652f6af86916e05d00891d3790dd764e4e6be624adbad6d70d9"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/AnalysisTrendAccessibility.png",
+      "sha256": "eed9a7afab0d8e82255f3d8cbf3dc5751d1e2f69c263ae2ec0d01862c965acac"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/ExecutionAccessibility.png",
+      "sha256": "0623d279f3369074b425de18edbca6f5aa25a430474acd811504a34a4b9573db"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/FeedbackAccessibility.png",
+      "sha256": "b9a6ab9f03c8c9adf46d9514ee215b463a2e82e970db2b312c7f095026dfda53"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/HomeAccessibility.png",
+      "sha256": "b5cda61521b6e5463c6286481e4664e0b3ecadae234117ae6585229461bfddbb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/HomeAccessibilityScrolled.png",
+      "sha256": "d127e571cfdabfc22aa9a947d446bfc7bd6ccdaf07258b62dcfef7c36e78aaca"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/SessionActionsAccessibility.png",
+      "sha256": "a050aa76438ec82e0686e295c73bbd15be6f86b5f5b85b6e76e0e897049d785f"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/SessionDetailAccessibility.png",
+      "sha256": "8c45b0a00d718c36c4fba07e7cf7cafd698fd46bd379e21aa8b2a697095250c1"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/TrainingAccessibility.png",
+      "sha256": "4c823b145e523036a3dd66cce2fdca646d06aeabebd80be7ae3152ca31d09e94"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/WeeklyAccessibility.png",
+      "sha256": "2436e45d55b91911cdb0b5ae8ec50c3a7969ad5b8076f8a32e91d0a48f894e92"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-accessibility/WeeklyLoadAccessibility.png",
+      "sha256": "81a74ffcedeb87ac0d54047535210f785f8e900ab8a3cdd9c945bad4e5249616"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-candidate/Activities.png",
+      "sha256": "a723d8520afcc70f0d8056172e97f97d0e667251af3aca1b3a4ed3576c452cab"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-candidate/Analysis.png",
+      "sha256": "f54f8ce4667c606a62faff68d1007a00e583775d7846a7bd75fb3ee3ede72cfb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-candidate/Execution.png",
+      "sha256": "6a9260cbcdd3942b77aa7a6ee312bbefcf85c3483bd376c224f3a68227d80113"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-candidate/Home.png",
+      "sha256": "174d16995c0dad07cc8b43b15f10204085170240820c80e684dcf7b4990ab648"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-candidate/SessionDetail.png",
+      "sha256": "0e0feb6caeae467315c99d1884fe9cd4eca29265ddeacf8191626b5ce81077bb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-candidate/Training.png",
+      "sha256": "0dc3c38e17591cc98fc45ab7ffcf224009c3cd3f5b0eb56dec11e78cc6fee90d"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-candidate/ui-timings.json",
+      "sha256": "39988d655d4274395e5c3bd02ed21e530a79f329adfd59d240b01aa93df55fe0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/Activities.png",
+      "sha256": "a723d8520afcc70f0d8056172e97f97d0e667251af3aca1b3a4ed3576c452cab"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/Analysis.png",
+      "sha256": "f54f8ce4667c606a62faff68d1007a00e583775d7846a7bd75fb3ee3ede72cfb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/BeforeSkip.png",
+      "sha256": "ec15648e641bbe5921380628bab6afec730bc4b33bca1ed28e3f96d902af65d2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/Conflict.png",
+      "sha256": "56ae6ab5047066b2d4dbecf161142899e483ac34857aaf5c6c1a1d04376b57f7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/Execution.png",
+      "sha256": "675c8f5cdacf464ea965cf3f012889eb9b62a3beaa20f9447d78fc1c220782e1"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/ExecutionStarted.png",
+      "sha256": "fe154e984245437249a84d090c207a7f3c0c7f29ff96a29f03e38419a7b364b3"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/Feedback.png",
+      "sha256": "675c8f5cdacf464ea965cf3f012889eb9b62a3beaa20f9447d78fc1c220782e1"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/Home.png",
+      "sha256": "174d16995c0dad07cc8b43b15f10204085170240820c80e684dcf7b4990ab648"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/SessionDetail.png",
+      "sha256": "0e0feb6caeae467315c99d1884fe9cd4eca29265ddeacf8191626b5ce81077bb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/Skip.png",
+      "sha256": "171dd986f9eeaa274d7732e1aa5fa92c4879d09d7dd0ec3c100b82ca5f1f44ea"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/Training.png",
+      "sha256": "6f5e0c143d0ec275039698cc117495f90d1e756c405cf8b005781a03d565010b"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-pro-max-default/ui-timings.json",
+      "sha256": "85ef55120a87c780c6f20a61a802e1bb4f7ef4ed83fa77d6bab62b39b5e63b53"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-snapshot-comparison.log",
+      "sha256": "91cd77577dd07c138eefe67309af417529ee2f73b1b7e005d40ce66f0a44313f"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone12-snapshot-tests.json",
+      "sha256": "c16329920780c84d40e0af5f5a0b59c28528f08a480788335cd1ac1dff3b0291"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-accessibility-tests.json",
+      "sha256": "6693004c4fe2d77078f89c75a83215d39e49c1e3048dd2d512d3d859a1144002"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-default-tests.json",
+      "sha256": "15f701fc1171544b9d46c54dfd70b3e838e3f3d8bb3057f8df86891b923bae29"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-final-snapshot-tests.json",
+      "sha256": "dbffeb35057def40d412c4dcdc244cb3f92c4de6d4e429d63e4b8cbc8d4147a0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-a11y-initial/AnalysisAccessibility.png",
+      "sha256": "f0fce29debb25725aabd0b3fb8e95f7acb4b9755a3534e76992f03707a9cfe61"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-a11y-initial/HomeAccessibility.png",
+      "sha256": "976d3ffd56ad01ab2e90d73b101a6d0d255a9b0c38a407db03a6ee8f85dd40ac"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-a11y-initial/HomeAccessibilityScrolled.png",
+      "sha256": "87a768ba131ddc40a2ff7c6f314cd866037e91fbfe9d63863eba10433997d815"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-a11y-initial/TrainingAccessibility.png",
+      "sha256": "fdedaf8f55bffdedb72e1b4762415cdddee4f43735e0317f5442f4870c76d7bb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/ActivitiesAccessibility.png",
+      "sha256": "cff979fe69d903e35480c371c08bcb742d0c6037fceff8d65c408a6216d9ae51"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/AnalysisAccessibility.png",
+      "sha256": "5d736c9018f978d6eb3a618153a6b133ad4a83bfbfbac36d9d6422d216919681"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/AnalysisTrendAccessibility.png",
+      "sha256": "db366dbd5478daad4539863f2380848e956c4453071ffb5d90b6c5f80cacf8b1"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/ExecutionAccessibility.png",
+      "sha256": "00100c6db8764f1852db6017ff845798ea2d98f2359c8775556fcc95ee20e300"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/FeedbackAccessibility.png",
+      "sha256": "2b4b31a2672899be5cf63ad76c3dc968532ce90cffe73253a4138e01b7c0bfb6"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/HomeAccessibility.png",
+      "sha256": "f5027c175b78b23898ae0c58018ae17c66aa6e3f502eff53218def004d89f77a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/HomeAccessibilityScrolled.png",
+      "sha256": "5fbe2a8dd2942d14dc5ca42efa51448413a9342f65fd6db6a8a193166adab7f7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/SessionActionsAccessibility.png",
+      "sha256": "38e1338b6725431a8da3b4d92137fc83659d1a6a1d2a7d048604a8a76232e2a2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/SessionDetailAccessibility.png",
+      "sha256": "7db8f8eecea4b2c5261e045e8c37acd02df598a038a6acfc2da51d6967ecb1e4"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/TrainingAccessibility.png",
+      "sha256": "5c42f4aeae353729d3eba64ffc83afa2a5869f3352cd77db4d5e59dd55994477"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/WeeklyAccessibility.png",
+      "sha256": "8422528eb594f8435ba1f077935852a192daee9f8738b28e2c6a24a44a4e3f29"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-accessibility/WeeklyLoadAccessibility.png",
+      "sha256": "8422528eb594f8435ba1f077935852a192daee9f8738b28e2c6a24a44a4e3f29"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/Activities.png",
+      "sha256": "01851a5953c739e81b6d8c5bcbdbf6995d748b467ed547163928593f190278b8"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/Analysis.png",
+      "sha256": "f97e3829a783dfd11b85e684695e59192a01e2bcf27374a320250548acd4301e"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/BeforeSkip.png",
+      "sha256": "657e4f050b1d73654d073c692894a9dd99d600cd5fb5d3352a0e25629acef2a8"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/Conflict.png",
+      "sha256": "0f9a4ec68744556deb02777bedbfe7aa95a881e9c210945aa69cb1d42ec0ad1a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/Execution.png",
+      "sha256": "dd78dc29e0cc4459e82da8718a1be2e3d4ef290748462774045fb6ab24ea01fc"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/ExecutionStarted.png",
+      "sha256": "26fc50a23868183d8adfac68e38d5f6e700c3ff0b5f028b3f9bb5d1df3b6518d"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/Feedback.png",
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/Home.png",
+      "sha256": "21838d55dc7a1d9d86f1105570a2b0496ac07fc09a4f38931f38736bc78b7b87"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/SessionDetail.png",
+      "sha256": "87e33c3922311bf3157619f08ed5a15108d01b005fe186ff54d0b241043fb2a7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/Skip.png",
+      "sha256": "6d7a9cb4da9dcabfe1c3801b7ed9fc0dcb964591e235e56f8069fe4624230895"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/Training.png",
+      "sha256": "c2b9cd3d01b19d1795221369d0be58072ca184db0f60875f8bb396035e1244bd"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-candidate/ui-timings.json",
+      "sha256": "d6fd4b71e62d75418fae979defe1cdf420bf1767ccd18279a91f58e2091e979d"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/Activities.png",
+      "sha256": "0ad3b34f546ddb1c1035896dc0cdb64110c312b48bd3f66da7b9f56b0c774b9e"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/Analysis.png",
+      "sha256": "f97e3829a783dfd11b85e684695e59192a01e2bcf27374a320250548acd4301e"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/BeforeSkip.png",
+      "sha256": "657e4f050b1d73654d073c692894a9dd99d600cd5fb5d3352a0e25629acef2a8"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/Conflict.png",
+      "sha256": "0f9a4ec68744556deb02777bedbfe7aa95a881e9c210945aa69cb1d42ec0ad1a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/Execution.png",
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/ExecutionStarted.png",
+      "sha256": "26fc50a23868183d8adfac68e38d5f6e700c3ff0b5f028b3f9bb5d1df3b6518d"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/Feedback.png",
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/Home.png",
+      "sha256": "95826c2636123e09d2ff8fbf7bdac922f68bc91dfdcce64ae47ccfe2a940ef83"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/SessionDetail.png",
+      "sha256": "7b9d0c6f5a65278100c806893a90e0322e6b6884a15ffa205f751853029a3d86"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/Skip.png",
+      "sha256": "6d7a9cb4da9dcabfe1c3801b7ed9fc0dcb964591e235e56f8069fe4624230895"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/Training.png",
+      "sha256": "b0833f8ad1526fce76636c1bb3ff37e09e032405bfb4fbd37fdf387c25d27051"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-default/ui-timings.json",
+      "sha256": "e44f7c2ecdea28475220b3a7cc6fe639513394d14e77990e13f1c1b6fbbb8460"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/Activities.png",
+      "sha256": "aecc32aba7c94487490f400c58793faff9aa646af9d906c15c4de69b5f385a3c"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/Analysis.png",
+      "sha256": "184df9d4aaf8c22ab742fc97c4e29d60eb3b4c47262b3f85bd037cdfebdb2529"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/BeforeSkip.png",
+      "sha256": "657e4f050b1d73654d073c692894a9dd99d600cd5fb5d3352a0e25629acef2a8"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/Conflict.png",
+      "sha256": "0f9a4ec68744556deb02777bedbfe7aa95a881e9c210945aa69cb1d42ec0ad1a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/Execution.png",
+      "sha256": "dd78dc29e0cc4459e82da8718a1be2e3d4ef290748462774045fb6ab24ea01fc"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/ExecutionStarted.png",
+      "sha256": "26fc50a23868183d8adfac68e38d5f6e700c3ff0b5f028b3f9bb5d1df3b6518d"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/Feedback.png",
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/Home.png",
+      "sha256": "21838d55dc7a1d9d86f1105570a2b0496ac07fc09a4f38931f38736bc78b7b87"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/SessionDetail.png",
+      "sha256": "87e33c3922311bf3157619f08ed5a15108d01b005fe186ff54d0b241043fb2a7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/Skip.png",
+      "sha256": "6d7a9cb4da9dcabfe1c3801b7ed9fc0dcb964591e235e56f8069fe4624230895"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/Training.png",
+      "sha256": "c2b9cd3d01b19d1795221369d0be58072ca184db0f60875f8bb396035e1244bd"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-pro-max-final-default/ui-timings.json",
+      "sha256": "713ae425d040d76e643a4ae57801ffafb24ca079d5cb7cfe16582d6d3cabb8fc"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-scroll-tests.json",
+      "sha256": "d6ba2337f5856a0e8e36b4519336e0adfcc22b8f378b3d9d18c92de0c8c67e56"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-scroll.log",
+      "sha256": "63a33cef303fd64e446da7e7c171b6149806583074c82b0bc87a00fe8d77e872"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/iphone17-snapshot-comparison.log",
+      "sha256": "e9242f195850c8299a9ff1bd294877dfaab4c7c31eff6a729cca7154e1ebcfd8"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/large-accessibility-infrastructure-timeout.json",
+      "sha256": "99a73b64bee34d9d68eae8274b8254d8dbf4c99875495b26c723ab01bc0a4d5e"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/manifest.json",
+      "sha256": "6b2e86d62f71dbd35b727006ce3cd2faa1f104fb5a07167ac6ce3f90a7e25884"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/performance-api.json",
+      "sha256": "932685a6bf37fa109b2f6d84331c0a8d09b6056a6826c1be58540f0438caba91"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/performance-api.log",
+      "sha256": "2ec137b02bc56dbf0c5118c79a5400d788839bfcfc8e64785279701e7ea96137"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/performance-simulator-product.json",
+      "sha256": "1ca83c88a157115732d8cea9c38ab0241de68e6da6af29297f9ff24b6cad43f6"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/performance-ui.json",
+      "sha256": "a841bd246925067bd4f9922a87820133845ddbdc7eafe7c06248a918db554423"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/previous-ui-failure-context.json",
+      "sha256": "6654d70674b483d48912055e66ce6f0501085b4d3f3ec2b31fbda636a3be87bb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/previous-ui-failure.json",
+      "sha256": "c5a9faa9390aea3f15d5c7a195974dcb0973668c2f535eaf7063508360acc505"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/Activities.png",
+      "sha256": "a723d8520afcc70f0d8056172e97f97d0e667251af3aca1b3a4ed3576c452cab"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/ActivitiesAccessibility.png",
+      "sha256": "34345f8b8b8556b0661b86cd5e86692f070296479b3c0cde01833c58b07706ba"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/Analysis.png",
+      "sha256": "f54f8ce4667c606a62faff68d1007a00e583775d7846a7bd75fb3ee3ede72cfb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/AnalysisAccessibility.png",
+      "sha256": "a36d92d2525d8652f6af86916e05d00891d3790dd764e4e6be624adbad6d70d9"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/AnalysisTrendAccessibility.png",
+      "sha256": "eed9a7afab0d8e82255f3d8cbf3dc5751d1e2f69c263ae2ec0d01862c965acac"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/BeforeSkip.png",
+      "sha256": "ec15648e641bbe5921380628bab6afec730bc4b33bca1ed28e3f96d902af65d2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/Conflict.png",
+      "sha256": "56ae6ab5047066b2d4dbecf161142899e483ac34857aaf5c6c1a1d04376b57f7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/Execution.png",
+      "sha256": "6a9260cbcdd3942b77aa7a6ee312bbefcf85c3483bd376c224f3a68227d80113"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/ExecutionAccessibility.png",
+      "sha256": "0623d279f3369074b425de18edbca6f5aa25a430474acd811504a34a4b9573db"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/ExecutionStarted.png",
+      "sha256": "fe154e984245437249a84d090c207a7f3c0c7f29ff96a29f03e38419a7b364b3"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/Feedback.png",
+      "sha256": "675c8f5cdacf464ea965cf3f012889eb9b62a3beaa20f9447d78fc1c220782e1"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/FeedbackAccessibility.png",
+      "sha256": "b9a6ab9f03c8c9adf46d9514ee215b463a2e82e970db2b312c7f095026dfda53"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/Home.png",
+      "sha256": "174d16995c0dad07cc8b43b15f10204085170240820c80e684dcf7b4990ab648"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/HomeAccessibility.png",
+      "sha256": "b5cda61521b6e5463c6286481e4664e0b3ecadae234117ae6585229461bfddbb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/HomeAccessibilityScrolled.png",
+      "sha256": "d127e571cfdabfc22aa9a947d446bfc7bd6ccdaf07258b62dcfef7c36e78aaca"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/SessionActionsAccessibility.png",
+      "sha256": "a050aa76438ec82e0686e295c73bbd15be6f86b5f5b85b6e76e0e897049d785f"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/SessionDetail.png",
+      "sha256": "0e0feb6caeae467315c99d1884fe9cd4eca29265ddeacf8191626b5ce81077bb"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/SessionDetailAccessibility.png",
+      "sha256": "8c45b0a00d718c36c4fba07e7cf7cafd698fd46bd379e21aa8b2a697095250c1"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/Skip.png",
+      "sha256": "171dd986f9eeaa274d7732e1aa5fa92c4879d09d7dd0ec3c100b82ca5f1f44ea"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/Training.png",
+      "sha256": "0dc3c38e17591cc98fc45ab7ffcf224009c3cd3f5b0eb56dec11e78cc6fee90d"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/TrainingAccessibility.png",
+      "sha256": "4c823b145e523036a3dd66cce2fdca646d06aeabebd80be7ae3152ca31d09e94"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/WeeklyAccessibility.png",
+      "sha256": "2436e45d55b91911cdb0b5ae8ec50c3a7969ad5b8076f8a32e91d0a48f894e92"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/WeeklyLoadAccessibility.png",
+      "sha256": "81a74ffcedeb87ac0d54047535210f785f8e900ab8a3cdd9c945bad4e5249616"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone13,4/ui-timings.json",
+      "sha256": "39988d655d4274395e5c3bd02ed21e530a79f329adfd59d240b01aa93df55fe0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/Activities.png",
+      "sha256": "aecc32aba7c94487490f400c58793faff9aa646af9d906c15c4de69b5f385a3c"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/ActivitiesAccessibility.png",
+      "sha256": "cff979fe69d903e35480c371c08bcb742d0c6037fceff8d65c408a6216d9ae51"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/Analysis.png",
+      "sha256": "184df9d4aaf8c22ab742fc97c4e29d60eb3b4c47262b3f85bd037cdfebdb2529"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/AnalysisAccessibility.png",
+      "sha256": "5d736c9018f978d6eb3a618153a6b133ad4a83bfbfbac36d9d6422d216919681"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/AnalysisTrendAccessibility.png",
+      "sha256": "db366dbd5478daad4539863f2380848e956c4453071ffb5d90b6c5f80cacf8b1"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/BeforeSkip.png",
+      "sha256": "657e4f050b1d73654d073c692894a9dd99d600cd5fb5d3352a0e25629acef2a8"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/Conflict.png",
+      "sha256": "0f9a4ec68744556deb02777bedbfe7aa95a881e9c210945aa69cb1d42ec0ad1a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/Execution.png",
+      "sha256": "dd78dc29e0cc4459e82da8718a1be2e3d4ef290748462774045fb6ab24ea01fc"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/ExecutionAccessibility.png",
+      "sha256": "00100c6db8764f1852db6017ff845798ea2d98f2359c8775556fcc95ee20e300"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/ExecutionStarted.png",
+      "sha256": "26fc50a23868183d8adfac68e38d5f6e700c3ff0b5f028b3f9bb5d1df3b6518d"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/Feedback.png",
+      "sha256": "89002ad1117c947ea6000c8a6221c559de447b7431760d3950a3f00c21526481"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/FeedbackAccessibility.png",
+      "sha256": "2b4b31a2672899be5cf63ad76c3dc968532ce90cffe73253a4138e01b7c0bfb6"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/Home.png",
+      "sha256": "21838d55dc7a1d9d86f1105570a2b0496ac07fc09a4f38931f38736bc78b7b87"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/HomeAccessibility.png",
+      "sha256": "f5027c175b78b23898ae0c58018ae17c66aa6e3f502eff53218def004d89f77a"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/HomeAccessibilityScrolled.png",
+      "sha256": "5fbe2a8dd2942d14dc5ca42efa51448413a9342f65fd6db6a8a193166adab7f7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/SessionActionsAccessibility.png",
+      "sha256": "38e1338b6725431a8da3b4d92137fc83659d1a6a1d2a7d048604a8a76232e2a2"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/SessionDetail.png",
+      "sha256": "87e33c3922311bf3157619f08ed5a15108d01b005fe186ff54d0b241043fb2a7"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/SessionDetailAccessibility.png",
+      "sha256": "7db8f8eecea4b2c5261e045e8c37acd02df598a038a6acfc2da51d6967ecb1e4"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/Skip.png",
+      "sha256": "6d7a9cb4da9dcabfe1c3801b7ed9fc0dcb964591e235e56f8069fe4624230895"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/Training.png",
+      "sha256": "c2b9cd3d01b19d1795221369d0be58072ca184db0f60875f8bb396035e1244bd"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/TrainingAccessibility.png",
+      "sha256": "5c42f4aeae353729d3eba64ffc83afa2a5869f3352cd77db4d5e59dd55994477"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/WeeklyAccessibility.png",
+      "sha256": "8422528eb594f8435ba1f077935852a192daee9f8738b28e2c6a24a44a4e3f29"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/WeeklyLoadAccessibility.png",
+      "sha256": "8422528eb594f8435ba1f077935852a192daee9f8738b28e2c6a24a44a4e3f29"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/raw-final-screens/iPhone18,2/ui-timings.json",
+      "sha256": "713ae425d040d76e643a4ae57801ffafb24ca079d5cb7cfe16582d6d3cabb8fc"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/release-acceptance-config-check.json",
+      "sha256": "31ac272cc47b8f815d6509aa5be0afa659b66cc62966afc3e2331394de1ca1a9"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/release-build.log",
+      "sha256": "fa37cd9d2858a24d32be85b45210e20d01377a0c82aa1eb3bf04c2ac2a983ec0"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/server-log-privacy.json",
+      "sha256": "df9a0bb3a484b5b12c09d1816ce8f36138f65d21969805ae9b9805f4d6d08604"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/simulator-cpu-sample.txt",
+      "sha256": "0747d689bf76e7abd5eea5e971849f4fa6f8e13e9c8ffda5f9e238c5a8391f3b"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/simulator-initial-timings.json",
+      "sha256": "3577c1614683a5e1ddea6a15c28572c59c831d97fc24e9461b3ec33d8ba2d7a6"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/snapshot-comparison.log",
+      "sha256": "29a1ef6cdd531bc0b3841fc4de7723c7b3fc4c080817dfe6fa4ba3fcfe29b84f"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/snapshot-negative-control.log",
+      "sha256": "e96896384fcc28f8c1a4bb3c1d8466b7c1b58a4407e04739868d5d139be5add8"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/swift-core.log",
+      "sha256": "d05a2b73a74a51a5e95c2ef1cbc318a338aa981aacdc5ddca5555dff78b61d28"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/swift-fnos-e2e.json",
+      "sha256": "933dad8f917252d7726e5476c88691aa9c3b581a060209933e997d5994e1844c"
+    },
+    {
+      "path": "docs/evidence/p6-acceptance-2026-10-28/swift-fnos-e2e.log",
+      "sha256": "ee14843ea294c9ce4c1e07ebd0b1b5898726dbe2fb7134f50cef3c675aa2ff13"
+    },
+    {
+      "path": "docs/evidence/p6-hero-provenance.md",
+      "sha256": "5dc115fcf518d318dcdf9e9a7a6d8fb7c59a335bbe7d9910e7f75ded66b0c80e"
+    },
+    {
+      "path": "docs/evidence/p6-ios-2026-10-28-initial-blocked.json",
+      "sha256": "6fa385d5cb349251a11d87e88f783c0f2f228ceca73a9e1b55122d5d6c348480"
+    },
+    {
+      "path": "docs/evidence/p6-ios-2026-10-28.json",
+      "sha256": "18db443a90b8b80ca1dc1638620ca1ea6af7cc1ad0f7fe106ed72150615ffbcf"
+    },
+    {
+      "path": "docs/evidence/p7-fnos-2026-10-29.json",
+      "sha256": "4f9f11914152124fb5a15120c928b6c2ebb998ae09573c75e431cf7a19d368d0"
+    },
+    {
+      "path": "docs/evidence/p7-restore-2026-10-29.json",
+      "sha256": "1f268f631a780412caaa8fc731c2fa102523c3b26e0398efb8232b047aa7e74e"
+    },
+    {
+      "path": "docs/evidence/p7-source-2026-10-29.json",
+      "sha256": "ea0daf3ae50edf459e80fd272c10ee78ffe81f9a6dde141ba9e33e8d3db4eb62"
+    },
+    {
+      "path": "docs/evidence/page-tests-2026-10-27.json",
+      "sha256": "4472e65ed49ca4320ad51058a697b16e895658cb0e3e988189daccc79577d286"
+    },
+    {
+      "path": "docs/evidence/per-workout-sync-acceptance.json",
+      "sha256": "c68c639347ef3818f746907103059309bd995c4dba212ac17b1076f5572b2785"
+    },
+    {
+      "path": "docs/evidence/review-fixes-2026-10-31.json",
+      "sha256": "f7b2cba45ae08e57e55fbd7e0043c337033245591460f723a424493c44f904e0"
+    },
+    {
+      "path": "docs/evidence/rqrun-phase1-2026-11-01.json",
+      "sha256": "7463d66ad59ad0fcc37d9d3976163bbb1227b4ce33a31901916fa772ae5570f0"
+    },
+    {
+      "path": "docs/evidence/rqrun-phase2-2026-11-01.json",
+      "sha256": "85c651787731a22ebc2a4096e379a9c2f09dca0d456e32d00842777527785103"
+    },
+    {
+      "path": "docs/evidence/rqrun-phase2-failed-runs.txt",
+      "sha256": "66a86cd4e5b15044c912c09db6823a873901bc95bd2c27a0ec1c81cfc2257bd0"
+    },
+    {
+      "path": "docs/evidence/rqrun-phase3-2026-11-01.json",
+      "sha256": "fecc7ca8794482a33af7e76b6fa29f313d0756214a1c76401e3c812150338104"
+    },
+    {
+      "path": "docs/evidence/series-tests-2026-10-27.json",
+      "sha256": "5dbe9d90fd7c38d558e66dd6e1edda0084c3b1b994c1485cb89e1ebbdfabedca"
+    },
+    {
+      "path": "docs/evidence/server-tests-2026-10-27.json",
+      "sha256": "1a8847f7e39c13e7255319bf2e41c18075086c46211c7be5e33f7e3fd75b0bba"
+    },
+    {
+      "path": "docs/evidence/simulator-acceptance-2026-10-30.json",
+      "sha256": "e59cad119db7ef0274eb2c506350ee0845e9ef2f183e39ea8484040ee0317ef3"
+    },
+    {
+      "path": "docs/evidence/upload-lease-tests-2026-10-27.json",
+      "sha256": "89f4d0efc86a63bdeaece6b99d8425b44536520118ef842b51e83ad3b70f8977"
+    },
+    {
+      "path": "docs/evidence/upload-scale-tests-2026-10-27.json",
+      "sha256": "efaaedb478f1a5b1a5181ff3509a85a26588a6fd8602015aeb3aef9b5509df6a"
+    },
+    {
+      "path": "docs/evidence/workout-activities-tests-2026-10-27.json",
+      "sha256": "4eef180013782e0d33845f95896f61afe085de23896caf0ae053b00e4ea0840c"
+    },
+    {
+      "path": "docs/evidence/workout-bundle-2026-10-31.json",
+      "sha256": "b36d9ca14c408636b4c1d102b496bcbf6f95d1fc3fd46d4209e3ff6bf47dbcb7"
+    },
+    {
+      "path": "docs/evidence/workout-detail-2026-10-30/dynamics-quality.png",
+      "sha256": "44793ab870548442418d204e76e7f9cb13278778e407fd98220fcc542b7dff37"
+    },
+    {
+      "path": "docs/evidence/workout-detail-2026-10-30/effect.png",
+      "sha256": "a9d5a15762f12b830e6cae78f5bd0c1d0e1c3ed77ed4eea20640b02574b5e9b0"
+    },
+    {
+      "path": "docs/evidence/workout-detail-2026-10-30/result.json",
+      "sha256": "a92cbdbdf328e0aa35d243a04c7413c362a71a0896edf15fef8fd474021c4536"
+    },
+    {
+      "path": "docs/evidence/workout-detail-2026-10-30/segments.png",
+      "sha256": "852f0ac3fbca8d40f9626eddf00186496f073eab9460073821cf62b4148e9830"
+    },
+    {
+      "path": "docs/evidence/workout-detail-2026-10-30/series.png",
+      "sha256": "46d35abcdec217fa4be9d630e03a7f7f7b6f5a5f02b6459d082d1545cdb9d5bb"
+    },
+    {
+      "path": "docs/evidence/workout-detail-2026-10-30/top.png",
+      "sha256": "5fd1d0323db000da40a9411043bb36399ddaf744ff6f1ff02a2da3ab013d70a3"
+    },
+    {
+      "path": "docs/evidence/workout-package-tests-2026-10-27.json",
+      "sha256": "e9442eb876ceb2b054545841afa855c81542435d32508d94eaecba19e9ee7b45"
+    },
+    {
+      "path": "docs/evidence/workout-tests-2026-10-27.json",
+      "sha256": "86f65a4f8b3e70ab2c4394ca46ac6707e37212e9966946a97d8e508af727f739"
+    },
+    {
+      "path": "ios/RAI/.gitignore",
+      "sha256": "b2439dcc58809d63768ab57d0436ba2b874f9ff2d1f7a836bd4c4e63f78dee5e"
+    },
+    {
+      "path": "ios/RAI/App/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "sha256": "fe529cd36280c9270ec2c3c6a3cfd47779433ff2f7c38d820da8276d2f67dc4e"
+    },
+    {
+      "path": "ios/RAI/App/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "sha256": "3725fefca1cc2f15dcff52b03b7db47884c8141e5be1d4e559367b76117f8c48"
+    },
+    {
+      "path": "ios/RAI/App/BackgroundTransfers.swift",
+      "sha256": "6c16815d0fef67041001cd6488670aab54a6855fbc66f08b36985a5247e389de"
+    },
+    {
+      "path": "ios/RAI/App/ClientConfiguration.swift",
+      "sha256": "f82b90abe0ee914eb0bfa1a7347e694366c36b4b965695618fb036060dcf5cf3"
+    },
+    {
+      "path": "ios/RAI/App/ExecutionView.swift",
+      "sha256": "e64850cb8253279481067c0f809027db92ea2cd2e203a179f5521e837a46779f"
+    },
+    {
+      "path": "ios/RAI/App/HealthKitClient.swift",
+      "sha256": "0008f3fa07ae829a3d07acf0b1d499008094d17e64d11368be77c8df7736c67b"
+    },
+    {
+      "path": "ios/RAI/App/ProductModel.swift",
+      "sha256": "94ff526387a69cffe1a93e881632c7cc664ab002d9350cc22a72f9e2f45139ee"
+    },
+    {
+      "path": "ios/RAI/App/ProductViews.swift",
+      "sha256": "9f6f6f19af2cc6c95141a2607fb3898fe2362306a6e48b6825eb38eb1a8cb590"
+    },
+    {
+      "path": "ios/RAI/App/RAIApp.swift",
+      "sha256": "aea27ab30c2b1a169bbbdf2f2c2fdcfb5742cd67a5f5ba3dd974b9bb3197e6e3"
+    },
+    {
+      "path": "ios/RAI/App/RAITheme.swift",
+      "sha256": "06e666e8dd11f4ca64c0f0001d3ea27930cff52076e1c3c0addb73a87bba5cbc"
+    },
+    {
+      "path": "ios/RAI/App/Resources/TrainingHero.jpg",
+      "sha256": "33d2c9ae20bc5c408152323b2db71a1d69e05678a41dc0bb06a8134840617389"
+    },
+    {
+      "path": "ios/RAI/App/SyncCoordinator.swift",
+      "sha256": "c5739aba09838c41bad74ca0a3246990fd9cbea237591376ff1d7613072107ae"
+    },
+    {
+      "path": "ios/RAI/App/TrainingViews.swift",
+      "sha256": "6ad491e01a63c7e63cc247cd81f86b5b6f1483b7007ca7563eb41e1d98151a85"
+    },
+    {
+      "path": "ios/RAI/App/WorkoutDetailView.swift",
+      "sha256": "e2e1481adffc1d41163551650d692b5717ec90f91df6bea9451b368c2dcb9883"
+    },
+    {
+      "path": "ios/RAI/AppTests/NormalizerTests.swift",
+      "sha256": "a07e08bcce791ab9f7abbd3285c20cfe61242a712606a5263d777dd505fec22c"
+    },
+    {
+      "path": "ios/RAI/Config/Debug.xcconfig",
+      "sha256": "e9346aa5cb38e5b0bbf0c44891dc62af5fc3bdbb133e527831b0906463db7946"
+    },
+    {
+      "path": "ios/RAI/Config/Developer.xcconfig.example",
+      "sha256": "f1bf8b0121936721cb3532565ec366ba082abae6752b217bdc9741f3e7537f6f"
+    },
+    {
+      "path": "ios/RAI/Config/Info-Debug.plist",
+      "sha256": "cfc4e16f890caa49decd2113439be9269a7781884b62f230e646e1b1f163848e"
+    },
+    {
+      "path": "ios/RAI/Config/Info.plist",
+      "sha256": "1ea204cb1c1c8bb3f6fbe0e758d9c530902b86e43c99a9b1f455950b6ff55c64"
+    },
+    {
+      "path": "ios/RAI/Config/RAI.entitlements",
+      "sha256": "2a0cbe6d42702b335b1b82b778223d6b820e86358bded202a5d0267e3f2eefd8"
+    },
+    {
+      "path": "ios/RAI/Config/Release.xcconfig",
+      "sha256": "f6a9e73b1fc97bbd597690dfe2911b4a12b97ede52aabd76278c68949e1902f1"
+    },
+    {
+      "path": "ios/RAI/Package.swift",
+      "sha256": "8f6aad5916d8f9d776784db3431b30380bb3263dd51742dde5499e2a289aaa59"
+    },
+    {
+      "path": "ios/RAI/RAI.xcodeproj/project.pbxproj",
+      "sha256": "6c288945ec0d6575f9fb478f49032aeb4b9b0482b2abed37f41ad5b8e2f83a89"
+    },
+    {
+      "path": "ios/RAI/RAI.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
+      "sha256": "7f3b00b5c3fdb45242d7b87e1e5c4e25d1fa8129a16c94295ecc4e8ea2235c5f"
+    },
+    {
+      "path": "ios/RAI/RAI.xcodeproj/xcshareddata/xcschemes/RAI.xcscheme",
+      "sha256": "69ab9d9e9160306658ccafb5e4ef4f9e68620b562b53051c90b4c711f6fd9129"
+    },
+    {
+      "path": "ios/RAI/README.md",
+      "sha256": "e83a364addc4507d61adaf7cbde1bc5420e8d45985fc4cce13278db881fed993"
+    },
+    {
+      "path": "ios/RAI/Sources/ProductCore/Product.swift",
+      "sha256": "042201446eeef129cdc2ea8adf517c44504ef88560402d8e06f81c9ccba6ad0c"
+    },
+    {
+      "path": "ios/RAI/Sources/ProductCore/TrainingPages.swift",
+      "sha256": "6c3204a7ffc3d184e6c1a9d76802c5e8cc46e4637e0aef3c13c0a912ace8a893"
+    },
+    {
+      "path": "ios/RAI/Sources/ProductCore/WorkoutDetail.swift",
+      "sha256": "a191c19d3751027ab81aa01385316f3b37a7fbf3b49ab94b2ecea70cfb89c7c2"
+    },
+    {
+      "path": "ios/RAI/Sources/RAICompression/gzip.c",
+      "sha256": "1db757472c369e26bb5d485b15bb01d2035693c807cc2de62c7256470fbab6ef"
+    },
+    {
+      "path": "ios/RAI/Sources/RAICompression/include/RAICompression.h",
+      "sha256": "394f0722761d70c1d285152b119879332cc209c3995616f5bd7c627bb4431be5"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/BatchBuilder.swift",
+      "sha256": "1618208d5475cdc281470c1289b5f46e829746c42a98753e1db6cefc52f4b034"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/HealthDiscovery.swift",
+      "sha256": "162b4023441f12f97433785c53fc640b6fa27223c7a51a49515a1a4348c23c05"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/HealthIntegrity.swift",
+      "sha256": "30d5cd60329284d7b203c40d2c5d9ee7c57da94e742eefa8be801d26264bc581"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/OutboxStore.swift",
+      "sha256": "bbe639ed8447844bb38b6fd079d504aa870b57e523cae49069b1d03283278755"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/RAIAPIClient.swift",
+      "sha256": "13a3ad930ec0f9bb715980af86a0f45c9ffe5ed6c0054ce7a70a2f09f6a147fa"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/RouteBuilder.swift",
+      "sha256": "7acc3f80f2aa6d282d20625cc822beb6fb489689f7b880d44d34abafc7cd4265"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/Supplements.swift",
+      "sha256": "bf5d48266fcb15b37136e9de7f2c50004e52b66bc09372b8fca9045778adb0b0"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/SyncMetrics.swift",
+      "sha256": "416f1044f38b4bc7eacf2fb345b0b55dd0d64e9a3d841b081933e69634854b5b"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/Wire.swift",
+      "sha256": "75b6a8ab85595c79809b109f977c9b8c01bb61819dfadea5f9eb5332adc495ff"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/WorkoutBundle.swift",
+      "sha256": "c4bf5cef9937040f85a2d8b94b9abeb818493ca88b031554a961cb86c87db040"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift",
+      "sha256": "47e37798c475f232d2db63d6dd3168fbc9da9ad422dcf3fd7ddb77eb48880bd8"
+    },
+    {
+      "path": "ios/RAI/Sources/SyncCore/WorkoutSync.swift",
+      "sha256": "7fd6c5ab702403fa836d20bb7167e0dcc9255f9d39ff34f9cf4f56314bb1f2a1"
+    },
+    {
+      "path": "ios/RAI/Tests/ProductCoreTests/ProductTests.swift",
+      "sha256": "794b1db48557394ebc5b072f7ea00c95fbd7a65715794de80a72b8a13f2d2b38"
+    },
+    {
+      "path": "ios/RAI/Tests/ProductCoreTests/TrainingPageTests.swift",
+      "sha256": "30c949cc624332dde0ed1b818c24c33f912cb366b2e90a590437e90b74f93407"
+    },
+    {
+      "path": "ios/RAI/Tests/ProductCoreTests/WorkoutDetailTests.swift",
+      "sha256": "d8b057dd483f251ed15f9054f5f504ea58c6fb6141ac32a1b77c3292efb8fba0"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/APITests.swift",
+      "sha256": "b2a3559f592df1a6e6620ff3723744379793a110560a47e63cdec7f0a1f62f8f"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/Fixtures/envelope.canonical.json",
+      "sha256": "bf6eeae8b3eeea73833d55bc91d554e7152e6863fd182f9d69d03e1fc98d33fa"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/Fixtures/page-manifest.json",
+      "sha256": "4f9db6f452f99e450ecd00e4b11d6455b3ac2c986629660e065aac5f5ca28f6c"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/Fixtures/route-vectors.json",
+      "sha256": "b1953663733965ae08d3f5713541648a5d609f06a819fa349faddbcb5455d3b1"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/GarbageCollectionTests.swift",
+      "sha256": "0eea0461153ee710a7dfea42490aa960c952a32c5fb8d2728cf4923a109294fd"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift",
+      "sha256": "665d2ba1ebbe3f4cfddf0e81fb0b4b35428a3bb5dab8de33429629af896e44b0"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/HealthIntegrityTests.swift",
+      "sha256": "033e3b0948a31c7afcde160cc1a6a580e49965aed9d2f326c52362edd1bea6d4"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/RecoveryBoundaryTests.swift",
+      "sha256": "d8f5ae81f6fc6ab3db34bf6f3e187dca7ea589f9ab527f06339fafef9d60e320"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/SyncCoreTests.swift",
+      "sha256": "6d705cad8bac74edf5e160c1c03e29c312fca3ae7ae9aa809962eaa29d18959c"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift",
+      "sha256": "17eaf3ac33fc516dd7bba889d36c39375b550cd3468234be5bc15cc659542681"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift",
+      "sha256": "fcea5cd45bdd59be90716064d8f75252fddd8d47eabc0028f3aeb3d053e22319"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift",
+      "sha256": "3ea9bc4f7f76137b523bd3dd9d52071c21e943cb575a67ac19579de4f419f58d"
+    },
+    {
+      "path": "ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift",
+      "sha256": "3e652b27a325ec2460a2e0f4b9620f5ceebdac3845efa2501b6225a7ddbd563f"
+    },
+    {
+      "path": "ios/RAI/Tools/CompareSnapshots.swift",
+      "sha256": "c6fb202e1c8b2c21c8a6dfa10f38a7d4ad7708f28d003504971b1b49d61af9ea"
+    },
+    {
+      "path": "ios/RAI/Tools/GCProbe/Probe.swift",
+      "sha256": "2dcc2a98d4b16f3db4a37b8c71e83b40f7c4138032634ad9eb733382ea3bb24b"
+    },
+    {
+      "path": "ios/RAI/Tools/ProductProbe/Probe.swift",
+      "sha256": "243df76c7117361cdd76096f86d65a7c425f2324a281fbe1691bb328bf80329a"
+    },
+    {
+      "path": "ios/RAI/Tools/SyncProbe/Probe.swift",
+      "sha256": "4d2197af275de4d92db7767cc9a8a6c47b7b785dad2ef7acc1dcbc945fa603f4"
+    },
+    {
+      "path": "ios/RAI/UITests/ProductUITests.swift",
+      "sha256": "0b0e3d8b828e7ccaaa9f527e25607bc086959fc9aa828b7384e58bc3c2c0b9e0"
+    },
+    {
+      "path": "ios/RAI/project.yml",
+      "sha256": "2ac204d554547136b83cf2fe022181bd39b1f9dff6f77582ae744cbb24ed8ab5"
+    },
+    {
+      "path": "scripts/check-boundaries.py",
+      "sha256": "e79e4c52ebbdd15d4b16eba00ccff448db42c4eeb6004fb82ab04e9334f2688c"
+    },
+    {
+      "path": "scripts/check-final-maintenance.sh",
+      "sha256": "1786d7f84deb500a141e015979fedee9de20bbbefcabb9bc0c6f57d5771f12b2"
+    },
+    {
+      "path": "scripts/check-p35-server.sh",
+      "sha256": "83d7ea14d6af39a687020ae38a0e268419fe0288099191d807d8db558dff0529"
+    },
+    {
+      "path": "scripts/check-p4.sh",
+      "sha256": "43151befc677154f61b27152ba57729862781d81ef9fa869c6e3f526439407b3"
+    },
+    {
+      "path": "scripts/check-p5.sh",
+      "sha256": "dafaf758c81ebd61f0d331ad65248995272509edf02b709b4ed7d42765ac1a5d"
+    },
+    {
+      "path": "scripts/check-p6.sh",
+      "sha256": "f79d4831151206dead3fd25dc1679af6d32005fccbbf6e3c494dd97aa52ece53"
+    },
+    {
+      "path": "scripts/check-p7-capacity.sh",
+      "sha256": "ea82343fa5c81089f485ecc898c8575b9142085a6eaf620298f34ebb9a1fa75e"
+    },
+    {
+      "path": "scripts/check-p7.sh",
+      "sha256": "6d34497869cd24c5c6554ba94fb3293673a425ce49c5bbeff7c5dfd7b17b6292"
+    },
+    {
+      "path": "scripts/final-maintenance-compose-client.py",
+      "sha256": "51c6c77aeb73d1feafdef0aa0d7324f37420bcb0633743c10f267e9c2565551f"
+    },
+    {
+      "path": "scripts/final-maintenance-proxy.py",
+      "sha256": "1b3a8aad5fb3ee9e8dbd91e4d7d8e53be71c2da7002538a2c0162b85550ca752"
+    },
+    {
+      "path": "scripts/fix-p35-capability.py",
+      "sha256": "5fa1e26fdac943b8471689044d1ccda8555294d09e1315fd87d54c9f536afe00"
+    },
+    {
+      "path": "scripts/local/bootstrap.sh",
+      "sha256": "ff858998652519e1737db72d23fd98eedd1276f6f25cb75fd0d6aedf1866ca44"
+    },
+    {
+      "path": "scripts/local/lib.sh",
+      "sha256": "6d4df4392330902b3f987bc65a41aec7a8812ec8657b02f0ff094ba458c88b0f"
+    },
+    {
+      "path": "scripts/local/pg.sh",
+      "sha256": "dcced32b43c67bf56a5bd4f0fb44ca7af778f01fc1728bc9f0a61f36be5b101f"
+    },
+    {
+      "path": "scripts/local/stack.sh",
+      "sha256": "bff98f9ddf7d795d444f72223c158b2cd048f6a4e3d1db9dc9831a7985bd0373"
+    },
+    {
+      "path": "scripts/local/test.sh",
+      "sha256": "267e32fec0b0246d38acc5bfb8138774f6d6ae65757c716d47b5ff1c4e8864aa"
+    },
+    {
+      "path": "scripts/local/verify.sh",
+      "sha256": "5a6cb3f577301a6c1c5c951cd6c64cf117a07642955eca66cdfee706b17f2999"
+    },
+    {
+      "path": "scripts/monthly_backup_policy.py",
+      "sha256": "851385c983fd742beeb5d7f84b233c10af2e7638c2c65dff1bcbcf073927f1ca"
+    },
+    {
+      "path": "scripts/p3-e2e-client.py",
+      "sha256": "270fd7aaf3127bdc7f2f9afb3b9d22534f78f01b5457251aefed0a7f5f3e5fc8"
+    },
+    {
+      "path": "scripts/p35-client-host.sh",
+      "sha256": "8ed7505b21994d5e98ed039f9623be9a43821e61976e16f4e3be00bb6dc10125"
+    },
+    {
+      "path": "scripts/p35-route-vectors.sh",
+      "sha256": "eade99439b3b383d4b48715b097721f563ffeb55199536be320e7b8db201d632"
+    },
+    {
+      "path": "scripts/p6-client-host.sh",
+      "sha256": "db3c3b78df6cdef9f2cfc29f7972dc9adf41662f4667d6eff08a7e5d82e95602"
+    },
+    {
+      "path": "scripts/p7-alerts.py",
+      "sha256": "b505cb939375d1e1361bfd6398cd38ed0b7110fca1ee9087248cd53f1a2c77e7"
+    },
+    {
+      "path": "scripts/p7-backup.sh",
+      "sha256": "446f1abb228b4aad50ad7727b21aec06098e22254cca4a25cbdee6d7401e65f0"
+    },
+    {
+      "path": "scripts/p7-disk-full.sh",
+      "sha256": "ac679f2b06b3d7a0ae3147c5cdbd35b2353ed70eee440ca2d292f89ff75904e7"
+    },
+    {
+      "path": "scripts/p7-fault-client.py",
+      "sha256": "fa8561eb85d43cf888d021c15d86b7705eeb16bc5254e31dee3ada067d9f8178"
+    },
+    {
+      "path": "scripts/p7-monitor.sh",
+      "sha256": "0f0f3888a0060b11b7b463954baa9a864ec76cf3dcdc73851a8ab0f025b4437e"
+    },
+    {
+      "path": "scripts/p7-preflight.py",
+      "sha256": "97ea79362104df505e8a2bebdfdb562959ad3808d8cc3815ec26ba6239f937b3"
+    },
+    {
+      "path": "scripts/p7-recovery.sh",
+      "sha256": "5f664a569f06d820635f607d3885bd0755787b8626b8a9c355e937e603fc292d"
+    },
+    {
+      "path": "scripts/p7-resources.py",
+      "sha256": "5576a682a9832f516829d30cdb9d633ea1f07c26a42c272f3c8b417dc8739af9"
+    },
+    {
+      "path": "scripts/p7-restore.sh",
+      "sha256": "1a4af8cdb74b8f2f074d7a0c96a2c35e8e31d327d046f9454cf40598652a7c69"
+    },
+    {
+      "path": "scripts/p7-secret-audit.py",
+      "sha256": "865aba648e97a2e45bc1111bd18fd168d33db835d7424946b3c4a569b67e787a"
+    },
+    {
+      "path": "scripts/p7-secrets.py",
+      "sha256": "05971e90ee18ee16c5923f2ea6e78c640175f31b0fc70ae82f81f8f97de16718"
+    },
+    {
+      "path": "scripts/p7-workload.py",
+      "sha256": "3ce8293eea2cf44486512e79fff65cebcbefeb16c5b1290e30971104971e2b29"
+    },
+    {
+      "path": "scripts/rai-backup-remote.py",
+      "sha256": "468a8c923c6a25e02203da233a264cd8b07001a280c1116a70a0afb54c6b19ce"
+    },
+    {
+      "path": "scripts/rai-backup-scheduled.sh",
+      "sha256": "229f7ccc68f31e3a596b75317032e53430506c83830307a7e2fe0565a4ff1240"
+    },
+    {
+      "path": "scripts/rai-backup.py",
+      "sha256": "c79cc5f6ea6a3c17b2d2f9cfe544b821a04321b69eeffec28671070f9d9a64d2"
+    },
+    {
+      "path": "scripts/rai-backup.sh",
+      "sha256": "4b4ca6112f92bcebad3706a6def95c1dc55729871efbfa76607d65e9b8422a43"
+    },
+    {
+      "path": "scripts/rai-reset-v2-data.sh",
+      "sha256": "1b835afcb44b77ce6bc4c23e7a1a4571e442e15543e5f693bfa0058bf5970c93"
+    },
+    {
+      "path": "scripts/rai-restore.py",
+      "sha256": "e271a0296f3ce0f45057eef15138da72db07226cb93346229e19300569ca674d"
+    },
+    {
+      "path": "scripts/rai-restore.sh",
+      "sha256": "62b2fdbd00e32e85f27b13df2091741d71329db2746001f63856f81ac07aac12"
+    },
+    {
+      "path": "scripts/remote-test.sh",
+      "sha256": "62d88b0af53ecd9019c89d15869f1632cb5e95ea54b9d945438239ec0f9726c4"
+    },
+    {
+      "path": "scripts/test-final-maintenance-postgres.sh",
+      "sha256": "8e12faf57bfc64f27554e81746f7a97102270d36d5a97bedcb91dd68cca9e506"
+    },
+    {
+      "path": "scripts/test-monthly-backup.py",
+      "sha256": "5cf28c3c76e9d124246fddf87cacbcb72a5ac9cf7da92f0720d85e74542455c7"
+    },
+    {
+      "path": "scripts/test-monthly-compose.sh",
+      "sha256": "9ace8129440feb239a58aa6f9ac1b503d98547b6c1360c6762624787b3408ff7"
+    },
+    {
+      "path": "scripts/test-monthly-policy.py",
+      "sha256": "e8b87e73156d0696b14ee1a1893848efef320997980553a75035ff3613f46723"
+    },
+    {
+      "path": "scripts/test-monthly-restore.sh",
+      "sha256": "e03a77ccf6852ca457c04389eae48800a07f52c80c7e634fd96fae5a29b2f3a1"
+    },
+    {
+      "path": "scripts/test-monthly-ssh.py",
+      "sha256": "7e160c88ff97fd3537b163b6190d17ba9918174ec6b11142613ba8d9f1a3770c"
+    },
+    {
+      "path": "scripts/test-p1-compose.sh",
+      "sha256": "8ed2fee9621147d60e3f7fa9eee0fb25b6020b22d5a9c1519e35d3a9ce31ea05"
+    },
+    {
+      "path": "scripts/test-p3-e2e.sh",
+      "sha256": "112f7726868361848653d496e16eb02ad4fbb26d8b30fa5e5f729407e241c7d6"
+    },
+    {
+      "path": "scripts/test-p35-client.py",
+      "sha256": "fca32fd02fc7f36a1169bfff46323b9589a2a3cf71ed1597f7c3a320feac1510"
+    },
+    {
+      "path": "scripts/test-p4-compose.sh",
+      "sha256": "e73450bc620f476d377b0ea2dd30d0131304675a9ea595b356fe128a8d9f4921"
+    },
+    {
+      "path": "scripts/test-p5-compose.sh",
+      "sha256": "101d87e2035cdf772d892f1353e7b04e48ee94049a9d26188b1f789648637fbb"
+    },
+    {
+      "path": "scripts/test-p6-client.py",
+      "sha256": "fc60c69173faa561bd5a6a04633437114c8299c4536221b3c2ad0978b83a50ff"
+    },
+    {
+      "path": "scripts/test-p7-alerts.py",
+      "sha256": "eeac7387882cb324ddf80c20a325791be6a3cc68c9b192cd6608922803d73509"
+    },
+    {
+      "path": "scripts/test-p7-backup-guards.sh",
+      "sha256": "15134f9cd2830b2619fccd89459bd08ba8c5017a05bf8b2af79f09e74975c276"
+    },
+    {
+      "path": "scripts/test-p7-compose.sh",
+      "sha256": "2a5fea6fbc383e7d29aa6d859075f2950e3e0f474af07e0e329df29797c80157"
+    },
+    {
+      "path": "scripts/test-p7-gc.py",
+      "sha256": "6263096f8479322aa238cd590d85adeffea7b1b83cb68991222f990c55101478"
+    },
+    {
+      "path": "scripts/test-postgres.sh",
+      "sha256": "571ac0de181e5b60e8467fb4018b4ab052529e794434d8e88734f109d8049cef"
+    },
+    {
+      "path": "scripts/test-remote.sh",
+      "sha256": "c205b624fbba635ced465c418e6037f699760884aa52d574676e94c8419be5d9"
+    }
+  ],
+  "status": "## main...origin/main\n M README.md\n M apps/server/cmd/rai/main.go\n M apps/server/integration/admission_test.go\n M apps/server/integration/p3_sync_test.go\n M apps/server/integration/p7_security_test.go\n M apps/server/integration/page_test.go\n M apps/server/integration/series_test.go\n M apps/server/integration/sync_test.go\n M apps/server/integration/upload_test.go\n M apps/server/integration/workout_package_test.go\n M apps/server/internal/admin/operations.go\n M apps/server/internal/httpapi/server.go\n M apps/server/internal/storage/postgres/analysis_input.go\n M apps/server/internal/storage/postgres/store.go\n M apps/server/internal/syncing/protocol.go\n M apps/server/internal/syncing/store.go\n M apps/server/migrations/checksums.json\n M contracts/CHANGELOG.md\n M contracts/openapi-v2.yaml\n M deploy/postgres/roles.sql\n M docs/ARCHITECTURE.md\n M docs/IMPLEMENTATION.md\n M docs/P7_BACKUP_RESTORE.md\n M docs/P7_DEPLOYMENT.md\n M docs/P7_OPERATIONS.md\n M docs/P7_RELEASE_CHECKLIST.md\n M docs/RAI_MONTHLY_BACKUP.md\n M ios/RAI/App/BackgroundTransfers.swift\n M ios/RAI/App/HealthKitClient.swift\n M ios/RAI/App/ProductModel.swift\n M ios/RAI/App/ProductViews.swift\n M ios/RAI/App/RAIApp.swift\n M ios/RAI/App/SyncCoordinator.swift\n M ios/RAI/AppTests/NormalizerTests.swift\n M ios/RAI/Config/RAI.entitlements\n M ios/RAI/README.md\n M ios/RAI/Sources/SyncCore/BatchBuilder.swift\n M ios/RAI/Sources/SyncCore/OutboxStore.swift\n M ios/RAI/Sources/SyncCore/RAIAPIClient.swift\n M ios/RAI/Sources/SyncCore/RouteBuilder.swift\n M ios/RAI/Sources/SyncCore/Wire.swift\n M ios/RAI/Tests/SyncCoreTests/APITests.swift\n M ios/RAI/Tools/SyncProbe/Probe.swift\n M ios/RAI/UITests/ProductUITests.swift\n M scripts/rai-backup.py\n M scripts/rai-restore.py\n M scripts/test-monthly-restore.sh\n?? apps/server/integration/per_workout_sync_test.go\n?? apps/server/integration/workout_bundle_test.go\n?? apps/server/integration/workout_integrity_test.go\n?? apps/server/integration/workout_reliability_swift_test.go\n?? apps/server/integration/workout_reliability_test.go\n?? apps/server/integration/workout_safety_test.go\n?? apps/server/internal/httpapi/bundle_admission_test.go\n?? apps/server/internal/storage/postgres/bundle_integrity.go\n?? apps/server/internal/storage/postgres/workout_bundles.go\n?? apps/server/internal/syncing/bundle_decode.go\n?? apps/server/internal/syncing/bundle_decode_test.go\n?? apps/server/internal/syncing/bundle_integrity_test.go\n?? apps/server/internal/syncing/bundle_observation.go\n?? apps/server/internal/syncing/workout_bundle.go\n?? apps/server/internal/syncing/workout_bundle_test.go\n?? apps/server/internal/syncing/workout_delete.go\n?? apps/server/migrations/00014_workout_imports.sql\n?? apps/server/migrations/00015_workout_import_history.sql\n?? apps/server/migrations/00016_route_timestamp_envelope.sql\n?? contracts/sync-v3.md\n?? \"docs/RQrun-HealthKit-\\344\\270\\212\\344\\274\\240\\345\\215\\217\\350\\256\\256.md\"\n?? docs/RQrun_PHASE1_RESULT.md\n?? docs/V2_PER_WORKOUT_SYNC_AUDIT.md\n?? docs/V2_PER_WORKOUT_SYNC_RESULT.md\n?? docs/audits/\n?? docs/evidence/per-workout-sync-acceptance.json\n?? docs/evidence/rqrun-phase1-2026-11-01.json\n?? docs/evidence/rqrun-phase2-2026-11-01.json\n?? docs/evidence/rqrun-phase2-failed-runs.txt\n?? docs/evidence/rqrun-phase3-2026-11-01.json\n?? docs/evidence/workout-bundle-2026-10-31.json\n?? ios/RAI/Sources/SyncCore/HealthDiscovery.swift\n?? ios/RAI/Sources/SyncCore/HealthIntegrity.swift\n?? ios/RAI/Sources/SyncCore/WorkoutBundle.swift\n?? ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift\n?? ios/RAI/Sources/SyncCore/WorkoutSync.swift\n?? ios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift\n?? ios/RAI/Tests/SyncCoreTests/HealthIntegrityTests.swift\n?? ios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift\n?? ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift\n?? ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift\n?? ios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift\n?? scripts/rai-reset-v2-data.sh\n",
+  "diffStat": " README.md                                          |    4 +-\n apps/server/cmd/rai/main.go                        |    2 +-\n apps/server/integration/admission_test.go          |  168 ---\n apps/server/integration/p3_sync_test.go            |  210 ----\n apps/server/integration/p7_security_test.go        |   31 +-\n apps/server/integration/page_test.go               |   94 --\n apps/server/integration/series_test.go             |   80 --\n apps/server/integration/sync_test.go               |  166 ---\n apps/server/integration/upload_test.go             |  209 ----\n apps/server/integration/workout_package_test.go    |   73 --\n apps/server/internal/admin/operations.go           |    2 +-\n apps/server/internal/httpapi/server.go             |  129 +-\n .../internal/storage/postgres/analysis_input.go    |   22 +\n apps/server/internal/storage/postgres/store.go     |    2 +-\n apps/server/internal/syncing/protocol.go           |    3 +\n apps/server/internal/syncing/store.go              |    3 +\n apps/server/migrations/checksums.json              |    5 +-\n contracts/CHANGELOG.md                             |   33 +\n contracts/openapi-v2.yaml                          | 1233 +++-----------------\n deploy/postgres/roles.sql                          |    6 +-\n docs/ARCHITECTURE.md                               |   27 +-\n docs/IMPLEMENTATION.md                             |  123 +-\n docs/P7_BACKUP_RESTORE.md                          |    2 +-\n docs/P7_DEPLOYMENT.md                              |    4 +-\n docs/P7_OPERATIONS.md                              |    4 +-\n docs/P7_RELEASE_CHECKLIST.md                       |    2 +-\n docs/RAI_MONTHLY_BACKUP.md                         |    6 +-\n ios/RAI/App/BackgroundTransfers.swift              |   19 +-\n ios/RAI/App/HealthKitClient.swift                  |  341 +++++-\n ios/RAI/App/ProductModel.swift                     |   24 +\n ios/RAI/App/ProductViews.swift                     |  284 ++++-\n ios/RAI/App/RAIApp.swift                           |  467 ++++++--\n ios/RAI/App/SyncCoordinator.swift                  |  685 +++++++----\n ios/RAI/AppTests/NormalizerTests.swift             |  217 +++-\n ios/RAI/Config/RAI.entitlements                    |    2 +-\n ios/RAI/README.md                                  |    2 +\n ios/RAI/Sources/SyncCore/BatchBuilder.swift        |    5 +-\n ios/RAI/Sources/SyncCore/OutboxStore.swift         |  372 +++++-\n ios/RAI/Sources/SyncCore/RAIAPIClient.swift        |   88 +-\n ios/RAI/Sources/SyncCore/RouteBuilder.swift        |   11 +-\n ios/RAI/Sources/SyncCore/Wire.swift                |    1 +\n ios/RAI/Tests/SyncCoreTests/APITests.swift         |   93 +-\n ios/RAI/Tools/SyncProbe/Probe.swift                |   50 +\n ios/RAI/UITests/ProductUITests.swift               |   19 +\n scripts/rai-backup.py                              |    4 +-\n scripts/rai-restore.py                             |    2 +-\n scripts/test-monthly-restore.sh                    |    2 +-\n 47 files changed, 2769 insertions(+), 2562 deletions(-)\n",
+  "cachedStat": "",
+  "untracked": "apps/server/integration/per_workout_sync_test.go\napps/server/integration/workout_bundle_test.go\napps/server/integration/workout_integrity_test.go\napps/server/integration/workout_reliability_swift_test.go\napps/server/integration/workout_reliability_test.go\napps/server/integration/workout_safety_test.go\napps/server/internal/httpapi/bundle_admission_test.go\napps/server/internal/storage/postgres/bundle_integrity.go\napps/server/internal/storage/postgres/workout_bundles.go\napps/server/internal/syncing/bundle_decode.go\napps/server/internal/syncing/bundle_decode_test.go\napps/server/internal/syncing/bundle_integrity_test.go\napps/server/internal/syncing/bundle_observation.go\napps/server/internal/syncing/workout_bundle.go\napps/server/internal/syncing/workout_bundle_test.go\napps/server/internal/syncing/workout_delete.go\napps/server/migrations/00014_workout_imports.sql\napps/server/migrations/00015_workout_import_history.sql\napps/server/migrations/00016_route_timestamp_envelope.sql\ncontracts/sync-v3.md\n\"docs/RQrun-HealthKit-\\344\\270\\212\\344\\274\\240\\345\\215\\217\\350\\256\\256.md\"\ndocs/RQrun_PHASE1_RESULT.md\ndocs/V2_PER_WORKOUT_SYNC_AUDIT.md\ndocs/V2_PER_WORKOUT_SYNC_RESULT.md\ndocs/audits/RQrun_PHASE2_RELIABILITY_REVIEW.md\ndocs/audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md\ndocs/audits/RQrun_WORKOUT_SYNC_REVIEW.md\ndocs/evidence/per-workout-sync-acceptance.json\ndocs/evidence/rqrun-phase1-2026-11-01.json\ndocs/evidence/rqrun-phase2-2026-11-01.json\ndocs/evidence/rqrun-phase2-failed-runs.txt\ndocs/evidence/rqrun-phase3-2026-11-01.json\ndocs/evidence/workout-bundle-2026-10-31.json\nios/RAI/Sources/SyncCore/HealthDiscovery.swift\nios/RAI/Sources/SyncCore/HealthIntegrity.swift\nios/RAI/Sources/SyncCore/WorkoutBundle.swift\nios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift\nios/RAI/Sources/SyncCore/WorkoutSync.swift\nios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift\nios/RAI/Tests/SyncCoreTests/HealthIntegrityTests.swift\nios/RAI/Tests/SyncCoreTests/WorkoutBundleTests.swift\nios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift\nios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift\nios/RAI/Tests/SyncCoreTests/WorkoutTaskTests.swift\nscripts/rai-reset-v2-data.sh\n",
+  "resumeComparison": {
+    "preexistingDeleted": [],
+    "changed": [
+      "apps/server/integration/workout_integrity_test.go",
+      "apps/server/internal/storage/postgres/analysis_input.go",
+      "apps/server/internal/storage/postgres/bundle_integrity.go",
+      "apps/server/internal/storage/postgres/workout_bundles.go",
+      "apps/server/internal/syncing/bundle_integrity_test.go",
+      "apps/server/internal/syncing/bundle_observation.go",
+      "apps/server/internal/syncing/protocol.go",
+      "contracts/CHANGELOG.md",
+      "contracts/openapi-v2.yaml",
+      "contracts/sync-v3.md",
+      "docs/IMPLEMENTATION.md",
+      "docs/audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md",
+      "docs/evidence/rqrun-phase3-2026-11-01.json",
+      "ios/RAI/App/BackgroundTransfers.swift",
+      "ios/RAI/App/HealthKitClient.swift",
+      "ios/RAI/App/RAIApp.swift",
+      "ios/RAI/App/SyncCoordinator.swift",
+      "ios/RAI/AppTests/NormalizerTests.swift",
+      "ios/RAI/Sources/SyncCore/HealthDiscovery.swift",
+      "ios/RAI/Tests/SyncCoreTests/HealthDiscoveryTests.swift"
+    ]
+  },
+  "phase1ImmutableArtifactsUnchanged": {
+    "apps/server/migrations/00014_workout_imports.sql": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8",
+    "apps/server/migrations/00015_workout_import_history.sql": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6",
+    "RAI-Go-PostgreSQL架构重设计与实施方案.md": "6951b1d938133a964cb06d28c3aa744ad05121f25da770e184041211df53e3de"
+  }
+}
