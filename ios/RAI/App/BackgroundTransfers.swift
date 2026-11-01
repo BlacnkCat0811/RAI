@@ -7,33 +7,40 @@ import SyncCore
 // object identity. Results survive a process restart before local ACK handling.
 final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader, Sendable {
     static let identifier = "com.rai.v2.sync.uploads.v1"
-    private struct Result: Codable, Sendable { let body: Data; let status: Int; let retryAfter: Double?; let error: Int? }
+    private struct Result: Codable, Sendable { let body: Data; let status: Int; let retryAfter: Double?; let error: Int?; let contentType: String? }
     private struct State {
         var session: URLSession?
         var buffers: [Int: Data] = [:]
-        var waiters: [String: CheckedContinuation<(Data, Int, TimeInterval?), any Error>] = [:]
+        var waiters: [String: CheckedContinuation<UploadResponse, any Error>] = [:]
         var completion: (@MainActor @Sendable () -> Void)?
     }
     private let state = Mutex(State())
     private let directory: URL
-    init(directory: URL) {
+    init(directory: URL, identifier: String = BackgroundTransfers.identifier) {
         self.directory = directory
         super.init()
-        let config = URLSessionConfiguration.background(withIdentifier: Self.identifier)
+        let config = URLSessionConfiguration.background(withIdentifier: identifier)
         config.sessionSendsLaunchEvents = true; config.isDiscretionary = false
-        config.timeoutIntervalForResource = 3600; config.httpMaximumConnectionsPerHost = 1
+        config.timeoutIntervalForRequest = 270; config.timeoutIntervalForResource = 3600; config.httpMaximumConnectionsPerHost = 1
         let queue = OperationQueue(); queue.maxConcurrentOperationCount = 1
         let session = URLSession(configuration: config, delegate: self, delegateQueue: queue)
         state.withLock { $0.session = session }
     }
     private func resultURL(_ identity: String) -> URL { directory.appendingPathComponent(Wire.hash(Data(identity.utf8)) + ".transfer.json") }
+    func discardCachedResult(_ identity: String) {
+        try? FileManager.default.removeItem(at: resultURL(identity))
+    }
     func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
+        let result = try await response(request, file: file, identity: identity)
+        return (result.data, result.status, result.retryAfter)
+    }
+    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
         let url = resultURL(identity)
         if FileManager.default.fileExists(atPath: url.path) {
             let result = try JSONDecoder().decode(Result.self, from: Data(contentsOf: url))
             // Only success is cached. Retryable failures allow a new task using
             // exactly the same file and outbox operation identity.
-            if result.status == 200, result.error == nil { return (result.body, result.status, result.retryAfter) }
+            if result.status == 200, result.error == nil { return UploadResponse(data: result.body, status: result.status, retryAfter: result.retryAfter, contentType: result.contentType) }
         }
         let session = state.withLock { $0.session! }
         let tasks = await session.allTasks
@@ -45,7 +52,7 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
                 // Recheck under the callback lock: a task may have completed
                 // while allTasks was being enumerated.
                 if let bytes = try? Data(contentsOf: url), let result = try? JSONDecoder().decode(Result.self, from: bytes), result.status == 200, result.error == nil {
-                    continuation.resume(returning: (result.body, result.status, result.retryAfter)); return
+                    continuation.resume(returning: UploadResponse(data: result.body, status: result.status, retryAfter: result.retryAfter, contentType: result.contentType)); return
                 }
                 state.waiters[identity] = continuation
                 if let existing = tasks.first(where: { $0.taskDescription == identity && $0.state != .completed }) { existing.resume() }
@@ -71,12 +78,12 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
         state.withLock { state in
             let http = task.response as? HTTPURLResponse
             let result = Result(body: state.buffers.removeValue(forKey: task.taskIdentifier) ?? Data(), status: http?.statusCode ?? 0,
-                                retryAfter: http?.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init), error: (error as NSError?)?.code)
+                                retryAfter: RAIAPIClient.retryAfter(http?.value(forHTTPHeaderField: "Retry-After")), error: (error as NSError?)?.code, contentType: http?.value(forHTTPHeaderField: "Content-Type"))
             do {
                 try OutboxStore.write(JSONEncoder().encode(result), to: resultURL(identity))
                 if let waiter = state.waiters.removeValue(forKey: identity) {
                     if let error { waiter.resume(throwing: error) }
-                    else { waiter.resume(returning: (result.body, result.status, result.retryAfter)) }
+                    else { waiter.resume(returning: UploadResponse(data: result.body, status: result.status, retryAfter: result.retryAfter, contentType: result.contentType)) }
                 }
             } catch { state.waiters.removeValue(forKey: identity)?.resume(throwing: error) }
         }

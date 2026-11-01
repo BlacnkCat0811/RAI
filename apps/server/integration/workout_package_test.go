@@ -8,17 +8,12 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"rai/server/internal/admin"
-	"rai/server/internal/httpapi"
 	"rai/server/internal/syncing"
 	"rai/server/migrations"
 )
@@ -456,72 +451,4 @@ func TestWorkoutPackageNormalWorkoutIdentityConflict(t *testing.T) {
 	if count(t, f, "workouts") != 1 || count(t, f, "workout_packages") != 1 {
 		t.Fatal("identity conflict had side effects")
 	}
-}
-
-func TestHTTPWorkoutPackageUploadAndSeal(t *testing.T) {
-	f := setup(t)
-	id := syncing.NewID()
-	start, end := int64(1793059200000000), int64(1793059260000000)
-	server := httptest.NewServer(httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil))))
-	defer server.Close()
-	reqBody, _ := json.Marshal(workoutPackageRequest(f, id, start, end))
-	req, _ := http.NewRequest("POST", server.URL+"/v2/sync/workout-packages", bytes.NewReader(reqBody))
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("register status %d: %s", resp.StatusCode, b)
-	}
-	resp.Body.Close()
-	line := workoutPackageActivityLine(t, 0, start, end)
-	wire := workoutPackageWire(t, line)
-	req, _ = http.NewRequest("PUT", server.URL+"/v2/sync/workout-packages/"+id+"/chunks/0", bytes.NewReader(wire))
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	req.Header.Set("Content-Type", "application/x-rai-health-workout-detail+ndjson")
-	req.Header.Set("Content-Encoding", "gzip")
-	resp, err = server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("chunk status %d: %s", resp.StatusCode, b)
-	}
-	var chunkReceipt syncing.WorkoutPackageChunkReceipt
-	if err = json.NewDecoder(resp.Body).Decode(&chunkReceipt); err != nil || chunkReceipt.CommittedChunks != 1 || chunkReceipt.TotalDetails != 3 {
-		t.Fatalf("chunk receipt invalid: %v %+v", err, chunkReceipt)
-	}
-	resp.Body.Close()
-	req, _ = http.NewRequest("GET", server.URL+"/v2/sync/workout-packages/"+id, nil)
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	resp, err = server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var state syncing.WorkoutPackageState
-	if err = json.NewDecoder(resp.Body).Decode(&state); err != nil || resp.StatusCode != 200 || state.CommittedChunks != 1 {
-		t.Fatalf("GET package failed: %v %+v", err, state)
-	}
-	resp.Body.Close()
-	sealBody, _ := json.Marshal(syncing.WorkoutPackageSeal{ChunkCount: 1, TotalDetails: 3, ManifestSHA256: state.ManifestSHA256})
-	req, _ = http.NewRequest("POST", server.URL+"/v2/sync/workout-packages/"+id+"/seal", bytes.NewReader(sealBody))
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err = server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("seal status %d: %s", resp.StatusCode, b)
-	}
-	var receipt syncing.WorkoutPackageReceipt
-	if err = json.NewDecoder(resp.Body).Decode(&receipt); err != nil || receipt.IngestStatus != "sealed" {
-		t.Fatalf("seal response invalid: %v %+v", err, receipt)
-	}
-	resp.Body.Close()
 }

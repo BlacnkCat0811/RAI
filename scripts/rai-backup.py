@@ -151,11 +151,11 @@ def execute(action, audit):
                             size, sha = remote.digest(file)
                         name = "rai-" + started.strftime("%Y-%m-%d-%H%M%S-") + uuid.uuid4().hex + ".dump"
                         audit.update(backup_filename=name, backup_size=size, sha256=sha,
-                                     postgres_version_num=int(pg_version), schema_version=13)
+                                     postgres_version_num=int(pg_version), schema_version=17)
                         config["metadata"] = {"format": remote.FORMAT, "file": name, "sha256": sha, "bytes": size,
                             "snapshot_started_at": started.isoformat(), "schedule_timezone": timezone,
                             "source_commit": os.environ.get("RAI_SOURCE_COMMIT", "UNRECORDED"),
-                            "source_database": "rai_v2", "schema_version": 13, "postgres_major": 18,
+                            "source_database": "rai_v2", "schema_version": 17, "postgres_major": 18,
                             "postgres_version_num": int(pg_version),
                             "archive_list_validated": True, "restore_tested": False}
                     with contextlib.ExitStack() as stack:

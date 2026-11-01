@@ -56,6 +56,6 @@ python3 "$root/scripts/p3-e2e-client.py" retry
 python3 "$root/scripts/p7-workload.py" verify
 python3 - "$1/monthly-target.json" <<'PY'
 import json,sys
-m=json.load(open(sys.argv[1]));assert m['schema_version']==13 and m['invariant_violations']==0 and len(m['tables'])==45
+m=json.load(open(sys.argv[1]));assert m['schema_version']==17 and m['invariant_violations']==0 and len(m['tables'])==46
 print('MONTHLY_SQL_RESTORE='+json.dumps({'status':'PASS','table_count':len(m['tables']),'schema':m['schema_version'],'invariant_violations':0,'all_table_counts_and_hashes_equal':True,'p3_original_receipt':True,'p5_override_effective_execution_feedback':True}))
 PY

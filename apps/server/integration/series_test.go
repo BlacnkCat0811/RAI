@@ -9,17 +9,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/pressly/goose/v3"
 	"rai/server/internal/admin"
-	"rai/server/internal/httpapi"
 	"rai/server/internal/syncing"
 	"rai/server/migrations"
 )
@@ -335,81 +330,6 @@ CREATE TRIGGER fail_series_seal BEFORE UPDATE ON series_uploads FOR EACH ROW WHE
 	if err != nil || afterState.CommittedChunks != 1 || afterState.ManifestSHA256 == newState.ManifestSHA256 {
 		t.Fatal("fresh lease did not commit chunk", err)
 	}
-}
-
-func TestHTTPSeriesUploadAndSeal(t *testing.T) {
-	f := setup(t)
-	parentID, seriesID := syncing.NewID(), syncing.NewID()
-	base := int64(1793059200000000)
-	f.commit(t, []syncing.Event{seriesParent(parentID, base, base+4000000, 4)}, 1, nil)
-	server := httptest.NewServer(httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil))))
-	defer server.Close()
-	reqBody, _ := json.Marshal(seriesRequest(f, seriesID, parentID))
-	req, _ := http.NewRequest("POST", server.URL+"/v2/sync/series", bytes.NewReader(reqBody))
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("register status %d: %s", resp.StatusCode, b)
-	}
-	resp.Body.Close()
-	chunk, wire := parseSeries(t, f, seriesID, 0, seriesPoints(base, 60.5, 61.25))
-	req, _ = http.NewRequest("PUT", server.URL+"/v2/sync/series/"+seriesID+"/chunks/0", bytes.NewReader(wire))
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	req.Header.Set("Content-Type", "application/x-rai-health-series+ndjson")
-	req.Header.Set("Content-Encoding", "gzip")
-	resp, err = server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("chunk status %d: %s", resp.StatusCode, b)
-	}
-	var chunkReceipt syncing.SeriesChunkReceipt
-	if err = json.NewDecoder(resp.Body).Decode(&chunkReceipt); err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if chunkReceipt.CommittedChunks != 1 || chunkReceipt.ChunkSHA256 != chunk.PointsSHA256 {
-		t.Fatal("HTTP chunk receipt differs")
-	}
-	req, _ = http.NewRequest("GET", server.URL+"/v2/sync/series/"+seriesID, nil)
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	resp, err = server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var state syncing.SeriesState
-	if err = json.NewDecoder(resp.Body).Decode(&state); err != nil || resp.StatusCode != 200 || state.CommittedChunks != 1 {
-		t.Fatalf("GET series failed: %v %+v", err, state)
-	}
-	resp.Body.Close()
-	// A second chunk and seal complete the same series over HTTP.
-	second := seriesPoints(base+2000000, 62.5, 63.75)
-	_, _ = commitSeries(t, f, seriesID, 1, second)
-	state, _ = f.s.Series(context.Background(), f.p, seriesID)
-	sealBody, _ := json.Marshal(syncing.SeriesSeal{ChunkCount: 2, TotalPoints: 4, ManifestSHA256: state.ManifestSHA256})
-	req, _ = http.NewRequest("POST", server.URL+"/v2/sync/series/"+seriesID+"/seal", bytes.NewReader(sealBody))
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err = server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		t.Fatalf("seal status %d: %s", resp.StatusCode, b)
-	}
-	var receipt syncing.SeriesReceipt
-	if err = json.NewDecoder(resp.Body).Decode(&receipt); err != nil || receipt.IngestStatus != "sealed" {
-		t.Fatalf("seal response invalid: %v %+v", err, receipt)
-	}
-	resp.Body.Close()
 }
 
 func TestSchema7UpgradeAddsSeriesWithoutRewritingFacts(t *testing.T) {

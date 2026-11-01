@@ -16,11 +16,16 @@ import (
 const maxAnalysisPoints = 250000
 
 func (s *Store) LoadAnalysis(ctx context.Context, l Lease, asOf time.Time) (analysis.Snapshot, error) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
 	tx, err := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return analysis.Snapshot{}, err
 	}
 	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout='5s'; SET LOCAL transaction_timeout='20s'`); err != nil {
+		return analysis.Snapshot{}, err
+	}
 	in := analysis.Snapshot{InputVersion: "rai.analysis.input/v1"}
 	var tz string
 	if err = tx.QueryRow(ctx, `SELECT d.commit_rev,d.timezone,x.generation,x.dirty_from,x.dirty_through FROM datasets d JOIN dirty_scopes x ON x.dataset_id=d.id WHERE d.id=$1 AND x.scope_key=$2`, l.DatasetID, l.ScopeKey).Scan(&in.Revision, &tz, &in.Generation, &in.From, &in.Through); err != nil {
@@ -85,6 +90,31 @@ func (s *Store) loadWorkoutInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 	w.Start = start.UnixMicro()
 	w.End = end.UnixMicro()
 	w.Duration = float64(duration) / 1e6
+	var observationRaw []byte
+	observationErr := tx.QueryRow(ctx, `SELECT payload FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND payload ? 'observation' ORDER BY (payload->'observation'->>'observedAtUs')::bigint DESC,bundle_sha256 DESC LIMIT 1`, l.DatasetID, id).Scan(&observationRaw)
+	if observationErr == nil {
+		var observed syncing.WorkoutBundle
+		if json.Unmarshal(observationRaw, &observed) != nil || observed.Observation == nil {
+			return analysis.Invalid()
+		}
+		if observed.Observation.Provenance.Workout.Classification(nil) != "apple_watch" {
+			return analysis.Invalid()
+		}
+		if err := validateAnalysisProvenance(ctx, tx, l.DatasetID, id); err != nil {
+			return err
+		}
+		w.Lineage = append(w.Lineage, "healthkit-observation:"+syncing.BundleDigest(observationBytes(observed)))
+	} else if !errors.Is(observationErr, pgx.ErrNoRows) {
+		return observationErr
+	} else {
+		var imported bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2)`, l.DatasetID, id).Scan(&imported); err != nil {
+			return err
+		}
+		if imported {
+			return &analysis.Failure{Code: "analysis_source_unclassified"}
+		}
+	}
 	in.From = start.UTC()
 	in.Through = end.UTC()
 	w.Lineage = append(w.Lineage, "workout:"+id+":"+hash)

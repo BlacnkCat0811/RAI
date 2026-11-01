@@ -7,10 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"sort"
 	"sync"
@@ -20,7 +16,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/pressly/goose/v3"
 	"rai/server/internal/admin"
-	"rai/server/internal/httpapi"
 	"rai/server/internal/storage/postgres"
 	"rai/server/internal/syncing"
 	"rai/server/migrations"
@@ -265,56 +260,6 @@ func TestUploadLeaseConcurrentDatasetCap(t *testing.T) {
 	}
 }
 
-func TestUploadLeaseAcquisitionFaultAndCancellation(t *testing.T) {
-	f := setup(t)
-	ctx := context.Background()
-	before := businessSnapshot(t, f)
-	if _, err := f.s.Pool.Exec(ctx, `CREATE FUNCTION fail_upload_slot() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic slot failure'; END $$;
-CREATE TRIGGER fail_upload_slot BEFORE UPDATE ON sync_upload_slots FOR EACH ROW EXECUTE FUNCTION fail_upload_slot()`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.s.AcquireUpload(ctx, f.p); err == nil {
-		t.Fatal("slot assignment failure ignored")
-	}
-	if count(t, f, "sync_upload_slots") != 0 {
-		t.Fatal("failed acquisition leaked initial slot rows")
-	}
-	unread := &observedBody{}
-	h := httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	w := admissionRequest(h, f.enrollment.Token, "PUT", "/v2/sync/batches/"+syncing.NewID()+"/body", "application/x-rai-health-delta+ndjson", "gzip", unread)
-	if w.Code != 503 || unread.reads != 0 || count(t, f, "sync_upload_slots") != 0 {
-		t.Fatal("lease storage failure did not fail closed before body")
-	}
-	if _, err := f.s.Pool.Exec(ctx, `DROP TRIGGER fail_upload_slot ON sync_upload_slots`); err != nil {
-		t.Fatal(err)
-	}
-	l := takeUpload(t, f.s, f.p)
-	if err := f.s.ReleaseUpload(ctx, f.p, l); err != nil {
-		t.Fatal(err)
-	}
-	tx, err := f.s.Pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT * FROM sync_upload_slots ORDER BY slot FOR UPDATE`); err != nil {
-		t.Fatal(err)
-	}
-	wait, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
-	defer cancel()
-	if _, err = uploadPool(t, f).AcquireUpload(wait, f.p); err == nil {
-		t.Fatal("cancelled lock wait acquired a slot")
-	}
-	if err = tx.Rollback(ctx); err != nil {
-		t.Fatal(err)
-	}
-	l = takeUpload(t, f.s, f.p)
-	if err = f.s.ReleaseUpload(ctx, f.p, l); err != nil {
-		t.Fatal(err)
-	}
-	sameBusiness(t, f, before)
-}
-
 func TestUploadLeaseLossRollsBackEntireFactTransaction(t *testing.T) {
 	for _, payload := range []string{"sample", "workout"} {
 		for _, op := range []string{"upsert", "delete"} {
@@ -375,160 +320,6 @@ CREATE TRIGGER expire_upload_at_seal BEFORE UPDATE ON sync_pages FOR EACH ROW EX
 				pageState(t, f, e.PageID, 1, "sealed")
 			})
 		}
-	}
-}
-
-func TestHTTPUploadLeaseAcrossHandlersAndRecoveryReads(t *testing.T) {
-	f := setup(t)
-	ctx := context.Background()
-	e, wire := f.envelope(t, []syncing.Event{sample(syncing.NewID(), 132)}, 1, nil)
-	if _, err := f.s.RegisterBatch(ctx, f.p, e); err != nil {
-		t.Fatal(err)
-	}
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h1, h2 := httpapi.New(f.s, log), httpapi.New(uploadPool(t, f), log)
-	path := "/v2/sync/batches/" + e.BatchID + "/body"
-	held := &heldBody{Reader: bytes.NewReader(wire), started: make(chan struct{}), release: make(chan struct{})}
-	result := make(chan *httptest.ResponseRecorder, 1)
-	go func() {
-		result <- admissionRequest(h1, f.enrollment.Token, "PUT", path, "application/x-rai-health-delta+ndjson", "gzip", held)
-	}()
-	var once sync.Once
-	unblock := func() { once.Do(func() { close(held.release) }) }
-	defer unblock()
-	select {
-	case <-held.started:
-	case <-time.After(3 * time.Second):
-		t.Fatal("first handler did not reach body")
-	}
-	unread := &observedBody{}
-	assert429(t, admissionRequest(h2, f.enrollment.Token, "PUT", path, "application/x-rai-health-delta+ndjson", "gzip", unread), "device_upload_capacity_exceeded")
-	if unread.reads != 0 {
-		t.Fatal("second replica read a rejected body")
-	}
-	if got := admissionRequest(h2, f.enrollment.Token, "GET", "/v2/sync/batches/"+e.BatchID, "", "", nil); got.Code != 200 {
-		t.Fatal("active upload blocked recovery GET", got.Code)
-	}
-	// The parser resumes after an operational lease was replaced by another replica.
-	if _, err := f.s.Pool.Exec(ctx, `UPDATE sync_upload_slots SET expires_at=clock_timestamp()-interval '1 second' WHERE token IS NOT NULL`); err != nil {
-		t.Fatal(err)
-	}
-	current := takeUpload(t, uploadPool(t, f), f.p)
-	unblock()
-	select {
-	case w := <-result:
-		if w.Code != 409 || !bytes.Contains(w.Body.Bytes(), []byte("upload_lease_lost")) {
-			t.Fatal("old parser committed", w.Code)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("old parser did not finish")
-	}
-	if count(t, f, "health_samples") != 0 {
-		t.Fatal("expired parser published a fact")
-	}
-	_, err := f.s.AcquireUpload(ctx, f.p)
-	requireCode(t, err, "device_upload_capacity_exceeded")
-	if err = f.s.ReleaseUpload(ctx, f.p, current); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = f.s.Pool.Exec(ctx, `UPDATE sync_request_budgets SET available_at=clock_timestamp()-interval '1 minute' WHERE lane='upload'`); err != nil {
-		t.Fatal(err)
-	}
-	w := admissionRequest(h2, f.enrollment.Token, "PUT", path, "application/x-rai-health-delta+ndjson", "gzip", bytes.NewReader(wire))
-	if w.Code != 200 {
-		t.Fatal("replacement could not retry", w.Code)
-	}
-	got := admissionRequest(h1, f.enrollment.Token, "GET", "/v2/sync/batches/"+e.BatchID, "", "", nil)
-	var batch syncing.BatchState
-	if err = json.Unmarshal(got.Body.Bytes(), &batch); err != nil || got.Code != 200 || !bytes.Equal(batch.Receipt, w.Body.Bytes()) {
-		t.Fatal("GET lost original receipt", err)
-	}
-}
-
-type cancelUploadBody struct {
-	started   chan struct{}
-	closed    chan struct{}
-	startOnce sync.Once
-	closeOnce sync.Once
-}
-
-func (b *cancelUploadBody) Read([]byte) (int, error) {
-	b.startOnce.Do(func() { close(b.started) })
-	<-b.closed
-	return 0, io.ErrClosedPipe
-}
-
-func (b *cancelUploadBody) Close() error {
-	b.closeOnce.Do(func() { close(b.closed) })
-	return nil
-}
-
-func TestHTTPUploadCancellationClosesBodyAndReleasesLease(t *testing.T) {
-	f := setup(t)
-	e, _ := f.envelope(t, nil, 1, nil)
-	ctx := context.Background()
-	if _, err := f.s.RegisterBatch(ctx, f.p, e); err != nil {
-		t.Fatal(err)
-	}
-	before := businessSnapshot(t, f)
-	body := &cancelUploadBody{started: make(chan struct{}), closed: make(chan struct{})}
-	r := httptest.NewRequest(http.MethodPut, "/v2/sync/batches/"+e.BatchID+"/body", body)
-	r.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	r.Header.Set("Content-Type", "application/x-rai-health-delta+ndjson")
-	r.Header.Set("Content-Encoding", "gzip")
-	requestCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	r = r.WithContext(requestCtx)
-	h := httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	done := make(chan struct{})
-	go func() { defer close(done); h.ServeHTTP(httptest.NewRecorder(), r) }()
-	select {
-	case <-body.started:
-	case <-time.After(3 * time.Second):
-		t.Fatal("parser not started")
-	}
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(3 * time.Second):
-		t.Fatal("cancelled body remained blocked")
-	}
-	_ = takeUpload(t, uploadPool(t, f), f.p)
-	sameBusiness(t, f, before)
-}
-
-func TestHTTPUploadReleaseFailurePreservesReceiptAndExpires(t *testing.T) {
-	f := setup(t)
-	ctx := context.Background()
-	e, wire := f.envelope(t, nil, 1, nil)
-	if _, err := f.s.RegisterBatch(ctx, f.p, e); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.s.Pool.Exec(ctx, `CREATE FUNCTION fail_upload_release() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
-IF NEW.token IS NULL AND OLD.token IS NOT NULL THEN RAISE EXCEPTION 'synthetic release failure'; END IF;
-RETURN NEW; END $$;
-CREATE TRIGGER fail_upload_release BEFORE UPDATE ON sync_upload_slots FOR EACH ROW EXECUTE FUNCTION fail_upload_release()`); err != nil {
-		t.Fatal(err)
-	}
-	h := httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	path := "/v2/sync/batches/" + e.BatchID + "/body"
-	w := admissionRequest(h, f.enrollment.Token, "PUT", path, "application/x-rai-health-delta+ndjson", "gzip", bytes.NewReader(wire))
-	if w.Code != 200 {
-		t.Fatal("release failure relabeled committed result", w.Code)
-	}
-	batch, err := f.s.Batch(ctx, f.p, e.BatchID)
-	if err != nil || !bytes.Equal(batch.Receipt, w.Body.Bytes()) {
-		t.Fatal("release failure changed receipt", err)
-	}
-	_, err = uploadPool(t, f).AcquireUpload(ctx, f.p)
-	requireCode(t, err, "device_upload_capacity_exceeded")
-	if _, err = f.s.Pool.Exec(ctx, `DROP TRIGGER fail_upload_release ON sync_upload_slots;
-UPDATE sync_upload_slots SET expires_at=clock_timestamp()-interval '1 second' WHERE token IS NOT NULL`); err != nil {
-		t.Fatal(err)
-	}
-	retry := admissionRequest(h, f.enrollment.Token, "PUT", path, "application/x-rai-health-delta+ndjson", "gzip", bytes.NewReader(wire))
-	if retry.Code != 200 || !bytes.Equal(retry.Body.Bytes(), w.Body.Bytes()) {
-		t.Fatal("expired release could not recover original receipt", retry.Code)
 	}
 }
 

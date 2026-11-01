@@ -11,5 +11,9 @@
   "00010_route_foundation.sql": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
   "00011_p3_sync_v2.sql": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
   "00012_analysis.sql": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
-  "00013_training.sql": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b"
+  "00013_training.sql": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b",
+  "00014_workout_imports.sql": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8",
+  "00015_workout_import_history.sql": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6",
+  "00016_route_timestamp_envelope.sql": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8",
+  "00017_analysis_sample_lookup.sql": "73bc3b4a1281597e777727c96521bf16a692f8f8968ce09d4d175d1470cbb968"
 }

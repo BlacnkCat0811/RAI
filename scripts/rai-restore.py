@@ -28,7 +28,7 @@ def main():
     checksum = monthly.private_file(str(source) + ".sha256")
     m = json.loads(manifest.read_bytes())
     require(m["format"] == monthly.remote.FORMAT and m["file"] == source.name
-            and m["schema_version"] == 13 and m["postgres_major"] == 18
+            and m["schema_version"] in (13, 14, 15, 16, 17) and m["postgres_major"] == 18
             and m["source_database"] == "rai_v2", "unexpected_backup_source_or_schema")
     require(checksum.read_text() == m["sha256"] + "  " + source.name + "\n", "invalid_sha_file")
     # Keep the verified file descriptor through restore; no path swap afterwards.

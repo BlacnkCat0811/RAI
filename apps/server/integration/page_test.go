@@ -9,17 +9,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"io"
-	"log/slog"
 	"math"
-	"net/http"
-	"net/http/httptest"
 	"sync"
 	"testing"
 
 	"github.com/pressly/goose/v3"
 	"rai/server/internal/admin"
-	"rai/server/internal/httpapi"
 	"rai/server/internal/syncing"
 	"rai/server/migrations"
 )
@@ -291,95 +286,6 @@ func TestConcurrentFinalPageFragmentSealsOnce(t *testing.T) {
 	pageState(t, f, page, 2, "sealed")
 	if count(t, f, "health_samples") != 1 || count(t, f, "jobs") != 1 || count(t, f, "change_events") != 1 {
 		t.Fatal("concurrent seal duplicated facts/jobs")
-	}
-}
-
-func TestHTTPPageRecoveryAfterLostFinalResponse(t *testing.T) {
-	f := setup(t)
-	ctx := context.Background()
-	page := syncing.NewID()
-	first, _ := pageEnvelope(t, f, page, 0, 2, nil, 1, nil)
-	registerCommit(t, f, first, nil)
-	last, wire := pageEnvelope(t, f, page, 1, 2, nil, 2, &first.BatchID)
-	if _, err := f.s.RegisterBatch(ctx, f.p, last); err != nil {
-		t.Fatal(err)
-	}
-	handler := httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "PUT" {
-			rec := httptest.NewRecorder()
-			handler.ServeHTTP(rec, r)
-			if rec.Code != 200 {
-				t.Error("final fragment did not commit", rec.Code)
-			}
-			conn, _, err := w.(http.Hijacker).Hijack()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			_ = conn.Close()
-			return
-		}
-		handler.ServeHTTP(w, r)
-	}))
-	defer server.Close()
-	req, err := http.NewRequest("PUT", server.URL+"/v2/sync/batches/"+last.BatchID+"/body", bytes.NewReader(wire))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	req.Header.Set("Content-Type", "application/x-rai-health-delta+ndjson")
-	req.Header.Set("Content-Encoding", "gzip")
-	resp, err := server.Client().Do(req)
-	if err == nil {
-		resp.Body.Close()
-		t.Fatal("expected lost response")
-	}
-	query := func(token, id string) (int, []byte) {
-		t.Helper()
-		req, err := http.NewRequest("GET", server.URL+"/v2/sync/pages/"+id, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
-		resp, err := server.Client().Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		b, err := io.ReadAll(resp.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return resp.StatusCode, b
-	}
-	status, body := query(f.enrollment.Token, page)
-	var p syncing.PageState
-	if err = json.Unmarshal(body, &p); err != nil || status != 200 || p.IngestStatus != "sealed" || p.CommittedFragments != 2 {
-		t.Fatal("GET failed to recover sealed page", status, string(body), err)
-	}
-	original := pageState(t, f, page, 2, "sealed")
-	if !bytes.Equal(p.Receipt, original.Receipt) {
-		t.Fatal("GET changed original page receipt")
-	}
-	if status, _ = query("", page); status != 401 {
-		t.Fatal("unauthenticated page visible")
-	}
-	if status, _ = query(f.enrollment.Token, syncing.NewID()); status != 404 {
-		t.Fatal("unknown page found")
-	}
-	if status, _ = query(f.enrollment.Token, "bad-id"); status != 422 {
-		t.Fatal("invalid page ID accepted")
-	}
-	// Dataset-scoped lookup cannot see another dataset's receipt, even read-only.
-	_, err = f.s.Page(ctx, syncing.Principal{DatasetID: syncing.NewID()}, page)
-	requireCode(t, err, "page_not_found")
-	readOnly := f.p
-	readOnly.CanCollect = false
-	if _, err = f.s.Page(ctx, readOnly, page); err != nil {
-		t.Fatal("read-only cannot recover receipt", err)
 	}
 }
 

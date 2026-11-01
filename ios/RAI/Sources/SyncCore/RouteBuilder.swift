@@ -11,7 +11,7 @@ public struct RoutePoint: Sendable {
         self.horizontalAccuracy = horizontalAccuracy; self.verticalAccuracy = verticalAccuracy; self.speed = speed; self.course = course
     }
     public func canonical(sequence: Int64) throws -> Data {
-        guard (-90...90).contains(latitude), (-180...180).contains(longitude) else { throw SyncFailure.invalid("invalid_route_coordinate") }
+        guard sequence >= 0, (-62135596800000000...253402300799999999).contains(recordedAtUs), (-90...90).contains(latitude), (-180...180).contains(longitude) else { throw SyncFailure.invalid("invalid_route_coordinate") }
         var fields: [(String, JSON)] = [("sequence", .int(sequence)), ("recordedAtUs", .int(recordedAtUs)), ("latitude", .number(latitude)), ("longitude", .number(longitude))]
         for (key, value) in [("altitude", altitude), ("horizontalAccuracy", horizontalAccuracy), ("verticalAccuracy", verticalAccuracy), ("speed", speed), ("course", course)] {
             if let value {
@@ -29,6 +29,7 @@ public struct RouteChunkFile: Sendable {
 public struct PreparedRoute: Sendable {
     public let chunks: [RouteChunkFile]
     public let pointCount: Int64, first: Int64, last: Int64
+    public let points: [RoutePoint]
     public func operations(scope: Scope, routeID: String, workout: WorkoutReference, source: String, store: OutboxStore) async throws -> [OutboxOperation] {
         guard let end = chunks.last else { throw SyncFailure.invalid("empty_route") }
         var manifest = scope.fields
@@ -67,6 +68,7 @@ public final class RouteSpool: Sendable {
         var first: Int64?
         var last: Int64?
         var chunks: [RouteChunkFile] = []
+        var points: [RoutePoint] = []
         var manifest = Data(repeating: 0, count: 32)
         var payloadManifest = Data(repeating: 0, count: 32)
         var finished = false
@@ -82,11 +84,12 @@ public final class RouteSpool: Sendable {
         try state.withLock { state in
             guard !state.finished else { throw SyncFailure.invalid("route_already_finished") }
             for point in points {
-                guard state.count < 1_000_000, state.last == nil || point.recordedAtUs >= state.last! else { throw SyncFailure.invalid("route_limit_or_time_order") }
+                guard state.count < 1_000_000 else { throw SyncFailure.invalid("route_point_limit") }
                 let line = try point.canonical(sequence: state.count)
                 if !state.lines.isEmpty && (state.lines.count == chunkSize || state.bytes + line.count + 1 > 1_048_576) { try flush(&state) }
                 state.lines.append(line); state.bytes += line.count + 1
-                state.first = state.first ?? point.recordedAtUs; state.last = point.recordedAtUs; state.count += 1
+                state.points.append(point)
+                state.first = min(state.first ?? point.recordedAtUs, point.recordedAtUs); state.last = max(state.last ?? point.recordedAtUs, point.recordedAtUs); state.count += 1
             }
         }
     }
@@ -94,7 +97,7 @@ public final class RouteSpool: Sendable {
         try state.withLock { state in
             guard !state.finished, let first = state.first, let last = state.last else { throw SyncFailure.invalid("empty_or_finished_route") }
             try flush(&state); state.finished = true
-            return PreparedRoute(chunks: state.chunks, pointCount: state.count, first: first, last: last)
+            return PreparedRoute(chunks: state.chunks, pointCount: state.count, first: first, last: last, points: state.points)
         }
     }
     private func flush(_ state: inout State) throws {

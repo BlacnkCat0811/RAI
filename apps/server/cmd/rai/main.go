@@ -41,7 +41,7 @@ func run(log *slog.Logger) error {
 		return config.ContainerResources(os.Stdout)
 	}
 	if mode == "version" {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": 13, "sync_protocol": 2, "openapi": "1.1.0", "analysis": []string{"workout.bundle/v2", "training_state.bundle/v2", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": 17, "sync_protocol": 3, "openapi": "1.4.0", "analysis": []string{"workout.bundle/v2", "training_state.bundle/v2", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
 	}
 	if mode == "probe" {
 		if len(os.Args) == 2 {
@@ -142,7 +142,7 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: addr, Handler: httpapi.New(store, log), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 25 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := httpapi.NewHTTPServer(addr, httpapi.New(store, log))
 	server.TLSConfig, err = config.TLS()
 	if err != nil {
 		return err

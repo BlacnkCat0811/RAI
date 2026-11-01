@@ -65,6 +65,9 @@ func TestP7RealLoginBoundariesAndRevocation(t *testing.T) {
 		t.Fatal("runtime can migrate")
 	}
 	f.commit(t, []syncing.Event{sample(syncing.NewID(), 100)}, 1, nil)
+	bundle, raw := testWorkoutBundle(t, f, 1)
+	phase3Observation(&bundle)
+	raw, _ = json.Marshal(bundle)
 	// A second synthetic principal in the same database cannot read first data.
 	other, device, token := syncing.NewID(), syncing.NewID(), strings.Repeat("z", 43)
 	h := sha256.Sum256([]byte(token))
@@ -74,12 +77,28 @@ func TestP7RealLoginBoundariesAndRevocation(t *testing.T) {
 	if _, e = f.s.Pool.Exec(ctx, `INSERT INTO devices(dataset_id,id,token_sha256,can_collect) VALUES($1,$2,$3,false)`, other, device, h[:]); e != nil {
 		t.Fatal(e)
 	}
-	var batch string
-	if e = f.s.Pool.QueryRow(ctx, `SELECT batch_id::text FROM sync_batches LIMIT 1`).Scan(&batch); e != nil {
-		t.Fatal(e)
-	}
 	handler := httpapi.New(api, analysisLog)
-	request := httptest.NewRequest("GET", "/v2/sync/batches/"+batch, nil)
+	if code, body := uploadBundleHTTP(t, handler, f.enrollment.Token, raw); code != 200 {
+		t.Fatalf("restricted runtime bundle import status=%d body=%s", code, body)
+	}
+	runOne(t, f, "analysis.workout")
+	runOne(t, f, "analysis.training_state")
+	// Exercise known/unknown barriers and original-receipt replay with the real
+	// API login. P4 invalidation uses its granted function, never derived writes.
+	for _, id := range []string{bundle.WorkoutID, syncing.NewID()} {
+		first, err := api.DeleteWorkoutBundle(ctx, f.p, bundleDeleteRequest(f, id))
+		if err != nil {
+			t.Fatal("restricted runtime delete failed", err)
+		}
+		retry, err := api.DeleteWorkoutBundle(ctx, f.p, bundleDeleteRequest(f, id))
+		if err != nil || !bytes.Equal(first, retry) {
+			t.Fatal("restricted runtime deletion replay failed", err)
+		}
+	}
+	if _, e = api.CurrentTrainingState(ctx, f.p); e == nil {
+		t.Fatal("restricted deletion left stale Training State current")
+	}
+	request := httptest.NewRequest("GET", "/v2/sync/workout-bundles/"+bundle.WorkoutID, nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, request)
@@ -110,7 +129,7 @@ func TestP7OperationsInvariantInventoryAndSanitization(t *testing.T) {
 		}
 		if mode == "verify" {
 			var value admin.Inventory
-			if e := json.Unmarshal(out.Bytes(), &value); e != nil || value.SchemaVersion != 13 || len(value.Tables) != 45 || value.InvariantViolations != 0 {
+			if e := json.Unmarshal(out.Bytes(), &value); e != nil || value.SchemaVersion != 17 || len(value.Tables) != 46 || value.InvariantViolations != 0 {
 				t.Fatal("incomplete verification", e, len(value.Tables))
 			}
 		}

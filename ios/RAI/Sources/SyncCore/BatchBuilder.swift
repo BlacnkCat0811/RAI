@@ -2,7 +2,8 @@ import Foundation
 
 public enum BatchBuilder {
     public static func page(scope: Scope, stream: Stream, events: [JSON], anchor: Data, store: OutboxStore,
-                            workouts: [WorkoutReference] = [], deletedWorkouts: [String] = [], supplements: [OutboxOperation] = [], metrics: SyncMetrics = .init()) async throws -> PendingPage {
+                            workouts: [WorkoutReference] = [], deletedWorkouts: [String] = [], supplements: [OutboxOperation] = [], metrics: SyncMetrics = .init(),
+                            pageKey: String? = nil, taskID: String? = nil) async throws -> PendingPage {
         let encodeStart = Date()
         var chunks: [Data] = [], counts: [Int] = []
         var data = Data(), count = 0, details = 0
@@ -58,6 +59,6 @@ public enum BatchBuilder {
         let deletedFacts = Set(events.filter { $0["op"].text == "delete" }.compactMap { event -> String? in
             guard let type = event["type"].text, let id = event["uuid"].text else { return nil }; return type + ":" + id
         })
-        return PendingPage(anchorKey: stream.type, candidateAnchor: anchor, operations: operations, workouts: workouts, deletedWorkouts: deletedWorkouts, deletedFacts: deletedFacts)
+        return PendingPage(anchorKey: pageKey ?? stream.type, candidateAnchor: anchor, operations: operations, workouts: workouts, deletedWorkouts: deletedWorkouts, deletedFacts: deletedFacts, taskID: taskID)
     }
 }

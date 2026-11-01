@@ -144,7 +144,9 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_id", trainingPlanFromScope(l.ScopeKey), "generation", l.TargetGeneration, "base_version", baseID, "effective_version", effectiveID, "job_id", l.ID, "run_id", id, "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
 		return
 	}
+	snapshotStart := time.Now()
 	in, err := q.LoadAnalysis(runCtx, l, time.Now().UTC())
+	snapshotDuration := time.Since(snapshotStart)
 	id := ""
 	if err != nil && in.Generation > 0 {
 		in.InputVersion += "/incomplete"
@@ -156,8 +158,11 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 	}
 	var ms []analysis.Metric
 	publicationDuration := time.Duration(0)
+	algorithmDuration := time.Duration(0)
 	if err == nil && in.Generation == l.TargetGeneration {
+		algorithmStart := time.Now()
 		ms, err = analysis.Analyze(runCtx, l.Kind, in)
+		algorithmDuration = time.Since(algorithmStart)
 	}
 	if err == nil {
 		publicationStart := time.Now()
@@ -177,7 +182,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 	if err != nil {
 		errorCode, _ = analysis.ErrorCode(err)
 	}
-	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_id", l.ID, "scope_key", l.ScopeKey, "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.BundleVersion(l.Kind), "run_id", id, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
+	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_id", l.ID, "scope_key", l.ScopeKey, "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.BundleVersion(l.Kind), "snapshot_ms", float64(snapshotDuration.Microseconds())/1000, "algorithm_ms", float64(algorithmDuration.Microseconds())/1000, "run_id", id, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
 }
 
 // TrainingQueue extends the same queue with a distinct domain handler.

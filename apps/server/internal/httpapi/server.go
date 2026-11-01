@@ -47,28 +47,9 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	m.HandleFunc("GET /ready", ready)
 	m.Handle("GET /v2/handshake", a.auth(syncing.ReadLane, a.handshake))
 	m.Handle("GET /v2/sync/changes", a.auth(syncing.ReadLane, a.changes))
-	m.Handle("POST /v2/sync/streams", a.auth(syncing.WriteLane, a.registerStream))
-	m.Handle("GET /v2/sync/streams/{id}", a.auth(syncing.ReadLane, a.stream))
-	m.Handle("POST /v2/sync/batches", a.auth(syncing.WriteLane, a.registerBatch))
-	m.Handle("GET /v2/sync/batches/{id}", a.auth(syncing.ReadLane, a.batch))
-	m.Handle("GET /v2/sync/pages/{id}", a.auth(syncing.ReadLane, a.page))
-	m.Handle("PUT /v2/sync/batches/{id}/body", a.auth(syncing.UploadLane, a.body))
-	m.Handle("POST /v2/sync/series", a.auth(syncing.WriteLane, a.registerSeries))
-	m.Handle("GET /v2/sync/series/{id}", a.auth(syncing.ReadLane, a.series))
-	m.Handle("PUT /v2/sync/series/{id}/chunks/{index}", a.auth(syncing.UploadLane, a.seriesChunk))
-	m.Handle("POST /v2/sync/series/{id}/seal", a.auth(syncing.WriteLane, a.sealSeries))
-	m.Handle("POST /v2/sync/workout-packages", a.auth(syncing.WriteLane, a.registerWorkoutPackage))
-	m.Handle("GET /v2/sync/workout-packages/{id}", a.auth(syncing.ReadLane, a.workoutPackage))
-	m.Handle("PUT /v2/sync/workout-packages/{id}/chunks/{index}", a.auth(syncing.UploadLane, a.workoutPackageChunk))
-	m.Handle("POST /v2/sync/workout-packages/{id}/seal", a.auth(syncing.WriteLane, a.sealWorkoutPackage))
-	m.Handle("POST /v2/sync/associations", a.auth(syncing.WriteLane, a.associateSample))
-	m.Handle("POST /v2/sync/workout-enrichments", a.auth(syncing.WriteLane, a.enrichWorkout))
-	m.Handle("GET /v2/sync/workout-enrichments/{id}", a.auth(syncing.ReadLane, a.workoutEnrichment))
-	m.Handle("POST /v2/routes", a.auth(syncing.WriteLane, a.registerRoute))
-	m.Handle("GET /v2/routes/{id}", a.auth(syncing.ReadLane, a.route))
-	m.Handle("PUT /v2/routes/{id}/chunks/{index}", a.auth(syncing.UploadLane, a.routeChunk))
-	m.Handle("POST /v2/routes/{id}/seal", a.auth(syncing.WriteLane, a.sealRoute))
-	m.Handle("POST /v2/routes/{id}/delete", a.auth(syncing.WriteLane, a.deleteRoute))
+	m.Handle("POST /v2/sync/workout-bundles", a.auth(syncing.UploadLane, a.importWorkoutBundle))
+	m.Handle("GET /v2/sync/workout-bundles/{id}", a.auth(syncing.ReadLane, a.workoutBundle))
+	m.Handle("DELETE /v2/sync/workout-bundles/{id}", a.auth(syncing.UploadLane, a.deleteWorkoutBundle))
 	m.Handle("GET /v2/analysis/workouts/{id}", a.auth(syncing.ReadLane, a.workoutAnalysis))
 	m.Handle("GET /v2/workouts", a.auth(syncing.ReadLane, a.product))
 	m.Handle("GET /v2/workouts/{id}", a.auth(syncing.ReadLane, a.product))
@@ -174,7 +155,19 @@ func (a *API) auth(lane syncing.AdmissionLane, next handler) http.Handler {
 			a.fail(w, syncing.Fail(401, "unauthorized"))
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		timeout := 20 * time.Second
+		if lane == syncing.UploadLane {
+			// Body upload, finite processing, then ACK have separate budgets.
+			timeout = BundleHandlerBudget
+		}
+		readBudget, writeBudget := timeout, timeout+ACKWriteBudget
+		if lane == syncing.UploadLane {
+			readBudget = BundleBodyBudget
+		}
+		controller := http.NewResponseController(w)
+		_ = controller.SetReadDeadline(time.Now().Add(readBudget))
+		_ = controller.SetWriteDeadline(time.Now().Add(writeBudget))
+		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
 		r = r.WithContext(ctx)
 		p, err := a.store.Authenticate(ctx, strings.TrimPrefix(header, "Bearer "))
@@ -193,6 +186,22 @@ func (a *API) auth(lane syncing.AdmissionLane, next handler) http.Handler {
 	})
 }
 func (a *API) fail(w http.ResponseWriter, err error) {
+	if errors.Is(err, context.DeadlineExceeded) {
+		err = syncing.Fail(503, "request_timeout")
+	}
+	if errors.Is(err, context.Canceled) {
+		err = syncing.Fail(408, "request_cancelled")
+	}
+
+	var sqlFailure interface{ SQLState() string }
+	if errors.As(err, &sqlFailure) {
+		switch sqlFailure.SQLState() {
+		case "57014":
+			err = syncing.Fail(503, "database_statement_timeout_or_cancel")
+		case "25P04":
+			err = syncing.Fail(503, "database_transaction_timeout")
+		}
+	}
 	var e *syncing.Error
 	if errors.As(err, &e) {
 		if observer, ok := w.(interface{ setErrorCode(string) }); ok {
@@ -200,6 +209,9 @@ func (a *API) fail(w http.ResponseWriter, err error) {
 		}
 		if e.Status == 401 {
 			w.Header().Set("WWW-Authenticate", "Bearer")
+		}
+		if e.Status >= 500 {
+			w.Header().Set("Retry-After", "2")
 		}
 		if e.Status == 429 {
 			w.Header().Set("Retry-After", strconv.Itoa(max(1, e.RetryAfterSeconds)))
@@ -264,11 +276,112 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 		types = append(types, k)
 	}
 	sort.Strings(types)
-	respond(w, 200, map[string]any{"protocolVersion": 2, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
-		"limits":       map[string]any{"wireBytes": syncing.MaxWireBytes, "decodedBytes": syncing.MaxDecodedBytes, "events": syncing.MaxEvents, "lineBytes": syncing.MaxLineBytes, "workoutStatistics": syncing.MaxWorkoutStatistics, "workoutEvents": syncing.MaxWorkoutEvents, "workoutDetails": syncing.MaxWorkoutDetails, "workoutActivities": syncing.MaxWorkoutActivities, "workoutPackageChunks": syncing.MaxWorkoutPackageChunks, "workoutPackageDetails": syncing.MaxWorkoutPackageDetails, "workoutPackageDetailsPerChunk": syncing.MaxWorkoutPackageDetailsPerChunk, "pageFragments": syncing.MaxPageFragments, "seriesChunks": syncing.MaxSeriesChunks, "seriesPoints": syncing.MaxSeriesPoints, "seriesPointsPerChunk": syncing.MaxSeriesPointsPerChunk, "routeChunks": syncing.MaxRouteChunks, "routePoints": syncing.MaxRoutePoints, "routePointsPerChunk": syncing.MaxRoutePointsPerChunk, "requests": syncing.RequestBudgets(), "processUploads": 2, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1, "uploadLeaseSeconds": syncing.UploadLeaseSeconds},
-		"capabilities": map[string]any{"sampleTypes": types, "contentEncoding": "gzip", "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 2, "pageReceipts": true, "workoutActivities": true, "workoutPackages": true, "quantitySeries": true, "routes": true, "sampleWorkoutAssociations": true, "workoutEnrichment": true, "changefeed": false, "analysis": true}})
+	respond(w, 200, map[string]any{"protocolVersion": 3, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
+		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": 2, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
+		"capabilities": map[string]any{"sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 3, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": 3, "bundleObservationVersion": 1, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
 	return nil
 }
+func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	start := time.Now()
+	stage := "admission"
+	var read bundleReadMetrics
+	var decodeTime, validationTime, importTime, writeTime time.Duration
+	defer func() {
+		a.log.Info("workout_bundle_transport", "wire_bytes", read.WireBytes, "file_bytes", read.FileBytes, "decoded_bytes", read.DecodedBytes, "multipart_ms", float64(read.Multipart.Microseconds())/1000, "decompression_ms", float64(read.Decompression.Microseconds())/1000, "json_decode_ms", float64(decodeTime.Microseconds())/1000, "validation_ms", float64(validationTime.Microseconds())/1000, "import_ms", float64(importTime.Microseconds())/1000, "ack_write_ms", float64(writeTime.Microseconds())/1000, "ack_total_ms", float64(time.Since(start).Microseconds())/1000, "stage", stage)
+	}()
+	release, err := a.acquireUpload(p)
+	if err != nil {
+		return err
+	}
+	defer release()
+	stage = "body"
+	raw, read, err := readBundleBody(w, r)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), BundleProcessingBudget)
+	ctx = syncing.ObservePhases(ctx, func(name string, d time.Duration) {
+		a.log.Info("workout_import_phase", "phase", name, "duration_ms", float64(d.Microseconds())/1000)
+	})
+	defer cancel()
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(BundleProcessingBudget + ACKWriteBudget))
+	var bundle syncing.WorkoutBundle
+	stage = "json_decode"
+	s := time.Now()
+	err = syncing.DecodeWorkoutBundleJSON(raw, &bundle)
+	decodeTime = time.Since(s)
+	if err != nil {
+		return err
+	}
+	if decodeTime > 15*time.Second {
+		return syncing.Fail(503, "json_decode_timeout")
+	}
+	stage = "validation"
+	s = time.Now()
+	err = syncing.ValidateWorkoutBundle(bundle)
+	validationTime = time.Since(s)
+	if err != nil {
+		return err
+	}
+	if validationTime > 5*time.Second {
+		return syncing.Fail(503, "validation_timeout")
+	}
+	stage = "import"
+	s = time.Now()
+	receipt, err := a.store.ImportWorkoutBundle(ctx, p, bundle, raw)
+	importTime = time.Since(s)
+	if err != nil {
+		return err
+	}
+	stage = "ack_write"
+	s = time.Now()
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(ACKWriteBudget))
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	err = json.NewEncoder(w).Encode(json.RawMessage(receipt))
+	if err == nil {
+		err = http.NewResponseController(w).Flush()
+	}
+	writeTime = time.Since(s)
+	if err != nil {
+		a.log.Warn("ack_write_failed", "code", "ack_write_timeout_or_disconnect")
+		return nil
+	}
+	stage = "complete"
+	return nil
+}
+
+func (a *API) workoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	id := r.PathValue("id")
+	sha := r.URL.Query().Get("sha256")
+	if sha != "" && !syncing.ValidDigest(sha) {
+		return syncing.Fail(422, "unsupported_payload")
+	}
+	receipt, err := a.store.WorkoutImport(r.Context(), p, id, sha)
+	if err != nil {
+		return err
+	}
+	respond(w, 200, json.RawMessage(receipt))
+	return nil
+}
+
+func (a *API) deleteWorkoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	id := r.PathValue("id")
+	var req syncing.WorkoutDeleteRequest
+	if err := readJSON(r, &req); err != nil {
+		return err
+	}
+	if req.WorkoutID != id {
+		return syncing.Fail(422, "unsupported_payload")
+	}
+	receipt, err := a.store.DeleteWorkoutBundle(r.Context(), p, req)
+	if err != nil {
+		return err
+	}
+	respond(w, 200, json.RawMessage(receipt))
+	return nil
+}
+
 func (a *API) registerStream(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
 	var req syncing.StreamRequest
 	if err := readJSON(r, &req); err != nil {

@@ -113,6 +113,56 @@ actor DropCommittedResponse: FileUploader {
             try await store.stage(page); try await drain(store, api)
             try require(await store.snapshot().pages.isEmpty, "empty_page_failed")
             print("PROBE_EMPTY=PASS zero new facts; sealed empty page")
+        case "per-workout":
+            // Two independent Workout packages using the exact per-Workout
+            // stream/page shape the iPhone coordinator uses. Synthetic only.
+            let start: Int64 = 1793059200000000
+            var identities: [JSON] = []
+            var firstWorkout: WorkoutReference?
+            for (index, suffix) in ["a", "b"].enumerated() {
+                let id = Wire.id()
+                let wKey = "workout:" + id + ":" + workoutType
+                let wStream = try await store.stream(key: wKey, type: workoutType, query: "rai-v2:per-workout:" + id + ":workout:visible")
+                let wEvent: JSON = .object(["op": .string("upsert"), "kind": .string("workout"), "type": .string(workoutType), "uuid": .string(id),
+                    "startUs": .int(start + Int64(index) * 86_400_000_000), "endUs": .int(start + Int64(index) * 86_400_000_000 + 6000_000_000),
+                    "source": .object(["bundleID": .string("synthetic.per-workout")]),
+                    "workout": .object(["activityType": .int(37), "durationUs": .int(6000_000_000)])])
+                let wPage = try await BatchBuilder.page(scope: scope, stream: wStream, events: [wEvent], anchor: Data(("synthetic-workout-" + suffix).utf8),
+                    store: store, workouts: [.init(id: id, source: "synthetic.per-workout", current: wEvent)], pageKey: wKey, taskID: id)
+                try await store.stage(wPage); try await drain(store, api)
+                if firstWorkout == nil { firstWorkout = .init(id: id, source: "synthetic.per-workout", current: wEvent) }
+                let sKey = "workout:" + id + ":" + type
+                let sStream = try await store.stream(key: sKey, type: type, query: "rai-v2:per-workout:" + id + ":" + type + ":visible")
+                let sampleUUID = Wire.id()
+                let sEvent: JSON = .object(["op": .string("upsert"), "kind": .string("sample"), "type": .string(type), "uuid": .string(sampleUUID),
+                    "startUs": .int(start + Int64(index) * 86_400_000_000 + 1_000_000), "endUs": .int(start + Int64(index) * 86_400_000_000 + 2_000_000),
+                    "quantity": .object(["value": .int(120), "unit": .string("count/min")]), "source": .object(["bundleID": .string("synthetic.per-workout")])])
+                let sPage = try await BatchBuilder.page(scope: scope, stream: sStream, events: [sEvent], anchor: Data(("synthetic-sample-" + suffix).utf8),
+                    store: store, pageKey: sKey, taskID: id)
+                try await store.stage(sPage); try await drain(store, api)
+                var association = scope.fields
+                association.merge(["associationID": .string(Wire.id()), "sampleType": .string(type), "sampleUUID": .string(sampleUUID),
+                    "workoutUUID": .string(id), "source": .object(["bundleID": .string("synthetic.per-workout")])]) { _, b in b }
+                let file = try await store.savePayload(JSON.object(association).data())
+                let request: OutboxOperation = .request(.init(method: "POST", path: "/v2/sync/associations", file: file,
+                    expected: ["sampleType": .string(type), "sampleUUID": .string(sampleUUID), "workoutUUID": .string(id), "ingestStatus": .string("committed")]))
+                let aPage = PendingPage(anchorKey: "association:" + id + ":" + type, candidateAnchor: Data(("synthetic-association-" + suffix).utf8),
+                    operations: [request], taskID: id)
+                try await store.stage(aPage); try await drain(store, api)
+                identities.append(.object(["workoutUUID": .string(id), "sampleUUID": .string(sampleUUID), "suffix": .string(suffix)]))
+            }
+            if let workout = firstWorkout {
+                let spool = try RouteSpool(directory: directory, chunkSize: 1000)
+                for i in 0..<10 { try spool.append([.init(recordedAtUs: start + Int64(i) * 1_000_000, latitude: 31.2 + Double(i) * 0.000001, longitude: 121.4, horizontalAccuracy: 5)]) }
+                let prepared = try spool.finish()
+                let routeID = Wire.id()
+                let operations = try await prepared.operations(scope: scope, routeID: routeID, workout: workout, source: "synthetic.per-workout", store: store)
+                let page = PendingPage(anchorKey: "route:" + workout.id, candidateAnchor: Data("synthetic-route-per-workout".utf8), operations: operations, taskID: workout.id)
+                try await store.stage(page); try await drain(store, api)
+            }
+            try OutboxStore.write(JSON.array(identities).data(), to: directory.appendingPathComponent("synthetic-per-workout-identities.json"))
+            try require(await store.snapshot().pages.isEmpty, "per_workout_sync_failed")
+            print("PROBE_PER_WORKOUT=PASS two independent Workout streams, samples, associations and one route")
         case "relationships":
             let workout = await store.snapshot().workouts.values.first!
             let identities = try JSON.decode(Data(contentsOf: directory.appendingPathComponent("synthetic-identities.json")))

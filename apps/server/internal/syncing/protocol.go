@@ -30,6 +30,8 @@ const (
 type Error struct {
 	Status             int    `json:"-"`
 	Code               string `json:"code"`
+	Field              string `json:"field,omitempty"`
+	Reason             string `json:"reason,omitempty"`
 	ExpectedSeq        *int64 `json:"expectedSeq,omitempty"`
 	ExpectedChunkIndex *int   `json:"expectedChunkIndex,omitempty"`
 	EventIndex         *int   `json:"eventIndex,omitempty"`
@@ -45,6 +47,7 @@ var digestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 func ValidID(s string) bool {
 	return uuidPattern.MatchString(s) && s != "00000000-0000-0000-0000-000000000000"
 }
+func ValidDigest(s string) bool { return digestPattern.MatchString(s) }
 func NewID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -441,6 +444,16 @@ func exactJSONFields(raw []byte, typ reflect.Type) error {
 				return errors.New("unknown field")
 			}
 			if err := exactJSONFields(value, field); err != nil {
+				return err
+			}
+		}
+	case reflect.Map:
+		var object map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &object); err != nil {
+			return err
+		}
+		for _, value := range object {
+			if err := exactJSONFields(value, typ.Elem()); err != nil {
 				return err
 			}
 		}

@@ -104,6 +104,7 @@ public struct Scope: Codable, Equatable, Sendable {
         self.serviceID = serviceID; self.datasetID = datasetID; self.datasetEpoch = datasetEpoch; self.collectorEpoch = collectorEpoch
     }
     public var fields: [String: JSON] { ["protocolVersion": .int(2), "datasetID": .string(datasetID), "datasetEpoch": .string(datasetEpoch), "collectorEpoch": .string(collectorEpoch)] }
+    public var bundleFields: [String: JSON] { ["protocolVersion": .int(3), "datasetID": .string(datasetID), "datasetEpoch": .string(datasetEpoch), "collectorEpoch": .string(collectorEpoch)] }
 }
 
 public struct Envelope: Codable, Equatable, Sendable {

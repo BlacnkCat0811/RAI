@@ -12,6 +12,17 @@ struct HealthPage: Sendable {
     let limit: Int
     var isFull: Bool { samples.count + deleted.count >= limit }
 }
+struct HealthRouteBundle: Sendable {
+    let id: String
+    let source: String
+    let points: [RoutePoint]
+    var provenance: JSON? = nil
+}
+struct HealthRouteRead: Sendable {
+    var routes: [HealthRouteBundle] = []
+    var coverage: [String: WorkoutCoverage] = [:]
+    var enumerationCompleted = false
+}
 
 protocol HealthKitReading: Sendable {
     func authorize() async throws
@@ -19,10 +30,35 @@ protocol HealthKitReading: Sendable {
     func workout(_ id: String) async throws -> HKWorkout?
     func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute
     func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation]
+    func recentWorkouts(limit: Int) async throws -> [HealthWorkoutSummary]
+    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage
+    func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample]
+    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]]
+    func bundleRoutes(workout: HKWorkout) async throws -> [HealthRouteBundle]
+    func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]]
+    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead
+    func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws
+}
+
+extension HealthKitReading {
+    func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]] { try await bundleSeries(type: type, workout: workout) }
+    func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws { }
+    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead {
+        let routes = try await bundleRoutes(workout: workout)
+        return HealthRouteRead(routes: routes, coverage: [:], enumerationCompleted: true)
+    }
+    // Test doubles that only drain saved Outbox pages do not need HealthKit.
+    func recentWorkouts(limit: Int) async throws -> [HealthWorkoutSummary] { throw SyncFailure.invalid("healthkit_unavailable") }
+    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
+    func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] { throw SyncFailure.invalid("healthkit_unavailable") }
+    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { throw SyncFailure.invalid("healthkit_unavailable") }
+
+    func bundleRoutes(workout: HKWorkout) async throws -> [HealthRouteBundle] { throw SyncFailure.invalid("healthkit_unavailable") }
 }
 
 actor HealthKitClient: HealthKitReading {
     private let health = HKHealthStore()
+    private var observers: [HKObserverQuery] = []
     // No derived cadence: the current SDK has no HealthKit running-cadence
     // quantity identifier. Only real supported quantities are requested.
     static let identifiers: [HKQuantityTypeIdentifier] = [.heartRate, .distanceWalkingRunning, .activeEnergyBurned, .runningSpeed, .runningPower, .stepCount, .basalEnergyBurned, .runningGroundContactTime, .runningStrideLength, .runningVerticalOscillation]
@@ -60,12 +96,15 @@ actor HealthKitClient: HealthKitReading {
         return path
     }
     #endif
+    private static func decodeAnchor(_ archive: Data?) throws -> HKQueryAnchor? {
+        guard let archive else { return nil }
+        do {
+            guard let value = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: archive) else { throw SyncFailure.localState("invalid_healthkit_anchor") }
+            return value
+        } catch { throw SyncFailure.localState("invalid_healthkit_anchor") }
+    }
     func read(type: HKSampleType, anchor: Data?, workout: HKWorkout? = nil) async throws -> HealthPage {
-        let previous: HKQueryAnchor?
-        if let anchor {
-            guard let decoded = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: anchor) else { throw SyncFailure.localState("invalid_healthkit_anchor") }
-            previous = decoded
-        } else { previous = nil }
+        let previous = try Self.decodeAnchor(anchor)
         // Apple's async descriptor uses the anchored query mechanism and stops
         // its underlying query on cancellation. Never substitutes a zero anchor.
         let limit = type == HKObjectType.workoutType() ? 25 : (type == HKSeriesType.workoutRoute() ? 1 : 1000)
@@ -79,6 +118,168 @@ actor HealthKitClient: HealthKitReading {
         let query = HKSampleQueryDescriptor(predicates: [.workout(HKQuery.predicateForObject(with: uuid))], sortDescriptors: [], limit: 1)
         return try await query.result(for: health).first
     }
+    /// Read-only list for the user-selected sync screen. This query does not
+    /// use or advance any sync anchor; only a later explicit sync reads facts.
+    func recentWorkouts(limit: Int = 100) async throws -> [HealthWorkoutSummary] {
+        let bounded = min(max(limit, 1), 200)
+        let query = HKSampleQueryDescriptor(predicates: [.workout(HKQuery.predicateForWorkouts(with: .running))],
+                                            sortDescriptors: [SortDescriptor(\HKWorkout.startDate, order: .reverse)], limit: bounded)
+        let workouts = try await query.result(for: health)
+        let heartRate = HKObjectType.quantityType(forIdentifier: .heartRate)
+        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)
+        return workouts.map { workout in
+            var distance = workout.totalDistance?.doubleValue(for: .meter())
+            if distance == nil, let distanceType { distance = workout.statistics(for: distanceType)?.sumQuantity()?.doubleValue(for: .meter()) }
+            var averageHeartRate: Double?
+            if let heartRate { averageHeartRate = workout.statistics(for: heartRate)?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute())) }
+            let indoor: Bool?
+            if let value = workout.metadata?[HKMetadataKeyIndoorWorkout] as? NSNumber { indoor = value.boolValue }
+            else if let location = workout.workoutActivities.first?.workoutConfiguration.locationType { indoor = location == .indoor }
+            else { indoor = nil }
+            return HealthWorkoutSummary(id: workout.uuid.uuidString.lowercased(), start: workout.startDate, end: workout.endDate,
+                durationS: workout.duration, distanceM: distance, averageHeartRate: averageHeartRate, isIndoor: indoor,
+                activityType: Int(workout.workoutActivityType.rawValue), sourceName: workout.sourceRevision.source.name,
+                deviceName: workout.device?.name)
+        }
+    }
+    /// Anchored query scoped to exactly one Workout UUID. A page from this
+    /// query can never contain another Workout, so the Outbox cannot discard a
+    /// different Workout when this stream advances.
+    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage {
+        guard let uuid = UUID(uuidString: id) else { throw SyncFailure.invalid("invalid_workout_uuid") }
+        let previous = try Self.decodeAnchor(anchor)
+        let query = HKAnchoredObjectQueryDescriptor(predicates: [.sample(type: HKObjectType.workoutType(), predicate: HKQuery.predicateForObject(with: uuid))], anchor: previous, limit: 1)
+        let result = try await query.result(for: health)
+        return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
+                          anchor: try NSKeyedArchiver.archivedData(withRootObject: result.newAnchor, requiringSecureCoding: true), limit: 1)
+    }
+    /// Complete sample read scoped to one Workout. This is the only read used
+    /// by the bundle path; it returns every visible sample, not a page.
+    func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] {
+        let query = HKSampleQueryDescriptor(predicates: [.sample(type: type, predicate: HKQuery.predicateForObjects(from: workout))],
+                                            sortDescriptors: [SortDescriptor(\.startDate)], limit: 50_001)
+        let samples = try await query.result(for: health)
+        guard samples.count <= 50_000 else { throw SyncFailure.invalid("bundle_too_large") }
+        return samples
+    }
+
+    /// One query per quantity type returns every visible child point and its
+    /// parent sample. This is the batched equivalent of RQrun's per-metric
+    /// arrays; it never issues one HealthKit query per sample.
+    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] {
+        let query = HKQuantitySeriesSampleQueryDescriptor(predicate: .quantitySample(type: type,
+            predicate: HKQuery.predicateForObjects(from: workout)), options: [.includeSample])
+        var bySample: [String: [JSON]] = [:]
+        for try await value in query.results(for: health) {
+            guard let sample = value.sample else { throw SyncFailure.localState("series_parent_missing") }
+            let quantity = try Normalizer.quantity(value.quantity, type: type.identifier)
+            bySample[sample.uuid.uuidString.lowercased(), default: []].append(.object([
+                "startUs": .int(Normalizer.us(value.dateInterval.start)),
+                "endUs": .int(Normalizer.us(value.dateInterval.end)),
+                "value": quantity["value"],
+                "unit": quantity["unit"],
+            ]))
+        }
+        return bySample
+    }
+
+    func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]] {
+        let name = try await store.beginFactCapture(), url = try await store.fileURL(name)
+        let file = try FileHandle(forWritingTo: url); defer { try? file.close() }
+        var bySample: [String: [JSON]] = [:], count = 0
+        let query = HKQuantitySeriesSampleQueryDescriptor(predicate: .quantitySample(type: type, predicate: HKQuery.predicateForObjects(from: workout)), options: [.includeSample])
+        for try await value in query.results(for: health) {
+            try Task.checkCancellation()
+            guard count < 1_000_000 else { throw SyncFailure.invalid("series_point_limit") }
+            let quantity = try Normalizer.quantity(value.quantity, type: type.identifier)
+            let point: JSON = .object(["startUs": .int(Normalizer.us(value.dateInterval.start)), "endUs": .int(Normalizer.us(value.dateInterval.end)), "value": quantity["value"], "unit": quantity["unit"]])
+            var capture: [String: JSON] = ["point": point, "type": .string(type.identifier), "workoutID": .string(workout.uuid.uuidString.lowercased())]
+            if let sample = value.sample { capture["sampleUUID"] = .string(sample.uuid.uuidString.lowercased()) }
+            var bytes = try JSON.object(capture).data(); bytes.append(10)
+            try file.write(contentsOf: bytes); try file.synchronize(); count += 1
+            guard let sample = value.sample else { throw SyncFailure.localState("series_parent_missing") }
+            bySample[sample.uuid.uuidString.lowercased(), default: []].append(point)
+        }
+        return bySample
+    }
+
+    func bundleRoutes(workout: HKWorkout) async throws -> [HealthRouteBundle] {
+        throw SyncFailure.localState("route_capture_store_required")
+    }
+    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead {
+        // limit+1 detects truncation at the actual bundle contract (16).
+        let query = HKSampleQueryDescriptor(predicates: [.sample(type: HKSeriesType.workoutRoute(), predicate: HKQuery.predicateForObjects(from: workout))], sortDescriptors: [], limit: 17)
+        let objects = try await query.result(for: health)
+        guard objects.count <= 16, objects.allSatisfy({ $0 is HKWorkoutRoute }) else { throw SyncFailure.invalid("route_count_limit") }
+        var result = HealthRouteRead(enumerationCompleted: true)
+        for object in objects {
+            guard let route = object as? HKWorkoutRoute else { throw SyncFailure.invalid("unsupported_route") }
+            let id = route.uuid.uuidString.lowercased(), key = "route:" + id
+            var points: [RoutePoint] = []
+            do {
+                let checkpoint = try await store.routeCapture(id, expected: route.count)
+                let capture = try RouteCaptureFile(url: await store.fileURL(checkpoint.file))
+                // Successful exhaustion is the descriptor's completion signal.
+                // Cancellation/error never executes finish or marks complete.
+                for try await location in HKWorkoutRouteQueryDescriptor(route).results(for: health) {
+                    try Task.checkCancellation()
+                    let point = try Self.point(location)
+                    try capture.append(point); points.append(point)
+                }
+                try capture.finish(expected: route.count)
+                try await store.updateRouteCapture(id, count: points.count, completed: true)
+                result.routes.append(HealthRouteBundle(id: id, source: route.sourceRevision.source.bundleIdentifier, points: points, provenance: Normalizer.source(route)))
+                var coverage = WorkoutCoverage.result(count: points.count, expected: route.count)
+                coverage.localPersisted = true
+                var issues: Set<String> = []
+                for index in points.indices {
+                    let point = points[index]
+                    if point.recordedAtUs < Normalizer.us(workout.startDate) { issues.insert("before_workout") }
+                    if point.recordedAtUs > Normalizer.us(workout.endDate) { issues.insert("after_workout") }
+                    if index > 0 {
+                        if point.recordedAtUs == points[index-1].recordedAtUs { issues.insert("timestamp_equal") }
+                        if point.recordedAtUs < points[index-1].recordedAtUs { issues.insert("timestamp_regression") }
+                    }
+                }
+                coverage.diagnostics = issues.sorted(); result.coverage[key] = coverage
+            } catch {
+                let code = (error as? SyncFailure).map { failure -> String in
+                    switch failure { case .invalid(let code), .localState(let code): return code; case .receiptMismatch: return "receipt_mismatch" }
+                } ?? (error is CancellationError ? "cancelled" : "route_query_failed")
+                try await store.updateRouteCaptureIfPresent(id, count: points.count, error: code)
+                var coverage = WorkoutCoverage.result(count: points.count, completed: false, expected: route.count)
+                coverage.localPersisted = true; coverage.errorCode = code; result.coverage[key] = coverage
+                if error is CancellationError { throw error }
+            }
+        }
+        return result
+    }
+    private static func point(_ location: CLLocation) throws -> RoutePoint {
+        let seconds = location.timestamp.timeIntervalSince1970
+        guard seconds.isFinite, seconds >= -62135596800, seconds < 253402300800 else { throw SyncFailure.invalid("invalid_route_timestamp") }
+        return RoutePoint(recordedAtUs: Normalizer.us(location.timestamp), latitude: location.coordinate.latitude, longitude: location.coordinate.longitude,
+            altitude: location.verticalAccuracy >= 0 ? location.altitude : nil,
+            horizontalAccuracy: location.horizontalAccuracy >= 0 ? location.horizontalAccuracy : nil,
+            verticalAccuracy: location.verticalAccuracy >= 0 ? location.verticalAccuracy : nil,
+            speed: location.speed >= 0 ? location.speed : nil, course: location.course >= 0 && location.course < 360 ? location.course : nil)
+    }
+    func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws {
+        guard observers.isEmpty else { return }
+        var backgroundFailed = false
+        for type in Self.types + [HKSeriesType.workoutRoute()] {
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
+                // Notifications contain no facts. The handler journals bounded
+                // anchored results; periodic foreground catch-up remains needed.
+                let delivery = HealthDeliveryCompletion(completion)
+                Task { await handler(); delivery.finish() }
+            }
+            health.execute(query); observers.append(query)
+            do { try await health.enableBackgroundDelivery(for: type, frequency: .immediate) }
+            catch { backgroundFailed = true }
+        }
+        if backgroundFailed { throw SyncFailure.localState("background_delivery_unavailable") }
+    }
+
     func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute {
         let spool = try RouteSpool(directory: directory)
         for try await location in HKWorkoutRouteQueryDescriptor(route).results(for: health) {
@@ -201,11 +402,16 @@ enum Normalizer {
         guard value.isFinite else { throw SyncFailure.invalid("nonfinite_quantity") }
         return .object(["value": .number(value), "unit": .string(unit)])
     }
+    static let sampleMetadataEnumKeys = [HKMetadataKeyHeartRateMotionContext, HKMetadataKeyHeartRateSensorLocation,
+                                         HKMetadataKeyUserMotionContext, HKMetadataKeyDevicePlacementSide]
     static func metadata(_ metadata: [String: Any]?) -> JSON? {
         var output: [String: JSON] = [:]
         // Explicit allowlist. No arbitrary HealthKit metadata serialization.
         if let zone = metadata?[HKMetadataKeyTimeZone] as? String { output[HKMetadataKeyTimeZone] = .string(zone) }
         if let indoor = metadata?[HKMetadataKeyIndoorWorkout] as? NSNumber { output[HKMetadataKeyIndoorWorkout] = .bool(indoor.boolValue) }
+        for key in sampleMetadataEnumKeys {
+            if let value = metadata?[key] as? NSNumber { output[key] = .int(Int64(value.intValue)) }
+        }
         return output.isEmpty ? nil : .object(output)
     }
     // Keep the existing sample mapping immutable. The inspected Workout's
@@ -222,6 +428,12 @@ enum Normalizer {
             HKMetadataKeyMaximumSpeed: (.meter().unitDivided(by: .second()), "m/s"),
         ]
         let allowed = Set(units.keys).union([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout])
+        if let zone = values[HKMetadataKeyTimeZone] {
+            guard let text = zone as? String, !text.isEmpty else { throw SyncFailure.invalid("unsupported_workout_metadata_type") }
+        }
+        if let indoor = values[HKMetadataKeyIndoorWorkout], !(indoor is NSNumber) {
+            throw SyncFailure.invalid("unsupported_workout_metadata_type")
+        }
         var output = self.metadata(values)?.fields ?? [:]
         for (key, (unit, label)) in units where values[key] != nil {
             guard let quantity = values[key] as? HKQuantity, quantity.is(compatibleWith: unit) else { throw SyncFailure.invalid("unsupported_workout_metadata_unit:" + key) }
@@ -229,29 +441,91 @@ enum Normalizer {
             guard value.isFinite else { throw SyncFailure.invalid("nonfinite_workout_metadata") }
             output[key] = .object(["value": .number(value), "unit": .string(label)])
         }
-        // Third-party workout metadata is an explicitly supported scalar map:
-        // strings, booleans and finite numbers are preserved in the existing
-        // JSONB metadata field. Unknown object/quantity metadata still stops
-        // the workout instead of being silently dropped.
-        var unsupported: [String] = []
-        for (key, value) in values where !allowed.contains(key) {
-            guard key.count <= 128, output.count < 64 else { throw SyncFailure.invalid("workout_metadata_limit") }
-            if let string = value as? String {
-                output[key] = .string(string)
-            } else if let number = value as? NSNumber {
-                if CFGetTypeID(number) == CFBooleanGetTypeID() {
-                    output[key] = .bool(number.boolValue)
-                } else {
-                    let double = number.doubleValue
-                    guard double.isFinite else { throw SyncFailure.invalid("nonfinite_workout_metadata") }
-                    output[key] = .number(double)
-                }
-            } else {
-                unsupported.append(key + ":" + String(describing: type(of: value)))
+        // Strict allowlist. Unknown metadata remains in the secure HealthKit
+        // discovery archive and stops this upload for explicit review; it is
+        // never copied into an arbitrary server JSON map.
+        guard Set(values.keys).isSubset(of: allowed) else { throw SyncFailure.invalid("metadata_requires_review") }
+        guard output.count <= 64 else { throw SyncFailure.invalid("workout_metadata_limit") }
+        return output.isEmpty ? nil : .object(output)
+    }
+
+    /// Client provenance is an enrichment, not part of the immutable Workout
+    /// identity event. Keeping it separate preserves byte-for-byte retries of
+    /// Workouts that were uploaded by earlier client builds.
+    static func workoutProvenance(version: String?, productType: String?, device: HKDevice?) -> [String: JSON] {
+        var fields: [String: JSON] = [:]
+        if let version { fields["RAI:sourceRevisionVersion"] = .string(version) }
+        if let productType { fields["RAI:sourceProductType"] = .string(productType) }
+        if let device {
+            for (key, value) in [("RAI:sourceDeviceManufacturer", device.manufacturer),
+                                 ("RAI:sourceDeviceModel", device.model), ("RAI:sourceDeviceHardwareVersion", device.hardwareVersion),
+                                 ("RAI:sourceDeviceSoftwareVersion", device.softwareVersion)] {
+                if let value { fields[key] = .string(value) }
             }
         }
-        guard unsupported.isEmpty else { throw SyncFailure.invalid("unsupported_workout_metadata_types:" + unsupported.sorted().joined(separator: ",")) }
-        return output.isEmpty ? nil : .object(output)
+        return fields
+    }
+
+    static func source(_ object: HKObject) -> JSON {
+        let revision = object.sourceRevision
+        var fields: [String: JSON] = ["bundleID": .string(revision.source.bundleIdentifier), "name": .string(revision.source.name)]
+        if let version = revision.version { fields["version"] = .string(version) }
+        if let product = revision.productType { fields["productType"] = .string(product) }
+        let os = revision.operatingSystemVersion
+        if os.majorVersion > 0 { fields["operatingSystemVersion"] = .string("\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)") }
+        if let device = object.device {
+            var descriptor: [String: JSON] = [:]
+            for (key,value) in [("manufacturer",device.manufacturer),("model",device.model),("hardwareVersion",device.hardwareVersion),("firmwareVersion",device.firmwareVersion),("softwareVersion",device.softwareVersion)] {
+                if let value { descriptor[key] = .string(value) }
+            }
+            if !descriptor.isEmpty { fields["device"] = .object(descriptor) }
+        }
+        return .object(fields)
+    }
+    /// Secure archives prove recovery, while this supported-fact fingerprint
+    /// avoids treating archive object graph differences as new HealthKit facts.
+    /// Unsupported metadata falls back to the full archive identity and remains
+    /// available for review instead of being dropped by a partial fingerprint.
+    static func discoveryFingerprint(_ sample: HKSample) throws -> String {
+        let event: JSON
+        if let route = sample as? HKWorkoutRoute {
+            guard Set((route.metadata ?? [:]).keys).isSubset(of: [HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout]) else { throw SyncFailure.invalid("metadata_requires_review") }
+            event = .object(["uuid": .string(route.uuid.uuidString.lowercased()), "type": .string(route.sampleType.identifier),
+                "startUs": .int(us(route.startDate)), "endUs": .int(us(route.endDate)), "pointCount": .int(Int64(route.count)),
+                "metadata": try workoutMetadata(route.metadata) ?? .object([:])])
+        } else { event = try integrityEvent(sample) }
+        return Wire.hash(try JSON.object(["fact": event, "source": source(sample)]).data())
+    }
+    static func integrityEvent(_ sample: HKSample) throws -> JSON {
+        // Unknown metadata stays in the secure local discovery archive. It is
+        // not serialized into an arbitrary server JSON map.
+        let workoutAllowed = Set([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout, HKMetadataKeyAverageMETs,
+            HKMetadataKeyElevationAscended, HKMetadataKeyElevationDescended, HKMetadataKeyWeatherHumidity,
+            HKMetadataKeyWeatherTemperature, HKMetadataKeyAverageSpeed, HKMetadataKeyMaximumSpeed])
+        let sampleAllowed = Set([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout] + sampleMetadataEnumKeys)
+        func validate(_ metadata: [String: Any]?, allowed: Set<String>) throws {
+            guard Set((metadata ?? [:]).keys).isSubset(of: allowed) else { throw SyncFailure.invalid("metadata_requires_review") }
+        }
+        if sample is HKWorkout {
+            try validate(sample.metadata, allowed: workoutAllowed)
+        } else {
+            try validate(sample.metadata, allowed: sampleAllowed)
+        }
+        if let zone = sample.metadata?[HKMetadataKeyTimeZone], !(zone is String) { throw SyncFailure.invalid("unsupported_sample_metadata_type") }
+        if let indoor = sample.metadata?[HKMetadataKeyIndoorWorkout], !(indoor is NSNumber) { throw SyncFailure.invalid("unsupported_sample_metadata_type") }
+        for key in sampleMetadataEnumKeys {
+            if let value = sample.metadata?[key] {
+                guard let number = value as? NSNumber, (0...10).contains(number.intValue) else { throw SyncFailure.invalid("unsupported_sample_metadata_type") }
+            }
+        }
+        if let workout = sample as? HKWorkout {
+            for activity in workout.workoutActivities {
+                try validate(activity.metadata, allowed: workoutAllowed)
+                for event in activity.workoutEvents ?? [] { try validate(event.metadata, allowed: workoutAllowed) }
+            }
+            for event in workout.workoutEvents ?? [] { try validate(event.metadata, allowed: workoutAllowed) }
+        }
+        return try event(sample)
     }
 
     static func event(_ sample: HKSample) throws -> JSON {
@@ -259,7 +533,13 @@ enum Normalizer {
             "type": .string(sample.sampleType.identifier), "uuid": .string(sample.uuid.uuidString.lowercased()),
             "startUs": .int(us(sample.startDate)), "endUs": .int(us(sample.endDate)),
             "source": .object(["bundleID": .string(sample.sourceRevision.source.bundleIdentifier)])]
-        if let m = try (sample is HKWorkout ? workoutMetadata(sample.metadata) : metadata(sample.metadata)) { object["metadata"] = m }
+        // Workout identity is frozen: only HealthKit's own workout metadata is
+        // part of this event. Client provenance (source revision and device
+        // descriptors) is a supplement and must be sent through
+        // /v2/sync/workout-enrichments, never through this immutable payload.
+        if sample is HKWorkout {
+            if let m = try workoutMetadata(sample.metadata) { object["metadata"] = m }
+        } else if let m = metadata(sample.metadata) { object["metadata"] = m }
         if let workout = sample as? HKWorkout { object["workout"] = try self.workout(workout) }
         else if let sample = sample as? HKQuantitySample { object["quantity"] = try quantity(sample.quantity, type: sample.quantityType.identifier) }
         else { throw SyncFailure.invalid("unsupported_sample") }
@@ -312,3 +592,24 @@ enum Normalizer {
         return .object(object)
     }
 }
+
+private final class HealthDeliveryCompletion: @unchecked Sendable {
+    private let completion: () -> Void
+    init(_ completion: @escaping () -> Void) { self.completion = completion }
+    func finish() { completion() }
+}
+
+#if DEBUG
+extension HealthKitClient {
+    /// Device acceptance only: fixed user-authorized test window, never a
+    /// history enumeration. After locating one object, all reads use its UUID.
+    func phase3TestWorkout() async throws -> HKWorkout {
+        let start = ISO8601DateFormatter().date(from: "2026-10-26T11:35:00Z")!
+        let end = ISO8601DateFormatter().date(from: "2026-10-26T12:05:00Z")!
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [HKQuery.predicateForWorkouts(with: .running), HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)])
+        let values = try await HKSampleQueryDescriptor(predicates: [.workout(predicate)], sortDescriptors: [], limit: 3).result(for: health)
+        guard values.count == 1 else { throw SyncFailure.localState(values.isEmpty ? "test_workout_not_observed" : "test_workout_ambiguous") }
+        return values[0]
+    }
+}
+#endif

@@ -6,8 +6,11 @@
 int rai_gzip(const unsigned char *input, size_t count, unsigned char **output, size_t *output_count) {
     if (count > UINT_MAX) return Z_BUF_ERROR;
     z_stream stream = {0};
-    int result = deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+    int result = deflateInit2(&stream, 6, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
     if (result != Z_OK) return result;
+    gz_header header = {0}; header.time = 0; header.os = 255;
+    result = deflateSetHeader(&stream, &header);
+    if (result != Z_OK) { deflateEnd(&stream); return result; }
     size_t capacity = deflateBound(&stream, count);
     unsigned char *buffer = malloc(capacity);
     if (!buffer) { deflateEnd(&stream); return Z_MEM_ERROR; }

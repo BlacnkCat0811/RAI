@@ -10,22 +10,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/http/httptest"
 	neturl "net/url"
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"rai/server/internal/admin"
-	"rai/server/internal/httpapi"
 	"rai/server/internal/storage/postgres"
 	"rai/server/internal/syncing"
 )
@@ -398,93 +391,6 @@ func TestQueueLeaseAndDirtyGeneration(t *testing.T) {
 	}
 }
 
-func TestHTTPUploadReceiptAndAuthentication(t *testing.T) {
-	for _, payloadKind := range []string{"sample", "workout", "workout_activities"} {
-		t.Run(payloadKind, func(t *testing.T) {
-			f := setup(t)
-			fact := sample(syncing.NewID(), 132)
-			factTable := "health_samples"
-			if payloadKind != "sample" {
-				workoutStream(t, f)
-				fact = workout(t, syncing.NewID())
-				if payloadKind == "workout_activities" {
-					fact = multiWorkout(t, fact.UUID)
-				}
-				factTable = "workouts"
-			}
-			server := httptest.NewServer(httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil))))
-			defer server.Close()
-			request := func(method, path string, body []byte, token, contentType, encoding string) (int, []byte) {
-				t.Helper()
-				req, err := http.NewRequest(method, server.URL+path, bytes.NewReader(body))
-				if err != nil {
-					t.Fatal(err)
-				}
-				if token != "" {
-					req.Header.Set("Authorization", "Bearer "+token)
-				}
-				if contentType != "" {
-					req.Header.Set("Content-Type", contentType)
-				}
-				if encoding != "" {
-					req.Header.Set("Content-Encoding", encoding)
-				}
-				resp, err := server.Client().Do(req)
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer resp.Body.Close()
-				b, err := io.ReadAll(resp.Body)
-				if err != nil {
-					t.Fatal(err)
-				}
-				return resp.StatusCode, b
-			}
-			status, _ := request("GET", "/v2/handshake", nil, "", "", "")
-			if status != 401 {
-				t.Fatal(status)
-			}
-			status, b := request("GET", "/v2/handshake", nil, f.enrollment.Token, "", "")
-			if status != 200 || !bytes.Contains(b, []byte(`"pageReceipts":true`)) || !bytes.Contains(b, []byte(`"analysis":true`)) || !bytes.Contains(b, []byte(`"workouts":true`)) || !bytes.Contains(b, []byte(`"workoutActivities":true`)) {
-				t.Fatal(status, string(b))
-			}
-			status, _ = request("GET", "/readyz", nil, "", "", "")
-			if status != 200 {
-				t.Fatal(status)
-			}
-			e, wire := f.envelope(t, []syncing.Event{fact}, 1, nil)
-			envelope, _ := json.Marshal(e)
-			status, b = request("POST", "/v2/sync/batches", envelope, f.enrollment.Token, "application/json", "")
-			if status != 200 {
-				t.Fatal(status, string(b))
-			}
-			path := "/v2/sync/batches/" + e.BatchID + "/body"
-			status, b = request("PUT", path, wire, f.enrollment.Token, "application/x-rai-health-delta+ndjson", "gzip")
-			if status != 200 {
-				t.Fatal(status, string(b))
-			}
-			original := b
-			status, b = request("PUT", path, wire, f.enrollment.Token, "application/x-rai-health-delta+ndjson", "gzip")
-			if status != 200 || !bytes.Equal(original, b) {
-				t.Fatal("HTTP retry changed receipt", status, string(b))
-			}
-			status, b = request("GET", "/v2/sync/batches/"+e.BatchID, nil, f.enrollment.Token, "", "")
-			var state syncing.BatchState
-			if err := json.Unmarshal(b, &state); err != nil || status != 200 || !bytes.Equal(state.Receipt, original) {
-				t.Fatal("GET original receipt failed", status, err)
-			}
-			if count(t, f, factTable) != 1 || count(t, f, "jobs") != 1 {
-				t.Fatal("HTTP retry lost or duplicated fact/work")
-			}
-
-			status, b = request("GET", "/v2/jobs/"+syncing.NewID(), nil, f.enrollment.Token, "", "")
-			if status != 404 {
-				t.Fatal(fmt.Sprint(status, string(b)))
-			}
-		})
-	}
-}
-
 func TestReceiptFailureRollsBackFactsAndWork(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
@@ -519,78 +425,6 @@ func TestReceiptFailureRollsBackFactsAndWork(t *testing.T) {
 	}
 	if _, err = f.s.Commit(ctx, f.p, e, events); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestCommitResponseLossRecoveredByGET(t *testing.T) {
-	for _, payloadKind := range []string{"sample", "workout", "workout_activities"} {
-		t.Run(payloadKind, func(t *testing.T) {
-			f := setup(t)
-			fact := sample(syncing.NewID(), 132)
-			factTable := "health_samples"
-			if payloadKind != "sample" {
-				workoutStream(t, f)
-				fact = workout(t, syncing.NewID())
-				if payloadKind == "workout_activities" {
-					fact = multiWorkout(t, fact.UUID)
-				}
-				factTable = "workouts"
-			}
-			ctx := context.Background()
-			e, wire := f.envelope(t, []syncing.Event{fact}, 1, nil)
-			if _, err := f.s.RegisterBatch(ctx, f.p, e); err != nil {
-				t.Fatal(err)
-			}
-			handler := httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil)))
-			var dropped atomic.Bool
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method == "PUT" && !dropped.Swap(true) {
-					// Run the actual handler to commit, then close TCP before sending its response.
-					recorder := httptest.NewRecorder()
-					handler.ServeHTTP(recorder, r)
-					if recorder.Code != 200 {
-						t.Errorf("commit failed before response loss: %d", recorder.Code)
-					}
-					conn, _, err := w.(http.Hijacker).Hijack()
-					if err != nil {
-						t.Error(err)
-						return
-					}
-					_ = conn.Close()
-					return
-				}
-				handler.ServeHTTP(w, r)
-			}))
-			defer server.Close()
-			req, err := http.NewRequest("PUT", server.URL+"/v2/sync/batches/"+e.BatchID+"/body", bytes.NewReader(wire))
-			if err != nil {
-				t.Fatal(err)
-			}
-			req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-			req.Header.Set("Content-Type", "application/x-rai-health-delta+ndjson")
-			req.Header.Set("Content-Encoding", "gzip")
-			if resp, err := server.Client().Do(req); err == nil {
-				resp.Body.Close()
-				t.Fatal("expected lost HTTP response")
-			}
-			req, err = http.NewRequest("GET", server.URL+"/v2/sync/batches/"+e.BatchID, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-			resp, err := server.Client().Do(req)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer resp.Body.Close()
-			var state syncing.BatchState
-			if err = json.NewDecoder(resp.Body).Decode(&state); err != nil || resp.StatusCode != 200 || state.State != "committed" || len(state.Receipt) == 0 {
-				t.Fatal("receipt not recoverable", err)
-			}
-			if count(t, f, factTable) != 1 || count(t, f, "jobs") != 1 {
-				t.Fatal("lost response duplicated or lost work")
-			}
-		})
 	}
 }
 

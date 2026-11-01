@@ -447,3 +447,22 @@ extension ProductUITests {
     try screen("WorkoutDetailDynamicsQuality")
   }
 }
+
+@MainActor
+final class WorkoutSyncScreenUITests: XCTestCase {
+  func testScreenOpensAndShowsIndependentWorkoutCopy() {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    app.launch()
+    XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20))
+    app.tabBars.buttons["我的"].tap()
+    let link = app.buttons["健康数据同步"]
+    XCTAssertTrue(link.waitForExistence(timeout: 10))
+    link.tap()
+    let screen = app.descendants(matching: .any).matching(identifier: "screen.workout-sync").firstMatch
+    XCTAssertTrue(screen.waitForExistence(timeout: 10))
+    XCTAssertTrue(app.staticTexts["一条跑步 = 一个独立上传任务"].exists)
+    XCTAssertTrue(app.buttons["请求读取权限"].exists)
+  }
+}

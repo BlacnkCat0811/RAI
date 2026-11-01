@@ -67,6 +67,8 @@ func validAnalysisLease(ctx context.Context, tx pgx.Tx, l Lease) error {
 
 // PublishAnalysis owns the only result/publication/clean/complete transaction.
 func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in analysis.Snapshot, metrics []analysis.Metric) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 	if err := analysis.ValidateMetrics(metrics); err != nil {
 		return "", err
 	}
@@ -75,6 +77,10 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 		return "", err
 	}
 	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SET LOCAL transaction_timeout='10s'`); err != nil {
+		return "", err
+	}
+
 	var rev int64
 	if err = tx.QueryRow(ctx, `SELECT commit_rev FROM datasets WHERE id=$1 FOR UPDATE`, l.DatasetID).Scan(&rev); err != nil {
 		return "", err

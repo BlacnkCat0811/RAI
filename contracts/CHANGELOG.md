@@ -1,3 +1,43 @@
+## 2026-11-01 Phase 4 Delivery Freeze
+
+- `00017_analysis_sample_lookup.sql` 的 `health_samples_analysis_identity` 使用普通 `CREATE INDEX`，生产升级期间会阻塞 `health_samples` 写入；执行需维护窗口。本冻结点不改写为 `CONCURRENTLY`，本阶段不执行生产 migration。
+
+## 2026-11-01 — OpenAPI 1.3.0 / Protocol 3 Phase 3
+
+## 2026-11-01 Phase 4
+
+- protocol3保持；schema17增加有EXPLAIN证据的覆盖身份索引。整个wire/body、gzip/decoded/domain独立限额；支持gzip part且SHA256继续标识原JSON字节。
+- HTTP分阶段有限预算与可重试timeout；Outbox保留原JSON和可重建压缩文件，COMMIT后ACK和DELETE fencing保持。
+
+- metadata-only Sample 补充写不可变观察历史，不改旧 Sample 行/hash/回执；严格保留核心身份冲突。正式分析逐项核验保留子事实的当前/历史 provenance，父 Workout 来源不替未知子事实背书。
+
+- 可选 bundle observation v1：HealthKit provenance allowlist、来源政策、逐类型 coverage 和不可变观察历史；新能力由握手声明。缺失 provenance 保持 source_unknown，v3 原始上传合法，但正式分析明确 pending/failure。
+- 可选 sampleDeletions/routeDeletions 复用原事务、屏障和回执；旧包仍不得按缺席删除；ACK 删除计数受本包删除数量约束。
+- 保留 GPS 原数组序号和非单调时间，真实 min/max manifest 包络；诊断与查询/seal 完整性独立。新增 migration 00016 仅替换 route append/projection 函数的微秒转换，修复 PostgreSQL 对 year-9999 末微秒向上舍入到 10000 的拒绝；schema 更新为16，协议版本仍为3，原始时间不修正。
+- iOS 持久发现日志先于 anchor；完整路线 capture 前缀恢复，不新增逐 Sample/Route HTTP。缺失 provenance 的旧包继续合法上传，但分析等待来源证据；显式删除计数只能来自 `HKDeletedObject` 与持久父索引。
+
+## 2026-11-01 — RQrun Phase 1 删除安全修复
+
+- RQ-001：取消普通快照缺席推断删除；完整性标记不建立 Sample / Route tombstone。保留原事实、冲突与显式删除屏障。
+- RQ-002：未知 Workout DELETE 同样持久化屏障，COMMIT 后 ACK；重复命令返回首次原回执和原 revision。`alreadyDeleted` 描述首次命令的状态，不随重试改变。客户端 404 或无效 ACK 不再确认本地删除。
+- RQ-003：已知删除保存旧范围并在同事务登记 P4 dirty/job，立即隐藏旧 Workout 分析与 Training State；Worker 沿用 generation CAS 和历史 run/result 语义。
+- Protocol 3、schema 15、现有锁和上传事务边界保持。复用 entity_tombstones / change_events 保存时间、fencing 和删除回执，不新增迁移，不改 00014/00015 或 checksum。Sample / Route 的可靠客户端显式删除捕获仍待后续完善。
+
+# 合同变更记录
+
+## 2026-10-31 — Protocol 3 Workout Bundle
+
+将健康同步上传替换为 RQrun 式单请求模型：一条 Workout 对应一个 JSON bundle、一次 `multipart/form-data`（字段 `file`）上传、一个服务端事务和一个 Workout 级分析任务。旧 `/v2/sync/streams`、`/v2/sync/batches`、`/v2/sync/pages`、`/v2/sync/series`、`/v2/sync/associations`、`/v2/sync/workout-enrichments`、`/v2/sync/workout-packages`、`/v2/routes` 上传路径不再注册。
+
+- 本版本不兼容已有 v2 事实。升级前必须运行显式破坏性重置 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts`；重置保留 datasets/devices/collector leases，删除 v2 fact/analysis/training-derived 行。不得把该命令作为自动 migration。
+- 新增 `POST /v2/sync/workout-bundles`、`GET /v2/sync/workout-bundles/{workoutID}?sha256=...` 和显式 `DELETE /v2/sync/workout-bundles/{workoutID}`；bundle 含 Workout、全部 scalar samples（成员关系即关联）、多值 quantity series 和 routes。
+- 新增 schema 15（00014 建表，00015 扩展主键）`workout_imports`：按 `(dataset, workout, bundle_sha256)` append-only 保存精确 bundle SHA-256、验证后的 JSONB 源文档和原回执；同一 Workout 可有多个 bundle 回执，旧回执不被覆盖。
+- bundle 的 `completeSampleTypes`/`completeRoutes` 仅描述读取覆盖，缺席子事实保留（2026-11-01 RQ-001 修正）。Workout 删除只能由客户端收到该 UUID 的 `HKDeletedObject` 后显式 DELETE。
+- 一次事务写入 Workout、samples、`workout_samples`、`series_uploads`/`series_chunks`、`workout_routes`/`route_chunks`/`route_points`、dataset revision、dirty scope、一个 `analysis.workout` job 和 change event；内容未变化不推进 revision、不生成 job。
+- `protocolVersion` 升为 3；handshake 声明 `workoutBundles=true`、`bundleProtocolVersion=3`、`routes=true`，不再声明 page/batch/association/enrichment/quantitySeries/workoutPackages 能力。
+- 限额：bundle 32 MiB、50,000 samples、16 routes、1,000,000 route points、1,000,000 series points；UploadLane 请求预算 120 秒。旧 batch/page/route chunk 限额不再属于客户端合同。
+- 新增 `workout_imports` 的 append-only 回执历史；`GET` 按 `sha256` 精确恢复，省略时返回最新回执。
+
 ## 0.9.0 — 2026-10-27
 
 ## 2026-10-28 — P4 analysis
@@ -64,3 +104,7 @@
 ## 2026-10-31 Workout Detail Correctness Fixes
 
 路线 ±5 秒偏差保留原始事实，仅在分析输入和派生投影中排除窗口外点。活动分段要求至少两个连续活动，事件回退显式支持 HealthKit lap=3 / segment=7。心率区间去除同值重复、排除冲突重叠时间。未发布分析时仅返回事实及原始展示时序，环境观测保留而修正状态为 pending。执行快照 Effort 明确为计划强度：负荷回退来源改为 planned_effort_fallback/v1（置信度 0.4），实际 RPE 不填充。无 migration，不改写历史事实、回执、已发布结果或下载水位。
+
+## 2026-11-01 — RQrun Phase 2（RQ-005 / RQ-006 / RQ-009）
+
+补齐 v3 嵌套 required/null/合法零值校验与扁平 field/reason 错误；OpenAPI 增加完整 WorkoutBundle 解码 schema。上传 ACK 正 revision 和字段类型明确化，协议版本、hash、合法客户端编码不变。GET 404 为可重试未确认，客户端持久退避及原文件保留；原回执/确认状态/回收授权原子持久化。DELETE ACK 与 Phase 1 删除屏障不变。详见 sync-v3 第 10 节。

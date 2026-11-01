@@ -1,9 +1,36 @@
 import Foundation
 
+public struct UploadResponse: Sendable {
+    public let data: Data
+    public let status: Int
+    public let retryAfter: TimeInterval?
+    public let contentType: String?
+    public init(data: Data, status: Int, retryAfter: TimeInterval? = nil, contentType: String?) {
+        self.data = data; self.status = status; self.retryAfter = retryAfter; self.contentType = contentType
+    }
+}
+
 public protocol FileUploader: Sendable {
+    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse
     func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?)
+    /// Drop a durable transfer result after the caller has durably consumed it.
+    /// Implementations that do not cache results may ignore this.
+    func discardCachedResult(_ identity: String)
+}
+public extension FileUploader {
+    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
+        let (data, status, delay) = try await upload(request, file: file, identity: identity)
+        return UploadResponse(data: data, status: status, retryAfter: delay, contentType: nil)
+    }
+    func discardCachedResult(_ identity: String) {}
 }
 public struct RAIAPIClient: Sendable {
+    public static let defaultSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 300
+        return URLSession(configuration: config)
+    }()
     public static func responseBudget(for path: String) -> Int {
         if path.hasPrefix("/v2/training/plans/") && ["/history/versions", "/audit", "/detail"].contains(where: path.hasSuffix) { return 262_144 }
         return 1_048_576
@@ -13,11 +40,50 @@ public struct RAIAPIClient: Sendable {
     private let session: URLSession
     private let uploader: (any FileUploader)?
     private let metrics: SyncMetrics
-    public init(baseURL: URL, token: String, session: URLSession = .shared, uploader: (any FileUploader)? = nil, metrics: SyncMetrics = .init()) {
-        self.baseURL = baseURL; self.token = token; self.session = session; self.uploader = uploader; self.metrics = metrics
+    private let refreshToken: (@Sendable () async throws -> String)?
+    public init(baseURL: URL, token: String, session: URLSession = RAIAPIClient.defaultSession, uploader: (any FileUploader)? = nil, metrics: SyncMetrics = .init(), refreshToken: (@Sendable () async throws -> String)? = nil) {
+        self.baseURL = baseURL; self.token = token; self.session = session; self.uploader = uploader; self.metrics = metrics; self.refreshToken = refreshToken
     }
+    /// Only a validated durable deletion ACK can complete a local deletion.
+    /// A 404 remains a failed command for an explicit retry by the caller.
+    public func deleteWorkoutBundle(workoutID: String, scope: Scope) async throws -> JSON {
+        var fields = scope.bundleFields
+        fields["workoutID"] = .string(workoutID)
+        let receipt = try await call("DELETE", "/v2/sync/workout-bundles/" + workoutID,
+                                     body: JSON.object(fields).data())
+        guard receipt["workoutID"].text == workoutID,
+              receipt["ingestStatus"].text == "deleted",
+              let revision = receipt["commitRevision"].integer, revision > 0,
+              case .bool = receipt["alreadyDeleted"] else {
+            throw SyncFailure.receiptMismatch
+        }
+        return receipt
+    }
+
     public func call(_ method: String, _ path: String, body: Data? = nil, file: URL? = nil,
                      mediaType: String = "application/json", gzip: Bool = false, identity: String = "", query: [String: String] = [:]) async throws -> JSON {
+        do {
+            return try await performCall(method, path, body: body, file: file, mediaType: mediaType, gzip: gzip, identity: identity, query: query)
+        } catch let error as UploadError where error.status == 401 {
+            // Device bearer tokens have no refresh endpoint. Integrators with a
+            // credential refresher can retry once; otherwise retain the Outbox
+            // and let the existing configuration/Keychain flow replace it.
+            guard let refreshToken else { throw error }
+            let refreshed = try await refreshToken()
+            let client = RAIAPIClient(baseURL: baseURL, token: refreshed, session: session, uploader: uploader, metrics: metrics)
+            return try await client.call(method, path, body: body, file: file, mediaType: mediaType, gzip: gzip, identity: identity, query: query)
+        }
+    }
+    public func discardUploadResult(_ identity: String) { uploader?.discardCachedResult(identity) }
+    public static func retryAfter(_ value: String?, now: Date = Date()) -> TimeInterval? {
+        guard let value else { return nil }
+        if let seconds = Double(value), seconds.isFinite { return max(0, seconds) }
+        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss z"
+        return formatter.date(from: value).map { max(0, $0.timeIntervalSince(now)) }
+    }
+    private func performCall(_ method: String, _ path: String, body: Data?, file: URL?,
+                             mediaType: String, gzip: Bool, identity: String, query: [String: String]) async throws -> JSON {
         let networkStart = Date()
         defer {
             metrics.elapsed("network_ms", since: networkStart)
@@ -28,28 +94,33 @@ public struct RAIAPIClient: Sendable {
         guard !path.contains("?"), !path.contains("#") else { throw SyncFailure.invalid("invalid_api_path") }
         components.path = path; components.queryItems = query.isEmpty ? nil : query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }; components.fragment = nil
         guard let url = components.url else { throw SyncFailure.invalid("invalid_api_url") }
-        var request = URLRequest(url: url, timeoutInterval: 60)
+        var request = URLRequest(url: url, timeoutInterval: path == "/v2/sync/workout-bundles" && method == "POST" ? 270 : 60)
         request.httpMethod = method; request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         request.setValue(mediaType, forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(Wire.id(), forHTTPHeaderField: "X-Request-ID")
         if gzip { request.setValue("gzip", forHTTPHeaderField: "Content-Encoding") }
         do {
-            let data: Data, status: Int, retryAfter: TimeInterval?
+            let data: Data, status: Int, retryAfter: TimeInterval?, contentType: String?
             if let file, let uploader {
-                (data, status, retryAfter) = try await uploader.upload(request, file: file, identity: identity)
+                let response = try await uploader.response(request, file: file, identity: identity)
+                data = response.data; status = response.status; retryAfter = response.retryAfter; contentType = response.contentType
             } else {
                 let response: URLResponse
                 if let file { (data, response) = try await session.upload(for: request, fromFile: file) }
                 else { request.httpBody = body; (data, response) = try await session.data(for: request) }
                 guard let http = response as? HTTPURLResponse else { throw UploadError(code: "invalid_http_response") }
-                status = http.statusCode; retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init)
+                status = http.statusCode; retryAfter = Self.retryAfter(http.value(forHTTPHeaderField: "Retry-After")); contentType = http.value(forHTTPHeaderField: "Content-Type")
             }
-            guard data.count <= Self.responseBudget(for: path) else { throw UploadError(code: "oversized_response", status: 422) }
+            guard data.count <= Self.responseBudget(for: path) else { throw UploadError(code: "oversized_response", status: path.hasPrefix("/v2/sync/workout-bundles") ? 0 : 422) }
             guard status == 200 else {
                 let decoded = try? JSON.decode(data)
                 let code = decoded?["code"].text
-                throw UploadError(code: code ?? "unexpected_http_status", status: status, retryAfter: retryAfter)
+                throw UploadError(code: code ?? "unexpected_http_status", status: status, retryAfter: retryAfter, field: decoded?["field"].text, reason: decoded?["reason"].text)
+            }
+            if path.hasPrefix("/v2/sync/workout-bundles") {
+                let media = contentType?.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                guard !data.isEmpty, media == "application/json" else { throw UploadError(code: "invalid_ack_response") }
             }
             let decodeStart = Date()
             let json = try JSON.decode(data)
@@ -58,7 +129,7 @@ public struct RAIAPIClient: Sendable {
         } catch let error as UploadError { throw error }
         catch let error as URLError { throw UploadError(code: "network_" + String(error.code.rawValue)) }
         catch is CancellationError { throw CancellationError() }
-        catch { throw UploadError(code: "invalid_response", status: 422) }
+        catch { throw UploadError(code: "invalid_response", status: path.hasPrefix("/v2/sync/workout-bundles") ? 0 : 422) }
     }
 }
 
@@ -80,11 +151,14 @@ public actor OutboxPipeline {
     public init(store: OutboxStore, api: RAIAPIClient, metrics: SyncMetrics = .init()) { self.store = store; self.api = api; self.metrics = metrics }
     public func setAssociationsPaused(_ paused: Bool) { associationsPaused = paused }
     private let seriesConcurrency = 8
-    public func drain() async throws {
+    /// Drains every staged page when `taskID` is nil (startup/background
+    /// recovery), or only pages owned by one Workout task. A task-scoped pass
+    /// can never upload another task's page or mark it acknowledged.
+    public func drain(taskID: String? = nil) async throws {
         guard !draining else { return }; draining = true; defer { draining = false }
         pausedUntil = nil
         let snapshot = await store.snapshot()
-        let pages = snapshot.pages.sorted { first, second in
+        let pages = snapshot.pages.filter { taskID == nil || $0.taskID == taskID }.sorted { first, second in
             let firstIsFact = snapshot.streams[first.anchorKey] != nil, secondIsFact = snapshot.streams[second.anchorKey] != nil
             if firstIsFact != secondIsFact { return firstIsFact }
             return first.createdAt < second.createdAt

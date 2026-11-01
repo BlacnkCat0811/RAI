@@ -4,23 +4,15 @@ package integration
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pressly/goose/v3"
 	"rai/server/internal/admin"
-	"rai/server/internal/httpapi"
 	"rai/server/internal/storage/postgres"
 	"rai/server/internal/syncing"
 	"rai/server/migrations"
@@ -213,148 +205,6 @@ func embeddedRouteTombstone(t *testing.T, f *fixture, routeID string) bool {
 		t.Fatal(err)
 	}
 	return exists
-}
-
-func TestP3HTTPRoutesAssociationsEnrichmentAndErrors(t *testing.T) {
-	f := setup(t)
-	sampleStream := f.stream
-	s := sample(syncing.NewID(), 132)
-	sampleBatch, _, _ := f.commit(t, []syncing.Event{s}, 1, nil)
-	workoutStream(t, f)
-	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	w := workoutAt(start, 90)
-	f.commit(t, []syncing.Event{w}, 1, nil)
-	server := httptest.NewServer(httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil))))
-	defer server.Close()
-	request := func(method, path string, body []byte, token, contentType, encoding string) (int, []byte) {
-		t.Helper()
-		req, err := http.NewRequest(method, server.URL+path, bytes.NewReader(body))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
-		if contentType != "" {
-			req.Header.Set("Content-Type", contentType)
-		}
-		if encoding != "" {
-			req.Header.Set("Content-Encoding", encoding)
-		}
-		resp, err := server.Client().Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		out, err := io.ReadAll(resp.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return resp.StatusCode, out
-	}
-	status, body := request("GET", "/v2/handshake", nil, f.enrollment.Token, "", "")
-	if status != 200 || !bytes.Contains(body, []byte(`"routes":true`)) || !bytes.Contains(body, []byte(`"workoutEnrichment":true`)) {
-		t.Fatal("handshake missing P3 capabilities", status, string(body))
-	}
-	association := syncing.AssociationRequest{
-		ProtocolVersion: syncing.ProtocolVersion, DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
-		CollectorEpoch: f.enrollment.CollectorEpoch, AssociationID: syncing.NewID(), SampleType: kind,
-		SampleUUID: s.UUID, WorkoutUUID: w.UUID, Source: &syncing.Source{BundleID: "synthetic.test"},
-	}
-	associationBody, _ := json.Marshal(association)
-	status, body = request("POST", "/v2/sync/associations", associationBody, f.enrollment.Token, "application/json", "")
-	if status != 200 || !bytes.Contains(body, []byte(`"ingestStatus":"committed"`)) {
-		t.Fatal("association HTTP failed", status, string(body))
-	}
-	status, body = request("POST", "/v2/sync/associations", associationBody, f.enrollment.Token, "application/json", "")
-	if status != 200 || !bytes.Contains(body, []byte(`"associationID"`)) {
-		t.Fatal("association HTTP replay failed", status, string(body))
-	}
-	enrichment := syncing.WorkoutEnrichmentRequest{
-		ProtocolVersion: syncing.ProtocolVersion, DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
-		CollectorEpoch: f.enrollment.CollectorEpoch, EnrichmentID: syncing.NewID(), WorkoutID: w.UUID,
-		Source: &syncing.Source{BundleID: "synthetic.source"}, SourceVersion: 1,
-		ObservedAtUs: start.UnixMicro() + 1000000, Metadata: map[string]any{"synthetic": true},
-	}
-	enrichmentBody, _ := json.Marshal(enrichment)
-	status, body = request("POST", "/v2/sync/workout-enrichments", enrichmentBody, f.enrollment.Token, "application/json", "")
-	if status != 200 {
-		t.Fatal("enrichment HTTP failed", status, string(body))
-	}
-	var enrichmentReceipt syncing.WorkoutEnrichmentReceipt
-	if err := json.Unmarshal(body, &enrichmentReceipt); err != nil || enrichmentReceipt.IngestStatus != "committed" {
-		t.Fatal("enrichment receipt invalid", err)
-	}
-	status, body = request("GET", "/v2/sync/workout-enrichments/"+enrichmentReceipt.EnrichmentID, nil, f.enrollment.Token, "", "")
-	if status != 200 {
-		t.Fatal("enrichment GET failed", status, string(body))
-	}
-	routeID := syncing.NewID()
-	manifest := syncing.RouteManifest{
-		ProtocolVersion: syncing.ProtocolVersion, DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
-		CollectorEpoch: f.enrollment.CollectorEpoch, RouteID: routeID, WorkoutID: w.UUID,
-		Source: &syncing.Source{BundleID: "synthetic.test"}, ExpectedChunkCount: 1, ExpectedPointCount: 10,
-		FirstRecordedAtUs: start.UnixMicro(), LastRecordedAtUs: start.Add(9 * time.Second).UnixMicro(),
-	}
-	manifestBody, _ := json.Marshal(manifest)
-	status, body = request("POST", "/v2/routes", manifestBody, f.enrollment.Token, "application/json", "")
-	if status != 200 {
-		t.Fatal("route register HTTP failed", status, string(body))
-	}
-	var points []syncing.RoutePoint
-	for i := 0; i < 10; i++ {
-		points = append(points, syncing.RoutePoint{Sequence: int64(i), RecordedAtUs: start.UnixMicro() + int64(i)*1000000, Latitude: 31.2, Longitude: 121.4})
-	}
-	var decoded bytes.Buffer
-	for _, point := range points {
-		_ = json.NewEncoder(&decoded).Encode(point)
-	}
-	var wire bytes.Buffer
-	gz := gzip.NewWriter(&wire)
-	_, _ = gz.Write(decoded.Bytes())
-	_ = gz.Close()
-	status, body = request("PUT", "/v2/routes/"+routeID+"/chunks/0", wire.Bytes(), f.enrollment.Token, "application/x-rai-health-route+ndjson", "gzip")
-	if status != 200 {
-		t.Fatal("route chunk HTTP failed", status, string(body))
-	}
-	var chunkReceipt syncing.RouteChunkReceipt
-	if err := json.Unmarshal(body, &chunkReceipt); err != nil {
-		t.Fatal(err)
-	}
-	status, body = request("POST", "/v2/routes/"+routeID+"/seal", p3JSON(t, syncing.RouteSeal{
-		ProtocolVersion: syncing.ProtocolVersion, ChunkCount: 1, TotalPoints: 10,
-		ManifestSHA256: chunkReceipt.ManifestSHA256, PayloadManifestSHA256: chunkReceipt.PayloadManifestSHA256,
-	}), f.enrollment.Token, "application/json", "")
-	if status != 200 || !bytes.Contains(body, []byte(`"ingestStatus":"sealed"`)) {
-		t.Fatal("route seal HTTP failed", status, string(body))
-	}
-	status, body = request("POST", "/v2/routes/"+routeID+"/delete", p3JSON(t, syncing.RouteDeleteRequest{
-		ProtocolVersion: syncing.ProtocolVersion, DatasetEpoch: f.enrollment.DatasetEpoch,
-		CollectorEpoch: f.enrollment.CollectorEpoch, Reason: "healthkit_deleted",
-	}), f.enrollment.Token, "application/json", "")
-	if status != 200 || !bytes.Contains(body, []byte(`"ingestStatus":"deleted"`)) {
-		t.Fatal("route delete HTTP failed", status, string(body))
-	}
-	// Unsupported protocol is machine-readable, never a generic success/payload.
-	bad := manifest
-	bad.ProtocolVersion = 99
-	status, body = request("POST", "/v2/routes", p3JSON(t, bad), f.enrollment.Token, "application/json", "")
-	if status != 422 || !bytes.Contains(body, []byte(`"code":"unsupported_protocol"`)) {
-		t.Fatal("unsupported protocol not explicit", status, string(body))
-	}
-	// A known type with the wrong unit gets a stable unsupported_unit code.
-	f.stream = sampleStream
-	badEvent := sample(syncing.NewID(), 120)
-	badEvent.Quantity.Unit = "Hz"
-	env, chunkWire := f.envelope(t, []syncing.Event{badEvent}, 2, &sampleBatch.BatchID)
-	status, body = request("POST", "/v2/sync/batches", p3JSON(t, env), f.enrollment.Token, "application/json", "")
-	if status != 200 {
-		t.Fatal("bad-unit batch registration failed", status, string(body))
-	}
-	status, body = request("PUT", "/v2/sync/batches/"+env.BatchID+"/body", chunkWire, f.enrollment.Token, "application/x-rai-health-delta+ndjson", "gzip")
-	if status != 422 || !bytes.Contains(body, []byte(`"code":"unsupported_unit"`)) {
-		t.Fatal("unsupported unit not explicit", status, string(body))
-	}
 }
 
 func p3JSON(t *testing.T, value any) []byte {
@@ -679,65 +529,5 @@ func TestAPIStoreRestartRetainsRegisteredBatchAndReceipt(t *testing.T) {
 	}
 	if count(t, f, "health_samples") != 1 || count(t, f, "jobs") != 1 {
 		t.Fatal("restart retry duplicated facts")
-	}
-}
-
-func TestRouteSealResponseLossRecoveredByGET(t *testing.T) {
-	f := setup(t)
-	workoutStream(t, f)
-	start := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
-	w := workoutAt(start, 10)
-	f.commit(t, []syncing.Event{w}, 1, nil)
-	route := syncing.NewID()
-	registerTestRoute(t, f, w.UUID, route, start, start.Add(9*time.Second), 1, 10)
-	uploadTestRouteChunk(t, f, route, 0, testRoutePoints(start, 10, 0))
-	manifest, payload := routeStateChains(t, f, route)
-	handler := httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	var committedBody []byte
-	var dropped atomic.Bool
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "POST" && strings.HasSuffix(r.URL.Path, "/seal") && !dropped.Swap(true) {
-			recorder := httptest.NewRecorder()
-			handler.ServeHTTP(recorder, r)
-			if recorder.Code != 200 {
-				t.Errorf("seal failed before response loss: %d %s", recorder.Code, recorder.Body.String())
-			}
-			committedBody = append([]byte(nil), recorder.Body.Bytes()...)
-			conn, _, err := w.(http.Hijacker).Hijack()
-			if err != nil {
-				t.Errorf("hijack: %v", err)
-				return
-			}
-			_ = conn.Close()
-			return
-		}
-		handler.ServeHTTP(w, r)
-	}))
-	defer server.Close()
-	sealBody := p3JSON(t, syncing.RouteSeal{ProtocolVersion: syncing.ProtocolVersion, ChunkCount: 1, TotalPoints: 10,
-		ManifestSHA256: manifest, PayloadManifestSHA256: payload})
-	req, _ := http.NewRequest("POST", server.URL+"/v2/routes/"+route+"/seal", bytes.NewReader(sealBody))
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	req.Header.Set("Content-Type", "application/json")
-	if resp, err := server.Client().Do(req); err == nil {
-		resp.Body.Close()
-		t.Fatal("expected lost seal response")
-	}
-	req, _ = http.NewRequest("GET", server.URL+"/v2/routes/"+route, nil)
-	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	resp, err := server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	var state syncing.RouteState
-	if err = json.NewDecoder(resp.Body).Decode(&state); err != nil || state.IngestStatus != "sealed" {
-		t.Fatal("sealed state not recoverable", err)
-	}
-	if !bytes.Equal(state.Receipt, committedBody) {
-		t.Fatal("route GET did not return original seal receipt")
-	}
-	if count(t, f, "route_chunks") != 1 || count(t, f, "jobs") != 2 {
-		t.Fatal("seal response loss duplicated work")
 	}
 }

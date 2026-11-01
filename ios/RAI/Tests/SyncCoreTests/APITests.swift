@@ -10,6 +10,7 @@ private struct MockState {
     var uploadCount = 0
     var lostAfterCommit = true
     var controlStatus = 200
+    var controlCode = "temporarily_unavailable"
     var associationUnavailable = false
     var replies: [String: JSON] = [:]
     var requests: [String] = []
@@ -27,7 +28,7 @@ private final class MockProtocol: URLProtocol, @unchecked Sendable {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
         let (status, json) = Self.state.withLock { state -> (Int, JSON) in
-            if state.controlStatus != 200 { return (state.controlStatus, .object(["code": .string("temporarily_unavailable")])) }
+            if state.controlStatus != 200 { return (state.controlStatus, .object(["code": .string(state.controlCode)])) }
             let path = request.url!.path
             state.requests.append(request.httpMethod! + " " + path)
             if path.hasPrefix("/v2/sync/series") {
@@ -113,6 +114,42 @@ private struct MockUploader: FileUploader {
 
 @Suite(.serialized)
 struct APITests {
+    @Test func workoutDeletionRequiresDurableACK() async throws {
+        let (_, directory, api, _) = try await setup(lostAfterCommit: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let id = Wire.id()
+        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
+        MockProtocol.state.withLock { $0.controlStatus = 404; $0.controlCode = "workout_not_found" }
+        do {
+            _ = try await api.deleteWorkoutBundle(workoutID: id, scope: scope)
+            Issue.record("404 was accepted as a durable deletion")
+        } catch let failure as UploadError {
+            #expect(failure.status == 404 && failure.code == "workout_not_found")
+        }
+
+        let path = "/v2/sync/workout-bundles/" + id
+        let ack: [String: JSON] = ["workoutID": .string(id), "ingestStatus": .string("deleted"),
+                                   "alreadyDeleted": .bool(false), "commitRevision": .int(7)]
+        // A successful HTTP response with an invalid/mismatched receipt also
+        // cannot confirm deletion or authorize releasing the staged bundle.
+        for invalid in [JSON.object([:]), .object(ack.merging(["workoutID": .string(Wire.id())]) { _, new in new }),
+                        .object(ack.merging(["ingestStatus": .string("committed")]) { _, new in new }),
+                        .object(ack.merging(["commitRevision": .int(0)]) { _, new in new }),
+                        .object(ack.merging(["alreadyDeleted": .null]) { _, new in new })] {
+            MockProtocol.state.withLock { $0.controlStatus = 200; $0.replies[path] = invalid }
+            do {
+                _ = try await api.deleteWorkoutBundle(workoutID: id, scope: scope)
+                Issue.record("invalid deletion ACK was accepted")
+            } catch SyncFailure.receiptMismatch { }
+        }
+        for alreadyDeleted in [false, true] {
+            let expected = JSON.object(ack.merging(["alreadyDeleted": .bool(alreadyDeleted)]) { _, new in new })
+            MockProtocol.state.withLock { $0.replies[path] = expected }
+            let result = try await api.deleteWorkoutBundle(workoutID: id, scope: scope)
+            #expect(result == expected)
+        }
+    }
+
     private func setup(lostAfterCommit: Bool) async throws -> (OutboxStore, URL, RAIAPIClient, PendingPage) {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-api-test-" + Wire.id())
         let store = try OutboxStore(directory: directory)
@@ -307,5 +344,59 @@ struct APITests {
         try await pipeline.drain()
         #expect(await store.snapshot().pages.isEmpty)
         #expect(await store.snapshot().localAnchors[key] == Data([99]))
+    }
+
+    @Test func taskScopedDrainLeavesOtherTasksAndLegacyPagesUntouched() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-task-drain-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory)
+        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
+        let type = "HKWorkoutTypeIdentifier"
+        let streamA = try await store.stream(key: "workout:A:" + type, type: type, query: "per-workout:A")
+        let streamB = try await store.stream(key: "workout:B:" + type, type: type, query: "per-workout:B")
+        let eventA: JSON = .object(["op": .string("upsert"), "kind": .string("workout"), "type": .string(type), "uuid": .string(Wire.id()),
+            "startUs": .int(1), "endUs": .int(2), "source": .object(["bundleID": .string("synthetic")]),
+            "workout": .object(["activityType": .int(37), "durationUs": .int(1)])])
+        let eventB: JSON = .object(["op": .string("upsert"), "kind": .string("workout"), "type": .string(type), "uuid": .string(Wire.id()),
+            "startUs": .int(3), "endUs": .int(4), "source": .object(["bundleID": .string("synthetic")]),
+            "workout": .object(["activityType": .int(37), "durationUs": .int(1)])])
+        let pageA = try await BatchBuilder.page(scope: scope, stream: streamA, events: [eventA], anchor: Data([1]), store: store,
+            pageKey: "workout:A:" + type, taskID: "A")
+        let pageB = try await BatchBuilder.page(scope: scope, stream: streamB, events: [eventB], anchor: Data([2]), store: store,
+            pageKey: "workout:B:" + type, taskID: "B")
+        let legacy = PendingPage(anchorKey: "legacy:page", candidateAnchor: Data([3]), operations: [
+            .request(.init(method: "POST", path: "/v2/synthetic", expected: ["ok": .bool(true)]))
+        ])
+        try await store.stage(pageA); try await store.stage(pageB); try await store.stage(legacy)
+        MockProtocol.state.withLock { state in
+            state = MockState(); state.failUpload = false
+            for operation in pageA.operations {
+                if case .request(let request) = operation, request.path != "/v2/sync/batches" {
+                    state.replies[request.path] = .object(request.expected)
+                }
+            }
+            state.replies["/v2/synthetic"] = .object(["ok": .bool(true)])
+        }
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [MockProtocol.self]
+        let api = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic-test-token",
+                               session: URLSession(configuration: config), uploader: MockUploader())
+        try await OutboxPipeline(store: store, api: api).drain(taskID: "A")
+        var state = await store.snapshot()
+        #expect(state.pages.count == 2)
+        #expect(!state.pages.contains { $0.taskID == "A" })
+        #expect(state.pages.contains { $0.taskID == "B" })
+        #expect(state.pages.contains { $0.isLegacy })
+        let untouchedB = try #require(state.pages.first { $0.taskID == "B" })
+        #expect(untouchedB.cursor == 0 && untouchedB.error == nil)
+        MockProtocol.state.withLock { state in
+            for operation in pageB.operations {
+                if case .request(let request) = operation, request.path != "/v2/sync/batches" {
+                    state.replies[request.path] = .object(request.expected)
+                }
+            }
+        }
+        try await OutboxPipeline(store: store, api: api).drain()
+        state = await store.snapshot()
+        #expect(state.pages.isEmpty)
     }
 }
