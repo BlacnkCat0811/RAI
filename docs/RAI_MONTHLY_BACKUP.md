@@ -113,7 +113,7 @@ ssh -T -F /dev/null -o BatchMode=yes -o IdentitiesOnly=yes \
 此示例要求已填显式known_hosts文件。还须只读 `stat` 检查批准的父目录/目标目录、属主、权限、非symlink、非Web根目录、与其他项目隔离，以及空间足够新dump＋旧三份＋临时副本；未知目录归属时停止。SHA不是加密或数字签名，云服务器管理员可以读取明文备份。
 
 4. **PENDING USER APPROVAL**：明确批准创建目标末级目录、首次真实上传，以及本工具在第4份成功后删除最旧受管副本。首次 `rai-backup.sh backup` 会自行初始化空末级目录并创建manifest；不需要额外云端安装包。随后运行check/list，保存脱敏开始/结束/大小/SHA/PG/schema/归档目录证据。失败时保持原副本。
-5. 经批准取回刚生成的三件套，严格SSH下载到本地0700目录、文件0600。按下节恢复到全新隔离PG18，逐表与不变量/原回执/API验证。**只有真实上传→真实下载→新PG实际恢复→核验全部成立，才能写REAL CLOUD BACKUP RESTORE: PASS。** 当前未执行。
+5. 经批准取回刚生成的三件套，严格SSH下载到本地0700目录、文件0600。按下节恢复到全新隔离PG18，逐表与不变量/原回执的只读归档验证。**只有真实上传→真实下载→新PG实际恢复→核验全部成立，才能写REAL CLOUD BACKUP RESTORE: PASS。** 当前未执行。
 
 下载命令（环境同上；`backup_file`逐字取自list的已选受控文件名，`download_dir`必须为本次新建私有目录）：
 
@@ -155,7 +155,7 @@ chmod 600 "$download_dir/$backup_file" "$download_dir/$backup_file.sha256" "$dow
 ```
 
 4. 工具检查备份格式、来源库 `rai_v2`、schema16、PG18、文件权限/大小/SHA、容器 label/完整身份、目标 project API/Worker、数据库 owner/版本、连接数，以及 public 中没有任何 relation/function。拒绝未确认、非空或使用中的目标；不提供 `--clean`、DROP 或正式库覆盖模式。
-5. 单事务 `pg_restore --role=rai_owner --single-transaction --exit-on-error --no-owner --no-acl`。保持入口隔离，重新运行审核后的 `deploy/postgres/roles.sql` 与 `runtime-grants.sql`，检查 schema16、validated FK、原回执/stream/屏障、P4 publication、P5 Effective/Override/Execution/Feedback，以及 API readiness。`rai ops verify` 全表摘要仅在显式维护验收运行。
-6. **SQL 恢复不是 HealthKit 灾难恢复完成。** 当前自动 resync 为 BLOCKED，参照 [Disaster Recovery](RAI_DISASTER_RECOVERY.md)，不要启动真实客户端或清空手机状态。正式恢复/入口切换必须由用户另行批准；本工具本轮只验收隔离演练。
+5. 单事务 `pg_restore --role=rai_owner --single-transaction --exit-on-error --no-owner --no-acl`。保持无 API/Worker 入口隔离；脚本设置默认只读，归档无需安装 runtime 写权限。检查 schema 与备份 manifest 一致（当前新库为19）、validated FK、原回执/stream/屏障、P4 publication、P5 Effective/Override/Execution/Feedback；不启动 API 做 readiness。`rai ops verify` 全表摘要仅在显式维护验收运行。
+6. **SQL 恢复不是 HealthKit 灾难恢复完成。** Phase 5B 正式恢复采用新的 Dataset / Session，参照 [Disaster Recovery](RAI_DISASTER_RECOVERY.md) 两条 runbook；恢复旧库仅为 QUARANTINE / ARCHIVE，不接旧 Session，不清空手机状态。正式恢复/入口切换必须由用户另行批准；本工具本轮只验收隔离演练。
 
-运行前检查只能证明检查时刻安静，不能替代网络隔离和操作者维持停机。数据库角色由 P7 bootstrap/授权脚本重建，设备 token 摘要来自旧备份，可能恢复已撤销凭证；重新核对撤销/轮换后才能考虑正式切换。
+运行前检查只能证明检查时刻安静，不能替代网络隔离和操作者维持停机。数据库角色由 P7 bootstrap/授权脚本重建，设备 token 摘要来自旧备份，可能恢复已撤销凭证；即使核对撤销/轮换，也不得将旧备份切成 active continuation；active 恢复需要新 Dataset/Session。

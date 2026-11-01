@@ -28,7 +28,7 @@ def main():
     checksum = monthly.private_file(str(source) + ".sha256")
     m = json.loads(manifest.read_bytes())
     require(m["format"] == monthly.remote.FORMAT and m["file"] == source.name
-            and m["schema_version"] in (13, 14, 15, 16, 17) and m["postgres_major"] == 18
+            and m["schema_version"] in (13, 14, 15, 16, 17, 18, 19) and m["postgres_major"] == 18
             and m["source_database"] == "rai_v2", "unexpected_backup_source_or_schema")
     require(checksum.read_text() == m["sha256"] + "  " + source.name + "\n", "invalid_sha_file")
     # Keep the verified file descriptor through restore; no path swap afterwards.
@@ -59,7 +59,8 @@ def main():
         archive.seek(0)
         run(command + ["pg_restore", "-U", "rai_bootstrap", "-d", "rai_v2", "--role=rai_owner",
                        "--single-transaction", "--exit-on-error", "--no-owner", "--no-acl"], stdin=archive, stdout=subprocess.DEVNULL)
-    print("MONTHLY_RESTORE_SQL=PASS; reapply grants and verify inventory/FK/receipts/publications/Effective/execution; recovery resync remains BLOCKED")
+    run(psql + ["ALTER DATABASE rai_v2 SET default_transaction_read_only=on"])
+    print("MONTHLY_RESTORE_SQL=PASS; reapply grants and verify inventory/FK/receipts/publications/Effective/execution; QUARANTINE_ARCHIVE_ONLY; no API/Worker exposure; active recovery requires a new dataset/session")
 
 
 if __name__ == "__main__":

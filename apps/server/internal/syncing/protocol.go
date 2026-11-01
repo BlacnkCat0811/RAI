@@ -137,6 +137,7 @@ func (s StreamRequest) Validate() error {
 type Principal struct {
 	DatasetID, DeviceID string
 	CanCollect          bool
+	DatasetRetired      bool
 }
 type Quantity struct {
 	Value float64 `json:"value"`

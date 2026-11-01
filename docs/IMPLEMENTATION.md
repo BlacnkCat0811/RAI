@@ -2,7 +2,9 @@
 
 最新专项已按用户要求收尾：2026-10-30真机不再可用，**DEVICE ACCEPTANCE: NOT COMPLETED**。已验证iPhone12ProMax Debug签名安装/启动、Keychain保存、真实6,000条样本/24个durable批页及一条完整跑步的脱敏结构。Maintenance两项pending UI已补齐；跑步动态、Workout metadata和新增4类读取范围的代码/合成回归通过，最终真机重试尚未验证。独立持久 `rai-v2-device` PG18/API/Worker/schema14及volume保留。最终证据、失败轮与未验项见 [Device Acceptance](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)；下文阶段报告保留当时口径。
 
-2026-11-01 当前状态：RQrun Phase 3 的 RQ-004/007/011/012/013 自动化验收 PASS，iPhone 12 Pro Max 单 Workout 真机验收 PASS，总体 PASS WITH RISKS；逐项事实、反例和限制见文末及 [Phase 3 报告](audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md)。Protocol 3 单 Workout bundle、schema 16、`/v2/sync/workout-bundles` 与显式删除；Protocol 3 不兼容 v2 事实，升级前必须运行 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts`。Phase 1/2 历史段保留当时口径。
+2026-11-01 当前工作区：Phase 5A 实现 New Dataset + New Session，schema 18 / protocol 3；旧 Dataset 只读退役，原始事实、屏障、回执和训练历史保留，不迁移旧数据。旧 reset 路径已废弃，禁止用于正式升级与灾难恢复。实际验证结果与未验证项见文末 Phase 5A 和 [审计报告](audits/PHASE5A_NEW_DATASET_SESSION_REVIEW.md)。此前 Phase 1–4 历史段保持原口径，旧 reset 指令不是当前操作要求。
+
+2026-11-01 Phase 5B 当前增量：New Session 灾难恢复与 fencing，schema **19** / protocol **3**。18 的审计约束无法表达 source lost，19 只扩展既有 admin_operations，不改1–18。init 的凭证先持久化到私有0600文件，commit/stdout丢失可用同 operation/原文件恢复。旧备份为无API的只读隔离归档，不能重连旧手机；正式入口见 [DR-A / DR-B](RAI_DISASTER_RECOVERY.md)。真实自动化结果与未验项见文末 Phase 5B。
 
 更新：2026-10-30（Asia/Shanghai）。工作仓库 `/Users/tp/raI`。本文件是实施主合同；[Phase 0 基线](V2_PHASE0_BASELINE.md) 规定领域、协议、状态、预算及禁止事项，[Phase 1 执行计划](V2_PHASE1_PLAN.md) 是本阶段执行入口。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；本轮用户冻结的 P0–P7 路线与其旧阶段编号、兼容和迁移设想不一致时，按本合同实施，不修改原文或追求旧系统兼容。
 
@@ -453,7 +455,7 @@ Debug 构建、安装、启动通过；`RAITests` 14/14 通过。UI 结果：tes
 
 - 新接口：`POST /v2/sync/workout-bundles`、`GET /v2/sync/workout-bundles/{workoutID}?sha256=...`、`DELETE /v2/sync/workout-bundles/{workoutID}`；`protocolVersion=3`。
 - 新 migration `00014_workout_imports.sql` + `00015_workout_import_history.sql`：按 `(dataset, workout, bundle_sha256)` append-only 保存 bundle 精确 SHA-256、验证后的源 JSONB 和原回执；同一 Workout 的多个 bundle 回执互不覆盖。
-- 旧上传路由已从 `httpapi.New` 移除。Protocol 3 不兼容已有 v2 事实；升级前必须运行显式 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts` 清空旧 fact/analysis/training-derived 行（保留 datasets/devices/collector leases）。不得将该命令作为自动 migration。
+- **历史已废弃操作口径，Phase 5A 起禁止执行：** 旧上传路由已从 `httpapi.New` 移除。当时记录 Protocol 3 不兼容已有 v2 事实；升级前必须运行显式 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts` 清空旧 fact/analysis/training-derived 行（保留 datasets/devices/collector leases）。不得将该命令作为自动 migration。
 - `ImportWorkoutBundle` 在 dataset 行锁下重验身份；同一 Workout 核心内容不同返回 `workout_identity_conflict`，同一 sample/route/series 内容不同返回相应冲突；删除屏障优先。`completeSampleTypes`/`completeRoutes` 仅描述读取覆盖；普通快照缺席不再触发子事实 tombstone 或删除（2026-11-01 RQ-001 修正）。显式 DELETE 只由客户端收到 Workout `HKDeletedObject` 后调用。内容未变化不推进 `commit_rev`、不生成新 job。
 - 限额：32 MiB bundle、50,000 samples、16 routes、1,000,000 route points、1,000,000 series points。
 - 客户端 `SyncCoordinator` 已改为一次读取、一次上传、持久化 exact bundle 文件/哈希、按哈希状态恢复和 analysis 状态查询；HealthKit series 按类型一次查询并批量放入 bundle，不再逐 sample 查询。启动/回前台只重发已保存 bundle，不重新读取 HealthKit。
@@ -523,3 +525,39 @@ Swift package：79 项 Swift Testing + 2 项普通 XCTest 通过；数据库驱�
 - 指定真机：用户再次授权2026-10-26约19:50唯一记录。iPhone12 Pro Max、Apple Watch来源、5464 Samples/HR349，source/bundle/chunk/projection各1768点、逐点一致；JSON4330123B→gzip multipart483242B，一个import和Durable ACK。只导出计数/hash/状态，UUID含字典key散列，未导出健康值/GPS/凭证。新验收命名空间保留原Outbox，App清理本轮临时配置，一次性PG/DNS已停止清理。
 
 未验证：真实手机断网/后台强杀、家庭公网/TLS反代/fnOS生产Docker、物理掉电、真实4小时Workout、长期anchor/极端Route容量、生产迁移/部署。iOS/Go/PG峰值RSS及事务峰值 **NOT MEASURED**；原修改前Import细分阶段未测，后补分段不冒称原始baseline。当前仅合成240m性能验收，不伪装长距离真机或生理模型验收。保留既有Raw Facts、DELETE fencing、Provenance、Coverage、点序和COMMIT后ACK不变量；未实施RQ-010/reset或真实数据迁移。
+
+## Phase 5A — New Dataset + New Session（2026-11-01）
+
+**PASS WITH RISKS；schema 18 / protocol 3 / OpenAPI 1.5.0；READY FOR PHASE 5B: YES。** [审计与验收边界](audits/PHASE5A_NEW_DATASET_SESSION_REVIEW.md)、[机器证据](evidence/phase5a-new-dataset-session-2026-11-01.json)、[operator/App 操作合同](PHASE5A_NEW_SESSION.md)。基于冻结 HEAD `816e26d` 的未提交工作区；本阶段未 commit/push/deploy/生产 migrate，没有触碰生产数据库、删除旧 Dataset、执行 reset 或真机全历史导入。
+
+operator-only `rai admin new-dataset` 生成独立 Dataset/Epoch/Device/32-byte token/Collector；source row lock 下创建目标、退役 source、写 admin audit 同事务提交。operation ID 幂等，提交前一次 0600 凭证文件、fsync、原子不覆盖发布和重试复用支持终端响应丢失；DB 只存 hash。dry-run 严格只读。migration 18 只增 nullable retired_at 和管理操作表，旧 00001–00017 不变，18/18 checksum、fresh rebuild、17→18 和 repeated migrate 通过。旧事实/屏障/回执/分析/训练历史保留，所有事实/删除/训练与 Worker 持久写入都在退休状态下拒绝；旧 jobs 保留暂停。
+
+iOS 实现 `SyncSessionDescriptor` 与单原子 manifest，独立 Keychain account、Outbox、ProductJournal 和后台身份；token/descriptor/Outbox 持久后完整握手才切 active。prepared 重启恢复，不重新生成身份；旧 Session 原地归档，旧 callback 只落原目录，新凭证不能发送旧 bundle。新 anchor=nil，重新发现 HealthKit 当前可见历史；旧服务器已删除但仍在 HealthKit 可见的 UUID 可以进入新事实空间。训练历史 discard、旧 RAI no_migrate；没有 SQLite/XML/旧 Running import。
+
+实际验证：Go test/race/vet/build、dependency boundaries、完整隔离 PG18.6 race `integration,swiftclient`（integration 295.045s）、最终定向故障/幂等/并发/migration PG18 race、Swift 106/106、fresh 模拟器 App 26/26、Debug/Release generic device build、OpenAPI lint（31 既有警告）、git diff --check 全部 PASS。PG 四项耐久设置 on、无 TCP、leftover=0、cluster removed=1；测试模拟器已删除。真实 Security Keychain 测试使用本地 ad hoc 签名模拟器，不代表真机签名/安装验收。
+
+旧根 Outbox、legacy Keychain、原始架构方案、历史证据及用户入场未跟踪文件保留。`rai-reset-v2-data.sh` 已标为 `LEGACY_UNSAFE_UPGRADE_PATH / DO NOT USE FOR PRODUCTION UPGRADE`，历史 reset 指令被 New Dataset + New Session 取代。
+
+未验证：真机 Session 切换、真实 HealthKit 全历史重导、iOS 实际后台 App kill/relaunch、fnOS/公网/生产环境及正式灾难恢复；属于 Phase 5B/5C，不能由本地文件、mock 或合成测试替代。若 operator 私有文件和 Keychain 都丢失，不能从 hash 恢复 token，本阶段未实现重新签发工具。
+
+## Phase 5B — Disaster Recovery + Recovery Fencing（2026-11-01）
+
+**PASS WITH RISKS；schema 19 / protocol 3；READY FOR PHASE 5C: YES。** 继续于未提交的Phase5A工作区，入口HEAD `816e26d1a2eb2e09021eed56594f77d57d5e2a5d`；完整modified/untracked哈希基线见 [baseline](evidence/phase5b-workspace-baseline.json)。没有reset/clean/restore/checkout/stash、commit、push、deploy或生产数据库操作。原方案、1–18 migration和Phase5A证据保留。
+
+DR-A复用operator-only `new-dataset --operation-type disaster_recovery`并退役source；DR-B全新schema0库migrate到19后通过正式`rai init`生成独立Dataset/Epoch/Device/Token/Collector/Service。init先发布/fsync0600私有凭证包，再原子提交身份与admin audit；同operation/actor/base-url/原文件可恢复rollback或stdout丢失，非空库不能创建第二个初始Dataset。stdout无token。Migration19只扩展原admin_operations的operation_type/source约束，因18无法表达source lost；无新audit表、不改旧migration。sqlc1.31.1已重生成。
+
+iOS显式导入recovery package，沿用prepared/active/retired/recovery_required状态机；全字段握手通过才原子切pointer。旧Session/ACK/Outbox/deleted set/Keychain/ProductJournal不迁移；新Anchor=nil；旧callback仅影响旧命名空间。实际coordinator测试证明timeout/404/429/500不触发灾难状态；成功身份不匹配才转recovery_required。恢复可重复到第三套身份。未ACK旧bundle保持原字节；已ACK且GC后也不被新空间当作持有证明；不可再读的HealthKit事实为UNRECOVERABLE_FROM_HEALTHKIT。
+
+真实PG18.6合成pg_dump/pg_restore：fsync/full_page_writes/synchronous_commit/data_checksums均on，47tables、65validated FKs及原epoch/revision/事实/receipt/DELETE receipt/analysis publication/training history核验通过，archive/manifest SHA与篡改拒绝通过。T1还原含A，但无之后B导入、A删除屏障和训练修改，证明backup restore≠current truth。恢复库不运行API/Worker并默认只读，旧POST/DELETE明确25006，revision不前进。旧演练脚本恢复后接旧Session的步骤移除；备份仅隔离归档，active恢复走新Dataset/Session。
+
+实际Swift→Go HTTP→PG：A上传ACK并GC，模拟A存储对服务不可用；B从空schema migrate/init；Swift解析新package、nil-anchor新Session、由独立当前可见合成facts重新组装新bundle。Go commit后故意丢ACK，Swift查原回执完成；B只有1Workout/1sample/1import，training=0，新job→新analysis→1publication，无旧Dataset引用；旧bundle/旧token拒绝，旧Session文件不变。
+
+完成验证：Go unit/race/vet/build、tagged vet、mod verify、dependency boundaries；PG完整integration+swiftclient+race（375.091s）和最终专项；Swift Package109个Swift Testing测试与2普通XCTest（3个live/性能入口独立运行按设计skip，live正确性由Go harness实际执行）；iOS模拟器App unit28项；Debug/Release generic iOS device build；OpenAPI valid（31既有warnings）；现有backup guard单元12项；Python编译/shell语法；19/19checksum MATCH；git diff --check。所有测试PG集群leftover databases=0、cluster removed=1；本轮两个一次性模拟器均删除。
+
+真实证据见 [machine evidence](evidence/phase5b-disaster-recovery-2026-11-01.json)，完整边界和故障点见 [audit](audits/PHASE5B_DISASTER_RECOVERY_REVIEW.md)、[contract](PHASE5B_DISASTER_RECOVERY.md)、[runbook](RAI_DISASTER_RECOVERY.md)。A–G为合成持久边界/SQL故障/传输断连验证，不能替代真机SIGKILL或断电。iPhone12ProMax、真HealthKit全历史、真实后台kill、fnOS、公网TLS、生产migration、真实凭证交付均NOT RUN，留Phase5C。更新的Docker演练/CI wrapper仅本地语法审查，未触发远端执行；没有用它们的存在冒充数据库或部署验收。实际生产RTO/RPO与容量未验证；私有凭证文件和Keychain同时丢失不能从hash反推token。reset脚本NOT EXECUTED，production database NOT TOUCHED。
+
+## HealthKit 活动事件编译警告修复（2026-11-01）
+
+`HealthKitClient.integrityEvent` 直接遍历非可选的 `HKWorkoutActivity.workoutEvents`，移除无效的 `?? []`，保留每个事件的 metadata 校验。`HKWorkout.workoutEvents` 的可选处理保持不变。
+
+验证：`xcodebuild -project RAI.xcodeproj -scheme RAI -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build` 通过，构建日志 `/tmp/rai-healthkit-warning-build.log` 无 HealthKitClient 编译警告或错误。使用工程本地 Go 工具链运行 `go test -race ./...`（缓存命中）、`go vet ./...` 与 `scripts/check-boundaries.py`（249 包）通过。未运行真机 HealthKit 验收或部署；本次无事务变更。

@@ -1,0 +1,8 @@
+=== RUN   TestPhase4SnapshotCancelLockFailureAndWorkerRetry
+--- PASS: TestPhase4SnapshotCancelLockFailureAndWorkerRetry (1.14s)
+=== RUN   TestPhase4ImportConnectionLossRollsBack
+--- PASS: TestPhase4ImportConnectionLossRollsBack (0.53s)
+PASS
+ok  	rai/server/integration	2.705s
+RAI_TEST_LEFTOVER_DATABASES=0
+RAI_TEST_CLUSTER_REMOVED=1

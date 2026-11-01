@@ -231,7 +231,7 @@ func waitDatasetLockWaiters(t *testing.T, f *fixture, want int) {
 	for {
 		var n int
 		if err := f.s.Pool.QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity
-			WHERE datname=current_database() AND query LIKE 'SELECT epoch::text, commit_rev FROM datasets%'
+			WHERE datname=current_database() AND query LIKE 'SELECT epoch::text, commit_rev,%FROM datasets%FOR UPDATE'
 			AND cardinality(pg_blocking_pids(pid))>0`).Scan(&n); err != nil {
 			t.Fatal(err)
 		}

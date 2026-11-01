@@ -43,7 +43,15 @@ func (s *Store) StartAnalysisRun(ctx context.Context, l Lease, in analysis.Snaps
 		return "", analysis.Invalid()
 	}
 	id := syncing.NewID()
-	r, err := s.Pool.Exec(ctx, `INSERT INTO analysis_runs(dataset_id,id,job_id,fencing_token,scope_key,target_generation,algorithm_name,algorithm_version,input_version,input_hash,input_from,input_through,lineage,status)
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = lockActiveDataset(ctx, tx, l.DatasetID); err != nil {
+		return "", err
+	}
+	r, err := tx.Exec(ctx, `INSERT INTO analysis_runs(dataset_id,id,job_id,fencing_token,scope_key,target_generation,algorithm_name,algorithm_version,input_version,input_hash,input_from,input_through,lineage,status)
  SELECT $1,$2,$3,$4,$5,$6,$7,$13,$8,$9,$10,$11,$12,'RUNNING'
  WHERE EXISTS(SELECT 1 FROM jobs WHERE id=$3 AND dataset_id=$1 AND state='running' AND fencing_token=$4 AND lease_until>clock_timestamp())`, l.DatasetID, id, l.ID, l.FencingToken, l.ScopeKey, l.TargetGeneration, name, in.InputVersion, hash, in.From, in.Through, b, analysis.BundleVersion(l.Kind))
 	if err != nil {
@@ -52,9 +60,12 @@ func (s *Store) StartAnalysisRun(ctx context.Context, l Lease, in analysis.Snaps
 	if r.RowsAffected() != 1 {
 		return "", syncing.Fail(409, "lease_lost")
 	}
-	return id, nil
+	return id, tx.Commit(ctx)
 }
 func validAnalysisLease(ctx context.Context, tx pgx.Tx, l Lease) error {
+	if _, err := lockActiveDataset(ctx, tx, l.DatasetID); err != nil {
+		return err
+	}
 	var ok bool
 	if err := tx.QueryRow(ctx, `SELECT state='running' AND fencing_token=$3 AND lease_until>clock_timestamp() FROM jobs WHERE dataset_id=$1 AND id=$2 FOR UPDATE`, l.DatasetID, l.ID, l.FencingToken).Scan(&ok); err != nil {
 		return err
@@ -81,8 +92,7 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 		return "", err
 	}
 
-	var rev int64
-	if err = tx.QueryRow(ctx, `SELECT commit_rev FROM datasets WHERE id=$1 FOR UPDATE`, l.DatasetID).Scan(&rev); err != nil {
+	if _, err = lockActiveDataset(ctx, tx, l.DatasetID); err != nil {
 		return "", err
 	}
 	if err = validAnalysisLease(ctx, tx, l); err != nil {
@@ -246,7 +256,7 @@ func (s *Store) FailAnalysis(ctx context.Context, l Lease, id string, code strin
 // caller timestamp and explicit dataset calendar. No raw table/global digest.
 func (s *Store) AdvanceAnalysisDay(ctx context.Context, at time.Time) error {
 	rows, err := s.Pool.Query(ctx, `SELECT d.id::text FROM datasets d JOIN dirty_scopes x ON x.dataset_id=d.id AND x.scope_key='athlete/default'
- WHERE x.generation=x.clean_generation AND x.dirty_through < date_trunc('day',$1::timestamptz,d.timezone) LIMIT 20`, at)
+ WHERE d.retired_at IS NULL AND x.generation=x.clean_generation AND x.dirty_through < date_trunc('day',$1::timestamptz,d.timezone) LIMIT 20`, at)
 	if err != nil {
 		return err
 	}
@@ -269,7 +279,7 @@ func (s *Store) AdvanceAnalysisDay(ctx context.Context, at time.Time) error {
 		if e != nil {
 			return e
 		}
-		_, e = tx.Exec(ctx, `SELECT id FROM datasets WHERE id=$1 FOR UPDATE`, id)
+		_, e = lockActiveDataset(ctx, tx, id)
 		if e == nil {
 			_, e = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,'athlete/default','analysis.training_state',date_trunc('day',$2::timestamptz,d.timezone),$2) FROM datasets d JOIN dirty_scopes x ON x.dataset_id=d.id AND x.scope_key='athlete/default' WHERE d.id=$1 AND x.generation=x.clean_generation AND x.dirty_through<date_trunc('day',$2::timestamptz,d.timezone)`, id, at)
 		}
@@ -279,6 +289,10 @@ func (s *Store) AdvanceAnalysisDay(ctx context.Context, at time.Time) error {
 			tx.Rollback(ctx)
 		}
 		if e != nil {
+			var retired *syncing.Error
+			if errors.As(e, &retired) && retired.Code == "dataset_retired" {
+				continue
+			}
 			return e
 		}
 	}

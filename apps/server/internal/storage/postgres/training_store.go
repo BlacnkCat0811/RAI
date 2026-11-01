@@ -34,8 +34,8 @@ func trainingID(ids ...string) error {
 	return nil
 }
 func trainingLock(ctx context.Context, tx pgx.Tx, dataset string) error {
-	var id string
-	return tx.QueryRow(ctx, `SELECT id::text FROM datasets WHERE id=$1 FOR UPDATE`, dataset).Scan(&id)
+	_, err := lockActiveDataset(ctx, tx, dataset)
+	return err
 }
 func loadPlan(ctx context.Context, q trainingDB, dataset, id string) (training.Plan, error) {
 	var p training.Plan

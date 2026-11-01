@@ -1,3 +1,10 @@
+## 2026-11-01 — Phase 5A / OpenAPI 1.5.0 / Protocol 3 / Schema 18
+
+- operator-only `rai admin new-dataset`：全新五项身份、初始 revision 0、source 原地退役；创建/retire/审计同事务，operation 幂等，0600 一次凭证文件支持响应丢失恢复，dry-run 严格只读。
+- 所有事实/训练/Worker 持久写入核验 retired 生命周期；`409 dataset_retired`，旧数据和旧 pending job 保留。握手增加 deviceID、collectorEpoch、datasetStatus。
+- iOS 持久 Session、独立 Keychain/Outbox/ProductJournal、成功握手后原子激活、后台 callback 按原 Session 路由、nil Anchor 重新发现可见历史；不复制训练历史/旧 tombstone，不导入旧 SQLite。
+- 正式升级/灾难恢复采用 New Dataset + New Session。历史 reset 描述已失效：`LEGACY_UNSAFE_UPGRADE_PATH / DO NOT USE FOR PRODUCTION UPGRADE`。下面历史记录保留当时口径，不是现行操作指令。
+
 ## 2026-11-01 Phase 4 Delivery Freeze
 
 - `00017_analysis_sample_lookup.sql` 的 `health_samples_analysis_identity` 使用普通 `CREATE INDEX`，生产升级期间会阻塞 `health_samples` 写入；执行需维护窗口。本冻结点不改写为 `CONCURRENTLY`，本阶段不执行生产 migration。
@@ -108,3 +115,7 @@
 ## 2026-11-01 — RQrun Phase 2（RQ-005 / RQ-006 / RQ-009）
 
 补齐 v3 嵌套 required/null/合法零值校验与扁平 field/reason 错误；OpenAPI 增加完整 WorkoutBundle 解码 schema。上传 ACK 正 revision 和字段类型明确化，协议版本、hash、合法客户端编码不变。GET 404 为可重试未确认，客户端持久退避及原文件保留；原回执/确认状态/回收授权原子持久化。DELETE ACK 与 Phase 1 删除屏障不变。详见 sync-v3 第 10 节。
+
+## 2026-11-01 Phase 5B
+
+Protocol 3 wire unchanged. Operator-only `rai init` now requires operation/actor/base-url/private credential-file, never emits a token to stdout, and resumes a committed operation with the same package. `admin new-dataset --operation-type disaster_recovery` identifies source-available recovery. Schema 19 expands only existing administrative audit constraints. Restored databases are archive/quarantine; active recovery always uses a fresh Dataset and client Session.

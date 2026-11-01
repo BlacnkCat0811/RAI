@@ -50,6 +50,13 @@ public struct WorkoutBundleDelivery: Sendable {
                   Wire.hash(bytes.subdata(in: prefix.count..<(bytes.count - suffix.count))) == hash else {
                 throw SyncFailure.localState("payload_corrupt")
             }
+            if let scope = await store.snapshot().scope {
+                let raw = bytes.subdata(in: prefix.count..<(bytes.count - suffix.count))
+                let bundle = try JSON.decode(raw)
+                guard bundle["datasetID"].text == scope.datasetID,
+                      bundle["datasetEpoch"].text == scope.datasetEpoch,
+                      bundle["collectorEpoch"].text == scope.collectorEpoch else { throw SyncFailure.localState("bundle_session_mismatch") }
+            }
             // Always verify the original exact JSON hash before deriving or
             // reusing transport bytes. Old pending plain bundles also resume.
             var uploadFile = file

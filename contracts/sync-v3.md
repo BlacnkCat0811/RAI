@@ -15,7 +15,7 @@ HKWorkout + 关联 samples + 多值 sample 的 series points + HKWorkoutRoute po
   → 客户端 GET 回执 / 轮询分析
 ```
 
-这与旧协议的逐 sample association、page、batch、series 注册/分块/seal、route 注册/分块/seal 相区分。旧上传路径不再注册；本版本不兼容旧 v2 事实，部署前必须通过显式重置命令清空旧数据集（见 `scripts/rai-reset-v2-data.sh`）。历史 v2 表可以保留为空壳，但不能再作为 v3 输入。
+这与旧协议的逐 sample association、page、batch、series 注册/分块/seal、route 注册/分块/seal 相区分。旧上传路径不再提供写能力。本版本不兼容旧 v2 事实；正式升级采用 New Dataset + New Session，旧空间只读退役且不清空。`scripts/rai-reset-v2-data.sh` 标记为 `LEGACY_UNSAFE_UPGRADE_PATH / DO NOT USE FOR PRODUCTION UPGRADE`。
 
 ## 2. 请求
 
@@ -470,3 +470,22 @@ Outbox使用原有单一队列：原JSON multipart为权威文件；gzip multipa
 `workout_import_phase`记录samples/associations、route projection、dirty/job、原包回执commit及transaction耗时；
 Worker记录snapshot/algorithm/publication耗时。均不记录健康值、坐标、token或SQL参数。
 反向代理应允许至少255s upstream response和180s body；fnOS/公网/TLS代理未实测不能由本地测试外推。
+
+
+## Phase 5A — New Dataset + New Session（2026-11-01）
+
+冻结产品决策：`Dataset=new / Training History=discard / Old RAI Data=no_migrate / Disaster Recovery=new_session`。schema 18，protocolVersion 仍为 3，OpenAPI 1.5.0。00001–00017 不修改。
+
+Dataset 创建仅由 owner/operator CLI `rai admin new-dataset` 执行，无公开 HTTP 创建入口、无设备自助创建。新 Dataset ID、Dataset Epoch、Device ID、32-byte CSPRNG token、Collector Epoch 全新，commit_rev 默认 0；所有事实、训练、tombstone、receipt/import 初始为空。不复制服务器旧空间、旧 RAI SQLite、旧 Running、XML 或训练生成历史。
+
+命令要求 source ID、同值 confirm-source、`NEW-DATASET` 确认短语、operation ID、actor 和绝对 credential-file。先原子输出一次 0600 凭证文件（应保存在仓库和 evidence 外），再在一个事务中锁 source、创建目标/设备/collector、退役 source 并写 committed 审计。数据库只保存 token hash；stdout 只有公开身份，token 为空。相同 operation 重试不创建第三个 Dataset，source/actor 不同则冲突。凭证准备后失败保留文件并用同 operation/file 恢复。提交后 stdout 丢失仍可从原文件绑定 App；文件丢失不能恢复 token 明文，不得重新生成并伪称原 token。可读取幂等目标身份，后续凭证重新签发不在本阶段范围。
+
+`--dry-run` 使用 REPEATABLE READ READ ONLY，只输出 source 存在/状态、workout/sample/route/pending-job/device 数量和 collector 是否存在，以及“将由服务端生成全新身份”的计划；不产生目标 UUID、token、审计或任何行。
+
+Dataset 身份核验后检查退役，再检查 collector fencing。retired 写返回稳定 `409 {"code":"dataset_retired"}`；已移除的旧写协议遇到有效 retired token 同样拒绝。活动 Dataset 的已移除协议仍不可用。事务内再次检查 Dataset 锁，覆盖 auth 后并发退役；原凭证不撤销，仍可读原历史。退役后不得继续事实/删除/训练/分析发布，旧 job 保留暂停。跨 Dataset 仍为 `dataset_forbidden`，Epoch 不符为 `dataset_epoch_changed`，collector 不符为 `collector_fenced`。
+
+握手增加 `deviceID / collectorEpoch / datasetStatus`。reader 无 collector 时 collectorEpoch 为空；新 Session 激活必须核对非空完整主采集身份、协议/能力及 active 状态。Session Descriptor 不含 token；每 Session Keychain account、Outbox、gzip wire、receipt、discovery、deletedWorkouts/tombstones/recoveryOverrides 全部独立。只有 active Session 可以 discovery/upload。旧 Bundle 即使被误放到新目录，发送前核对 bundle Dataset/Epoch/Collector；服务端还按 bearer Dataset 和 collector 拒绝旧包。
+
+ACK wire 结构保持不变，没有虚构 datasetID 字段。ACK 的 bundleSHA256 绑定包含 Dataset/Epoch/Collector 的原始 JSON 字节；验证该 hash、握手 scope 和独立 Outbox，回执及 analysis job/publication 都属于新 Dataset。
+
+新 Session 的 nil Anchor 是 **fresh HealthKit import**。旧 tombstone 不复制，故旧服务器已删、但 HealthKit 当前仍可见的 UUID 可以重新导入新空间；重复发现与重试保持幂等。旧 Session 不删除、不覆盖、不移动；预备、Keychain、Outbox 和成功握手之后才原子替换 active pointer。迟到后台 callback 使用自己的 session identifier 与 taskDescription，只能写自己的目录。

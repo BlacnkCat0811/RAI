@@ -1,0 +1,6 @@
+=== RUN   TestPhase4GzipFaultsNeverEnterImportAndRecoverACK
+--- PASS: TestPhase4GzipFaultsNeverEnterImportAndRecoverACK (0.41s)
+PASS
+ok  	rai/server/integration	1.428s
+RAI_TEST_LEFTOVER_DATABASES=0
+RAI_TEST_CLUSTER_REMOVED=1

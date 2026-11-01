@@ -74,6 +74,23 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	m.Handle("POST /v2/training/executions", a.auth(syncing.WriteLane, a.training))
 	m.Handle("POST /v2/training/executions/{id}/changes", a.auth(syncing.WriteLane, a.training))
 	m.Handle("GET /v2/jobs/{id}", a.auth(syncing.ReadLane, a.job))
+	// Removed write protocols remain unavailable. A valid retired identity still
+	// receives lifecycle semantics instead of hiding the existing dataset as 404.
+	m.Handle("/v2/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" && r.Method != "HEAD" {
+			header := r.Header.Get("Authorization")
+			if strings.HasPrefix(header, "Bearer ") && len(header) >= 50 && len(header) <= 256 {
+				ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+				defer cancel()
+				p, err := a.store.Authenticate(ctx, strings.TrimPrefix(header, "Bearer "))
+				if err == nil && p.DatasetRetired {
+					a.fail(w, syncing.Fail(409, "dataset_retired"))
+					return
+				}
+			}
+		}
+		http.NotFound(w, r)
+	}))
 	return a.observe(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -171,6 +188,9 @@ func (a *API) auth(lane syncing.AdmissionLane, next handler) http.Handler {
 		defer cancel()
 		r = r.WithContext(ctx)
 		p, err := a.store.Authenticate(ctx, strings.TrimPrefix(header, "Bearer "))
+		if err == nil && p.DatasetRetired && r.Method != http.MethodGet && r.Method != http.MethodHead {
+			err = syncing.Fail(409, "dataset_retired")
+		}
 		if err == nil && lane != syncing.ReadLane && !p.CanCollect {
 			err = syncing.Fail(403, "read_only_device")
 		}
@@ -276,7 +296,7 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 		types = append(types, k)
 	}
 	sort.Strings(types)
-	respond(w, 200, map[string]any{"protocolVersion": 3, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
+	respond(w, 200, map[string]any{"protocolVersion": 3, "deviceID": m.DeviceID, "collectorEpoch": m.CollectorEpoch, "datasetStatus": m.DatasetStatus, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
 		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": 2, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
 		"capabilities": map[string]any{"sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 3, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": 3, "bundleObservationVersion": 1, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
 	return nil

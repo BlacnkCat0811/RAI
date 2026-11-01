@@ -6,6 +6,9 @@ import (
 )
 
 type Metadata struct {
+	DeviceID       string `json:"deviceID"`
+	CollectorEpoch string `json:"collectorEpoch"`
+	DatasetStatus  string `json:"datasetStatus"`
 	DatasetID      string `json:"datasetID"`
 	DatasetEpoch   string `json:"datasetEpoch"`
 	ServiceID      string `json:"serviceID"`

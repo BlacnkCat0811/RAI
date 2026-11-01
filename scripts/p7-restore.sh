@@ -5,6 +5,11 @@ umask 077
 [[ $# == 3 ]] || { echo 'usage: p7-restore.sh BACKUP_DIRECTORY ISOLATED_CONTAINER SEPARATE_KEY_FILE' >&2; exit 2; }
 backup="$1" target="$2" key="$3"
 [[ "$(docker inspect -f '{{index .Config.Labels "rai.restore-target"}}' "$target")" == true ]] || { echo 'target is not an isolated restore container' >&2; exit 2; }
+project="$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}' "$target")"
+[[ -n "$project" && "$project" != '<no value>' ]] || { echo 'restore target requires an isolated project' >&2; exit 2; }
+for service in api worker; do
+ [[ -z "$(docker ps -q --filter "label=com.docker.compose.project=$project" --filter "label=com.docker.compose.service=$service")" ]] || { echo 'restore target API/Worker must be stopped' >&2; exit 2; }
+done
 [[ "$(docker exec "$target" psql -X -U rai_bootstrap -d rai_v2 -Atc "SELECT count(*) FROM pg_tables WHERE schemaname='public'")" == 0 ]] || { echo 'restore target is not empty' >&2; exit 2; }
 private="$(mktemp -d)"
 mkdir "$private/gnupg"
@@ -20,4 +25,5 @@ if ! gpg --homedir "$private/gnupg" --no-symkey-cache --batch --yes --pinentry-m
  echo 'backup decryption or authentication failed' >&2; exit 1
 fi
 docker exec -i "$target" pg_restore -U rai_bootstrap -d rai_v2 --role=rai_owner --single-transaction --exit-on-error --no-owner --no-acl < "$private/database.dump"
-echo 'P7_RESTORE_SQL=PASS; reapply reviewed runtime grants, verify invariants, readiness and original identities before acceptance'
+docker exec "$target" psql -X -v ON_ERROR_STOP=1 -U rai_bootstrap -d rai_v2 -c 'ALTER DATABASE rai_v2 SET default_transaction_read_only=on' >/dev/null
+echo 'P7_RESTORE_SQL=PASS; QUARANTINE_ARCHIVE_ONLY; no API/Worker exposure; new dataset/session required for active recovery'

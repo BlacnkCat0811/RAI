@@ -49,7 +49,7 @@ dc exec -T worker /rai worker-ready
 
 `dc` 需由操作者定义为函数或将其替换为完整 Compose 命令，不是系统自带命令。`bootstrap.sh` 为**新专用 cluster 一次性操作**，不幂等、不对既有 cluster 探测或修改；重复运行会拒绝角色冲突。数据库 owner 是非超级用户 `rai_owner`；`rai_bootstrap` 超级用户仅作容器内管理。迁移命令要求 owner 身份，已应用齐全时也拒绝 runtime 调用。角色变更不属于业务 schema migration；新增真实对象后应重新审核授权。
 
-首次实际采集还需操作者明确执行 `dc run --rm --no-deps admin init`，将一次性设备凭证直接存入受限文件并安全转交手机 Keychain。它不替换现有 dataset；本轮只有合成 init。不能在终端日志、Git、聊天或普通监控中保存输出。以合成数据完成 handshake、批次 ACK/原回执、Worker publication 和 Effective/执行闭环 smoke，再考虑真机门禁。
+首次实际采集还需操作者明确执行 `dc run --rm --no-deps -v PRIVATE_DIR:/private admin init --operation-id UUID --actor NAME --base-url HTTPS_ORIGIN --credential-file /private/enrollment.json`（目录须允许 admin 身份写入），凭证以0600在数据库提交前持久保存，再安全转交手机 Keychain。stdout仅为脱敏状态；响应丢失时同操作与原文件重试。恢复的旧备份仅为无 API/Worker 的隔离归档；正式灾难恢复使用[新 Dataset/Session 路线](RAI_DISASTER_RECOVERY.md)。它不替换现有 dataset；本轮只有合成 init。不能在终端日志、Git、聊天或普通监控中保存输出。以合成数据完成 handshake、批次 ACK/原回执、Worker publication 和 Effective/执行闭环 smoke，再考虑真机门禁。
 
 ## 服务生命周期
 

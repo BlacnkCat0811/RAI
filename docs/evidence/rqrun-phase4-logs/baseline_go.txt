@@ -1,0 +1,17 @@
+RAI_REMOTE_MODE=host
+RAI_REMOTE_PG_IMAGE=postgres:18.6
+RAI_REMOTE_PG_SETTINGS={"server_version" : "18.6 (Debian 18.6-1.pgdg13+2)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "shared_buffers" : "128MB"}
+=== RUN   TestPhase4PerformanceMatrix
+=== RUN   TestPhase4PerformanceMatrix/20
+=== RUN   TestPhase4PerformanceMatrix/40
+=== RUN   TestPhase4PerformanceMatrix/60
+=== RUN   TestPhase4PerformanceMatrix/120
+=== RUN   TestPhase4PerformanceMatrix/240
+--- PASS: TestPhase4PerformanceMatrix (43.47s)
+    --- PASS: TestPhase4PerformanceMatrix/20 (2.76s)
+    --- PASS: TestPhase4PerformanceMatrix/40 (3.17s)
+    --- PASS: TestPhase4PerformanceMatrix/60 (5.19s)
+    --- PASS: TestPhase4PerformanceMatrix/120 (11.36s)
+    --- PASS: TestPhase4PerformanceMatrix/240 (20.99s)
+PASS
+ok  	rai/server/integration	43.489s

@@ -17,11 +17,14 @@ actor SyncCoordinator {
     let store: OutboxStore
     let health: any HealthKitReading
     private let session: URLSession
+    private let sessionStore: SyncSessionStore?
+    private let sessionID: String?
     private var running = false
     private var supportsIntegrity = false
 
-    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared) {
+    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil) {
         self.store = store; self.health = health; self.session = session
+        self.sessionStore = sessionStore; self.sessionID = sessionID
     }
 
     func authorize() async throws { try await health.authorize() }
@@ -30,6 +33,7 @@ actor SyncCoordinator {
     /// Offline discovery is independent of upload recovery. Queries are
     /// bounded and checkpointed; foreground/observer wakeups resume anchors.
     func discoverChanges(workoutIDs: [String]? = nil) async throws {
+        if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
         guard !running else { return }
         running = true; defer { running = false }
         if workoutIDs == nil {
@@ -160,6 +164,9 @@ actor SyncCoordinator {
     private func context(secret: ClientConfiguration.Secret, transfers: any FileUploader, metrics: SyncMetrics) async throws -> (RAIAPIClient, Scope) {
         let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, session: session, uploader: transfers, metrics: metrics)
         let hello = try await api.call("GET", "/v2/handshake")
+        if let sessionStore, let sessionID {
+            try await sessionStore.validateActiveHandshake(sessionID, handshake: hello)
+        }
         let supported = Set(hello["capabilities"]["sampleTypes"].list.compactMap(\.text))
         guard hello["protocolVersion"].integer == 3, let service = hello["serviceID"].text,
               let dataset = hello["datasetID"].text, let epoch = hello["datasetEpoch"].text,

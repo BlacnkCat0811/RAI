@@ -2,7 +2,9 @@
 
 2026-10-30最新设备专项已按用户要求收尾：独立持久 `rai-v2-device` 运行PG18/API/Worker，schema14保持；手机已真实提交6,000条样本并完成一条跑步结构盘点。最小修复显式跑步动态单位、Workout metadata保留及4类读取范围，没有新算法/schema/协议版本。最终设备重试、P4/P5闭环与GPU未验证，**DEVICE ACCEPTANCE: NOT COMPLETED**；见[设备结果](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)。下文按原阶段保留。
 
-2026-11-01 当前实现：Protocol 3 单 Workout bundle、schema 16、`/v2/sync/workout-bundles` 与显式删除；Protocol 3 不兼容 v2 事实，升级前必须运行 `scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts`。当前状态与未验证项以 [IMPLEMENTATION](IMPLEMENTATION.md) 和 [Protocol 3 合同](../contracts/sync-v3.md) 为准。
+2026-11-01 Phase 5A 当前实现：Protocol 3、schema 18、New Dataset + New Session。旧 Dataset 原地只读退役；旧事实、屏障、回执、分析及训练历史保留且不迁移。旧 reset 脚本为 `LEGACY_UNSAFE_UPGRADE_PATH / DO NOT USE FOR PRODUCTION UPGRADE`。当前状态与未验证项以 [IMPLEMENTATION](IMPLEMENTATION.md) 和 [Protocol 3 合同](../contracts/sync-v3.md) 为准。
+
+2026-11-01 Phase 5B 在上述未提交实现上补齐正式 New Session 灾难恢复：schema 19 仅扩展 admin_operations 的恢复操作类型与可空 source；protocol 仍为3。source available 复用 new-dataset，source lost 使用 durable private credential file + operation identity 的 rai init；客户端 recovery_required→prepared→完整握手→active，恢复库仅隔离只读归档。详见 [Recovery Contract](PHASE5B_DISASTER_RECOVERY.md) 与 [Runbook](RAI_DISASTER_RECOVERY.md)。
 
 Current Implementation / As-Built Architecture，2026-10-30（Asia/Shanghai）。仓库 `/Users/tp/raI`；本轮复验基线 `1783517900520ed6aedc3c97ef497bc8fe0ef5ca`，main，入口干净。该提交已包含 Final Maintenance 修复；本轮增量为活跃文档和实际复验证据，见 [Maintenance Result](V2_FINAL_MAINTENANCE_FIX_RESULT_2026-10-30.md)。P7历史实施见第14节。P5实现见 [Coach Contract](P5_COACH_CONTRACT.md)，验收见 [P5 Result](V2_PHASE5_RESULT.md)。P4实现及验收分别见 [P4 Result](V2_PHASE4_RESULT.md) 与 [算法合同](P4_ALGORITHM_CONTRACT.md)。原始[架构方案](../RAI-Go-PostgreSQL架构重设计与实施方案.md)保留原文；历史阶段结果和 evidence 保留原口径。
 
@@ -14,7 +16,7 @@ Current Implementation / As-Built Architecture，2026-10-30（Asia/Shanghai）�
 
 目标 N100 → PVE → fnOS VM（4C/8G）→ Docker。已验收环境是 fnOS/N100 一次性隔离 PG 与开发 Compose，不表示生产上线、TLS、备份恢复或入口切换已验收。只用合成事实，不连接既有 `rai` 库，不迁移旧库，不访问 `../running`。采集历史来自手机当前可见 HealthKit，见 [ADR-002](adr/002-fresh-healthkit-dataset.md)。
 
-系统单用户优先，但 dataset 是真实隔离边界：设备 token 对应 dataset，查询按 dataset，事实关系使用复合 FK。没有 SaaS 租户管理、RLS、OAuth、设备自助注册。CLI init 仍只创建首个 dataset。
+系统单用户优先，但 dataset 是真实隔离边界：设备 token 对应 dataset，查询按 dataset，事实关系使用复合 FK。没有 SaaS 租户管理、RLS、OAuth、设备自助注册。CLI init 只创建首个 dataset；operator-only `rai admin new-dataset` 原子创建新 Dataset / Device / Collector 并退役来源。没有公开 Dataset 创建 HTTP API。
 
 ## 2. 实际链路
 
@@ -239,3 +241,16 @@ capture 保留前缀，非单调时间按原 sequence 保存，时间质量诊�
 
 真实验收、失败轮与未验证项以 [Phase3 报告](audits/RQrun_PHASE3_DATA_INTEGRITY_REVIEW.md)
 和 IMPLEMENTATION 最新记录为准；本节源码结构不代表真机后台或全部验收通过。
+
+
+## Phase 5A：Dataset 生命周期与 iOS Session
+
+`00018_dataset_sessions.sql` 只增加 `datasets.retired_at` 和 `admin_operations`。NULL 表示 active；非 NULL 表示 retired，retire 不等于 delete。operator 命令以 operation advisory lock → source Dataset row → 新身份/审计行的顺序锁定；客户端事实、训练命令和 Worker 持久写入都先锁 Dataset。Worker claim/requeue 先以 SKIP LOCKED 锁 active Dataset，再锁 job；退役后的 queued/running job 原样保留，暂停执行，不伪造成功。
+
+凭证只在提交前输出到 operator 专用 0600 文件，文件原子发布并 fsync；数据库只存 SHA-256。响应丢失以同一 operation ID 重试，返回相同目标身份且不再次输出 token；文件保留用于 App 绑定。新 Dataset 的 commit_rev 为 schema 默认 0，训练状态、事实、tombstone 和 receipt 初始均为空。
+
+iOS 使用 `SyncSessionDescriptor`，原子 `sessions.json` 同时提交 active 指针与 prepared/active/retired 状态。token 使用 `RAI.V3.SyncSession` Keychain service 下的独立 sessionID account。每个 Outbox 位于 `RAIV2Sync/sessions/<sessionID>`；旧根目录 Outbox 和旧 Keychain 原地保留，不能作为新 Session 身份复用。ProductJournal 同样以 sessionID 分目录，训练命令不跨 Session。
+
+准备时持久 token/descriptor，初始化独立 Outbox，再核对完整握手（包含 device、collector、Dataset 状态），成功后原子激活。prepared 可重启恢复，不重新生成身份。后台 identifier 为 `com.rai.v2.sync.<sessionID>`（52 字符），taskDescription 也带 sessionID；callback 根据原 identifier 找原目录，旧 callback 不能 ACK 新 Session。旧固定 identifier 只映射旧根目录。
+
+新发现 anchor 为 nil，重新发现 HealthKit 当前可见历史。这不是服务器迁移。旧 Dataset 删除历史不复制，因此仍可见的已删 Workout 可以进入新事实空间；已从 HealthKit 删除、权限不可见或 Apple 不再返回的对象不保证恢复。真机切换与完整灾难恢复留待 Phase 5B/5C，见 [实施审计](audits/PHASE5A_NEW_DATASET_SESSION_REVIEW.md)。

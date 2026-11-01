@@ -64,7 +64,7 @@ func (s *Store) Ready(ctx context.Context) error {
 	if err = s.Pool.QueryRow(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY id DESC LIMIT 1`).Scan(&version); err != nil {
 		return err
 	}
-	if version != 17 {
+	if version != 19 {
 		return errors.New("unsupported schema version")
 	}
 	return nil
@@ -79,11 +79,14 @@ func (s *Store) Authenticate(ctx context.Context, token string) (syncing.Princip
 		}
 		return syncing.Principal{}, err
 	}
-	return syncing.Principal{DatasetID: r.DatasetID, DeviceID: r.ID, CanCollect: r.CanCollect}, nil
+	return syncing.Principal{DatasetID: r.DatasetID, DeviceID: r.ID, CanCollect: r.CanCollect, DatasetRetired: r.DatasetRetired}, nil
 }
 func (s *Store) Metadata(ctx context.Context, p syncing.Principal) (syncing.Metadata, error) {
-	r, err := s.q.Dataset(ctx, p.DatasetID)
-	return syncing.Metadata{DatasetID: r.ID, DatasetEpoch: r.Epoch, ServiceID: r.ServiceID, Timezone: r.Timezone, CommitRevision: r.CommitRev}, err
+	var m syncing.Metadata
+	err := s.Pool.QueryRow(ctx, `SELECT d.id::text,d.epoch::text,d.service_id::text,d.timezone,d.commit_rev,
+ CASE WHEN to_jsonb(d)->>'retired_at' IS NULL THEN 'active' ELSE 'retired' END, $2::uuid::text,
+ COALESCE((SELECT collector_epoch::text FROM collector_leases WHERE dataset_id=d.id AND device_id=$2::uuid),'') FROM datasets d WHERE d.id=$1`, p.DatasetID, p.DeviceID).Scan(&m.DatasetID, &m.DatasetEpoch, &m.ServiceID, &m.Timezone, &m.CommitRevision, &m.DatasetStatus, &m.DeviceID, &m.CollectorEpoch)
+	return m, err
 }
 func (s *Store) Stream(ctx context.Context, p syncing.Principal, id string) (syncing.StreamState, error) {
 	r, err := s.q.Stream(ctx, dbgen.StreamParams{DatasetID: p.DatasetID, ID: id})
@@ -141,7 +144,11 @@ func lockDatasetRow(ctx context.Context, tx pgx.Tx, p syncing.Principal, dataset
 	}
 	var actualEpoch string
 	var rev int64
-	err := tx.QueryRow(ctx, `SELECT epoch::text, commit_rev FROM datasets WHERE id=$1 FOR UPDATE`, dataset).Scan(&actualEpoch, &rev)
+	var retired bool
+	err := tx.QueryRow(ctx, `SELECT epoch::text, commit_rev, to_jsonb(d)->>'retired_at' IS NOT NULL FROM datasets d WHERE id=$1 FOR UPDATE`, dataset).Scan(&actualEpoch, &rev, &retired)
+	if err == nil && retired {
+		return "", 0, syncing.Fail(409, "dataset_retired")
+	}
 	return actualEpoch, rev, err
 }
 
@@ -578,4 +585,15 @@ func applyEvent(ctx context.Context, tx pgx.Tx, dataset, batch string, e syncing
 	job := syncing.NewID()
 	_, err = tx.Exec(ctx, `INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,payload) VALUES($1,$2,$3,$4,$5,$6)`, job, dataset, "analysis."+e.Kind, scope, generation, fmt.Sprintf(`{"inputRevision":%d}`, rev))
 	return true, job, err
+}
+
+// lockActiveDataset is the first business lock for worker/training mutations.
+func lockActiveDataset(ctx context.Context, tx pgx.Tx, dataset string) (int64, error) {
+	var rev int64
+	var retired bool
+	err := tx.QueryRow(ctx, `SELECT commit_rev,retired_at IS NOT NULL FROM datasets WHERE id=$1 FOR UPDATE`, dataset).Scan(&rev, &retired)
+	if err == nil && retired {
+		return 0, syncing.Fail(409, "dataset_retired")
+	}
+	return rev, err
 }

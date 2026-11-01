@@ -1,0 +1,6 @@
+=== RUN   TestPhase4DesignatedDeviceBackend
+--- PASS: TestPhase4DesignatedDeviceBackend (83.34s)
+PASS
+ok  	rai/server/integration	83.356s
+RAI_TEST_LEFTOVER_DATABASES=0
+RAI_TEST_CLUSTER_REMOVED=1

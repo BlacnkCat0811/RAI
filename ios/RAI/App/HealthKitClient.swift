@@ -521,7 +521,7 @@ enum Normalizer {
         if let workout = sample as? HKWorkout {
             for activity in workout.workoutActivities {
                 try validate(activity.metadata, allowed: workoutAllowed)
-                for event in activity.workoutEvents ?? [] { try validate(event.metadata, allowed: workoutAllowed) }
+                for event in activity.workoutEvents { try validate(event.metadata, allowed: workoutAllowed) }
             }
             for event in workout.workoutEvents ?? [] { try validate(event.metadata, allowed: workoutAllowed) }
         }

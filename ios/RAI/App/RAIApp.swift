@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import SyncCore
+import UniformTypeIdentifiers
 
 @MainActor @Observable
 final class SyncModel {
@@ -166,16 +167,24 @@ final class SyncModel {
         }
     }
     #endif
+    private(set) var activeSessionID: String?
+    private var sessions: SyncSessionStore?
+    private var transferRegistry: [String: BackgroundTransfers] = [:]
     private(set) var transfers: BackgroundTransfers?
     private var coordinator: SyncCoordinator?
     private var store: OutboxStore?
     private var task: Task<Void, Never>?
     init() {
         do {
-            let directory = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("RAIV2Sync", isDirectory: true)
-            let store = try OutboxStore(directory: directory)
-            self.store = store; self.coordinator = SyncCoordinator(store: store)
-            self.transfers = BackgroundTransfers(directory: directory)
+            let directory = try ClientConfiguration.sessionRoot()
+            let sessions = try SyncSessionStore(root: directory, credentials: SessionKeychain())
+            self.sessions = sessions
+            if let descriptor = try ClientConfiguration.activeDescriptor() {
+                try install(descriptor)
+            } else {
+                // Preserve the pre-session Outbox at its original path. It is never uploaded or discovered.
+                self.store = try OutboxStore(directory: directory)
+            }
             #if DEBUG
             // Device-acceptance bootstrap only. The value is supplied through
             // the launch environment by the local acceptance runner and is
@@ -183,10 +192,90 @@ final class SyncModel {
             if let raw = ProcessInfo.processInfo.environment["RAI_ACCEPTANCE_CONFIG_JSON"],
                let data = raw.data(using: .utf8),
                let value = try? JSONDecoder().decode(AcceptanceConfig.self, from: data) {
-                try? ClientConfiguration.save(baseURL: value.baseURL, collectorEpoch: value.collectorEpoch, token: value.token)
+                Task { try? await bindNewSession(baseURL: value.baseURL, collectorEpoch: value.collectorEpoch, token: value.token) }
             }
             #endif
         } catch { self.error = "本地状态不可用，现有文件已保留。" }
+    }
+    private func install(_ descriptor: SyncSessionDescriptor) throws {
+        guard let sessions else { throw SyncFailure.localState("session_store_unavailable") }
+        let directory = try SyncSessionStore.directory(root: sessions.root, sessionID: descriptor.sessionID)
+        let store = try OutboxStore(directory: directory)
+        let transfers = transferRegistry[descriptor.backgroundIdentifier] ?? BackgroundTransfers(directory: directory, identifier: descriptor.backgroundIdentifier, sessionID: descriptor.sessionID)
+        transferRegistry[descriptor.backgroundIdentifier] = transfers
+        self.store = store; self.transfers = transfers
+        self.coordinator = SyncCoordinator(store: store, sessionStore: sessions, sessionID: descriptor.sessionID)
+        activeSessionID = descriptor.sessionID
+        tasks = [:]; selected = []; serverPresent = []; serverStatuses = [:]; workouts = []
+        pending = 0; lastACK = nil; lastSync = nil
+    }
+    func bindNewSession(baseURL: String, collectorEpoch: String, token: String) async throws {
+        guard !busy, !loadingWorkouts, let sessions else { throw SyncFailure.localState("session_switch_busy") }
+        busy = true; defer { busy = false }
+        recoveryWake?.cancel()
+        let secret = try ClientConfiguration.validatedSecret(baseURL: baseURL, collectorEpoch: collectorEpoch, token: token)
+        let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token)
+        // Probe supplies operator-enrolled identity; it never creates a dataset.
+        let hello = try await api.call("GET", "/v2/handshake")
+        guard let dataset = hello["datasetID"].text, let epoch = hello["datasetEpoch"].text,
+              let service = hello["serviceID"].text, let device = hello["deviceID"].text,
+              hello["collectorEpoch"].text == secret.configuration.collectorEpoch else { throw SyncFailure.invalid("session_handshake_mismatch") }
+        if let legacy = try ClientConfiguration.loadLegacy(), legacy.token == secret.token || legacy.configuration.collectorEpoch == secret.configuration.collectorEpoch {
+            throw SyncFailure.invalid("legacy_session_identity_reused")
+        }
+        let manifest = try await sessions.snapshot()
+        let existing = manifest.sessions.values.first { $0.datasetID == dataset && $0.deviceID == device }
+        let descriptor = existing ?? SyncSessionDescriptor(datasetID: dataset, serviceID: service, datasetEpoch: epoch, deviceID: device,
+            collectorEpoch: secret.configuration.collectorEpoch, baseURL: secret.configuration.baseURL)
+        if existing == nil { _ = try await sessions.prepare(descriptor, token: token) }
+        else {
+            guard descriptor.baseURL == secret.configuration.baseURL, try SessionKeychain().load(sessionID: descriptor.sessionID) == secret.token else { throw SyncFailure.invalid("session_identity_conflict") }
+        }
+        // Outbox and credential are durable before the final validating handshake.
+        let validation = try await api.call("GET", "/v2/handshake")
+        try await sessions.activate(descriptor.sessionID, handshake: validation)
+        try install(try await sessions.requireActive(descriptor.sessionID))
+        apply(await store!.snapshot()); status = "新同步会话已启用；将重新发现当前可见健康记录"
+    }
+    func importRecoverySession(_ data: Data) async throws {
+        guard !busy, !loadingWorkouts, let sessions else { throw SyncFailure.localState("session_switch_busy") }
+        let package = try JSONDecoder().decode(RecoveryCredentialPackage.self, from: data)
+        let descriptor = try package.descriptor()
+        _ = try ClientConfiguration.validatedSecret(baseURL: package.baseURL, collectorEpoch: descriptor.collectorEpoch, token: package.enrollment.token)
+        busy = true; defer { busy = false }
+        recoveryWake?.cancel()
+        _ = try await sessions.prepare(descriptor, token: package.enrollment.token, recovery: true)
+        activeSessionID = nil; coordinator = nil; transfers = nil
+        let hello = try await RAIAPIClient(baseURL: descriptor.baseURL, token: package.enrollment.token).call("GET", "/v2/handshake")
+        try await sessions.activate(descriptor.sessionID, handshake: hello)
+        try install(try await sessions.requireActive(descriptor.sessionID))
+        apply(await store!.snapshot()); status = "恢复会话已启用；将从当前可见健康历史重新发现"
+    }
+    private func resumePreparedSession() async throws {
+        guard let sessions else { return }
+        let manifest = try await sessions.snapshot()
+        let prepared = manifest.sessions.values.filter { $0.status == .prepared }
+        guard prepared.count == 1, let descriptor = prepared.first,
+              let secret = try ClientConfiguration.load(sessionID: descriptor.sessionID) else { return }
+        let hello = try await RAIAPIClient(baseURL: descriptor.baseURL, token: secret.token).call("GET", "/v2/handshake")
+        try await sessions.activate(descriptor.sessionID, handshake: hello)
+        try install(try await sessions.requireActive(descriptor.sessionID))
+    }
+    func backgroundTransfers(identifier: String) async -> BackgroundTransfers? {
+        if let transfer = transferRegistry[identifier] { return transfer }
+        guard let sessions else { return nil }
+        if identifier == BackgroundTransfers.identifier {
+            // The fixed legacy identifier always resolves to the original directory.
+            let transfer = BackgroundTransfers(directory: sessions.root)
+            transferRegistry[identifier] = transfer; return transfer
+        }
+        guard let descriptor = try? await sessions.resolveBackground(identifier),
+              let directory = try? SyncSessionStore.directory(root: sessions.root, sessionID: descriptor.sessionID) else { return nil }
+        let transfer = BackgroundTransfers(directory: directory, identifier: identifier, sessionID: descriptor.sessionID)
+        transferRegistry[identifier] = transfer; return transfer
+    }
+    func isActiveBackground(_ identifier: String) -> Bool {
+        activeSessionID.map { "com.rai.v2.sync." + $0 == identifier } ?? false
     }
     func authorize() {
         guard !busy, let coordinator else { return }
@@ -339,7 +428,10 @@ final class SyncModel {
         task = Task { await runWorkouts(ids, forceNewBundle: true) }
     }
     private func runWorkouts(_ ids: [String], forceNewBundle: Bool) async {
-        guard !busy, let coordinator, let store, let transfers else { return }
+        guard !busy else { return }
+        busy = true; defer { busy = false }
+        do { try await resumePreparedSession() } catch { self.error = "准备中的会话尚未通过握手；现有会话已保留。"; return }
+        guard let coordinator, let store, let transfers else { return }
         busy = true; error = nil; currentWorkoutID = nil
         UIApplication.shared.isIdleTimerDisabled = true
         defer {
@@ -432,9 +524,11 @@ final class SyncModel {
     }
     func performRecovery() async {
         if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" || ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { return }
-        guard !busy, let coordinator, let store, let transfers else { return }
-        busy = true; error = nil; status = "恢复待处理上传"
-        defer { busy = false }
+        guard !busy else { return }
+        busy = true; defer { busy = false }
+        do { try await resumePreparedSession() } catch { self.error = "准备中的会话尚未通过握手；现有会话已保留。"; return }
+        guard let coordinator, let store, let transfers else { return }
+        error = nil; status = "恢复待处理上传"
         do {
             guard let secret = try? ClientConfiguration.load() else { status = "未配置同步"; return }
             if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") {
@@ -491,13 +585,13 @@ final class SyncModel {
 @MainActor
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
-        guard identifier == BackgroundTransfers.identifier, let transfers = SyncModel.shared.transfers else { completionHandler(); return }
-        // Reconnect to the stable session immediately. The delegate persists
-        // each result before this callback drains/reconciles local receipts.
-        transfers.handleEvents {
-            Task { @MainActor in
-                await SyncModel.shared.performRecovery()
-                completionHandler()
+        Task { @MainActor in
+            guard let transfers = await SyncModel.shared.backgroundTransfers(identifier: identifier) else { completionHandler(); return }
+            transfers.handleEvents {
+                Task { @MainActor in
+                    if SyncModel.shared.isActiveBackground(identifier) { await SyncModel.shared.performRecovery() }
+                    completionHandler()
+                }
             }
         }
     }
@@ -537,6 +631,7 @@ struct SyncView: View {
     @State private var apiURL = ""
     @State private var collector = ""
     @State private var token = ""
+    @State private var importingRecovery = false
     @State private var configurationStatus: String?
     var body: some View {
         Form {
@@ -564,16 +659,21 @@ struct SyncView: View {
                 Text("每条跑步记录独立读取、独立上传、独立确认；不会把多条记录合并为一个上传包。").font(.caption)
                 Text("启动或回到前台只会重发已准备并保存的 bundle；不会重新读取 HealthKit。单条记录请在“健康数据同步”中操作。").font(.caption)
             }
+            Section("灾难恢复") {
+                Button("导入新恢复会话凭证") { importingRecovery = true }.disabled(model.busy)
+                Text("旧会话将归档。仅重新导入健康 App 当前可见记录；训练历史不迁移。备份库不得直接续接旧会话。").font(.caption)
+            }
             Section("开发接口") {
                 TextField("服务地址", text: $apiURL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 TextField("采集器周期标识", text: $collector).textInputAutocapitalization(.never).autocorrectionDisabled()
                 SecureField("设备访问令牌", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
-                Button("保存到钥匙串") {
+                Button("建立独立同步会话") {
                     configurationStatus = nil
+                    Task {
                     do {
-                        try ClientConfiguration.save(baseURL: apiURL, collectorEpoch: collector, token: token)
+                        try await model.bindNewSession(baseURL: apiURL, collectorEpoch: collector, token: token)
                         token = ""; model.error = nil
-                        configurationStatus = "已保存到钥匙串。请请求读取权限，然后同步。"
+                        configurationStatus = "会话已启用。请请求读取权限，然后同步。"
                     } catch let failure as SyncFailure {
                         let code: String
                         switch failure {
@@ -581,10 +681,21 @@ struct SyncView: View {
                         case .receiptMismatch: code = "receipt_mismatch"
                         }
                         model.error = "配置未保存：\(UserFacingText.error(code))。"
-                    } catch { model.error = "配置未保存：配置编码失败。" }
+                    } catch { model.error = "会话未切换：连接或握手失败。" }
+                    }
                 }.disabled(model.busy)
                 if let configurationStatus { Text(configurationStatus).font(.footnote).foregroundStyle(.green) }
-                Text("请使用隔离的数据集。已保存的数据集或采集器身份不能静默更改。").font(.caption)
+                Text("请使用管理员新建的数据集凭证。新会话从健康 App 当前可见历史开始；旧会话和旧训练历史保留但不迁移。").font(.caption)
+            }
+        }.fileImporter(isPresented: $importingRecovery, allowedContentTypes: [.json]) { result in
+            Task {
+                do {
+                    let url = try result.get()
+                    let access = url.startAccessingSecurityScopedResource()
+                    defer { if access { url.stopAccessingSecurityScopedResource() } }
+                    try await model.importRecoverySession(Data(contentsOf: url))
+                    model.error = nil
+                } catch { model.error = "恢复会话未激活：请保留凭证包并检查身份与连接。" }
             }
         }.navigationTitle("同步与诊断")
             .scrollContentBackground(.hidden)

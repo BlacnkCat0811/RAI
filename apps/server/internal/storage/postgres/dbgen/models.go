@@ -8,6 +8,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AdminOperation struct {
+	OperationID   string
+	OperationType string
+	SourceDataset *string
+	TargetDataset string
+	Actor         string
+	CreatedAt     pgtype.Timestamptz
+	CommittedAt   pgtype.Timestamptz
+	Status        string
+}
+
 type AnalysisParameterSet struct {
 	DatasetID    string
 	Version      int64
@@ -89,6 +100,7 @@ type Dataset struct {
 	Timezone  string
 	CommitRev int64
 	CreatedAt pgtype.Timestamptz
+	RetiredAt pgtype.Timestamptz
 }
 
 type Device struct {
@@ -477,6 +489,15 @@ type WorkoutEvent struct {
 	WorkoutUuid string
 	Ordinal     int32
 	Payload     []byte
+}
+
+type WorkoutImport struct {
+	DatasetID    string
+	WorkoutUuid  string
+	BundleSha256 []byte
+	Payload      []byte
+	Receipt      []byte
+	ImportedAt   pgtype.Timestamptz
 }
 
 type WorkoutPackage struct {

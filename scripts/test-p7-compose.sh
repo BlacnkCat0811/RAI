@@ -49,13 +49,14 @@ created_source=1
 "${compose[@]}" run --rm --no-deps admin migrate >/dev/null
 "${compose[@]}" run --rm --no-deps admin migrate >/dev/null
 "${compose[@]}" exec -T postgres psql -X -v ON_ERROR_STOP=1 -U rai_bootstrap -d rai_v2 -f /opt/rai/roles.sql -f /opt/rai/runtime-grants.sql >/dev/null
-"${compose[@]}" run --rm --no-deps admin init > "$work/init.json"
+rai_init_operation="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+"${compose[@]}" run --rm --no-deps --user "$(id -u):65532" -v "$work:/private" admin init --operation-id "$rai_init_operation" --actor synthetic-compose --base-url https://localhost --credential-file /private/init.json >/dev/null
 "${compose[@]}" up -d --wait api
 api_port="$("${compose[@]}" port api 8443 | awk -F: '{print $NF}')"
 export RAI_E2E_URL="https://localhost:$api_port" SSL_CERT_FILE="$RAI_SECRETS_DIR/tls_ca" RAI_E2E_STATE_DIR="$work/client"
 read -r RAI_E2E_TOKEN RAI_E2E_COLLECTOR < <(python3 - "$work/init.json" <<'PY'
 import json,sys
-c=json.load(open(sys.argv[1]));print(c['token'],c['collectorEpoch'])
+c=json.load(open(sys.argv[1]))['enrollment'];print(c['token'],c['collectorEpoch'])
 PY
 )
 export RAI_E2E_TOKEN RAI_E2E_COLLECTOR
@@ -117,7 +118,6 @@ created_restore=1
 "${compose[@]}" -f "$work/restore.yaml" exec -T postgres sh /opt/rai/bootstrap.sh >/dev/null
 restore_container="$("${compose[@]}" -f "$work/restore.yaml" ps -q postgres)"
 bash scripts/p7-restore.sh "$work/backup" "$restore_container" "$RAI_BACKUP_KEY_FILE"
-"${compose[@]}" exec -T postgres psql -X -v ON_ERROR_STOP=1 -U rai_bootstrap -d rai_v2 -f /opt/rai/roles.sql -f /opt/rai/runtime-grants.sql >/dev/null
 "${compose[@]}" run --rm --no-deps admin ops verify > "$work/restore-verify.json"
 cmp "$work/source-verify.json" "$work/restore-verify.json"
 python3 - "$work" <<'PY'
@@ -126,14 +126,17 @@ p=pathlib.Path(sys.argv[1]);files={'source_inventory':'source-verify.json','rest
 print('P7_RESTORE_EVIDENCE='+json.dumps({key:json.loads((p/file).read_text()) for key,file in files.items()},separators=(',',':')))
 PY
 echo 'P7_QUEUED_RESTORE=PASS queued job identity and state included in exact inventory comparison'
+# The restored project stays a read-only archive without API or Worker.
+# Normal restart/soak checks continue on the untouched original synthetic server.
+export RAI_PROJECT="$source_project" RAI_SECRETS_DIR="$source_secrets_dir"
 "${compose[@]}" up -d --wait api
 api_port="$("${compose[@]}" port api 8443 | awk -F: '{print $NF}')"
 export RAI_E2E_URL="https://localhost:$api_port"
 python3 scripts/p3-e2e-client.py retry
 python3 scripts/p7-workload.py verify
-echo "P7_BACKUP_RESTORE=PASS all 45 tables identical; invariants, FK, original receipt and Effective/execution verified; drill_seconds=$((SECONDS-start_restore))"
+echo "P7_BACKUP_RESTORE=PASS all scoped tables identical; invariants, FK, original receipt and Effective/execution verified; drill_seconds=$((SECONDS-start_restore))"
 echo "P7_IMAGE_ID=$(docker image inspect -f '{{.Id}}' "$RAI_RELEASE_IMAGE")"
-# Recovery and bounded soak use the restored environment, never the source DB.
+# Normal process recovery and bounded soak use the original synthetic source.
 "${compose[@]}" up -d --wait worker
 python3 scripts/p7-workload.py settle
 bash scripts/p7-monitor.sh "$work/backup/backup.json"

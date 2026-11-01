@@ -27,6 +27,7 @@ struct ProductTabs: View {
       }.tag(4)
     }.tint(RAITheme.orange).preferredColorScheme(.dark)
       .task { await model.refresh() }
+      .onChange(of: sync.activeSessionID) { _, _ in model = ProductModel(); Task { await model.refresh() } }
       .onChange(of: phase) { _, value in if value == .active { Task { await model.refresh() } } }
       .task(id: phase) {
         guard phase == .active else { return }

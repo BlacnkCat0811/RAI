@@ -1,0 +1,8 @@
+=== RUN   TestBundleProductionThrottledUpload
+=== RUN   TestBundleProductionThrottledUpload/25ms
+=== RUN   TestBundleProductionThrottledUpload/250ms
+--- PASS: TestBundleProductionThrottledUpload (0.00s)
+    --- PASS: TestBundleProductionThrottledUpload/25ms (1.65s)
+    --- PASS: TestBundleProductionThrottledUpload/250ms (16.27s)
+PASS
+ok  	rai/server/internal/httpapi	17.296s

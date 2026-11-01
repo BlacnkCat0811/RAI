@@ -1,0 +1,3 @@
+PASS: online import graph excludes admin, migration and goose (249 packages)
+PASS: pure analysis domain excludes database, network and filesystem
+PASS: pure training domain excludes database, network and filesystem

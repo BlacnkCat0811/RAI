@@ -31,12 +31,13 @@ trap 'exit 143' TERM
 "${compose[@]}" run --rm --no-deps api migrate >/dev/null
 "${compose[@]}" run --rm --no-deps api migrate >/dev/null
 status="$("${compose[@]}" run --rm --no-deps api migrate-status)"
-printf '%s' "$status" | python3 -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows)==13 and all(row["State"]=="applied" for row in rows)'
+printf '%s' "$status" | python3 -c 'import json,sys; rows=json.load(sys.stdin); assert len(rows)==19 and all(row["State"]=="applied" for row in rows)'
 # Start API without worker: sync must still commit and enqueue durable jobs.
 "${compose[@]}" up -d --wait api
 api_port="$("${compose[@]}" port api 8080 | awk -F: '{print $NF}')"
-init_json="$("${compose[@]}" run --rm --no-deps api init)"
-read -r dataset_id dataset_epoch collector_epoch token < <(printf '%s' "$init_json" | python3 -c 'import json,sys; x=json.load(sys.stdin); print(x["datasetID"],x["datasetEpoch"],x["collectorEpoch"],x["token"])')
+rai_init_operation="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+"${compose[@]}" run --rm --no-deps --user "$(id -u):$(id -g)" -v "$state_dir:/private" api init --operation-id "$rai_init_operation" --actor synthetic-compose --base-url "http://127.0.0.1:$api_port" --credential-file /private/enrollment.json >/dev/null
+read -r dataset_id dataset_epoch collector_epoch token < <(python3 -c 'import json,sys; x=json.load(open(sys.argv[1]))["enrollment"]; print(x["datasetID"],x["datasetEpoch"],x["collectorEpoch"],x["token"])' "$state_dir/enrollment.json")
 [[ -n "$dataset_id" && -n "$token" ]]
 export RAI_E2E_URL="http://127.0.0.1:$api_port"
 export RAI_E2E_TOKEN="$token"

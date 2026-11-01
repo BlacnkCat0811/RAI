@@ -1,6 +1,6 @@
 -- name: Authenticate :one
-SELECT dataset_id, id, can_collect FROM devices
-WHERE token_sha256 = $1 AND revoked_at IS NULL;
+SELECT v.dataset_id, v.id, v.can_collect, (to_jsonb(d)->>'retired_at' IS NOT NULL)::boolean AS dataset_retired FROM devices v JOIN datasets d ON d.id=v.dataset_id
+WHERE v.token_sha256 = $1 AND v.revoked_at IS NULL;
 
 -- name: Dataset :one
 SELECT id, epoch, service_id, timezone, commit_rev FROM datasets WHERE id = $1;
@@ -37,9 +37,13 @@ SELECT id, kind, scope_key, target_generation, state, attempts, last_error_code
 FROM jobs WHERE dataset_id = $1 AND id = $2;
 
 -- name: ClaimJob :one
-WITH candidate AS (
+WITH dataset AS MATERIALIZED (
+ SELECT d.id FROM datasets d WHERE d.retired_at IS NULL AND EXISTS
+ (SELECT 1 FROM jobs WHERE dataset_id=d.id AND state='queued' AND run_after<=now() AND kind=ANY(sqlc.arg(kinds)::text[]))
+ ORDER BY d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1
+), candidate AS (
     SELECT id FROM jobs candidate
-    WHERE state = 'queued' AND run_after <= now() AND kind = ANY(sqlc.arg(kinds)::text[])
+    WHERE dataset_id IN (SELECT id FROM dataset) AND state = 'queued' AND run_after <= now() AND kind = ANY(sqlc.arg(kinds)::text[])
     AND NOT EXISTS (SELECT 1 FROM jobs newer WHERE newer.dataset_id=candidate.dataset_id AND newer.kind=candidate.kind AND newer.scope_key=candidate.scope_key AND newer.target_generation>candidate.target_generation AND newer.state IN ('queued','running'))
     ORDER BY CASE kind WHEN 'analysis.workout' THEN 0 WHEN 'analysis.training_state' THEN 2 WHEN 'training.plan' THEN 3 ELSE 1 END, run_after, id FOR UPDATE SKIP LOCKED LIMIT 1
 )
@@ -49,8 +53,12 @@ FROM candidate c WHERE j.id = c.id
 RETURNING j.id, j.dataset_id, j.kind, j.scope_key, j.target_generation, j.fencing_token, j.payload;
 
 -- name: RequeueExpired :many
-WITH expired AS (
-    SELECT id FROM jobs WHERE state = 'running' AND lease_until <= now()
+WITH dataset AS MATERIALIZED (
+ SELECT d.id FROM datasets d WHERE d.retired_at IS NULL AND EXISTS
+ (SELECT 1 FROM jobs WHERE dataset_id=d.id AND state='running' AND lease_until<=now())
+ ORDER BY d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1
+), expired AS (
+    SELECT id FROM jobs WHERE dataset_id IN (SELECT id FROM dataset) AND state = 'running' AND lease_until <= now()
     ORDER BY lease_until, id FOR UPDATE SKIP LOCKED LIMIT 20
 )
 UPDATE jobs j SET state = CASE WHEN attempts >= 8 THEN 'failed' ELSE 'queued' END,

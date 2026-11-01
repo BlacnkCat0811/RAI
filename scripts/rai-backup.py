@@ -126,7 +126,7 @@ def execute(action, audit):
                             'PGPASSWORD="$(cat /run/secrets/pg_backup_password)"; export PGPASSWORD; '
                             'exec psql -X -h 127.0.0.1 -U rai_backup_login -d rai_v2 -Atc '
                             '"SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY id DESC LIMIT 1"'], phase="source_schema", stdout=subprocess.PIPE).stdout.strip()
-                        remote.require(version == b"13", "unsupported_source_schema")
+                        remote.require(version in (b"13", b"14", b"15", b"16", b"17", b"18", b"19"), "unsupported_source_schema")
                         pg_version = run(compose + ["exec", "-T", "postgres", "sh", "-c",
                             'PGPASSWORD="$(cat /run/secrets/pg_backup_password)"; export PGPASSWORD; '
                             'exec psql -X -h 127.0.0.1 -U rai_backup_login -d rai_v2 -Atc '
@@ -151,11 +151,11 @@ def execute(action, audit):
                             size, sha = remote.digest(file)
                         name = "rai-" + started.strftime("%Y-%m-%d-%H%M%S-") + uuid.uuid4().hex + ".dump"
                         audit.update(backup_filename=name, backup_size=size, sha256=sha,
-                                     postgres_version_num=int(pg_version), schema_version=17)
+                                     postgres_version_num=int(pg_version), schema_version=int(version))
                         config["metadata"] = {"format": remote.FORMAT, "file": name, "sha256": sha, "bytes": size,
                             "snapshot_started_at": started.isoformat(), "schedule_timezone": timezone,
                             "source_commit": os.environ.get("RAI_SOURCE_COMMIT", "UNRECORDED"),
-                            "source_database": "rai_v2", "schema_version": 17, "postgres_major": 18,
+                            "source_database": "rai_v2", "schema_version": int(version), "postgres_major": 18,
                             "postgres_version_num": int(pg_version),
                             "archive_list_validated": True, "restore_tested": False}
                     with contextlib.ExitStack() as stack:

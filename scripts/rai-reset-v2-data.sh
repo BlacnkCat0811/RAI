@@ -1,6 +1,9 @@
 #!/bin/sh
-# Explicit, destructive v2 -> v3 reset. This is intentionally NOT a migration:
-# it must be run once by an operator against an isolated/approved dataset.
+# LEGACY_UNSAFE_UPGRADE_PATH — DO NOT USE FOR PRODUCTION UPGRADE.
+# Superseded by rai admin new-dataset + independent iOS Sync Session.
+# Never use for disaster recovery or to retire a dataset.
+# Historical destructive v2 -> v3 reset. This is intentionally NOT a migration:
+# Retained for historical reference; superseded for upgrade and recovery.
 # It keeps datasets, devices and collector leases so the existing enrollment
 # can upload fresh Protocol 3 bundles.
 set -eu

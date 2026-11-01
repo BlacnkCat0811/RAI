@@ -45,17 +45,13 @@ done
 if bash "$root/scripts/rai-restore.sh" "$archive" "$target" --confirm-target "$target" >/dev/null 2>&1;then exit 1;fi
 wait "$connection"
 bash "$root/scripts/rai-restore.sh" "$archive" "$target" --confirm-target "$target"
-"${compose[@]}" exec -T postgres psql -X -v ON_ERROR_STOP=1 -U rai_bootstrap -d rai_v2 -f /opt/rai/roles.sql -f /opt/rai/runtime-grants.sql >/dev/null
 "${compose[@]}" run --rm --no-deps admin ops verify > "$1/monthly-target.json"
 cmp "$1/monthly-source.json" "$1/monthly-target.json"
 if bash "$root/scripts/rai-restore.sh" "$archive" "$target" --confirm-target "$target" >/dev/null 2>&1;then exit 1;fi
-"${compose[@]}" up -d --wait api
-api_port="$("${compose[@]}" port api 8443 | awk -F: '{print $NF}')"
-export RAI_E2E_URL="https://localhost:$api_port" SSL_CERT_FILE="$RAI_SECRETS_DIR/tls_ca"
-python3 "$root/scripts/p3-e2e-client.py" retry
-python3 "$root/scripts/p7-workload.py" verify
+# Restore remains an archive: verify original receipt bytes by inventory only.
+[[ "$(docker exec "$target" psql -X -U rai_bootstrap -d rai_v2 -Atc 'SHOW transaction_read_only')" == on ]]
 python3 - "$1/monthly-target.json" <<'PY'
 import json,sys
-m=json.load(open(sys.argv[1]));assert m['schema_version']==17 and m['invariant_violations']==0 and len(m['tables'])==46
-print('MONTHLY_SQL_RESTORE='+json.dumps({'status':'PASS','table_count':len(m['tables']),'schema':m['schema_version'],'invariant_violations':0,'all_table_counts_and_hashes_equal':True,'p3_original_receipt':True,'p5_override_effective_execution_feedback':True}))
+m=json.load(open(sys.argv[1]));assert m['schema_version']==19 and m['invariant_violations']==0 and len(m['tables'])==47
+print('MONTHLY_SQL_RESTORE='+json.dumps({'status':'PASS','table_count':len(m['tables']),'schema':m['schema_version'],'invariant_violations':0,'all_table_counts_and_hashes_equal':True,'p3_original_receipt_bytes_archived':True,'active_continuation':False,'p5_override_effective_execution_feedback':True}))
 PY

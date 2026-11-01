@@ -1,0 +1,574 @@
+{
+  "phase": "5B",
+  "date": "2026-11-01",
+  "result": "PASS WITH RISKS",
+  "product_decisions": {
+    "dataset": "new",
+    "training_history": "discard",
+    "old_rai_data": "no_migrate",
+    "disaster_recovery": "new_session"
+  },
+  "git": {
+    "head": "816e26d1a2eb2e09021eed56594f77d57d5e2a5d",
+    "baseline_file": "docs/evidence/phase5b-workspace-baseline.json",
+    "initial_tracked_diff": {
+      "files": 34,
+      "insertions": 564,
+      "deletions": 90
+    },
+    "initial_staged_diff_empty": true,
+    "initial_modified_untracked_file_count": 66,
+    "continued_phase5a_files": [
+      "apps/server/internal/admin/dataset_migration_integration_test.go",
+      "apps/server/internal/admin/new_dataset.go",
+      "ios/RAI/Sources/SyncCore/SyncSession.swift",
+      "README.md",
+      "apps/server/cmd/rai/main.go",
+      "apps/server/integration/p7_security_test.go",
+      "apps/server/internal/admin/operations.go",
+      "apps/server/internal/storage/postgres/dbgen/models.go",
+      "apps/server/internal/storage/postgres/store.go",
+      "apps/server/migrations/checksums.json",
+      "contracts/CHANGELOG.md",
+      "docs/ARCHITECTURE.md",
+      "docs/IMPLEMENTATION.md",
+      "docs/P7_BACKUP_RESTORE.md",
+      "ios/RAI/App/RAIApp.swift",
+      "ios/RAI/App/SyncCoordinator.swift",
+      "ios/RAI/AppTests/NormalizerTests.swift"
+    ],
+    "preserved_baseline_files": [
+      "apps/server/integration/new_dataset_session_test.go",
+      "apps/server/migrations/00018_dataset_sessions.sql",
+      "docs/PHASE5A_NEW_SESSION.md",
+      "docs/audits/PHASE5A_NEW_DATASET_SESSION_REVIEW.md",
+      "docs/audits/RQ010_HISTORICAL_DATA_RESET_AUDIT.md",
+      "docs/evidence/phase5a-new-dataset-session-2026-11-01.json",
+      "docs/evidence/rq010-historical-data-audit-2026-11-01.json",
+      "docs/evidence/rqrun-phase4-logs/baseline_go.txt",
+      "docs/evidence/rqrun-phase4-logs/baseline_swift.txt",
+      "docs/evidence/rqrun-phase4-logs/boundaries.txt",
+      "docs/evidence/rqrun-phase4-logs/device_isolated_pg.txt",
+      "docs/evidence/rqrun-phase4-logs/fresh_gzip_n100.txt",
+      "docs/evidence/rqrun-phase4-logs/go_race_vet.txt",
+      "docs/evidence/rqrun-phase4-logs/gzip_identity_corruption.txt",
+      "docs/evidence/rqrun-phase4-logs/index_explain.txt",
+      "docs/evidence/rqrun-phase4-logs/ios_app_tests.txt",
+      "docs/evidence/rqrun-phase4-logs/ios_debug_signed.txt",
+      "docs/evidence/rqrun-phase4-logs/ios_release.txt",
+      "docs/evidence/rqrun-phase4-logs/openapi.txt",
+      "docs/evidence/rqrun-phase4-logs/pg_faults.txt",
+      "docs/evidence/rqrun-phase4-logs/phase1_3_full_postgres.txt",
+      "docs/evidence/rqrun-phase4-logs/phase4_n100.txt",
+      "docs/evidence/rqrun-phase4-logs/real_socket_deadline_boundaries.txt",
+      "docs/evidence/rqrun-phase4-logs/real_socket_pauses.txt",
+      "docs/evidence/rqrun-phase4-logs/real_socket_throttling.txt",
+      "docs/evidence/rqrun-phase4-logs/swift_all.txt",
+      "docs/evidence/rqrun-phase4-logs/swift_performance.txt",
+      "docs/evidence/rqrun-phase4-logs/wire_gzip_resource_limits.txt",
+      "ios/RAI/Tests/SyncCoreTests/SyncSessionTests.swift",
+      "apps/server/integration/upload_test.go",
+      "apps/server/integration/workout_safety_test.go",
+      "apps/server/internal/admin/analysis.go",
+      "apps/server/internal/httpapi/server.go",
+      "apps/server/internal/storage/postgres/analysis_publish.go",
+      "apps/server/internal/storage/postgres/dbgen/core.sql.go",
+      "apps/server/internal/storage/postgres/jobs.go",
+      "apps/server/internal/storage/postgres/training_publish.go",
+      "apps/server/internal/storage/postgres/training_store.go",
+      "apps/server/internal/syncing/protocol.go",
+      "apps/server/internal/syncing/store.go",
+      "apps/server/queries/core.sql",
+      "contracts/openapi-v2.yaml",
+      "contracts/sync-v3.md",
+      "ios/RAI/App/BackgroundTransfers.swift",
+      "ios/RAI/App/ClientConfiguration.swift",
+      "ios/RAI/App/ProductModel.swift",
+      "ios/RAI/App/ProductViews.swift",
+      "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift",
+      "scripts/rai-reset-v2-data.sh"
+    ],
+    "commit": false,
+    "push": false
+  },
+  "schema": 19,
+  "protocol": 3,
+  "migration_checksums": {
+    "matched": 19,
+    "total": 19,
+    "versions_1_through_18_unchanged": true,
+    "reason_for_19": "Existing audit table operation_type check and NOT NULL source cannot represent source-unavailable recovery; expand existing constraints only"
+  },
+  "toolchain": {
+    "go": "go1.27.3 darwin/amd64",
+    "postgres": "18.6 (Postgres.app)",
+    "sqlc": "1.31.1",
+    "xcode": "26.6 (17F113)"
+  },
+  "tests": [
+    {
+      "command": "go test ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "3240fc01d4abdcafe3f128d1713e0e66fc52076f9ac62497ae1220823a4185ff",
+      "summary": [
+        "?   \trai/server/cmd/rai\t[no test files]",
+        "ok  \trai/server/internal/admin\t(cached)",
+        "ok  \trai/server/internal/analysis\t(cached)",
+        "ok  \trai/server/internal/config\t(cached)",
+        "ok  \trai/server/internal/httpapi\t(cached)",
+        "ok  \trai/server/internal/jobs\t(cached)",
+        "?   \trai/server/internal/product\t[no test files]",
+        "ok  \trai/server/internal/storage/postgres\t(cached)",
+        "?   \trai/server/internal/storage/postgres/dbgen\t[no test files]",
+        "ok  \trai/server/internal/syncing\t(cached)",
+        "ok  \trai/server/internal/training\t(cached)",
+        "ok  \trai/server/internal/workoutdetail\t(cached)",
+        "?   \trai/server/migrations\t[no test files]"
+      ]
+    },
+    {
+      "command": "go test -race ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "a03fbdbc916391175d127757f1b35f55263ac71921887655e9c590ebb29a9e0c",
+      "summary": [
+        "?   \trai/server/cmd/rai\t[no test files]",
+        "ok  \trai/server/internal/admin\t1.023s",
+        "ok  \trai/server/internal/analysis\t(cached)",
+        "ok  \trai/server/internal/config\t(cached)",
+        "ok  \trai/server/internal/httpapi\t(cached)",
+        "ok  \trai/server/internal/jobs\t(cached)",
+        "?   \trai/server/internal/product\t[no test files]",
+        "ok  \trai/server/internal/storage/postgres\t(cached)",
+        "?   \trai/server/internal/storage/postgres/dbgen\t[no test files]",
+        "ok  \trai/server/internal/syncing\t(cached)",
+        "ok  \trai/server/internal/training\t(cached)",
+        "ok  \trai/server/internal/workoutdetail\t(cached)",
+        "?   \trai/server/migrations\t[no test files]"
+      ]
+    },
+    {
+      "command": "go vet ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "No diagnostics"
+      ]
+    },
+    {
+      "command": "go build ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "No diagnostics"
+      ]
+    },
+    {
+      "command": "go vet -tags=integration,swiftclient ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "No diagnostics"
+      ]
+    },
+    {
+      "command": "go mod verify",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+      "summary": [
+        "all modules verified"
+      ]
+    },
+    {
+      "command": "python3 scripts/check-boundaries.py",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "4b1d722d2981eb06ed7b4cb06fcebf79765cc778769a99dacf9475986c5d1c4d",
+      "summary": [
+        "PASS: online import graph excludes admin, migration and goose (249 packages)",
+        "PASS: pure analysis domain excludes database, network and filesystem",
+        "PASS: pure training domain excludes database, network and filesystem"
+      ]
+    },
+    {
+      "command": "PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration,swiftclient -p 1 -timeout=30m ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "72812914e529429ab6708eafd0743cdae223b4817bfdbbae3ab5691ce90f3bbc",
+      "summary": [
+        "?   \trai/server/cmd/rai\t[no test files]",
+        "ok  \trai/server/integration\t375.091s",
+        "ok  \trai/server/internal/admin\t2.117s",
+        "ok  \trai/server/internal/analysis\t1.371s",
+        "ok  \trai/server/internal/config\t1.052s",
+        "ok  \trai/server/internal/httpapi\t10.792s",
+        "ok  \trai/server/internal/jobs\t1.014s",
+        "?   \trai/server/internal/product\t[no test files]",
+        "ok  \trai/server/internal/storage/postgres\t1.019s",
+        "?   \trai/server/internal/storage/postgres/dbgen\t[no test files]",
+        "ok  \trai/server/internal/syncing\t3.133s",
+        "ok  \trai/server/internal/training\t1.050s",
+        "ok  \trai/server/internal/workoutdetail\t1.014s",
+        "?   \trai/server/migrations\t[no test files]"
+      ],
+      "leftover_databases": 0,
+      "cluster_removed": true
+    },
+    {
+      "command": "PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration,swiftclient -v -run 'TestFreshServer|TestSecondDisaster|TestRestoredBackup|TestSourceAvailable|TestDisasterRecoverySwift|TestNewDataset|TestConcurrent.*NewDataset|Test.*Migration.*Repeated' ./integration ./internal/admin",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "1a2d1569f146eeae8c255410cd53b0e53f461a2ee536930d5f872f2bc27aa239",
+      "summary": [
+        "--- PASS: TestNewDatasetIndependentIdentityPreservesHistoryAndFreshImport (1.34s)",
+        "--- PASS: TestNewDatasetFailureBeforeCommitRollsBackAndPreparedResume (0.85s)",
+        "--- PASS: TestNewDatasetCLIReadOnlyDryRunAndLostResponseRecovery (0.84s)",
+        "--- PASS: TestConcurrentNewDatasetOperationsSerializeWithOldPostDeleteWorker (1.09s)",
+        "--- PASS: TestConcurrentDifferentNewDatasetOperationsCannotCreateThirdDataset (0.37s)",
+        "--- PASS: TestFreshServerRecoveryCreatesIndependentIdentity (0.86s)",
+        "--- PASS: TestFreshServerInitIsIdempotent (0.45s)",
+        "--- PASS: TestFreshServerLostResponseRecoversCredential (0.46s)",
+        "--- PASS: TestSecondDisasterCreatesThirdIndependentDataset (1.40s)",
+        "--- PASS: TestSourceAvailableDisasterRecoveryAuditAndNewDeletionBarrier (0.79s)",
+        "--- PASS: TestSourceAvailableRecoveryCredentialPackageAndLostOutput (0.40s)",
+        "    recovery_restore_test.go:178: PHASE5B_RESTORE schema=19 tables=47 validated_FKs=65 manifest_sha256=7f7741f97c421cb538b92c151460776dc5dd671818ef70ab1cab6306dc466639 dump_sha256=4d34f9926e47f8030f794c5a7aca7b2520749b77e5066ac9e9f18356742c6d74 restore_ms=177 no_api_exposure=true read_only=true",
+        "--- PASS: TestRestoredBackupIsNotActiveContinuation (0.93s)",
+        "    recovery_swift_test.go:121: PHASE5B_CROSS_LANGUAGE old_ACK_GC=true fresh_nil_anchor=true old_bundle_rejected=true fresh_import=1 new_publication=1 lost_ACK_recovered=true",
+        "--- PASS: TestDisasterRecoverySwiftClientGoPostgres (29.00s)",
+        "--- PASS: TestDatasetMigration17To18AndRepeatedMigrate (1.01s)",
+        "--- PASS: TestRecoveryMigration18To19AndRepeatedMigrate (0.94s)"
+      ],
+      "leftover_databases": 0,
+      "cluster_removed": true
+    },
+    {
+      "command": "PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration -v -run 'TestFreshServerRecovery|TestSecondDisaster|TestRestoredBackup' ./integration",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "761962f411676f7bd660418b8137a719b279764221957947a0189ad2dab83dda",
+      "summary": [
+        "--- PASS: TestFreshServerRecoveryCreatesIndependentIdentity (0.81s)",
+        "--- PASS: TestSecondDisasterCreatesThirdIndependentDataset (1.10s)",
+        "    recovery_restore_test.go:189: PHASE5B_RESTORE schema=19 tables=47 validated_FKs=65 manifest_sha256=4e82e6c34bbdf2039013e8d8704ad565ff01179ba2ce73117f7c4a34f68d4d3e dump_sha256=e784959696d02fa8ab2bbe1e1874106c96e2355fb466637468252b8ac7123fe7 restore_ms=159 no_api_exposure=true read_only=true",
+        "--- PASS: TestRestoredBackupIsNotActiveContinuation (0.85s)"
+      ],
+      "leftover_databases": 0,
+      "cluster_removed": true
+    },
+    {
+      "command": "swift test --package-path ios/RAI",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "ccfe901c5596fca9f22f7aae23edfabda1c66e489915abd007eb224fe2e1cc0b",
+      "summary": [
+        "109 Swift Testing tests / 13 suites PASS; 2 ordinary XCTest PASS; 3 harness/performance entrypoints skipped in standalone command; correctness live tests executed via PG harness"
+      ]
+    },
+    {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-phase5b-xcode CODE_SIGNING_ALLOWED=NO build",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "70f2fa960f4c0de92f6755eb6236e10203b9fd0ad6a80f8d3a63b39637206fa1",
+      "summary": [
+        "BUILD SUCCEEDED; unsigned generic device; no real device installation"
+      ]
+    },
+    {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Release -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-phase5b-xcode CODE_SIGNING_ALLOWED=NO build",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "279f14c29c5530fdbb802d81778c0d4bc4d7554640385fe600320cb1ad107eec",
+      "summary": [
+        "BUILD SUCCEEDED; unsigned generic device; no real device installation"
+      ]
+    },
+    {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Debug -destination 'platform=iOS Simulator,id=$rai_phase5b_sim' -derivedDataPath /tmp/rai-phase5b-sim-build CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -only-testing:RAITests test",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "2a836ec9fcef7290f33b92ea941a411a378e25e6045e55027afb7fb18329dc4c",
+      "summary": [
+        "28 App unit tests PASS; synthetic HK objects, Security Keychain; disposable simulator removed"
+      ]
+    },
+    {
+      "command": "npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "210f16925fad8659a4396e8f4a3f2d4057a56bdcc0f7b7ff075bb04bca167161",
+      "summary": [
+        "Valid; 31 existing warnings"
+      ]
+    },
+    {
+      "command": "python3 scripts/test-monthly-backup.py",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "77b900317993dc2af965487af48198302f6356d2f98cf1d1b4d5c405af3cc802",
+      "summary": [
+        "12 synthetic file/transport fault guard unit tests PASS; not real cloud or Compose validation"
+      ]
+    },
+    {
+      "command": "/tmp/rai-phase5a-tools/sqlc generate",
+      "result": "PASS",
+      "exit_code": 0
+    },
+    {
+      "command": "Python py_compile of modified backup/restore scripts; bash -n of modified shell scripts; Psych parse of modified workflow",
+      "result": "PASS",
+      "exit_code": 0
+    },
+    {
+      "command": "migration checksum verification",
+      "result": "19/19 MATCH",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS",
+      "exit_code": 0
+    }
+  ],
+  "fresh_bootstrap": {
+    "initial_schema": 0,
+    "initial_datasets": 0,
+    "migration_path": "00001 -> 00019",
+    "initial_counts": {
+      "datasets": 1,
+      "devices": 1,
+      "collector_leases": 1,
+      "workouts": 0,
+      "health_samples": 0,
+      "workout_imports": 0,
+      "entity_tombstones": 0,
+      "analysis_publications": 0,
+      "training_plans": 0
+    },
+    "new_commit_rev": 0,
+    "independent_fields": [
+      "datasetID",
+      "datasetEpoch",
+      "deviceID",
+      "token",
+      "collectorEpoch",
+      "serviceID",
+      "sessionID"
+    ],
+    "init_retry_same_credential": true,
+    "init_cannot_create_second_dataset": true,
+    "committed_stdout_loss_recovered": true,
+    "private_file_mode": "0600",
+    "private_file_and_directory_fsync_before_commit": true,
+    "missing_committed_private_file_refused": true
+  },
+  "recovery_a": {
+    "result": "PASS",
+    "command": "rai admin new-dataset --operation-type disaster_recovery",
+    "source": "available",
+    "source_retired": true,
+    "source_business_snapshot_preserved": true,
+    "source_commit_rev_preserved": true,
+    "audit_status": "committed",
+    "training_migrated": false
+  },
+  "recovery_b": {
+    "result": "PASS",
+    "command": "rai init --operation-id UUID --actor NAME --base-url ORIGIN --credential-file ABSOLUTE_PRIVATE_PATH",
+    "source": "unavailable",
+    "audit_source_is_null": true,
+    "audit_status": "committed"
+  },
+  "fencing": {
+    "old_token_authenticated_get_post_delete": "401 unauthorized",
+    "old_bundle_new_token": "403 dataset_forbidden",
+    "old_bundle_outer_metadata_changed": "422 unsupported_payload or 403 dataset_forbidden; no outer identity override",
+    "old_epoch": "dataset_epoch_changed",
+    "old_collector": "collector_fenced",
+    "new_dataset_delete_then_own_bundle_replay": "workout_deleted",
+    "old_session_reused": false,
+    "old_pending_bundle_copied_moved_rewritten": false,
+    "late_callback_new_session_bytes_unchanged": true,
+    "second_disaster": "PASS; A/B/C independent; A cannot write B/C, B cannot write C"
+  },
+  "restore": {
+    "result": "PASS",
+    "method": "actual pg_dump custom / pg_restore single transaction into a different empty disposable database",
+    "postgres_version": "18.6",
+    "settings": {
+      "fsync": "on",
+      "full_page_writes": "on",
+      "synchronous_commit": "on",
+      "data_checksums": "on",
+      "listen_addresses": ""
+    },
+    "schema": 19,
+    "tables": 47,
+    "validated_foreign_keys": 65,
+    "manifest_sha256": "4e82e6c34bbdf2039013e8d8704ad565ff01179ba2ce73117f7c4a34f68d4d3e",
+    "dump_sha256": "e784959696d02fa8ab2bbe1e1874106c96e2355fb466637468252b8ac7123fe7",
+    "restore_ms": 159,
+    "manifest_tamper_rejected": true,
+    "backup_point_scoped_rows_equal": true,
+    "backup_point_epoch_and_revision_equal": true,
+    "backup_point_receipts_delete_receipts_analysis_and_training_preserved": true,
+    "post_backup_import_missing": true,
+    "post_backup_tombstone_missing": true,
+    "post_backup_training_change_missing": true,
+    "not_current_truth": true,
+    "no_api_or_worker_exposure": true,
+    "default_transaction_read_only": "on",
+    "old_post_delete_pg_error": "25006",
+    "commit_rev_unchanged_after_rejected_writes": true,
+    "purpose": "QUARANTINE / ARCHIVE only; never active continuation",
+    "leftover_databases": 0,
+    "cluster_removed": true
+  },
+  "sessions": {
+    "states": [
+      "prepared",
+      "active",
+      "retired",
+      "recovery_required"
+    ],
+    "recovery_transitions": [
+      "old active -> recovery_required; clear active pointer",
+      "new prepared -> full matching handshake -> active",
+      "old recovery_required -> retired/archive in same activation manifest"
+    ],
+    "new_anchor": null,
+    "new_outbox": "empty",
+    "new_ack": "empty; old ACK cannot prove new server possession",
+    "training_history": "discard; archived old session only",
+    "keychain": "separate immutable account per session; simulator Security tests PASS",
+    "handshake_fields": [
+      "protocolVersion=3",
+      "datasetID",
+      "datasetEpoch",
+      "deviceID",
+      "collectorEpoch",
+      "datasetStatus=active",
+      "serviceID",
+      "bundle capabilities"
+    ],
+    "ordinary_timeout_404_429_500_trigger_recovery": false,
+    "unavailable_visible_history": "UNRECOVERABLE_FROM_HEALTHKIT",
+    "repeat_session_count": 3,
+    "disposable_simulators_removed": 2
+  },
+  "fault_injection": {
+    "A": "PASS: private prepare durable / DB rollback; committed stdout lost -> same credential replay",
+    "B": "PASS: prepared restart before handshake",
+    "C": "PASS: handshake validated before pointer commit; failed atomic replacement preserves prior lifecycle",
+    "D": "PASS: active pointer restart before discovery -> nil anchor",
+    "E": "PASS: staged discovery restart before anchor promotion -> same stage/generation",
+    "F": "PASS: immutable bundle persisted before POST -> exact bytes/hash after reopen",
+    "G": "PASS: actual HTTP connection dropped after Go commit -> Swift durable receipt status recovery",
+    "real_os_process_kill": "NOT RUN; synthetic persistence boundaries and transport/SQL injection only"
+  },
+  "cross_language": {
+    "result": "PASS",
+    "actual_stack": "Swift URLSession -> Go HTTP -> disposable PostgreSQL18.6",
+    "sequence": [
+      "A upload",
+      "A ACK persisted",
+      "A bundle GC",
+      "A serving storage unavailable",
+      "B schema0 migrate/init",
+      "new credential package parsed",
+      "B prepared/handshake/active",
+      "B nil-anchor fresh facts assembled",
+      "Go commit / ACK dropped",
+      "Swift exact receipt recovery",
+      "old bundle and token rejected",
+      "Worker new job/run/publication"
+    ],
+    "new_counts": {
+      "workouts": 1,
+      "health_samples": 1,
+      "workout_imports": 1,
+      "training_plans": 0,
+      "analysis_publications": 1
+    },
+    "old_dataset_fk_references": 0,
+    "real_healthkit_read": false
+  },
+  "initial_run_issues_corrected": [
+    "Synthetic auth test initially used an unsupported POST route; corrected to real collection endpoint without relaxing expected 401.",
+    "Separate fencing scenarios exhausted the existing upload admission burst; reset only synthetic admission window between cases while retaining exact identity status assertions.",
+    "Restore fixture checks corrected to actual workout_uuid and durable DELETE receipts in change_events.",
+    "Cross-language fault control moved under the existing /v2 API path restriction.",
+    "Cross-language synthetic reader fixture now supplies the existing required source observation, so actual Worker analysis/publication passes."
+  ],
+  "remaining_unverified": [
+    "Real iPhone12ProMax session switch and operator private package delivery/file picker",
+    "Real HealthKit currently visible full-history import and permission gaps",
+    "Real OS-managed background kill/relaunch and callback timing",
+    "fnOS server/database loss rehearsal",
+    "Public TLS and production migration/deployment",
+    "Production RTO/RPO and recovery capacity",
+    "Changed Docker archive/Compose scripts and CI wrapper runtime (local syntax and file/transport unit guards only)",
+    "Credential reissue if both private package and Keychain are lost"
+  ],
+  "privacy": {
+    "tokens_recorded": false,
+    "credentials_recorded": false,
+    "healthkit_raw_values_recorded": false,
+    "gps_recorded": false,
+    "real_dataset_ids_recorded": false,
+    "synthetic_data_only": true
+  },
+  "production_database": "NOT TOUCHED",
+  "reset_script": "NOT EXECUTED",
+  "real_iphone": "NOT RUN",
+  "fnos": "NOT RUN",
+  "deploy": "NO",
+  "ready_for_phase5c": true,
+  "phase5b_artifact_sha256_excluding_this_file": {
+    "apps/server/integration/recovery_fencing_test.go": "1be9153003b617f178815428bc7e734260ca9a4e4e36920c4b0a964f286393fb",
+    "apps/server/integration/recovery_restore_test.go": "acd5395caf42c6e4376e8e5489788cad6c38834e179baf102e05f34488bb3353",
+    "apps/server/integration/recovery_swift_test.go": "e99d36e710282125dfa6611039fdb1164aa9bae77871fb03f415f4b5b3c5b293",
+    "apps/server/internal/admin/dataset_migration_integration_test.go": "8afc9c86f84495bcd96b31805227fe69242b2ff237d6c3ca816b43f617ed7ff0",
+    "apps/server/internal/admin/new_dataset.go": "93c1ab0ffaa4bf27152c50d7f0e69cfa8634a5e2a2de85458c3d126930869097",
+    "apps/server/internal/admin/recovery_init.go": "617291614e32fb18522abf45f06156aac6a068a007403c04d5019e9326eb6032",
+    "apps/server/internal/admin/recovery_migration_integration_test.go": "75ca6361f8cb75d7ccae380e9049275bf3fb0c64499d0d021d7203e38cd47c1e",
+    "apps/server/migrations/00019_recovery_operations.sql": "be55a80d0f29968bc441dadbc419515dc3a29118946ed2b12ac4e0f6bf86874f",
+    "docs/PHASE5B_DISASTER_RECOVERY.md": "65c9ebfe0663f7fd21313705461fcf4ab8b41c1fefb50de476555c06fd866a56",
+    "docs/audits/PHASE5B_DISASTER_RECOVERY_REVIEW.md": "f427f5c15df8b7adc9a7d6b0751d37c09b7f3890a9cd3c39512ace3098dfd065",
+    "docs/evidence/phase5b-workspace-baseline.json": "cf7dd17c4a0495093c21e55b9b53b04fe37c1b7295a255b4371779f3be01229f",
+    "ios/RAI/Sources/SyncCore/SyncSession.swift": "4d6cb52fe9a5339cbef87906cd9626aaf228a266557cb7e2da025dac49c12f95",
+    "ios/RAI/Tests/SyncCoreTests/DisasterRecoveryLiveTests.swift": "b0f0588a273fcd611695f81151c49dbbbd1a67400247b5ed69658ee7a58379ef",
+    "ios/RAI/Tests/SyncCoreTests/RecoverySessionTests.swift": "c54599761f6fcd26222d28f0bf85bcc0698e4c4e03f85b089e75e8c2f7e45810",
+    ".github/workflows/server.yml": "c184033ed905df2bc4ea428acad17cb87fd135e3f38d56124e043bdc9bcbed36",
+    "README.md": "40fbdd07a30e3ce74be3b794f5c075c6c076b8aba21e56e2856cb6baf1e1a644",
+    "apps/server/cmd/rai/main.go": "2db5721afe2a98f00fe3c1f52eec54c148b2d6ff942eb83881825544462e802f",
+    "apps/server/integration/p7_security_test.go": "f12cfc88eac57b4e9ed1edb72a05bf23bed8bde83e510e519419e71734dacb45",
+    "apps/server/internal/admin/operations.go": "3aacc6115d03b2166e19e6ad952142c16432e12e6adaf43c933e3d0e2d6085df",
+    "apps/server/internal/storage/postgres/dbgen/models.go": "dc2ab7d8075f4b01abc3681d57f03522cc40e865560ab9699492d752436141db",
+    "apps/server/internal/storage/postgres/store.go": "d9662b05803aed24652d95c3eeeb6b60c18ba389fb93f39b93fb8d60c8ce5015",
+    "apps/server/migrations/checksums.json": "15f0ec6ee8ed60c7670cfc005b3eec83e3a423f929177ad3be9208365f596d7e",
+    "contracts/CHANGELOG.md": "3c8eb76733c24ad2430444af0e306a942dcc2fdbdbcf6f47bbf2566469396ea5",
+    "docs/ARCHITECTURE.md": "1f5954a9e3a291c1b03c961356d813e5a516b75ddd31031c7a17a9759453a879",
+    "docs/IMPLEMENTATION.md": "05cd472fce9fb9d47a75f90671cc91a7c1920ef98c7330975ea3c7396cc80991",
+    "docs/P7_BACKUP_RESTORE.md": "835b3c9d49114748b047cb6237dccd8c36bb41a056bd846de120952201ba5f8e",
+    "docs/P7_DEPLOYMENT.md": "6b161dc8fea549fa4b2d96df0a9f94a954a37b9cb4b3fe63da178a3cc174f92b",
+    "docs/RAI_DISASTER_RECOVERY.md": "e8059bdc2e31982e306e7d6401cc9ee2ec448938901b09d88bac93bf248a6c79",
+    "docs/RAI_MONTHLY_BACKUP.md": "f44a6e7fbeb1dba21d52e50b3524ca2144b4dfbb668ceae5e1d55380a4886ef3",
+    "ios/RAI/App/RAIApp.swift": "dc8132544da9393074a025efe3bade2292eb4263b786900499256ab359420bb4",
+    "ios/RAI/App/SyncCoordinator.swift": "ce1c3ebe5fa87d31026380fab3ee5cffa241ffbe37d35dee535521119cb1fcff",
+    "ios/RAI/AppTests/NormalizerTests.swift": "0446eb0d48822b5c35392d93ca8ecc8fe07784c3dc573bd40ca96a2264e5f46f",
+    "scripts/p7-restore.sh": "575b754c1493ec9932e9215359877035620842141f5caaa43ff9be7dc7b31ff1",
+    "scripts/rai-backup.py": "361f1ce47f68f8238c4929c6de754f0f4a6c3ad143fe294df2381def3f90f0fd",
+    "scripts/rai-restore.py": "f30b61fc37e7fd44da61280829bfad5d4a14e05ed2724e1b9d1b312a2b7fe762",
+    "scripts/test-monthly-restore.sh": "3cbcaf681111205892aee2381fa90ae9595967b85e67c432558734e75ee2393d",
+    "scripts/test-p3-e2e.sh": "56307518ad4df02187e863e3a390f719e143a67f2c306debfcb1e5f8ed64419d",
+    "scripts/test-p4-compose.sh": "55076bb270f0393676a59e394852c7fcce8812487d2ef5301b0d280930f17ab8",
+    "scripts/test-p5-compose.sh": "f5af8d31ec20c3e24e161c8d011811f402ae2d5bfbd9d845049793f8d893f47e",
+    "scripts/test-p7-compose.sh": "6774731b7c91d478431ef92e2c2439c003613b6baf0798fdf4eb4f6533a0a035"
+  }
+}

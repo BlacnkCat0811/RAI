@@ -7,7 +7,7 @@ import os
 
 enum UserFacingText {
   static func error(_ code: String) -> String {
-    if code.hasPrefix("keychain_") { return "钥匙串读写失败" }
+    if code.hasPrefix("keychain_") || code.hasPrefix("session_keychain_") { return "钥匙串读写失败" }
     if code.hasPrefix("unsupported_workout_metadata_types") { return "运动记录包含暂不支持的健康元数据" }
     if code.hasPrefix("unsupported_workout_quantity_types") { return "运动记录包含暂不支持的健康统计类型" }
     return [
@@ -19,6 +19,15 @@ enum UserFacingText {
       "connection_unavailable": "无法连接私有服务",
       "configure_development_api_first": "请先配置私有服务",
       "product_dataset_changed": "私有数据集已更改",
+      "dataset_retired": "此同步空间已停用，请使用管理员提供的新凭证建立会话",
+      "session_not_active": "此会话尚未启用或已经归档",
+      "session_handshake_mismatch": "新凭证与服务身份不匹配，会话未切换",
+      "session_identity_reused": "请使用管理员新建的独立身份",
+      "legacy_session_identity_reused": "旧身份不能用于新会话，请使用新数据集凭证",
+      "session_identity_conflict": "凭证与已保存的会话不一致，原会话已保留",
+      "session_switch_busy": "请等待当前同步结束后再切换会话",
+      "bundle_session_mismatch": "上传包属于另一会话，原文件已保留",
+      "upload_file_session_mismatch": "上传文件属于另一会话，原文件已保留",
       "resolve_pending_command_first": "请先处理待确认的提交",
       "command_identity_mismatch": "提交标识不匹配",
       "invalid_api_origin": "服务地址无效",
@@ -128,7 +137,7 @@ final class ProductModel {
         {
           let secret = try JSONDecoder().decode(
             ClientConfiguration.Secret.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
-          try ClientConfiguration.save(
+          try await SyncModel.shared.bindNewSession(
             baseURL: secret.configuration.baseURL.absoluteString,
             collectorEpoch: secret.configuration.collectorEpoch, token: secret.token)
         }
@@ -142,7 +151,7 @@ final class ProductModel {
       let hello = try await productAPI.get("/v2/handshake")
       let directory = try FileManager.default.url(
         for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-      ).appendingPathComponent("RAIV2Product")
+      ).appendingPathComponent("RAIV2Product").appendingPathComponent(try ClientConfiguration.activeDescriptor()?.sessionID ?? "unconfigured")
       let store = try ProductJournal(directory: directory)
       try await store.bind(
         secret.configuration.baseURL.absoluteString + ":" + hello.string("serviceID") + ":"

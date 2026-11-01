@@ -1,3 +1,69 @@
+# RAI Disaster Recovery Runbook — New Dataset / New Session
+
+2026-11-01 Phase 5B。正式产品选择：`new / discard / no_migrate / new_session`。以下 DR-A / DR-B 是当前路线；本文件后半部分完整保留 2026-10-29 旧方案审查，旧 BLOCKED 结论仅针对旧身份接续。自动化验收不代替 Phase 5C 真机/fnOS/公网/生产验收。详细合同见 [Phase 5B](PHASE5B_DISASTER_RECOVERY.md)。本轮不得对真实系统执行下述命令。
+
+## 共同准备
+
+1. operator 明确宣告灾难。关闭旧入口，停止旧 API/Worker，保留服务器、备份、手机所有旧 Session 状态。单次 404/401、网络错误、429、500 和普通重启不构成灾难证明。
+2. 确认私有 operator 路径（repo 外，目录0700），新 operation UUID、actor、目标 HTTPS origin。不要将 token、凭证包、DSN、健康值或 GPS 放进终端历史、聊天、证据或普通日志。
+3. 若恢复备份，仅在隔离 PostgreSQL 空实例进行：校验 archive/manifest SHA；`pg_restore --single-transaction --exit-on-error`；核对 schema/checksum/table/FK、epoch/revision、tombstones、receipt、analysis publication、training history。标记 `QUARANTINE / ARCHIVE`；无 API/Worker 暴露，默认只读。不得将其当作当前事实或接续点。
+
+## DR-A — Source Available
+
+源可以是仍健康的原 DB。若只有备份可读，保留为隔离 archive，优先按 DR-B 建 clean active server，不向手机暴露 archive。
+
+1. freeze old writes；在无 API/Worker 的窗口做简单、可校验备份并保存 manifest/hash。旧事实与历史始终保留。
+2. 以 owner 管理连接明确 migrate 到当前 schema 19；先 dry-run inventory，检查 source。
+3. 使用现有命令建立新事实空间（下方为参数占位符，不是可直接执行的真实值）：
+
+   ```sh
+   rai admin new-dataset --source-dataset SOURCE_UUID --dry-run
+   rai admin new-dataset --source-dataset SOURCE_UUID \
+     --operation-id NEW_OPERATION_UUID --actor OPERATOR_NAME \
+     --operation-type disaster_recovery --base-url https://NEW_ORIGIN \
+     --confirm-source SOURCE_UUID --confirm-phrase NEW-DATASET \
+     --credential-file /PRIVATE_OUTSIDE_REPO/recovery.json
+   ```
+
+4. 核对 audit committed、source retired、旧 commit_rev 不变、target commit_rev=0、独立身份、target 事实/删除屏障/训练/分析为空。出现输出丢失用同 operation 与原文件重试，不创建另一份 target。
+5. 私密交付 credential package。iOS 显式导入，新 descriptor prepared，旧 Session recovery_required；完整 handshake 验证后原子 activate，旧 Session retired。旧文件/Keychain/ProductJournal 不迁移。
+6. 在 Phase 5C 授权范围内进行 nil-anchor 当前可见历史发现、正常新 bundle 同步、Raw→Dirty→Job→Analysis→Publication 验证。确认训练为空、旧 token/旧 bundle 不能修改新 Dataset、旧后台 callback 仅落旧命名空间。
+
+## DR-B — Source Lost
+
+1. 建 clean PostgreSQL 18.6 和全新存储，schema=0、datasets=0；不挂旧 volume 或 archive。保持正式入口关闭。
+2. 显式 `rai migrate`，再 `rai migrate-status` 验证 19/19 MATCH；API/Worker 不自动 migrate/init。
+3. 用 owner 身份进行一次安全 bootstrap：
+
+   ```sh
+   rai init --operation-id NEW_OPERATION_UUID --actor OPERATOR_NAME \
+     --base-url https://NEW_ORIGIN \
+     --credential-file /PRIVATE_OUTSIDE_REPO/recovery.json
+   ```
+
+   容器必须给 admin 挂载 operator 可写私有目录；路径须为容器内绝对路径。init 不再输出 token，DB 只存 hash。0600 完整文件在 DB commit 前 fsync 并发布。
+
+4. 如 stdout 丢失/进程中断，保留文件，重跑完全相同参数：rollback 后恢复同 prepared 身份；已 commit 返回 replay，不创建第二个 Dataset。缺失原文件且 DB 已有身份时命令停止，不能从 DB 反推 token。
+5. 确认 datasets/devices/collector_leases 各1，workouts/health_samples/workout_imports/tombstones/training/analysis 各0，commit_rev=0。核对 durable disaster_recovery audit，source=NULL 表示 unavailable。
+6. 按 DR-A 第5–6步交付、prepare、handshake、activate、nil-anchor sync 和 verify。第二次灾难同样创建第三套身份/会话；不复用前两套。
+
+## 不可执行的“捷径”
+
+- 不删 `state.json`，不清空/移动/复制旧 Outbox，不重写旧 bundle identity。
+- 不重用旧 token、collector、dataset epoch 或 Session；不 reset epoch。
+- 不 restore backup 后重连旧 Session；不在恢复 archive 上运行 API/Worker 或继续 commit_rev。
+- 不运行 `rai-reset-v2-data.sh`。不自动删除旧 Dataset，不迁移 training history 或旧分析。
+
+未 ACK 的旧 bundle 保持 exact bytes；新空间从当前可读 HealthKit 重新生成。已 ACK/GC 的旧数据同样需重新发现，旧 ACK 不证明新服务器持有。HealthKit 不再可读的事实标为 `UNRECOVERABLE_FROM_HEALTHKIT`，不能声称 HealthKit 是完整备份。仍可见但旧服务器曾删除的 Workout 可出现于新 Dataset；新空间自己的删除屏障从首次 DELETE 起生效。备份外人工训练历史如无归档则接受永久丢失。
+
+## 本阶段的停止点
+
+Phase 5B 仅自动化/合成环境验收。真 iPhone 12 Pro Max 切换、真 HealthKit 全历史重导、真后台 kill、fnOS、公网 TLS、生产迁移全部 NOT RUN，交由 Phase 5C。没有 commit、push、deploy 或生产数据库操作。
+
+---
+
+## 历史原文（2026-10-29，旧身份接续审查；不作为当前 runbook）
+
 # RAI 数据库灾难恢复与 HealthKit 重同步审查
 
 2026-10-29。**DISASTER RECOVERY RESYNC: BLOCKED**。本轮完成合同审查、最小设计和可执行反例；未实现可用于真实设备的 Recovery Resync Mode、代际管理 CLI 或恢复 UI。原因是当前协议缺少可以安全关闭恢复流程的证明，不能把 reset anchor 或成功 HTTP 请求包装成完整恢复。Part A 独立验收，见 [Monthly Backup](RAI_MONTHLY_BACKUP.md)。

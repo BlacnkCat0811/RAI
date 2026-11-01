@@ -1,0 +1,16 @@
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/integration	269.127s
+ok  	rai/server/internal/admin	1.486s
+ok  	rai/server/internal/analysis	1.386s
+ok  	rai/server/internal/config	1.055s
+ok  	rai/server/internal/httpapi	10.022s
+ok  	rai/server/internal/jobs	1.018s
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/storage/postgres	1.017s
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	3.261s
+ok  	rai/server/internal/training	1.053s
+ok  	rai/server/internal/workoutdetail	1.017s
+?   	rai/server/migrations	[no test files]
+RAI_TEST_LEFTOVER_DATABASES=0
+RAI_TEST_CLUSTER_REMOVED=1

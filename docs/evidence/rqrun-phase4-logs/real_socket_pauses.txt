@@ -1,0 +1,54 @@
+=== RUN   TestBundleRejectsBeforeReadingBodyWhenDeviceSlotBusy
+--- PASS: TestBundleRejectsBeforeReadingBodyWhenDeviceSlotBusy (0.00s)
+=== RUN   TestBundleWireLimitsAndStrictMultipart
+=== RUN   TestBundleWireLimitsAndStrictMultipart/unknown
+=== RUN   TestBundleWireLimitsAndStrictMultipart/duplicate
+=== RUN   TestBundleWireLimitsAndStrictMultipart/empty
+=== RUN   TestBundleWireLimitsAndStrictMultipart/malformed
+=== RUN   TestBundleWireLimitsAndStrictMultipart/length-fast-reject
+=== RUN   TestBundleWireLimitsAndStrictMultipart/no-content-length
+=== RUN   TestBundleWireLimitsAndStrictMultipart/chunked
+=== RUN   TestBundleWireLimitsAndStrictMultipart/extra-part-does-not-drain
+=== RUN   TestBundleWireLimitsAndStrictMultipart/plain
+--- PASS: TestBundleWireLimitsAndStrictMultipart (0.03s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/unknown (0.00s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/duplicate (0.00s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/empty (0.00s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/malformed (0.00s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/length-fast-reject (0.00s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/no-content-length (0.02s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/chunked (0.02s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/extra-part-does-not-drain (0.00s)
+    --- PASS: TestBundleWireLimitsAndStrictMultipart/plain (0.00s)
+=== RUN   TestBundleGzipBoundaries
+=== RUN   TestBundleGzipBoundaries/valid
+=== RUN   TestBundleGzipBoundaries/truncated
+=== RUN   TestBundleGzipBoundaries/crc
+=== RUN   TestBundleGzipBoundaries/garbage
+=== RUN   TestBundleGzipBoundaries/concatenated
+=== RUN   TestBundleGzipBoundaries/bomb
+=== RUN   TestBundleGzipBoundaries/decoded-limit-before-allocation
+--- PASS: TestBundleGzipBoundaries (0.37s)
+    --- PASS: TestBundleGzipBoundaries/valid (0.00s)
+    --- PASS: TestBundleGzipBoundaries/truncated (0.00s)
+    --- PASS: TestBundleGzipBoundaries/crc (0.00s)
+    --- PASS: TestBundleGzipBoundaries/garbage (0.00s)
+    --- PASS: TestBundleGzipBoundaries/concatenated (0.00s)
+    --- PASS: TestBundleGzipBoundaries/bomb (0.00s)
+    --- PASS: TestBundleGzipBoundaries/decoded-limit-before-allocation (0.18s)
+=== RUN   TestBundleProductionServerSlowUpload
+=== RUN   TestBundleProductionServerSlowUpload/5s
+=== RUN   TestBundleProductionServerSlowUpload/15s
+=== RUN   TestBundleProductionServerSlowUpload/30s
+--- PASS: TestBundleProductionServerSlowUpload (0.00s)
+    --- PASS: TestBundleProductionServerSlowUpload/5s (5.00s)
+    --- PASS: TestBundleProductionServerSlowUpload/15s (15.00s)
+    --- PASS: TestBundleProductionServerSlowUpload/30s (30.00s)
+=== RUN   TestBundleTimeoutAndCancellationClassification
+=== RUN   TestBundleTimeoutAndCancellationClassification/read-timeout
+=== RUN   TestBundleTimeoutAndCancellationClassification/client-cancel
+--- PASS: TestBundleTimeoutAndCancellationClassification (0.60s)
+    --- PASS: TestBundleTimeoutAndCancellationClassification/read-timeout (0.60s)
+    --- PASS: TestBundleTimeoutAndCancellationClassification/client-cancel (0.00s)
+PASS
+ok  	rai/server/internal/httpapi	31.029s

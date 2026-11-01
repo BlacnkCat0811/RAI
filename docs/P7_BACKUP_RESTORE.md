@@ -1,5 +1,7 @@
 # P7 PostgreSQL Backup / Restore
 
+**2026-11-01 Phase 5A 现行产品策略：灾难恢复采用 New Dataset + New Session。** 备份可作为 operator 历史保全用途，在线同步和新 Session 不依赖恢复旧 revision/anchor/outbox/token。旧 Dataset 只读退役，不删除，不迁移训练历史；reset 脚本为 `LEGACY_UNSAFE_UPGRADE_PATH / DO NOT USE FOR PRODUCTION UPGRADE`。新空间 nil Anchor 只能重新发现 HealthKit 当前可见对象，不能恢复已删除/权限不可见对象或旧训练计划。具体 [New Session 操作说明](PHASE5A_NEW_SESSION.md)，Phase 5B 已完成本地合成真实 dump/restore 与 New Session fencing，真实验收留 Phase 5C。恢复脚本将目标设为默认只读且不启动 API/Worker；正式路线见 [DR-A / DR-B](RAI_DISASTER_RECOVERY.md)。以下为历史备份工具说明，不能据此把旧空间恢复为当前活动同步身份。
+
 本轮只使用合成数据与独立实例。实际验收、耗时及完整性证据见 [P7 evidence](evidence/p7-fnos-2026-10-29.json)。备份是显式管理路径，在线同步不导入管理工具、不扫描全库或等待备份。
 
 ## 设计目标与范围

@@ -37,6 +37,18 @@ jobs:
         run: go test ./...
       - name: Unit tests with race detector
         run: go test -race ./...
+      - name: Prepare matching PG18.6 archive tools
+        run: |
+          mkdir -p /tmp/rai-pg18-tools
+          python3 - <<'PYTOOLS'
+          from pathlib import Path
+          image = 'postgres:18.6-bookworm@sha256:bbf83594798e144bff365a9c191c5d779f181fb3135902064ab8ff11918020fc'
+          for name in ('pg_dump', 'pg_restore'):
+              p = Path('/tmp/rai-pg18-tools') / name
+              p.write_text('#!/usr/bin/env bash\nexec docker run --rm -i --network host --user "$(id -u):$(id -g)" -v /tmp:/tmp ' + image + ' ' + name + ' "$@"\n')
+              p.chmod(0o700)
+          PYTOOLS
+          echo 'PGBIN=/tmp/rai-pg18-tools' >> "$GITHUB_ENV"
       - name: Unit and real PostgreSQL regression with race detector
         run: go test -race -count=1 -tags=integration ./...
       - name: Maximum page recovery and synthetic large-table query plans

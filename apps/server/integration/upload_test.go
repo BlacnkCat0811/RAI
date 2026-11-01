@@ -47,7 +47,14 @@ func businessSnapshot(t *testing.T, f *fixture) map[string][]byte {
 	out := map[string][]byte{}
 	for _, table := range []string{"datasets", "sync_streams", "sync_batches", "sync_pages", "health_samples", "workouts", "workout_statistics", "workout_events", "entity_tombstones", "entity_changes", "change_events", "dirty_scopes", "jobs"} {
 		var raw []byte
-		if err := f.s.Pool.QueryRow(context.Background(), `SELECT coalesce(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]') FROM `+pgx.Identifier{table}.Sanitize()+` x`).Scan(&raw); err != nil {
+		// Schema 18 adds nullable retirement metadata. Normalize only NULL on
+		// the small dataset row across historical upgrades; non-NULL retirement
+		// remains in the snapshot and every existing fact/receipt assertion stays.
+		projection := "to_jsonb(x)"
+		if table == "datasets" {
+			projection = "jsonb_strip_nulls(to_jsonb(x))"
+		}
+		if err := f.s.Pool.QueryRow(context.Background(), `SELECT coalesce(jsonb_agg(`+projection+` ORDER BY to_jsonb(x)::text),'[]') FROM `+pgx.Identifier{table}.Sanitize()+` x`).Scan(&raw); err != nil {
 			t.Fatal(err)
 		}
 		out[table] = raw

@@ -1,0 +1,13 @@
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/internal/admin	(cached)
+ok  	rai/server/internal/analysis	(cached)
+ok  	rai/server/internal/config	(cached)
+ok  	rai/server/internal/httpapi	11.224s
+ok  	rai/server/internal/jobs	(cached)
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/storage/postgres	(cached)
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	(cached)
+ok  	rai/server/internal/training	(cached)
+ok  	rai/server/internal/workoutdetail	(cached)
+?   	rai/server/migrations	[no test files]

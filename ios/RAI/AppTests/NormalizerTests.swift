@@ -1,4 +1,5 @@
 import XCTest
+import Security
 import HealthKit
 import SyncCore
 import Synchronization
@@ -188,7 +189,9 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
     func testRecovery404KeepsExactBundleAndRetryTimeWithoutHealthReads() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rai-coordinator-test-" + Wire.id())
         defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), id = Wire.id(), raw = Data("{\"synthetic\":true}".utf8)
+        let store = try OutboxStore(directory: dir), id = Wire.id()
+        var bundleFields = CoordinatorReplies.identity.bundleFields; bundleFields["workoutID"] = .string(id)
+        let raw = try JSON.object(bundleFields).data()
         try await store.beginTask(id)
         let file = try await store.savePayload(WorkoutBundleAssembler.multipart(bundle: raw, boundary: "test"), suffix: "multipart.json")
         try await store.setBundle(id, file: file, sha256: Wire.hash(raw), boundary: "test")
@@ -231,7 +234,9 @@ private actor SyntheticAnchoredHealth: HealthKitReading {
     }
     func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage {
         calls[type.identifier, default: 0] += 1
-        let samples: [HKSample] = type.identifier == quantity.sampleType.identifier && anchor == nil ? [quantity] : []
+        let samples: [HKSample]
+        if type == HKObjectType.workoutType() { samples = anchor == nil ? [value] : [] }
+        else { samples = type.identifier == quantity.sampleType.identifier && anchor == nil ? [quantity] : [] }
         return HealthPage(samples: samples, deleted: [], anchor: Data([2]), limit: 1000)
     }
     func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
@@ -290,5 +295,165 @@ extension NormalizerTests {
         let bytes = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
         let decoded = try XCTUnwrap(NSKeyedUnarchiver.unarchivedObject(ofClass: HKQuantitySample.self, from: bytes))
         XCTAssertEqual(try Normalizer.discoveryFingerprint(sample), try Normalizer.discoveryFingerprint(decoded))
+    }
+}
+
+final class Phase5ASessionPlatformTests: XCTestCase {
+    func testSessionKeychainStoresIndependentImmutableAccounts() throws {
+        let a = Wire.id(), b = Wire.id(), keychain = SessionKeychain()
+        defer {
+            for id in [a, b] {
+                SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "RAI.V3.SyncSession", kSecAttrAccount as String: id] as CFDictionary)
+            }
+        }
+        try keychain.save(token: "synthetic-old", sessionID: a)
+        try keychain.save(token: "synthetic-new", sessionID: b)
+        XCTAssertEqual(try keychain.load(sessionID: a), "synthetic-old")
+        XCTAssertEqual(try keychain.load(sessionID: b), "synthetic-new")
+        XCTAssertThrowsError(try keychain.save(token: "replacement", sessionID: a))
+        XCTAssertEqual(try keychain.load(sessionID: a), "synthetic-old")
+    }
+    func testLateOldBackgroundCallbackCannotWriteNewSessionDirectory() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("rai-platform-session-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: root) }
+        let a = Wire.id(), b = Wire.id()
+        let oldDir = try SyncSessionStore.directory(root: root, sessionID: a), newDir = try SyncSessionStore.directory(root: root, sessionID: b)
+        let oldStore = try OutboxStore(directory: oldDir), newStore = try OutboxStore(directory: newDir)
+        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
+        try await newStore.bind(scope)
+        let before = try Data(contentsOf: newDir.appendingPathComponent("state.json"))
+        let old = BackgroundTransfers(directory: oldStore.directory, identifier: "com.rai.v2.sync." + a, sessionID: a)
+        let new = BackgroundTransfers(directory: newStore.directory, identifier: "com.rai.v2.sync." + b, sessionID: b)
+        let callback = URLSession.shared.dataTask(with: URL(string: "https://synthetic.invalid")!)
+        let identity = a + ":workout:synthetic-hash"
+        callback.taskDescription = identity
+        old.urlSession(.shared, task: callback, didCompleteWithError: nil)
+        // Even a misrouted delegate invocation is rejected by the session prefix.
+        new.urlSession(.shared, task: callback, didCompleteWithError: nil)
+        let result = Wire.hash(Data(identity.utf8)) + ".transfer.json"
+        XCTAssertTrue(FileManager.default.fileExists(atPath: oldDir.appendingPathComponent(result).path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: newDir.appendingPathComponent(result).path))
+        XCTAssertEqual(try Data(contentsOf: newDir.appendingPathComponent("state.json")), before)
+        let file = try await oldStore.savePayload(Data("synthetic-old".utf8))
+        do {
+            _ = try await new.response(URLRequest(url: URL(string: "https://synthetic.invalid")!), file: oldDir.appendingPathComponent(file), identity: "synthetic")
+            XCTFail("old file accepted by new transfer")
+        } catch let failure as SyncFailure {
+            guard case .localState("upload_file_session_mismatch") = failure else { XCTFail("wrong rejection"); return }
+        }
+    }
+}
+
+private final class PlatformSessionCredentials: SessionCredentialStore, Sendable {
+    private let tokens = Mutex<[String: String]>([:])
+    func save(token: String, sessionID: String) throws { tokens.withLock { $0[sessionID] = token } }
+    func load(sessionID: String) throws -> String? { tokens.withLock { $0[sessionID] } }
+}
+extension Phase5ASessionPlatformTests {
+    func testNewSessionNilAnchorReimportsVisibleHKWorkoutAfterOldDeletion() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("rai-platform-discovery-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: root) }
+        let credentials = PlatformSessionCredentials(), sessions = try SyncSessionStore(root: root, credentials: credentials)
+        func descriptor() -> SyncSessionDescriptor { .init(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!) }
+        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3)])]) }
+        let a = descriptor(), b = descriptor(), health = SyntheticAnchoredHealth()
+        _ = try await sessions.prepare(a, token: "old"); try await sessions.activate(a.sessionID, handshake: hello(a))
+        let old = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: a.sessionID))
+        let oldCoordinator = SyncCoordinator(store: old, health: health, sessionStore: sessions, sessionID: a.sessionID)
+        try await oldCoordinator.discoverChanges()
+        let workout = await health.value, id = workout.uuid.uuidString.lowercased(), query = DiscoveryQuery(type: HKObjectType.workoutType().identifier)
+        let previous = try await old.discoveryFlow(query).anchor
+        let page = try await old.stageDiscovery(query, previousAnchor: previous, anchor: Data([9]), events: [DiscoveryEvent(type: query.type, uuid: id, deleted: true)], hasMore: false)
+        try await old.promoteDiscovery(query, batchID: page)
+        let oldSnapshot = await old.discoverySnapshot()
+        XCTAssertEqual(oldSnapshot.work[id]?.pendingDelete, true)
+        _ = try await sessions.prepare(b, token: "new")
+        let fresh = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: b.sessionID))
+        let coordinator = SyncCoordinator(store: fresh, health: health, sessionStore: sessions, sessionID: b.sessionID)
+        do { try await coordinator.discoverChanges(); XCTFail("prepared session discovered") } catch { }
+        let nilAnchor = try await fresh.discoveryFlow(query).anchor; XCTAssertNil(nilAnchor)
+        try await sessions.activate(b.sessionID, handshake: hello(b))
+        try await coordinator.discoverChanges()
+        let first = await fresh.discoverySnapshot()
+        XCTAssertNotNil(first.workoutArchives[id]); XCTAssertEqual(first.work[id]?.pendingDelete, false)
+        XCTAssertEqual(first.events.count, 2)
+        try await coordinator.discoverChanges()
+        let repeated = await fresh.discoverySnapshot()
+        XCTAssertEqual(first.events.count, repeated.events.count)
+        XCTAssertEqual(first.work[id]?.generation, repeated.work[id]?.generation)
+        let oldAnchor = try await old.discoveryFlow(query).anchor; XCTAssertEqual(oldAnchor, Data([9]))
+        do { try await oldCoordinator.discoverChanges(); XCTFail("retired session discovered") } catch { }
+    }
+    func testBackgroundEventsFinishingBeforeRegistrationStillComplete() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-background-finish-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        _ = try OutboxStore(directory: directory)
+        let id = Wire.id(), transfer = BackgroundTransfers(directory: directory, identifier: "com.rai.v2.sync." + Wire.id(), sessionID: id)
+        let completed = expectation(description: "late handler receives persisted finish")
+        transfer.urlSessionDidFinishEvents(forBackgroundURLSession: .shared)
+        transfer.handleEvents { completed.fulfill() }
+        await fulfillment(of: [completed], timeout: 2)
+    }
+}
+
+extension Phase5ASessionPlatformTests {
+    func testRecoveryUsesSeparateRealKeychainAccountsAndBlocksArchivedCoordinator() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("rai-recovery-platform-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: root) }
+        let keys = SessionKeychain(), sessions = try SyncSessionStore(root: root, credentials: keys)
+        func descriptor() -> SyncSessionDescriptor { .init(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!) }
+        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3)])]) }
+        let a = descriptor(), b = descriptor()
+        defer {
+            for d in [a, b] { SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "RAI.V3.SyncSession", kSecAttrAccount as String: d.sessionID] as CFDictionary) }
+        }
+        _ = try await sessions.prepare(a, token: "synthetic-A"); try await sessions.activate(a.sessionID, handshake: hello(a))
+        let old = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: a.sessionID))
+        let coordinator = SyncCoordinator(store: old, health: SyntheticAnchoredHealth(), sessionStore: sessions, sessionID: a.sessionID)
+        _ = try await sessions.prepare(b, token: "synthetic-B", recovery: true)
+        do { try await coordinator.discoverChanges(); XCTFail("recovery_required coordinator read HealthKit") } catch { }
+        XCTAssertEqual(try keys.load(sessionID: a.sessionID), "synthetic-A")
+        XCTAssertEqual(try keys.load(sessionID: b.sessionID), "synthetic-B")
+        let restarted = try SyncSessionStore(root: root, credentials: keys)
+        try await restarted.activate(b.sessionID, handshake: hello(b))
+        let fresh = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: b.sessionID))
+        let flow = try await fresh.discoveryFlow(DiscoveryQuery(type: HKObjectType.workoutType().identifier))
+        XCTAssertNil(flow.anchor)
+        let manifest = try await restarted.snapshot()
+        XCTAssertEqual(manifest.sessions[a.sessionID]?.status, .retired)
+        XCTAssertEqual(manifest.activeSessionID, b.sessionID)
+    }
+}
+
+private final class RecoveryHandshakeFailures: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let status = Int(request.value(forHTTPHeaderField: "X-Synthetic-Status") ?? "500")!
+        if status == 0 { client?.urlProtocol(self, didFailWithError: URLError(.timedOut)); return }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("{\"code\":\"synthetic_failure\"}".utf8)); client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+extension Phase5ASessionPlatformTests {
+    func testHandshakeTimeout404429And500DoNotDeclareDisaster() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(Wire.id())
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sessions = try SyncSessionStore(root: root, credentials: PlatformSessionCredentials())
+        let d = SyncSessionDescriptor(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!)
+        let hello: JSON = .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3)])])
+        _ = try await sessions.prepare(d, token: "synthetic"); try await sessions.activate(d.sessionID, handshake: hello)
+        let store = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: d.sessionID)), counters = CoordinatorCounters()
+        let secret = ClientConfiguration.Secret(configuration: .init(baseURL: d.baseURL, collectorEpoch: d.collectorEpoch), token: "synthetic")
+        for status in [0, 404, 429, 500] {
+            let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [RecoveryHandshakeFailures.self]; config.httpAdditionalHeaders = ["X-Synthetic-Status": String(status)]
+            let session = URLSession(configuration: config); defer { session.invalidateAndCancel() }
+            let coordinator = SyncCoordinator(store: store, health: NoHealthReads(counters: counters), session: session, sessionStore: sessions, sessionID: d.sessionID)
+            do { try await coordinator.recoverPending(secret: secret, transfers: BrokenACKUploader(counters: counters)); XCTFail("failure accepted") } catch { }
+            let active = try await sessions.requireActive(d.sessionID)
+            XCTAssertEqual(active.status, .active)
+        }
+        XCTAssertEqual(counters.reads.withLock { $0 }, 0); XCTAssertEqual(counters.uploads.withLock { $0 }, 0)
     }
 }

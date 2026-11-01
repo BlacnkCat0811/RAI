@@ -1,0 +1,12 @@
+=== RUN   TestBundleProductionBodyBudget
+=== RUN   TestBundleProductionBodyBudget/near-179s
+=== RUN   TestBundleProductionBodyBudget/over-180s
+    bundle_timeout_test.go:205: production_body_budget=3m0s actual_elapsed=2m59.001516259s status=200
+    bundle_timeout_test.go:205: production_body_budget=3m0s actual_elapsed=3m0.001106773s status=408
+--- PASS: TestBundleProductionBodyBudget (0.00s)
+    --- PASS: TestBundleProductionBodyBudget/near-179s (179.00s)
+    --- PASS: TestBundleProductionBodyBudget/over-180s (180.50s)
+=== RUN   TestBundleACKWriteDeadlineAfterCommit
+--- PASS: TestBundleACKWriteDeadlineAfterCommit (6.00s)
+PASS
+ok  	rai/server/internal/httpapi	186.524s

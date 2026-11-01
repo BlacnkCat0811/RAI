@@ -13,11 +13,13 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
         var buffers: [Int: Data] = [:]
         var waiters: [String: CheckedContinuation<UploadResponse, any Error>] = [:]
         var completion: (@MainActor @Sendable () -> Void)?
+        var finishedEvents = false
     }
     private let state = Mutex(State())
     private let directory: URL
-    init(directory: URL, identifier: String = BackgroundTransfers.identifier) {
-        self.directory = directory
+    private let sessionID: String?
+    init(directory: URL, identifier: String = BackgroundTransfers.identifier, sessionID: String? = nil) {
+        self.directory = directory; self.sessionID = sessionID
         super.init()
         let config = URLSessionConfiguration.background(withIdentifier: identifier)
         config.sessionSendsLaunchEvents = true; config.isDiscretionary = false
@@ -28,13 +30,16 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
     }
     private func resultURL(_ identity: String) -> URL { directory.appendingPathComponent(Wire.hash(Data(identity.utf8)) + ".transfer.json") }
     func discardCachedResult(_ identity: String) {
-        try? FileManager.default.removeItem(at: resultURL(identity))
+        let scoped = sessionID.map { $0 + ":" + identity } ?? identity
+        try? FileManager.default.removeItem(at: resultURL(scoped))
     }
     func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
         let result = try await response(request, file: file, identity: identity)
         return (result.data, result.status, result.retryAfter)
     }
     func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
+        guard file.standardizedFileURL.deletingLastPathComponent() == directory.standardizedFileURL else { throw SyncFailure.localState("upload_file_session_mismatch") }
+        let identity = sessionID.map { $0 + ":" + identity } ?? identity
         let url = resultURL(identity)
         if FileManager.default.fileExists(atPath: url.path) {
             let result = try JSONDecoder().decode(Result.self, from: Data(contentsOf: url))
@@ -65,7 +70,13 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
             self.state.withLock { $0.waiters.removeValue(forKey: identity)?.resume(throwing: CancellationError()) }
         })
     }
-    func handleEvents(completion: @escaping @MainActor @Sendable () -> Void) { state.withLock { $0.completion = completion } }
+    func handleEvents(completion: @escaping @MainActor @Sendable () -> Void) {
+        let finished = state.withLock { state in
+            if state.finishedEvents { state.finishedEvents = false; return true }
+            state.completion = completion; return false
+        }
+        if finished { Task { @MainActor in completion() } }
+    }
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         state.withLock { state in
             var buffer = state.buffers[dataTask.taskIdentifier] ?? Data()
@@ -74,7 +85,7 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
         }
     }
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
-        guard let identity = task.taskDescription else { return }
+        guard let identity = task.taskDescription, sessionID == nil || identity.hasPrefix(sessionID! + ":") else { return }
         state.withLock { state in
             let http = task.response as? HTTPURLResponse
             let result = Result(body: state.buffers.removeValue(forKey: task.taskIdentifier) ?? Data(), status: http?.statusCode ?? 0,
@@ -89,7 +100,11 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
         }
     }
     func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
-        let completion = state.withLock { let completion = $0.completion; $0.completion = nil; return completion }
+        let completion = state.withLock { state in
+            let completion = state.completion; state.completion = nil
+            if completion == nil { state.finishedEvents = true }
+            return completion
+        }
         if let completion { Task { @MainActor in completion() } }
         // The completion is safe now: responses are on disk. On foreground or
         // relaunch, the pipeline validates them and commits delivered state.

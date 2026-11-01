@@ -41,12 +41,16 @@ func Recompute(ctx context.Context, s *postgres.Store, r RecomputeRequest) (Reco
 	}
 	defer tx.Rollback(ctx)
 	var tz string
-	datasetSQL := `SELECT timezone FROM datasets WHERE id=$1`
+	var retired bool
+	datasetSQL := `SELECT timezone,retired_at IS NOT NULL FROM datasets WHERE id=$1`
 	if !r.DryRun {
 		datasetSQL += ` FOR UPDATE`
 	}
-	if err = tx.QueryRow(ctx, datasetSQL, r.Dataset).Scan(&tz); err != nil {
+	if err = tx.QueryRow(ctx, datasetSQL, r.Dataset).Scan(&tz, &retired); err != nil {
 		return out, err
+	}
+	if retired && !r.DryRun {
+		return out, syncing.Fail(409, "dataset_retired")
 	}
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
@@ -156,7 +160,7 @@ func SetAnalysisParameters(ctx context.Context, s *postgres.Store, dataset strin
 		return err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SELECT id FROM datasets WHERE id=$1 FOR UPDATE`, dataset); err != nil {
+	if err = lockAdministrativeDataset(ctx, tx, dataset); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO analysis_parameter_sets(dataset_id,version,resting_hr,max_hr,coefficient_a,coefficient_b,provenance) SELECT $1,COALESCE(max(version),0)+1,$2,$3,$4,$5,$6 FROM analysis_parameter_sets WHERE dataset_id=$1`, dataset, p.RestHR, p.MaxHR, p.A, p.B, p.Provenance); err != nil {
@@ -240,4 +244,15 @@ func AnalysisCommand(ctx context.Context, url string, args []string, out io.Writ
 		return json.NewEncoder(out).Encode(map[string]string{"status": "parameters_recorded"})
 	}
 	return errors.New("unknown analysis command")
+}
+
+func lockAdministrativeDataset(ctx context.Context, tx pgx.Tx, dataset string) error {
+	var retired bool
+	if e := tx.QueryRow(ctx, `SELECT retired_at IS NOT NULL FROM datasets WHERE id=$1 FOR UPDATE`, dataset).Scan(&retired); e != nil {
+		return e
+	}
+	if retired {
+		return syncing.Fail(409, "dataset_retired")
+	}
+	return nil
 }

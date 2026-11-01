@@ -1,0 +1,4 @@
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+	 Executed 4 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.004 (0.005) seconds
+	 Executed 4 tests, with 2 tests skipped and 0 failures (0 unexpected) in 0.004 (0.006) seconds
+✔ Test run with 98 tests in 11 suites passed after 0.546 seconds.

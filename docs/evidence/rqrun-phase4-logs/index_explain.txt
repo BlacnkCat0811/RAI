@@ -1,0 +1,8 @@
+=== RUN   TestPhase4PerformanceMatrix
+=== RUN   TestPhase4PerformanceMatrix/240
+--- PASS: TestPhase4PerformanceMatrix (12.98s)
+    --- PASS: TestPhase4PerformanceMatrix/240 (12.98s)
+PASS
+ok  	rai/server/integration	13.004s
+RAI_TEST_LEFTOVER_DATABASES=0
+RAI_TEST_CLUSTER_REMOVED=1

@@ -1,0 +1,425 @@
+{
+  "phase": "5A",
+  "result": "PASS WITH RISKS",
+  "created_at": "2026-11-01T21:15:59.989696+08:00",
+  "git": {
+    "head": "816e26d1a2eb2e09021eed56594f77d57d5e2a5d",
+    "branch": "main",
+    "feature_baseline": "dfbc2774986bb2c404f8d442e53dff2725507ced",
+    "documentation_baseline": "816e26d1a2eb2e09021eed56594f77d57d5e2a5d",
+    "initial_status": "main...origin/main [ahead 2]; no tracked diff; three pre-existing untracked paths",
+    "preexisting_untracked_preserved": [
+      "docs/audits/RQ010_HISTORICAL_DATA_RESET_AUDIT.md",
+      "docs/evidence/rq010-historical-data-audit-2026-11-01.json",
+      "docs/evidence/rqrun-phase4-logs/"
+    ],
+    "staged_files": [],
+    "commit": "NO",
+    "push": "NO"
+  },
+  "schema": 18,
+  "protocol": 3,
+  "openapi": "1.5.0",
+  "go": "go1.27.3",
+  "migrations": {
+    "count": 18,
+    "matched": 18,
+    "consecutive": true,
+    "frozen_00001_00017_unchanged": true,
+    "sha256": {
+      "00001_core.sql": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+      "00002_dirty_generations.sql": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+      "00003_workouts.sql": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+      "00004_page_receipts.sql": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+      "00005_request_budgets.sql": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+      "00006_upload_slots.sql": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+      "00007_workout_activities.sql": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+      "00008_quantity_series.sql": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+      "00009_workout_packages.sql": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+      "00010_route_foundation.sql": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
+      "00011_p3_sync_v2.sql": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
+      "00012_analysis.sql": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+      "00013_training.sql": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b",
+      "00014_workout_imports.sql": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8",
+      "00015_workout_import_history.sql": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6",
+      "00016_route_timestamp_envelope.sql": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8",
+      "00017_analysis_sample_lookup.sql": "73bc3b4a1281597e777727c96521bf16a692f8f8968ce09d4d175d1470cbb968",
+      "00018_dataset_sessions.sql": "3023d596248cefd1a568fa0929c71af727ab500e87ea03525c19f8df65bf94e6"
+    },
+    "fresh_rebuild": "PASS: TestFreshDatabaseSchemaRebuild",
+    "schema17_to_18": "PASS: TestDatasetMigration17To18AndRepeatedMigrate",
+    "repeated_migrate": "PASS"
+  },
+  "postgres": {
+    "version": "18.6 (Postgres.app)",
+    "synthetic_only": true,
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "data_checksums": "on",
+    "listen_addresses": "",
+    "leftover_databases": 0,
+    "temporary_clusters_removed": true
+  },
+  "test_commands": [
+    {
+      "command": "go test ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "3240fc01d4abdcafe3f128d1713e0e66fc52076f9ac62497ae1220823a4185ff",
+      "summary": [
+        "?   \trai/server/cmd/rai\t[no test files]",
+        "ok  \trai/server/internal/admin\t(cached)",
+        "ok  \trai/server/internal/analysis\t(cached)",
+        "ok  \trai/server/internal/config\t(cached)",
+        "ok  \trai/server/internal/httpapi\t(cached)",
+        "ok  \trai/server/internal/jobs\t(cached)",
+        "?   \trai/server/internal/product\t[no test files]",
+        "ok  \trai/server/internal/storage/postgres\t(cached)",
+        "?   \trai/server/internal/storage/postgres/dbgen\t[no test files]",
+        "ok  \trai/server/internal/syncing\t(cached)",
+        "ok  \trai/server/internal/training\t(cached)",
+        "ok  \trai/server/internal/workoutdetail\t(cached)",
+        "?   \trai/server/migrations\t[no test files]"
+      ]
+    },
+    {
+      "command": "go test -race ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "3240fc01d4abdcafe3f128d1713e0e66fc52076f9ac62497ae1220823a4185ff",
+      "summary": [
+        "?   \trai/server/cmd/rai\t[no test files]",
+        "ok  \trai/server/internal/admin\t(cached)",
+        "ok  \trai/server/internal/analysis\t(cached)",
+        "ok  \trai/server/internal/config\t(cached)",
+        "ok  \trai/server/internal/httpapi\t(cached)",
+        "ok  \trai/server/internal/jobs\t(cached)",
+        "?   \trai/server/internal/product\t[no test files]",
+        "ok  \trai/server/internal/storage/postgres\t(cached)",
+        "?   \trai/server/internal/storage/postgres/dbgen\t[no test files]",
+        "ok  \trai/server/internal/syncing\t(cached)",
+        "ok  \trai/server/internal/training\t(cached)",
+        "ok  \trai/server/internal/workoutdetail\t(cached)",
+        "?   \trai/server/migrations\t[no test files]"
+      ]
+    },
+    {
+      "command": "go vet ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "No diagnostics"
+      ]
+    },
+    {
+      "command": "go build ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "summary": [
+        "Build succeeded"
+      ]
+    },
+    {
+      "command": "python3 scripts/check-boundaries.py",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "4b1d722d2981eb06ed7b4cb06fcebf79765cc778769a99dacf9475986c5d1c4d",
+      "summary": [
+        "PASS: online import graph excludes admin, migration and goose (249 packages)",
+        "PASS: pure analysis domain excludes database, network and filesystem",
+        "PASS: pure training domain excludes database, network and filesystem"
+      ]
+    },
+    {
+      "command": "PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration,swiftclient -p 1 -timeout=30m ./...",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "6b2a6ddc6ac459fef94b2dda97176971464788a3fd8eaad1d60b30089a3a0524",
+      "summary": [
+        "?   \trai/server/cmd/rai\t[no test files]",
+        "ok  \trai/server/integration\t295.045s",
+        "ok  \trai/server/internal/admin\t1.816s",
+        "ok  \trai/server/internal/analysis\t1.374s",
+        "ok  \trai/server/internal/config\t1.050s",
+        "ok  \trai/server/internal/httpapi\t10.719s",
+        "ok  \trai/server/internal/jobs\t1.027s",
+        "?   \trai/server/internal/product\t[no test files]",
+        "ok  \trai/server/internal/storage/postgres\t1.032s",
+        "?   \trai/server/internal/storage/postgres/dbgen\t[no test files]",
+        "ok  \trai/server/internal/syncing\t3.326s",
+        "ok  \trai/server/internal/training\t1.055s",
+        "ok  \trai/server/internal/workoutdetail\t1.015s",
+        "?   \trai/server/migrations\t[no test files]"
+      ],
+      "integration_seconds": 295.045,
+      "cluster_removed": true,
+      "leftover_databases": 0
+    },
+    {
+      "command": "PGBIN=\"$rai_pgbin\" scripts/test-postgres.sh go test -race -count=1 -tags=integration -v -run 'TestNewDataset|TestConcurrent.*NewDataset|TestDatasetMigration' ./integration ./internal/admin",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "94bcf6fb7c4713428fd7f51eed0d1c40df346849bfc2fbcb1c0ede32b400cf06",
+      "summary": [
+        "--- PASS: TestNewDatasetIndependentIdentityPreservesHistoryAndFreshImport (0.57s)",
+        "--- PASS: TestNewDatasetFailureBeforeCommitRollsBackAndPreparedResume (0.34s)",
+        "--- PASS: TestNewDatasetCLIReadOnlyDryRunAndLostResponseRecovery (0.37s)",
+        "--- PASS: TestConcurrentNewDatasetOperationsSerializeWithOldPostDeleteWorker (0.39s)",
+        "--- PASS: TestConcurrentDifferentNewDatasetOperationsCannotCreateThirdDataset (0.33s)",
+        "ok  \trai/server/integration\t3.037s",
+        "--- PASS: TestDatasetMigration17To18AndRepeatedMigrate (0.49s)",
+        "ok  \trai/server/internal/admin\t1.517s"
+      ],
+      "cluster_removed": true,
+      "leftover_databases": 0,
+      "includes_final_private_file_fsync_resume": true
+    },
+    {
+      "command": "swift test --package-path ios/RAI",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "e55ca972efe75b3399ff78da5a6b3d61a056a870fe4a9d248591c38fd453c5ce",
+      "summary": [
+        "106 tests / 12 suites passed"
+      ]
+    },
+    {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-phase5a-xcode CODE_SIGNING_ALLOWED=NO build",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "e05d4bf898588c9fcdb5ebc1ec2a0c13d79f838100e1f9de44cb492fa1da5b9b",
+      "summary": [
+        "BUILD SUCCEEDED; unsigned generic device; no installation"
+      ]
+    },
+    {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Release -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-phase5a-xcode CODE_SIGNING_ALLOWED=NO build",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "6ca0807a2e20db7abdbf0ff4fcd3d1b3442d8cad92d9679620bc3d339817e94d",
+      "summary": [
+        "BUILD SUCCEEDED; unsigned generic device; no installation"
+      ]
+    },
+    {
+      "command": "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Debug -destination \"platform=iOS Simulator,id=$rai_phase5a_sim\" -derivedDataPath /tmp/rai-phase5a-sim-build CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -only-testing:RAITests test",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "4100925dfc25b4e75aaaeaff770186aba01e3fae3c211f4ce993843560619465",
+      "summary": [
+        "26 tests passed; fresh disposable simulator; ad hoc signing; Security Keychain and synthetic HK objects"
+      ]
+    },
+    {
+      "command": "npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml",
+      "result": "PASS",
+      "exit_code": 0,
+      "log_sha256": "d74853928792fd15a899fce9361af83ee387529586a8a774f5ef3d5802e65b02",
+      "summary": [
+        "Valid; 31 existing warnings"
+      ],
+      "existing_warnings": 31
+    },
+    {
+      "command": "git diff --check",
+      "result": "PASS",
+      "exit_code": 0
+    }
+  ],
+  "dataset_validation": {
+    "new_identity_independent": true,
+    "old_dataset_preserved": true,
+    "old_scoped_business_snapshot_unchanged": true,
+    "old_dataset_commit_revision_unchanged": true,
+    "new_dataset_initial_commit_revision": 0,
+    "new_scoped_business_tables_empty_before_import": true,
+    "new_dataset_does_not_copy_training_or_tombstones_or_receipts": true,
+    "old_token_bundle_epoch_collector_fenced": true,
+    "new_token_cannot_write_old_dataset": true,
+    "new_receipt_job_publication_scoped_to_new_dataset": true,
+    "synthetic_counts_after_fresh_import_and_publication": {
+      "new": {
+        "analysis_publications": 1,
+        "entity_tombstones": 0,
+        "health_samples": 1,
+        "training_plans": 0,
+        "workout_imports": 1,
+        "workout_routes": 1,
+        "workouts": 1
+      },
+      "old": {
+        "analysis_publications": 1,
+        "entity_tombstones": 2,
+        "health_samples": 4,
+        "training_plans": 1,
+        "workout_imports": 1,
+        "workout_routes": 1,
+        "workouts": 1
+      }
+    },
+    "initial_new_counts": {
+      "analysis_publications": 0,
+      "entity_tombstones": 0,
+      "health_samples": 0,
+      "training_plans": 0,
+      "workout_imports": 0,
+      "workout_routes": 0,
+      "workouts": 0
+    },
+    "snapshot_exclusions": [
+      "admission budgets",
+      "upload lease slots"
+    ],
+    "expected_source_metadata_change": "retired_at only; retire does not delete"
+  },
+  "sessions": {
+    "state_transitions": [
+      "new: prepared -> active after complete identity handshake",
+      "old: active -> retired in same atomic manifest replacement",
+      "prepared restart -> same descriptor and credential -> active",
+      "manifest write failure -> old active unchanged"
+    ],
+    "independent_outbox": true,
+    "independent_keychain_accounts": true,
+    "legacy_outbox_and_keychain_preserved": true,
+    "new_anchor": null,
+    "new_discovery": "fresh visible HealthKit history; no server migration",
+    "old_deleted_but_visible_workout_reimport": "PASS",
+    "late_callback_isolation": "PASS: identifier, taskDescription and fixed directory; actual iOS background lifecycle deferred",
+    "ack_identity": "original JSON SHA256 includes datasetID/datasetEpoch/collectorEpoch; existing ACK wire unchanged",
+    "disposable_simulator_removed": true
+  },
+  "failure_injection": {
+    "audit_trigger_before_commit": "PASS: source active, no target/audit, prepared file retained",
+    "prepared_file_resume": "PASS: identical file bytes and enrollment",
+    "committed_stdout_lost": "PASS: same target; no third dataset; no repeated token output",
+    "operation_or_prepared_credential_conflict": "PASS: rejected",
+    "prepared_app_restart": "PASS: same identity",
+    "outbox_initialization_failure": "PASS: prepared retained then resumed",
+    "manifest_replace_failure": "PASS: previous pointer retained",
+    "concurrent_same_and_distinct_operations_with_old_post_delete_worker": "PASS",
+    "old_callback_misrouted_to_new_delegate": "PASS: rejected",
+    "old_bundle_in_new_directory": "PASS: rejected before transport"
+  },
+  "initial_run_issues_corrected": [
+    "Old-schema fixture authentication referenced a not-yet-added column; nullable lifecycle projection now permits historical setup while runtime Ready still requires schema 18.",
+    "Historical migration snapshots normalize only NULL retirement metadata; non-NULL retirement and all existing fact/receipt assertions remain.",
+    "Dataset-lock waiter observation updated for the SELECT projection while preserving actual blocker/count assertions.",
+    "Existing minimal App recovery fixture now includes scope identity; all retry/file/ACK/no-health-read assertions retained.",
+    "Unsigned simulator Keychain test lacked access; ad hoc signed simulator suite passed."
+  ],
+  "modified_files": [
+    "README.md",
+    "apps/server/cmd/rai/main.go",
+    "apps/server/integration/p7_security_test.go",
+    "apps/server/integration/upload_test.go",
+    "apps/server/integration/workout_safety_test.go",
+    "apps/server/internal/admin/analysis.go",
+    "apps/server/internal/admin/operations.go",
+    "apps/server/internal/httpapi/server.go",
+    "apps/server/internal/storage/postgres/analysis_publish.go",
+    "apps/server/internal/storage/postgres/dbgen/core.sql.go",
+    "apps/server/internal/storage/postgres/dbgen/models.go",
+    "apps/server/internal/storage/postgres/jobs.go",
+    "apps/server/internal/storage/postgres/store.go",
+    "apps/server/internal/storage/postgres/training_publish.go",
+    "apps/server/internal/storage/postgres/training_store.go",
+    "apps/server/internal/syncing/protocol.go",
+    "apps/server/internal/syncing/store.go",
+    "apps/server/migrations/checksums.json",
+    "apps/server/queries/core.sql",
+    "contracts/CHANGELOG.md",
+    "contracts/openapi-v2.yaml",
+    "contracts/sync-v3.md",
+    "docs/ARCHITECTURE.md",
+    "docs/IMPLEMENTATION.md",
+    "docs/P7_BACKUP_RESTORE.md",
+    "ios/RAI/App/BackgroundTransfers.swift",
+    "ios/RAI/App/ClientConfiguration.swift",
+    "ios/RAI/App/ProductModel.swift",
+    "ios/RAI/App/ProductViews.swift",
+    "ios/RAI/App/RAIApp.swift",
+    "ios/RAI/App/SyncCoordinator.swift",
+    "ios/RAI/AppTests/NormalizerTests.swift",
+    "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift",
+    "scripts/rai-reset-v2-data.sh"
+  ],
+  "new_files": [
+    "apps/server/integration/new_dataset_session_test.go",
+    "apps/server/internal/admin/dataset_migration_integration_test.go",
+    "apps/server/internal/admin/new_dataset.go",
+    "apps/server/migrations/00018_dataset_sessions.sql",
+    "docs/PHASE5A_NEW_SESSION.md",
+    "docs/audits/PHASE5A_NEW_DATASET_SESSION_REVIEW.md",
+    "docs/evidence/phase5a-new-dataset-session-2026-11-01.json",
+    "ios/RAI/Sources/SyncCore/SyncSession.swift",
+    "ios/RAI/Tests/SyncCoreTests/SyncSessionTests.swift"
+  ],
+  "artifact_sha256_excluding_this_file": {
+    "README.md": "59cd9099213c6ba9e16bd2562ae5fdf469365dc26825d0c475affdaf4a489cc0",
+    "apps/server/cmd/rai/main.go": "dcb934d5fb4dd843f08d837f65129b74962dc86f4a9639bc0f365235c41b6926",
+    "apps/server/integration/new_dataset_session_test.go": "6027fa3353b70dcf33c1098b14c224af439b7e70745fc1023725fdce66a194f8",
+    "apps/server/integration/p7_security_test.go": "04334296b8a8e98e4faaecb2939420e8659414f8d5bddd964a28124bd944a088",
+    "apps/server/integration/upload_test.go": "3e19ee670087a6f3c2bd2c8b30d294f905e6f6fded6ab76428f280cb27dff603",
+    "apps/server/integration/workout_safety_test.go": "0d7bd0b19554fcbdeb03432bab59ac19ed65f83a696d2f50629450eb37a0184a",
+    "apps/server/internal/admin/analysis.go": "479f569908ca0d0f50c43c1ec19d9ae2626aac0317ea31c4310bc683c1297d69",
+    "apps/server/internal/admin/dataset_migration_integration_test.go": "3bcabb94b3c03cf9a623b77dced1e8a6c5f7fef1e0b9004aa6ff0f034ce4cdb7",
+    "apps/server/internal/admin/new_dataset.go": "723332194d9e516641ff33b4c2ee6c201bea82d80be2f506bbb468989edca353",
+    "apps/server/internal/admin/operations.go": "8ac2bbe8e70c7ef32b8384c09c191eb18c699ceb86ab92a392df607a808d26d8",
+    "apps/server/internal/httpapi/server.go": "2e576d9f8e88a1395a7c821c0be2191704076ad6640c7b9760b4f2178d23a7c3",
+    "apps/server/internal/storage/postgres/analysis_publish.go": "381815658212be8a696706615023de31dd78ca98dd6b8ecd1629bcb37b1dfa3d",
+    "apps/server/internal/storage/postgres/dbgen/core.sql.go": "8b4d3e0b80fb17583556c95deda6a623a3064d81cd27670013b47badb18590dd",
+    "apps/server/internal/storage/postgres/dbgen/models.go": "35b6a4cdaf354938fa95e1a260078c29044a3bbcf42226b9bdf5ebec8bc5f017",
+    "apps/server/internal/storage/postgres/jobs.go": "75f88d675c272ff06572665101f724c2d0e63c1180dfc0d091661371f50180d2",
+    "apps/server/internal/storage/postgres/store.go": "2262906fef94f53de7fb307f39a94de99ffb550f3533d458db1c54e2dde1828f",
+    "apps/server/internal/storage/postgres/training_publish.go": "1940c162c1d5016d390f09a379facb9d9fd007fdd185af7a002a692f42ce0ce5",
+    "apps/server/internal/storage/postgres/training_store.go": "424d5a512c44f027a1398f1698de63c87ae809da2ecd8bcef21eee3d92c7d28f",
+    "apps/server/internal/syncing/protocol.go": "f419641d4c4cdae76ff0202239f5b4b3e6a8c4079e927f5ea235223121084519",
+    "apps/server/internal/syncing/store.go": "3fb4e7c42809554b6315ce2196cf5092fd40c235dfdee9c17542d8d6ed7886be",
+    "apps/server/migrations/00018_dataset_sessions.sql": "3023d596248cefd1a568fa0929c71af727ab500e87ea03525c19f8df65bf94e6",
+    "apps/server/migrations/checksums.json": "5114e0a6660a344db4f037b06f939a58284a29bd4ca7e1641f7b03032b86409c",
+    "apps/server/queries/core.sql": "3bc9b3bcd0b1c968c55b99f9dc52a670a20505f67d5d092b9023b8e3d4f651f1",
+    "contracts/CHANGELOG.md": "ebbe5c111ec67c0ae490f819124952a0b1d1ab9e83e9ed63a8f0f7064a4d21f6",
+    "contracts/openapi-v2.yaml": "971b7e810bd5407e9df6650a5f0009f2f2bddd437cf1945237cddaa5e873c2bb",
+    "contracts/sync-v3.md": "a82734eb1c324d7e25f1331d16212afd7af101a02c1d2eb46db570044f785dfe",
+    "docs/ARCHITECTURE.md": "eeb204a0a99cd14d10b3c37cf8296d46924386eb6fd2fb8324bc1eca40d5670f",
+    "docs/IMPLEMENTATION.md": "54b0957bf17df8aad7883cb7f01727c4f0cc138246aabd3f6d970c8ea6d72a4d",
+    "docs/P7_BACKUP_RESTORE.md": "534bcb5493962fb8ed3f50a321c439befd0b501c043f2b15fb58ddc47d0618bf",
+    "docs/PHASE5A_NEW_SESSION.md": "ce6ce30f9a714c578efb383e2995537ddc724213f659acbd29f141de75259a86",
+    "docs/audits/PHASE5A_NEW_DATASET_SESSION_REVIEW.md": "519c9407f9ab93ab69c8f60d1ab72f2b38c73796a6832000461bf6524f12d544",
+    "ios/RAI/App/BackgroundTransfers.swift": "18596d3be9523e1ae2530a1201681c313f2ed1751c8322cd89d1b483e6c0264e",
+    "ios/RAI/App/ClientConfiguration.swift": "82592243590ced348a7f899ddfd658dda6ec9c6d22d2cc2c2dcfd9613f50631d",
+    "ios/RAI/App/ProductModel.swift": "78cbb91e124c4e045cf1ab77e3cc4134a2f0ce8f6e30247e21d65674c1cd0fd8",
+    "ios/RAI/App/ProductViews.swift": "e411f09d697d83b5a513fbc1c0c2716095f887a4545f4b155082d60e2bde7c4a",
+    "ios/RAI/App/RAIApp.swift": "249f079cb8c0d7ac6b3020129581123fcd7374a5efe1edda444715c8cd03407e",
+    "ios/RAI/App/SyncCoordinator.swift": "8bd1a3c3c03e4c031c078bb66281adb1e7a3f00b47c1a98b8a377962be8c284e",
+    "ios/RAI/AppTests/NormalizerTests.swift": "e03bff9210ad28528cb5945f5e4ad42a4b910dfc94b5465d8e57be3b2e6cecdd",
+    "ios/RAI/Sources/SyncCore/SyncSession.swift": "ce13cad7ecdc419dfc2812f25aa1ab8c938fdcb8c91474040b7692997014d0fd",
+    "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift": "383a2c3c75a8a3cb8af5b7cc00bc642f3d9f05c2eba2957050d32b5667fc3957",
+    "ios/RAI/Tests/SyncCoreTests/SyncSessionTests.swift": "efb24d0b41c46663450739d67f07fe7791c110e93f72a661e2e7f1353b128ec3",
+    "scripts/rai-reset-v2-data.sh": "129573cfe510f4ed55d80db5e7bbbbe042020e4a322162b12f3113430e793c6c"
+  },
+  "remaining_unverified": [
+    "Real iPhone Session switch",
+    "Real HealthKit full visible-history import",
+    "OS-managed background completion across real App kill/relaunch",
+    "fnOS and public production deployment/migration",
+    "Actual server loss/corruption disaster recovery",
+    "Production RTO/RPO and new-session capacity",
+    "Credential reissue if both private enrollment and Keychain are lost"
+  ],
+  "privacy": {
+    "token_recorded": false,
+    "credential_recorded": false,
+    "healthkit_values_recorded": false,
+    "gps_recorded": false,
+    "real_dataset_ids_recorded": false
+  },
+  "production_database": "NOT TOUCHED",
+  "reset_script": "NOT EXECUTED; comments mark LEGACY_UNSAFE_UPGRADE_PATH / DO NOT USE FOR PRODUCTION UPGRADE",
+  "deploy": "NO",
+  "ready_for_phase5b": true
+}

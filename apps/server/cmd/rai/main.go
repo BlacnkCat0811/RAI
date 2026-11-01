@@ -41,7 +41,7 @@ func run(log *slog.Logger) error {
 		return config.ContainerResources(os.Stdout)
 	}
 	if mode == "version" {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": 17, "sync_protocol": 3, "openapi": "1.4.0", "analysis": []string{"workout.bundle/v2", "training_state.bundle/v2", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": 19, "sync_protocol": 3, "openapi": "1.5.0", "analysis": []string{"workout.bundle/v2", "training_state.bundle/v2", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
 	}
 	if mode == "probe" {
 		if len(os.Args) == 2 {
@@ -52,7 +52,7 @@ func run(log *slog.Logger) error {
 		}
 		return errors.New("usage: rai probe [--ready]")
 	}
-	if mode != "ops" && mode != "worker-ready" && mode != "analysis" && mode != "api" && mode != "worker" && mode != "migrate" && mode != "migrate-down" && mode != "migrate-status" && mode != "init" {
+	if mode != "admin" && mode != "ops" && mode != "worker-ready" && mode != "analysis" && mode != "api" && mode != "worker" && mode != "migrate" && mode != "migrate-down" && mode != "migrate-status" && mode != "init" {
 		return errors.New("unknown command")
 	}
 	url, err := config.DatabaseURL()
@@ -66,11 +66,17 @@ func run(log *slog.Logger) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if mode == "admin" {
+		return admin.AdminCommand(ctx, url, os.Args[2:], os.Stdout)
+	}
 	if mode == "ops" {
 		return admin.Operations(ctx, url, os.Args[2:], os.Stdout)
 	}
 	if mode == "analysis" {
 		return admin.AnalysisCommand(ctx, url, os.Args[2:], os.Stdout)
+	}
+	if mode == "init" {
+		return admin.InitCommand(ctx, url, os.Args[2:], os.Stdout)
 	}
 	if len(os.Args) != 2 {
 		return errors.New("unexpected command arguments")
@@ -124,13 +130,6 @@ func run(log *slog.Logger) error {
 		if err != nil {
 			return errors.New("database connection failed")
 		}
-	}
-	if mode == "init" {
-		result, err := admin.Init(ctx, store.Pool)
-		if err != nil {
-			return errors.New("dataset initialization failed")
-		}
-		return json.NewEncoder(os.Stdout).Encode(result)
 	}
 	if mode == "worker" {
 		if err = store.Ready(ctx); err != nil {

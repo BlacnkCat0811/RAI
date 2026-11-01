@@ -32,15 +32,22 @@ func (s *Store) Claim(ctx context.Context, kinds []string) (Lease, error) {
 	return Lease{ID: r.ID, DatasetID: r.DatasetID, Kind: r.Kind, ScopeKey: r.ScopeKey, TargetGeneration: r.TargetGeneration, FencingToken: r.FencingToken, Payload: r.Payload}, nil
 }
 func (s *Store) Renew(ctx context.Context, l Lease) error {
-	r, err := s.Pool.Exec(ctx, `UPDATE jobs SET lease_until=now()+interval '60 seconds'
-		WHERE id=$1 AND dataset_id=$2 AND state='running' AND fencing_token=$3 AND lease_until>clock_timestamp()`, l.ID, l.DatasetID, l.FencingToken)
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = lockActiveDataset(ctx, tx, l.DatasetID); err != nil {
+		return err
+	}
+	r, err := tx.Exec(ctx, `UPDATE jobs SET lease_until=now()+interval '60 seconds' WHERE id=$1 AND dataset_id=$2 AND state='running' AND fencing_token=$3 AND lease_until>clock_timestamp()`, l.ID, l.DatasetID, l.FencingToken)
 	if err != nil {
 		return err
 	}
 	if r.RowsAffected() != 1 {
 		return syncing.Fail(409, "lease_lost")
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 // Fail records a bounded retry without accepting arbitrary error text, which
@@ -52,6 +59,9 @@ func (s *Store) Fail(ctx context.Context, l Lease, retryable bool) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if _, err = lockActiveDataset(ctx, tx, l.DatasetID); err != nil {
+		return err
+	}
 	var code string
 	err = tx.QueryRow(ctx, `UPDATE jobs SET
 		state=CASE WHEN $4 AND attempts < 8 THEN 'queued' ELSE 'failed' END,
@@ -84,8 +94,7 @@ func (s *Store) Complete(ctx context.Context, l Lease) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	var rev int64
-	if err = tx.QueryRow(ctx, `SELECT commit_rev FROM datasets WHERE id=$1 FOR UPDATE`, l.DatasetID).Scan(&rev); err != nil {
+	if _, err = lockActiveDataset(ctx, tx, l.DatasetID); err != nil {
 		return err
 	}
 	var scope string

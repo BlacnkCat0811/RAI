@@ -38,7 +38,24 @@ struct ClientConfiguration: Codable, Sendable {
             guard status == errSecSuccess else { throw SyncFailure.localState("keychain_save_failed_\(status)") }
         } else if update != errSecSuccess { throw SyncFailure.localState("keychain_save_failed_\(update)") }
     }
+
+    static func sessionRoot() throws -> URL {
+        try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("RAIV2Sync", isDirectory: true)
+    }
+    static func activeDescriptor() throws -> SyncSessionDescriptor? {
+        let m = try SyncSessionStore.read(root: sessionRoot())
+        return m.activeSessionID.flatMap { m.sessions[$0] }
+    }
     static func load() throws -> Secret? {
+        guard let d = try activeDescriptor(), let token = try SessionKeychain().load(sessionID: d.sessionID) else { return nil }
+        return Secret(configuration: .init(baseURL: d.baseURL, collectorEpoch: d.collectorEpoch), token: token)
+    }
+    static func load(sessionID: String) throws -> Secret? {
+        let m = try SyncSessionStore.read(root: sessionRoot())
+        guard let d = m.sessions[sessionID], let token = try SessionKeychain().load(sessionID: sessionID) else { return nil }
+        return Secret(configuration: .init(baseURL: d.baseURL, collectorEpoch: d.collectorEpoch), token: token)
+    }
+    static func loadLegacy() throws -> Secret? {
         var value: CFTypeRef?
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: account,
                                    kSecAttrAccount as String: account, kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
@@ -46,5 +63,28 @@ struct ClientConfiguration: Codable, Sendable {
         if status == errSecItemNotFound { return nil }
         guard status == errSecSuccess, let data = value as? Data else { throw SyncFailure.localState("keychain_read_failed") }
         return try JSONDecoder().decode(Secret.self, from: data)
+    }
+}
+
+/// One immutable Keychain account per session. Existing legacy credentials stay untouched.
+struct SessionKeychain: SessionCredentialStore {
+    private let service = "RAI.V3.SyncSession"
+    func save(token: String, sessionID: String) throws {
+        if let existing = try load(sessionID: sessionID) {
+            guard existing == token else { throw SyncFailure.localState("session_credential_conflict") }; return
+        }
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+            kSecAttrAccount as String: sessionID, kSecValueData as String: Data(token.utf8),
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
+        guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else { throw SyncFailure.localState("session_keychain_save_failed") }
+    }
+    func load(sessionID: String) throws -> String? {
+        var value: CFTypeRef?
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+            kSecAttrAccount as String: sessionID, kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
+        let status = SecItemCopyMatching(query as CFDictionary, &value)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = value as? Data, let token = String(data: data, encoding: .utf8) else { throw SyncFailure.localState("session_keychain_read_failed_\(status)") }
+        return token
     }
 }

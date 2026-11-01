@@ -1,0 +1,1726 @@
+{
+  "schema": "rai.rq010.historical-data-reset-audit/v1",
+  "generated_at": "2026-11-01T19:48:08+08:00",
+  "status": "AUDIT_COMPLETE_IMPLEMENTATION_BLOCKED",
+  "report_path": "docs/audits/RQ010_HISTORICAL_DATA_RESET_AUDIT.md",
+  "task": {
+    "id": "RQ-010",
+    "name": "Historical Data Upgrade & Reset Safety Audit",
+    "phase": "Phase 5 / first work item",
+    "mode": "READ_ONLY_INVESTIGATION",
+    "status": "AUDIT_COMPLETE_IMPLEMENTATION_BLOCKED",
+    "executed_reset": false,
+    "executed_migration": false,
+    "connected_database": false,
+    "modified_code": false,
+    "modified_tests": false,
+    "modified_migrations": false,
+    "git_commit": false,
+    "git_push": false,
+    "deployed": false
+  },
+  "baseline": {
+    "branch": "main",
+    "head": "816e26d1a2eb2e09021eed56594f77d57d5e2a5d",
+    "feature_commit": "dfbc2774986bb2c404f8d442e53dff2725507ced",
+    "documentation_commit": "816e26d1a2eb2e09021eed56594f77d57d5e2a5d",
+    "upstream": "origin/main",
+    "ahead": 2,
+    "worktree": "clean except pre-existing untracked docs/evidence/rqrun-phase4-logs/",
+    "schema_version": 17,
+    "protocol_version": 3,
+    "openapi": "1.4.0",
+    "migration_range": "00001-00017",
+    "migration_count": 17,
+    "table_count": 45,
+    "checksums": {
+      "verified": 17,
+      "mismatched": 0,
+      "source": "apps/server/migrations/checksums.json"
+    },
+    "notes": [
+      "docs/IMPLEMENTATION.md:5 still says schema 16; actual CLI output and migrations are 17.",
+      "Production not deployed; fnOS is an isolated development environment.",
+      "The existing non-empty V2 dataset may still contain protocol-2 facts; whether the reset script ran is UNKNOWN."
+    ]
+  },
+  "rq010": {
+    "original_title": "RQ-010 · P1 · 必须清空旧事实的升级路径会移除屏障和用户训练事实，却保留 epoch",
+    "original_source": "docs/audits/RQrun_WORKOUT_SYNC_REVIEW.md:242",
+    "next_step_source": "docs/audits/RQrun_WORKOUT_SYNC_REVIEW.md:430",
+    "original_problem": "The only documented v2-to-v3 upgrade path is a destructive reset that removes delete barriers, delete receipts, import receipts and user training facts while preserving datasets/devices/collector leases and their epochs.",
+    "is_old_rai_migration": false,
+    "is_schema_migration": false,
+    "is_dataset_level_destructive_reset": true,
+    "scope_clear": true,
+    "scope_note": "The defect definition is complete. What is not decided is which existing V2 data must be retained. Interpreting the Phase 5 title as old-RAI SQLite migration would exceed ADR-002 and RQ-010; do not do that.",
+    "questions": [
+      {
+        "q": "RQ-010 原始问题是什么？",
+        "a": "不是旧数据迁移，而是 v2→v3 升级路径的破坏性 reset 会删除删除屏障、回执和训练事实却保留 epoch。"
+      },
+      {
+        "q": "为什么需要历史数据升级？",
+        "a": "Protocol 3 与 v2 逐 sample/page/batch/series/route 上传不兼容；现有非空 V2 数据集若要继续使用 v3，必须兼容叠加或新 dataset 重导。"
+      },
+      {
+        "q": "Reset 指的是客户端 Reset、Dataset Reset，还是数据库 Reset？",
+        "a": "RQ-010 指 Dataset 级破坏性 Reset；但文档/口语同时混用客户端 Anchor/Outbox Reset、单 Workout 重同步、分析重算、开发库 DROP/CREATE、备份恢复。"
+      },
+      {
+        "q": "是否要求迁移旧版 RAI 数据？",
+        "a": "不要求。ADR-002 明确不迁移旧数据、不实现旧 SQLite exporter/importer、不复用旧回执/anchor。"
+      },
+      {
+        "q": "是否要求清理现有 V2 历史数据？",
+        "a": "原始 RQ-010 没有把清理作为产品需求；它指出的是清理方式不安全。是否清理取决于用户是否保留现有 V2 数据集。"
+      },
+      {
+        "q": "是否要求从 HealthKit 重新发现和同步全部历史 Workout？",
+        "a": "不是 v3 协议普遍要求。只有选择新 dataset 或清空重导时才需要从 nil anchor 重扫；且只能覆盖当前可见、可读、受支持对象。"
+      },
+      {
+        "q": "是否存在多个不同 Reset 场景被混为一谈？",
+        "a": "是。至少六种：开发库 reset、客户端同步状态 reset、单 Workout 重同步、分析重算、Dataset reset、整库重建/备份恢复。"
+      }
+    ]
+  },
+  "scope_classification": [
+    {
+      "scope": "旧 RAI SQLite → RAI V2",
+      "required": false,
+      "decision": "NOT_REQUIRED",
+      "evidence": "docs/adr/002-fresh-healthkit-dataset.md:3/7/15"
+    },
+    {
+      "scope": "RAI V2 schema 17 → 18",
+      "required": false,
+      "decision": "NOT_REQUIRED_NOW",
+      "evidence": "No schema change is required by RQ-010 itself; 00017 is the current head."
+    },
+    {
+      "scope": "Existing non-empty V2 dataset → usable v3 state",
+      "required": true,
+      "decision": "REQUIRED_IF_RETAINED",
+      "evidence": "contracts/sync-v3.md:18; docs/IMPLEMENTATION.md:456; docs/IMPLEMENTATION.md:359"
+    },
+    {
+      "scope": "Destructive Dataset Reset",
+      "required": false,
+      "decision": "NEEDS_PRODUCT_DECISION",
+      "evidence": "scripts/rai-reset-v2-data.sh:1-63"
+    },
+    {
+      "scope": "HealthKit full-history resync",
+      "required": false,
+      "decision": "ONLY_IF_NEW_DATASET",
+      "evidence": "docs/adr/002-fresh-healthkit-dataset.md:15"
+    },
+    {
+      "scope": "Client local Reset",
+      "required": false,
+      "decision": "NO_PRODUCT_UI",
+      "evidence": "No reset UI in ios/RAI/App; only purgeLegacyPages/beginTask."
+    }
+  ],
+  "conclusions": {
+    "A_needs_historical_upgrade": {
+      "value": "REQUIRED",
+      "detail": "For the existing non-empty V2 dataset, a controlled upgrade path is required if it is retained and used with v3. Old RAI SQLite migration is NOT REQUIRED. Schema 17→18 is NOT REQUIRED now. The upgrade method (compatible overlay vs new dataset) is NEEDS_PRODUCT_DECISION.",
+      "old_rai": "NOT_REQUIRED",
+      "schema_18": "NOT_REQUIRED_NOW",
+      "method": "NEEDS_PRODUCT_DECISION"
+    },
+    "B_needs_reset": {
+      "value": "NEEDS_PRODUCT_DECISION",
+      "detail": "No generic user-facing Reset should be implemented. If a new dataset is chosen, a one-time operator-only new-dataset/new-epoch/new-device/new-client-session path is needed. If compatible overlay is chosen, no Reset is needed. RESET_SYNC_CURSOR and REBUILD_ANALYSIS have no clear business requirement.",
+      "recommended_operations": [
+        "REBUILD_SINGLE_WORKOUT (existing partial capability)",
+        "REBUILD_ANALYSIS (job-level, if needed)",
+        "NEW_DATASET + NEW_CLIENT_SESSION (only if overlay fails)"
+      ],
+      "not_recommended": [
+        "RESET_SYNC_CURSOR as a user button",
+        "RESET_DATASET in-place truncate",
+        "RESET_DATABASE in production",
+        "old RAI importer/exporter"
+      ]
+    },
+    "C_ready_for_implementation": {
+      "value": "BLOCKED",
+      "detail": "Data retention scope, data authority and recovery strategy are undecided; the current reset script destroys delete barriers and training facts while preserving epochs; no reset/upgrade/reinstall/restore test evidence.",
+      "unblock_conditions": [
+        "User answers Q1-Q8 in section 13.",
+        "Synthetic non-empty v2→v3 overlay test passes, or user chooses new dataset.",
+        "Epoch rotation + client session switch design approved.",
+        "Reset/upgrade/concurrency/restore tests added.",
+        "Backup/audit/two-person confirmation for any destructive path."
+      ]
+    }
+  },
+  "data_assets": [
+    {
+      "table": "datasets",
+      "migration": "00001_core.sql",
+      "nature": "Identity / Metadata",
+      "entity": "Dataset",
+      "identity": "PK id; epoch; commit_rev",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Identity and epoch cannot be recreated; commit_rev rollback reorders history",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "devices",
+      "migration": "00001_core.sql",
+      "nature": "Identity / Credential",
+      "entity": "Dataset / Device",
+      "identity": "PK (dataset_id,id); token_sha256 UNIQUE",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Token hash is one-way; re-enrollment requires new token",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "collector_leases",
+      "migration": "00001_core.sql",
+      "nature": "Identity / Fencing",
+      "entity": "Dataset / Device",
+      "identity": "PK dataset_id; collector_epoch UNIQUE",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Collector epoch is the fencing identity",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "sync_streams",
+      "migration": "00001_core.sql",
+      "nature": "Sync State",
+      "entity": "Dataset / Collector",
+      "identity": "PK (dataset_id,id); UNIQUE(dataset,epoch,type,fingerprint)",
+      "rebuildable": "no",
+      "reset_risk": "medium",
+      "note": "Legacy v2 stream state",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "sync_batches",
+      "migration": "00001_core.sql",
+      "nature": "Sync State + Receipt",
+      "entity": "Dataset / Stream",
+      "identity": "PK (dataset_id,batch_id); UNIQUE(dataset,stream,client_seq)",
+      "rebuildable": "no",
+      "reset_risk": "medium",
+      "note": "Legacy v2 batch/receipt",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "sync_pages",
+      "migration": "00004_page_receipts.sql",
+      "nature": "Sync State",
+      "entity": "Dataset / Stream",
+      "identity": "PK (dataset_id,page_id)",
+      "rebuildable": "no",
+      "reset_risk": "medium",
+      "note": "Legacy v2 page receipts",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "sync_request_budgets",
+      "migration": "00005_request_budgets.sql",
+      "nature": "Temporary / Rate State",
+      "entity": "Dataset / Device",
+      "identity": "composite PK",
+      "rebuildable": "yes",
+      "reset_risk": "low",
+      "note": "Runtime rate limiting",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "sync_upload_slots",
+      "migration": "00006_upload_slots.sql",
+      "nature": "Temporary / Lease",
+      "entity": "Dataset",
+      "identity": "PK (dataset_id,slot)",
+      "rebuildable": "yes",
+      "reset_risk": "low",
+      "note": "Runtime upload slot",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "health_samples",
+      "migration": "00001_core.sql",
+      "nature": "Raw Fact",
+      "entity": "Dataset / Sample",
+      "identity": "PK (dataset_id,sample_type,sample_uuid); content_sha256",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Only if HealthKit still exposes the object and exact content can be rebuilt",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "entity_tombstones",
+      "migration": "00001_core.sql",
+      "nature": "Delete Barrier",
+      "entity": "Dataset / Entity",
+      "identity": "PK (dataset_id,sample_type,sample_uuid); deleted_rev>0",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Permanent anti-resurrection barrier",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "entity_changes",
+      "migration": "00001_core.sql",
+      "nature": "Legacy Change Log",
+      "entity": "Dataset / Batch",
+      "identity": "PK (dataset_id,batch_id,ordinal)",
+      "rebuildable": "no",
+      "reset_risk": "medium",
+      "note": "v2 history",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "change_events",
+      "migration": "00001_core.sql",
+      "nature": "Commit Log + Delete Receipt",
+      "entity": "Dataset",
+      "identity": "PK (dataset_id,commit_rev,ordinal); event_id UNIQUE",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Delete receipts and ordering",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "dirty_scopes",
+      "migration": "00002_dirty_generations.sql",
+      "nature": "Derived Queue State",
+      "entity": "Dataset / Scope",
+      "identity": "PK (dataset_id,scope_key); generation/clean_generation",
+      "rebuildable": "yes",
+      "reset_risk": "medium",
+      "note": "Bump generation to rebuild",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "jobs",
+      "migration": "00001_core.sql",
+      "nature": "Derived Work State",
+      "entity": "Dataset / Scope",
+      "identity": "PK id; UNIQUE(dataset,kind,scope,target_generation)",
+      "rebuildable": "yes",
+      "reset_risk": "medium",
+      "note": "Rebuild from dirty state",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "job_attempts",
+      "migration": "00001_core.sql",
+      "nature": "Temporary / Audit",
+      "entity": "Job",
+      "identity": "PK (job_id,fencing_token)",
+      "rebuildable": "yes",
+      "reset_risk": "low",
+      "note": "Attempt history",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workouts",
+      "migration": "00003_workouts.sql",
+      "nature": "Raw Fact",
+      "entity": "Dataset / Workout",
+      "identity": "PK (dataset_id,workout_uuid); content_sha256",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Raw workout core",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_statistics",
+      "migration": "00003_workouts.sql",
+      "nature": "Raw Aggregate",
+      "entity": "Dataset / Workout",
+      "identity": "PK (dataset_id,workout_uuid,sample_type); FK CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Workout aggregate",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_events",
+      "migration": "00003_workouts.sql",
+      "nature": "Raw Fact",
+      "entity": "Dataset / Workout",
+      "identity": "PK (dataset_id,workout_uuid,ordinal); FK CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Workout events",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_activities",
+      "migration": "00007_workout_activities.sql",
+      "nature": "Raw Fact",
+      "entity": "Dataset / Workout",
+      "identity": "PK (dataset_id,workout_uuid,ordinal); FK CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Workout activities",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_samples",
+      "migration": "00010_route_foundation.sql",
+      "nature": "Raw Association",
+      "entity": "Dataset / Workout / Sample",
+      "identity": "PK (dataset_id,sample_type,sample_uuid); FK health_samples/workouts",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Association requires bundle relationship",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "series_uploads",
+      "migration": "00008_quantity_series.sql",
+      "nature": "Raw Fact (multi-value)",
+      "entity": "Dataset / Sample",
+      "identity": "PK (dataset_id,series_id); FK health_samples CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Series data",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "series_chunks",
+      "migration": "00008_quantity_series.sql",
+      "nature": "Raw Fact",
+      "entity": "Dataset / Series",
+      "identity": "PK (dataset_id,series_id,chunk_index); FK CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Series chunks",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_packages",
+      "migration": "00009_workout_packages.sql",
+      "nature": "v2 Raw/Staging",
+      "entity": "Dataset / Workout",
+      "identity": "PK (dataset_id,workout_uuid); FK CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "medium",
+      "note": "Legacy v2 package",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_package_chunks",
+      "migration": "00009_workout_packages.sql",
+      "nature": "v2 Raw/Staging",
+      "entity": "Dataset / Workout",
+      "identity": "PK (dataset_id,workout_uuid,chunk_index); FK CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "medium",
+      "note": "Legacy v2 package chunks",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_routes",
+      "migration": "00010_route_foundation.sql",
+      "nature": "Raw Fact",
+      "entity": "Dataset / Workout / Route",
+      "identity": "PK (dataset_id,route_uuid); FK workouts CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "GPS route",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "route_chunks",
+      "migration": "00010_route_foundation.sql",
+      "nature": "Raw Fact",
+      "entity": "Dataset / Route",
+      "identity": "PK (dataset_id,route_uuid,chunk_index); FK CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Route chunks",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "route_points",
+      "migration": "00010_route_foundation.sql",
+      "nature": "Raw Fact",
+      "entity": "Dataset / Route",
+      "identity": "PK (dataset_id,route_uuid,sequence); FK chunk CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "high",
+      "note": "Route points",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "route_deletions",
+      "migration": "00011_p3_sync_v2.sql",
+      "nature": "Durable Delete Receipt",
+      "entity": "Dataset / Route",
+      "identity": "PK (dataset_id,route_uuid); deleted_rev>=0",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Stable delete receipt",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_enrichments",
+      "migration": "00011_p3_sync_v2.sql",
+      "nature": "Raw/Metadata",
+      "entity": "Dataset / Workout",
+      "identity": "PK (dataset_id,enrichment_id); FK CASCADE",
+      "rebuildable": "conditional",
+      "reset_risk": "medium",
+      "note": "Enrichment metadata",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "workout_imports",
+      "migration": "00014_workout_imports.sql",
+      "nature": "Raw Source + Receipt",
+      "entity": "Dataset / Workout",
+      "identity": "PK (dataset_id,workout_uuid,bundle_sha256); FK workouts CASCADE",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Exact source bytes cannot be guaranteed from HealthKit; cascade on workout delete",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "analysis_parameter_sets",
+      "migration": "00012_analysis.sql",
+      "nature": "Config / Parameter",
+      "entity": "Dataset",
+      "identity": "PK (dataset_id,version)",
+      "rebuildable": "partial",
+      "reset_risk": "medium",
+      "note": "User/model parameters may not be reproducible",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "analysis_runs",
+      "migration": "00012_analysis.sql",
+      "nature": "Derived Lineage",
+      "entity": "Dataset / Scope",
+      "identity": "PK (dataset_id,id); FK job; unique identity",
+      "rebuildable": "yes",
+      "reset_risk": "medium",
+      "note": "New run",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "analysis_results",
+      "migration": "00012_analysis.sql",
+      "nature": "Derived Result",
+      "entity": "Dataset / Run",
+      "identity": "PK (dataset_id,run_id,day,metric)",
+      "rebuildable": "yes",
+      "reset_risk": "medium",
+      "note": "Recompute",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "analysis_publications",
+      "migration": "00012_analysis.sql",
+      "nature": "Derived Pointer",
+      "entity": "Dataset / Scope",
+      "identity": "PK (dataset_id,scope_key,metric_family,day); FK run",
+      "rebuildable": "yes",
+      "reset_risk": "medium",
+      "note": "CAS publication",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_parameter_sets",
+      "migration": "00013_training.sql",
+      "nature": "User/Service Config",
+      "entity": "Dataset",
+      "identity": "PK (dataset_id,version)",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "User training parameters",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_plans",
+      "migration": "00013_training.sql",
+      "nature": "User/Service State",
+      "entity": "Dataset",
+      "identity": "PK (dataset_id,id); multi-level FK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Training plans",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_configs",
+      "migration": "00013_training.sql",
+      "nature": "User/Service Config",
+      "entity": "Dataset / Plan",
+      "identity": "composite PK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Training config",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_sessions",
+      "migration": "00013_training.sql",
+      "nature": "User/Service State",
+      "entity": "Dataset / Plan",
+      "identity": "composite PK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Training sessions",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_generation_runs",
+      "migration": "00013_training.sql",
+      "nature": "User/Service State",
+      "entity": "Dataset",
+      "identity": "composite PK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Generation history",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_base_versions",
+      "migration": "00013_training.sql",
+      "nature": "User/Service State",
+      "entity": "Dataset",
+      "identity": "composite PK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Base versions",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_overrides",
+      "migration": "00013_training.sql",
+      "nature": "User Fact",
+      "entity": "Dataset / Plan / Session",
+      "identity": "composite PK; command_id FK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Manual overrides cannot be reconstructed",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_effective_versions",
+      "migration": "00013_training.sql",
+      "nature": "User/Service State",
+      "entity": "Dataset",
+      "identity": "composite PK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Effective versions",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_executions",
+      "migration": "00013_training.sql",
+      "nature": "User Fact",
+      "entity": "Dataset / Plan",
+      "identity": "composite PK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Execution history",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_feedback",
+      "migration": "00013_training.sql",
+      "nature": "User Fact",
+      "entity": "Dataset / Execution",
+      "identity": "composite PK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Feedback cannot be reconstructed",
+      "evidence_level": "VERIFIED"
+    },
+    {
+      "table": "training_commands",
+      "migration": "00013_training.sql",
+      "nature": "Command Journal",
+      "entity": "Dataset",
+      "identity": "composite PK",
+      "rebuildable": "no",
+      "reset_risk": "high",
+      "note": "Command journal",
+      "evidence_level": "VERIFIED"
+    }
+  ],
+  "data_authority_matrix": [
+    {
+      "category": "A. Raw facts",
+      "data": "Workouts, health samples, series, routes, workout statistics/events/activities, workout_imports.payload",
+      "authority": "HealthKit / phone bundle / server raw payload",
+      "rebuildable": "conditional",
+      "loss_impact": "Training history, detail views, analysis inputs and audit missing",
+      "recovery": "Re-read visible HealthKit objects and rebuild bundle; keep server raw payload; never substitute analysis results"
+    },
+    {
+      "category": "B. Sync state",
+      "data": "datasets.epoch, devices, collector_leases, sync_streams/batches/pages, workout_imports.receipt, iOS state.json/anchor/outbox/task receipts",
+      "authority": "Server identity + client journal",
+      "rebuildable": "no",
+      "loss_impact": "Device cannot authenticate; old requests cannot be fenced; ACK cannot be checked; duplicates or gaps",
+      "recovery": "Backup and retain; rotate and isolate on new session"
+    },
+    {
+      "category": "C. Delete/anti-resurrection",
+      "data": "entity_tombstones, route_deletions, change_events delete receipts, datasets.commit_rev, client deletedWorkouts/tombstones",
+      "authority": "Server delete transaction + client delete events",
+      "rebuildable": "no",
+      "loss_impact": "Deleted Workout/Route/Sample resurrect; old DELETE replay semantics lost",
+      "recovery": "Retain forever; backup; never delete in-place; if absolutely required, use a new dataset without inheriting"
+    },
+    {
+      "category": "D. Derived",
+      "data": "dirty_scopes, jobs, analysis_parameter_sets, analysis_runs/results/publications, snapshots",
+      "authority": "Raw facts + parameters + algorithm version",
+      "rebuildable": "yes (with parameters and algorithm version)",
+      "loss_impact": "Current analysis/publication missing; historical runs lost",
+      "recovery": "Bump generation, enqueue job, create new run, CAS publication; retain historical runs"
+    },
+    {
+      "category": "D'. User/service-only state",
+      "data": "training plans/configs/sessions/generation_runs/base_versions/overrides/effective_versions/executions/feedback/commands",
+      "authority": "User input + server commands",
+      "rebuildable": "no",
+      "loss_impact": "Training plans, manual overrides, executions and feedback permanently lost",
+      "recovery": "Database backup; retain as-is; never fake with recalculation"
+    },
+    {
+      "category": "E. Temporary",
+      "data": "sync_request_budgets, sync_upload_slots, job_attempts, worker leases/fencing runtime, caches",
+      "authority": "Runtime",
+      "rebuildable": "yes",
+      "loss_impact": "Short-term rate-limit/retry anomalies",
+      "recovery": "Clean only when no active lease/expired; keep audit as needed"
+    }
+  ],
+  "reset_entries": [
+    {
+      "entry": "scripts/rai-reset-v2-data.sh --confirm-delete-v2-facts",
+      "location": "scripts/rai-reset-v2-data.sh:1-63",
+      "scope": "42 tables in the current RAI_DATABASE_URL database; keeps datasets/devices/collector_leases",
+      "danger": "critical",
+      "available": true,
+      "note": "Deletes entity_tombstones, change_events, route_deletions, workout_imports and all training tables; does not rotate epochs, does not audit, does not validate environment/schema."
+    },
+    {
+      "entry": "scripts/local/pg.sh reset",
+      "location": "scripts/local/pg.sh:65-75",
+      "scope": "local loopback rai_dev only; DROP DATABASE + createdb",
+      "danger": "low",
+      "available": true,
+      "note": "lib.sh:24-27 clears production DSN variables."
+    },
+    {
+      "entry": "scripts/local/verify.sh",
+      "location": "scripts/local/verify.sh:27/76-78",
+      "scope": "local dev verification; drops temp DB",
+      "danger": "low",
+      "available": true,
+      "note": "Development only."
+    },
+    {
+      "entry": "scripts/p7-restore.sh",
+      "location": "scripts/p7-restore.sh",
+      "scope": "isolated restore target only; requires rai.restore-target=true and empty public schema",
+      "danger": "low",
+      "available": true,
+      "note": "No --clean; refuses non-empty/non-isolated target."
+    },
+    {
+      "entry": "deploy/postgres/bootstrap.sh",
+      "location": "deploy/postgres/bootstrap.sh",
+      "scope": "first-time role creation only",
+      "danger": "low",
+      "available": true,
+      "note": "Not a reset."
+    },
+    {
+      "entry": "rai init / admin.Init",
+      "location": "apps/server/internal/admin/admin.go:208-245",
+      "scope": "first dataset/device/collector in an empty datasets table",
+      "danger": "medium",
+      "available": true,
+      "note": "Refuses if any dataset exists; cannot create a second dataset."
+    },
+    {
+      "entry": "rai migrate",
+      "location": "apps/server/internal/admin/admin.go:68",
+      "scope": "apply migrations; no fact deletion",
+      "danger": "medium",
+      "available": true,
+      "note": "00017 ordinary CREATE INDEX can lock health_samples writes."
+    },
+    {
+      "entry": "rai migrate-down",
+      "location": "apps/server/internal/admin/admin.go:101-168",
+      "scope": "migration rollback",
+      "danger": "low",
+      "available": false,
+      "note": "reversibleMigrations is empty; refuses all versions."
+    },
+    {
+      "entry": "rai ops snapshot/verify/retention-dry-run",
+      "location": "apps/server/internal/admin/operations.go:16-24",
+      "scope": "read-only; retention-dry-run does not delete",
+      "danger": "low",
+      "available": true,
+      "note": "RepeatableRead + ReadOnly."
+    },
+    {
+      "entry": "iOS purgeLegacyPages()",
+      "location": "ios/RAI/Sources/SyncCore/OutboxStore.swift:455; RAIApp.swift:212",
+      "scope": "local v2 legacy pages/files/receipts",
+      "danger": "medium",
+      "available": true,
+      "note": "V3 has no page queue; may discard undelivered v2 pages."
+    },
+    {
+      "entry": "iOS beginTask(id, resetBundle:)",
+      "location": "ios/RAI/Sources/SyncCore/OutboxStore.swift:266; SyncCoordinator.swift:135/228/479",
+      "scope": "single Workout task upload receipt/hash reset; does not delete bundleFile",
+      "danger": "medium",
+      "available": true,
+      "note": "Unacknowledged source bytes survive an explicit rescan."
+    },
+    {
+      "entry": "iOS controlledRediscovery(query, recoveryID)",
+      "location": "ios/RAI/Sources/SyncCore/HealthDiscovery.swift:234",
+      "scope": "new discovery namespace for corrupt/old anchor; old queues/anchors preserved",
+      "danger": "medium",
+      "available": true,
+      "note": "No UI; explicit API only."
+    },
+    {
+      "entry": "iOS parkBundleForExplicitChildDeletion",
+      "location": "ios/RAI/Sources/SyncCore/HealthDiscovery.swift:211",
+      "scope": "moves unacknowledged bundle to retainedBundles; never GC",
+      "danger": "low",
+      "available": true,
+      "note": "Protective."
+    },
+    {
+      "entry": "Manual delete RAIV2Sync/state.json or directory",
+      "location": "not a code entry",
+      "scope": "local anchors, outbox, receipts, deleted sets",
+      "danger": "critical",
+      "available": true,
+      "note": "Unsupported; unacknowledged bundles permanently lost; no audit."
+    },
+    {
+      "entry": "DELETE /v2/sync/workout-bundles/{id}",
+      "location": "apps/server/internal/httpapi/server.go:52; workout_bundles.go:417-537",
+      "scope": "single explicit Workout delete; tombstone + change event + cascade delete imports",
+      "danger": "high",
+      "available": true,
+      "note": "Business delete, not a Reset; idempotent, tested."
+    },
+    {
+      "entry": "TRUNCATE datasets CASCADE / DELETE FROM datasets (manual SQL)",
+      "location": "not a code entry",
+      "scope": "all FK referencing tables, including devices/leases/training",
+      "danger": "critical",
+      "available": true,
+      "note": "Forbidden; not recoverable without backup."
+    },
+    {
+      "entry": "scripts/test-*.sh down --volumes; scripts/remote-test.sh",
+      "location": "scripts/",
+      "scope": "test Compose project volumes / owned test PG volume",
+      "danger": "low",
+      "available": true,
+      "note": "Test only; not production reset."
+    },
+    {
+      "entry": "TestFreshDatabaseSchemaRebuild",
+      "location": "apps/server/integration/schema_rebuild_test.go:19",
+      "scope": "empty database full schema comparison",
+      "danger": "low",
+      "available": true,
+      "note": "Test only."
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "A",
+      "name": "仅清空 HealthKit Anchor",
+      "current": "No public API to clear only the anchor. HealthDiscovery stores DiscoveryFlow.anchor in state.json; controlledRediscovery creates a new namespace and preserves old queues/anchors. Manual state edit is unsupported.",
+      "risks": [
+        "Full-history rescan and large new bundle volume",
+        "New bundle hashes create additional workout_imports receipts",
+        "Deleted workouts normally not returned by HealthKit, but can resurrect if server tombstone was also cleared",
+        "Rate limiting / long sync"
+      ],
+      "recoverable": "CONDITIONAL",
+      "preconditions": [
+        "Preserve Outbox and deletedWorkouts",
+        "Server tombstones intact",
+        "Do not delete workout_imports receipts",
+        "Bounded queries"
+      ],
+      "recommendation": "Do not expose a clear-anchor button. Use controlledRediscovery only for corrupt anchors; state clearly that only currently visible history is recovered.",
+      "protections": [
+        "Anchor namespace/generation",
+        "Deduplication",
+        "Full-rescan rate limit",
+        "Delete-set merge protection",
+        "Completion proof that does not infer deletion from empty query"
+      ]
+    },
+    {
+      "id": "B",
+      "name": "仅清空 iOS Outbox",
+      "current": "No API; manual deletion of RAIV2Sync/state.json or app uninstall. OutboxStore.bind accepts nil scope. Unacknowledged bundle bytes exist only locally; retainedBundles are never GC'd. ACKed-but-not-persisted ACK can be recovered by GET with the same hash.",
+      "risks": [
+        "Unacknowledged bundle permanently lost",
+        "ACK persisted but hash forgotten -> cannot recover exact bytes",
+        "Delete intent / deletedWorkouts lost",
+        "Full rescan and duplicate receipts"
+      ],
+      "recoverable": "CONDITIONAL",
+      "preconditions": [
+        "Server receipt/payload intact",
+        "HealthKit object still visible",
+        "Workout UUID unchanged",
+        "Bundle hash remembered or new bundle acceptable",
+        "Server tombstone intact"
+      ],
+      "recommendation": "Do not offer 'clear Outbox'. Provide export/import of pending bundles; require confirmation before uninstall; keep state.json backup.",
+      "protections": [
+        "Outbox inventory/export",
+        "Unacknowledged bundle protection",
+        "Reinstall detection",
+        "Session descriptor",
+        "ACK recovery UI",
+        "Persistent delete intent"
+      ]
+    },
+    {
+      "id": "C",
+      "name": "仅清空 PostgreSQL Raw Facts",
+      "current": "No supported partial raw-fact delete. rai-reset-v2-data.sh deletes raw facts plus analysis/training/tombstone/receipt. Manual TRUNCATE is equally dangerous. The iPhone anchor has advanced and will not automatically re-upload.",
+      "risks": [
+        "Historical workouts permanently missing without client knowledge",
+        "Deleted workout tombstones lost -> resurrection",
+        "Analysis publications stale/inconsistent",
+        "Old collector still accepted because epoch unchanged"
+      ],
+      "recoverable": "NO (except backup; HealthKit visible objects only)",
+      "preconditions": [
+        "Full backup",
+        "New dataset or new epoch",
+        "New client session",
+        "Full re-import"
+      ],
+      "recommendation": "Forbid partial raw-fact deletion. If rebuild is required, use a new dataset with new epoch/device and a new client session; keep old dataset read-only.",
+      "protections": [
+        "Raw-fact delete prohibition",
+        "Dataset-level guard",
+        "Epoch rotation",
+        "External backup verification",
+        "Tombstone export"
+      ]
+    },
+    {
+      "id": "D",
+      "name": "清空 Dataset",
+      "current": "No supported API. DELETE FROM datasets is blocked by FKs; TRUNCATE datasets CASCADE removes all referencing tables including devices/collector_leases/training. admin.Init only creates the first dataset in an empty table.",
+      "risks": [
+        "Loss of all facts, receipts, tombstones and training facts",
+        "Device token hash cannot be recovered; must re-Init",
+        "Old client anchor still ahead",
+        "Analysis history lost"
+      ],
+      "recoverable": "BACKUP ONLY",
+      "preconditions": [
+        "Full backup",
+        "User explicitly abandons dataset",
+        "Downtime",
+        "New dataset/epoch/device",
+        "New client session"
+      ],
+      "recommendation": "Do not implement in-place dataset truncate. Create a new dataset with new identity and keep the old dataset read-only/archived.",
+      "protections": [
+        "New dataset tool",
+        "Epoch/device rotation",
+        "Retired-at marker",
+        "Client session switch",
+        "Audit",
+        "Two-person confirmation"
+      ]
+    },
+    {
+      "id": "E",
+      "name": "只清除分析结果",
+      "current": "No API; retention-dry-run does not delete. Manual DELETE must follow FK order: publications -> results -> runs; training_feedback/training_base_versions may block run deletion. If dirty_scopes is clean, deleting analysis tables does not automatically enqueue a job.",
+      "risks": [
+        "Deleting results without bumping generation leaves blank pages and no recomputation",
+        "Publication points to deleted run -> FK error or orphan",
+        "Historical run loss"
+      ],
+      "recoverable": "YES (if raw facts and parameters intact)",
+      "preconditions": [
+        "Raw facts unchanged",
+        "analysis_parameter_sets retained",
+        "Historical runs retained/archived",
+        "Bump dirty_scopes.generation",
+        "Worker available",
+        "Publication CAS"
+      ],
+      "recommendation": "Do not delete analysis tables. Implement REBUILD_ANALYSIS at job level: keep historical runs/publications, mark old run SUPERSEDED, CAS-switch publication only after new run succeeds.",
+      "protections": [
+        "Dirty generation bump",
+        "Run history retention",
+        "Publication CAS",
+        "Rebuild audit",
+        "Failure rollback"
+      ]
+    },
+    {
+      "id": "F",
+      "name": "重新安装 iOS App",
+      "current": "Uninstall deletes app container (state.json, Outbox, bundles, RAIV2Sync); Keychain usually survives on the same device. If Keychain survives, bind nil scope to the same dataset; v3 discovery starts at nil anchor and rescans all visible history. If Keychain is lost, there is no production re-pair API and sync is BLOCKED.",
+      "risks": [
+        "Full rescan and duplicate receipts",
+        "Unacknowledged Outbox lost",
+        "Delete intent lost",
+        "Keychain loss makes the device unable to authenticate",
+        "If server tombstone was cleared, old bundle/backup can resurrect deleted workouts"
+      ],
+      "recoverable": "CONDITIONAL",
+      "preconditions": [
+        "Keychain token available",
+        "Same dataset",
+        "Server tombstone/receipt intact",
+        "User accepts full rescan",
+        "Network/rate limits"
+      ],
+      "recommendation": "Treat reinstall as a new client session, not transparent recovery: explicit confirmation, archive old Outbox, new session directory/Keychain item, bounded rescan, show 'current visible history only'.",
+      "protections": [
+        "Session descriptor",
+        "Keychain migration/re-pair",
+        "Old Outbox archive",
+        "Reinstall detection",
+        "Delete-set preservation",
+        "Full-rescan rate limit"
+      ]
+    },
+    {
+      "id": "G",
+      "name": "数据库从备份恢复",
+      "current": "p7-restore.sh only restores to an isolated empty target. Disaster recovery resync is BLOCKED. Restoring a backup rolls back dataset epoch/devices/collector lease/commit_rev; the phone anchor and stream cursor do not roll back.",
+      "risks": [
+        "Revision rollback/reuse",
+        "Phone anchor ahead of server",
+        "ACKed bundles not retransmitted",
+        "Tombstones after backup lost -> deleted workouts resurrect",
+        "Route/series sealed data incomplete",
+        "Training history after backup permanently lost"
+      ],
+      "recoverable": "BLOCKED",
+      "preconditions": [
+        "Stop writes",
+        "Preserve damaged instance and all phone state",
+        "Verify backup SHA/source",
+        "Isolated PG18 restore",
+        "Check schema/FK/45 tables/receipts/tombstones/publications/training",
+        "Revoke/rotate device tokens",
+        "User approval",
+        "New recovery generation or new dataset session"
+      ],
+      "recommendation": "Short term: use option B from docs/RAI_MINIMAL_DISASTER_RECOVERY_REVIEW.md (new dataset + independent local session), keep old backup for manual review. Do not implement in-place old-database continuation.",
+      "protections": [
+        "Recovery generation",
+        "Old epoch fencing",
+        "Recovery marker CLI",
+        "Client recovery state machine",
+        "Delete coverage proof",
+        "Route/coverage completion protocol",
+        "Real pg_dump restore test"
+      ]
+    }
+  ],
+  "tombstone_revision_epoch": {
+    "invariants": [
+      {
+        "name": "Dataset + Workout UUID delete barrier",
+        "implementation": "entity_tombstones with sample_type='HKWorkoutTypeIdentifier', deleted_rev>0",
+        "evidence": "apps/server/migrations/00001_core.sql; workout_bundles.go:53-58/417-537",
+        "level": "VERIFIED"
+      },
+      {
+        "name": "DELETE revision",
+        "implementation": "nextRev=rev+1; tombstone.deleted_rev; datasets.commit_rev update",
+        "evidence": "workout_bundles.go:470-520",
+        "level": "VERIFIED"
+      },
+      {
+        "name": "change_events",
+        "implementation": "entity_kind='workout', operation='delete', payload contains receipt; PK(dataset, commit_rev, ordinal)",
+        "evidence": "workout_bundles.go:520-537; 00001_core.sql",
+        "level": "VERIFIED"
+      },
+      {
+        "name": "Stable receipt",
+        "implementation": "Duplicate DELETE returns original receipt; tombstone revision fallback ACK",
+        "evidence": "workout_bundles.go:430-470",
+        "level": "VERIFIED"
+      },
+      {
+        "name": "Dataset row lock",
+        "implementation": "SELECT ... FROM datasets WHERE id=$1 FOR UPDATE",
+        "evidence": "store.go:135-146",
+        "level": "VERIFIED"
+      },
+      {
+        "name": "Device/collector fencing",
+        "implementation": "checkCollectorLease validates collector_epoch, can_collect, revoked_at; 409 collector_fenced",
+        "evidence": "store.go:148-175",
+        "level": "VERIFIED"
+      },
+      {
+        "name": "Late POST rejection",
+        "implementation": "Tombstone checks before prior receipt; workout_deleted/sample_deleted",
+        "evidence": "workout_bundles.go:19-200; contracts/sync-v3.md:3",
+        "level": "VERIFIED"
+      },
+      {
+        "name": "Duplicate DELETE idempotency",
+        "implementation": "Existing tombstone + change_event -> AlreadyDeleted:true original receipt",
+        "evidence": "workout_bundles.go:430-470; TestWorkoutDeleteBundleIsExplicitAndIdempotent",
+        "level": "VERIFIED"
+      }
+    ],
+    "reset_impact": [
+      "entity_tombstones, route_deletions and change_events are truncated -> delete barrier and delete receipts gone.",
+      "workout_imports is truncated -> no prior receipt for exact-hash retry; old bundle is treated as new.",
+      "datasets/devices/collector_leases are preserved -> old dataset/collector epochs remain valid; old bundle is accepted.",
+      "Deleted workouts can resurrect from old bundle/backup; old collector is not fenced.",
+      "datasets.commit_rev is preserved while change_events is empty -> revision/ordering cannot be reconciled with clients that saw higher revisions."
+    ],
+    "conclusion": "The normal path is strong; the reset script violates the delete-barrier, receipt and epoch-fencing principles. If tombstones must be cleared, only a new dataset with new epoch/device and no inherited facts is acceptable."
+  },
+  "upgrade_options": [
+    {
+      "id": "A",
+      "name": "PostgreSQL Schema Migration only",
+      "deletes_facts": false,
+      "reversible": "depends; current CLI allowlist empty",
+      "fit": "Only for schema changes; does not solve v2 fact compatibility",
+      "verdict": "NOT_REQUIRED_NOW; future migration 18 if new audit/epoch columns are needed"
+    },
+    {
+      "id": "B",
+      "name": "Compatible in-place structural upgrade / v3 overlay",
+      "deletes_facts": false,
+      "reversible": "with backup",
+      "fit": "Requires synthetic non-empty v2 dataset proof of WorkoutCoreEqual, sample hash, source_bundle_id and association compatibility",
+      "verdict": "PREFERRED_TO_VALIDATE; PARTIALLY_VERIFIED/INFERRED, not tested"
+    },
+    {
+      "id": "C",
+      "name": "Historical HealthKit resync",
+      "deletes_facts": false,
+      "reversible": "repeatable but not lossless",
+      "fit": "Only current visible/readable/supported objects; new anchor/dataset or new session; long-running",
+      "verdict": "FEASIBLE_BUT_NOT_LOSSLESS; not a backup substitute"
+    },
+    {
+      "id": "D",
+      "name": "Old RAI SQLite import",
+      "deletes_facts": null,
+      "reversible": null,
+      "fit": "Explicitly excluded by ADR-002",
+      "verdict": "NOT_REQUIRED; do not implement"
+    }
+  ],
+  "reset_design": {
+    "separate_operations": [
+      {
+        "op": "RESET_SYNC_CURSOR",
+        "deletes_facts": false,
+        "changes_identity": false,
+        "recommendation": "Do not implement as a general button; use controlledRediscovery for corrupt anchors only."
+      },
+      {
+        "op": "REBUILD_SINGLE_WORKOUT",
+        "deletes_facts": false,
+        "changes_identity": false,
+        "recommendation": "Reuse existing beginTask(forceNewBundle); preserve tombstone; explicit user action only."
+      },
+      {
+        "op": "REBUILD_ANALYSIS",
+        "deletes_facts": false,
+        "changes_identity": false,
+        "recommendation": "Job-level; keep historical runs/publications; CAS publish after new run succeeds."
+      },
+      {
+        "op": "RESET_DATASET",
+        "deletes_facts": true,
+        "changes_identity": true,
+        "recommendation": "Do not implement in-place truncate; implement operator-only new dataset + new session; keep old dataset read-only."
+      },
+      {
+        "op": "RESET_DATABASE",
+        "deletes_facts": true,
+        "changes_identity": true,
+        "recommendation": "Dev-only scripts/local/pg.sh reset; production forbidden."
+      }
+    ],
+    "guardrails": [
+      "Explicit scope and dry-run by default",
+      "Two-step confirmation with full dataset ID and phrase",
+      "Dataset identity validation; never implicit RAI_DATABASE_URL",
+      "Rotate dataset epoch and collector epoch",
+      "Revoke old device; issue new one-time token",
+      "Do not rewind revision; new dataset starts at 0",
+      "Never delete tombstones/receipts in-place",
+      "Never delete raw facts in-place",
+      "Export/archive unacknowledged Outbox bundles",
+      "Atomic identity/audit/retirement transaction; facts untouched",
+      "Backup + SHA verification before and after",
+      "Idempotent operation with immutable audit record",
+      "Fault injection: crash before/after commit, concurrent POST/DELETE/worker, epoch mismatch, tombstone replay, Outbox loss, restore"
+    ],
+    "new_dataset_cli_sketch": [
+      "rai admin new-dataset --source-dataset <uuid> --confirm-dataset <uuid> --confirm-phrase NEW-DATASET --dry-run --backup-manifest <path> --rotate-epoch --new-device-token --new-collector-epoch --audit-actor <id>"
+    ],
+    "client_session_requirements": [
+      "New session UUID and independent directory",
+      "Independent Keychain item",
+      "Independent background URLSession identifier",
+      "Archive old session directory/anchor/outbox without deleting",
+      "Atomic active-session pointer switch",
+      "Old background callbacks cannot advance new anchor"
+    ]
+  },
+  "test_coverage": [
+    {
+      "scenario": "Anchor reset",
+      "existing": "partial",
+      "location": "HealthDiscoveryTests.invalidAnchorAndContractStayQuarantined; RecoveryBoundaryTests.deliveredPayloadMayBeUnavailableAfterServerRollback",
+      "sufficient": false,
+      "new_tests": [
+        "AnchorResetDoesNotDuplicateFactsOrResurrectDeletedWorkout",
+        "AnchorResetAfterServerRollbackIsBlocked"
+      ]
+    },
+    {
+      "scenario": "Outbox loss",
+      "existing": "partial",
+      "location": "RecoveryBoundaryTests.deliveredPayloadMayBeUnavailableAfterServerRollback; WorkoutTaskTests.bundleFileIsDurableAndReclaimedAfterAck",
+      "sufficient": false,
+      "new_tests": [
+        "OutboxLossWithUnackedBundleFailsClosed",
+        "OutboxExportImportPreservesExactBundle"
+      ]
+    },
+    {
+      "scenario": "ACK loss",
+      "existing": "yes",
+      "location": "APITests.commitResponseLossAndProcessReconstruction; TestWorkoutBundleLostACKAnd404ThenIdempotentPOST; WorkoutReliabilityTests",
+      "sufficient": true,
+      "new_tests": [
+        "ACK recovery after reset"
+      ]
+    },
+    {
+      "scenario": "Duplicate upload",
+      "existing": "yes",
+      "location": "TestWorkoutBundleOneRequestAtomicImport; TestWorkoutBundleReceiptHistoryKeepsEveryBundle; TestWorkoutBundleLateSampleAndConflicts",
+      "sufficient": true,
+      "new_tests": [
+        "Non-empty v2 overlay duplicate upload"
+      ]
+    },
+    {
+      "scenario": "Duplicate DELETE",
+      "existing": "yes",
+      "location": "TestWorkoutDeleteBundleIsExplicitAndIdempotent; TestUnknownDeleteAndSamePageDeleteWins; TestWorkoutDeleteBeforeUploadDurableStableAndIsolated",
+      "sufficient": true,
+      "new_tests": [
+        "Reset then duplicate DELETE / old receipt replay"
+      ]
+    },
+    {
+      "scenario": "Tombstone retention",
+      "existing": "yes (normal path); no reset",
+      "location": "TestCommitRetryAndDeletionBarrier; TestWorkoutDeleteBeforeUploadDurableStableAndIsolated; TestRouteDeleteAndStaleReplayBarrier",
+      "sufficient": false,
+      "new_tests": [
+        "ResetMustNotDeleteTombstones",
+        "DatasetResetPreservesBarrierOrUsesNewDataset"
+      ]
+    },
+    {
+      "scenario": "Late bundle",
+      "existing": "yes",
+      "location": "TestWorkoutBundleLateSampleAndConflicts; TestWorkoutDeleteFencingBeforeBarrierReplay; TestWorkoutBundleLateCompleteSnapshotRetainsChildren",
+      "sufficient": true,
+      "new_tests": [
+        "Late bundle after reset is rejected"
+      ]
+    },
+    {
+      "scenario": "Epoch invalidation",
+      "existing": "yes (normal path); no rotation",
+      "location": "TestIdentitySequenceAndFencing; TestWorkoutDeleteFencingBeforeBarrierReplay",
+      "sufficient": false,
+      "new_tests": [
+        "DatasetEpochRotationRejectsAllOldBundles",
+        "CollectorEpochRotationRejectsOldCollector"
+      ]
+    },
+    {
+      "scenario": "Dataset reset",
+      "existing": "no",
+      "location": "-",
+      "sufficient": false,
+      "new_tests": [
+        "DatasetResetRequiresNewEpochAndDevice",
+        "DatasetResetDoesNotDeleteSourceDataset"
+      ]
+    },
+    {
+      "scenario": "Worker interruption",
+      "existing": "yes",
+      "location": "TestConcurrentJobClaimAndCrashRecovery; TestJobFailureRetryAndAttemptLimit; TestWorkoutDeleteSupersedesInFlightWorkers; TestPhase4SnapshotCancelLockFailureAndWorkerRetry",
+      "sufficient": true,
+      "new_tests": [
+        "Reset/new-dataset concurrent with worker"
+      ]
+    },
+    {
+      "scenario": "Database restore",
+      "existing": "partial",
+      "location": "TestDisasterRecoveryManualHistoryBoundary; TestDisasterRecoveryExistingContractBoundary (simulated snapshot, not pg_dump)",
+      "sufficient": false,
+      "new_tests": [
+        "Real pg_dump/pg_restore + v3 client + tombstone gap"
+      ]
+    },
+    {
+      "scenario": "Analysis republish",
+      "existing": "yes",
+      "location": "TestAnalysisPublishImmutableQueryAndDelete; TestAnalysisGenerationCASAndLostFence; TestAnalysisOldGenerationCannotReplaceNewPublication",
+      "sufficient": true,
+      "new_tests": [
+        "Deleting analysis without dirty generation does not recompute",
+        "REBUILD_ANALYSIS keeps history"
+      ]
+    },
+    {
+      "scenario": "Non-empty v2 -> v3 upgrade",
+      "existing": "no",
+      "location": "-",
+      "sufficient": false,
+      "new_tests": [
+        "NonEmptyV2DatasetV3OverlayPreservesFactsAndBarriers",
+        "V2PayloadMismatchFailsClosed"
+      ]
+    },
+    {
+      "scenario": "Reinstall App",
+      "existing": "no",
+      "location": "-",
+      "sufficient": false,
+      "new_tests": [
+        "ReinstallWithKeychainResumesSameScopeWithoutDuplicateFacts",
+        "ReinstallWithoutKeychainRequiresRePair"
+      ]
+    },
+    {
+      "scenario": "Reset concurrent POST/DELETE/Worker",
+      "existing": "no",
+      "location": "-",
+      "sufficient": false,
+      "new_tests": [
+        "ResetConcurrentWithImportDeleteAndWorker (fault injection)"
+      ]
+    },
+    {
+      "scenario": "Reset script itself",
+      "existing": "no",
+      "location": "-",
+      "sufficient": false,
+      "new_tests": [
+        "ResetScriptRefusesNonDevTarget",
+        "ResetScriptDryRunCountsAndAudit",
+        "ResetScriptRefusesWithoutConfirmation"
+      ]
+    }
+  ],
+  "migration_risks": [
+    {
+      "id": "M1",
+      "risk": "00001-00017 checksums",
+      "detail": "17/17 match checksums.json; no mismatch.",
+      "level": "VERIFIED"
+    },
+    {
+      "id": "M2",
+      "risk": "Historical migrations immutable",
+      "detail": "No Down for fact/receipt migrations; checksums bind exact bytes. Do not modify 00001-00017.",
+      "level": "VERIFIED"
+    },
+    {
+      "id": "M3",
+      "risk": "00017 ordinary CREATE INDEX",
+      "detail": "health_samples_analysis_identity uses CREATE INDEX, not CONCURRENTLY; SHARE lock blocks INSERT/UPDATE/DELETE during build; WAL/IO/disk; no statement_timeout/lock_timeout; production maintenance window required.",
+      "level": "VERIFIED"
+    },
+    {
+      "id": "M4",
+      "risk": "Rollback",
+      "detail": "reversibleMigrations is empty; migrate-down refuses all versions. A failed migration cannot be automatically rolled back.",
+      "level": "VERIFIED"
+    },
+    {
+      "id": "M5",
+      "risk": "Future migration 18",
+      "detail": "If audit table/epoch columns are added, use expand/contract, batched backfill, CONCURRENTLY indexes, no destructive DML, explicit Down/rollback plan.",
+      "level": "INFERRED"
+    },
+    {
+      "id": "M6",
+      "risk": "Deployment",
+      "detail": "Production not deployed; fnOS is isolated dev. docs/IMPLEMENTATION.md:5 says schema 16 while actual is 17; fix documentation before release.",
+      "level": "VERIFIED"
+    }
+  ],
+  "decisions_required": [
+    {
+      "id": "Q1",
+      "question": "是否保留现有非空 V2 数据集？",
+      "options": [
+        "保留并验证兼容叠加",
+        "放弃旧在线数据集，新建 dataset 重导",
+        "原地破坏性 reset（不推荐）"
+      ],
+      "recommendation": "保留并验证兼容叠加；失败再新建 dataset",
+      "blocking": true
+    },
+    {
+      "id": "Q2",
+      "question": "是否接受用合成非空 v2 数据集做兼容叠加试验？",
+      "options": [
+        "接受",
+        "不接受，直接新 dataset",
+        "暂不决定"
+      ],
+      "recommendation": "接受；不碰真实数据",
+      "blocking": true
+    },
+    {
+      "id": "Q3",
+      "question": "训练用户事实是否必须保留？",
+      "options": [
+        "必须保留",
+        "可以放弃",
+        "迁移到新 dataset（需单独工具）"
+      ],
+      "recommendation": "必须保留；不能从 HealthKit 重建",
+      "blocking": true
+    },
+    {
+      "id": "Q4",
+      "question": "是否允许轮换 dataset epoch / collector epoch 并要求客户端重新绑定？",
+      "options": [
+        "允许",
+        "不允许"
+      ],
+      "recommendation": "任何安全破坏性操作都必须允许",
+      "blocking": true
+    },
+    {
+      "id": "Q5",
+      "question": "是否需要新的 operator-only 管理工具？",
+      "options": [
+        "只做部署 runbook",
+        "新增 rai admin new-dataset（推荐）",
+        "新增原地 RESET_DATASET（不推荐）"
+      ],
+      "recommendation": "新增 operator-only new-dataset（若选择新 dataset）",
+      "blocking": true
+    },
+    {
+      "id": "Q6",
+      "question": "灾难恢复选 A（旧库接续）还是 B（新 dataset 会话）？",
+      "options": [
+        "A",
+        "B",
+        "暂不决定"
+      ],
+      "recommendation": "B；A 需要 recovery generation 且当前 BLOCKED",
+      "blocking": true
+    },
+    {
+      "id": "Q7",
+      "question": "是否允许 migration 18 新增审计/epoch 字段？",
+      "options": [
+        "允许",
+        "不允许"
+      ],
+      "recommendation": "若选择新 dataset/审计则需要",
+      "blocking": false
+    },
+    {
+      "id": "Q8",
+      "question": "旧 RAI 数据是否确认不迁移？",
+      "options": [
+        "确认不迁移",
+        "要求迁移（新范围）"
+      ],
+      "recommendation": "确认不迁移（ADR-002）",
+      "blocking": true
+    }
+  ],
+  "evidence_index": [
+    {
+      "id": "E1",
+      "path": "docs/audits/RQrun_WORKOUT_SYNC_REVIEW.md",
+      "locator": ":242, :430",
+      "level": "VERIFIED",
+      "conclusion": "RQ-010 original definition and next step",
+      "migration": "n/a",
+      "test": "RQrun review, no test"
+    },
+    {
+      "id": "E2",
+      "path": "contracts/sync-v3.md",
+      "locator": ":18",
+      "level": "VERIFIED",
+      "conclusion": "v2->v3 reset is the documented upgrade path",
+      "migration": "00014/00015",
+      "test": "TestWorkoutBundleOneRequestAtomicImport; TestWorkoutBundleReceiptHistoryKeepsEveryBundle"
+    },
+    {
+      "id": "E3",
+      "path": "contracts/CHANGELOG.md",
+      "locator": ":32",
+      "level": "VERIFIED",
+      "conclusion": "Destructive reset required before upgrade",
+      "migration": "00001–00017",
+      "test": "no reset-script test"
+    },
+    {
+      "id": "E4",
+      "path": "docs/IMPLEMENTATION.md",
+      "locator": ":456",
+      "level": "VERIFIED",
+      "conclusion": "Reset script required; datasets/devices/leases retained; not an automatic migration",
+      "migration": "00001–00017",
+      "test": "TestFreshDatabaseSchemaRebuild; TestMigrationsIdempotentAndInitializationProtected"
+    },
+    {
+      "id": "E5",
+      "path": "scripts/rai-reset-v2-data.sh",
+      "locator": ":1-63",
+      "level": "VERIFIED",
+      "conclusion": "42-table TRUNCATE; tombstones/receipts/training deleted; epochs retained",
+      "migration": "00001–00017",
+      "test": "TestMigrationsIdempotentAndInitializationProtected"
+    },
+    {
+      "id": "E6",
+      "path": "apps/server/migrations/00001_core.sql",
+      "locator": "datasets/devices/collector_leases/entity_tombstones/change_events",
+      "level": "VERIFIED",
+      "conclusion": "identity and barrier schema",
+      "migration": "00001/00010",
+      "test": "TestIdentitySequenceAndFencing; TestWorkoutDeleteFencingBeforeBarrierReplay"
+    },
+    {
+      "id": "E7",
+      "path": "apps/server/internal/storage/postgres/store.go",
+      "locator": ":135-175",
+      "level": "VERIFIED",
+      "conclusion": "dataset row lock and epoch/collector fencing",
+      "migration": "00001/00003/00008/00010/00011/00014/00015",
+      "test": "TestWorkoutBundleLateSampleAndConflicts; TestWorkoutBundleLateCompleteSnapshotRetainsChildren"
+    },
+    {
+      "id": "E8",
+      "path": "apps/server/internal/storage/postgres/workout_bundles.go",
+      "locator": ":19-200, :362-390, :417-537",
+      "level": "VERIFIED",
+      "conclusion": "import, receipt lookup, delete idempotency",
+      "migration": "00001/00011/00014",
+      "test": "TestWorkoutDeleteBeforeUploadDurableStableAndIsolated; TestWorkoutDeleteBundleIsExplicitAndIdempotent"
+    },
+    {
+      "id": "E9",
+      "path": "apps/server/migrations/00014_workout_imports.sql",
+      "locator": ":16",
+      "level": "VERIFIED",
+      "conclusion": "workout_imports cascade on workout delete",
+      "migration": "00014/00015",
+      "test": "TestWorkoutBundleReceiptHistoryKeepsEveryBundle"
+    },
+    {
+      "id": "E10",
+      "path": "apps/server/migrations/00017_analysis_sample_lookup.sql",
+      "locator": ":1-12",
+      "level": "VERIFIED",
+      "conclusion": "ordinary CREATE INDEX; lock risk",
+      "migration": "00001/00011",
+      "test": "TestRouteDeleteAndStaleReplayBarrier; TestUnknownRouteDeleteCreatesBarrierAndIsIdempotent"
+    },
+    {
+      "id": "E11",
+      "path": "ios/RAI/Sources/SyncCore/HealthDiscovery.swift",
+      "locator": ":98-157, :234",
+      "level": "VERIFIED",
+      "conclusion": "two-phase anchor and controlled rediscovery",
+      "migration": "n/a",
+      "test": "HealthDiscoveryTests.twoPhaseAnchorCrashReplayAndIndependentTypes; boundedHistoricalBatchesSurviveEveryRestart"
+    },
+    {
+      "id": "E12",
+      "path": "ios/RAI/Sources/SyncCore/OutboxStore.swift",
+      "locator": ":1-120, :153-155, :266, :376, :455, :626",
+      "level": "VERIFIED",
+      "conclusion": "atomic state, bind, task reset, ACK, legacy purge, GC",
+      "migration": "n/a",
+      "test": "WorkoutTaskTests.bundleFileIsDurableAndReclaimedAfterAck; GarbageCollectionTests.*"
+    },
+    {
+      "id": "E13",
+      "path": "ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift",
+      "locator": ":5-31, :40-107",
+      "level": "VERIFIED",
+      "conclusion": "strict ACK validation and GET recovery",
+      "migration": "n/a",
+      "test": "WorkoutReliabilityTests.*; APITests.commitResponseLossAndProcessReconstruction"
+    },
+    {
+      "id": "E14",
+      "path": "ios/RAI/Sources/SyncCore/WorkoutSync.swift",
+      "locator": ":67-109",
+      "level": "VERIFIED",
+      "conclusion": "exact bundle identity and durable retry",
+      "migration": "n/a",
+      "test": "WorkoutTaskTests.bundleFileIsDurableAndReclaimedAfterAck"
+    },
+    {
+      "id": "E15",
+      "path": "apps/server/internal/admin/operations.go",
+      "locator": ":16-24",
+      "level": "VERIFIED",
+      "conclusion": "admin operations are read-only; no delete",
+      "migration": "n/a",
+      "test": "WorkoutReliabilityTests.explicitRescanAndProoflessLegacyACKCannotReleaseBundle"
+    },
+    {
+      "id": "E16",
+      "path": "apps/server/internal/admin/admin.go",
+      "locator": ":27-31, :208-245",
+      "level": "VERIFIED",
+      "conclusion": "no migration rollback allowlist; Init only on empty datasets",
+      "migration": "n/a",
+      "test": "no reset route test"
+    },
+    {
+      "id": "E17",
+      "path": "apps/server/internal/httpapi/server.go",
+      "locator": ":44-77",
+      "level": "VERIFIED",
+      "conclusion": "no reset endpoint",
+      "migration": "n/a",
+      "test": "TestMigrationsIdempotentAndInitializationProtected"
+    },
+    {
+      "id": "E18",
+      "path": "docs/RAI_DISASTER_RECOVERY.md",
+      "locator": ":3, :22-27, :44-50",
+      "level": "VERIFIED",
+      "conclusion": "disaster recovery resync BLOCKED",
+      "migration": "00017",
+      "test": "TestMigrationsIdempotentAndInitializationProtected"
+    },
+    {
+      "id": "E19",
+      "path": "docs/RAI_MINIMAL_DISASTER_RECOVERY_REVIEW.md",
+      "locator": ":5, :11-19, :41",
+      "level": "VERIFIED",
+      "conclusion": "A/B both BLOCKED; B recommended later",
+      "migration": "n/a",
+      "test": "TestDisasterRecoveryManualHistoryBoundary"
+    },
+    {
+      "id": "E20",
+      "path": "docs/adr/002-fresh-healthkit-dataset.md",
+      "locator": ":3, :7, :15",
+      "level": "VERIFIED",
+      "conclusion": "old RAI data not migrated",
+      "migration": "n/a",
+      "test": "TestDisasterRecoveryExistingContractBoundary"
+    },
+    {
+      "id": "E21",
+      "path": "apps/server/integration/workout_safety_test.go",
+      "locator": ":105, :185, :249, :304, :368, :399",
+      "level": "VERIFIED",
+      "conclusion": "normal delete/fencing/lock-order tests",
+      "migration": "n/a",
+      "test": "no test (ADR)"
+    },
+    {
+      "id": "E22",
+      "path": "apps/server/integration/workout_bundle_test.go",
+      "locator": ":140, :262, :363",
+      "level": "VERIFIED",
+      "conclusion": "bundle idempotency/late data tests",
+      "migration": "n/a",
+      "test": "integration + SyncCoreTests suites"
+    },
+    {
+      "id": "E23",
+      "path": "apps/server/integration/sync_test.go",
+      "locator": ":156, :205, :862",
+      "level": "VERIFIED",
+      "conclusion": "deletion barrier/fencing/init protection",
+      "migration": "n/a",
+      "test": "grep no hits"
+    },
+    {
+      "id": "E24",
+      "path": "ios/RAI/Tests/SyncCoreTests/RecoveryBoundaryTests.swift",
+      "locator": "deliveredPayloadMayBeUnavailableAfterServerRollback",
+      "level": "VERIFIED",
+      "conclusion": "ACKed+GC data is unrecoverable after server rollback",
+      "migration": "00001/00003/00014/00015",
+      "test": "no non-empty v2 overlay test"
+    },
+    {
+      "id": "E25",
+      "path": "docs/IMPLEMENTATION.md",
+      "locator": ":359, :363, :467",
+      "level": "PARTIALLY_VERIFIED",
+      "conclusion": "existing non-empty fnOS dataset; protocol 2 at that time; later protocol 3 handshake; reset execution UNKNOWN",
+      "migration": "n/a",
+      "test": "no test; historical docs only"
+    }
+  ],
+  "limitations": [
+    "No database connection; no SELECT/EXPLAIN/pg_dump/pg_restore executed.",
+    "No reset script, pg.sh reset, p7-restore.sh or TRUNCATE/DELETE executed.",
+    "No Go/Swift tests executed; test coverage assessed by reading source and test inventory.",
+    "No real HealthKit values, GPS, tokens, passwords or device credentials read or exported.",
+    "No real iPhone reinstall, HealthKit deletion, background kill or pg_dump restore verified.",
+    "No production code, tests, migrations, checksums, contracts or deployment config modified.",
+    "The exact current state of the fnOS non-empty V2 dataset (including whether reset ever ran) remains UNKNOWN.",
+    "The v2->v3 overlay compatibility is inferred from code structure and has not been tested with a synthetic non-empty v2 dataset."
+  ]
+}
