@@ -51,6 +51,32 @@ private func deliveryFixture() async throws -> (OutboxStore, URL, String, String
 
 @Suite(.serialized)
 struct WorkoutReliabilityTests {
+    @Test func cancelledDeliveryKeepsBundleAndCachedResponseForReattachment() async throws {
+        let (store, directory, id, hash, file, _) = try await deliveryFixture()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let original = try Data(contentsOf: file)
+        let uploader = CancelledBundleUploader()
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ReliabilityProtocol.self]
+        let api = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic",
+                               session: URLSession(configuration: config), uploader: uploader)
+        do {
+            try await WorkoutBundleDelivery(store: store, api: api).deliver(id)
+            Issue.record("cancellation was swallowed")
+        } catch is CancellationError { }
+        let pending = try #require(await store.task(id))
+        #expect(pending.phase == .uploading && pending.errorCode == "cancelled")
+        #expect(pending.uploadReceipt == nil && pending.bundleSHA256 == hash)
+        #expect(try Data(contentsOf: file) == original)
+        #expect(uploader.discarded.withLock { $0 } == 0)
+        #expect(ReliabilityProtocol.state.withLock { $0.requests.isEmpty }) // No GET after cancellation.
+        let reopened = try OutboxStore(directory: directory)
+        ReliabilityProtocol.state.withLock { $0.replies = [Reply(body: try! durableWorkoutACK(id, hash).data())] }
+        let resumed = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic", session: URLSession(configuration: config))
+        #expect(try await WorkoutBundleDelivery(store: reopened, api: resumed).deliver(id, now: try #require(pending.nextAttemptAt)))
+        #expect(await reopened.task(id)?.uploadReceipt != nil)
+        #expect(try Data(contentsOf: file) == original)
+    }
+
     @Test(arguments: [URLError.notConnectedToInternet, .networkConnectionLost, .timedOut])
     func networkThen404RetriesOriginalBundle(_ code: URLError.Code) async throws {
         let (store, directory, id, hash, file, api) = try await deliveryFixture()
@@ -262,6 +288,12 @@ struct WorkoutReliabilityTests {
         #expect(FileManager.default.fileExists(atPath: file.path))
     }
 
+}
+
+private final class CancelledBundleUploader: FileUploader, Sendable {
+    let discarded = Mutex(0)
+    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) { throw CancellationError() }
+    func discardCachedResult(_ identity: String) { discarded.withLock { $0 += 1 } }
 }
 
 extension WorkoutReliabilityTests {

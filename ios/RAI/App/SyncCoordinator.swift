@@ -21,6 +21,92 @@ actor SyncCoordinator {
     private let sessionID: String?
     private var running = false
     private var supportsIntegrity = false
+    private var dailyRunning = false
+    private var supportsDaily = false
+
+    /// Observer work is local and bounded. Offline/pending pages keep their
+    /// old committed anchor and exact immutable bytes until the server ACK.
+    func discoverDaily() async throws {
+        if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
+        guard !dailyRunning else { return }
+        dailyRunning = true; defer { dailyRunning = false }
+        for type in HealthKitClient.dailyTypes {
+            try Task.checkCancellation()
+            do { try await discoverDailyPage(type) }
+            catch is CancellationError { throw CancellationError() }
+            catch {
+                let failure: String
+                switch error { case SyncFailure.invalid(let code), SyncFailure.localState(let code): failure = code; default: failure = "daily_query_failed" }
+                try await store.dailyFailure(type.identifier, code: failure)
+            }
+        }
+    }
+    private func discoverDailyPage(_ type: HKSampleType) async throws {
+        let flow = try await store.dailyFlow(type.identifier)
+        let snapshot = await store.snapshot(), wakeGeneration = snapshot.dailyWakeGeneration ?? 0
+        guard flow.discoveryDue(wakeGeneration: wakeGeneration) else { return }
+        guard flow.error != "invalid_healthkit_anchor" else { throw SyncFailure.localState("invalid_healthkit_anchor") }
+        guard await store.snapshot().scope != nil else { return }
+        var limit = DailyHealth.maxChanges
+        while true {
+            try Task.checkCancellation()
+            let page = try await health.readDaily(type: type, anchor: flow.anchor, start: Date(timeIntervalSince1970: Double(flow.bootstrapStartUs) / 1_000_000), limit: limit)
+            let facts = try page.samples.map { try DailyHealthNormalizer.fact($0) }
+            do {
+                try await store.stageDaily(type: type.identifier, previousAnchor: flow.anchor, candidateAnchor: page.anchor,
+                    facts: facts, deleted: page.deleted.map { $0.uuid.uuidString.lowercased() }, observedAt: Date(), hasMore: page.isFull, wakeGeneration: wakeGeneration)
+                return
+            } catch SyncFailure.invalid("batch_too_large") where limit > 1 { limit = max(1, limit / 2) }
+        }
+    }
+    func observeDaily(_ onWake: @escaping @Sendable () async -> Void = {}) async throws {
+        try await health.observeDaily { [weak self] in
+            guard let self else { return }
+            // Persist the wake hint before returning HealthKit's completion.
+            // Exact discovery can outlive the callback; suspension leaves a
+            // durable hint and the old committed anchors for foreground retry.
+            try? await self.store.markDailyWake()
+            Task { try? await self.discoverDaily(); await onWake() }
+        }
+    }
+    func syncDaily(secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
+        guard !dailyRunning else { return }
+        dailyRunning = true; defer { dailyRunning = false }
+        let api: RAIAPIClient
+        do {
+            (api, _) = try await context(secret: secret, transfers: transfers, metrics: SyncMetrics { name, value in Metrics.value(name, value) })
+            guard supportsDaily else { throw SyncFailure.invalid("unsupported_daily_contract") }
+        } catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
+            try await store.deferDailyRecovery(error)
+            throw error
+        }
+        let delivery = DailyHealthDelivery(store: store, api: api)
+        // Finite foreground opportunity. Other types proceed after a per-type
+        // failure; pages beyond the budget resume on the next opportunity.
+        for name in await store.dailyDeliveryOrder() {
+            guard let type = HealthKitClient.dailyTypes.first(where: { $0.identifier == name }) else { continue }
+            for _ in 0..<4 {
+                try Task.checkCancellation()
+                do {
+                    if try await store.dailyFlow(type.identifier).pending != nil {
+                        guard try await delivery.deliver(type.identifier) else { break }
+                    } else { try await discoverDailyPage(type) }
+                    if try await store.dailyFlow(type.identifier).pending != nil { _ = try await delivery.deliver(type.identifier) }
+                    if !(try await store.dailyFlow(type.identifier).hasMore) { break }
+                } catch is CancellationError { throw CancellationError() }
+                catch {
+                    if try await store.dailyFlow(type.identifier).error == nil {
+                        let failure: String
+                        switch error { case SyncFailure.invalid(let code), SyncFailure.localState(let code): failure = code; default: failure = (error as? UploadError)?.code ?? "daily_sync_failed" }
+                        try await store.dailyFailure(type.identifier, code: failure)
+                    }
+                    break
+                }
+            }
+        }
+        try await store.finishDailyWakeIfCaughtUp()
+    }
 
     init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil) {
         self.store = store; self.health = health; self.session = session
@@ -92,12 +178,14 @@ actor SyncCoordinator {
             else { page = try await health.read(type: type, anchor: flow.anchor, workout: workout) }
             var events: [DiscoveryEvent] = []
             for sample in page.samples {
+                try Task.checkCancellation()
                 let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
                 let file = try await store.savePayload(archive, suffix: "healthkit.archive")
                 events.append(DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(), deleted: false,
                     archiveFile: file, archiveHash: Wire.hash(archive), workoutID: query.workoutID, identityHash: try? Normalizer.discoveryFingerprint(sample)))
             }
             for object in page.deleted {
+                try Task.checkCancellation()
                 let archive = try NSKeyedArchiver.archivedData(withRootObject: object, requiringSecureCoding: true)
                 let file = try await store.savePayload(archive, suffix: "healthkit.archive")
                 events.append(DiscoveryEvent(type: type.identifier, uuid: object.uuid.uuidString.lowercased(), deleted: true,
@@ -107,6 +195,9 @@ actor SyncCoordinator {
             try await store.promoteDiscovery(query, batchID: batchID)
             return page.isFull
         } catch {
+            // Preemption is not a failed discovery stream. Keep the previous
+            // anchor and hasMore so the automatic scheduler can resume later.
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
             let failure = (error as? SyncFailure).map(code) ?? (error is CancellationError ? "cancelled" : "healthkit_query_failed")
             try await store.discoveryError(query, code: failure)
             throw error
@@ -177,6 +268,7 @@ actor SyncCoordinator {
             throw SyncFailure.invalid("unsupported_handshake")
         }
         supportsIntegrity = hello["capabilities"]["bundleObservationVersion"].integer == 1 && hello["capabilities"]["explicitChildDeletions"] == .bool(true)
+        supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
         let scope = Scope(serviceID: service, datasetID: dataset, datasetEpoch: epoch, collectorEpoch: secret.configuration.collectorEpoch)
         try await store.bind(scope)
         return (api, scope)
@@ -192,12 +284,14 @@ actor SyncCoordinator {
         let api: RAIAPIClient, scope: Scope
         do { (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics) }
         catch {
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
             try await store.deferBundleRecovery(error)
             throw error
         }
         _ = try? await store.purgeLegacyPages()
         try await store.reconcileTasks()
         for task in await store.allTasks() {
+            try Task.checkCancellation()
             switch task.phase {
             case .preparing, .uploading:
                 guard task.bundleFile != nil, task.bundleSHA256 != nil, task.bundleBoundary != nil else {
@@ -207,21 +301,26 @@ actor SyncCoordinator {
                     continue
                 }
                 do { try await performSync(id: task.workoutID, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: false, recovery: true) }
+                catch is CancellationError { throw CancellationError() }
                 catch { /* task records the retryable failure */ }
             case .acknowledged, .analyzing:
-                try? await refreshAnalysis(id: task.workoutID, api: api)
+                do { try await refreshAnalysis(id: task.workoutID, api: api) }
+                catch is CancellationError { throw CancellationError() }
+                catch { /* analysis failures do not invalidate a durable ACK */ }
                 try? await store.releaseBundle(task.workoutID)
             case .published, .partial, .deleted:
                 try? await store.releaseBundle(task.workoutID)
             case .failed where task.errorCode == "interrupted":
                 if task.bundleFile != nil {
                     do { try await performSync(id: task.workoutID, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: false, recovery: true) }
+                    catch is CancellationError { throw CancellationError() }
                     catch { }
                 }
             default:
                 break
             }
         }
+        try Task.checkCancellation()
         _ = try? await store.collectGarbage(dryRun: false)
     }
 
@@ -505,6 +604,8 @@ actor SyncCoordinator {
             try await updateTask(id, phase: .failed, error: "workout_not_found")
         } catch let error as UploadError where error.status == 409 && ["sample_deleted", "route_deleted", "workout_deleted"].contains(error.code) {
             try await updateTask(id, phase: .partial, error: error.code)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             // Analysis is asynchronous; a transient read failure must not
             // downgrade a durable ACK. The user can re-check later.

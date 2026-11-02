@@ -47,6 +47,8 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	m.HandleFunc("GET /ready", ready)
 	m.Handle("GET /v2/handshake", a.auth(syncing.ReadLane, a.handshake))
 	m.Handle("GET /v2/sync/changes", a.auth(syncing.ReadLane, a.changes))
+	m.Handle("POST /v2/sync/daily-facts", a.auth(syncing.UploadLane, a.dailyUpload))
+	m.Handle("GET /v2/sync/daily-facts/coverage", a.auth(syncing.ReadLane, a.dailyCoverage))
 	m.Handle("POST /v2/sync/workout-bundles", a.auth(syncing.UploadLane, a.importWorkoutBundle))
 	m.Handle("GET /v2/sync/workout-bundles/{id}", a.auth(syncing.ReadLane, a.workoutBundle))
 	m.Handle("DELETE /v2/sync/workout-bundles/{id}", a.auth(syncing.UploadLane, a.deleteWorkoutBundle))
@@ -298,7 +300,7 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	sort.Strings(types)
 	respond(w, 200, map[string]any{"protocolVersion": 3, "deviceID": m.DeviceID, "collectorEpoch": m.CollectorEpoch, "datasetStatus": m.DatasetStatus, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
 		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": 2, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
-		"capabilities": map[string]any{"sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 3, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": 3, "bundleObservationVersion": 1, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
+		"capabilities": map[string]any{"dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 3, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": 3, "bundleObservationVersion": 1, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
 	return nil
 }
 func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {

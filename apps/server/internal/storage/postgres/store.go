@@ -53,7 +53,7 @@ func Open(ctx context.Context, url string, maxConnections int32) (*Store, error)
 func (s *Store) Ready(ctx context.Context) error {
 	// Constant-sized schema evidence, no business table scan and no implicit migration.
 	var ok bool
-	err := s.Pool.QueryRow(ctx, `SELECT to_regclass('sync_batches') IS NOT NULL AND to_regclass('jobs') IS NOT NULL AND to_regclass('analysis_publications') IS NOT NULL AND to_regclass('training_effective_versions') IS NOT NULL`).Scan(&ok)
+	err := s.Pool.QueryRow(ctx, `SELECT to_regclass('sync_batches') IS NOT NULL AND to_regclass('jobs') IS NOT NULL AND to_regclass('analysis_publications') IS NOT NULL AND to_regclass('training_effective_versions') IS NOT NULL AND to_regclass('daily_health_coverage') IS NOT NULL`).Scan(&ok)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (s *Store) Ready(ctx context.Context) error {
 	if err = s.Pool.QueryRow(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY id DESC LIMIT 1`).Scan(&version); err != nil {
 		return err
 	}
-	if version != 19 {
+	if version != 20 {
 		return errors.New("unsupported schema version")
 	}
 	return nil

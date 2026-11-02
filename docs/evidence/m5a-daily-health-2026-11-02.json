@@ -1,0 +1,295 @@
+{
+  "date": "2026-11-02",
+  "timezone": "Asia/Shanghai",
+  "result": "PASS WITH RISKS",
+  "data": "synthetic only",
+  "git": {
+    "head": "6e5451c974a6284cf4aab2e6baf856eee63ac218",
+    "branch": "main",
+    "pre_existing_dirty": [
+      " M docs/IMPLEMENTATION.md",
+      " M ios/RAI/App/ProductViews.swift",
+      " M ios/RAI/App/RAIApp.swift",
+      " M ios/RAI/App/SyncCoordinator.swift",
+      " M ios/RAI/AppTests/NormalizerTests.swift",
+      " M ios/RAI/Sources/SyncCore/RAIAPIClient.swift",
+      " M ios/RAI/Sources/SyncCore/WorkoutBundleDelivery.swift",
+      " M ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityTests.swift",
+      "?? deploy/cloud-test/",
+      "?? docs/RAI_MODEL_ARCHITECTURE.md",
+      "?? ios/RAI/Sources/SyncCore/ForegroundSyncScheduler.swift",
+      "?? ios/RAI/Tests/SyncCoreTests/ForegroundSyncSchedulerTests.swift"
+    ],
+    "committed": false,
+    "pushed": false
+  },
+  "postgres": {
+    "version": "18.6 (Postgres.app)",
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "data_checksums": "on",
+    "listen_addresses": "",
+    "shared_buffers": "64MB",
+    "migration": 20,
+    "migration_19_to_20_preserved_facts": true,
+    "leftover_databases": 0,
+    "test_clusters_removed": true,
+    "full_integration_seconds": 252.519,
+    "final_daily_integration_seconds": 27.578,
+    "final_admin_seconds": 1.488,
+    "restricted_api_role": "PASS",
+    "faults": [
+      "insert/update failures on health_samples, entity_tombstones, entity_changes, dirty_scopes, daily_health_coverage, change_events, sync_batches",
+      "backend session terminated after fact writes",
+      "HTTP internal error and payload limit"
+    ],
+    "process_sigkill": [
+      {
+        "phase": "before-upload",
+        "facts": 1,
+        "receipts": 1,
+        "anchor_restored": "true"
+      },
+      {
+        "phase": "during-upload",
+        "facts": 1,
+        "receipts": 1,
+        "anchor_restored": "true"
+      },
+      {
+        "phase": "after-commit",
+        "facts": 1,
+        "receipts": 1,
+        "anchor_restored": "true"
+      }
+    ],
+    "same_batch_delete_precedence": "PASS",
+    "final_receipt_update_fault_after_fact_and_coverage_writes": "PASS",
+    "actual_shared_429_fairness": {
+      "facts": 3,
+      "receipts": 3,
+      "actual_429": true,
+      "sleep_delivered": true,
+      "empty_batch_churn": false
+    },
+    "final_client_replay_seconds": 4.995,
+    "http_performance_integration_seconds": 150.034
+  },
+  "ios": {
+    "sdk": "iPhoneOS 26.5",
+    "simulator_app_tests": 34,
+    "simulator_app_failures": 0,
+    "swift_testing_tests": 119,
+    "swift_testing_suites": 15,
+    "swift_xctest_passed": 2,
+    "swift_opt_in_entries_skipped": 3,
+    "local_adhoc_signing": true,
+    "owned_simulator_deleted": true,
+    "real_device": "NOT RUN",
+    "anchor_save_failure_injection": "PASS",
+    "exact_OS_kill_inside_atomic_file_replace": "NOT RUN",
+    "initial_unsigned_keychain_run": "2 existing tests failed -34018; signed complete rerun 34/34 passed",
+    "generic_ios_unsigned_build": "PASS",
+    "observer_generation_during_query": "PASS",
+    "cooldown_and_pending_first_delivery": "PASS",
+    "offline_handshake_backoff": "PASS"
+  },
+  "checks": {
+    "go_test_race": "PASS",
+    "go_vet": "PASS",
+    "boundaries": "PASS (249 packages)",
+    "sqlc": "generated v1.31.1",
+    "openapi": "PASS (31 pre-existing warnings)",
+    "git_diff_check": "PASS",
+    "tagged_go_vet": "PASS (integration,m5aclient,m5aperf)"
+  },
+  "performance_nonrace": [
+    {
+      "days": 7,
+      "facts": 224,
+      "fixture_ms": 0.26,
+      "batches": 2,
+      "payload_bytes": 85393,
+      "parse_ms": 8.46,
+      "pg_tx_ms": 41.76,
+      "pg_transport_ms": 53.5,
+      "bootstrap_ms": 62.68,
+      "alloc_bytes": 8944936,
+      "heap_bytes": 30857200,
+      "hot_ms": 2.8
+    },
+    {
+      "days": 30,
+      "facts": 960,
+      "fixture_ms": 0.85,
+      "batches": 8,
+      "payload_bytes": 365735,
+      "parse_ms": 34.5,
+      "pg_tx_ms": 145.41,
+      "pg_transport_ms": 188.3,
+      "bootstrap_ms": 225.86,
+      "alloc_bytes": 37713936,
+      "heap_bytes": 2648672,
+      "hot_ms": 1.93
+    },
+    {
+      "days": 90,
+      "facts": 2880,
+      "fixture_ms": 2.37,
+      "batches": 23,
+      "payload_bytes": 1096684,
+      "parse_ms": 103.11,
+      "pg_tx_ms": 433.87,
+      "pg_transport_ms": 561.99,
+      "bootstrap_ms": 671.51,
+      "alloc_bytes": 112705752,
+      "heap_bytes": 4469000,
+      "hot_ms": 1.95
+    },
+    {
+      "days": 180,
+      "facts": 5760,
+      "fixture_ms": 4.46,
+      "batches": 45,
+      "payload_bytes": 2192808,
+      "parse_ms": 206.07,
+      "pg_tx_ms": 913.52,
+      "pg_transport_ms": 1152.66,
+      "bootstrap_ms": 1371.28,
+      "alloc_bytes": 224340600,
+      "heap_bytes": 6373808,
+      "hot_ms": 2.03
+    }
+  ],
+  "batch_comparison_nonrace": [
+    {
+      "size": 32,
+      "batches": 32,
+      "bytes": 404246,
+      "max_payload": 12635,
+      "total_ms": 253.48,
+      "pg_tx_ms": 193.03,
+      "max_pg_tx_ms": 11.79
+    },
+    {
+      "size": 64,
+      "batches": 16,
+      "bytes": 394614,
+      "max_payload": 24667,
+      "total_ms": 215.89,
+      "pg_tx_ms": 167.66,
+      "max_pg_tx_ms": 10.74
+    },
+    {
+      "size": 128,
+      "batches": 8,
+      "bytes": 389799,
+      "max_payload": 48730,
+      "total_ms": 203.04,
+      "pg_tx_ms": 157.61,
+      "max_pg_tx_ms": 20.57
+    }
+  ],
+  "healthkit_sdk_fixture_processing": [
+    {
+      "days": 7,
+      "facts": 224,
+      "bytes": 49728,
+      "processing_ms": 45.195937156677246
+    },
+    {
+      "days": 30,
+      "facts": 960,
+      "bytes": 213120,
+      "processing_ms": 225.7779836654663
+    },
+    {
+      "days": 90,
+      "facts": 2880,
+      "bytes": 639360,
+      "processing_ms": 837.9459381103516
+    },
+    {
+      "days": 180,
+      "facts": 5760,
+      "bytes": 1278720,
+      "processing_ms": 1492.940068244934
+    }
+  ],
+  "not_verified": [
+    "real iPhone HRV/RHR/Sleep queries and representative metadata",
+    "real second-anchor/delete/replacement/background delivery behavior",
+    "HealthKit query cost and iOS peak memory on device",
+    "physical power loss; deterministic OS kill inside atomic rename",
+    "fnOS/public ingress/production deployment or migration"
+  ],
+  "source_sha256": {
+    "apps/server/internal/syncing/daily.go": "5b227c4de3bb82adcca672dd9a7e36c61dd5b5789f82f08feb111e1806e64c0e",
+    "apps/server/internal/storage/postgres/daily.go": "3999ce926b195fcb123682d8c72aa9b49dc5a71354f6d4d4af4d37a3ca30f4d2",
+    "apps/server/internal/httpapi/daily.go": "66bcc8059134cff1cec2b4a6e2388dac3cc6dabc2c77cd3b548e3f2130db690b",
+    "apps/server/migrations/00020_daily_health.sql": "042a8200cd8f02286f4a5d0f89471ce8ce931adf195f37bad248f010dbd87252",
+    "ios/RAI/Sources/SyncCore/DailyHealth.swift": "b3bfe2e98fdf60b670a6e479d168ebd47ab021f02ac83356e90e615b90bdcae5",
+    "ios/RAI/App/DailyHealthNormalizer.swift": "0b1a2b7fb518d281320f3b2045f9de56d5fca584c5bb6e20007011872e1a86b3",
+    "ios/RAI/App/HealthKitClient.swift": "c87bbb8b53b2fa486e05754451c66bf1f6fb3486e45635fc4c9316bec0255804",
+    "ios/RAI/App/SyncCoordinator.swift": "05827f8acd26b56f06573b2e6e067086714fdb4037d8c281ff69df91f03fbce3",
+    "ios/RAI/Sources/SyncCore/OutboxStore.swift": "777d03b656d2df749fbd8891c93128f8ae1d6b855cc2a6482318d63b68329389",
+    "ios/RAI/Sources/SyncCore/RAIAPIClient.swift": "ba1830e7b01e0146f22a4c28f15b20be7519625164b36805b76ab96fb98fc15b",
+    "ios/RAI/App/RAIApp.swift": "a8d707ee5037992612b50f947db1bd0ce5c4a8fd16e88649a2b95968eca6e65a"
+  },
+  "commands": [
+    "go test -race ./... (apps/server)",
+    "go vet ./... (apps/server)",
+    "python3 scripts/check-boundaries.py",
+    "PGBIN=<local PG18 bin> scripts/test-postgres.sh go test -race -count=1 -tags=integration -p 1 -timeout=30m ./...",
+    "swift test --package-path ios/RAI",
+    "swift build --package-path ios/RAI --product DailyProbe",
+    "PGBIN=<local PG18 bin> RAI_M5A_PROBE=<repo>/ios/RAI/.build/debug/DailyProbe scripts/test-postgres.sh go test -race -count=1 -tags=integration,m5aclient -run TestDaily -v ./integration ./internal/admin",
+    "PGBIN=<local PG18 bin> scripts/test-postgres.sh go test -count=1 -tags=integration -run \"TestDailySyntheticPerformance|TestDailyBatchBudgetComparison\" -v ./integration",
+    "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -destination platform=iOS\\ Simulator,id=<owned-disposable-simulator> -derivedDataPath /tmp/rai-m5a-signed CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES -only-testing:RAITests test",
+    "go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate (apps/server)",
+    "npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml",
+    "git diff --check",
+    "xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-m5a-device CODE_SIGNING_ALLOWED=NO build",
+    "go vet -tags=integration,m5aclient,m5aperf ./... (apps/server)",
+    "PGBIN=<local PG18 bin> scripts/test-postgres.sh go test -count=1 -tags=integration,m5aperf -run TestDailyHTTPBootstrapWithRealAdmission -v -timeout=5m ./integration"
+  ],
+  "performance_http_with_admission": [
+    {
+      "days": 7,
+      "facts": 224,
+      "batches": 2,
+      "payload_bytes": 85393,
+      "http_bootstrap_ms": 58.52,
+      "hot_ms": 2004.88,
+      "admission_retries": 1
+    },
+    {
+      "days": 30,
+      "facts": 960,
+      "batches": 8,
+      "payload_bytes": 365735,
+      "http_bootstrap_ms": 12210.49,
+      "hot_ms": 2003.76,
+      "admission_retries": 7
+    },
+    {
+      "days": 90,
+      "facts": 2880,
+      "batches": 23,
+      "payload_bytes": 1096684,
+      "http_bootstrap_ms": 42595.8,
+      "hot_ms": 2003.67,
+      "admission_retries": 22
+    },
+    {
+      "days": 180,
+      "facts": 5760,
+      "batches": 45,
+      "payload_bytes": 2192808,
+      "http_bootstrap_ms": 86232.21,
+      "hot_ms": 2003.95,
+      "admission_retries": 44
+    }
+  ]
+}

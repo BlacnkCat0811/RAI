@@ -104,6 +104,9 @@ public struct LocalState: Codable, Sendable {
     public var routeCaptures: [String: RouteCaptureCheckpoint]?
     public var retainedBundles: [String: WorkoutSyncTask]?
     public var factCaptureFiles: [String]?
+    public var daily: [String: DailyFlow]?
+    public var dailyWakePending: Bool?
+    public var dailyWakeGeneration: Int64?
     // Optional for v1 state compatibility. Only fully delivered pages may mark
     // files; orphan/cancelled-page reclamation requires a separate proof.
     public var reclaimFiles: [String]?
@@ -371,6 +374,7 @@ public actor OutboxStore {
             task.errorCode = failure.code; task.lastUploadError = failure; task.updatedAt = now
             next.tasks?[id] = task
         }
+        Self.deferDaily(&next, error: error, now: now)
         try commit(next)
     }
     public func acknowledgeBundle(_ id: String, receipt: JSON) throws {
@@ -637,6 +641,7 @@ public actor OutboxStore {
             }
         }
         referenced.formUnion(state.factCaptureFiles ?? [])
+        referenced.formUnion((state.daily ?? [:]).values.compactMap { $0.pending?.file })
         for capture in (state.routeCaptures ?? [:]).values { referenced.insert(capture.file) }
         for event in (state.discovery?.events ?? [:]).values {
             if let file = event.archiveFile { referenced.insert(file) }

@@ -38,9 +38,13 @@ protocol HealthKitReading: Sendable {
     func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]]
     func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead
     func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws
+    func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
+    func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws
 }
 
 extension HealthKitReading {
+    func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
+    func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws { }
     func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]] { try await bundleSeries(type: type, workout: workout) }
     func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws { }
     func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead {
@@ -59,15 +63,17 @@ extension HealthKitReading {
 actor HealthKitClient: HealthKitReading {
     private let health = HKHealthStore()
     private var observers: [HKObserverQuery] = []
+    private var dailyObservers: [HKObserverQuery] = []
     // No derived cadence: the current SDK has no HealthKit running-cadence
     // quantity identifier. Only real supported quantities are requested.
     static let identifiers: [HKQuantityTypeIdentifier] = [.heartRate, .distanceWalkingRunning, .activeEnergyBurned, .runningSpeed, .runningPower, .stepCount, .basalEnergyBurned, .runningGroundContactTime, .runningStrideLength, .runningVerticalOscillation]
     static let quantityTypes = identifiers.compactMap { HKObjectType.quantityType(forIdentifier: $0) }
     static let types: [HKSampleType] = [HKObjectType.workoutType()] + quantityTypes
+    static let dailyTypes: [HKSampleType] = [HKObjectType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!, HKObjectType.quantityType(forIdentifier: .restingHeartRate)!, HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!]
 
     func authorize() async throws {
         guard HKHealthStore.isHealthDataAvailable() else { throw SyncFailure.invalid("healthkit_unavailable") }
-        try await health.requestAuthorization(toShare: [], read: Set(Self.types.map { $0 as HKObjectType } + [HKSeriesType.workoutRoute()]))
+        try await health.requestAuthorization(toShare: [], read: Set((Self.types + Self.dailyTypes).map { $0 as HKObjectType } + [HKSeriesType.workoutRoute()]))
     }
     #if DEBUG
     // Explicit read-only inspection. This does not use or advance sync anchors.
@@ -117,6 +123,33 @@ actor HealthKitClient: HealthKitReading {
         guard let uuid = UUID(uuidString: id) else { throw SyncFailure.invalid("invalid_workout_uuid") }
         let query = HKSampleQueryDescriptor(predicates: [.workout(HKQuery.predicateForObject(with: uuid))], sortDescriptors: [], limit: 1)
         return try await query.result(for: health).first
+    }
+    func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage {
+        guard Self.dailyTypes.contains(type), (1...DailyHealth.maxChanges).contains(limit) else { throw SyncFailure.invalid("unsupported_type") }
+        let previous = try Self.decodeAnchor(anchor)
+        // The lower bound never rolls forward. Use the identical predicate on
+        // bootstrap and every hot query, including intervals crossing the bound.
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: nil, options: [])
+        let query = HKAnchoredObjectQueryDescriptor(predicates: [.sample(type: type, predicate: predicate)], anchor: previous, limit: limit)
+        let result = try await query.result(for: health)
+        return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
+                          anchor: try NSKeyedArchiver.archivedData(withRootObject: result.newAnchor, requiringSecureCoding: true), limit: limit)
+    }
+    func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws {
+        guard dailyObservers.isEmpty else { return }
+        var failed = false
+        for type in Self.dailyTypes {
+            let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
+                let delivery = HealthDeliveryCompletion(completion)
+                // The handler only journals one bounded page per type. No
+                // network request is held inside HealthKit's completion window.
+                Task { if error == nil { await handler() }; delivery.finish() }
+            }
+            health.execute(query); dailyObservers.append(query)
+            do { try await health.enableBackgroundDelivery(for: type, frequency: .immediate) }
+            catch { failed = true }
+        }
+        if failed { throw SyncFailure.localState("background_delivery_unavailable") }
     }
     /// Read-only list for the user-selected sync screen. This query does not
     /// use or advance any sync anchor; only a later explicit sync reads facts.

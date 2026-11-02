@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RAI native delta API
-  version: 1.5.0
+  version: 1.6.0
   description: >-
     Protocol 3 HealthKit Workout Bundle import: one multipart request carries one
     immutable Workout, all its scalar samples, multi-point quantity series and
@@ -107,6 +107,56 @@ paths:
                       sampleWorkoutAssociations: true
                       changefeed: false
                       analysis: true
+        '401': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/daily-facts:
+    post:
+      summary: Commit an independent Daily Facts Sync v1 batch
+      operationId: commitDailyFacts
+      description: >-
+        At most 128 additions plus deletions and 524288 JSON bytes. Strict schema,
+        per-type ordered stream, immutable batch retry and delete precedence.
+        ACK follows atomic facts, tombstones, logs, dirty hooks and coverage commit.
+        No Workout association, physiological aggregation or model computation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DailyBatch'}
+      responses:
+        '200':
+          description: Immutable durable acknowledgement
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DailyReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/daily-facts/coverage:
+    get:
+      summary: Read received daily discovery observations
+      operationId: getDailyCoverage
+      description: No read-permission or physiological freshness inference. See DAILY_HEALTH_SYNC_CONTRACT.md.
+      responses:
+        '200':
+          description: Latest acknowledged observations in one database snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [version, coverage]
+                properties:
+                  version: {const: 1}
+                  coverage:
+                    type: array
+                    minItems: 3
+                    maxItems: 3
+                    items: {$ref: '#/components/schemas/DailyCoverage'}
         '401': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
@@ -456,6 +506,12 @@ components:
       required: [sampleTypes, workouts, workoutType, workoutPayloadVersion, workoutBundles, bundleProtocolVersion, routes, sampleWorkoutAssociations, changefeed, analysis]
       description: Explicit capability boundary for this deployment. Unsupported source fields must remain local; clients must not truncate them to fit.
       properties:
+        dailyFactsVersion: {const: 1}
+        dailyFactTypes:
+          type: array
+          items: {enum: [HKQuantityTypeIdentifierHeartRateVariabilitySDNN, HKQuantityTypeIdentifierRestingHeartRate, HKCategoryTypeIdentifierSleepAnalysis]}
+        dailyMaxChanges: {const: 128}
+        dailyMaxBytes: {const: 524288}
         sampleTypes:
           type: array
           minItems: 1
@@ -614,3 +670,13 @@ components:
     WorkoutDetail: {"type": "object", "additionalProperties": true, "required": ["workout", "environment", "summary", "trainingLoad", "zoneSummary", "route", "override"], "description": "Native detail projection. workout/route facts are always present; derived values are null without a clean publication. Environment observations remain visible with pending status and null correction. Planned-effort load fallback is labeled planned_effort_fallback/v1; actual RPE stays null."}
     WorkoutSeries: {"type": "object", "additionalProperties": true, "required": ["workoutID", "startedAtUs", "endedAtUs", "durationS", "splits", "grade", "segments", "segmentPlan", "segmentNote", "hasMeasuredWorkoutSteps", "dynamics", "series"], "description": "Eight metric series plus measured splits/segments and display-only dynamics."}
     WorkoutFreshness: {"type": "object", "additionalProperties": true, "required": ["workoutID", "facts", "analysis", "series", "completeness", "deliveryState", "analysisState", "stabilityState"], "description": "Per-metric state is present or not_seen_yet; not_seen_yet does not assert device incapability."}
+
+    DailyMetadata: {"type":"object","additionalProperties":false,"properties":{"HKTimeZone":{"type":"string","maxLength":128},"HKWasUserEntered":{"type":"boolean"},"HKMetadataKeySyncIdentifier":{"type":"string","minLength":1,"maxLength":255},"HKAlgorithmVersion":{"type":"integer","format":"int64"},"HKMetadataKeySyncVersion":{"type":"integer","format":"int64"},"HKMetadataKeyHeartRateMotionContext":{"type":"integer","format":"int64"},"HKMetadataKeyHeartRateSensorLocation":{"type":"integer","format":"int64"},"HKMetadataKeyUserMotionContext":{"type":"integer","format":"int64"},"HKMetadataKeyDevicePlacementSide":{"type":"integer","format":"int64"}}}
+
+    DailyFact: {"type":"object","additionalProperties":false,"required":["uuid","startUs","endUs","source"],"properties":{"uuid":{"$ref":"#/components/schemas/ID"},"startUs":{"type":"integer","format":"int64"},"endUs":{"type":"integer","format":"int64"},"source":{"$ref":"#/components/schemas/HealthKitSource"},"quantity":{"type":"object","additionalProperties":false,"required":["value","unit"],"properties":{"value":{"type":"number"},"unit":{"enum":["ms","count/min"]}}},"category":{"type":"integer","minimum":0,"maximum":5},"metadata":{"$ref":"#/components/schemas/DailyMetadata"}},"oneOf":[{"required":["quantity"]},{"required":["category"]}],"description":"Quantity HRV SDNN/ms or RHR/count/min; Sleep uses raw SDK category 0..5. Unknown metadata/category fails without ACK."}
+
+    DailyBatch: {"type":"object","additionalProperties":false,"required":["version","datasetID","datasetEpoch","collectorEpoch","streamID","batchID","clientSeq","previousBatchID","sampleType","queryFingerprint","bootstrapStartUs","observedAtUs","hasMore","facts","deletedUUIDs"],"properties":{"version":{"const":1},"datasetID":{"$ref":"#/components/schemas/ID"},"datasetEpoch":{"$ref":"#/components/schemas/ID"},"collectorEpoch":{"$ref":"#/components/schemas/ID"},"streamID":{"$ref":"#/components/schemas/ID"},"batchID":{"$ref":"#/components/schemas/ID"},"clientSeq":{"type":"integer","minimum":1},"previousBatchID":{"oneOf":[{"$ref":"#/components/schemas/ID"},{"type":"null"}]},"sampleType":{"enum":["HKQuantityTypeIdentifierHeartRateVariabilitySDNN","HKQuantityTypeIdentifierRestingHeartRate","HKCategoryTypeIdentifierSleepAnalysis"]},"queryFingerprint":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"bootstrapStartUs":{"type":"integer","format":"int64"},"observedAtUs":{"type":"integer","format":"int64"},"hasMore":{"type":"boolean"},"facts":{"type":"array","maxItems":128,"items":{"$ref":"#/components/schemas/DailyFact"}},"deletedUUIDs":{"type":"array","maxItems":128,"items":{"$ref":"#/components/schemas/ID"}}},"description":"Combined facts+deletedUUIDs <=128; exact body <=512KiB. Hash daily-v1|sampleType|bootstrapStartUs; no protocolVersion field."}
+
+    DailyReceipt: {"type":"object","additionalProperties":false,"required":["version","batchID","datasetID","datasetEpoch","collectorEpoch","streamID","clientSeq","requestSHA256","ingestStatus","commitRevision","counts","deleteStatus","analysisStatus"],"properties":{"version":{"const":1},"batchID":{"$ref":"#/components/schemas/ID"},"datasetID":{"$ref":"#/components/schemas/ID"},"datasetEpoch":{"$ref":"#/components/schemas/ID"},"collectorEpoch":{"$ref":"#/components/schemas/ID"},"streamID":{"$ref":"#/components/schemas/ID"},"clientSeq":{"type":"integer","format":"int64"},"requestSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"ingestStatus":{"const":"committed"},"commitRevision":{"type":"integer","format":"int64"},"counts":{"type":"object","additionalProperties":false,"required":["inserted","unchanged","deleted","tombstoned","suppressed"],"properties":{"inserted":{"type":"integer","minimum":0},"unchanged":{"type":"integer","minimum":0},"deleted":{"type":"integer","minimum":0},"tombstoned":{"type":"integer","minimum":0},"suppressed":{"type":"integer","minimum":0}}},"deleteStatus":{"enum":["none","deleted_precedence"]},"analysisStatus":{"const":"awaiting_model_implementation"}}}
+
+    DailyCoverage: {"type":"object","additionalProperties":false,"required":["sampleType","state","queryCompleted","anchorPresent","bootstrapComplete","hasMore","sampleCount","deletedCount","hasLiveFacts","hasDeletedFacts","lastDiscoveryAtUs","lastSyncAt","lastFactAtUs","sourceContext"],"properties":{"sampleType":{"enum":["HKQuantityTypeIdentifierHeartRateVariabilitySDNN","HKQuantityTypeIdentifierRestingHeartRate","HKCategoryTypeIdentifierSleepAnalysis"]},"state":{"enum":["sync_not_completed","no_sample_observed","sample_deleted","sample_exists"]},"queryCompleted":{"type":"boolean"},"anchorPresent":{"type":"boolean"},"bootstrapComplete":{"type":"boolean"},"hasMore":{"type":"boolean"},"hasLiveFacts":{"type":"boolean"},"hasDeletedFacts":{"type":"boolean"},"sampleCount":{"type":"integer"},"deletedCount":{"type":"integer"},"lastDiscoveryAtUs":{"type":["integer","null"],"format":"int64"},"lastSyncAt":{"type":["string","null"],"format":"date-time"},"lastFactAtUs":{"type":["integer","null"],"format":"int64"},"sourceContext":{"type":"array","items":{"type":"string"}}}}

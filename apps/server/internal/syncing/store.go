@@ -108,5 +108,7 @@ type Store interface {
 	EnrichWorkout(context.Context, Principal, WorkoutEnrichmentRequest) (json.RawMessage, error)
 	WorkoutEnrichment(context.Context, Principal, string) (json.RawMessage, error)
 	CommitUpload(context.Context, Principal, Envelope, []Event, UploadLease) (json.RawMessage, error)
+	CommitDaily(context.Context, Principal, []byte, UploadLease) (json.RawMessage, error)
+	DailyCoverage(context.Context, Principal) ([]DailyCoverage, error)
 	Job(context.Context, Principal, string) (any, error)
 }

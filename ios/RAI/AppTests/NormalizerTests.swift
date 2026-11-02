@@ -186,6 +186,91 @@ private struct BrokenACKUploader: FileUploader {
     }
 }
 final class WorkoutCoordinatorReliabilityTests: XCTestCase {
+    @MainActor
+    func testModelAllowsUserSyncDuringAutomaticWorkAndReservesSelectionImmediately() async {
+        let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
+        let (started, continuation) = AsyncStream<Void>.makeStream()
+        var stopped = false
+        scheduler.startAutomatic {
+            continuation.yield(())
+            do { try await Task.sleep(for: .seconds(3600)) } catch { stopped = true }
+        }
+        for await _ in started { break }
+        XCTAssertTrue(model.busy)
+        XCTAssertTrue(model.canStartWorkoutSync)
+        model.syncWorkouts([Wire.id()])
+        XCTAssertEqual(scheduler.mode, .manual)
+        XCTAssertTrue(model.busy)
+        XCTAssertFalse(model.canStartWorkoutSync)
+        await scheduler.waitForCompletion()
+        XCTAssertTrue(stopped)
+        XCTAssertFalse(model.busy)
+        XCTAssertTrue(model.canStartWorkoutSync)
+    }
+
+    @MainActor
+    func testUserRecoveryPreemptsHealthDiscoveryAndPreservesResumableFlow() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-discovery-preemption-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory), counters = CoordinatorCounters()
+        let (started, continuation) = AsyncStream<Void>.makeStream()
+        let health = PausedDiscoveryHealth(counters: counters, started: continuation)
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [CoordinatorReplies.self]
+        let coordinator = SyncCoordinator(store: store, health: health, session: URLSession(configuration: config))
+        let secret = ClientConfiguration.Secret(configuration: ClientConfiguration(baseURL: URL(string: "https://synthetic.invalid")!, collectorEpoch: CoordinatorReplies.identity.collectorEpoch), token: "synthetic")
+        let scheduler = ForegroundSyncScheduler()
+        var discoveryCancelled = false, recovered = false
+        scheduler.startAutomatic {
+            do { try await coordinator.discoverChanges(); XCTFail("paused discovery completed") }
+            catch is CancellationError { discoveryCancelled = true }
+            catch { XCTFail("unexpected discovery failure") }
+        }
+        for await _ in started { break }
+        XCTAssertTrue(scheduler.startManual {
+            do {
+                try await coordinator.recoverPending(secret: secret, transfers: BrokenACKUploader(counters: counters))
+                recovered = true
+            } catch { XCTFail("manual recovery could not acquire coordinator") }
+        })
+        await scheduler.waitForCompletion()
+        XCTAssertTrue(discoveryCancelled && recovered)
+        XCTAssertEqual(counters.reads.withLock { $0 }, 1)
+        let query = DiscoveryQuery(type: HKObjectType.workoutType().identifier)
+        let flow = try await store.discoveryFlow(query)
+        XCTAssertNil(flow.anchor); XCTAssertNil(flow.error); XCTAssertTrue(flow.hasMore)
+        XCTAssertEqual(scheduler.mode, .idle)
+    }
+
+    func testCancelledRecoveryStopsBeforeNextBundleWithoutHealthReads() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-recovery-cancellation-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory), counters = CoordinatorCounters()
+        var originals: [String: Data] = [:]
+        for _ in 0..<2 {
+            let id = Wire.id()
+            var fields = CoordinatorReplies.identity.bundleFields; fields["workoutID"] = .string(id)
+            let raw = try JSON.object(fields).data()
+            try await store.beginTask(id)
+            let bytes = WorkoutBundleAssembler.multipart(bundle: raw, boundary: "test")
+            let file = try await store.savePayload(bytes, suffix: "multipart.json")
+            try await store.setBundle(id, file: file, sha256: Wire.hash(raw), boundary: "test")
+            originals[file] = bytes
+        }
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [CoordinatorReplies.self]
+        let coordinator = SyncCoordinator(store: store, health: NoHealthReads(counters: counters), session: URLSession(configuration: config))
+        let secret = ClientConfiguration.Secret(configuration: ClientConfiguration(baseURL: URL(string: "https://synthetic.invalid")!, collectorEpoch: CoordinatorReplies.identity.collectorEpoch), token: "synthetic")
+        do {
+            try await coordinator.recoverPending(secret: secret, transfers: CancelledRecoveryUploader(counters: counters))
+            XCTFail("recovery swallowed cancellation")
+        } catch is CancellationError { }
+        XCTAssertEqual(counters.uploads.withLock { $0 }, 1)
+        XCTAssertEqual(counters.reads.withLock { $0 }, 0)
+        for (file, original) in originals { XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent(file)), original) }
+        let tasks = await store.allTasks()
+        XCTAssertTrue(tasks.allSatisfy { $0.uploadReceipt == nil })
+        XCTAssertEqual(tasks.reduce(0) { $0 + ($1.attemptCount ?? 0) }, 1)
+    }
+
     func testRecovery404KeepsExactBundleAndRetryTimeWithoutHealthReads() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rai-coordinator-test-" + Wire.id())
         defer { try? FileManager.default.removeItem(at: dir) }
@@ -213,6 +298,28 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
         let after = await store.task(id)
         XCTAssertEqual(after?.phase, .uploading); XCTAssertNil(after?.uploadReceipt)
         XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent(file).path))
+    }
+}
+
+private struct PausedDiscoveryHealth: HealthKitReading {
+    let counters: CoordinatorCounters
+    let started: AsyncStream<Void>.Continuation
+    func authorize() async throws { }
+    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage {
+        counters.reads.withLock { $0 += 1 }; started.yield(())
+        try await Task.sleep(for: .seconds(3600))
+        throw SyncFailure.invalid("unexpected_completed_read")
+    }
+    func workout(_ id: String) async throws -> HKWorkout? { throw SyncFailure.invalid("unexpected_health_read") }
+    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unexpected_health_read") }
+    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unexpected_health_read") }
+}
+
+private struct CancelledRecoveryUploader: FileUploader {
+    let counters: CoordinatorCounters
+    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
+        counters.uploads.withLock { $0 += 1 }
+        throw CancellationError()
     }
 }
 
@@ -455,5 +562,108 @@ extension Phase5ASessionPlatformTests {
             XCTAssertEqual(active.status, .active)
         }
         XCTAssertEqual(counters.reads.withLock { $0 }, 0); XCTAssertEqual(counters.uploads.withLock { $0 }, 0)
+    }
+}
+
+extension NormalizerTests {
+    func testDailySDKCategoriesUnitsMetadataAndAnchorArchive() throws {
+        XCTAssertEqual(try (0...5).map { try DailyHealthNormalizer.categoryValue($0) }, Array(0...5))
+        XCTAssertThrowsError(try DailyHealthNormalizer.categoryValue(99))
+        let date = Date(timeIntervalSince1970: 1_790_000_000)
+        let hrv = HKQuantitySample(type: HKQuantityType(.heartRateVariabilitySDNN), quantity: HKQuantity(unit: .second(), doubleValue: 0.042), start: date, end: date,
+            metadata: [HKMetadataKeyAlgorithmVersion: 2, HKMetadataKeyHeartRateMotionContext: 1, HKMetadataKeyTimeZone: "Asia/Shanghai", HKMetadataKeyWasUserEntered: true])
+        let fact = try DailyHealthNormalizer.fact(hrv)
+        XCTAssertEqual(fact["quantity"]["unit"], .string("ms")); XCTAssertEqual(fact["quantity"]["value"], .number(42))
+        XCTAssertEqual(fact["metadata"]["HKAlgorithmVersion"], .int(2)); XCTAssertEqual(fact["metadata"]["HKWasUserEntered"], .bool(true))
+        XCTAssertNotNil(fact["source"]["bundleID"].text)
+        let rhr = HKQuantitySample(type: HKQuantityType(.restingHeartRate), quantity: HKQuantity(unit: .count().unitDivided(by: .minute()), doubleValue: 58), start: date, end: date)
+        XCTAssertEqual(try DailyHealthNormalizer.fact(rhr)["quantity"]["unit"], .string("count/min"))
+        for stage in 0...5 {
+            let sleep = HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: stage, start: date, end: date.addingTimeInterval(3600))
+            let sleepFact = try DailyHealthNormalizer.fact(sleep)
+            XCTAssertEqual(sleepFact["category"], .int(Int64(stage))); XCTAssertEqual(sleepFact["endUs"], .int(Normalizer.us(date.addingTimeInterval(3600))))
+        }
+        let largeVersion = Int64(9_007_199_254_740_993)
+        let precise = HKQuantitySample(type: HKQuantityType(.restingHeartRate), quantity: HKQuantity(unit: .count().unitDivided(by: .minute()), doubleValue: 58), start: date, end: date,
+            metadata: [HKMetadataKeySyncIdentifier: "synthetic-revision", HKMetadataKeySyncVersion: NSNumber(value: largeVersion)])
+        XCTAssertEqual(try DailyHealthNormalizer.fact(precise)["metadata"][HKMetadataKeySyncVersion], .int(largeVersion))
+        let anchor = HKQueryAnchor(fromValue: 123)
+        let raw = try NSKeyedArchiver.archivedData(withRootObject: anchor, requiringSecureCoding: true)
+        let restored = try XCTUnwrap(NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: raw))
+        XCTAssertEqual(anchor, restored)
+        XCTAssertThrowsError(try Normalizer.quantity(HKQuantity(unit: .meter(), doubleValue: 1), type: DailyHealth.hrv))
+        let unsupported = HKQuantitySample(type: HKQuantityType(.heartRateVariabilitySDNN), quantity: HKQuantity(unit: .second(), doubleValue: 0.04), start: date, end: date, metadata: ["future_metadata": "preserve_by_not_advancing"])
+        XCTAssertThrowsError(try DailyHealthNormalizer.fact(unsupported))
+    }
+    func testDailyHealthSideSyntheticHistoryCost() throws {
+        for days in [7, 30, 90, 180] {
+            let started = Date(), perDay = 32
+            var bytes = 0
+            // Synthetic SDK objects only; no HKHealthStore query or real values.
+            for i in 0..<(days * perDay) {
+                let start = Date(timeIntervalSince1970: 1_790_000_000 + Double(i) * 2700)
+                let sample = HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: i % 6, start: start, end: start.addingTimeInterval(1800))
+                bytes += try DailyHealthNormalizer.fact(sample).data().count
+            }
+            print("M5A_HK_FIXTURE days=\(days) facts=\(days * perDay) bytes=\(bytes) processing_ms=\(Date().timeIntervalSince(started) * 1000)")
+        }
+    }
+}
+
+private actor SyntheticDailyHealth: HealthKitReading {
+    private(set) var anchors: [String: [Data?]] = [:]
+    func authorize() async throws { }
+    func workout(_ id: String) async throws -> HKWorkout? { nil }
+    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage { throw SyncFailure.invalid("workout_channel_unexpected") }
+    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
+    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
+    func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage {
+        anchors[type.identifier, default: []].append(anchor)
+        let date = Date(timeIntervalSince1970: 1_793_059_200)
+        let samples: [HKSample]
+        if anchor != nil { samples = [] }
+        else if type.identifier == DailyHealth.sleep { samples = [HKCategorySample(type: HKCategoryType(.sleepAnalysis), value: 3, start: date, end: date.addingTimeInterval(3600))] }
+        else { let quantityType = type as! HKQuantityType; let unit: HKUnit = type.identifier == DailyHealth.hrv ? .secondUnit(with: .milli) : .count().unitDivided(by: .minute()); samples = [HKQuantitySample(type: quantityType, quantity: HKQuantity(unit: unit, doubleValue: 42), start: date, end: date)] }
+        let next = HKQueryAnchor(fromValue: anchors[type.identifier]!.count)
+        return HealthPage(samples: samples, deleted: [], anchor: try NSKeyedArchiver.archivedData(withRootObject: next, requiringSecureCoding: true), limit: limit)
+    }
+}
+extension NormalizerTests {
+    func testDailyCoordinatorOfflinePendingThenACKAndHotQuery() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-daily-hk-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory), health = SyntheticDailyHealth()
+        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
+        try await store.bind(scope)
+        let coordinator = SyncCoordinator(store: store, health: health)
+        try await coordinator.discoverDaily(); try await coordinator.discoverDaily()
+        let calls = await health.anchors
+        XCTAssertEqual(calls.count, 3); XCTAssertTrue(calls.values.allSatisfy { $0.count == 1 })
+        for type in DailyHealth.types {
+            let flow = try await store.dailyFlow(type)
+            XCTAssertNil(flow.anchor)
+            let pending = try XCTUnwrap(flow.pending)
+            let raw = try Data(contentsOf: await store.fileURL(pending.file)), body = try JSON.decode(raw)
+            XCTAssertEqual(body["facts"].list.count, 1)
+            var receipt: [String: JSON] = ["version": .int(1), "requestSHA256": .string(Wire.hash(raw)), "ingestStatus": .string("committed"), "commitRevision": .int(1)]
+            receipt["analysisStatus"] = .string("awaiting_model_implementation"); receipt["deleteStatus"] = .string("none")
+            receipt["counts"] = .object(Dictionary(uniqueKeysWithValues: ["inserted", "unchanged", "deleted", "tombstoned", "suppressed"].map { ($0, JSON.int(0)) }))
+            for key in ["batchID", "datasetID", "datasetEpoch", "collectorEpoch", "streamID", "clientSeq"] { receipt[key] = body[key] }
+            try await store.acknowledgeDaily(type: type, receipt: .object(receipt))
+        }
+        let reopened = try OutboxStore(directory: directory), resumed = SyncCoordinator(store: reopened, health: health)
+        try await resumed.discoverDaily()
+        let cooled = await health.anchors
+        XCTAssertTrue(cooled.values.allSatisfy { $0.count == 1 })
+        try await reopened.markDailyWake()
+        try await resumed.discoverDaily()
+        let incremental = await health.anchors
+        for type in DailyHealth.types {
+            XCTAssertEqual(incremental[type]?.count, 2); XCTAssertNotNil(incremental[type]?[1])
+            let flow = try await reopened.dailyFlow(type), pending = try XCTUnwrap(flow.pending)
+            let raw = try JSON.decode(Data(contentsOf: await reopened.fileURL(pending.file)))
+            XCTAssertTrue(raw["facts"].list.isEmpty)
+            XCTAssertEqual(flow.sequence, 2)
+        }
     }
 }

@@ -84,6 +84,7 @@ public struct RAIAPIClient: Sendable {
     }
     private func performCall(_ method: String, _ path: String, body: Data?, file: URL?,
                              mediaType: String, gzip: Bool, identity: String, query: [String: String]) async throws -> JSON {
+        let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path == "/v2/sync/daily-facts"
         let networkStart = Date()
         defer {
             metrics.elapsed("network_ms", since: networkStart)
@@ -112,13 +113,13 @@ public struct RAIAPIClient: Sendable {
                 guard let http = response as? HTTPURLResponse else { throw UploadError(code: "invalid_http_response") }
                 status = http.statusCode; retryAfter = Self.retryAfter(http.value(forHTTPHeaderField: "Retry-After")); contentType = http.value(forHTTPHeaderField: "Content-Type")
             }
-            guard data.count <= Self.responseBudget(for: path) else { throw UploadError(code: "oversized_response", status: path.hasPrefix("/v2/sync/workout-bundles") ? 0 : 422) }
+            guard data.count <= Self.responseBudget(for: path) else { throw UploadError(code: "oversized_response", status: durableACK ? 0 : 422) }
             guard status == 200 else {
                 let decoded = try? JSON.decode(data)
                 let code = decoded?["code"].text
                 throw UploadError(code: code ?? "unexpected_http_status", status: status, retryAfter: retryAfter, field: decoded?["field"].text, reason: decoded?["reason"].text)
             }
-            if path.hasPrefix("/v2/sync/workout-bundles") {
+            if durableACK {
                 let media = contentType?.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 guard !data.isEmpty, media == "application/json" else { throw UploadError(code: "invalid_ack_response") }
             }
@@ -127,9 +128,12 @@ public struct RAIAPIClient: Sendable {
             metrics.elapsed("response_decode_ms", since: decodeStart)
             return json
         } catch let error as UploadError { throw error }
-        catch let error as URLError { throw UploadError(code: "network_" + String(error.code.rawValue)) }
+        catch let error as URLError {
+            if error.code == .cancelled, Task.isCancelled { throw CancellationError() }
+            throw UploadError(code: "network_" + String(error.code.rawValue))
+        }
         catch is CancellationError { throw CancellationError() }
-        catch { throw UploadError(code: "invalid_response", status: path.hasPrefix("/v2/sync/workout-bundles") ? 0 : 422) }
+        catch { throw UploadError(code: "invalid_response", status: durableACK ? 0 : 422) }
     }
 }
 

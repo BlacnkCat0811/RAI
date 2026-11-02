@@ -38,6 +38,7 @@ public struct WorkoutBundleDelivery: Sendable {
     public init(store: OutboxStore, api: RAIAPIClient) { self.store = store; self.api = api }
 
     @discardableResult public func deliver(_ id: String, now: Date = Date()) async throws -> Bool {
+        try Task.checkCancellation()
         guard let task = try await store.claimBundle(id, now: now) else { return false }
         let hash = task.bundleSHA256!, identity = id + ":" + hash
         do {
@@ -83,6 +84,9 @@ public struct WorkoutBundleDelivery: Sendable {
                 try WorkoutBundleACK.validate(posted, workoutID: id, bundleHash: hash, sampleDeletions: task.submittedSampleDeletions ?? 0, routeDeletions: task.submittedRouteDeletions ?? 0)
                 receipt = posted
             } catch {
+                // Preemption leaves the OS-managed transfer available for
+                // reattachment; do not start a receipt lookup while cancelled.
+                if error is CancellationError || Task.isCancelled { throw CancellationError() }
                 let failure = Self.failure(error)
                 // Deterministic request/deletion conflicts never become GET
                 // success. Network, timeout and malformed ACK can reconcile.
@@ -103,11 +107,13 @@ public struct WorkoutBundleDelivery: Sendable {
         } catch {
             // Invalid cached 200 must not trap subsequent attempts forever.
             // Cancellation leaves OS-managed upload/result for reattachment.
-            if !(error is CancellationError) { api.discardUploadResult(identity) }
-            let failure = Self.failure(error)
+            let cancelled = error is CancellationError || Task.isCancelled
+            if !cancelled { api.discardUploadResult(identity) }
+            let failure = Self.failure(cancelled ? CancellationError() : error)
             do { try await store.failBundle(id, error: failure, now: max(now, Date())) }
             catch { await store.endBundleAttempt(id); throw error }
             await store.endBundleAttempt(id)
+            if cancelled { throw CancellationError() }
             throw failure
         }
     }

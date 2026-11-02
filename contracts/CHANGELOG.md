@@ -119,3 +119,10 @@
 ## 2026-11-01 Phase 5B
 
 Protocol 3 wire unchanged. Operator-only `rai init` now requires operation/actor/base-url/private credential-file, never emits a token to stdout, and resumes a committed operation with the same package. `admin new-dataset --operation-type disaster_recovery` identifies source-available recovery. Schema 19 expands only existing administrative audit constraints. Restored databases are archive/quarantine; active recovery always uses a fresh Dataset and client Session.
+
+## 1.6.0 — M5A Daily Facts Sync v1 (2026-11-02)
+
+Independent HRV SDNN, RHR and raw Sleep intervals use `/v2/sync/daily-facts`,
+with per-type streams, immutable bounded batches, complete source descriptors,
+delete precedence and received-discovery coverage. Existing Workout Protocol 3
+wire semantics remain frozen. See `docs/DAILY_HEALTH_SYNC_CONTRACT.md`.

@@ -561,3 +561,90 @@ iOS显式导入recovery package，沿用prepared/active/retired/recovery_require
 `HealthKitClient.integrityEvent` 直接遍历非可选的 `HKWorkoutActivity.workoutEvents`，移除无效的 `?? []`，保留每个事件的 metadata 校验。`HKWorkout.workoutEvents` 的可选处理保持不变。
 
 验证：`xcodebuild -project RAI.xcodeproj -scheme RAI -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build` 通过，构建日志 `/tmp/rai-healthkit-warning-build.log` 无 HealthKitClient 编译警告或错误。使用工程本地 Go 工具链运行 `go test -race ./...`（缓存命中）、`go vet ./...` 与 `scripts/check-boundaries.py`（249 包）通过。未运行真机 HealthKit 验收或部署；本次无事务变更。
+
+## 云服务器独立测试环境（2026-11-01）
+
+用户明确授权云端部署及手机使用 tpandmr.xyz 后，实际部署 `lh-gz` 的独立
+`rai-cloud-test-20261101` Compose project：PostgreSQL18.6/API/Worker 全部 healthy，
+19/19 migration applied，PG data_checksums=on；数据库无宿主发布端口，API仅回环18443。
+新增现有 HTTPS server 的 `/v2/`、`/ready`、`/health` 路由，保留旧 `/v1/`；
+没有访问旧后端数据库、迁移真实数据或修改 ../running。详细路径、镜像来源、
+资源限制、证书续期及回退见 [cloud test runbook](../deploy/cloud-test/README.md)。
+
+实测公网受信 HTTPS `/ready`=200，带私有新令牌的 handshake=200、无令牌=401；
+合成 Workout multipart 上传=200/committed，相同字节重试返回原回执，GET回执一致。
+首条无来源分类的合成输入导致 Worker `analysis_source_unclassified`，真实记为failed，
+没有伪报分析完成；补充完整合成 Watch provenance 的另一记录产生 succeeded/published
+及1条 analysis_publications。两条合成记录随后通过认证 DELETE 删除，workouts=0，
+删除屏障/提交日志/回执保留。手机凭证保存在 Git 忽略的0700目录、0600文件，未输出令牌。
+
+完成 `go test -race ./...`、`go vet ./...`、依赖边界检查（249包）；另用全新隔离
+Postgres.app18.6执行 `go test -race -count=1 -tags=integration ./...`，integration
+226.197s，全通过，leftover databases=0、cluster removed=1。新增部署配置无Go逻辑或事务改动。
+实测初轮 Nginx→API 因默认证书验证深度返回502，配置深度4后链/主机名验证与公网 smoke通过。
+未验证本次 iPhone真机连接、真实HealthKit、重启宿主恢复、长期负载、云端备份/灾难恢复；
+当前结果仅为测试部署验收，不能替代正式生产门禁。证书副本需随续期手动更新（当前到期2026-12-01 UTC）。
+
+## 云端上传后“恢复待处理上传 / 待恢复页 0”排查（2026-11-02）
+
+本轮仅诊断，尚未修复客户端。只读检查云端独立测试环境：API、Worker、PostgreSQL 容器均 healthy，API ready 与 Worker readiness 通过；没有读取数据库中的健康事实。API 相关性日志仅提取时间、operation、HTTP status、error_code 和 duration_ms：北京时间 03:00:56.366 最近一次 `POST /v2/sync/workout-bundles` 返回 200（2022ms），03:00:56.628 分析查询为 404/analysis_not_ready，03:01:07.868 分析查询返回 200。该 HTTP 记录未见上传失败；未读取手机 Outbox，不能仅凭日志证明手机已持久化 ACK。
+
+源码确认的客户端问题：`SyncModel.performRecovery`（RAIApp.swift）在整个 HealthKit discoverChanges → recoverPending → syncDiscovered 期间持有全局 busy，并统一显示“恢复待处理上传”；与“只重发已准备 bundle、不会重新读取 HealthKit”的注释及界面提示不符。discoverChanges 无 workoutIDs 时从全部已发现 workoutArchives 轮转，每轮最多 4 条，逐条读 10 类 quantity 与 route，包含未选择上传的历史记录。扫描剩余、hasMore 或尚未建立 scoped flow 时，scheduleRecovery 会在约 2 秒后继续。同步所选/单条/重试按钮均因 busy 禁用，手动同步入口也直接返回，历史发现因此可以长期阻塞独立记录的用户操作。
+
+“当前任务待恢复页”实际只统计 PREPARING/UPLOADING 任务，不统计 discovery 扫描、待交付 generation 或分析查询；且 performRecovery 要整轮完成后才 apply 新快照。因此 pending=0 与 busy=true 可以同时出现，不能据此判断后台空闲、存在遗留页或需要灾难恢复。真机当前具体阻塞在某个 HealthKit 查询、本地归档写入还是后续网络等待尚未采样；不能把代码路径分析当作已测得的真机耗时或死锁证据。
+
+修复方向：将上传恢复与健康变化发现分阶段调度和显示；让显式单条同步可以安全暂停自动发现并优先执行；按真实任务、扫描和待交付工作分别展示数量，并在阶段边界刷新状态。取消时需保留原始日志、anchor、不可变包及上传身份，不能清空 Outbox 或建立新 Session 来绕过。
+
+验证：本轮未改 Go/iOS 业务逻辑或事务；工程本地 Go 工具链 `go test -race ./...`（缓存命中）、`go vet ./...` 与依赖边界检查（249 包）通过。依赖边界初次因 PATH 无 Go 未执行，加载 scripts/local/lib.sh 的 rai_go_env 后复跑通过。没有部署、重启服务、切换会话或修改 ../running；尚未完成客户端修复或真机恢复验收。
+
+## 自动恢复阻塞手动同步修复（2026-11-02）
+
+在上述排查后实现客户端修复：新增可观察的 ForegroundSyncScheduler，自动恢复/发现/变化交付串行执行；显式单条、批量、重试/更新请求同步保留 manual 优先级，取消自动任务并等待其退出清理后才复用 coordinator/Outbox，重复手动请求和自动唤醒不能抢占已保留的手动任务。按钮通过 canStartWorkoutSync 判断，自动扫描期间可以选择并同步记录；其他授权/会话切换操作仍受互斥保护。列表刷新不再自行推进 discovery 或 reconcile 正在准备的任务，授权后扫描和后台传输完成唤醒统一进入调度器。
+
+自动流程保留先发现健康变化（包括删除）、再接续已保存上传/分析状态、交付已选择记录更新的顺序，确保已发现删除继续阻止旧包上传；各阶段分别显示状态并刷新快照。诊断将原“待恢复页”改为“待恢复上传任务”，另列待扫描记录、未完成查询、待交付记录，纠正“前台恢复不读取 HealthKit”的错误提示。原始 anchor、发现日志、Session 身份和不可变 bundle 协议保留，没有清空 Outbox、重建会话或更改服务端事务。
+
+取消从 URLSession、bundle delivery、恢复循环和分析查询向上传播；逐个原始对象归档时检查取消，不把主动暂停标成 discovery stream 错误，不继续下一条 bundle，也不因取消发起 GET 回执查询或丢弃后台响应缓存。手动任务完成后额外安排一次健康变化检查，避免取消发生在读取新变化前、旧 hasMore=false 时遗失自动接续。待上传原字节/hash/边界仍持久保留，可按原身份退避后接续；只有真实有效 ACK 才能确认和授权 GC。
+
+实际验证：Swift Package 112 项 Swift Testing/14 suites 和 2 项普通 XCTest 通过；3 个 opt-in live/性能入口在普通包测试中明确 skip，其中上传 live 测试另由真实 PG harness 实际执行。新增调度器测试覆盖手动优先、等待取消清理、阻止双手动/自动抢占及后台取消；新增 bundle 测试核对原字节/hash、缓存保留、不发 GET 及重启后 ACK。一次性空白 iPhone 12 Pro Max 模拟器 App tests 最终 31/31 通过，包含真实 coordinator 查询取消/anchor 保留、恢复取消停止后续包和 SyncModel 忙碌/按钮判定。首轮 unsigned simulator tests 的 2 项既有真实 Keychain 测试报 -34018；改为本地 ad hoc 签名后全套通过，没有跳过或放宽断言。
+
+真实隔离 PostgreSQL 18.6 `go test -race -count=1 -tags=integration,swiftclient -run TestWorkoutReliabilitySwiftClientPostgres -v ./integration` 通过（18 个 Swift→Go HTTP→PG 场景，79.844s）；覆盖断网、COMMIT 前超时、ACK 丢失/损坏、临时404、429/500/502/503、认证刷新、双 Worker、重复 POST、显式父子删除等。四项耐久设置 on，仅 Unix socket；退出 leftover databases=0、cluster removed=1。工程 Go `go test -race ./...`（缓存命中）、`go vet ./...` 和依赖边界（249 包）通过。没有 Go/SQL/migration 改动。本轮日志在 `/tmp/rai-sync-priority-{swift-final,app-final,postgres,go}.log`，签名复跑保留 `/tmp/rai-sync-priority-app-signed.log`，unsigned 失败保留 `/tmp/rai-sync-priority-app.log`。
+
+最终 generic iOS device Release 无签名构建通过（`/tmp/rai-sync-priority-release-final.log`），Debug 由上述已签名模拟器全套测试构建验证；git diff --check 通过，测试模拟器已删除。
+
+尚未验证真实 iPhone HealthKit 查询取消耗时、iOS 后台 URLSession 强杀/回调以及手机原有待上传包的实际恢复；上述合成测试和模拟器不替代真机验收。本轮没有云端部署、真机安装、生产数据库读取、真实健康数据测试或 ../running 改动。
+
+## 运动能力模型专项设计（2026-11-02）
+
+**RAI MODEL DESIGN RESULT: READY WITH RISKS。** 正式设计见 [RAI_MODEL_ARCHITECTURE](RAI_MODEL_ARCHITECTURE.md)。本轮仅新增该设计文档并在本文件追加真实状态；入口HEAD为 `6e5451c974a6284cf4aab2e6baf856eee63ac218`，现有iOS调度修复、云端测试目录及本文件未提交内容保留。未修改Go/Swift/SQL/同步合同，未读取生产或云端数据库、个人健康值、旧工程，未执行migration、部署或push。原架构方案原文SHA-256保持 `6951b1d938133a964cb06d28c3aa744ad05121f25da770e184041211df53e3de`。
+
+只读核对HealthKit授权/实际10类quantity与Workout关联查询、Normalizer/metadata、protocol 3路由、migrations 1–19相关表、Go analysis/worker/storage publication、API DTO、ProductCore、训练计划消费者和现有测试。实际采集列表不包含日常HRV/RHR/sleep/VO₂/体重，不能用单位映射/服务端白名单证明已有数据。温湿度metadata、跑姿、events/activities可选保留；直接RunningCadence在本机iPhoneOS SDK26.5不存在，当前详情页步频可来自StepCount派生。当前恢复/readiness是load-only，暂无自有VO₂/跑力/CS；详情页请求时计算和持久分析结果有明确边界。真实数据数量、采样分布与个人参数是否存在本轮均NOT VERIFIED。
+
+推荐新栈：统一时间支持/暂停/来源与逐模型qualification；HRR时间积分归一化RAI_AU和180日有限指数负荷核；速度—持续时间曲线支持的60min表现映射固定0–100跑力；有条件稳态速度/HRR VO₂估计，Apple结果独立；个体SDNN/RHR/睡眠基线生成生理proxy，结合已知负荷残余生成readiness。普通训练默认“已展示能力”，缺最大努力/长时证据不伪造最大能力；没有上传不代表休息。参数、质量阈值与恢复评分均标明工程选择及待校准项，未宣称科学效度已验证。
+
+文档包含DAG、公式/单位/门槛/冷启动、异常处理、confidence/evidence、拟议通用artifact/通道/外部输入schema、纯Go接口、迟到/删除依赖闭包、无Workout刷新、历史六个月候选回算/受控publication、SwiftUI DTO和M0–M7实施阶段。复用现有jobs/dirty/run/result/publication，不建立独立模型服务或每算法一套基础设施；旧模型标签、原始事实与上传回执不改。下一阶段为M1 Feature Foundation；日常健康同步扩展与后续实现均未在本轮执行。
+
+实际检查：工程本地Go工具链 `go test -race ./...`通过（既有测试缓存命中）、`go vet ./...`通过、依赖边界通过（249包）。文档22章/JSON/围栏/Markdown表/隐藏格式字符检查通过，`git diff --check`通过。临时合成公式演算验证参考HRR60min=60AU、强度分段71.743050815AU、VO₂候选51.5、跑力示例50、readiness指数关系；400日有限EWMA递推与直接卷积误差≤2.14e-14，线性HR解析积分与独立数值积分误差≤2.23e-16。临时核算记录 `/tmp/rai-model-design-20261102/formula-checks.json`，未引入生产Python或新测试服务。
+
+未验证：本轮无事务改动，未运行真实PG集成；新模型尚未实现，完整unit/golden、噪声/step response、通道迁移/发布竞争、API/iOS合同、真实HealthKit采集和外部生理准确性均NOT RUN。现有Go测试/公式演算/文档存在不能替代上述验收。完整Recovery发布受日常数据链路、睡眠与训练覆盖约束；VO₂出值受可信HRmax/RHR与稳定段约束；最大能力及高精度声明受独立表现/生理验证约束。可以进入分阶段编码，不等于可以上线完整评分。
+
+## 2026-11-02 — M5A Daily HealthKit Facts Sync Foundation
+
+**M5A RESULT: PASS WITH RISKS。REAL DEVICE: NOT RUN。** 详细 baseline、十项代码审计、实现/测试/风险见 [M5A_RESULT.md](M5A_RESULT.md)，正式约定见 [DAILY_HEALTH_SYNC_CONTRACT.md](DAILY_HEALTH_SYNC_CONTRACT.md)，实际机器证据见 [M5A evidence](evidence/m5a-daily-health-2026-11-02.json)。本段为追加记录，之前阶段及原模型方案保留。
+
+Baseline：正常 iOS anchored discovery 围绕 Workout/关联子项；既有 secure anchor、atomic Outbox、generic health_samples/stream/batch/receipt/tombstone/log/dirty 与 dataset/collector fencing 可复用，但没有独立 HRV/RHR/Sleep 的 ACK 后 anchor/coverage 闭环。普通 Event source 只有 bundleID；Workout observation 的 HealthKitSource revision/device 描述可直接复用。没有恢复旧 generic HTTP 写路由。
+
+新增 Daily Facts Sync v1，独立于 Workout Protocol 3：SDNN/ms、RestingHeartRate/count-min、Sleep raw category intervals；第三方/manual/unknown source 与允许 metadata 保留，未知枚举/metadata 不静默丢弃。按 HealthKit UUID immutable identity，RHR delete+new、重叠 sleep、多来源均不按日折叠。iOS 三个固定查询 predicate 与独立 secure anchor，默认首次90天/contract最多180天，128 changes/512KiB、byte 超限缩 query 不截断；原字节 pending 落盘后重试，仅完整 durable ACK 后原子推进 anchor。大整数 syncVersion 保留 Int64 精度。App/foreground/“同步日常健康”手动按钮/observer hint/前台机会触发；已追平类型同代次查询冷却，持久wake generation防止查询中通知被旧ACK清掉，pending/最久未确认优先交付，真实429下3类型恰好3 facts/3 receipts且Sleep不饥饿；observer completion 不等网络，不承诺 iOS 固定后台频率。
+
+Migration 20 只加 daily_health_coverage；facts、删除屏障、commit log、每 UUID 绝对 dirty interval、coverage、receipt 共用 dataset 行锁/同一事务，复用旧表与 upload lease，commit_rev 不用 sequence。source revision/device 写入 raw metadata 保留键并参与 identity hash。未知 delete 不编造时间范围。没有新 Recovery handler，ACK 明示 awaiting_model_implementation。schema Ready、明确 runtime grants、sqlc model 及管理工具当前版本门禁同步更新；管理命令不被同步导入、不成为热路径依赖。
+
+真实验证：隔离 Postgres.app **18.6**，四项耐久设置 on、无 TCP；全量 race integration 通过（integration 252.519s），最终 M5A+迁移/权限/HTTP/故障定向 race 再通过（integration 27.578s、admin 1.488s），leftover=0、cluster removed=1。包括新/重复 HRV、delete-before-create/迟到 retry、同 UUID 冲突、RHR replacement、六种 sleep overlap、coverage、generation/collector/upload fencing、7张表写失败回滚、事实写后 backend termination、内部错误脱敏及受限 API role 实际读写。Swift→HTTP→PG 真实子进程 SIGKILL 三点（上传前/上传中/commit后anchor前）重启均只有1条事实/1张回执，原字节 replay、anchor restored。
+
+`swift test --package-path ios/RAI`：119 Swift Testing / 15 suites，2普通XCTest通过、3既有opt-in入口明确skip；DailyProbe live synthetic另由PG harness执行。全新一次性模拟器 App **34/34 PASS**（本地 ad hoc 签名，含 SDK enum/unit/metadata、anchor secure archive/restore、三类型离线pending/ACK/第二次anchor query、大整数metadata和既有Session/Workout回归），测试模拟器已删除；generic/platform=iOS 无签名构建也通过。首轮 unsigned 的两项既有 Keychain -34018 失败经完整 signed rerun 通过，未跳过断言。anchor save 文件替换故障注入通过；不把 macOS synthetic SIGKILL 当作 iPhone kill。
+
+收尾 `go test -race ./...`、`go vet ./...`、边界检查249包、sqlc v1.31.1 generate、OpenAPI lint（31既有warnings，无error）、git diff --check 通过。非race 7/30/90/180d（每天32条合成sleep）bootstrap为62.68/225.86/671.51/1371.28ms，hot单变化2.80/1.93/1.95/2.03ms；32/64/128 batch 对比支持128边界。完整 payload、parse/PG transaction、fixture processing、进程alloc/heap见证据；没有用本地结果冒充真机query或生产SLO。
+
+未验/风险：P1为真实iPhone HRV/RHR/Sleep、代表性metadata、修订/删除、后台delivery及kill/suspend验收未完成；未知字段有意阻塞该type等待升级。长期离线HealthKit删除保留/授权变化补读政策、原子rename内精确OS kill、断电、设备query/peak memory/功耗、fnOS/公网/生产未验。没有读取/修改生产DB，没有导出个人健康fixture，没有部署/push/真实migration。Apple VO₂max及HR Recovery延至M5A.1；M5B任何评分/算法均未实施。补齐只读真机门禁后再评估M1；本轮在M5A停止。
+
+最终故障轮还明确在全部事实/coverage写入后对最终receipt UPDATE注入失败，并验证同批delete胜重复upsert；完整回滚/重试均通过。新增wake generation/查询冷却/公平交付回归，以及真实Swift→API→PG共享429回归均通过。
+
+最后补齐握手失败阶段的日常pending持久退避（复用既有recovery转换），新增包测试通过；最终客户端二进制三点SIGKILL及真实429复验通过（4.995s），App 34/34与原生iOS构建再次通过。额外真实HTTP/auth/admission性能轮（150.034s）保留30/min、burst2预算：7/30/90/180d bootstrap=0.06/12.21/42.60/86.23s；紧接bootstrap的hot因预算等待约2s。前述毫秒表是Store路径，不是全链路上传SLO。完整数据与实际命令已写入机器证据；tagged Go vet也通过。

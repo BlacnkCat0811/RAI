@@ -9,12 +9,21 @@ final class SyncModel {
     var authorization = UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") ? "已请求读取权限；数据是否可用由系统管理" : "尚未请求"
     var status = "空闲"
     var pending = 0
+    var discoveryRemaining = 0
+    var discoveryQueries = 0
+    var pendingChanges = 0
     var legacyPending = 0
     var parkedAssociations = 0
     var lastACK: Date?
     var lastSync: Date?
     var error: String?
-    var busy = false
+    private var operationBusy = false
+    private let syncScheduler: ForegroundSyncScheduler
+    var busy: Bool {
+        get { operationBusy || syncScheduler.isRunning }
+        set { operationBusy = newValue }
+    }
+    var canStartWorkoutSync: Bool { !operationBusy && syncScheduler.mode != .manual }
     var workouts: [HealthWorkoutSummary] = []
     var tasks: [String: WorkoutSyncTask] = [:]
     var serverStatuses: [String: String] = [:]
@@ -174,7 +183,8 @@ final class SyncModel {
     private var coordinator: SyncCoordinator?
     private var store: OutboxStore?
     private var task: Task<Void, Never>?
-    init() {
+    init(syncScheduler: ForegroundSyncScheduler = ForegroundSyncScheduler()) {
+        self.syncScheduler = syncScheduler
         do {
             let directory = try ClientConfiguration.sessionRoot()
             let sessions = try SyncSessionStore(root: directory, credentials: SessionKeychain())
@@ -207,7 +217,8 @@ final class SyncModel {
         self.coordinator = SyncCoordinator(store: store, sessionStore: sessions, sessionID: descriptor.sessionID)
         activeSessionID = descriptor.sessionID
         tasks = [:]; selected = []; serverPresent = []; serverStatuses = [:]; workouts = []
-        pending = 0; lastACK = nil; lastSync = nil
+        pending = 0; discoveryRemaining = 0; discoveryQueries = 0; pendingChanges = 0
+        lastACK = nil; lastSync = nil
     }
     func bindNewSession(baseURL: String, collectorEpoch: String, token: String) async throws {
         guard !busy, !loadingWorkouts, let sessions else { throw SyncFailure.localState("session_switch_busy") }
@@ -281,16 +292,14 @@ final class SyncModel {
         guard !busy, let coordinator else { return }
         busy = true
         task = Task {
-            defer { busy = false }
+            defer { busy = false; if !Task.isCancelled { recoverPending() } }
             do {
                 try await coordinator.authorize()
                 authorization = "已请求读取权限；数据是否可用由系统管理"
                 UserDefaults.standard.set(true, forKey: "healthAuthorizationRequested")
-                // Observer registration is best-effort; it never substitutes
-                // for the durable anchored read that follows.
+                // Reads run through the preemptible foreground scheduler.
                 try? await coordinator.observeDiscovery { [weak self] in await self?.discoveryWake() }
-                do { try await coordinator.discoverChanges(); if let store { apply(await store.snapshot()) } }
-                catch { self.error = "健康变化尚未完成发现；原始日志和同步位置已保留。" }
+                try? await coordinator.observeDaily { [weak self] in await self?.discoveryWake() }
             } catch { self.error = "健康数据授权请求失败。" }
         }
     }
@@ -298,20 +307,18 @@ final class SyncModel {
         guard !loadingWorkouts, let coordinator, let store else { return }
         loadingWorkouts = true; defer { loadingWorkouts = false }
         do {
-            _ = try? await store.purgeLegacyPages()
-            try await store.reconcileTasks()
+            // Reconciliation belongs to scheduled recovery: a list refresh
+            // must not mark a concurrently preparing user task interrupted.
             apply(await store.snapshot())
             workouts = try await coordinator.recentWorkouts(limit: 100)
             workoutsRefreshedAt = Date()
-            if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") {
-                // UI refresh also advances the durable anchored journals; the
-                // recent-workout list itself is only a display projection.
-                try? await coordinator.discoverChanges()
-                apply(await store.snapshot())
-            }
             await refreshServerStatuses()
-            if workouts.isEmpty { status = "HealthKit 中还没有可见的跑步记录" }
-            error = nil
+            if !busy {
+                if workouts.isEmpty { status = "HealthKit 中还没有可见的跑步记录" }
+                error = nil
+            }
+            // List reads never run an untracked scan alongside user uploads.
+            if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") { recoverPending() }
         } catch let failure as SyncFailure {
             error = UserFacingText.syncFailure(failure)
         } catch {
@@ -360,8 +367,9 @@ final class SyncModel {
         }
     }
     func retry(_ id: String) {
-        guard !busy, let store else { return }
-        Task {
+        guard canStartWorkoutSync, let store else { return }
+        recoveryWake?.cancel()
+        syncScheduler.startManual {
             let task = await store.task(id)
             let nonResumable = ["sample_identity_conflict", "workout_identity_conflict",
                                 "series_identity_conflict", "route_identity_conflict",
@@ -369,7 +377,7 @@ final class SyncModel {
                                 "workout_not_visible", "receipt_mismatch", "bundle_too_large"]
             let canResume = task?.bundleFile != nil && task?.bundleSHA256 != nil &&
                 task?.bundleBoundary != nil && !nonResumable.contains(task?.errorCode ?? "")
-            await runWorkouts([id], forceNewBundle: !canResume)
+            await self.runWorkouts([id], forceNewBundle: !canResume)
         }
     }
     #if DEBUG
@@ -423,19 +431,18 @@ final class SyncModel {
     }
     #endif
     func syncWorkouts(_ ids: [String]) {
-        guard !busy, !ids.isEmpty else { return }
-        task?.cancel()
-        task = Task { await runWorkouts(ids, forceNewBundle: true) }
+        guard canStartWorkoutSync, !ids.isEmpty else { return }
+        recoveryWake?.cancel()
+        syncScheduler.startManual { await self.runWorkouts(ids, forceNewBundle: true) }
     }
     private func runWorkouts(_ ids: [String], forceNewBundle: Bool) async {
-        guard !busy else { return }
-        busy = true; defer { busy = false }
+        guard !Task.isCancelled else { return }
         do { try await resumePreparedSession() } catch { self.error = "准备中的会话尚未通过握手；现有会话已保留。"; return }
         guard let coordinator, let store, let transfers else { return }
-        busy = true; error = nil; currentWorkoutID = nil
+        error = nil; currentWorkoutID = nil
         UIApplication.shared.isIdleTimerDisabled = true
         defer {
-            busy = false; currentWorkoutID = nil
+            currentWorkoutID = nil
             UIApplication.shared.isIdleTimerDisabled = false
         }
         guard let secret = try? ClientConfiguration.load() else {
@@ -496,49 +503,86 @@ final class SyncModel {
             }
         }
         if !Task.isCancelled { status = failures == 0 ? "所选记录已独立同步" : "部分记录需要处理，其余记录未受影响" }
-        await refreshServerStatuses()
-        scheduleRecovery(await store.snapshot())
+        apply(await store.snapshot())
+        if !Task.isCancelled { await refreshServerStatuses() }
+        if !Task.isCancelled { scheduleRecovery(await store.snapshot(), resumeDiscovery: true) }
     }
     private func apply(_ snapshot: LocalState) {
-        // A 409 association_unavailable page waits for its sample stream to
-        // catch up. It is durable work, but it is not a fact-sync failure and
-        // must not keep the product's "当前任务待恢复页" pinned forever.
-        // Bundle uploads have no page queue. Count the durable task phases
-        // that can still be resumed; legacy pages remain visible only to the
-        // old recovery path and must not masquerade as current work.
+        // Bundle tasks and HealthKit discovery are independent kinds of work.
         pending = (snapshot.tasks ?? [:]).values.filter { [.preparing, .uploading].contains($0.phase) }.count
+        let discovery = snapshot.discovery ?? DiscoveryState()
+        let scoped = Set(discovery.flows.values.compactMap { $0.query.workoutID })
+        discoveryRemaining = max(discovery.cycleRemaining, Set(discovery.workoutArchives.keys).subtracting(scoped).count)
+        discoveryQueries = discovery.flows.values.filter { $0.hasMore && $0.error == nil }.count
+        pendingChanges = discovery.work.values.filter(\.hasAutomaticDeliveryWork).count + (snapshot.daily ?? [:]).values.filter { $0.pending != nil }.count
+        if (snapshot.daily ?? [:]).values.contains(where: { $0.error != nil }) { error = "日常健康同步尚未完成；同步位置已保留。" }
         legacyPending = snapshot.pages.count
         parkedAssociations = snapshot.pages.filter { $0.error?.code == "association_unavailable" }.count
         lastACK = snapshot.lastACK; lastSync = snapshot.lastSync
         tasks = snapshot.tasks ?? [:]
     }
-    /// Automatic recovery only. It never reads HealthKit, never creates a
-    /// page and never starts a Workout task; facts are produced exclusively by
-    /// syncWorkouts -> SyncCoordinator.syncWorkout.
+    /// Automatic catch-up is preemptible by an explicit Workout sync. Journal
+    /// discovered deletions before resuming uploads and delivering changes.
     private var recoveryWake: Task<Void, Never>?
-    func recoverPending() {
-        if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" || ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { return }
-        guard !busy else { return }
-        task?.cancel()
-        task = Task { await performRecovery() }
+    func syncDailyNow() {
+        guard canStartWorkoutSync else { return }
+        syncScheduler.startManual {
+            guard let coordinator = self.coordinator, let store = self.store, let transfers = self.transfers else { return }
+            do {
+                guard UserDefaults.standard.bool(forKey: "healthAuthorizationRequested"), let secret = try ClientConfiguration.load() else { self.error = "请先配置同步并请求健康数据读取权限。"; return }
+                try await store.markDailyWake()
+                try await coordinator.discoverDaily()
+                try await coordinator.syncDaily(secret: secret, transfers: transfers)
+                self.apply(await store.snapshot())
+                self.status = self.pendingChanges > 0 ? "日常健康记录仍待交付" : "日常健康同步检查完成"
+            } catch is CancellationError { self.status = "已暂停；本地状态已保留" }
+            catch { self.error = "日常健康同步尚未完成；同步位置已保留。" }
+            let snapshot = await store.snapshot(); self.apply(snapshot)
+            if !Task.isCancelled { self.scheduleRecovery(snapshot) }
+        }
     }
-    func performRecovery() async {
+    func recoverPending(discoverDaily: Bool = false) {
         if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" || ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { return }
         guard !busy else { return }
-        busy = true; defer { busy = false }
+        syncScheduler.startAutomatic {
+            if discoverDaily, let store = self.store { try? await store.markDailyWake() }
+            await self.performRecovery()
+        }
+    }
+    private func performRecovery() async {
+        if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" || ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { return }
+        guard !Task.isCancelled else { return }
         do { try await resumePreparedSession() } catch { self.error = "准备中的会话尚未通过握手；现有会话已保留。"; return }
         guard let coordinator, let store, let transfers else { return }
-        error = nil; status = "恢复待处理上传"
+        error = nil
+        apply(await store.snapshot())
+        status = "检查健康变化与待处理上传"
         do {
             guard let secret = try? ClientConfiguration.load() else { status = "未配置同步"; return }
+            try Task.checkCancellation()
             if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") {
+                status = "扫描健康记录变化（可优先同步所选记录）"
                 do { try await coordinator.discoverChanges() }
                 catch is CancellationError { throw CancellationError() }
                 catch { self.error = "部分健康变化仍待发现；原始日志和同步位置已保留。" }
                 try? await coordinator.observeDiscovery { [weak self] in await self?.discoveryWake() }
+                try? await coordinator.observeDaily { [weak self] in await self?.discoveryWake() }
+                try await coordinator.discoverDaily()
+                apply(await store.snapshot())
             }
+            try Task.checkCancellation()
+            status = "接续已保存的上传与分析状态"
             try await coordinator.recoverPending(secret: secret, transfers: transfers)
+            if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") {
+                do { try await coordinator.syncDaily(secret: secret, transfers: transfers) }
+                catch is CancellationError { throw CancellationError() }
+                catch { self.error = "日常健康同步尚未完成；本地批次与同步位置已保留。" }
+            }
+            apply(await store.snapshot())
+            try Task.checkCancellation()
+            status = "交付已发现的健康变化"
             try await coordinator.syncDiscovered(secret: secret, transfers: transfers)
+            try Task.checkCancellation()
             let snapshot = await store.snapshot()
             apply(snapshot)
             if let failure = snapshot.pages.compactMap(\.error).first {
@@ -546,6 +590,10 @@ final class SyncModel {
                 status = "仍有待恢复上传；下次启动会继续"
             } else if pending > 0 {
                 status = "仍有 \(pending) 条上传待恢复"
+            } else if discoveryRemaining > 0 || discoveryQueries > 0 {
+                status = "本轮检查完成；健康变化扫描将继续"
+            } else if pendingChanges > 0 {
+                status = "本轮检查完成；仍有健康变化待交付"
             } else if (snapshot.tasks ?? [:]).values.contains(where: { $0.phase == .failed && $0.errorCode == "interrupted" }) {
                 status = "有记录需要重新准备；请在“健康数据同步”中重试"
             } else {
@@ -557,14 +605,27 @@ final class SyncModel {
             error = UserFacingText.error(failure.code); status = "恢复中断；本地状态已保留"
         } catch is CancellationError { status = "已暂停；本地状态已保留" }
         catch { self.error = "恢复待处理上传失败；本地状态已保留"; status = "需要检查" }
-        scheduleRecovery(await store.snapshot())
+        let snapshot = await store.snapshot()
+        apply(snapshot)
+        if !Task.isCancelled { scheduleRecovery(snapshot) }
     }
     private func discoveryWake() { recoverPending() }
-    private func scheduleRecovery(_ snapshot: LocalState) {
+    private func scheduleRecovery(_ snapshot: LocalState, resumeDiscovery: Bool = false) {
         recoveryWake?.cancel()
         let pending = (snapshot.tasks ?? [:]).values.filter { $0.phase == .uploading && $0.bundleFile != nil }
         var dates = pending.map { $0.nextAttemptAt ?? Date() }
+        // A cancelled read may have retained hasMore=false from its previous
+        // successful pass. Recheck once after user work even without new facts.
+        if resumeDiscovery, UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") {
+            dates.append(Date().addingTimeInterval(2))
+        }
         if (snapshot.discovery?.cycleRemaining ?? 0) > 0 { dates.append(Date().addingTimeInterval(2)) }
+        for flow in (snapshot.daily ?? [:]).values {
+            if let pending = flow.pending { dates.append(pending.nextAttempt) }
+            else if flow.error == nil && flow.discoveryDue(wakeGeneration: snapshot.dailyWakeGeneration ?? 0) { dates.append(Date().addingTimeInterval(2)) }
+        }
+        // Foreground opportunity only; background suspension cancels this timer.
+        if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") { dates.append(Date().addingTimeInterval(900)) }
         if snapshot.discovery?.flows.values.contains(where: { $0.hasMore && $0.error == nil }) == true { dates.append(Date().addingTimeInterval(2)) }
         if let discovery = snapshot.discovery {
             let known = discovery.workoutArchives.count
@@ -579,7 +640,7 @@ final class SyncModel {
             self?.recoverPending()
         }
     }
-    func suspendForegroundWork() { task?.cancel(); recoveryWake?.cancel() }
+    func suspendForegroundWork() { task?.cancel(); syncScheduler.cancel(); recoveryWake?.cancel() }
 }
 
 @MainActor
@@ -589,7 +650,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             guard let transfers = await SyncModel.shared.backgroundTransfers(identifier: identifier) else { completionHandler(); return }
             transfers.handleEvents {
                 Task { @MainActor in
-                    if SyncModel.shared.isActiveBackground(identifier) { await SyncModel.shared.performRecovery() }
+                    if SyncModel.shared.isActiveBackground(identifier) { SyncModel.shared.recoverPending() }
                     completionHandler()
                 }
             }
@@ -611,14 +672,14 @@ struct RAIApp: App {
                     if ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { await model.runPhase3Acceptance(phase: 4); return }
                     if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" { await model.runPhase3Acceptance(); return }
                     #endif
-                    model.recoverPending()
+                    model.recoverPending(discoverDaily: true)
                 }
                 .onChange(of: phase) { _, phase in
                     if phase == .active {
                         #if DEBUG
                         if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" || ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { return }
                         #endif
-                        model.recoverPending()
+                        model.recoverPending(discoverDaily: true)
                     }
                     else if phase == .background { model.suspendForegroundWork() }
                 }
@@ -645,7 +706,12 @@ struct SyncView: View {
             }
             Section("同步") {
                 LabeledContent("状态", value: model.status)
-                LabeledContent("当前任务待恢复页", value: String(model.pending))
+                Button("同步日常健康") { model.syncDailyNow() }.disabled(!model.canStartWorkoutSync)
+                Text("同步 Apple 健康中的心率变异性、静息心率与睡眠记录；读取可见性由系统管理。").font(.caption)
+                LabeledContent("待恢复上传任务", value: String(model.pending))
+                LabeledContent("健康变化待扫描记录", value: String(model.discoveryRemaining))
+                LabeledContent("健康变化未完成查询", value: String(model.discoveryQueries))
+                LabeledContent("健康变化待交付记录", value: String(model.pendingChanges))
                 if model.legacyPending > 0 {
                     LabeledContent("历史遗留页", value: "\(model.legacyPending) 页（旧协议，不会上传）")
                 }
@@ -657,7 +723,7 @@ struct SyncView: View {
                 if let error = model.error { Text(error).foregroundStyle(.red).font(.footnote) }
                 NavigationLink("健康数据同步（单条记录）") { WorkoutSyncView(model: model) }
                 Text("每条跑步记录独立读取、独立上传、独立确认；不会把多条记录合并为一个上传包。").font(.caption)
-                Text("启动或回到前台只会重发已准备并保存的 bundle；不会重新读取 HealthKit。单条记录请在“健康数据同步”中操作。").font(.caption)
+                Text("启动或回到前台会分轮扫描健康变化、接续已保存的上传，并更新已选择记录。手动同步所选记录会优先执行；原始日志和上传包会保留。").font(.caption)
             }
             Section("灾难恢复") {
                 Button("导入新恢复会话凭证") { importingRecovery = true }.disabled(model.busy)

@@ -77,3 +77,6 @@ GRANT UPDATE(status,completed_at,error_code) ON training_generation_runs TO rai_
 GRANT EXECUTE ON FUNCTION rai_training_dirty(uuid,uuid) TO rai_api,rai_worker;
 
 GRANT UPDATE(target_generation,run_after) ON jobs TO rai_api;
+
+-- M5A reviewed daily coverage state, sharing the existing fact permissions.
+GRANT SELECT, INSERT, UPDATE ON daily_health_coverage TO rai_api;

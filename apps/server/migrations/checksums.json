@@ -17,5 +17,6 @@
   "00016_route_timestamp_envelope.sql": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8",
   "00017_analysis_sample_lookup.sql": "73bc3b4a1281597e777727c96521bf16a692f8f8968ce09d4d175d1470cbb968",
   "00018_dataset_sessions.sql": "3023d596248cefd1a568fa0929c71af727ab500e87ea03525c19f8df65bf94e6",
-  "00019_recovery_operations.sql": "be55a80d0f29968bc441dadbc419515dc3a29118946ed2b12ac4e0f6bf86874f"
+  "00019_recovery_operations.sql": "be55a80d0f29968bc441dadbc419515dc3a29118946ed2b12ac4e0f6bf86874f",
+  "00020_daily_health.sql": "042a8200cd8f02286f4a5d0f89471ce8ce931adf195f37bad248f010dbd87252"
 }

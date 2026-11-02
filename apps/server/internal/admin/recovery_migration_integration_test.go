@@ -44,8 +44,8 @@ func TestRecoveryMigration18To19AndRepeatedMigrate(t *testing.T) {
 		t.Fatal("existing audit changed")
 	}
 	var version, rev int
-	if e = db.QueryRowContext(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&version); e != nil || version != 19 {
-		t.Fatal("schema not 19")
+	if e = db.QueryRowContext(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&version); e != nil || version != 20 {
+		t.Fatal("schema not 20")
 	}
 	if e = db.QueryRowContext(ctx, `SELECT commit_rev FROM datasets WHERE id='10000000-0000-4000-8000-000000000001'`).Scan(&rev); e != nil || rev != 42 {
 		t.Fatal("existing revision changed")

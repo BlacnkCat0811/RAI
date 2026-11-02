@@ -93,6 +93,20 @@ type CollectorLease struct {
 	CollectorEpoch string
 }
 
+type DailyHealthCoverage struct {
+	DatasetID         string
+	StreamID          string
+	BootstrapStartUs  int64
+	LastDiscoveryAtUs int64
+	LastSyncAt        pgtype.Timestamptz
+	LastFactAtUs      pgtype.Int8
+	BootstrapComplete bool
+	HasMore           bool
+	SampleCount       int32
+	DeletedCount      int32
+	SourceContext     []byte
+}
+
 type Dataset struct {
 	ID        string
 	Epoch     string

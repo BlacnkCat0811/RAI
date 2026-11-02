@@ -618,14 +618,14 @@ struct WorkoutSyncView: View {
         Button(model.selected.isEmpty ? "选择全部未同步" : "清除选择（\(model.selected.count)）") {
           if model.selected.isEmpty { model.selected = Set(model.workouts.filter { status(for: $0) == .notSynced }.map(\.id)) }
           else { model.selected.removeAll() }
-        }.font(.caption).disabled(model.busy)
+        }.font(.caption).disabled(!model.canStartWorkoutSync)
         Spacer()
         Button("同步所选") {
           let ids = model.workouts.map(\.id).filter { model.selected.contains($0) }
           model.syncWorkouts(ids)
         }
         .font(.caption.weight(.semibold))
-        .disabled(model.busy || model.selected.isEmpty)
+        .disabled(!model.canStartWorkoutSync || model.selected.isEmpty)
         .accessibilityIdentifier("sync.selected")
       }
     }.padding(14).raiGlass()
@@ -641,7 +641,7 @@ struct WorkoutSyncView: View {
         } label: {
           Image(systemName: selected ? "checkmark.circle.fill" : "circle")
             .font(.title3).foregroundStyle(selected ? RAITheme.amber : RAITheme.secondary)
-        }.buttonStyle(.plain).disabled(model.busy)
+        }.buttonStyle(.plain).disabled(!model.canStartWorkoutSync)
           .accessibilityIdentifier("sync.select")
         VStack(alignment: .leading, spacing: 3) {
           HStack(spacing: 6) {
@@ -665,16 +665,16 @@ struct WorkoutSyncView: View {
         Button("详情") { detail = workout }.font(.caption2)
         switch phase {
         case .notSynced:
-          Button("同步") { model.syncWorkouts([workout.id]) }.font(.caption.weight(.semibold)).disabled(model.busy)
+          Button("同步") { model.syncWorkouts([workout.id]) }.font(.caption.weight(.semibold)).disabled(!model.canStartWorkoutSync)
         case .failed:
-          Button("重试") { model.retry(workout.id) }.font(.caption.weight(.semibold)).disabled(model.busy)
+          Button("重试") { model.retry(workout.id) }.font(.caption.weight(.semibold)).disabled(!model.canStartWorkoutSync)
         case .preparing, .uploading:
-          Button("继续") { model.retry(workout.id) }.font(.caption2).disabled(model.busy)
+          Button("继续") { model.retry(workout.id) }.font(.caption2).disabled(!model.canStartWorkoutSync)
         case .acknowledged, .analyzing:
           Button("检查状态") { model.checkStatus(workout.id) }.font(.caption2).disabled(model.busy)
-          Button("更新") { model.syncWorkouts([workout.id]) }.font(.caption2).disabled(model.busy)
+          Button("更新") { model.syncWorkouts([workout.id]) }.font(.caption2).disabled(!model.canStartWorkoutSync)
         case .published, .partial:
-          Button("更新") { model.syncWorkouts([workout.id]) }.font(.caption2).disabled(model.busy)
+          Button("更新") { model.syncWorkouts([workout.id]) }.font(.caption2).disabled(!model.canStartWorkoutSync)
         case .deleted:
           Text("HealthKit 已删除").font(.caption2).foregroundStyle(RAITheme.secondary)
         }
@@ -791,7 +791,7 @@ struct WorkoutSyncDetail: View {
       }
       Section {
         Button("检查服务端状态") { model.checkStatus(workout.id) }.disabled(model.busy)
-        Button("重新同步（检查迟到数据）") { model.syncWorkouts([workout.id]) }.disabled(model.busy)
+        Button("重新同步（检查迟到数据）") { model.syncWorkouts([workout.id]) }.disabled(!model.canStartWorkoutSync)
       }
     }
     .navigationTitle("同步详情")
