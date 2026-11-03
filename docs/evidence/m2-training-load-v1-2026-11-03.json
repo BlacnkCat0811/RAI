@@ -1,0 +1,567 @@
+{
+  "phase": "M2 — Training Load V1",
+  "date": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "result": "PASS WITH RISKS",
+  "scope": "recorded_running_load; candidate-only",
+  "baseline": {
+    "head": "bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61",
+    "branch": "main",
+    "modified": 32,
+    "untracked": 23,
+    "file": "docs/evidence/m2-baseline.json"
+  },
+  "environment": {
+    "os": "macOS-26.7.2-x86_64-i386-64bit",
+    "go": "go1.27.3",
+    "sqlc": "1.31.1",
+    "postgres": "18.6 (Postgres.app)",
+    "data": "synthetic only"
+  },
+  "commands": [
+    {
+      "command": "go test -count=1 -json ./...",
+      "cwd": "apps/server",
+      "exit_code": 0,
+      "tests_and_subtests_pass": 460,
+      "top_level_pass": 125,
+      "skipped": 4,
+      "skip_names": [
+        "TestBundleProductionServerSlowUpload",
+        "TestBundleProductionBodyBudget",
+        "TestBundleACKWriteDeadlineAfterCommit",
+        "TestBundleProductionThrottledUpload"
+      ],
+      "package_pass": [
+        "rai/server/internal/admin",
+        "rai/server/internal/jobs",
+        "rai/server/internal/workoutdetail",
+        "rai/server/internal/storage/postgres",
+        "rai/server/internal/training",
+        "rai/server/internal/config",
+        "rai/server/internal/analysis",
+        "rai/server/internal/syncing",
+        "rai/server/internal/httpapi",
+        "rai/server/internal/trainingload",
+        "rai/server/internal/workoutfeatures"
+      ],
+      "failures": [],
+      "log_sha256": "4e5f584b11a552f941c821ca60a1124a098548398a18417616d13b107ac8fbed",
+      "log": ".local/logs/m2/m2-go-test.jsonl"
+    },
+    {
+      "command": "go test -race -count=1 -json ./...",
+      "cwd": "apps/server",
+      "exit_code": 0,
+      "tests_and_subtests_pass": 460,
+      "top_level_pass": 125,
+      "skipped": 4,
+      "skip_names": [
+        "TestBundleProductionServerSlowUpload",
+        "TestBundleProductionBodyBudget",
+        "TestBundleACKWriteDeadlineAfterCommit",
+        "TestBundleProductionThrottledUpload"
+      ],
+      "package_pass": [
+        "rai/server/internal/admin",
+        "rai/server/internal/jobs",
+        "rai/server/internal/config",
+        "rai/server/internal/analysis",
+        "rai/server/internal/storage/postgres",
+        "rai/server/internal/workoutdetail",
+        "rai/server/internal/training",
+        "rai/server/internal/syncing",
+        "rai/server/internal/httpapi",
+        "rai/server/internal/trainingload",
+        "rai/server/internal/workoutfeatures"
+      ],
+      "failures": [],
+      "log_sha256": "14f94a49640e8a5ce00e1a4352cc8e52d291ad4509af11b3571f719ed97ceda0",
+      "log": ".local/logs/m2/m2-go-race.jsonl"
+    },
+    {
+      "command": "PGBIN=<bundled18> scripts/test-postgres.sh go test -race -count=1 -json -tags=integration ./...",
+      "cwd": "repository root (runner cd apps/server)",
+      "exit_code": 0,
+      "tests_and_subtests_pass": 935,
+      "top_level_pass": 350,
+      "skipped": 10,
+      "skip_names": [
+        "TestBundleProductionServerSlowUpload",
+        "TestBundleProductionBodyBudget",
+        "TestBundleACKWriteDeadlineAfterCommit",
+        "TestBundleProductionThrottledUpload",
+        "TestFeatureSnapshotPerformanceMatrix",
+        "TestLoadPerformanceMatrix",
+        "TestPhase4DesignatedDeviceBackend",
+        "TestPhase4PerformanceMatrix",
+        "TestPhase4IndexWriteCost",
+        "TestPhase4FreshGzipDurationMatrix"
+      ],
+      "package_pass": [
+        "rai/server/internal/storage/postgres",
+        "rai/server/internal/jobs",
+        "rai/server/internal/workoutdetail",
+        "rai/server/internal/training",
+        "rai/server/internal/config",
+        "rai/server/internal/analysis",
+        "rai/server/internal/syncing",
+        "rai/server/internal/admin",
+        "rai/server/internal/httpapi",
+        "rai/server/internal/trainingload",
+        "rai/server/internal/workoutfeatures",
+        "rai/server/integration"
+      ],
+      "failures": [],
+      "log_sha256": "ce45e26430b4b40073dc85264ece666c7394787aa7217e23aef902ffa202c1f3",
+      "log": ".local/logs/m2/m2-postgres-race.jsonl",
+      "leftover_databases": 0,
+      "cluster_removed": true,
+      "database": "PostgreSQL 18.6 (Postgres.app)",
+      "fsync": true,
+      "full_page_writes": true,
+      "synchronous_commit": true,
+      "data_checksums": true,
+      "listen_addresses": ""
+    },
+    {
+      "command": "PGBIN=<bundled18> scripts/test-postgres.sh go test -race -count=1 -json -tags=integration ./integration ./internal/admin -run '^TestLoad|^TestFeature'",
+      "cwd": "repository root (runner cd apps/server)",
+      "exit_code": 0,
+      "tests_and_subtests_pass": 52,
+      "top_level_pass": 23,
+      "skipped": 2,
+      "skip_names": [
+        "TestFeatureSnapshotPerformanceMatrix",
+        "TestLoadPerformanceMatrix"
+      ],
+      "package_pass": [
+        "rai/server/internal/admin",
+        "rai/server/integration"
+      ],
+      "failures": [],
+      "log_sha256": "527270f0f70607e77afbb04fd21633e7fd8b4e5dabecc9af4ca8e64d0eae49fe",
+      "log": ".local/logs/m2/m2-postgres-targeted.jsonl",
+      "leftover_databases": 0,
+      "cluster_removed": true,
+      "database": "PostgreSQL 18.6 (Postgres.app)",
+      "fsync": true,
+      "full_page_writes": true,
+      "synchronous_commit": true,
+      "data_checksums": true,
+      "listen_addresses": ""
+    }
+  ],
+  "additional_checks": {
+    "go_vet": {
+      "exit_code": 0,
+      "log_bytes": 0
+    },
+    "boundary_check": {
+      "exit_code": 0,
+      "output": "PASS: online import graph excludes admin, migration and goose (252 packages)\nPASS: pure analysis domain excludes database, network and filesystem\nPASS: pure training domain excludes database, network and filesystem\nPASS: feature foundation excludes I/O, presentation, randomness and system clock\n"
+    },
+    "sqlc_generate_second_pass_diff_empty": true,
+    "git_diff_check": true,
+    "original_plan_matches_HEAD": true,
+    "frozen_M1_files_unchanged": true,
+    "migrations_1_through_21_unchanged": true,
+    "implementation_prefix_preserved": true
+  },
+  "migration": {
+    "latest": 22,
+    "tables": 53,
+    "new_sequences": 0,
+    "sha256": "f18d549a6ae680bc6b0d4a8f35c52d4524e8d03d6ce69b6f265382652346c31a",
+    "all_checksums": {
+      "00008_quantity_series.sql": "d05dc97c889161553171a36dac632c2fae4c2260b3b7f68709a2de9f5bdfc60d",
+      "00016_route_timestamp_envelope.sql": "d35999abca59ceb4e2359707bb78fe51cab3ae8af270f6c33c8301278bcac4c8",
+      "00007_workout_activities.sql": "52edb86ce7bce7b8e25c7212963f89c6aaaa8f3cc90bf433c2c32ca6d95387e6",
+      "00020_daily_health.sql": "042a8200cd8f02286f4a5d0f89471ce8ce931adf195f37bad248f010dbd87252",
+      "00011_p3_sync_v2.sql": "398ad10d1e49fbaaa6ddb3133459274a450d129e6eb9c4e56ffc196d29c897f4",
+      "00014_workout_imports.sql": "d26a4eddf3b989be79a4fdd01f927ab331a956c5bc96c3dffea1716657937ad8",
+      "00001_core.sql": "ef910464c6ecef03d3bd0d06ea1b6194139a4330bfbf75a22aa0ccd11a40bcfe",
+      "00003_workouts.sql": "de7c8f7ade19a2dca20d7c8c378606f927dd688e3f10f3ebe8c731f670a9c880",
+      "00012_analysis.sql": "4cd795926d1b9ba086fb877a7b1cc46ae84c6f38c2e1dca86fc212ac8bea1a5f",
+      "00004_page_receipts.sql": "8adcc0a69f746ad77b30aae56b0fb852f0ae0e69f4e89b32c36be5e18e350d75",
+      "00017_analysis_sample_lookup.sql": "73bc3b4a1281597e777727c96521bf16a692f8f8968ce09d4d175d1470cbb968",
+      "00002_dirty_generations.sql": "da8158c9e6e0088bfeb82db1448ca1245f9cb0e7ee352e0c43dd590571d98a23",
+      "00013_training.sql": "ce49227ee8ff0257b1433944bdd14e306b4c710de9b3d00c74a634973f0d618b",
+      "00015_workout_import_history.sql": "92790aae8ad2deaea02b4fdd7eed18f916c1b38cc2b4a13cdcc80a4f57aadee6",
+      "00021_workout_feature_substrate.sql": "1b436b9a73423f4eee8c738d86527099e8c1c07143b3b1927ab2eb6b911bca5c",
+      "00005_request_budgets.sql": "513f3b4e2a5912449fd21d10c9698b35a176d543fe1f6674ef643c9c6d3449b0",
+      "00019_recovery_operations.sql": "be55a80d0f29968bc441dadbc419515dc3a29118946ed2b12ac4e0f6bf86874f",
+      "00006_upload_slots.sql": "cd87bedbe30c3fbff609dff947b95f7fc7f8162f5b84444474902a9744d844d5",
+      "00010_route_foundation.sql": "c4669f4f90907e673da9f1cddb7dfa88c116dc306f301653aeb65b506680ba56",
+      "00018_dataset_sessions.sql": "3023d596248cefd1a568fa0929c71af727ab500e87ea03525c19f8df65bf94e6",
+      "00009_workout_packages.sql": "fa901e84cf2d8f55381e5f3334a23db9b6c8430f305fb5bb32b07d0b33cfabce",
+      "00022_training_load_v1.sql": "f18d549a6ae680bc6b0d4a8f35c52d4524e8d03d6ce69b6f265382652346c31a"
+    },
+    "paths_tested": [
+      "empty->22",
+      "21->22",
+      "20->22",
+      "repeat",
+      "runtime/API/worker/admin permissions",
+      "destructive Down refused"
+    ]
+  },
+  "math": {
+    "algorithm": "rai.training_load.hrr_integral/v1",
+    "state": "rai.load_state.exp_finite/v1",
+    "formal_vectors": [
+      {
+        "input": "60min @ HRR=.65",
+        "expected_AU": 60
+      },
+      {
+        "input": "30min @ HRR=.45 + 30min @ HRR=.85",
+        "expected_AU": 71.743050815,
+        "tolerance": 1e-09
+      }
+    ],
+    "oracle": "independent 8192-panel Simpson, 200 random/near-equal vectors and zero crossings",
+    "ring_properties": "25x480 days x 2 kernels vs direct convolution",
+    "event_properties": "180 event rebuilds; 120 cached range replacements vs fresh 450-day state",
+    "four_hour_variable_exposure": {
+      "segments": 14400,
+      "artifact_bytes": 778306
+    }
+  },
+  "performance": {
+    "label": "single local observations; synthetic real ingest+PG18; timing triggers instrument ledger/publication; no production SLO",
+    "matrices": [
+      {
+        "minutes": 20,
+        "feature_read_ms": 2.498,
+        "load_compute_ms": 0.057,
+        "ledger_insert_ms": 0.818,
+        "publication_pointer_ms": 0.222,
+        "load_publish_transaction_ms": 23.704,
+        "state_read_compute_ms": 3.106,
+        "state_publish_ms": 4.874,
+        "output_days": 4,
+        "allocations": 1024,
+        "allocated_bytes": 221920,
+        "load_artifact_bytes": 1586,
+        "exposure_segments": 1
+      },
+      {
+        "minutes": 45,
+        "feature_read_ms": 2.241,
+        "load_compute_ms": 0.03,
+        "ledger_insert_ms": 0.672,
+        "publication_pointer_ms": 0.137,
+        "load_publish_transaction_ms": 4.523,
+        "state_read_compute_ms": 2.804,
+        "state_publish_ms": 4.3,
+        "output_days": 4,
+        "allocations": 576,
+        "allocated_bytes": 248896,
+        "load_artifact_bytes": 1590,
+        "exposure_segments": 1
+      },
+      {
+        "minutes": 120,
+        "feature_read_ms": 2.703,
+        "load_compute_ms": 0.025,
+        "ledger_insert_ms": 0.91,
+        "publication_pointer_ms": 0.14,
+        "load_publish_transaction_ms": 4.59,
+        "state_read_compute_ms": 3.01,
+        "state_publish_ms": 4.082,
+        "output_days": 4,
+        "allocations": 685,
+        "allocated_bytes": 418368,
+        "load_artifact_bytes": 1592,
+        "exposure_segments": 1
+      },
+      {
+        "minutes": 240,
+        "feature_read_ms": 2.8,
+        "load_compute_ms": 0.035,
+        "ledger_insert_ms": 0.658,
+        "publication_pointer_ms": 0.12,
+        "load_publish_transaction_ms": 4.17,
+        "state_read_compute_ms": 2.93,
+        "state_publish_ms": 3.627,
+        "output_days": 4,
+        "allocations": 839,
+        "allocated_bytes": 668304,
+        "load_artifact_bytes": 1595,
+        "exposure_segments": 1
+      },
+      {
+        "history_days": 30,
+        "ledger_read_ms": 3.242,
+        "state_compute_ms": 0.135,
+        "state_publish_ms": 34.341,
+        "recompute_from": "2026-10-04",
+        "recompute_through": "2026-11-03",
+        "ledger_rows": 30,
+        "allocations": 2225,
+        "allocated_bytes": 250056,
+        "state_artifact_bytes": 14999
+      },
+      {
+        "history_days": 90,
+        "ledger_read_ms": 5.241,
+        "state_compute_ms": 0.312,
+        "state_publish_ms": 66.801,
+        "recompute_from": "2026-08-05",
+        "recompute_through": "2026-11-03",
+        "ledger_rows": 90,
+        "allocations": 3709,
+        "allocated_bytes": 566576,
+        "state_artifact_bytes": 43595
+      },
+      {
+        "history_days": 180,
+        "ledger_read_ms": 13.137,
+        "state_compute_ms": 0.56,
+        "state_publish_ms": 100.163,
+        "recompute_from": "2026-05-07",
+        "recompute_through": "2026-11-03",
+        "ledger_rows": 180,
+        "allocations": 5983,
+        "allocated_bytes": 1084632,
+        "state_artifact_bytes": 86637
+      },
+      {
+        "history_days": 365,
+        "ledger_read_ms": 33.688,
+        "state_compute_ms": 1.495,
+        "state_publish_ms": 172.412,
+        "recompute_from": "2025-11-03",
+        "recompute_through": "2026-11-03",
+        "ledger_rows": 365,
+        "allocations": 10640,
+        "allocated_bytes": 2274296,
+        "state_artifact_bytes": 172039
+      }
+    ],
+    "benchmarks": [
+      {
+        "name": "BenchmarkWorkoutLoad/20m-12",
+        "iterations": 114964,
+        "ns_per_op": 10033.0,
+        "bytes_per_op": 2731,
+        "allocs_per_op": 41
+      },
+      {
+        "name": "BenchmarkWorkoutLoad/45m-12",
+        "iterations": 110800,
+        "ns_per_op": 10574.0,
+        "bytes_per_op": 2731,
+        "allocs_per_op": 41
+      },
+      {
+        "name": "BenchmarkWorkoutLoad/120m-12",
+        "iterations": 123832,
+        "ns_per_op": 10406.0,
+        "bytes_per_op": 2731,
+        "allocs_per_op": 41
+      },
+      {
+        "name": "BenchmarkWorkoutLoad/240m-12",
+        "iterations": 102831,
+        "ns_per_op": 10063.0,
+        "bytes_per_op": 2731,
+        "allocs_per_op": 41
+      },
+      {
+        "name": "BenchmarkAthleteState/30d-12",
+        "iterations": 12014,
+        "ns_per_op": 98450.0,
+        "bytes_per_op": 27887,
+        "allocs_per_op": 1361
+      },
+      {
+        "name": "BenchmarkAthleteState/90d-12",
+        "iterations": 7714,
+        "ns_per_op": 153236.0,
+        "bytes_per_op": 80203,
+        "allocs_per_op": 1834
+      },
+      {
+        "name": "BenchmarkAthleteState/180d-12",
+        "iterations": 4563,
+        "ns_per_op": 233789.0,
+        "bytes_per_op": 156375,
+        "allocs_per_op": 2534
+      },
+      {
+        "name": "BenchmarkAthleteState/365d-12",
+        "iterations": 2872,
+        "ns_per_op": 408528.0,
+        "bytes_per_op": 309646,
+        "allocs_per_op": 3965
+      }
+    ]
+  },
+  "candidate_invariants": [
+    "legacy active unchanged",
+    "immutable results/ledger/artifacts",
+    "unknown != zero",
+    "delete invalidates before worker",
+    "generation N superseded after N+1",
+    "load/day conservation",
+    "explicit as-of parameters",
+    "no recovery/readiness/ability handlers",
+    "O(1) finite-kernel advance; bounded ledger rebuild"
+  ],
+  "influence": {
+    "acute_chronic_days": "d..d+179",
+    "trend7_tail_days": "d+180..d+186 (bundled state rows may be replaced with unchanged acute/chronic)"
+  },
+  "risks": {
+    "P0": [],
+    "P1": [],
+    "P2": [
+      "physiological calibration pending",
+      "coverage/interpolation/conflict/summary cap uncalibrated",
+      "bounded capacity; no segmented automatic repair for oversized pending ranges",
+      "7-day trend dependency tail explicitly differs from a literal all-fields 179-day cutoff"
+    ],
+    "P3": [
+      "local synthetic performance observations only",
+      "parameter recompute selects as-of schema/identity; no forced arbitrary ID override"
+    ]
+  },
+  "not_verified": [
+    "real Apple Watch HR behavior",
+    "real HR gaps/coverage and interpolation suitability",
+    "real HRmax conflict frequency",
+    "real summary-only rate",
+    "real eligibility rate",
+    "real interval behavior",
+    "personal HRmax/RHR quality",
+    "physiological validity",
+    "actual fatigue relationship",
+    "production",
+    "WAN",
+    "power loss",
+    "real-device calibration"
+  ],
+  "real_device": "DEFERRED",
+  "m2_paths": [
+    "RAI-Go-PostgreSQL架构重设计与实施方案.md",
+    "apps/server/integration/load_crash_test.go",
+    "apps/server/integration/load_performance_test.go",
+    "apps/server/integration/load_roles_test.go",
+    "apps/server/integration/load_test.go",
+    "apps/server/integration/p7_security_test.go",
+    "apps/server/integration/recovery_restore_test.go",
+    "apps/server/internal/admin/analysis.go",
+    "apps/server/internal/admin/daily_migration_integration_test.go",
+    "apps/server/internal/admin/dataset_migration_integration_test.go",
+    "apps/server/internal/admin/features_migration_integration_test.go",
+    "apps/server/internal/admin/load.go",
+    "apps/server/internal/admin/load_command.go",
+    "apps/server/internal/admin/load_migration_integration_test.go",
+    "apps/server/internal/admin/operations.go",
+    "apps/server/internal/admin/recovery_init.go",
+    "apps/server/internal/admin/recovery_migration_integration_test.go",
+    "apps/server/internal/analysis/candidate_load.go",
+    "apps/server/internal/analysis/model.go",
+    "apps/server/internal/jobs/worker.go",
+    "apps/server/internal/storage/postgres/analysis_input.go",
+    "apps/server/internal/storage/postgres/analysis_publish.go",
+    "apps/server/internal/storage/postgres/dbgen/load.sql.go",
+    "apps/server/internal/storage/postgres/dbgen/models.go",
+    "apps/server/internal/storage/postgres/load_advance.go",
+    "apps/server/internal/storage/postgres/load_input.go",
+    "apps/server/internal/storage/postgres/load_publish.go",
+    "apps/server/internal/storage/postgres/load_query.go",
+    "apps/server/internal/storage/postgres/store.go",
+    "apps/server/internal/trainingload/integral.go",
+    "apps/server/internal/trainingload/load.go",
+    "apps/server/internal/trainingload/load_test.go",
+    "apps/server/internal/trainingload/model.go",
+    "apps/server/internal/trainingload/state.go",
+    "apps/server/internal/trainingload/state_test.go",
+    "apps/server/internal/workoutfeatures/exposure.go",
+    "apps/server/migrations/00022_training_load_v1.sql",
+    "apps/server/migrations/checksums.json",
+    "apps/server/queries/load.sql",
+    "deploy/postgres/roles.sql",
+    "docs/IMPLEMENTATION.md",
+    "docs/M2_RESULT.md",
+    "docs/RQrun-HealthKit-上传协议.md",
+    "docs/TRAINING_LOAD_V1_CONTRACT.md",
+    "docs/evidence/m2-baseline.json",
+    "docs/evidence/m2-training-load-v1-2026-11-03.json",
+    "scripts/check-boundaries.py"
+  ],
+  "recommended_next_phase": "M3 — Performance & Running Ability",
+  "M3_started": false,
+  "commit_push_deploy": false,
+  "additional_commands": [
+    {
+      "command": "go vet ./...",
+      "exit_code": 0,
+      "log": ".local/logs/m2/m2-go-vet.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": "python3 scripts/check-boundaries.py",
+      "exit_code": 0,
+      "log": ".local/logs/m2/m2-boundaries.log",
+      "log_sha256": "4fd06f3fb6d7f5adcb9ff1b8a7ef342a7cf82ec27dd5bdff62c51ac3ee03b856"
+    },
+    {
+      "command": "RAI_M2_PERF=1 PGBIN=<bundled18> scripts/test-postgres.sh go test -count=1 -tags=integration ./integration -run '^TestLoadPerformanceMatrix$' -v",
+      "exit_code": 0,
+      "log": ".local/logs/m2/m2-performance.log",
+      "log_sha256": "bf318c02c5ff98d2e3cb0ef41e6f809c72329e734ba4d4566e3ac4988ee2bd97"
+    },
+    {
+      "command": "go test -run '^$' -bench 'BenchmarkWorkoutLoad|BenchmarkAthleteState' -benchmem ./internal/trainingload",
+      "exit_code": 0,
+      "log": ".local/logs/m2/m2-benchmarks.log",
+      "log_sha256": "36b024a7543c4786eb5ff180f8a9874f4ac5ba022a437579f602d9a3ca71f8c6"
+    }
+  ],
+  "final_source_sha256": {
+    "apps/server/integration/load_crash_test.go": "8fb2478cdc970004b274cd382c2e1370b872e6dc195432b9e9dfe4ce84b3887b",
+    "apps/server/integration/load_performance_test.go": "f1787b22eceeba0dd45703ea4f7952216cc3f91d0c278b8659f238b9806ae6b1",
+    "apps/server/integration/load_roles_test.go": "373638e8f4b19aaa7352c8ca9150da0a5700f493b2c1c10c539a0cb5604140a6",
+    "apps/server/integration/load_test.go": "075296a2e3ed95f75928703273c45d388c6dc8498ca20b1f309e6b20e9a05e6d",
+    "apps/server/integration/p7_security_test.go": "61d0a3e50a58a2eb1e8d294763441ac2378cf149531603f8c8e43970a15ba40a",
+    "apps/server/integration/recovery_restore_test.go": "4d5d6ee8aab596c69cd93724d26f93c8067b121b0fe5698033ac3b734222af81",
+    "apps/server/internal/admin/analysis.go": "e682c0564900812701145d82762e06c4772b6483012037d33ffade26b67fd035",
+    "apps/server/internal/admin/daily_migration_integration_test.go": "e3a9b26b6d20d298e0d028c1db4573134ac3a1f0615f179203d9e8d0dc151940",
+    "apps/server/internal/admin/dataset_migration_integration_test.go": "306349b1303fd14be71d5740d1614fd464ec665f3d488406ce0c396aafe722d0",
+    "apps/server/internal/admin/features_migration_integration_test.go": "4320dac8ac04d2e75c0d52b4851fbec72d4492d584ea6c8fe8481fd0482c32af",
+    "apps/server/internal/admin/load.go": "b934e5acc984f1e0a34ef2a7642c7b5123565381ab9a6728e60d63cb3e796921",
+    "apps/server/internal/admin/load_command.go": "a889ee955744437058999136bf8dd892da7db64e77ddb2dedaea3fe5b1f96e74",
+    "apps/server/internal/admin/load_migration_integration_test.go": "61f6f3117e5e3acca606311b2fb88aa8f6c751d2d00b409a39aff96bd2c91479",
+    "apps/server/internal/admin/operations.go": "4e66265db5a107a735a8314131e2cafe9669623d06109e3bc8cbd868396460cb",
+    "apps/server/internal/admin/recovery_init.go": "8108593fc40d631c89e063521637a5404f970981d256c43e6b4f3f9a7f34fc1b",
+    "apps/server/internal/admin/recovery_migration_integration_test.go": "a7ebf80046444b92313b903269a5a1ce459b993e0910b41fa3168380ff3422a1",
+    "apps/server/internal/analysis/candidate_load.go": "d37a8302139290b59425d547c13f2dc6085d1ca5d4fa3b2c274c106b2ee2c975",
+    "apps/server/internal/analysis/model.go": "d146381c75b72aa150615810aeb0cb27e98b32efe1f4275e755c5e0244e36f1b",
+    "apps/server/internal/jobs/worker.go": "639077f9658c583ec894931b57fc4cb3c865a7e1768da7e739004cc82cadd814",
+    "apps/server/internal/storage/postgres/analysis_input.go": "ac395f91d2809cd5338d53ed6b99a50dd1a76aa1edbddbf0e0263767011e2725",
+    "apps/server/internal/storage/postgres/analysis_publish.go": "42f6f6a450cd572b114e0d58f3d9479a2926a16d1eef9440a5e0e059b56eea24",
+    "apps/server/internal/storage/postgres/dbgen/load.sql.go": "f529a28ff9e0de198108b4c47ca6a590f10890d130c173346de6750353b5317d",
+    "apps/server/internal/storage/postgres/dbgen/models.go": "55d23f7a43dcd445e08c8ca2feecd044a702cf542151129fb967990768f80311",
+    "apps/server/internal/storage/postgres/load_advance.go": "fcfe26124c5676cead0c5c94c06b25e1fda5d26f5c3b6c4b8b64fa7131543be0",
+    "apps/server/internal/storage/postgres/load_input.go": "e2165dafd3d314ed26d973d648349ed1d317fdd768444932adb9e95ab60bf676",
+    "apps/server/internal/storage/postgres/load_publish.go": "97aea4bbc68ebe330e84829eb096faa85ab8aff6069e5aa51aea75a7624c446e",
+    "apps/server/internal/storage/postgres/load_query.go": "788caf18382bde0a216504f63e5beef9ce93d48592e3b252eec8be4c40e4faba",
+    "apps/server/internal/storage/postgres/store.go": "67532dab0531d445830139c32ed93221e632f78a5d7740e4f08327f4a460ad4b",
+    "apps/server/internal/trainingload/integral.go": "9750c5f7fd80d02ce4bb1d49ca3181845a1cab6753b4a68bd9bd3f9179adca21",
+    "apps/server/internal/trainingload/load.go": "6d5d8acd78d3c640f47dd67c461da1b79f9b60726ef4c72a85a970350849b8c0",
+    "apps/server/internal/trainingload/load_test.go": "4af014472601af942455b787d33466cd1f6eb94233b7326cc99aef78ed5c62ab",
+    "apps/server/internal/trainingload/model.go": "98ebc1b7b688f5edd090915990b2305484681f9ff78ea6b1b556f08f79502f8a",
+    "apps/server/internal/trainingload/state.go": "a914802492018eb8efa5f762824806a0203503f4653494ead5fe6cc1a5c5dbe2",
+    "apps/server/internal/trainingload/state_test.go": "f2856f36ea40d2dcfea402826b52a34f03e868aae4cea1e8f49629ed3a315109",
+    "apps/server/internal/workoutfeatures/exposure.go": "c9a18c5f60db6bc395a957555fe92568eb0aa715cf0eef62e8b5961e69194f08",
+    "apps/server/migrations/00022_training_load_v1.sql": "f18d549a6ae680bc6b0d4a8f35c52d4524e8d03d6ce69b6f265382652346c31a",
+    "apps/server/migrations/checksums.json": "c89667debd22f469c8813d1759e52b4097dabd884df762d2e9ca1ebcb9f1d2cd",
+    "apps/server/queries/load.sql": "2c99d8b5e8d09f8adfab2c247e8751d877d3230652dd193902f90edffdfce814",
+    "deploy/postgres/roles.sql": "76c5341aafa8d6dd11260af4a8170c763ed19477450184532545bdca6fc159c1",
+    "scripts/check-boundaries.py": "c9009de534624c911460b902078d41a5d8951d1d2012a81c70701d7cb0389aaa"
+  }
+}

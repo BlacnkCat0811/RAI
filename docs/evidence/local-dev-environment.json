@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-10-30T14:26:44.130597+00:00",
+  "generated_at": "2026-11-03T05:59:55.723898+00:00",
   "platform": "macOS x86_64, no sudo, no Docker",
   "go": "1.27.3",
   "postgresql": "18.6 (Postgres.app)",
   "migrations": {
-    "applied": 13,
-    "total": 13,
+    "applied": 20,
+    "total": 20,
     "from_empty": true
   },
   "backup_restore": {
-    "dump": "/Users/tp/rai/.local/backups/rai_dev-verify.dump",
-    "dump_sha256": "20be44392ef8e6c673d7a725f6c40e873d644f17669b84e8b671978868be6c5b",
-    "restored_schema_version": 13,
-    "restored_public_tables": 45
+    "dump": "/Users/ta/RAI/.local/backups/rai_dev-verify.dump",
+    "dump_sha256": "a08262f8547ca193391b215699208a84f6dedaecfc6e794eb9515d747fc3c110",
+    "restored_schema_version": 20,
+    "restored_public_tables": 48
   },
   "checks": [
     "postgres_start",

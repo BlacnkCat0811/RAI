@@ -20,7 +20,7 @@ P6原生产品与P3/P4/P5历史合同和验收保留，见 [P6 Result](docs/V2_P
 
 ## 本地启动
 
-开发环境使用 Go **1.27.3** 和 PostgreSQL **18.6**。macOS 本机可直接使用无需 sudo、Homebrew 或 Docker 的原生脚本，工具链固定在 `.local/toolchain`，步骤见 [本地原生环境](deploy/local/README.md)：`scripts/local/bootstrap.sh`、`scripts/local/pg.sh init`、`scripts/local/stack.sh migrate|start`。三服务 Compose 的显式迁移与启动步骤见 [开发 Compose](deploy/dev/README.md)。两种配置都只用于合成开发数据，生产必须配置独立最小权限角色和秘密。
+开发环境使用 Go **1.27.3** 和 PostgreSQL **18.6**。macOS 本机可直接使用无需 sudo、Homebrew 或 Docker 的原生脚本，工具链固定在 `.local/toolchain`（sqlc 1.31.1 固定在 `.local/bin/sqlc`），步骤见 [本地原生环境](deploy/local/README.md)：`scripts/local/bootstrap.sh`、`scripts/local/pg.sh init`、`scripts/local/stack.sh migrate|start`。三服务 Compose 的显式迁移与启动步骤见 [开发 Compose](deploy/dev/README.md)。两种配置都只用于合成开发数据，生产必须配置独立最小权限角色和秘密。
 
 API 默认只监听 `127.0.0.1:8080`；容器配置监听 `0.0.0.0:8080`。`RAI_LISTEN_ADDR` 可更改监听地址。使用挂载秘密文件时配置 `RAI_DATABASE_URL_FILE`，不能同时设置两种数据库 URL 来源。API 不自动执行 migration 或创建数据集。仅在确需创建开发数据集时手动运行 `rai init --operation-id UUID --actor NAME --base-url ORIGIN --credential-file ABSOLUTE_PRIVATE_PATH`；凭证先安全写入0600私有文件，stdout不输出 token。同参数和原文件可恢复响应丢失。灾难恢复见 [New Session Runbook](docs/RAI_DISASTER_RECOVERY.md)。
 
@@ -71,6 +71,8 @@ PGBIN=/path/to/postgresql/bin scripts/test-postgres.sh \
 此套件提交真实 10000 分片页，验证中途连接池重建、最终片故障回滚、封口与回执重试；在每表 1 万／10 万行合成数据上对实际 sqlc 查询执行 `EXPLAIN (ANALYZE, BUFFERS)`，保持默认扫描选择，不通过禁用顺序扫描制造索引命中。它验证本地正确性与查询读取预算，不能代替百万／千万规模、N100、多副本、手机导入吞吐或生产恢复验收。
 
 SQL 代码由 **sqlc 1.31.1** 生成，在 `apps/server` 执行 `sqlc generate`。迁移工具固定为 **goose 3.29.0**，通过 `rai migrate` 显式运行。迁移 checksum 已冻结；新增变更追加新 migration。CI 同时验证格式、race、真实 PG、vet、生成代码和在线依赖边界；本地通过不代表远程 CI 已运行。
+
+OpenAPI 合同 lint 是独立工作流（`contracts.yml`，需要 Node），本机可执行 `scripts/local/contracts.sh`：用固定的 `@redocly/cli@2.71.1` 检查 `contracts/openapi-v2.yaml`，当前为 0 error、31 条既有 warning。lint 只证明文档合法自洽，不证明 Go 处理函数按合同实现。
 
 ## 构建
 

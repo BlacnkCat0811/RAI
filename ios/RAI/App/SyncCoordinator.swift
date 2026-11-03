@@ -2,6 +2,9 @@ import Foundation
 import HealthKit
 import OSLog
 import SyncCore
+#if DEBUG
+import UIKit
+#endif
 
 enum Metrics {
     static let log = Logger(subsystem: "com.rai.v2", category: "sync-statistics")
@@ -50,11 +53,40 @@ actor SyncCoordinator {
         var limit = DailyHealth.maxChanges
         while true {
             try Task.checkCancellation()
+            #if DEBUG
+            let queryStarted = Date()
+            #endif
             let page = try await health.readDaily(type: type, anchor: flow.anchor, start: Date(timeIntervalSince1970: Double(flow.bootstrapStartUs) / 1_000_000), limit: limit)
+            #if DEBUG
+            let queryMs = Date().timeIntervalSince(queryStarted) * 1000, normalizationStarted = Date()
+            #endif
             let facts = try page.samples.map { try DailyHealthNormalizer.fact($0) }
+            #if DEBUG
+            let normalizationMs = Date().timeIntervalSince(normalizationStarted) * 1000
+            #endif
             do {
                 try await store.stageDaily(type: type.identifier, previousAnchor: flow.anchor, candidateAnchor: page.anchor,
                     facts: facts, deleted: page.deleted.map { $0.uuid.uuidString.lowercased() }, observedAt: Date(), hasMore: page.isFull, wakeGeneration: wakeGeneration)
+                #if DEBUG
+                if DailyDeviceDiagnostics.enabled {
+                    var sources: [String: Int] = [:], categories: [String: Int] = [:]
+                    let names = ["inBed", "asleepUnspecified", "awake", "core", "deep", "REM"]
+                    for fact in facts {
+                        let source = HealthSourcePolicy.classification(fact["source"]); sources[source, default: 0] += 1
+                        if let category = fact["category"].integer, (0..<6).contains(category) { categories[names[Int(category)], default: 0] += 1 }
+                    }
+                    try? await DailyDeviceDiagnostics.shared.event("query_staged", fields: ["type": .string(type.identifier),
+                        "additions": .int(Int64(page.samples.count)), "deletions": .int(Int64(page.deleted.count)), "hasMore": .bool(page.isFull),
+                        "usedCommittedAnchor": .bool(flow.anchor != nil), "candidateAnchorProduced": .bool(!page.anchor.isEmpty),
+                        "queryMs": .number(queryMs), "normalizationMs": .number(normalizationMs),
+                        "sourceClasses": .object(sources.mapValues { .int(Int64($0)) }), "categories": .object(categories.mapValues { .int(Int64($0)) }),
+                        "sourceRevisionCount": .int(Int64(facts.filter { $0["source"]["version"] != .null }.count)),
+                        "deviceContextCount": .int(Int64(facts.filter { $0["source"]["device"] != .null }.count)),
+                        "identityPreserved": .bool(zip(page.samples, facts).allSatisfy { $0.uuid.uuidString.lowercased() == $1["uuid"].text }),
+                        "intervalsPreserved": .bool(zip(page.samples, facts).allSatisfy { Normalizer.us($0.startDate) == $1["startUs"].integer && Normalizer.us($0.endDate) == $1["endUs"].integer })])
+                    try? await DailyDeviceDiagnostics.shared.snapshot("page_staged", store: store)
+                }
+                #endif
                 return
             } catch SyncFailure.invalid("batch_too_large") where limit > 1 { limit = max(1, limit / 2) }
         }
@@ -65,7 +97,17 @@ actor SyncCoordinator {
             // Persist the wake hint before returning HealthKit's completion.
             // Exact discovery can outlive the callback; suspension leaves a
             // durable hint and the old committed anchors for foreground retry.
+            #if DEBUG
+            let hintDurable: Bool
+            do { try await self.store.markDailyWake(); hintDurable = true } catch { hintDurable = false }
+            if DailyDeviceDiagnostics.enabled {
+                let appState = await MainActor.run { UIApplication.shared.applicationState == .background ? "background" : UIApplication.shared.applicationState == .active ? "active" : "inactive" }
+                try? await DailyDeviceDiagnostics.shared.event("observer_wake_after_journal", fields: ["durable": .bool(hintDurable), "appState": .string(appState)])
+                try? await DailyDeviceDiagnostics.shared.snapshot("observer_wake", store: self.store)
+            }
+            #else
             try? await self.store.markDailyWake()
+            #endif
             Task { try? await self.discoverDaily(); await onWake() }
         }
     }
@@ -90,9 +132,9 @@ actor SyncCoordinator {
                 try Task.checkCancellation()
                 do {
                     if try await store.dailyFlow(type.identifier).pending != nil {
-                        guard try await delivery.deliver(type.identifier) else { break }
+                        guard try await deliverDaily(delivery, type: type.identifier) else { break }
                     } else { try await discoverDailyPage(type) }
-                    if try await store.dailyFlow(type.identifier).pending != nil { _ = try await delivery.deliver(type.identifier) }
+                    if try await store.dailyFlow(type.identifier).pending != nil { _ = try await deliverDaily(delivery, type: type.identifier) }
                     if !(try await store.dailyFlow(type.identifier).hasMore) { break }
                 } catch is CancellationError { throw CancellationError() }
                 catch {
@@ -106,6 +148,25 @@ actor SyncCoordinator {
             }
         }
         try await store.finishDailyWakeIfCaughtUp()
+    }
+
+    private func deliverDaily(_ delivery: DailyHealthDelivery, type: String) async throws -> Bool {
+        #if DEBUG
+        let started = Date()
+        do {
+            let delivered = try await delivery.deliver(type)
+            if DailyDeviceDiagnostics.enabled {
+                try? await DailyDeviceDiagnostics.shared.event("delivery_returned", fields: ["type": .string(type), "delivered": .bool(delivered), "wallMs": .number(Date().timeIntervalSince(started) * 1000)])
+                try? await DailyDeviceDiagnostics.shared.snapshot("after_delivery", store: store)
+            }
+            return delivered
+        } catch {
+            if DailyDeviceDiagnostics.enabled { try? await DailyDeviceDiagnostics.shared.event("delivery_failed", fields: ["type": .string(type), "httpStatus": .int(Int64((error as? UploadError)?.status ?? 0)), "wallMs": .number(Date().timeIntervalSince(started) * 1000)]) }
+            throw error
+        }
+        #else
+        return try await delivery.deliver(type)
+        #endif
     }
 
     init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil) {

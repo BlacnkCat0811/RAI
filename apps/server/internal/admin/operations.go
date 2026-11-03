@@ -165,7 +165,7 @@ func operationsInventory(ctx context.Context, tx pgx.Tx, verify bool) (Inventory
  (SELECT count(*) FROM training_plans p LEFT JOIN training_effective_versions e ON e.dataset_id=p.dataset_id AND e.plan_id=p.id AND e.id=p.current_effective_id WHERE (p.current_base_id IS NULL)<>(p.current_effective_id IS NULL) OR (e.id IS NOT NULL AND (e.base_id<>p.current_base_id OR e.override_revision<>p.override_revision)))+
  (SELECT count(*) FROM analysis_publications p JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id WHERE p.generation<>r.target_generation)+
  (SELECT count(*) FROM sync_streams s WHERE s.last_client_seq<>(SELECT count(*) FROM sync_batches b WHERE b.dataset_id=s.dataset_id AND b.stream_id=s.id AND b.state='committed'))`).Scan(&result.InvariantViolations)
-		if err == nil && (result.SchemaVersion != 20 || result.InvariantViolations != 0) {
+		if err == nil && (result.SchemaVersion != 23 || result.InvariantViolations != 0) {
 			err = errors.New("restored invariants failed")
 		}
 	}

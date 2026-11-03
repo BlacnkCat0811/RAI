@@ -2,6 +2,9 @@ import SwiftUI
 import UIKit
 import SyncCore
 import UniformTypeIdentifiers
+#if DEBUG
+import HealthKit
+#endif
 
 @MainActor @Observable
 final class SyncModel {
@@ -33,6 +36,101 @@ final class SyncModel {
     var currentWorkoutID: String?
     var workoutsRefreshedAt: Date?
     #if DEBUG
+    private var dailyRDIsolated = false
+    /// Operator-enabled device acceptance. Uses the real App's session,
+    /// Outbox, scheduler and Daily delivery; never discovers Workout data.
+    func runDailyDeviceAcceptance() async {
+        guard DailyDeviceDiagnostics.enabled else { return }
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let path = documents.appendingPathComponent("m5a-rd-config.json")
+        UIApplication.shared.isIdleTimerDisabled = true
+        defer { UIApplication.shared.isIdleTimerDisabled = false }
+        do {
+            let config = try JSON.decode(Data(contentsOf: path))
+            guard let command = config["command"].text, ["prepare", "stage", "offline", "bootstrap", "incremental", "observer", "once"].contains(command),
+                  let expected = config["datasetFingerprint"].text else { throw SyncFailure.invalid("rd_config_invalid") }
+            try await DailyDeviceDiagnostics.shared.begin(command)
+            // Consume the private command/credential file immediately. The
+            // normal session Keychain stores credentials after activation.
+            try FileManager.default.removeItem(at: path)
+            if command == "prepare" {
+                DailyDeviceDiagnostics.probeLocalTransport(config["baseURL"].text)
+                try await bindNewSession(baseURL: config["baseURL"].text ?? "", collectorEpoch: config["collectorEpoch"].text ?? "", token: config["token"].text ?? "")
+            }
+            guard let descriptor = try ClientConfiguration.activeDescriptor(), Wire.hash(Data(descriptor.datasetID.utf8)) == expected,
+                  let store, let coordinator, let transfers, let secret = try ClientConfiguration.load() else { throw SyncFailure.invalid("rd_isolation_mismatch") }
+            dailyRDIsolated = true
+            try await DailyDeviceDiagnostics.shared.event("isolated_session_verified")
+            try await store.bind(Scope(serviceID: descriptor.serviceID, datasetID: descriptor.datasetID, datasetEpoch: descriptor.datasetEpoch, collectorEpoch: descriptor.collectorEpoch))
+            try await DailyDeviceDiagnostics.shared.snapshot("restored", store: store)
+            if command == "prepare" {
+                guard HKHealthStore.isHealthDataAvailable() else { throw SyncFailure.invalid("healthkit_unavailable") }
+                try await DailyDeviceDiagnostics.shared.event("authorization_request_started")
+                try await HKHealthStore().requestAuthorization(toShare: [], read: Set(HealthKitClient.dailyTypes.map { $0 as HKObjectType }))
+                UserDefaults.standard.set(true, forKey: "healthAuthorizationRequested")
+                authorization = "已请求读取权限；数据是否可用由系统管理"
+                try await DailyDeviceDiagnostics.shared.event("authorization_request_completed")
+            } else if command == "stage" {
+                try await store.markDailyWake()
+                try await coordinator.discoverDaily()
+                try await DailyDeviceDiagnostics.shared.snapshot("discovery_before_upload", store: store)
+            } else if command == "offline" {
+                do {
+                    try await coordinator.syncDaily(secret: secret, transfers: transfers)
+                    try await DailyDeviceDiagnostics.shared.event("offline_call_returned")
+                } catch {
+                    try await DailyDeviceDiagnostics.shared.event("offline_transport_failed", fields: ["systemCode": .int(Int64((error as NSError).code))])
+                }
+                try await DailyDeviceDiagnostics.shared.snapshot("after_offline_attempt", store: store)
+            } else {
+                let rounds = command == "bootstrap" ? 90 : 1
+                for round in 0..<rounds {
+                    let start = Date()
+                    if round == 0 {
+                        syncDailyNow()
+                        await syncScheduler.waitForCompletion()
+                    } else {
+                        // Continue the same foreground opportunity. Repeated
+                        // manual wake generations would create extra empty
+                        // coverage pages for already caught-up types.
+                        do { try await coordinator.syncDaily(secret: secret, transfers: transfers) }
+                        catch { try await DailyDeviceDiagnostics.shared.event("continuation_failed", fields: ["httpStatus": .int(Int64((error as? UploadError)?.status ?? 0))]) }
+                    }
+                    try await DailyDeviceDiagnostics.shared.event("manual_opportunity_completed", fields: ["round": .int(Int64(round)), "wallMs": .number(Date().timeIntervalSince(start) * 1000)])
+                    try await DailyDeviceDiagnostics.shared.snapshot("after_manual_opportunity", store: store)
+                    let state = await store.snapshot()
+                    if DailyHealth.types.allSatisfy({ state.daily?[$0].map { $0.bootstrapComplete && $0.pending == nil && !$0.hasMore && $0.error == nil } == true }) { break }
+                    if command == "bootstrap" { try await Task.sleep(for: .seconds(2)) }
+                }
+                if command == "observer" {
+                    try await coordinator.observeDaily { [weak self] in
+                        Task { @MainActor in self?.syncDailyNow() }
+                    }
+                    try await DailyDeviceDiagnostics.shared.event("observer_registered")
+                    try await Task.sleep(for: .seconds(20))
+                    for _ in 0..<8 { syncDailyNow() }
+                    await syncScheduler.waitForCompletion()
+                    try await DailyDeviceDiagnostics.shared.event("manual_burst_completed", fields: ["requested": .int(8)])
+                    try await DailyDeviceDiagnostics.shared.snapshot("after_observer_and_manual_burst", store: store)
+                }
+            }
+            let finalState = await store.snapshot()
+            apply(finalState)
+            if DailyHealth.types.allSatisfy({ finalState.daily?[$0].map { $0.pending == nil && !$0.hasMore && $0.error == nil } == true }) { error = nil }
+            try await DailyDeviceDiagnostics.shared.snapshot("command_completed", store: store)
+            try await DailyDeviceDiagnostics.shared.event("run_completed", fields: ["command": .string(command)])
+            status = "M5A-RD 脱敏验收命令完成"
+        } catch {
+            let code: String
+            switch error {
+            case SyncFailure.invalid(let value), SyncFailure.localState(let value): code = value
+            case let failure as UploadError: code = failure.code.range(of: #"^[a-z0-9_-]{1,80}$"#, options: .regularExpression) != nil ? failure.code : "rd_upload_failed"
+            default: code = "rd_command_failed"
+            }
+            try? await DailyDeviceDiagnostics.shared.event("run_failed", fields: ["code": .string(code), "systemCode": .int(Int64((error as NSError).code))])
+            status = "M5A-RD 验收尚未完成"
+        }
+    }
     func runPhase3Acceptance(phase: Int = 3) async {
         let configName = phase == 4 ? "phase4-config.json" : "phase3-config.json"
         let reportName = phase == 4 ? "phase4-device-report.json" : "phase3-device-report.json"
@@ -289,6 +387,9 @@ final class SyncModel {
         activeSessionID.map { "com.rai.v2.sync." + $0 == identifier } ?? false
     }
     func authorize() {
+        #if DEBUG
+        if DailyDeviceDiagnostics.enabled, !dailyRDIsolated { status = "请先完成独立验收会话连接"; return }
+        #endif
         guard !busy, let coordinator else { return }
         busy = true
         task = Task {
@@ -304,6 +405,9 @@ final class SyncModel {
         }
     }
     func loadWorkouts() async {
+        #if DEBUG
+        if DailyDeviceDiagnostics.enabled { return }
+        #endif
         guard !loadingWorkouts, let coordinator, let store else { return }
         loadingWorkouts = true; defer { loadingWorkouts = false }
         do {
@@ -525,11 +629,15 @@ final class SyncModel {
     /// discovered deletions before resuming uploads and delivering changes.
     private var recoveryWake: Task<Void, Never>?
     func syncDailyNow() {
+        #if DEBUG
+        if DailyDeviceDiagnostics.enabled, !dailyRDIsolated { status = "请先完成独立验收会话连接"; return }
+        #endif
         guard canStartWorkoutSync else { return }
         syncScheduler.startManual {
             guard let coordinator = self.coordinator, let store = self.store, let transfers = self.transfers else { return }
             do {
                 guard UserDefaults.standard.bool(forKey: "healthAuthorizationRequested"), let secret = try ClientConfiguration.load() else { self.error = "请先配置同步并请求健康数据读取权限。"; return }
+                self.error = nil
                 try await store.markDailyWake()
                 try await coordinator.discoverDaily()
                 try await coordinator.syncDaily(secret: secret, transfers: transfers)
@@ -542,6 +650,29 @@ final class SyncModel {
         }
     }
     func recoverPending(discoverDaily: Bool = false) {
+        #if DEBUG
+        if DailyDeviceDiagnostics.enabled {
+            // Same scheduler and Daily state machine, scoped to the verified
+            // test identity. Acceptance must not discover unrelated Workouts.
+            guard dailyRDIsolated, !busy else { return }
+            syncScheduler.startAutomatic {
+                guard let coordinator = self.coordinator, let store = self.store, let transfers = self.transfers,
+                      let secret = try? ClientConfiguration.load() else { return }
+                do {
+                    if discoverDaily { try await store.markDailyWake() }
+                    try await DailyDeviceDiagnostics.shared.event("foreground_daily_opportunity", fields: ["newWake": .bool(discoverDaily)])
+                    try await coordinator.discoverDaily()
+                    try await coordinator.syncDaily(secret: secret, transfers: transfers)
+                } catch is CancellationError { return }
+                catch { self.error = "日常健康同步尚未完成；同步位置已保留。" }
+                let snapshot = await store.snapshot(); self.apply(snapshot)
+                if DailyHealth.types.allSatisfy({ snapshot.daily?[$0].map { $0.pending == nil && !$0.hasMore && $0.error == nil } == true }) { self.error = nil }
+                try? await DailyDeviceDiagnostics.shared.snapshot("foreground_opportunity_completed", store: store)
+                if !Task.isCancelled { self.scheduleRecovery(snapshot) }
+            }
+            return
+        }
+        #endif
         if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" || ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { return }
         guard !busy else { return }
         syncScheduler.startAutomatic {
@@ -665,10 +796,21 @@ struct RAIApp: App {
     @Environment(\.scenePhase) private var phase
     var body: some Scene {
         WindowGroup {
-            ProductTabs(sync: model)
+            Group {
+                #if DEBUG
+                if DailyDeviceDiagnostics.enabled {
+                    NavigationStack { SyncView(model: model) }
+                        .tint(RAITheme.orange).preferredColorScheme(.dark)
+                }
+                else { ProductTabs(sync: model) }
+                #else
+                ProductTabs(sync: model)
+                #endif
+            }
                 .environment(\.locale, Locale(identifier: "zh-Hans-CN"))
                 .task {
                     #if DEBUG
+                    if DailyDeviceDiagnostics.enabled { await model.runDailyDeviceAcceptance(); return }
                     if ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { await model.runPhase3Acceptance(phase: 4); return }
                     if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" { await model.runPhase3Acceptance(); return }
                     #endif
@@ -677,11 +819,21 @@ struct RAIApp: App {
                 .onChange(of: phase) { _, phase in
                     if phase == .active {
                         #if DEBUG
+                        if DailyDeviceDiagnostics.enabled {
+                            Task { try? await DailyDeviceDiagnostics.shared.event("scene_active") }
+                            model.recoverPending(discoverDaily: true)
+                            return
+                        }
                         if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" || ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { return }
                         #endif
                         model.recoverPending(discoverDaily: true)
                     }
-                    else if phase == .background { model.suspendForegroundWork() }
+                    else if phase == .background {
+                        #if DEBUG
+                        if DailyDeviceDiagnostics.enabled { Task { try? await DailyDeviceDiagnostics.shared.event("scene_background") } }
+                        #endif
+                        model.suspendForegroundWork()
+                    }
                 }
         }
     }

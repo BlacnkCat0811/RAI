@@ -200,6 +200,15 @@ func SetAnalysisParameters(ctx context.Context, s *postgres.Store, dataset strin
 	return tx.Commit(ctx)
 }
 func AnalysisCommand(ctx context.Context, url string, args []string, out io.Writer) error {
+	if len(args) > 0 && args[0] == "performance" {
+		return PerformanceCommand(ctx, url, args[1:], out)
+	}
+	if len(args) > 0 && args[0] == "load" {
+		return LoadCommand(ctx, url, args[1:], out)
+	}
+	if len(args) > 0 && args[0] == "features" {
+		return FeatureCommand(ctx, url, args[1:], out)
+	}
 	if len(args) == 0 {
 		return errors.New("usage: rai analysis recompute|parameters [explicit flags]")
 	}

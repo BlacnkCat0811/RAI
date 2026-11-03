@@ -6,7 +6,10 @@ import (
 	"time"
 
 	"rai/server/internal/analysis"
+	pf "rai/server/internal/performance"
 	"rai/server/internal/training"
+	tl "rai/server/internal/trainingload"
+	wf "rai/server/internal/workoutfeatures"
 )
 
 type Queue interface {
@@ -20,7 +23,7 @@ type Queue interface {
 	AdvanceAnalysisDay(context.Context, time.Time) error
 }
 
-var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "analysis.training_state", "training.plan"}
+var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "analysis.training_state", "training.plan", wf.JobKind, tl.JobKind, tl.StateJobKind, pf.JobKind}
 
 // Run uses one processing slot. The short poll waits on cancellation and the
 // independent renewal loop cancels calculation immediately after lease loss.
@@ -161,7 +164,35 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 	algorithmDuration := time.Duration(0)
 	if err == nil && in.Generation == l.TargetGeneration {
 		algorithmStart := time.Now()
-		ms, err = analysis.Analyze(runCtx, l.Kind, in)
+		if l.Kind == pf.JobKind {
+			ms, err = analysis.CalculateCandidatePerformance(&in)
+		} else if l.Kind == tl.JobKind || l.Kind == tl.StateJobKind {
+			ms, err = analysis.CalculateCandidateLoad(&in, l.Kind)
+		} else if l.Kind == wf.JobKind {
+			if in.FeatureInput == nil {
+				err = analysis.Invalid()
+			} else {
+				var f wf.WorkoutFeatures
+				f, err = wf.ComputeNormalized(runCtx, *in.FeatureInput)
+				if err != nil {
+					err = &analysis.Failure{Code: mapFeatureError(err)}
+				} else {
+					in.FeatureArtifact = &f
+					if in.ExposureRequired {
+						var exposure wf.HRExposure
+						exposure, err = wf.BuildHRExposure(*in.FeatureInput)
+						if err != nil {
+							err = &analysis.Failure{Code: mapFeatureError(err)}
+						} else {
+							in.ExposureArtifact = &exposure
+						}
+					}
+					ms = featureMetrics(f)
+				}
+			}
+		} else {
+			ms, err = analysis.Analyze(runCtx, l.Kind, in)
+		}
 		algorithmDuration = time.Since(algorithmStart)
 	}
 	if err == nil {
@@ -199,4 +230,17 @@ func trainingPlanFromScope(scope string) string {
 		return scope[5:]
 	}
 	return ""
+}
+
+func mapFeatureError(err error) string {
+	if wf.ErrorCode(err) == "input_limit" || wf.ErrorCode(err) == "feature_artifact_limit" {
+		return "analysis_input_limit"
+	}
+	return "analysis_invalid_input"
+}
+func featureMetrics(f wf.WorkoutFeatures) []analysis.Metric {
+	if f.State == wf.Deleted || f.State == wf.Missing {
+		return nil
+	}
+	return []analysis.Metric{{Day: analysis.WorkoutDay, Name: "feature_active_seconds", Algorithm: wf.Algorithm, Version: wf.Version, Value: f.Timing.Active, Unit: "s", Quality: map[bool]string{true: "insufficient", false: "partial"}[f.Timing.Active == nil], Details: map[string]any{"artifactKey": wf.ArtifactKey}}, {Day: analysis.WorkoutDay, Name: "feature_preferred_distance", Algorithm: wf.Algorithm, Version: wf.Version, Value: f.Distance.Preferred, Unit: "m", Quality: map[bool]string{true: "insufficient", false: "partial"}[f.Distance.Preferred == nil], Details: map[string]any{"artifactKey": wf.ArtifactKey}}}
 }

@@ -30,6 +30,12 @@ go vet -tags=integration ./...
 echo "== go build =="
 go build ./...
 
+echo "== sqlc generate (committed code must match sqlc $rai_sqlc_version) =="
+rai_require_sqlc
+"$rai_sqlc" version
+"$rai_sqlc" generate
+git -C "$rai_root" diff --exit-code -- apps/server/internal/storage/postgres/dbgen
+
 echo "== go test -race against an isolated PostgreSQL 18 cluster =="
 cd "$rai_root"
 PGBIN="$rai_pgbin" scripts/test-postgres.sh go test -race -count=1 -tags=integration ./...

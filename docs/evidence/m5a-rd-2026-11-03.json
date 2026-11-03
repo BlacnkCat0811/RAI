@@ -1,0 +1,1520 @@
+{
+  "stage": "M5A-RD",
+  "result": "PASS WITH RISKS",
+  "date": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "baseline": {
+    "label": "M5A-RD BASELINE",
+    "date": "2026-11-03",
+    "timezone": "Asia/Shanghai",
+    "head": "bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61",
+    "branch": "main",
+    "status_short": [
+      " M README.md",
+      " M apps/server/cmd/rai/main.go",
+      " M deploy/local/README.md",
+      " M docs/IMPLEMENTATION.md",
+      " M docs/evidence/local-dev-environment.json",
+      " M docs/evidence/local-dev-tests.json",
+      " M scripts/local/bootstrap.sh",
+      " M scripts/local/lib.sh",
+      " M scripts/local/test.sh",
+      " M scripts/local/verify.sh",
+      "?? apps/server/migrations/latest.go",
+      "?? docs/evidence/local-contracts-lint.json",
+      "?? scripts/local/contracts.sh"
+    ],
+    "files": {
+      "README.md": {
+        "sha256": "ea97989e32900a4362266cadf9a8772b49ed20a0aa3ff9868021c691aaf23e62",
+        "bytes": 10693
+      },
+      "apps/server/cmd/rai/main.go": {
+        "sha256": "2be417d6280aa70bf58dfd93dc624c6461b87006c2f2075184cf6a0fe4c9427c",
+        "bytes": 5022
+      },
+      "deploy/local/README.md": {
+        "sha256": "b3ec3d38a5d6f2f1b7e5c6fefd49567b48c1dab1f456df32880e263d07d3d6b8",
+        "bytes": 4847
+      },
+      "docs/IMPLEMENTATION.md": {
+        "sha256": "d9c1b4e006f4234ce83b2f2e7b42bd8853ecee5de6d25a12d27da5c7b781fa9f",
+        "bytes": 138875
+      },
+      "docs/evidence/local-dev-environment.json": {
+        "sha256": "bb8add763855a5bedc154a7e239acc2eb60044dc481ac1a85f52cdac958714fb",
+        "bytes": 780
+      },
+      "docs/evidence/local-dev-tests.json": {
+        "sha256": "59abd0e3960696e9ee755750e34213d63be7ef9a88013cae82047535b501bfbd",
+        "bytes": 5208
+      },
+      "scripts/local/bootstrap.sh": {
+        "sha256": "6e227b0aa673a7afdbc01e229def360da07d5e27f6b23f81f0f51a79a6743f1e",
+        "bytes": 5953
+      },
+      "scripts/local/lib.sh": {
+        "sha256": "cc1202584ee041f50130676c1164a95057fdbae09634742bbd0c6059917d170f",
+        "bytes": 2619
+      },
+      "scripts/local/test.sh": {
+        "sha256": "2b58fa911e303b3160d95c2e2d0b4548ae1c3591b8b021da37d82bbd73f74e82",
+        "bytes": 1136
+      },
+      "scripts/local/verify.sh": {
+        "sha256": "58a24bd71b49f8f11700103f6d5013f621cac5164a917f53f549842df6704a53",
+        "bytes": 5629
+      },
+      "apps/server/migrations/latest.go": {
+        "sha256": "c9d569d5ccdf216b01975c765eb17145f1c31e1fc3a72a1b44456f96c2dac61d",
+        "bytes": 759
+      },
+      "docs/evidence/local-contracts-lint.json": {
+        "sha256": "644a10bcf334b9b875297c987f3fb4feaedeec95c17842103801ca964f422e1b",
+        "bytes": 699
+      },
+      "scripts/local/contracts.sh": {
+        "sha256": "3e6d5e2fd6385c4a7f1ee139d1b98e919be7561c9218d108340178293579de1e",
+        "bytes": 2067
+      }
+    }
+  },
+  "baseline_preserved": {
+    "README.md": true,
+    "apps/server/cmd/rai/main.go": true,
+    "deploy/local/README.md": true,
+    "docs/IMPLEMENTATION.md": true,
+    "docs/evidence/local-dev-environment.json": true,
+    "docs/evidence/local-dev-tests.json": true,
+    "scripts/local/bootstrap.sh": true,
+    "scripts/local/lib.sh": true,
+    "scripts/local/test.sh": true,
+    "scripts/local/verify.sh": true,
+    "apps/server/migrations/latest.go": true,
+    "docs/evidence/local-contracts-lint.json": true,
+    "scripts/local/contracts.sh": true
+  },
+  "final_head": "bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61",
+  "final_branch": "main",
+  "device": {
+    "physical_device_confirmed": true,
+    "class": "iPhone",
+    "model": "iPhone 12 Pro Max",
+    "ios": "27.2",
+    "transport": "wired",
+    "paired": true,
+    "tunnel": "connected",
+    "developer_mode": "enabled",
+    "unique_identifiers_recorded": false
+  },
+  "build": {
+    "target": "RAI",
+    "bundle": "com.rai.v2.ios",
+    "configuration": "Debug",
+    "version": "0.6.0",
+    "build": "1",
+    "xcode": "26.6 (17F113)",
+    "developer_dir_override_only": true,
+    "device_executable_sha256": "1c782d73adc14e1d02c224b2aacd8c47b600d2d4192bc40cccc9eab6239577e5",
+    "scoped_ATS_literal_host_matches_configuration": true,
+    "global_arbitrary_loads": false,
+    "private_generated_Info_plist": true,
+    "source_Debug_template_restored": true,
+    "Release_build": "PASS_UNSIGNED_NOT_INSTALLED",
+    "Release_diagnostics_marker_hits": []
+  },
+  "authorization": {
+    "request_completed_on_device": true,
+    "requested_daily_types": [
+      "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+      "HKQuantityTypeIdentifierRestingHeartRate",
+      "HKCategoryTypeIdentifierSleepAnalysis"
+    ],
+    "toShare_empty": true,
+    "read_authorization_granted_status": "NOT KNOWABLE / NOT INFERRED",
+    "HealthKit_available": true,
+    "HealthKit_write_delete_edit_calls_executed": false
+  },
+  "real_discovery": {
+    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+      "query_count": 47,
+      "unanchored_query_count": 1,
+      "anchored_query_count": 46,
+      "additions": 3116,
+      "deletions": 0,
+      "nonempty_pages": 25,
+      "empty_pages": 22,
+      "candidate_anchor_produced_all": true,
+      "identity_preserved_all": true,
+      "intervals_preserved_all": true,
+      "source_revision_count": 3116,
+      "device_context_count": 3116,
+      "source_classes": {
+        "apple_watch": 3116
+      },
+      "categories": {},
+      "nonempty_query_wall": {
+        "count": 25,
+        "min_ms": 6.531,
+        "median_ms": 10.241,
+        "max_ms": 233.559,
+        "sum_ms": 493.792
+      },
+      "no_change_query_wall": {
+        "count": 22,
+        "min_ms": 3.261,
+        "median_ms": 8.069,
+        "max_ms": 12.537,
+        "sum_ms": 155.151
+      },
+      "normalization": {
+        "count": 47,
+        "min_ms": 0.001,
+        "median_ms": 1.212,
+        "max_ms": 1.577,
+        "sum_ms": 31.023
+      },
+      "delivery_wall": {
+        "count": 48,
+        "min_ms": 26.194,
+        "median_ms": 102.93,
+        "max_ms": 268.952,
+        "sum_ms": 4815.643
+      },
+      "unique_staged_batches": 48,
+      "maximum_batch_bytes": 62196,
+      "total_staged_batch_bytes": 1502912
+    },
+    "HKQuantityTypeIdentifierRestingHeartRate": {
+      "query_count": 44,
+      "unanchored_query_count": 1,
+      "anchored_query_count": 43,
+      "additions": 83,
+      "deletions": 0,
+      "nonempty_pages": 1,
+      "empty_pages": 43,
+      "candidate_anchor_produced_all": true,
+      "identity_preserved_all": true,
+      "intervals_preserved_all": true,
+      "source_revision_count": 83,
+      "device_context_count": 0,
+      "source_classes": {
+        "source_unknown": 68,
+        "third_party": 15
+      },
+      "categories": {},
+      "nonempty_query_wall": {
+        "count": 1,
+        "min_ms": 93.409,
+        "median_ms": 93.409,
+        "max_ms": 93.409,
+        "sum_ms": 93.409
+      },
+      "no_change_query_wall": {
+        "count": 43,
+        "min_ms": 2.801,
+        "median_ms": 4.253,
+        "max_ms": 9.984,
+        "sum_ms": 252.87
+      },
+      "normalization": {
+        "count": 44,
+        "min_ms": 0.001,
+        "median_ms": 0.002,
+        "max_ms": 1.255,
+        "sum_ms": 1.339
+      },
+      "delivery_wall": {
+        "count": 45,
+        "min_ms": 33.529,
+        "median_ms": 53.748,
+        "max_ms": 149.154,
+        "sum_ms": 2627.333
+      },
+      "unique_staged_batches": 45,
+      "maximum_batch_bytes": 27215,
+      "total_staged_batch_bytes": 53915
+    },
+    "HKCategoryTypeIdentifierSleepAnalysis": {
+      "query_count": 47,
+      "unanchored_query_count": 1,
+      "anchored_query_count": 46,
+      "additions": 1594,
+      "deletions": 0,
+      "nonempty_pages": 13,
+      "empty_pages": 34,
+      "candidate_anchor_produced_all": true,
+      "identity_preserved_all": true,
+      "intervals_preserved_all": true,
+      "source_revision_count": 1594,
+      "device_context_count": 0,
+      "source_classes": {
+        "source_unknown": 1594
+      },
+      "categories": {
+        "REM": 275,
+        "asleepUnspecified": 7,
+        "awake": 351,
+        "core": 746,
+        "deep": 215
+      },
+      "nonempty_query_wall": {
+        "count": 13,
+        "min_ms": 5.258,
+        "median_ms": 7.71,
+        "max_ms": 16.243,
+        "sum_ms": 113.014
+      },
+      "no_change_query_wall": {
+        "count": 34,
+        "min_ms": 2.443,
+        "median_ms": 4.357,
+        "max_ms": 9.834,
+        "sum_ms": 184.514
+      },
+      "normalization": {
+        "count": 47,
+        "min_ms": 0.001,
+        "median_ms": 0.002,
+        "max_ms": 1.026,
+        "sum_ms": 9.654
+      },
+      "delivery_wall": {
+        "count": 48,
+        "min_ms": 29.549,
+        "median_ms": 53.145,
+        "max_ms": 90400.227,
+        "sum_ms": 94100.051
+      },
+      "unique_staged_batches": 48,
+      "maximum_batch_bytes": 44122,
+      "total_staged_batch_bytes": 570884
+    }
+  },
+  "source_classes": {
+    "apple_watch": 3116,
+    "source_unknown": 1662,
+    "third_party": 15
+  },
+  "raw_third_party_facts_preserved": 15,
+  "manual_flag_observed": false,
+  "anchor_checks": {
+    "discovery_kill_and_offline": {
+      "HKCategoryTypeIdentifierSleepAnalysis": {
+        "pending_restored": true,
+        "offline_pending_unchanged": true,
+        "anchor_not_advanced": true,
+        "pending_retained": true
+      },
+      "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+        "pending_restored": true,
+        "offline_pending_unchanged": true,
+        "anchor_not_advanced": true,
+        "pending_retained": true
+      },
+      "HKQuantityTypeIdentifierRestingHeartRate": {
+        "pending_restored": true,
+        "offline_pending_unchanged": true,
+        "anchor_not_advanced": true,
+        "pending_retained": true
+      }
+    },
+    "normal_restart": {
+      "HKCategoryTypeIdentifierSleepAnalysis": {
+        "anchor_restored": true,
+        "bootstrap_restored": true,
+        "window_unchanged": true,
+        "pending_identity_restored": true
+      },
+      "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+        "anchor_restored": true,
+        "bootstrap_restored": true,
+        "window_unchanged": true,
+        "pending_identity_restored": true
+      },
+      "HKQuantityTypeIdentifierRestingHeartRate": {
+        "anchor_restored": true,
+        "bootstrap_restored": true,
+        "window_unchanged": true,
+        "pending_identity_restored": true
+      }
+    },
+    "ACK_loss_kill_retry": {
+      "pending_batch_restored": true,
+      "pending_body_restored": true,
+      "anchor_not_prematurely_applied": true,
+      "one_logical_receipt": true,
+      "original_receipt_unchanged": true,
+      "client_applied_original_ACK": true,
+      "candidate_eventually_committed": true
+    },
+    "final_flows": {
+      "HKCategoryTypeIdentifierSleepAnalysis": {
+        "anchorPresent": true,
+        "bootstrapComplete": true,
+        "hasError": false,
+        "hasMore": false,
+        "pending": false,
+        "receiptCommitted": true,
+        "sequence": 49
+      },
+      "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+        "anchorPresent": true,
+        "bootstrapComplete": true,
+        "hasError": false,
+        "hasMore": false,
+        "pending": false,
+        "receiptCommitted": true,
+        "sequence": 49
+      },
+      "HKQuantityTypeIdentifierRestingHeartRate": {
+        "anchorPresent": true,
+        "bootstrapComplete": true,
+        "hasError": false,
+        "hasMore": false,
+        "pending": false,
+        "receiptCommitted": true,
+        "sequence": 46
+      }
+    },
+    "client_sequence_matches_server_plus_one": true,
+    "same_PG_API_restart_without_migration_reset_restore": "PASS / original facts retained / incremental only"
+  },
+  "observer": {
+    "explicit_phase_callbacks": 9,
+    "durable_hints": 9,
+    "app_states": {
+      "active": 3,
+      "inactive": 6,
+      "background": 0
+    },
+    "background_delivery": "NOT OBSERVED DURING TEST WINDOW",
+    "user_background_cycles": 4,
+    "user_confirmed_display_fixed_and_manual_button_tapped": true,
+    "manual_burst_requested": 8,
+    "user_confirmed_background_and_foreground_cycles": true,
+    "daily_only_debug_lifecycle_guard": true
+  },
+  "server_snapshots": [
+    {
+      "label": "fresh_baseline",
+      "statistics": {
+        "schema": 20,
+        "facts": 0,
+        "receipts": 0,
+        "staged_batches": 0,
+        "coverage_rows": 0,
+        "complete_coverage_rows": 0,
+        "zero_fact_coverage_rows": 0,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [],
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "after_force_kill_offline",
+      "statistics": {
+        "schema": 20,
+        "facts": 0,
+        "receipts": 0,
+        "staged_batches": 0,
+        "coverage_rows": 0,
+        "complete_coverage_rows": 0,
+        "zero_fact_coverage_rows": 0,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [],
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "bootstrap_progress",
+      "statistics": {
+        "schema": 20,
+        "facts": 2899,
+        "receipts": 31,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 1,
+        "zero_fact_coverage_rows": 1,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 2,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1408
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 1408
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "bootstrap_progress_2",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 87,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "after_bootstrap_continuation",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 105,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "detailed_caught_up",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 105,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "after_ui_fix_before_manual",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 105,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "after_real_manual_button",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 107,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "after_normal_restart",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 111,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "ack_lost_before_client_apply",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 112,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "ack_retry_progress",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 112,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "ack_retry_waiting",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 117,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "final_device_gate",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 135,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "wrap_up_before_stop",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 135,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    },
+    {
+      "label": "after_actual_ATS_and_PG_restart",
+      "statistics": {
+        "schema": 20,
+        "facts": 4793,
+        "receipts": 141,
+        "staged_batches": 0,
+        "coverage_rows": 3,
+        "complete_coverage_rows": 3,
+        "zero_fact_coverage_rows": 3,
+        "deletion_coverage_rows": 0,
+        "coverage_has_more_rows": 0,
+        "jobs": 0,
+        "workouts": 0,
+        "per_type": [
+          {
+            "sample_type": "HKCategoryTypeIdentifierSleepAnalysis",
+            "facts": 1594
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "facts": 83
+          }
+        ],
+        "unique_fact_identities": 4793,
+        "source_preserved_rows": 4793,
+        "source_revision_rows": 4793,
+        "device_context_rows": 3116,
+        "manual_rows": 0,
+        "non_apple_namespace_rows": 15,
+        "coverage_fact_seen_rows": 3,
+        "canonical_units": [
+          {
+            "sample_type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+            "unit": "ms",
+            "facts": 3116
+          },
+          {
+            "sample_type": "HKQuantityTypeIdentifierRestingHeartRate",
+            "unit": "count/min",
+            "facts": 83
+          }
+        ],
+        "sleep_categories": [
+          {
+            "category": "asleepUnspecified",
+            "facts": 7
+          },
+          {
+            "category": "awake",
+            "facts": 351
+          },
+          {
+            "category": "core",
+            "facts": 746
+          },
+          {
+            "category": "deep",
+            "facts": 215
+          },
+          {
+            "category": "REM",
+            "facts": 275
+          }
+        ],
+        "sleep_overlap_exists": true,
+        "duplicate_receipt_identity_groups": 0
+      }
+    }
+  ],
+  "durability": {
+    "server_version": "18.6 (Postgres.app)",
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "data_checksums": "on",
+    "listen_addresses": "",
+    "nonempty_batches": 39,
+    "empty_coverage_batches": 102,
+    "maximum_event_count": 128,
+    "stream_sequences": {
+      "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": 48,
+      "HKQuantityTypeIdentifierRestingHeartRate": 45,
+      "HKCategoryTypeIdentifierSleepAnalysis": 48
+    },
+    "daily_receipt_analysis_pending": 141,
+    "dirty_scopes": 4793
+  },
+  "ack_loss_original_receipt_before_retry": {
+    "matches": 1,
+    "committed": true,
+    "receiptFingerprint": "9728031abc7526c638408545da9dbe62e11ad3f09460e094a334547ee5a769be",
+    "type": "HKCategoryTypeIdentifierSleepAnalysis",
+    "bodyFingerprint": "1ff5be1fae11c7fbc0b0eac4405c1fa0c8806d637e0a470ef36180fdfb35e9a4",
+    "batchFingerprint": "1a74678e9a3845add92d4cf763ce233737642c14edf5ebe46d70d89de336d719",
+    "clientSequence": 38,
+    "anchorFingerprint": "d0c6441e790a117e208fd368ada0bd98aa33a683a8ebeb45d5619de2a5c24941",
+    "candidateAnchorFingerprint": "d0c6441e790a117e208fd368ada0bd98aa33a683a8ebeb45d5619de2a5c24941"
+  },
+  "telemetry_limits": {
+    "recorded_query_staged_events": 138,
+    "authoritative_receipts_and_client_chain": 141,
+    "missing_empty_page_query_events": 3,
+    "cause": "NOT FINALLY ESTABLISHED; cross-process asynchronous report is not a complete ledger",
+    "nonempty_pages_recorded": 39,
+    "all_real_fact_counts_match_database": true,
+    "clean_bootstrap_elapsed_SLO": "NOT CLAIMED",
+    "peak_device_memory": "NOT MEASURED",
+    "natural_hot_delta": "NOT OBSERVED"
+  },
+  "regression": {
+    "go_final_commands": [
+      {
+        "command": "go test -count=1 ./...",
+        "exit_code": 0
+      },
+      {
+        "command": "go test -race -count=1 ./...",
+        "exit_code": 0
+      },
+      {
+        "command": "go vet ./...",
+        "exit_code": 0
+      },
+      {
+        "command": "python3 scripts/check-boundaries.py",
+        "exit_code": 0
+      }
+    ],
+    "swift": {
+      "tests": 119,
+      "suites": 15,
+      "XCTest_passed": 2,
+      "existing_opt_in_skipped": 3
+    },
+    "SDK_App_tests": {
+      "synthetic_simulator": "iOS 26.5 / ephemeral iPhone 16",
+      "passed": 34,
+      "failed": 0,
+      "simulator_deleted": true
+    },
+    "full_PG_race": {
+      "result": "PASS",
+      "integration_seconds": 419.787,
+      "tags": "integration",
+      "package_parallelism": 1,
+      "process_timeout": "30m",
+      "leftover_databases": 0,
+      "cluster_removed": true
+    },
+    "final_targeted_daily_PG_race": {
+      "result": "PASS",
+      "integration_seconds": 12.992,
+      "admin_seconds": 1.816,
+      "leftover_databases": 0,
+      "cluster_removed": true
+    },
+    "OpenAPI": {
+      "errors": 0,
+      "existing_warnings": 31,
+      "redocly": "2.71.1"
+    },
+    "sqlc": "1.31.1 / generate unchanged",
+    "boundary_packages": 249
+  },
+  "retained_failures": [
+    "initial CLT Swift missing Testing; rerun with full Xcode passed",
+    "initial build missing Team; automatic signing succeeded with existing account",
+    "debug diagnostics compile missing try; corrected",
+    "devicectl launch argument ordering; corrected",
+    "zsh sourcing Bash lib prevented npm; rerun in Bash passed",
+    "first full PG process timeout at 600s, 1 leftover test DB removed with cluster; serialized 30m process timeout rerun passed",
+    "mDNS network_-1009 / ENETDOWN; exact LAN origin succeeded; underlying mDNS cause not established",
+    "diagnostic root omitted dark scheme, user confirmed fix",
+    "ATS dictionary key variable was not expanded; source template restored; private literal Info plist verified"
+  ],
+  "privacy": {
+    "no_personal_measurements_exported": true,
+    "no_raw_sample_UUIDs_exported": true,
+    "no_sleep_intervals_exported": true,
+    "no_HealthKit_or_DB_dump": true,
+    "no_personal_fixture_committed": true,
+    "API_log_output_discarded": true,
+    "proxy_no_body_header_logging": true,
+    "PG_log_audit": {
+      "markers": {
+        "Failing row contains": 0,
+        "parameters:": 0,
+        "statement: INSERT": 0,
+        "RAI:dailySource": 0,
+        "HKQuantityTypeIdentifier": 0,
+        "HKCategoryTypeIdentifier": 0
+      },
+      "error_count": 0,
+      "settings": {
+        "log_min_messages": "fatal",
+        "log_min_error_statement": "panic",
+        "log_parameter_max_length": "0",
+        "log_parameter_max_length_on_error": "0",
+        "log_statement": "none",
+        "log_duration": "off",
+        "log_min_duration_statement": "-1"
+      }
+    },
+    "raw_device_inventory_JSON_temporary_and_removed": true,
+    "real_database_and_credentials_outside_repository": true,
+    "local_build_account_and_signing_fields_filtered": true,
+    "retained_diagnostics": "DEBUG + explicit launch flag + one-shot private config + isolation identity check; no raw fact dump",
+    "final_redacted_artifact_scan_hits": []
+  },
+  "code_files": {
+    "ios/RAI/App/DailyHealthNormalizer.swift": "dd874e076237a23078fc82be2b06e20d9c8e0997506c9465bf2aa1ada5716f9a",
+    "ios/RAI/App/RAIApp.swift": "961685e0f0ae70e66ae027412822869e6be3fb90bb880cebd5106095df14a1c6",
+    "ios/RAI/App/SyncCoordinator.swift": "dec9535e84e4e474e767478765aacb30d26201757ecefc7914aa378821697abd"
+  },
+  "local_log_hashes": {
+    "swift-test.log": {
+      "sha256": "27fed33d8dae2226aac10ff7b4c09a7d5494fef806c46d19e1abc5aa238485f3",
+      "bytes": 7105,
+      "tracked": false
+    },
+    "swift-test-final.log": {
+      "sha256": "51c97ccb672fb9d08c8d2c9b58314d317974132b8c2b0ff961e53f1325dca66b",
+      "bytes": 27230,
+      "tracked": false
+    },
+    "go-final.log": {
+      "sha256": "897f6d36f14ba70c30b1a62cfc880548558901921c2dc563b43d0710bc3649d2",
+      "bytes": 1350,
+      "tracked": false
+    },
+    "go-final-status.json": {
+      "sha256": "80936937d0e578212425b52f8322134864ee00fb2e998ad3d705d60120420277",
+      "bytes": 288,
+      "tracked": false
+    },
+    "server-tests.log": {
+      "sha256": "b2c6a1027895c8e1c2967819e20c9165c78b7e45571fcad502e1f8e4964247c1",
+      "bytes": 28192,
+      "tracked": false
+    },
+    "server-integration-rerun.log": {
+      "sha256": "8265555c33317683e2662d847f6e7d2e7ec73a88a626e3006db289a0373512d7",
+      "bytes": 962,
+      "tracked": false
+    },
+    "final-daily-pg.log": {
+      "sha256": "bb067428184e81d064f7a13707456d7b56405b691a84107ae546f7277a0abce9",
+      "bytes": 431,
+      "tracked": false
+    },
+    "boundaries.log": {
+      "sha256": "4b1d722d2981eb06ed7b4cb06fcebf79765cc778769a99dacf9475986c5d1c4d",
+      "bytes": 215,
+      "tracked": false
+    },
+    "openapi-lint.log": {
+      "sha256": "3c22069f10248549f32ff7184577623931c86eb85e1618cefa303ae5c6ae52ff",
+      "bytes": 30004,
+      "tracked": false
+    },
+    "ios-diagnostics-build.log": {
+      "sha256": "4188ded21c3e4c4883db92b7cdd1e0f8185e4cae26ffb3ac0d7ad52d19b95f24",
+      "bytes": 9676,
+      "tracked": false
+    },
+    "ios-release-build.log": {
+      "sha256": "4f48ca800377f83619f3c945456df9121c7a2ad8303ca0b5dd621c6f00e90ff1",
+      "bytes": 43818,
+      "tracked": false
+    },
+    "ios-app-tests.log": {
+      "sha256": "2e758de205c062607510003c82cbaf76c23781b47c08ecbd8d105401c3cf0dc1",
+      "bytes": 27300,
+      "tracked": false
+    }
+  },
+  "not_observed_or_verified": [
+    "real HK deletion",
+    "real RHR revision",
+    "real sleep revision",
+    "real unknown category",
+    "manual flag",
+    "background callback with UIKit background state",
+    "DST/travel",
+    "exact kill after received ACK before anchor rename",
+    "natural hot delta",
+    "device peak memory/power",
+    "long-offline deletion retention",
+    "physical power loss",
+    "TLS/WAN/production deployment",
+    "full real Workout loop not rerun"
+  ],
+  "decision": {
+    "M5A_closed_for_development": true,
+    "P0_P1_observed_in_test_scope": false,
+    "production_release_ready": false,
+    "recommended_next": "M1 — Feature Foundation & Publication Substrate",
+    "M1_started": false,
+    "M5B_or_scores_implemented": false,
+    "production_deploy_migration_push_commit_performed": false
+  },
+  "cleanup": {
+    "RAI_stopped": true,
+    "API_PG_stopped": true,
+    "private_dataset_retained_outside_repository": true,
+    "phone_isolated_session_anchors_retained": true
+  },
+  "final_diff_check": "PASS",
+  "report_sha256": "3b8927aac5aa49ed5124cdb841ea15faa9fd1a9eb240d87a0088a9b062d09a50",
+  "implementation_original_prefix_preserved": true,
+  "final_status_short": [
+    " M README.md",
+    " M apps/server/cmd/rai/main.go",
+    " M deploy/local/README.md",
+    " M docs/IMPLEMENTATION.md",
+    " M docs/evidence/local-dev-environment.json",
+    " M docs/evidence/local-dev-tests.json",
+    " M ios/RAI/App/DailyHealthNormalizer.swift",
+    " M ios/RAI/App/RAIApp.swift",
+    " M ios/RAI/App/SyncCoordinator.swift",
+    " M scripts/local/bootstrap.sh",
+    " M scripts/local/lib.sh",
+    " M scripts/local/test.sh",
+    " M scripts/local/verify.sh",
+    "?? apps/server/migrations/latest.go",
+    "?? docs/M5A_RD_RESULT.md",
+    "?? docs/evidence/local-contracts-lint.json",
+    "?? docs/evidence/m5a-rd-2026-11-03.json",
+    "?? scripts/local/contracts.sh"
+  ]
+}

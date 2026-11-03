@@ -31,7 +31,7 @@ func TestRecoveryMigration18To19AndRepeatedMigrate(t *testing.T) {
 		t.Fatal(e)
 	}
 	var before string
-	if e = db.QueryRowContext(ctx, `SELECT to_jsonb(a)::text FROM admin_operations a`).Scan(&before); e != nil {
+	if e = db.QueryRowContext(ctx, `SELECT (to_jsonb(a)-'subject_dataset'-'details')::text FROM admin_operations a`).Scan(&before); e != nil {
 		t.Fatal(e)
 	}
 	for i := 0; i < 2; i++ {
@@ -40,12 +40,12 @@ func TestRecoveryMigration18To19AndRepeatedMigrate(t *testing.T) {
 		}
 	}
 	var after string
-	if e = db.QueryRowContext(ctx, `SELECT to_jsonb(a)::text FROM admin_operations a`).Scan(&after); e != nil || after != before {
+	if e = db.QueryRowContext(ctx, `SELECT (to_jsonb(a)-'subject_dataset'-'details')::text FROM admin_operations a`).Scan(&after); e != nil || after != before {
 		t.Fatal("existing audit changed")
 	}
 	var version, rev int
-	if e = db.QueryRowContext(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&version); e != nil || version != 20 {
-		t.Fatal("schema not 20")
+	if e = db.QueryRowContext(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&version); e != nil || version != 23 {
+		t.Fatal("schema not 23")
 	}
 	if e = db.QueryRowContext(ctx, `SELECT commit_rev FROM datasets WHERE id='10000000-0000-4000-8000-000000000001'`).Scan(&rev); e != nil || rev != 42 {
 		t.Fatal("existing revision changed")

@@ -10,7 +10,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
+	pf "rai/server/internal/performance"
 	"rai/server/internal/syncing"
+	tl "rai/server/internal/trainingload"
+	wf "rai/server/internal/workoutfeatures"
 )
 
 const maxAnalysisPoints = 250000
@@ -54,6 +57,17 @@ func (s *Store) LoadAnalysis(ctx context.Context, l Lease, asOf time.Time) (anal
 		return in, nil
 	}
 	switch l.Kind {
+	case pf.JobKind:
+		err = s.loadPerformanceInput(ctx, tx, l, &in, asOf, tz)
+	case tl.JobKind:
+		err = s.loadTrainingLoadInput(ctx, tx, l, &in, tz)
+	case tl.StateJobKind:
+		err = s.loadFiniteStateInput(ctx, tx, l, &in, asOf, tz)
+	case wf.JobKind:
+		err = s.loadFeatureInput(ctx, tx, l, &in, asOf)
+		if err == nil {
+			err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM analysis_model_dependencies WHERE dataset_id=$1 AND upstream_scope=$2 AND downstream_scope LIKE 'model/%/workout_load/%')`, l.DatasetID, l.ScopeKey).Scan(&in.ExposureRequired)
+		}
 	case "analysis.workout":
 		err = s.loadWorkoutInput(ctx, tx, l, &in)
 	case "analysis.training_state":

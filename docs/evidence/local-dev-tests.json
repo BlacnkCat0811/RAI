@@ -1,26 +1,33 @@
 {
-  "date": "2026-10-30",
+  "date": "2026-11-03",
   "timezone": "Asia/Shanghai",
-  "stage": "local development environment verification, synthetic data only",
+  "stage": "local development environment completion, synthetic data only",
   "environment": {
     "os": "macOS 26.7.2",
     "arch": "x86_64",
     "go": "1.27.3",
     "postgresql": "18.6",
-    "toolchain_location": ".local/toolchain (gitignored, installed without sudo/Homebrew/Docker)",
-    "head": "3cbc5b8c46954e028eb6f2112d5392c9a7c772f0",
+    "sqlc": "1.31.1",
+    "node": "22.23.2 (contract lint only)",
+    "redocly": "2.71.1",
+    "toolchain_location": ".local/toolchain (Go, Postgres.app, Node) and .local/bin/sqlc; gitignored, installed without sudo/Homebrew/Docker",
+    "head": "bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61",
     "working_tree_dirty": true
   },
   "commands": [
+    "scripts/local/verify.sh",
     "scripts/local/test.sh",
+    "scripts/local/contracts.sh",
     "gofmt -l .",
     "go mod verify",
     "go test -count=1 ./...",
     "go vet ./...",
     "go vet -tags=integration ./...",
     "go build ./...",
+    ".local/bin/sqlc generate && git diff --exit-code -- internal/storage/postgres/dbgen",
     "PGBIN=.local/toolchain/Postgres.app/Contents/Versions/18/bin scripts/test-postgres.sh go test -race -count=1 -tags=integration ./...",
-    "python3 scripts/check-boundaries.py"
+    "python3 scripts/check-boundaries.py",
+    "npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml"
   ],
   "unit_packages": [
     {
@@ -31,27 +38,27 @@
     {
       "package": "rai/server/internal/admin",
       "status": "ok",
-      "detail": "0.014s"
+      "detail": "0.024s"
     },
     {
       "package": "rai/server/internal/analysis",
       "status": "ok",
-      "detail": "0.081s"
+      "detail": "0.128s"
     },
     {
       "package": "rai/server/internal/config",
       "status": "ok",
-      "detail": "0.039s"
+      "detail": "0.064s"
     },
     {
       "package": "rai/server/internal/httpapi",
       "status": "ok",
-      "detail": "0.017s"
+      "detail": "1.127s"
     },
     {
       "package": "rai/server/internal/jobs",
       "status": "ok",
-      "detail": "0.019s"
+      "detail": "0.012s"
     },
     {
       "package": "rai/server/internal/product",
@@ -61,7 +68,7 @@
     {
       "package": "rai/server/internal/storage/postgres",
       "status": "ok",
-      "detail": "0.012s"
+      "detail": "0.016s"
     },
     {
       "package": "rai/server/internal/storage/postgres/dbgen",
@@ -71,12 +78,17 @@
     {
       "package": "rai/server/internal/syncing",
       "status": "ok",
-      "detail": "0.243s"
+      "detail": "0.277s"
     },
     {
       "package": "rai/server/internal/training",
       "status": "ok",
-      "detail": "0.021s"
+      "detail": "0.034s"
+    },
+    {
+      "package": "rai/server/internal/workoutdetail",
+      "status": "ok",
+      "detail": "0.011s"
     },
     {
       "package": "rai/server/migrations",
@@ -93,27 +105,27 @@
     {
       "package": "rai/server/integration",
       "status": "ok",
-      "detail": "157.860s"
+      "detail": "456.036s"
     },
     {
       "package": "rai/server/internal/admin",
       "status": "ok",
-      "detail": "1.794s"
+      "detail": "6.572s"
     },
     {
       "package": "rai/server/internal/analysis",
       "status": "ok",
-      "detail": "1.542s"
+      "detail": "1.720s"
     },
     {
       "package": "rai/server/internal/config",
       "status": "ok",
-      "detail": "1.092s"
+      "detail": "1.098s"
     },
     {
       "package": "rai/server/internal/httpapi",
       "status": "ok",
-      "detail": "1.055s"
+      "detail": "12.894s"
     },
     {
       "package": "rai/server/internal/jobs",
@@ -128,7 +140,7 @@
     {
       "package": "rai/server/internal/storage/postgres",
       "status": "ok",
-      "detail": "1.054s"
+      "detail": "1.046s"
     },
     {
       "package": "rai/server/internal/storage/postgres/dbgen",
@@ -138,12 +150,17 @@
     {
       "package": "rai/server/internal/syncing",
       "status": "ok",
-      "detail": "3.283s"
+      "detail": "4.594s"
     },
     {
       "package": "rai/server/internal/training",
       "status": "ok",
-      "detail": "1.097s"
+      "detail": "1.119s"
+    },
+    {
+      "package": "rai/server/internal/workoutdetail",
+      "status": "ok",
+      "detail": "1.046s"
     },
     {
       "package": "rai/server/migrations",
@@ -151,11 +168,17 @@
       "detail": "[no test files]"
     }
   ],
-  "integration_package_elapsed": "157.860s",
+  "integration_package_elapsed": "456.036s",
   "counts": {
-    "ok_packages": 17,
+    "ok_packages": 10,
     "failed_packages": 0,
     "skipped": 0
+  },
+  "sqlc_generated_code": "unchanged by sqlc 1.31.1 generate (git diff --exit-code on internal/storage/postgres/dbgen)",
+  "contract_lint": {
+    "errors": 0,
+    "warnings": 31,
+    "evidence": "docs/evidence/local-contracts-lint.json"
   },
   "isolated_database": {
     "root": "/tmp/rai-pg.*",
@@ -166,10 +189,10 @@
     "fsync": true
   },
   "boundaries": {
-    "online_packages": 248,
+    "online_packages": 249,
     "passed": true
   },
   "result": "PASS",
-  "note": "Integration suite ran on a fresh Unix-socket-only PostgreSQL 18 cluster with synthetic data; no remote or production database was used. This is the final run after local script hardening.",
-  "log_sha256": "e7baf5cc5d7e186bacc4995198cfb5c080de1cc21f8053912539f4c1a51a8df1"
+  "note": "Final run on the completed tree (after the schema/openapi metadata fixes). Integration suite ran on a fresh Unix-socket-only PostgreSQL 18 cluster with synthetic data; no remote or production database was used.",
+  "log_sha256": "8444e51aa692291ffbf59a39370ac52f8983511bb299919baa8f8b7089bfc1c2"
 }

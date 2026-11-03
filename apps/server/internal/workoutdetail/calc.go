@@ -3,6 +3,7 @@ package workoutdetail
 import (
 	"fmt"
 	"math"
+	"rai/server/internal/workoutdomain"
 	"sort"
 	"strings"
 )
@@ -52,7 +53,7 @@ type RouteSample struct {
 
 func Ptr(v float64) *float64 { return &v }
 
-func finite(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
+func finite(v float64) bool { return workoutdomain.Finite(v) }
 
 func clamp(v, lo, hi float64) float64 { return math.Min(hi, math.Max(lo, v)) }
 
@@ -140,7 +141,7 @@ func CadenceFromSteps(steps []Observation, durationS float64) *float64 {
 	if total <= 0 {
 		return nil
 	}
-	return Ptr(total / (durationS / 60))
+	return Ptr(workoutdomain.CadenceProxy(total, durationS))
 }
 
 // ---------------------------------------------------------------- series
@@ -451,7 +452,7 @@ func cadenceInWindow(steps []Observation, a, b int64) *float64 {
 	if count <= 0 {
 		return nil
 	}
-	return Ptr(count / (duration / 60))
+	return Ptr(workoutdomain.CadenceProxy(count, duration))
 }
 
 type speedSample struct {

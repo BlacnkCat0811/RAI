@@ -648,3 +648,124 @@ Migration 20 只加 daily_health_coverage；facts、删除屏障、commit log、
 最终故障轮还明确在全部事实/coverage写入后对最终receipt UPDATE注入失败，并验证同批delete胜重复upsert；完整回滚/重试均通过。新增wake generation/查询冷却/公平交付回归，以及真实Swift→API→PG共享429回归均通过。
 
 最后补齐握手失败阶段的日常pending持久退避（复用既有recovery转换），新增包测试通过；最终客户端二进制三点SIGKILL及真实429复验通过（4.995s），App 34/34与原生iOS构建再次通过。额外真实HTTP/auth/admission性能轮（150.034s）保留30/min、burst2预算：7/30/90/180d bootstrap=0.06/12.21/42.60/86.23s；紧接bootstrap的hot因预算等待约2s。前述毫秒表是Store路径，不是全链路上传SLO。完整数据与实际命令已写入机器证据；tagged Go vet也通过。
+
+## 本地开发环境补齐（2026-11-03）
+
+用户要求在新克隆的 `/Users/ta/RAI` 补齐开发环境。本机仍无 Go、Docker、Homebrew 与 Node，`sudo` 需要密码，因此继续使用工程内、被 `.gitignore` 排除的无 sudo 原生路径，不安装系统级软件。此前 2026-10-30 的环境记录针对 `/Users/tp/rai`，本克隆内 `.local` 为空；本轮按当前源码重新安装并复验，历史段不改写。
+
+补齐与修复项（都以本机实测为准，不以文件存在代替验收）：
+
+- **工具链重装**：`scripts/local/bootstrap.sh` 安装 Go **1.27.3**（`b6f8e931…750`）、PostgreSQL **18.6**（Postgres.app 2.9.6，`9fc7d0dc…defb`）；本轮把 CI 已固定但本机缺失的 **sqlc 1.31.1** 一并纳入 bootstrap，落到 `.local/bin/sqlc`（darwin-amd64 `c5af7677…d519b`、darwin-arm64 `21602158…c71e`）。sqlc 上游不发布校验文件，脚本按 HTTPS 发布资产实测摘要固定，下载变化即失败。
+- **集群与栈**：`pg.sh init` 在 `.local/pgdata` 新建仅回环 `127.0.0.1:55432`、UTF-8、`timezone=UTC`、data checksums 的专用 cluster；`stack.sh build|migrate|start` 构建并显式迁移，API/Worker 同源二进制运行，`/health`、`/livez`、`/ready`、`/readyz` 均 200。
+- **修复迁移数门禁失效**：`scripts/local/verify.sh` 原先把期望迁移数硬编码为 `13`，而本仓库已有 20 个 migration，验收在本机稳定失败（`migrations applied=20 total=20` 却判 FAIL）。现改为从 `apps/server/migrations/*.sql` 实际计数比较，避免再加 migration 后门禁静默过期。
+- **修复版本号漂移**：`rai version` 原输出 `"schema":19`，而当前 migration 已到 20、`admin` 的 `ops verify` 与 P7 集成测试都以 20 为门禁。新增 `migrations.LatestVersion()`（从嵌入 FS 解析最大版本号），`rai version` 改为派生值，本次实测输出 `"schema":20`，不再需要手工维护该常量。
+- **本地可校验生成代码**：`scripts/local/test.sh` 增加 `sqlc generate` + `git diff --exit-code -- internal/storage/postgres/dbgen`，与 CI 同一门禁；本次 sqlc 1.31.1 重新生成后工作区无差异，说明提交的 `dbgen` 与 1.31.1 一致。
+
+实际验收结果：
+
+| 验收项 | 实际结果 |
+|---|---|
+| 空库迁移 | goose 00001–00020 全部 `applied`，20/20；schema 版本 20 |
+| API/Worker | API 与 Worker 同镜像二进制启动；`worker-ready` exit 0，`worker_started`（handlers=5，processing_slots=1），进程存活 |
+| 健康检查 | `/health`、`/livez` 200 `alive`；`/ready`、`/readyz` 200 `ready` |
+| 备份与恢复 | `pg_dump -Fc` 生成 dump（最终一轮 SHA-256 `a08262f8…c110`），恢复到新库后 schema 版本 20、public 表 48；临时恢复库已删除 |
+| 质量门禁 | `scripts/local/test.sh` PASS：gofmt、`go mod verify`、单元、`go vet`（含 integration tag）、build、sqlc 生成无差异、`-race -tags=integration ./...`（最终一轮 integration 456.036s）、依赖边界 249 包；一次性 `/tmp/rai-pg.*` cluster `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1` |
+| 版本输出 | `rai version` → `"schema":20`、`sync_protocol:3`、`openapi:1.6.0`、`go:go1.27.3`（openapi 原为 1.5.0，见下方追加修正） |
+
+机器可读证据：[本地环境](evidence/local-dev-environment.json)、[测试结果](evidence/local-dev-tests.json)；原始测试日志为 `docs/evidence/local-dev-tests.log`（`*.log` 被 `.gitignore` 排除，仅本机留存，JSON 内记录了其 SHA-256）。
+
+未验证/限制：本机仍无 Docker，`deploy/dev` Compose 路径本轮未重跑；无 Node，OpenAPI lint 本轮起初未在本机执行（同日追加小节已补装 Node 并实跑）；只有 Command Line Tools、没有 Xcode，iOS 构建与 Swift 测试本轮未运行；未执行 `rai init`、未接触真机/HealthKit、TLS、生产角色、离机或加密备份，未部署、未推送、未迁移真实数据。**LOCAL DEV ENVIRONMENT: PASS（Go/PostgreSQL/sqlc 与合成数据栈）；PRODUCTION RELEASE READY: NO（不变）。**
+
+### 补充：本机 OpenAPI 合同 lint（同日追加）
+
+本机原先没有 Node，因此合同 lint 一直只在远端/CI 执行。本轮把 Node 纳入同一条无 sudo 原生路径，并实跑一次：
+
+- `scripts/local/bootstrap.sh` 增加 Node **22.23.2**（darwin-x64 `58e99022…026`、darwin-arm64 `61130f39…5c6`，取自上游 `SHASUMS256.txt`），安装到 `.local/toolchain/node`；npm 缓存固定在 `.local/npm-cache`。除合同 lint 外，Go 门禁与 `server.yml` 仍不使用 Node。
+- 新增 `scripts/local/contracts.sh`：以固定的 `@redocly/cli@2.71.1` 执行 `npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml`，与 `contracts.yml` 同一检查。
+- 实测结果：**0 error、31 warning**，与仓库既有基线一致（既有 warning 未屏蔽、未顺手改写）。证据：[合同 lint](evidence/local-contracts-lint.json)，其中记录合同 SHA-256 `13095a88…a450` 与日志摘要；原始日志在 `.local/logs/contracts-lint.log`。
+- 同时修正版本号漂移：`rai version` 原报 `"openapi":"1.5.0"`，而 `contracts/openapi-v2.yaml` 与 `contracts/CHANGELOG.md` 的当前条目均为 **1.6.0**（M5A Daily Facts Sync v1）。现输出 `"openapi":"1.6.0"`，实测 `{"schema":20,"openapi":"1.6.0","sync_protocol":3,...}`。该字段只做元数据声明，不改变任何路由或载荷。改动后重跑最终一轮 `scripts/local/verify.sh`（20/20、schema 20、48 表）与 `scripts/local/test.sh`（integration 456.036s）均 PASS，证据文件已按最终树重新生成。
+
+lint 的边界：它证明 OpenAPI 文档合法、自洽，**不证明** Go 处理函数按合同实现；实现一致性仍由真实隔离 PostgreSQL 集成测试与运行时握手元数据覆盖。仍未验证：本机无 Docker，`deploy/dev` Compose 与 `deploy/release` 未重跑；无 Xcode（仅 CLT），iOS 构建与 Swift 测试本轮未运行；未部署、未推送、未迁移真实数据。**LOCAL CONTRACT LINT: PASS（0 error / 31 既有 warning）；PRODUCTION RELEASE READY: NO（不变）。**
+
+## M5A-RD — 只读真机验收（2026-11-03）
+
+**M5A-RD RESULT: PASS WITH RISKS；M5A CLOSED FOR DEVELOPMENT。** 本轮使用实际已连接的 **iPhone 12 Pro Max / iOS 27.2**，Xcode 26.6，正式 RAI **0.6.0 (1) Debug 签名 target**，手机 API 报 HealthKit available=true。原 M5A 的合成 PASS WITH RISKS 与当时 REAL DEVICE: NOT RUN 保持历史原文，由 [本次结果](M5A_RD_RESULT.md) 和 [脱敏机器证据](evidence/m5a-rd-2026-11-03.json) 补齐本阶段门禁，不能据此把旧完整 Workout/生产验收也改为通过。
+
+实际只读链路：HRV SDNN **3,116**、RHR **83**、Sleep **1,594**，合计 **4,793** 个唯一原始事实，**39** 个有事实页。每类型记录到一次 nil-anchor 初始 90 天查询，后续均 committed-anchor 续页；没有扩大历史范围。真实 HK 对象的 identity/interval comparison、sourceRevision、可用 device context 保留通过，全部 4,793 条来源 JSON 与 source identity 匹配；包含 **15** 条第三方 RHR。Sleep 实际五类、重叠区间保留；inBed 和 manual flag 未自然观察到，类型名不用于推断来源/授权/模型资格。
+
+同一正式手动按钮由用户实际点击，三类第二次 query 都是 **0 additions / 0 deletions / usedCommittedAnchor=true**（约 2.65–5.91 ms），事实不重入。真实 SIGTERM 重启恢复 anchor/bootstrap/window/pending；真实 discovery 后 upload 前 SIGKILL 保留同批同内容；后端不可用时 anchor 不前进，恢复后原 pending 交付。隔离代理另让 API/PG 提交一个真实 App 批次后丢 ACK：服务器按 body 指纹恰有一条 committed receipt、客户端尚保留原 pending，再对 RAI SIGKILL；重启后同批/同 body 恢复、原回执字节指纹不变、最终提交 candidate。没有把这个窗口称为已收到 ACK 到 anchor rename 系统调用内部的精确 kill。
+
+真实 HKObserverQuery 注册、enableBackgroundDelivery 返回，显式 observer 阶段 **3 次 active + 6 次 inactive** callback 均先落盘 wake hint，再 anchored query。驱动连续 8 次调用同一手动入口，用户做约 30 秒桌面窗口及快速前后台切换；4 次真实 background/返回 active 后全部追平，无 nil-anchor 重扫、重复有效事实或类型饥饿。诊断只在已验证测试身份上使用现有 Daily 状态机/shared scheduler，排除不相关 Workout 发现。**没有观察到明确 UIKit background callback**，不将 inactive 转场回调当后台交付，不承诺系统定时唤醒。
+
+隔离后端为本轮全新 **PostgreSQL 18.6 / schema 20**、专属 Unix socket、受限 API role（RuntimeRoleSafe 通过），fsync/full_page_writes/synchronous_commit/data_checksums=on。初始 0 facts/0 receipts/0 coverage；最终 **4,793 facts = 4,793 unique identities / 141 receipts / 3 caught-up coverage / 0 uncommitted batches / 0 duplicate receipt groups**。141 包含 39 有事实批次和 102 空 coverage；空页较多含早期驱动重复 manual wake 的校准，驱动已改成同 wake 续页，未修改 M5A 协议或放宽限流，不能作为最小生产请求/性能基准。query-staged 诊断共 138 个，少于 server/本地 chain 的 141 批，3 个跨进程空页 query 事件缺口原因未最终确立；39 个非空页/4,793 事实计数完整，最终批次数以数据库和 durable stream 为准。客户端 sequence **49/46/49** 与服务端 **48/45/48 + 1** 一致。另有 4,793 个 dirty scopes 明确待模型实现，没有真实 Workout 上传或模型任务；141 个 ACK 全部明确 awaiting_model_implementation，不伪装分析完成。
+
+本阶段必要改动限于受控 **DEBUG diagnostics**、私有构建的精确 Debug HTTP host/ATS 配置，以及手动重试旧错误提示清理。初期诊断导航遗漏 ProductTabs 的 dark scheme，白字落白底；修复后用户确认显示正常并实际点击按钮。Debug 控制使用显式 launch flag、消耗式私有配置和身份校验；报告只有计数、分类、耗时、不可逆指纹，没有值/原始 UUID/睡眠时间/详细 metadata。Release 构建成功，四个诊断标记在二进制中均不存在。收尾发现 Xcode 不替换 ATS 字典键，已撤回源模板变量键实验；仓库 Debug 模板保持默认，私有生成 plist 以字面量精确主机通过 INFOPLIST_FILE 供本轮签名构建，实际 domain/host 匹配且无全局 arbitrary loads。同一测试 PG/API 另实跑停机重启，不迁移/reset/restore，不换身份，手机仍增量且事实数不变。设备/App 枚举原始 JSON 临时处理后删除，API 输出禁存、代理无 body/header 日志，PG 日志参数/健康失败行检查均 0；未复制手机 state/payload 或 PG dump 入仓库。
+
+验证：Swift **119 tests / 15 suites** 通过（另 XCTest 2 pass、3 既有 opt-in skip）；最终隔离 iOS 26.5 Simulator **34/34 SDK/App tests** 通过且自建模拟器删除；Debug 真机签名安装运行、Release unsigned 编译通过。`go test`、`go test -race`、`go vet`、249 包边界、sqlc 1.31.1 生成一致性、OpenAPI **0 errors / 31 既有 warnings** 通过。完整 PG race 首轮默认 10 分钟进程时限超时（残留测试 DB 随集群整体移除），以 `-p 1 -timeout=30m` 重跑 integration **419.787s PASS**，残留 DB=0/cluster removed=1；真机结束后的 Daily/coverage/fencing/rollback/HTTP/受限角色/migration 定向 PG 另复验，最终 integration 12.992s / admin 1.816s PASS，残留 DB=0/cluster removed=1，精确命令见机器证据。原失败保留，不调整生产语句或事务超时。
+
+保留 P2/P3 未验证项：自然 HK 删除、RHR/Sleep revision、unknown category、真正 background callback、received-ACK/rename 内精确 kill、DST/travel、长离线 deletion retention、物理断电、自然 hot delta、iPhone memory high-water/功耗、TLS/WAN/生产部署。删除、修订、unknown/DST 等继续由既有 synthetic/PG/SDK 证据补充；没有制造或修改 HealthKit 数据。本次 query/normalization/batch/delivery 工程计时见结果，不宣称生产 SLO（ACK 丢失时后台会话恢复一次约 90.4s）。
+
+收尾停止手机 RAI 和本次 API/PG；真实测试库与凭证仅在仓库外私有临时目录保留，手机保留隔离身份与 anchor，后续使用需显式恢复测试服务。Git baseline `main / bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61` 及既有未提交文件保留，本文件只追加；没有 reset/stash/commit/push、生产部署/迁移、切旧入口或改 `../running`。下一阶段仅推荐 **M1 — Feature Foundation & Publication Substrate**，没有自动开始 M1 或 M5B/任何 Score/模型。
+
+## 2026-11-03 — M1 Feature Foundation & Publication Substrate
+
+**M1 RESULT: PASS WITH RISKS。NO NEW USER METRIC ACTIVATION。** 正式合同：[WORKOUT_FEATURE_CONTRACT.md](WORKOUT_FEATURE_CONTRACT.md)；完整11项结果：[M1_RESULT.md](M1_RESULT.md)；重复审计：[M1_FEATURE_DUPLICATION_AUDIT.md](M1_FEATURE_DUPLICATION_AUDIT.md)；机器证据：[M1 evidence](evidence/m1-feature-foundation-2026-11-03.json)。本段只追加，不改写 M5A/M5A-RD 或原模型方案。
+
+Baseline：`main / bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61`，13 modified + 5 untracked 均先记录 SHA-256。M1 保留开工前所有 iOS、M5A-RD、环境脚本和证据字节；本文件原有字节前缀完整。未 reset/stash/commit/push，未改 `../running`，未接触生产或常驻开发数据库/真实健康数据，未部署或切旧入口。
+
+实现：新增纯 `workoutfeatures`，算法 `rai.workout_features/v1`、schema `rai.workout_features/1`、独立 `features-v1-92522339887e` candidate scope。typed RawWorkoutSnapshot 一次 RR 快照读取 generation/revision/DB AsOf、Workout、quantity/statistics、sealed series/routes、events/activities、metadata/enrichments、完整来源、删除状态和 as-of 参数；所有输入有界，超限明确失败不截断。缺失不补0、不把 unknown indoor 设false。series query未完整证明的 parent 保守为condensed，sealed child只替代自身parent。共享 manual/motion pause 状态机、同源同active且≤15s的HR/speed插值、observed/reconstructed coverage、来源epoch/冲突排除、距离来源/cross-check、完整100m精度过滤中位邻域grade、1s临时分析索引、3/5/10/20/30/40/60/90min持续窗口和非重叠备选、5min steady及long-run halves、cadence proxy/动态摘要和五类qualification。平路比例按共同支持距离计算，长跑各半单独验证地形。非running保留enum与primitives，但不给running栈资格。旧 analysis/detail 只抽取同公式 finite/cadence proxy/haversine 纯原语；旧feature/TRIMP/state/训练消费者语义不变，分析不读presentation输出。
+
+Migration21新增通用 artifacts/model_channels/model_inputs/dependencies，扩展既有admin audit；1–20 SQL与checksum全部不变，尤其M5A20不改。artifact/input append-only，terminal run不能追加；candidate绝不覆盖legacy active。复用现有dataset锁、job lease/fencing和PublishAnalysis事务，原子提交artifact/result/publication/downstream dirty/clean/run/job/attempt。事实变化、staged series/route注册与seal、删除、来源/metadata、相关参数可dirty候选；删除在事实提交时立即撤下current reference。未来模型仅dirty/invalidate，不创建未实现handler或假成功job。新产品stack promotion/rollback仍受明确消费者/发布门槛约束；M1的DB约束只允许active=legacy。无新sequence或第二套生产锁。
+
+真实 PostgreSQL **18.6**：隔离Unix socket、无TCP，fsync/full_page_writes/synchronous_commit/data_checksums全部on；empty→latest、20→latest、重复迁移、旧事实/审计保持、受限API/Worker权限、稳定snapshot穿插新generation、parent/route/workout删除、late seal、参数冲突/失效、旧generation/lease fencing均PASS。artifact/results/publications/runs/dirty/jobs/attempts七点写入失败回滚通过；artifact写后/publication前/dirty clean前三次真实backend termination均无部分结果、无错误clean且可重试。破坏性Down被既有checksum门禁拒绝，不能称作schema21→20/旧二进制回退验收。所有验收runner均leftover DB=0、cluster removed=1。
+
+最终验证：`go test ./...`与`go test -race ./...`分别426实例PASS/0FAIL（含subtests，4既有HTTP production-budget opt-in skip）；`go vet ./...`及integration-tagged vet、go mod verify、gofmt、251包依赖边界、sqlc1.31.1重复生成4文件一致、git diff --check通过。完整PG race `-p 1 -timeout=30m -tags=integration ./...`：876实例PASS/0FAIL、9显式opt-in skip，integration445 PASS/5 skip、469.617s；最终feature/migration/login定向race另35 PASS（integration44.945s），最新序列化/事务路径复验。5s input-order/duplicate fuzz最终290 executions PASS。OpenAPI未改，额外固定Redocly2.71.1 lint为0 errors/31既有warnings，未改写开工前lint证据。
+
+Swift：本机CLT首轮缺Testing；使用已安装的 `/Users/ta/Downloads/Xcode.app`（不改系统选择）复跑119 Swift Testing/15 suites PASS，XCTest2 pass/3既有opt-in skip。隔离 `integration,m5aclient` 补充41 PASS：实际macOS DailyProbe→HTTP→PG上传前/上传中/提交后SIGKILL三点均1 fact/1 receipt/anchor restored；真实429共享预算3 facts/3 receipts、Sleep不饥饿。它不是iPhone kill或新真机M1验收；没有重复读取真实HealthKit。
+
+性能（本机non-race synthetic，非SLO）：PG载入+特征计算20m/45m/2h/4h分别 **26.032/43.797/117.204/227.553ms**，artifact **8,825/13,268/25,584/42,064 bytes**，均<128KiB。dense pure-domain另实测normalization/timeline/route/window/serialization/total及allocations，详见结果与机器证据；4h总计算约426ms、累计分配约336MB，**不是peak RSS**。PG workload为3 scalar parents+每10s HR series+1Hz GPS，dense workload为7 channels每5s+1Hz GPS，不能直接相加或冒充生产负载。
+
+风险/未验：未发现P0/P1阻塞项；P2为真实eligibility/真实GPS grade/生理效度、严格representation和HR trend门槛下的实际可用率、production load/peak memory/并发/WAN/TLS/部署。M2非线性HR剂量必须在共享feature层增补版本化exposure，不能拿meanHR冒充积分或另写raw parser；M1没有提前实现剂量/分数。P3为ultra-long/dense输入上限、legacy detail后续显式版本迁移、schema21发布/角色刷新/二进制回退验收。本轮不把合成/PG通过当真实测量效度或发布许可。仅推荐 **M2 — Training Load**；已在M1停止，没有自动进入M2。
+
+## M2 — Training Load V1（2026-11-03，Asia/Shanghai）
+
+**M2 RESULT: PASS WITH RISKS。** model implementation validated; physiological calibration pending。完整16项报告：[M2_RESULT.md](M2_RESULT.md)；正式合同：[TRAINING_LOAD_V1_CONTRACT.md](TRAINING_LOAD_V1_CONTRACT.md)；机器证据：[m2-training-load-v1-2026-11-03.json](evidence/m2-training-load-v1-2026-11-03.json)。仅合成数据、一次性PG18集群；没有生产/真实设备/远端入口操作，没有commit/push/deploy，未启动M3。
+
+- M2 BASELINE：`bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61` / `main`，已有32 modified + 23 untracked；完整状态及已有文件hash见`evidence/m2-baseline.json`。保留M1/M5A-RD/iOS/本地环境工作；原方案与HEAD一致，migrations1–21及已有workoutfeatures实现相对baseline字节不变。本文件此前字节前缀保留，仅追加本节。
+- 新增独立`rai.hr_exposure/1` companion，复用M1 pause/HR support/source/outlier/parameter resolution；不修改冻结`rai.workout_features/1`，M1-only作业不要求新artifact。source dictionary+7项tuple精确表示线性HR段，只合并相同常数段；20k段/2MiB有界，超限明确失败。4小时每秒变化合成fixture=14,400段、778,306 bytes，round-trip/hash/积分通过。
+- 新纯函数模型`rai.training_load.hrr_integral/v1`：HRR非线性active解析积分；中心化小z展开避免近等端点差分。单位RAI_AU=HRR .65持续1分钟。HR参数显式、版本化、source-aware、effective-dated/as-of；无age/default/workout extrema推算，缺参数null。HRmax冲突零容忍、无clamp。IANA解析在loader；纯计算接收内存日历，日期边界hash进入input/lineage，不读取clock/DB/HTTP/filesystem/random。
+- 明确区分hrr_integral complete、gap_scaled partial、summary approximation partial（cap .35）和insufficient null。保留observed/estimated/coverage/scale/method/lineage/evidence；gap假设显式，summary不能替代已有trace或重复相加；未知active seconds为null，短Workout不归零，外部active/distance独立保留。无plan/pace/power混分。
+- 新增唯一专用`analysis_load_ledger`，immutable run/day/workout贡献及参数/feature lineage；current复用既有candidate publication。按真实IANA本地日积分切分，跨午夜/DST 23/25小时及守恒通过。未知AU不变0；无记录0仅为recorded running load，不证明休息。
+- `rai.load_state.exp_finite/v1`：7/42日τ、180日ring与O(1)daily recurrence；knownContribution/unknownWeightMass分离，未知窗口完整数值null；acute/chronic/balance/ratio/trend7，首42日partial，historyDaysObserved与zero_before_recorded_history初始化假设明确。finite kernel day180贡献0；**trend7按定义另有7日依赖尾部**，d..d+186可更新打包state行，但acute/chronic仅d..d+179改变，未改成无限EWMA或187日核。
+- 复用analysis runs/results/artifacts/publications/channels/dependencies及唯一PublishAnalysis事务：artifact/ledger/result/pointer/downstream dirty/clean/run/job/attempt原子提交。原事实事务即刻失效feature→load→state，旧generation只SUPERSEDED。active保持legacy；future模型保留dirty，无Recovery/Readiness/Ability dummy handler，未改变training generator或正式iOS首页/API。
+- 新migration00022（schema22，public tables53，新sequence0），原1–21 checksum不变。真实隔离PG18.6 empty→latest、21→22、20→latest、repeat、runtime/API/Worker/admin权限及历史保留通过；Down明确拒绝破坏性回退，不宣称22→21 schema rollback。fsync/full_page_writes/synchronous_commit/data_checksums均on、无TCP；全部runner leftover DB0 / cluster removed1。
+- PG故障注入artifact/load result/ledger/state artifact/publication/dirty clean/job terminal七项均rollback/retry safe；实际pg_terminate_backend四阶段、计算后Worker lease-expiry/requeue、load/state generation race、删除、参数回溯、late arrival、bounded rebuild、本地day advance通过。受限Worker实际完成feature/load/state；API无ledger/artifact访问/参数写权限，Worker不可改历史/原始事实。
+- 数学：60 AU、71.743050815 AU正式向量；独立8192-panel Simpson oracle、200随机/近等向量；duration/intensity/split/merge/1s-vs-5s/instant支持性质；25×480日×2核直接卷积比较；180轮事件重建及120轮cached bounded replacement vs完整450日重建；六类450日athlete fixture通过。
+- 最终真实命令：`go test -count=1 -json ./...` **460 tests/subtests、125 top-level、0 fail**；`go test -race -count=1 -json ./...`同计数通过；`go vet ./...`通过；全量真实PG18 `go test -race -count=1 -json -tags=integration ./...` **935 tests/subtests、350 top-level、0 fail**；M1/M2 PG定向 **52 tests/subtests、23 top-level、0 fail**。完整日志本地保留`.local/logs/m2/`，机器证据记录计数/skip/退出码/SHA-256。
+- 边界检查通过（online依赖252 packages，不达admin/migrations/goose；pure domain禁止IO/clock/random）；sqlc1.31.1二次generate字节一致；`git diff --check`通过。M2未改Swift/wire/UI；未将Simulator/真机或已有iOS工作伪记为本阶段验收。
+- 性能8项PG矩阵+8项Go benchmark通过。20m/45m/2h/4h load compute约0.025–0.057ms，feature read约2.24–2.80ms；365日真实synthetic ingest形成ledger后，read33.688ms、state compute1.495ms、publish172.412ms、artifact172,039 bytes。20m事务本次23.704ms（其他4.17–4.59ms），完整原始单次观测均保留，不挑选更快样本。ledger/pointer分段由test-only timing trigger测量；不是生产SLO。
+- 风险：验证范围未发现P0/P1。P2保留未校准coverage/interpolation/conflict/summary cap、零冲突策略eligible率、20k段/2MiB/10k ledger rows/552输出日/366日1000Workout显式重算容量限制；超跨度pending scope当前没有分段自动修复器，fail closed，不能宣称任意多年稀疏待办自动完成。seed history需先明确enroll/current；trend7额外7日尾部为原“所有state严格179日”字面要求的数学依赖例外。P3本地单次性能不外推生产；未支持任意parameter ID强制覆盖历史，只使用明确effective-dated/as-of身份。
+- **REAL DEVICE: DEFERRED；REAL DEVICE ACCEPTANCE: DEFERRED。** NOT VERIFIED：真实Apple Watch HR采样/gaps/coverage、插值适用性、HRmax冲突频率、summary-only率、实际eligibility率、间歇行为、个体HRmax/RHR质量、生理有效性、负荷与真实疲劳关系、production、WAN、断电、real-device/real-world calibration。没有FULL PASS/PHYSIOLOGICALLY VALIDATED结论。
+
+Recommended Next Phase: **M3 — Performance & Running Ability**。未自动开始M3，M2完成后停止。
+
+
+## 2026-11-03 — M3 Performance & Running Ability V1
+
+**M3 RESULT: PASS WITH RISKS。** 保持candidate-only。正式合同：[RUNNING_ABILITY_V1_CONTRACT](RUNNING_ABILITY_V1_CONTRACT.md)；17项报告：[M3_RESULT](M3_RESULT.md)；真实命令/计数/日志hash/性能：[m3-performance-v1-2026-11-03.json](evidence/m3-performance-v1-2026-11-03.json)。
+
+- M3 baseline：HEAD `bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61`、main、已有32 modified+43 untracked状态条目，完整状态/hash见m3-baseline.json。保留M1/M2/M5A-RD/iOS工具链改动；不reset/stash/commit/push/deploy，不改`../running`。原方案、migration1–22、M1/M2纯领域与Swift共119个frozen路径经hash比较不变，本文件只追加。
+- 定义冻结：可比平路连续跑条件下，近期事实支持的60min demonstrated表现。唯一输入M1 WorkoutFeatures；只取20/30/40/60/90min best eligible/conditional窗口；backup与3/5/10min不参与。typed evidence保存Feature run/generation/version/known-at、Workout/window时间、source epoch、terrain、quality/qualification/evidence。每Workout总权重≤1，重复不增独立数/n_eff/confidence。无M2 load、VO₂、Recovery、HR猜maximal、跑姿/经济性或比赛预测。
+- `rai.performance_curve/v1`：D(t)=D30(t/1800)^γ，log域80% weighted quantile，γ=.700…1.000/.001 deterministic grid；tie优先较大γ再较小α。边界.700、median residual>.06拒绝；≥5独立Workout、跨度≥14日、短/长组各≥2、≥40min且最大1.5x外推。v20/v60/retention=3^(γ−1)完整保留；RunningAbility仅由v60固定对数scale映射，3m/s=50，不重复加Endurance，不做population percentile。raw/unclipped/saturation与float64保留。
+- 单Workout稳健：>10%孤立高值等待±5%独立确认，整Workout隔离；逐Workout LOO v60变化>5%则unstable/null。未来事件/known-at/确认不得进入过去target。默认current计算明确为revised，as_known限制当时Feature可用时间；历史immutable run不改写。迟到>90日不经smoothing seed进入current；每target90日本地calendar，额外13日smoothing seed，96Workout/480点/2MiB artifact上限fail closed。
+- 每个新有效evidence day生成target，h−13…h按exp(−k/14)平滑ln(v60)，≥3有效target days才出值。平滑α/γ给出自洽D30/v20/v60/retention及log速度锚点/耐力扩展解释。无daily M3 target job：4日无证据score不变；14日aging、28日stale隐藏、42日expired/insufficient；不伪造detraining。confidence为support score，含质量和独立性，demonstrated≤.55；maximal_supported明确unavailable。
+- 复用runs/results/artifacts/publications/channels/dependencies；无新表/ledger。一个performance scope原子发布5个typed artifacts与3个results，candidate独立于legacy active。原事实删除即刻invalid current；publish在dataset锁内逐项核对Feature run/generation/存活，封住无current pointer时旧seed删除竞态；旧Worker只SUPERSEDED并排新generation修复，不写artifact或clean N+1。inspect/history/promotion-plan已验证，promotable=false；不开放正式UI/HTTP/training consumer。
+- migration00023追加manifest、artifact约束/trigger、bounded索引与dirty控制；schema23/53 tables、新sequence0。真实隔离PG18.6 empty→latest、22→latest、repeat、权限、fencing、delete与rollback通过；Down明确拒绝破坏历史。fsync/full_page_writes/synchronous_commit/data_checksums均on、Unix socket无TCP；runner结束leftover DB0、cluster removed1。
+- 六阶段fault injection（evidence artifact/curve result/ability result/publication/dirty clean/job terminal）和三处真实pg_terminate_backend（after evidence/before publication/before clean）均rollback/retry安全。受限Worker完成M1→M3，API不能读写artifacts/改candidate config，Worker不可改facts/immutable历史。已发布N+1的Feature、lease expiry及95日旧seed删除race均通过。
+- 数学/性质：独立pinball breakpoint oracle、score精确锚点与clipping、γ边界/residual/LOO、固定v20 retention单调、v60 score单调、duplicate/backup/短时/重排、40轮insert/delete/late/revision cache vs bounded rebuild、future leakage、IANA/DST、quality confidence、later-day PB不制造target且可诊断。10类Golden Athlete全部通过；单条+30%隔离，单条+5%变化≤2分；连续+5%在42日吸收100% log-speed变化，超过60%门槛。未知能力不变低分，经济性/CS/long-run diagnostic未伪造。
+- 最终Go：`go test -count=1 -json ./...`与`go test -race -count=1 -json ./...`各**503 tests/subtests、142 top-level、0 fail**。真实PG全量race回归**997 tests/subtests、374 top-level、0 fail**；最后M3依赖身份guard补强另跑真实PG M3专项**21 tests/subtests、9 top-level、0 fail**，含old-seed无pointer竞态。最终quarantine诊断保留由数学/race及PG性能pipeline再验证；不把专项重复计入全量。vet普通/integration、build、mod verify、边界253 packages、sqlc1.31.1二次generate字节稳定、Go source格式和git diff --check通过。Swift/DTO未改，未新做Simulator验收。
+- 性能8项PG矩阵与7项Go benchmark完成：20m/45m/2h/4h M3完整curve+smoothing+LOO约3.38–6.37ms；365日122次raw Workout仅读30 Feature refs/60点，read20.508ms、extract1.658ms、compute39.402ms、publish15.747ms，state56,066B、全部artifacts119,476B。密集90Workout benchmark约2.075s/34.47MB/69,392 allocations；stage curve fit约2.297ms、curve+LOO约10.120ms。保留全部allocations和观测，不外推production SLO。
+- 风险：验证范围无未解决P0/P1。P2：quality/quantile/outlier/LOO/residual/confidence/scale未经真实人群校准，严格M1门槛可能降低eligible率；96Workout/480点/2MiB容量上限与未准备seed Feature会fail closed/pending，没有lifetime自动修复扫描。current revised与历史as_known明确分离，不从current Feature冒充过去已知。P3：本地合成性能、WAN/生产/断电/旧二进制schema23回滚未验证。未部署、切入口或迁移真实数据。
+- **REAL DEVICE: DEFERRED；REAL DEVICE ACCEPTANCE: DEFERRED。** NOT VERIFIED：real-world performance validity、真实GPS精度/距离一致性、real GPS/speed eligibility、真实speed support quality、Workout/flat-route qualification rate、实际努力/比赛、maximal effort identification、真实Apple Watch sampling、v20/v60 evidence density、single-workout bias、source epoch effects、实际跑力精度、population calibration、production/WAN。没有生理或真实世界验证结论。
+
+**Recommended Next Phase: M4 — Conditional VO₂max。M3完成后停止，未自动进入M4，未正式promotion或产品激活。**

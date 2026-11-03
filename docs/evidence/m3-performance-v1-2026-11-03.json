@@ -1,0 +1,504 @@
+{
+  "stage": "M3 — Performance & Running Ability V1",
+  "date": "2026-11-03",
+  "timezone": "Asia/Shanghai",
+  "result": "PASS WITH RISKS",
+  "candidate_only": true,
+  "active": "legacy",
+  "real_device": "DEFERRED",
+  "real_device_acceptance": "DEFERRED",
+  "git": {
+    "head": "bcc6ca85fa7eb87e0bc455e564c9d13439cd8e61",
+    "branch": "main",
+    "baseline": "docs/evidence/m3-baseline.json",
+    "existing_modified_entries": 32,
+    "existing_untracked_entries": 43,
+    "committed": false,
+    "pushed": false,
+    "deployed": false
+  },
+  "model_ids": [
+    "rai.performance_curve/v1",
+    "rai.running_ability/v1",
+    "rai.endurance/v1"
+  ],
+  "validation": [
+    {
+      "command": "go test -count=1 -json ./...",
+      "exit_code": 0,
+      "passed_tests_and_subtests": 503,
+      "passed_top_level": 142,
+      "failed": 0,
+      "skipped_tests": [
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionServerSlowUpload"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionBodyBudget"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleACKWriteDeadlineAfterCommit"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionThrottledUpload"
+        }
+      ],
+      "log": ".local/logs/m3/unit-final.jsonl",
+      "log_sha256": "98eb6ced1c2582df6b8fbd7867e344fae8b7c8e261e32c693049b6248be53a33",
+      "isolated_pg_cleanup_pass": null
+    },
+    {
+      "command": "go test -race -count=1 -json ./...",
+      "exit_code": 0,
+      "passed_tests_and_subtests": 503,
+      "passed_top_level": 142,
+      "failed": 0,
+      "skipped_tests": [
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionServerSlowUpload"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionBodyBudget"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleACKWriteDeadlineAfterCommit"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionThrottledUpload"
+        }
+      ],
+      "log": ".local/logs/m3/race-final.jsonl",
+      "log_sha256": "9ca8fa3cd28e2eefb8d17ac9434d9192a16e5c68dabe600db4aa9512b0ac1875",
+      "isolated_pg_cleanup_pass": null
+    },
+    {
+      "command": "PGBIN=<bundled PG18> scripts/test-postgres.sh go test -race -count=1 -json -tags=integration ./...",
+      "exit_code": 0,
+      "passed_tests_and_subtests": 997,
+      "passed_top_level": 374,
+      "failed": 0,
+      "skipped_tests": [
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionServerSlowUpload"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionBodyBudget"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleACKWriteDeadlineAfterCommit"
+        },
+        {
+          "package": "rai/server/internal/httpapi",
+          "test": "TestBundleProductionThrottledUpload"
+        },
+        {
+          "package": "rai/server/integration",
+          "test": "TestFeatureSnapshotPerformanceMatrix"
+        },
+        {
+          "package": "rai/server/integration",
+          "test": "TestLoadPerformanceMatrix"
+        },
+        {
+          "package": "rai/server/integration",
+          "test": "TestPerformanceMatrix"
+        },
+        {
+          "package": "rai/server/integration",
+          "test": "TestPhase4DesignatedDeviceBackend"
+        },
+        {
+          "package": "rai/server/integration",
+          "test": "TestPhase4PerformanceMatrix"
+        },
+        {
+          "package": "rai/server/integration",
+          "test": "TestPhase4IndexWriteCost"
+        },
+        {
+          "package": "rai/server/integration",
+          "test": "TestPhase4FreshGzipDurationMatrix"
+        }
+      ],
+      "log": ".local/logs/m3/postgres-full-final.jsonl",
+      "log_sha256": "93d7a7053fc39e9f38cffdafbc54e4c0497a9055808cab8ba1f3269f5278c1da",
+      "isolated_pg_cleanup_pass": true
+    },
+    {
+      "command": "PGBIN=<bundled PG18> scripts/test-postgres.sh go test -race -count=1 -json -tags=integration ./integration ./internal/admin -run '^TestPerformance'",
+      "exit_code": 0,
+      "passed_tests_and_subtests": 21,
+      "passed_top_level": 9,
+      "failed": 0,
+      "skipped_tests": [
+        {
+          "package": "rai/server/integration",
+          "test": "TestPerformanceMatrix"
+        }
+      ],
+      "log": ".local/logs/m3/postgres-m3-final.jsonl",
+      "log_sha256": "43cf0f4134e672e88faabbd08accc672587905ad5707af269f219d2770fb6a20",
+      "isolated_pg_cleanup_pass": true
+    }
+  ],
+  "validation_scope_note": "Full isolated PG regression completed; final feature-identity publication fence was then validated by the 21-test M3 PG race suite including the no-pointer old-seed deletion race. Final later-day quarantine diagnostics were validated by final 503-test unit/race and the eight-case PG performance pipeline. Counts are not added together.",
+  "toolchain": [
+    "go version go1.27.3 darwin/amd64",
+    "v1.31.1"
+  ],
+  "postgres": {
+    "version": "18.6 (Postgres.app)",
+    "schema": 23,
+    "tables": 53,
+    "new_tables": 0,
+    "new_sequences": 0,
+    "empty_to_latest": true,
+    "22_to_latest": true,
+    "repeat_migration": true,
+    "permissions": true,
+    "fencing_delete_rollback": true,
+    "fault_injection": [
+      "evidence_artifact",
+      "curve_result",
+      "ability_result",
+      "publication",
+      "dirty_clean",
+      "job_terminal"
+    ],
+    "actual_pg_terminate_backend": [
+      "after_evidence",
+      "before_publication",
+      "before_clean"
+    ],
+    "unix_socket_only": true,
+    "fsync": "on",
+    "full_page_writes": "on",
+    "synchronous_commit": "on",
+    "data_checksums": "on",
+    "production_database_accessed": false
+  },
+  "checks": {
+    "vet-final.txt": {
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local/logs/m3/vet-final.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "build.txt": {
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local/logs/m3/build.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "modules.txt": {
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local/logs/m3/modules.txt",
+      "sha256": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd"
+    },
+    "gofmt.txt": {
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local/logs/m3/gofmt.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "boundaries.txt": {
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local/logs/m3/boundaries.txt",
+      "sha256": "0b1727095b5df77a52ba2e403302093dc3ecc127e9b5e5d555b83f344b846155"
+    },
+    "sqlc.json": {
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local/logs/m3/sqlc.json",
+      "sha256": "02327ed5c50c71e911c8d13fc0c36b8c909aab98d2563fe2d6d9a62797ae94cb"
+    },
+    "frozen.json": {
+      "passed": true,
+      "exit_code": 0,
+      "log": ".local/logs/m3/frozen.json",
+      "sha256": "2bd774667037f3a6a7aedf56a84593b4e10a462d18c475b6736cc0ab1174ea56"
+    }
+  },
+  "sqlc": {
+    "passes": true,
+    "generations": 2,
+    "byte_stable": true,
+    "files": {
+      "models.go": "fcd2c08c0f87ccc926b9a24021fbe28fd317f12bd5b88378ed9898b471af1d20",
+      "core.sql.go": "8b4d3e0b80fb17583556c95deda6a623a3064d81cd27670013b47badb18590dd",
+      "db.go": "84f598c6b75bfcb2abf4c6fbe856276271ccb1899028c767b01f05ad1f13cd87",
+      "performance.sql.go": "75ca707f16f13f5d6d19a6148d06c90b8637742ac35adba2674b0b8a2ddaa754",
+      "features.sql.go": "892ef10f800f3c7df2631115f5a8df3ceaa36901e8fe2c7d5386d601120d8865",
+      "load.sql.go": "f529a28ff9e0de198108b4c47ca6a590f10890d130c173346de6750353b5317d"
+    }
+  },
+  "frozen": {
+    "passed": true,
+    "frozen_paths_count": 119,
+    "changed": [],
+    "original_proposal_unchanged": true,
+    "migrations_1_to_22_unchanged": true,
+    "M1_M2_pure_domains_unchanged": true,
+    "Swift_unchanged": true
+  },
+  "golden_athletes": [
+    "Beginner",
+    "Intermediate",
+    "Advanced",
+    "High_short-speed_poor_endurance",
+    "Moderate_speed_strong_endurance",
+    "Returning",
+    "Noisy_GPS_athlete",
+    "Sparse_long-run_evidence",
+    "Single-PB_outlier_athlete",
+    "True_step-improvement_athlete"
+  ],
+  "synthetic_observations": [
+    "performance_test.go:129: synthetic athlete status=available independent=20 gamma=0.900 v60=2.956663 score=48.950364 confidence=0.495000",
+    "performance_test.go:129: synthetic athlete status=available independent=20 gamma=0.960 v60=5.072138 score=87.881568 confidence=0.495000",
+    "performance_test.go:129: synthetic athlete status=available independent=20 gamma=0.760 v60=3.457032 score=60.228575 confidence=0.495000",
+    "performance_test.go:129: synthetic athlete status=available independent=20 gamma=0.980 v60=3.423936 score=59.534659 confidence=0.495000",
+    "performance_test.go:129: synthetic athlete status=available independent=20 gamma=0.900 v60=2.956663 score=48.950364 confidence=0.495000",
+    "performance_test.go:129: synthetic athlete status=available independent=36 gamma=0.900 v60=3.104496 score=52.469830 confidence=0.442945",
+    "performance_test.go:205: 42d log-speed absorption=1.000000"
+  ],
+  "performance": {
+    "command": "RAI_M3_PERF=1 PGBIN=<bundled PG18> scripts/test-postgres.sh go test -count=1 -tags=integration ./integration -run '^TestPerformanceMatrix$' -v",
+    "exit_code": 0,
+    "cases": [
+      {
+        "case": "workout_20",
+        "feature_read_ms": 6.829,
+        "evidence_extract_ms": 0.531,
+        "curve_smoothing_loo_ms": 3.375,
+        "publish_ms": 7.086,
+        "allocations": 7668,
+        "allocated_bytes": 3036600,
+        "state_bytes": 22573,
+        "all_artifacts_bytes": 48167,
+        "raw_workouts": 8,
+        "feature_refs": 8,
+        "selected_points": 22
+      },
+      {
+        "case": "workout_45",
+        "feature_read_ms": 7.607,
+        "evidence_extract_ms": 0.515,
+        "curve_smoothing_loo_ms": 6.374,
+        "publish_ms": 8.785,
+        "allocations": 6754,
+        "allocated_bytes": 2986056,
+        "state_bytes": 24284,
+        "all_artifacts_bytes": 51806,
+        "raw_workouts": 8,
+        "feature_refs": 8,
+        "selected_points": 24
+      },
+      {
+        "case": "workout_120",
+        "feature_read_ms": 7.756,
+        "evidence_extract_ms": 0.628,
+        "curve_smoothing_loo_ms": 4.538,
+        "publish_ms": 6.723,
+        "allocations": 6917,
+        "allocated_bytes": 3222624,
+        "state_bytes": 26025,
+        "all_artifacts_bytes": 55499,
+        "raw_workouts": 8,
+        "feature_refs": 8,
+        "selected_points": 26
+      },
+      {
+        "case": "workout_240",
+        "feature_read_ms": 8.492,
+        "evidence_extract_ms": 0.724,
+        "curve_smoothing_loo_ms": 3.976,
+        "publish_ms": 8.604,
+        "allocations": 7171,
+        "allocated_bytes": 4554184,
+        "state_bytes": 26014,
+        "all_artifacts_bytes": 55479,
+        "raw_workouts": 8,
+        "feature_refs": 8,
+        "selected_points": 26
+      },
+      {
+        "case": "history_30",
+        "feature_read_ms": 8.207,
+        "evidence_extract_ms": 0.599,
+        "curve_smoothing_loo_ms": 5.33,
+        "publish_ms": 5.956,
+        "allocations": 8913,
+        "allocated_bytes": 3189184,
+        "state_bytes": 21873,
+        "all_artifacts_bytes": 46817,
+        "raw_workouts": 10,
+        "feature_refs": 10,
+        "selected_points": 20
+      },
+      {
+        "case": "history_90",
+        "feature_read_ms": 18.389,
+        "evidence_extract_ms": 1.815,
+        "curve_smoothing_loo_ms": 39.333,
+        "publish_ms": 15.772,
+        "allocations": 15972,
+        "allocated_bytes": 8843176,
+        "state_bytes": 56070,
+        "all_artifacts_bytes": 119485,
+        "raw_workouts": 30,
+        "feature_refs": 30,
+        "selected_points": 60
+      },
+      {
+        "case": "history_180",
+        "feature_read_ms": 19.787,
+        "evidence_extract_ms": 1.669,
+        "curve_smoothing_loo_ms": 38.839,
+        "publish_ms": 16.303,
+        "allocations": 16006,
+        "allocated_bytes": 8848760,
+        "state_bytes": 56067,
+        "all_artifacts_bytes": 119478,
+        "raw_workouts": 60,
+        "feature_refs": 30,
+        "selected_points": 60
+      },
+      {
+        "case": "history_365",
+        "feature_read_ms": 20.508,
+        "evidence_extract_ms": 1.658,
+        "curve_smoothing_loo_ms": 39.402,
+        "publish_ms": 15.747,
+        "allocations": 15986,
+        "allocated_bytes": 8788320,
+        "state_bytes": 56066,
+        "all_artifacts_bytes": 119476,
+        "raw_workouts": 122,
+        "feature_refs": 30,
+        "selected_points": 60
+      }
+    ],
+    "log": ".local/logs/m3/performance-final.txt",
+    "log_sha256": "f21e562c0587e21c62308e2114a52b6f08a6ce8816d50836a87056a3c91492c6",
+    "production_SLO": false
+  },
+  "benchmarks": {
+    "command": "go test -run '^$' -bench BenchmarkPerformance -benchtime=300ms -benchmem ./internal/performance",
+    "exit_code": 0,
+    "observations": [
+      "BenchmarkPerformance/10-12       \t     412\t    850355 ns/op\t     41565 artifact-B\t 1301683 B/op\t    2265 allocs/op",
+      "BenchmarkPerformance/30-12       \t       2\t 211202196 ns/op\t    120806 artifact-B\t 6695956 B/op\t   26352 allocs/op",
+      "BenchmarkPerformance/60-12       \t       1\t 890430706 ns/op\t    231255 artifact-B\t15873816 B/op\t   45720 allocs/op",
+      "BenchmarkPerformance/90-12       \t       1\t2075074860 ns/op\t    341745 artifact-B\t34472712 B/op\t   69392 allocs/op",
+      "BenchmarkPerformanceStages/extraction-12         \t     789\t    443880 ns/op\t  257073 B/op\t     417 allocs/op",
+      "BenchmarkPerformanceStages/curve_fit-12          \t     152\t   2296678 ns/op\t   44160 B/op\t     924 allocs/op",
+      "BenchmarkPerformanceStages/curve_and_LOO-12      \t      34\t  10119602 ns/op\t   44160 B/op\t     924 allocs/op"
+    ],
+    "log_sha256": "d2eefa18e2b2c55792d828f11927c4aeedc7cf07747cf7fd82df1dc13361a72b"
+  },
+  "source_sha256": {
+    "apps/server/integration/p7_security_test.go": "a6fd21840d8a5fecaeaa456d30b5e81a84b8ca68ff450d8e590039a75d9ddd4b",
+    "apps/server/integration/performance_crash_test.go": "ec49d3b7900df7005012b078185db13117c32aa2e56386248ac28b4f69b27868",
+    "apps/server/integration/performance_performance_test.go": "e8f7cace8f91b472393c42bc03c9e3bacb96e6f3f8946d22ee13d31700be65f8",
+    "apps/server/integration/performance_roles_test.go": "c9da5da151efa732c474cf39f7e8dcb05c494f63683b3aa62c82df43349422f3",
+    "apps/server/integration/performance_test.go": "a4ad868d0fbaa3393778f1f8e410770d63fdc1e7f2937f90357a5b35cd97ea18",
+    "apps/server/integration/recovery_restore_test.go": "855c861ddc5e778ef7e8ce52fded75505df85a7a6618dab1892a27bf75083a50",
+    "apps/server/internal/admin/analysis.go": "d02bbc3652b03d92b8f942bafa6ec13782231584dc61fa237eda395e8f8335b5",
+    "apps/server/internal/admin/daily_migration_integration_test.go": "516365167d89cd602f3f5df7ee8077b163d16f48ced0af1438e70b909f6cd860",
+    "apps/server/internal/admin/dataset_migration_integration_test.go": "c33b05e74a8eb62cf0d755627aa99bdeada1acbdd8eb3eb44789a074912a6427",
+    "apps/server/internal/admin/features_migration_integration_test.go": "99ebc87678538e61f919229be2ff936f1a8b10cc1a17734e2e6b169481c706dd",
+    "apps/server/internal/admin/load_migration_integration_test.go": "80febf748023b11db1961595cf8aa3fc91b4887731996dec2618672b6f4c8c44",
+    "apps/server/internal/admin/operations.go": "326e4b6e9dbfd6810956606737518d7e59d65e212279f28b81693282cb00c5d3",
+    "apps/server/internal/admin/performance.go": "7e064c4dfd4bc1b85f0ab9a8420d5c2e7ccc704b8acb791c43f43c4e0a04d712",
+    "apps/server/internal/admin/performance_migration_integration_test.go": "80873fbb188372aed8424c776e78fb778aab44508635c0994bd47016aa21904b",
+    "apps/server/internal/admin/recovery_init.go": "db09af6d5dc46e222ef9c8d0f5e20f1abcd933bbf898de59b17ee36ab7fb8d20",
+    "apps/server/internal/admin/recovery_migration_integration_test.go": "aa8d460fecd334928cec85b5e31949c7050dcb0c3408438a44f186e0da5788bb",
+    "apps/server/internal/analysis/candidate_performance.go": "8bf8c365fa10674c75c2f2bc6810979035395db0541b624e9627221cae237c50",
+    "apps/server/internal/analysis/model.go": "146bf033cd68c22a10808457c5dfe71a3794f8de873bbc1054b6adb860d531fc",
+    "apps/server/internal/jobs/worker.go": "81ff8ac1cd563b512c02a693723a4135606516269e583e51c5aff5f8b67651c3",
+    "apps/server/internal/performance/calculate.go": "419fe821e8644f72394b3beffc23cf662895a56b277f0cfacf713115ff6b7388",
+    "apps/server/internal/performance/curve.go": "a06ba75132e0203cc37445757c81ace11238aa54f4aa295b165cf41196436ff0",
+    "apps/server/internal/performance/evidence.go": "b706ea22d8bc98649c56bb245fff298c8a849be875890a8ce8766c2b8a641147",
+    "apps/server/internal/performance/model.go": "4786b1ae68c86862982e2b52cd63f773039011f5aaacf3939589575a8ce6e438",
+    "apps/server/internal/performance/performance_test.go": "260a24d5d8630d5ee1d06aa9fdb46512470b42b30505e712ffd2500165c29722",
+    "apps/server/internal/storage/postgres/analysis_input.go": "95f2553871cabf6bc145e3d991ab89364ee4704dceeafbf73695aeb4c5552086",
+    "apps/server/internal/storage/postgres/analysis_publish.go": "8a4e22009dc083bf5d836da3a6c0e37d8301c596df268e57b5cc134df356b757",
+    "apps/server/internal/storage/postgres/dbgen/models.go": "fcd2c08c0f87ccc926b9a24021fbe28fd317f12bd5b88378ed9898b471af1d20",
+    "apps/server/internal/storage/postgres/dbgen/performance.sql.go": "75ca707f16f13f5d6d19a6148d06c90b8637742ac35adba2674b0b8a2ddaa754",
+    "apps/server/internal/storage/postgres/performance_input.go": "cef1d4947ec76892a4de46e5e0b57b08fb326f34e60dcd079e387aa015888b35",
+    "apps/server/internal/storage/postgres/performance_publish.go": "2c7b1e861408ff071ed408dcfb217b5bb08ea5c472946b54a09931f2f9a95711",
+    "apps/server/internal/storage/postgres/store.go": "f8e8ada6bdd2450b9ee3956f5e24ef3874143acf62847a460f4147b5d370a234",
+    "apps/server/migrations/00023_performance_v1.sql": "7093d7f9b1e6a06ebea2b884de8d45d38b21653de2e3238f55895420f4da8fe8",
+    "apps/server/migrations/checksums.json": "2a1186d211be1a2f203fdf6a1b652e4b474397cd776e303af549649dca19037c",
+    "apps/server/queries/performance.sql": "6b828fade2745fee37f9fde2e881c89c8829df00b842c8e6338e4ba5f5364aba",
+    "scripts/check-boundaries.py": "fea0885973ebfc4f84cfb13905e3774ee3b879c6f3c1759796c13e668efda596"
+  },
+  "changed_existing_from_m3_baseline": [
+    "apps/server/internal/admin/features_migration_integration_test.go",
+    "apps/server/internal/admin/load_migration_integration_test.go",
+    "apps/server/integration/p7_security_test.go",
+    "apps/server/integration/recovery_restore_test.go",
+    "apps/server/internal/admin/analysis.go",
+    "apps/server/internal/admin/daily_migration_integration_test.go",
+    "apps/server/internal/admin/dataset_migration_integration_test.go",
+    "apps/server/internal/admin/operations.go",
+    "apps/server/internal/admin/recovery_init.go",
+    "apps/server/internal/admin/recovery_migration_integration_test.go",
+    "apps/server/internal/analysis/model.go",
+    "apps/server/internal/jobs/worker.go",
+    "apps/server/internal/storage/postgres/analysis_input.go",
+    "apps/server/internal/storage/postgres/analysis_publish.go",
+    "apps/server/internal/storage/postgres/dbgen/models.go",
+    "apps/server/internal/storage/postgres/store.go",
+    "apps/server/migrations/checksums.json",
+    "docs/IMPLEMENTATION.md",
+    "scripts/check-boundaries.py"
+  ],
+  "risks": {
+    "P0": [],
+    "P1": [],
+    "P2": [
+      "candidate-only; q/thresholds/quantile/confidence/product scale not calibrated with real population",
+      "96 workouts / 480 points / 2MiB per artifact fail-closed capacity",
+      "missing historical M1 seed feature remains dependency_pending until bounded preparation; no lifetime repair scan",
+      "current revised versus historical as_known are explicit; maximal-supported annotation infrastructure unavailable"
+    ],
+    "P3": [
+      "local synthetic performance only; dense 90-workout LOO CPU cost",
+      "production/WAN/power-loss/old-binary schema23 rollback unverified",
+      "no Swift/DTO/UI activation or new Simulator acceptance"
+    ]
+  },
+  "not_verified": [
+    "real-world performance validity",
+    "real GPS accuracy and distance consistency",
+    "real GPS/speed eligibility",
+    "real speed support quality",
+    "real Workout and flat-route qualification rate",
+    "real effort distribution and race performance",
+    "maximal effort identification",
+    "real Apple Watch sampling",
+    "real v20/v60 evidence density",
+    "real single-workout bias",
+    "real source epoch effects",
+    "actual ability prediction accuracy",
+    "population calibration",
+    "production/WAN"
+  ],
+  "recommended_next_phase": "M4 — Conditional VO₂max",
+  "automatically_started_next_phase": false
+}

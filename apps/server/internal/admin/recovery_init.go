@@ -99,7 +99,7 @@ func InitCommand(ctx context.Context, dsn string, args []string, out io.Writer) 
 		return errors.New("init requires database owner identity")
 	}
 	var schema int
-	if e = pool.QueryRow(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&schema); e != nil || schema != 20 {
+	if e = pool.QueryRow(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&schema); e != nil || schema != 23 {
 		return errors.New("init requires current migrated schema")
 	}
 	p := preparedDataset{OperationID: operation, Actor: actor, OperationType: "disaster_recovery", BaseURL: baseURL, ProtocolVersion: 3}

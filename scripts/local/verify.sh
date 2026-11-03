@@ -38,7 +38,11 @@ migrate_status="$("$rai_root/scripts/local/stack.sh" migrate-status)"
 applied="$(printf '%s' "$migrate_status" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(sum(1 for m in d if m.get("State")=="applied"))')"
 total="$(printf '%s' "$migrate_status" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')"
 echo "migrations applied=$applied total=$total"
-[[ "$applied" == "$total" && "$total" == 13 ]] || fail "migrations not fully applied: $applied/$total"
+# Compare against the migrations actually committed in this tree instead of a
+# fixed number, so adding a migration cannot leave this gate silently stale.
+expected="$(find "$rai_root/apps/server/migrations" -maxdepth 1 -name '[0-9]*_*.sql' | wc -l | tr -d ' ')"
+[[ "$applied" == "$total" && "$total" == "$expected" ]] ||
+  fail "migrations not fully applied: applied=$applied total=$total committed=$expected"
 
 step "start API and Worker"
 "$rai_root/scripts/local/stack.sh" start

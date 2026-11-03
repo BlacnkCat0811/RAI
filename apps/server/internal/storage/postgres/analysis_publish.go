@@ -8,7 +8,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
+	pf "rai/server/internal/performance"
 	"rai/server/internal/syncing"
+	tl "rai/server/internal/trainingload"
+	wf "rai/server/internal/workoutfeatures"
 )
 
 // StartAnalysisRun stores a small lineage, not a copy of the health database.
@@ -37,6 +40,39 @@ func (s *Store) StartAnalysisRun(ctx context.Context, l Lease, in analysis.Snaps
 		lineage["from"] = in.State.From
 		lineage["through"] = in.State.Through
 		lineage["upstreamRuns"] = in.State.Loads
+	}
+	if in.LoadInput != nil {
+		lineage["loadInput"] = in.LoadInput.FeatureRunID
+		lineage["calendarIdentity"] = in.LoadInput.CalendarIdentity
+		lineage["timezone"] = in.LoadInput.Timezone
+		lineage["modelConfigHash"] = tl.ConfigHash()
+	}
+	if in.LoadStateInput != nil {
+		lineage["loadLedger"] = in.LoadStateInput.Loads
+		lineage["calendarIdentity"] = in.LoadStateInput.CalendarIdentity
+		lineage["timezone"] = in.LoadStateInput.Timezone
+		lineage["modelConfigHash"] = tl.ConfigHash()
+	}
+	if in.PerformanceInput != nil {
+		lineage["performanceConfigHash"] = pf.ConfigHash()
+		lineage["asOfUs"] = in.PerformanceInput.AsOf
+		refs := []map[string]any{}
+		for _, f := range in.PerformanceInput.Features {
+			refs = append(refs, map[string]any{"workoutID": f.Feature.WorkoutID, "runID": f.RunID, "generation": f.Feature.Generation, "knownAtUs": f.KnownAt, "firstReceivedAtUs": f.FirstReceivedAt})
+		}
+		lineage["featureRefs"] = refs
+	}
+	if in.FeatureInput != nil {
+		n := in.FeatureInput
+		lineage["factRefs"] = featureReferences(*n)
+		lineage["asOfUs"] = n.AsOf
+		lineage["configHash"] = n.Policy.Hash()
+		lineage["stackID"] = wf.StackID()
+		params := []map[string]any{}
+		for _, p := range n.Parameters {
+			params = append(params, map[string]any{"id": p.ID, "hash": p.Hash, "effectiveFromUs": p.EffectiveFrom, "effectiveThroughUs": p.EffectiveThrough, "recordedAtUs": p.RecordedAt, "supersedes": p.Supersedes})
+		}
+		lineage["parameterInputs"] = params
 	}
 	b, err := json.Marshal(lineage)
 	if err != nil {
@@ -110,7 +146,61 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 	if generation != l.TargetGeneration || in.Generation != l.TargetGeneration {
 		status = "SUPERSEDED"
 	}
+	if status == "SUCCEEDED" && (l.Kind == wf.JobKind || l.Kind == tl.JobKind || l.Kind == tl.StateJobKind || l.Kind == pf.JobKind) {
+		var enabled bool
+		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM analysis_model_channels WHERE dataset_id=$1 AND channel='candidate' AND stack_id=$2 AND config_sha256=decode($3,'hex'))`, l.DatasetID, wf.StackID(), wf.DefaultPolicy().Hash()).Scan(&enabled)
+		if err != nil {
+			return "", err
+		}
+		if !enabled {
+			status = "SUPERSEDED"
+		}
+	}
+	if status == "SUCCEEDED" && l.Kind == pf.JobKind {
+		var enabled bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM analysis_model_channels WHERE dataset_id=$1 AND channel='candidate' AND extension_configs->>'rai.performance_curve/v1'=$2)`, l.DatasetID, pf.ConfigHash()).Scan(&enabled); err != nil {
+			return "", err
+		}
+		if !enabled {
+			status = "SUPERSEDED"
+		}
+		if enabled {
+			current, e := performanceDependenciesCurrent(ctx, tx, l, in)
+			if e != nil {
+				return "", e
+			}
+			if !current {
+				status = "SUPERSEDED"
+				if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, l.DatasetID, l.ScopeKey, pf.JobKind, in.From, in.Through); err != nil {
+					return "", err
+				}
+				if err = tx.QueryRow(ctx, `SELECT generation FROM dirty_scopes WHERE dataset_id=$1 AND scope_key=$2`, l.DatasetID, l.ScopeKey).Scan(&generation); err != nil {
+					return "", err
+				}
+			}
+		}
+	}
 	if status == "SUCCEEDED" {
+		if l.Kind == pf.JobKind {
+			if err = writePerformanceArtifacts(ctx, tx, l, id, in, metrics); err != nil {
+				return "", err
+			}
+		}
+		if l.Kind == wf.JobKind {
+			if err = writeFeatureArtifact(ctx, tx, l, id, in); err != nil {
+				return "", err
+			}
+		}
+		if l.Kind == wf.JobKind {
+			if err = writeExposureArtifact(ctx, tx, l, id, in); err != nil {
+				return "", err
+			}
+		}
+		if l.Kind == tl.JobKind || l.Kind == tl.StateJobKind {
+			if err = writeLoadArtifacts(ctx, tx, l, id, in); err != nil {
+				return "", err
+			}
+		}
 		batch := &pgx.Batch{}
 		for _, m := range metrics {
 			b, e := json.Marshal(m.Details)
@@ -133,10 +223,25 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 		}
 		// Deletions publish no workout pointer, but still propagate their former day.
 		family := "workout"
+		if l.Kind == pf.JobKind {
+			family = "performance_candidate"
+			if _, err = tx.Exec(ctx, `DELETE FROM analysis_publications WHERE dataset_id=$1 AND scope_key=$2`, l.DatasetID, l.ScopeKey); err != nil {
+				return "", err
+			}
+		}
+		if l.Kind == wf.JobKind {
+			family = "workout_model"
+		}
+		if l.Kind == tl.JobKind {
+			family = "workout_load_candidate"
+		}
+		if l.Kind == tl.StateJobKind {
+			family = "load_state_candidate"
+		}
 		if l.Kind == "analysis.training_state" {
 			family = "state"
 		}
-		if in.Workout != nil && in.Workout.Deleted {
+		if in.LoadInput != nil && in.LoadInput.Deleted || in.Workout != nil && in.Workout.Deleted || in.FeatureInput != nil && (in.FeatureInput.Fact.State == wf.Deleted || in.FeatureInput.Fact.State == wf.Missing) {
 			if _, err = tx.Exec(ctx, `DELETE FROM analysis_publications WHERE dataset_id=$1 AND scope_key=$2`, l.DatasetID, l.ScopeKey); err != nil {
 				return "", err
 			}
@@ -151,6 +256,11 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
     WHERE analysis_publications.generation<=EXCLUDED.generation`, l.DatasetID, l.ScopeKey, family, day, id, generation); err != nil {
 					return "", err
 				}
+			}
+		}
+		if l.Kind == wf.JobKind || l.Kind == tl.JobKind {
+			if _, err = tx.Exec(ctx, `SELECT rai_feature_downstream_dirty($1,$2,$3,$4)`, l.DatasetID, l.ScopeKey, in.From, in.Through); err != nil {
+				return "", err
 			}
 		}
 		if l.Kind == "analysis.training_state" {
@@ -296,5 +406,5 @@ func (s *Store) AdvanceAnalysisDay(ctx context.Context, at time.Time) error {
 			return e
 		}
 	}
-	return nil
+	return s.advanceCandidateLoadDay(ctx, at)
 }

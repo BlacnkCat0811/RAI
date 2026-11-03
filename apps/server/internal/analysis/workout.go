@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"math"
+	"rai/server/internal/workoutdomain"
 	"sort"
 )
 
@@ -294,11 +295,7 @@ func routeFeatures(ctx context.Context, w WorkoutInput) ([]Metric, error) {
 	return []Metric{metric("route_distance", "workout.features", "m", dist, "partial", details), metric("elevation_gain", "workout.features", "m", up, "partial", nil), metric("elevation_loss", "workout.features", "m", down, "partial", nil), metric("route_coverage", "workout.features", "1", Ptr(coverage(spans, w.Start, w.End)), "available", details)}, nil
 }
 func haversine(a, b Point) float64 {
-	rad := math.Pi / 180
-	dlat := (b.Latitude - a.Latitude) * rad
-	dlon := (b.Longitude - a.Longitude) * rad
-	x := math.Sin(dlat/2)*math.Sin(dlat/2) + math.Cos(a.Latitude*rad)*math.Cos(b.Latitude*rad)*math.Sin(dlon/2)*math.Sin(dlon/2)
-	return 2 * 6371008.8 * math.Asin(math.Sqrt(math.Min(1, x)))
+	return workoutdomain.Haversine(a.Latitude, a.Longitude, b.Latitude, b.Longitude)
 }
 
 // CalculateTrainingLoad is the independently replayable TRIMP entry point.

@@ -80,3 +80,13 @@ GRANT UPDATE(target_generation,run_after) ON jobs TO rai_api;
 
 -- M5A reviewed daily coverage state, sharing the existing fact permissions.
 GRANT SELECT, INSERT, UPDATE ON daily_health_coverage TO rai_api;
+
+-- M1: online API cannot read/write candidate artifacts or parameter inputs.
+-- A narrowly scoped SECURITY DEFINER dirty trigger owns immediate invalidation.
+GRANT SELECT ON analysis_model_channels, analysis_model_dependencies TO rai_api,rai_worker;
+GRANT SELECT ON analysis_artifacts, athlete_model_inputs, entity_tombstones TO rai_worker;
+GRANT INSERT ON analysis_artifacts TO rai_worker;
+GRANT EXECUTE ON FUNCTION rai_feature_downstream_dirty(uuid,text,timestamptz,timestamptz) TO rai_worker;
+
+-- M2: append-only candidate ledger; API has no load-ledger/artifact access.
+GRANT SELECT, INSERT ON analysis_load_ledger TO rai_worker;

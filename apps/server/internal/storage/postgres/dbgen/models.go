@@ -9,14 +9,55 @@ import (
 )
 
 type AdminOperation struct {
-	OperationID   string
-	OperationType string
-	SourceDataset *string
-	TargetDataset string
-	Actor         string
-	CreatedAt     pgtype.Timestamptz
-	CommittedAt   pgtype.Timestamptz
-	Status        string
+	OperationID    string
+	OperationType  string
+	SourceDataset  *string
+	TargetDataset  *string
+	Actor          string
+	CreatedAt      pgtype.Timestamptz
+	CommittedAt    pgtype.Timestamptz
+	Status         string
+	SubjectDataset *string
+	Details        []byte
+}
+
+type AnalysisArtifact struct {
+	DatasetID     string
+	RunID         string
+	ArtifactKey   string
+	SchemaVersion string
+	ContentSha256 []byte
+	Payload       []byte
+}
+
+type AnalysisLoadLedger struct {
+	DatasetID            string
+	RunID                string
+	LocalDate            pgtype.Date
+	WorkoutUuid          string
+	ModelVersion         string
+	ParameterID          *string
+	FeatureRunID         string
+	Contribution         pgtype.Float8
+	ObservedContribution pgtype.Float8
+	ActiveSeconds        pgtype.Float8
+	Quality              string
+}
+
+type AnalysisModelChannel struct {
+	DatasetID         string
+	Channel           string
+	StackID           string
+	ConfigSha256      []byte
+	AssignmentVersion int64
+	AssignedAt        pgtype.Timestamptz
+	ExtensionConfigs  []byte
+}
+
+type AnalysisModelDependency struct {
+	DatasetID       string
+	UpstreamScope   string
+	DownstreamScope string
 }
 
 type AnalysisParameterSet struct {
@@ -72,6 +113,21 @@ type AnalysisRun struct {
 	ErrorCode        pgtype.Text
 	StartedAt        pgtype.Timestamptz
 	FinishedAt       pgtype.Timestamptz
+	CreatedAt        pgtype.Timestamptz
+}
+
+type AthleteModelInput struct {
+	DatasetID        string
+	ID               string
+	Kind             string
+	SubjectKey       string
+	EffectiveFrom    pgtype.Timestamptz
+	EffectiveThrough pgtype.Timestamptz
+	SupersedesID     *string
+	SchemaVersion    string
+	ContentSha256    []byte
+	Payload          []byte
+	Provenance       string
 	CreatedAt        pgtype.Timestamptz
 }
 
