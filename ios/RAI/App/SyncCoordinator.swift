@@ -26,6 +26,8 @@ actor SyncCoordinator {
     private var supportsIntegrity = false
     private var dailyRunning = false
     private var supportsDaily = false
+    private var vo2Running = false
+    private var vo2Capabilities: JSON = .null
 
     /// Observer work is local and bounded. Offline/pending pages keep their
     /// old committed anchor and exact immutable bytes until the server ACK.
@@ -43,6 +45,7 @@ actor SyncCoordinator {
                 try await store.dailyFailure(type.identifier, code: failure)
             }
         }
+        try await discoverVO2()
     }
     private func discoverDailyPage(_ type: HKSampleType) async throws {
         let flow = try await store.dailyFlow(type.identifier)
@@ -110,6 +113,11 @@ actor SyncCoordinator {
             #endif
             Task { try? await self.discoverDaily(); await onWake() }
         }
+        try await health.observeVO2 { [weak self] in
+            guard let self else { return }
+            try? await self.store.markVO2Wake()
+            Task { try? await self.discoverVO2(); await onWake() }
+        }
     }
     func syncDaily(secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
         guard !dailyRunning else { return }
@@ -117,16 +125,19 @@ actor SyncCoordinator {
         let api: RAIAPIClient
         do {
             (api, _) = try await context(secret: secret, transfers: transfers, metrics: SyncMetrics { name, value in Metrics.value(name, value) })
-            guard supportsDaily else { throw SyncFailure.invalid("unsupported_daily_contract") }
+            guard supportsDaily || VO2Max.supported(vo2Capabilities) else { throw SyncFailure.invalid("unsupported_daily_contract") }
         } catch {
             if error is CancellationError || Task.isCancelled { throw CancellationError() }
             try await store.deferDailyRecovery(error)
+            try await store.deferVO2Recovery(error)
             throw error
         }
+        if !supportsDaily { try await syncVO2(api: api); return }
         let delivery = DailyHealthDelivery(store: store, api: api)
         // Finite foreground opportunity. Other types proceed after a per-type
         // failure; pages beyond the budget resume on the next opportunity.
-        for name in await store.dailyDeliveryOrder() {
+        for name in await store.healthDeliveryOrder() {
+            if name == VO2Max.type { try await syncVO2(api: api); continue }
             guard let type = HealthKitClient.dailyTypes.first(where: { $0.identifier == name }) else { continue }
             for _ in 0..<4 {
                 try Task.checkCancellation()
@@ -330,6 +341,7 @@ actor SyncCoordinator {
         }
         supportsIntegrity = hello["capabilities"]["bundleObservationVersion"].integer == 1 && hello["capabilities"]["explicitChildDeletions"] == .bool(true)
         supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
+        vo2Capabilities = hello["capabilities"]
         let scope = Scope(serviceID: service, datasetID: dataset, datasetEpoch: epoch, collectorEpoch: secret.configuration.collectorEpoch)
         try await store.bind(scope)
         return (api, scope)
@@ -688,5 +700,67 @@ actor SyncCoordinator {
 
     private func code(_ failure: SyncFailure) -> String {
         switch failure { case .invalid(let value), .localState(let value): return value; case .receiptMismatch: return "receipt_mismatch" }
+    }
+}
+
+
+extension SyncCoordinator {
+    func discoverVO2() async throws {
+        if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
+        guard !vo2Running else { return }; vo2Running = true; defer { vo2Running = false }
+        do { try await discoverVO2Page() }
+        catch is CancellationError { throw CancellationError() }
+        catch {
+            let code: String
+            switch error { case SyncFailure.invalid(let c), SyncFailure.localState(let c): code = c; default: code = "vo2_query_failed" }
+            try await store.vo2Failure(code: code)
+        }
+    }
+    private func discoverVO2Page() async throws {
+        let flow = try await store.vo2Flow(), snapshot = await store.snapshot()
+        guard snapshot.scope != nil, flow.discoveryDue(wakeGeneration: snapshot.vo2WakeGeneration ?? 0) else { return }
+        guard flow.error != "invalid_healthkit_anchor" else { throw SyncFailure.localState("invalid_healthkit_anchor") }
+        var limit = VO2Max.maxChanges
+        while true {
+            try Task.checkCancellation()
+            let page = try await health.readVO2(anchor: flow.anchor, start: Date(timeIntervalSince1970: Double(flow.bootstrapStartUs) / 1_000_000), limit: limit)
+            do {
+                let facts = try page.samples.map { try VO2MaxNormalizer.fact($0) }
+                try await store.stageVO2(previousAnchor: flow.anchor, candidateAnchor: page.anchor, facts: facts,
+                    deleted: page.deleted.map { $0.uuid.uuidString.lowercased() }, observedAt: Date(), hasMore: page.isFull,
+                    wakeGeneration: snapshot.vo2WakeGeneration ?? 0)
+                return
+            } catch SyncFailure.invalid("batch_too_large") where limit > 1 { limit = max(1, limit / 2) }
+            catch {
+                let category: String
+                switch error { case SyncFailure.invalid(let c): category = c; default: throw error }
+                // Protected local SDK archive only; never emitted to diagnostics.
+                let archive = try NSKeyedArchiver.archivedData(withRootObject: (page.samples as [NSObject]) + (page.deleted as [NSObject]), requiringSecureCoding: true)
+                try await store.blockVO2(previousAnchor: flow.anchor, candidateAnchor: page.anchor, archive: archive, category: category)
+                throw error
+            }
+        }
+    }
+    private func syncVO2(api: RAIAPIClient) async throws {
+        guard !vo2Running else { return }; vo2Running = true; defer { vo2Running = false }
+        guard VO2Max.supported(vo2Capabilities) else {
+            try await store.vo2Failure(code: "unsupported_capability"); return
+        }
+        let delivery = VO2MaxDelivery(store: store, api: api)
+        // Bounded pages; failures remain local to this flow. Existing Daily
+        // and Workout opportunities continue on the same foreground scheduler.
+        for _ in 0..<4 {
+            do {
+                if try await store.vo2Flow().pending == nil { try await discoverVO2Page() }
+                guard try await delivery.deliver(capabilities: vo2Capabilities) else { break }
+                if !(try await store.vo2Flow().hasMore) { break }
+            } catch is CancellationError { throw CancellationError() }
+            catch {
+                let code: String
+                switch error { case SyncFailure.invalid(let c), SyncFailure.localState(let c): code = c; default: code = (error as? UploadError)?.code ?? "vo2_sync_failed" }
+                if await store.snapshot().vo2?.error == nil { try await store.vo2Failure(code: code) }
+                break
+            }
+        }
     }
 }

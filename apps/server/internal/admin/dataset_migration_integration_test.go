@@ -52,8 +52,8 @@ func TestDatasetMigration17To18AndRepeatedMigrate(t *testing.T) {
 			t.Fatal(e)
 		}
 	}
-	if e = db.QueryRowContext(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&version); e != nil || version != 23 {
-		t.Fatal("current schema not 23", e)
+	if e = db.QueryRowContext(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&version); e != nil || int64(version) != migrations.LatestVersion() {
+		t.Fatal("current schema not latest", e)
 	}
 
 }

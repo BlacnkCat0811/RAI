@@ -755,6 +755,7 @@ final class SyncModel {
             if let pending = flow.pending { dates.append(pending.nextAttempt) }
             else if flow.error == nil && flow.discoveryDue(wakeGeneration: snapshot.dailyWakeGeneration ?? 0) { dates.append(Date().addingTimeInterval(2)) }
         }
+        if let date = snapshot.vo2?.nextOpportunity(now: Date(), wakeGeneration: snapshot.vo2WakeGeneration ?? 0) { dates.append(date) }
         // Foreground opportunity only; background suspension cancels this timer.
         if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") { dates.append(Date().addingTimeInterval(900)) }
         if snapshot.discovery?.flows.values.contains(where: { $0.hasMore && $0.error == nil }) == true { dates.append(Date().addingTimeInterval(2)) }

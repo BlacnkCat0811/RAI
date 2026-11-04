@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"rai/server/internal/storage/postgres"
 	"rai/server/migrations"
 )
 
@@ -40,5 +41,11 @@ func TestFrozenMigrations(t *testing.T) {
 	}
 	if count == 0 || count != len(expected) {
 		t.Fatal("checksum manifest and migrations disagree")
+	}
+}
+
+func TestRuntimeSchemaGateMatchesMigrations(t *testing.T) {
+	if postgres.RequiredSchemaVersion != migrations.LatestVersion() {
+		t.Fatal("runtime schema gate is stale")
 	}
 }

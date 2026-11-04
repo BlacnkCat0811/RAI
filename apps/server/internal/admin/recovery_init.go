@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"rai/server/migrations"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -99,7 +100,7 @@ func InitCommand(ctx context.Context, dsn string, args []string, out io.Writer) 
 		return errors.New("init requires database owner identity")
 	}
 	var schema int
-	if e = pool.QueryRow(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&schema); e != nil || schema != 23 {
+	if e = pool.QueryRow(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&schema); e != nil || int64(schema) != migrations.LatestVersion() {
 		return errors.New("init requires current migrated schema")
 	}
 	p := preparedDataset{OperationID: operation, Actor: actor, OperationType: "disaster_recovery", BaseURL: baseURL, ProtocolVersion: 3}

@@ -105,6 +105,8 @@ public struct LocalState: Codable, Sendable {
     public var retainedBundles: [String: WorkoutSyncTask]?
     public var factCaptureFiles: [String]?
     public var daily: [String: DailyFlow]?
+    public var vo2: VO2Flow?
+    public var vo2WakeGeneration: Int64?
     public var dailyWakePending: Bool?
     public var dailyWakeGeneration: Int64?
     // Optional for v1 state compatibility. Only fully delivered pages may mark
@@ -118,6 +120,7 @@ public actor OutboxStore {
     public nonisolated let directory: URL
     var state: LocalState
     private var activeBundleAttempts: Set<String> = []
+    var vo2OrphansReconciled = false
     public init(directory: URL) throws {
         self.directory = directory
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -375,6 +378,7 @@ public actor OutboxStore {
             next.tasks?[id] = task
         }
         Self.deferDaily(&next, error: error, now: now)
+        Self.deferVO2(&next, error: error, now: now)
         try commit(next)
     }
     public func acknowledgeBundle(_ id: String, receipt: JSON) throws {
@@ -642,6 +646,7 @@ public actor OutboxStore {
         }
         referenced.formUnion(state.factCaptureFiles ?? [])
         referenced.formUnion((state.daily ?? [:]).values.compactMap { $0.pending?.file })
+        referenced.formUnion([state.vo2?.pending?.file, state.vo2?.blocked?.file].compactMap { $0 })
         for capture in (state.routeCaptures ?? [:]).values { referenced.insert(capture.file) }
         for event in (state.discovery?.events ?? [:]).values {
             if let file = event.archiveFile { referenced.insert(file) }

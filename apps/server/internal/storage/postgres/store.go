@@ -64,7 +64,7 @@ func (s *Store) Ready(ctx context.Context) error {
 	if err = s.Pool.QueryRow(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY id DESC LIMIT 1`).Scan(&version); err != nil {
 		return err
 	}
-	if version != 23 {
+	if version != RequiredSchemaVersion {
 		return errors.New("unsupported schema version")
 	}
 	return nil

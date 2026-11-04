@@ -769,3 +769,21 @@ Recommended Next Phase: **M3 — Performance & Running Ability**。未自动开�
 - **REAL DEVICE: DEFERRED；REAL DEVICE ACCEPTANCE: DEFERRED。** NOT VERIFIED：real-world performance validity、真实GPS精度/距离一致性、real GPS/speed eligibility、真实speed support quality、Workout/flat-route qualification rate、实际努力/比赛、maximal effort identification、真实Apple Watch sampling、v20/v60 evidence density、single-workout bias、source epoch effects、实际跑力精度、population calibration、production/WAN。没有生理或真实世界验证结论。
 
 **Recommended Next Phase: M4 — Conditional VO₂max。M3完成后停止，未自动进入M4，未正式promotion或产品激活。**
+
+
+## M4-B2 — Apple Health VO₂max Raw Facts Transport（2026-11-04）
+
+**PASS WITH RISKS；B2 CLOSED FOR DEVELOPMENT。** 依据本次明确启动授权，保持 B1 两份冻结原文。详细范围、命令、skip/失败历史、性能和风险见 [M4B2_RESULT.md](M4B2_RESULT.md)；机器汇总见 [validation.json](evidence/m4b2/validation.json)、[performance.json](evidence/m4b2/performance.json) 和 [compatibility.json](evidence/m4b2/compatibility.json)。
+
+- 独立 `vo2max-facts/v1`、capability、HealthKit VO₂ read type、anchored query / secure anchor、固定90×24h绝对窗口 / fingerprint、typed metadata registry1、provenance/2 与 Device.name。读取授权保持 toShare=[]，无 HealthKit save/delete。metadata 与 testType1–4 保真；未知 key/type/enum、无效单位/非有限/非正值整页 fail closed。非正值按本次启动指令收紧，B1允许非正值的原文保留并在结果报告明确差异。
+- 新 optional VO₂ LocalState 不重置 Workout/HRV/RHR/Sleep。body/candidate/hash先持久化再上传；同字节重试；只有完整有效 durable receipt 才原子提交 anchor/sequence/ACK。blocked页与pending为GC root，孤儿/ACK body/transfer cache可有界回收；共享429/503、握手退避、前台timer和observer wake独立处理；永久fencing/内容冲突保留pending并停止自动写入，坏ACK仅清除响应缓存。
+- schema00024共享 health_samples/tombstones/streams/batches/logs/dirty/coverage，不建平行 raw DB、projection表或新index/sequence。服务器内部构造 RAI:vo2maxFactV1；旧generic wire拒绝伪造。known tombstone保存无数值的来源/epoch/hash/interval/origin inputs，unknown为null。单事务包含 raw/屏障/logs/dirty/coverage/stream/receipt/dataset revision；dataset锁产生顺序。empty observation也dirty；不排虚假VO₂分析job，ACK固定awaiting_model_implementation。
+- 修正runtime/owner schema23硬编码门禁至24，并加owner侧版本库存防回归；online仍不导入admin/migrations/goose。原migration00001–00023、旧Daily源码/normalizer/合同和M1/M2/M3算法目录字节未改；旧v1写入/receipt、Workout v3、变化游标、empty/23→latest/repeat、受限API/Worker角色均经真实隔离PG18验证。
+- 最终Go unit与race各523 PASS / 4 skip / 0 fail；全量独立PG18 race串行回归1049 PASS / 11 skip / 0 fail；VO₂/schema gate PG race专项50 PASS，额外九registry key/Int64边界PG round-trip1 PASS；最后source namespace分类补强后的受影响syncing race264 PASS。重复专项不与全量累加。普通/integration vet、module verify、253 packages边界、sqlc1.31.1六文件重复生成字节稳定、diff check通过。OpenAPI固定Redocly2.71.1：0error/原有31warnings；skip与中间失败/修正历史均显式记录，未隐藏全量schema/timeout/50k queued观察。
+- Swift Testing129项/16suites通过；Simulator正式App XCTest39项通过；另真实App→normalizer→outbox→HTTP→PG18→ACK→anchor E2E1项通过，实际丢弃一次已commit ACK后仍1事实/1receipt/1dirty；8阶段DB异常注入和3处真实pg_terminate_backend全回滚/重试通过。macOS6个实际SIGKILL阶段通过，不能冒称iPhone kill。四流真实共享429/VO₂两次503后全部完成，不能冒称五流真机后台验收。全部成功PG runner均socket-only、fsync/full_page_writes/synchronous_commit/data_checksums on；结束leftover DB0 / cluster removed1。
+- 用户随后提供USB iPhone12ProMax/iOS27.2，独立签名bundle上的4项合成SDK测试通过（metadata/provenance/pending/blocked/observer hint/overlap predicate/performance），未读取真实健康样本、未写健康库；验收包已清理，正式App sandbox/Outbox/Keychain不复用。未访问生产库、未部署服务、未切旧入口、未迁移真实数据，未修改../running；无真实健康值/完整样本UUID/raw metadata/凭证进入新增repo evidence。
+- 本机synthetic性能已记录0/1/128、90日bootstrap、hot empty、各超限显式失败、normalization/payload/parse/PG/ACK/local commit/Go allocations及四类真实索引执行计划。单机race/debug/准入等待不是生产SLO；Swift allocations未测。P0/P1无已知未解决工程blocker；P2保留未知真实metadata、来源描述符非硬件认证、固定窗口/删除保留和50k legacy worker时间预算观察；P3保留断电/WAN/生产/功耗/旧binary回滚等未验证项。
+
+**REAL DEVICE ACCEPTANCE: DEFERRED（真实HealthKit与后台范围）；真实Apple Watch来源/VO₂可见性/history update/delete/后台delivery/长期离线/WAN/production/physiological validity未验证。PHYSIOLOGICAL VALIDATION: NOT VERIFIED；RAI OWN VO2MAX MODEL: NOT IMPLEMENTED。** 本次只有raw facts transport，没有external current/candidate/estimated VO₂max或生理置信度。
+
+**Recommended Next Phase: M4-B3 — External VO₂max Candidate Projection。完成B2后停止；未自动开始B3/B4。**

@@ -1,0 +1,32 @@
+{
+  "syntheticOnly": true,
+  "productionSLO": false,
+  "records": [
+    "SYNTHETIC facts=0 payload_bytes=660 http_ack_us=15543",
+    "SYNTHETIC facts=1 payload_bytes=1236 http_ack_us=13621",
+    "SYNTHETIC facts=128 payload_bytes=70197 http_ack_us=2421280",
+    "PLAN query=uuid indexed=true node=Index Scan index=health_samples_analysis_identity actual_rows=0.000 execution_us=13.000",
+    "PLAN query=tombstone indexed=true node=Index Scan index=entity_tombstones_pkey actual_rows=0.000 execution_us=9.000",
+    "PLAN query=stream indexed=true node=Index Scan index=sync_batches_dataset_id_stream_id_client_seq_key actual_rows=0.000 execution_us=26.000",
+    "PLAN query=coverage indexed=true node=Index Scan index=daily_health_coverage_pkey actual_rows=0.000 execution_us=11.000",
+    "SYNTHETIC_PHASE phase=vo2_parse duration_us=153045",
+    "SYNTHETIC_PHASE phase=vo2_transaction duration_us=142749",
+    "SYNTHETIC_TRANSPORT additions=90 payload_bytes=49529 total_us=295931",
+    "SYNTHETIC_PHASE phase=vo2_parse duration_us=684",
+    "SYNTHETIC_PHASE phase=vo2_transaction duration_us=3850",
+    "SYNTHETIC_TRANSPORT additions=0 payload_bytes=694 total_us=4629",
+    "swift.log: M4B2_SYNTHETIC_STATE_COMMIT bytes=660 duration_us=4979.968070983887",
+    "simulator-final.log: M4B2_SYNTHETIC_NORMALIZE count=0 bytes=0 us=48.041343688964844",
+    "simulator-final.log: M4B2_SYNTHETIC_NORMALIZE count=1 bytes=492 us=2269.9832916259766",
+    "simulator-final.log: M4B2_SYNTHETIC_NORMALIZE count=128 bytes=62976 us=530524.9691009521",
+    "simulator-final.log: M4B2_SYNTHETIC_NORMALIZE count=90 bytes=44280 us=368381.9770812988",
+    "device-tests-final.log: M4B2_SYNTHETIC_NORMALIZE count=0 bytes=0 us=7.987022399902344",
+    "device-tests-final.log: M4B2_SYNTHETIC_NORMALIZE count=1 bytes=503 us=593.0662155151367",
+    "device-tests-final.log: M4B2_SYNTHETIC_NORMALIZE count=128 bytes=64384 us=54684.99660491943",
+    "device-tests-final.log: M4B2_SYNTHETIC_NORMALIZE count=90 bytes=45270 us=36038.994789123535"
+  ],
+  "goBenchmark": [
+    "BenchmarkVO2Decode128-12    \t      54\t  19900071 ns/op\t   3.53 MB/s\t 4567459 B/op\t   68421 allocs/op"
+  ],
+  "allocationsScope": "Go Decode128 only; Swift allocation profiling not measured"
+}

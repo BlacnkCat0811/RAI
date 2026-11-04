@@ -16,6 +16,7 @@ public protocol FileUploader: Sendable {
     /// Drop a durable transfer result after the caller has durably consumed it.
     /// Implementations that do not cache results may ignore this.
     func discardCachedResult(_ identity: String)
+    func cachedResultFilename(_ identity: String) -> String?
 }
 public extension FileUploader {
     func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
@@ -23,6 +24,7 @@ public extension FileUploader {
         return UploadResponse(data: data, status: status, retryAfter: delay, contentType: nil)
     }
     func discardCachedResult(_ identity: String) {}
+    func cachedResultFilename(_ identity: String) -> String? { nil }
 }
 public struct RAIAPIClient: Sendable {
     public static let defaultSession: URLSession = {
@@ -74,6 +76,7 @@ public struct RAIAPIClient: Sendable {
             return try await client.call(method, path, body: body, file: file, mediaType: mediaType, gzip: gzip, identity: identity, query: query)
         }
     }
+    public func cachedUploadResultFilename(_ identity: String) -> String? { uploader?.cachedResultFilename(identity) }
     public func discardUploadResult(_ identity: String) { uploader?.discardCachedResult(identity) }
     public static func retryAfter(_ value: String?, now: Date = Date()) -> TimeInterval? {
         guard let value else { return nil }
@@ -84,7 +87,7 @@ public struct RAIAPIClient: Sendable {
     }
     private func performCall(_ method: String, _ path: String, body: Data?, file: URL?,
                              mediaType: String, gzip: Bool, identity: String, query: [String: String]) async throws -> JSON {
-        let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path == "/v2/sync/daily-facts"
+        let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path == "/v2/sync/daily-facts" || path == "/v2/sync/vo2max-facts"
         let networkStart = Date()
         defer {
             metrics.elapsed("network_ms", since: networkStart)

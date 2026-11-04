@@ -1,0 +1,11 @@
+{
+  "head": "46968332380f9145945bc989325b98bc40454d9a",
+  "branch": "main",
+  "preExistingDirty": [
+    "docs/M4B_IMPLEMENTATION_PLAN.md",
+    "docs/VO2MAX_EXTERNAL_CONTRACT.md"
+  ],
+  "highestMigration": 23,
+  "syntheticOnly": true,
+  "baselineManifestSHA256": "024028eb98b77fd30358d3ebc5c274c5e827e31e14acc1361abe848caff29923"
+}

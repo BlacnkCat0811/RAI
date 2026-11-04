@@ -38,11 +38,15 @@ protocol HealthKitReading: Sendable {
     func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]]
     func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead
     func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws
+    func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
+    func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
     func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws
 }
 
 extension HealthKitReading {
+    func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
+    func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws {}
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws { }
     func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]] { try await bundleSeries(type: type, workout: workout) }
@@ -64,6 +68,8 @@ actor HealthKitClient: HealthKitReading {
     private let health = HKHealthStore()
     private var observers: [HKObserverQuery] = []
     private var dailyObservers: [HKObserverQuery] = []
+    private var vo2Observer: HKObserverQuery?
+    static let vo2Type = HKObjectType.quantityType(forIdentifier: .vo2Max)!
     // No derived cadence: the current SDK has no HealthKit running-cadence
     // quantity identifier. Only real supported quantities are requested.
     static let identifiers: [HKQuantityTypeIdentifier] = [.heartRate, .distanceWalkingRunning, .activeEnergyBurned, .runningSpeed, .runningPower, .stepCount, .basalEnergyBurned, .runningGroundContactTime, .runningStrideLength, .runningVerticalOscillation]
@@ -73,7 +79,7 @@ actor HealthKitClient: HealthKitReading {
 
     func authorize() async throws {
         guard HKHealthStore.isHealthDataAvailable() else { throw SyncFailure.invalid("healthkit_unavailable") }
-        try await health.requestAuthorization(toShare: [], read: Set((Self.types + Self.dailyTypes).map { $0 as HKObjectType } + [HKSeriesType.workoutRoute()]))
+        try await health.requestAuthorization(toShare: [], read: Set((Self.types + Self.dailyTypes + [Self.vo2Type]).map { $0 as HKObjectType } + [HKSeriesType.workoutRoute()]))
     }
     #if DEBUG
     // Explicit read-only inspection. This does not use or advance sync anchors.
@@ -134,6 +140,24 @@ actor HealthKitClient: HealthKitReading {
         let result = try await query.result(for: health)
         return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
                           anchor: try NSKeyedArchiver.archivedData(withRootObject: result.newAnchor, requiringSecureCoding: true), limit: limit)
+    }
+    func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage {
+        guard (1...VO2Max.maxChanges).contains(limit) else { throw SyncFailure.invalid("batch_too_large") }
+        let previous = try Self.decodeAnchor(anchor)
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: nil, options: [])
+        let descriptor = HKAnchoredObjectQueryDescriptor(predicates: [.sample(type: Self.vo2Type, predicate: predicate)], anchor: previous, limit: limit)
+        let result = try await descriptor.result(for: health)
+        return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
+            anchor: try NSKeyedArchiver.archivedData(withRootObject: result.newAnchor, requiringSecureCoding: true), limit: limit)
+    }
+    func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws {
+        guard vo2Observer == nil else { return }
+        let query = HKObserverQuery(sampleType: Self.vo2Type, predicate: nil) { _, completion, error in
+            let delivery = HealthDeliveryCompletion(completion)
+            Task { if error == nil { await handler() }; delivery.finish() }
+        }
+        health.execute(query); vo2Observer = query
+        try await health.enableBackgroundDelivery(for: Self.vo2Type, frequency: .immediate)
     }
     func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws {
         guard dailyObservers.isEmpty else { return }

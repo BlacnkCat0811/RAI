@@ -1,0 +1,242 @@
+{
+  "baselineHEAD": "46968332380f9145945bc989325b98bc40454d9a",
+  "branch": "main",
+  "preExistingDirty": [
+    "docs/M4B_IMPLEMENTATION_PLAN.md",
+    "docs/VO2MAX_EXTERNAL_CONTRACT.md"
+  ],
+  "B2ChangedFileCountExcludingThisInventory": 52,
+  "sourceFileCount": 44,
+  "sources": {
+    "apps/server/integration/p7_security_test.go": {
+      "sha256": "0f78c788668e8a03f3a5a06e0dbca37bb971d917158c2cd4197ef8abed336417",
+      "bytes": 6923
+    },
+    "apps/server/integration/recovery_restore_test.go": {
+      "sha256": "624ff03dee0ed8adf0ee6268d19e86ce18f5cd930045f7c3a62c6614afec71ef",
+      "bytes": 8064
+    },
+    "apps/server/integration/vo2max_client_test.go": {
+      "sha256": "cf4dde8e10753d63c2502444137bb80cb5c9168ffb343246e1cf4dbee5ba269a",
+      "bytes": 5851
+    },
+    "apps/server/integration/vo2max_simulator_test.go": {
+      "sha256": "4044940ee27364e8ed83bdc15acd3b3f1b4c7fa897ed84808bb1ef6383ddc483",
+      "bytes": 4272
+    },
+    "apps/server/integration/vo2max_test.go": {
+      "sha256": "37da5b808ce67bcb65fea357214a42001f753de8828106fdcc6c24384139a116",
+      "bytes": 21251
+    },
+    "apps/server/internal/admin/daily_migration_integration_test.go": {
+      "sha256": "e2bf5e3868b529eb1e74e47bdb9dd818dcb51ed26dcb5402c29e554e45ffa2a5",
+      "bytes": 2340
+    },
+    "apps/server/internal/admin/dataset_migration_integration_test.go": {
+      "sha256": "871098a042843ce65cfdeb26dbf84cc6d85622c3335961db43328a030d04b3b9",
+      "bytes": 1913
+    },
+    "apps/server/internal/admin/features_migration_integration_test.go": {
+      "sha256": "f4efd659455b2c96b5fba99b547a375c07d15c8da8ca78549e6293d6fb1e02b2",
+      "bytes": 1703
+    },
+    "apps/server/internal/admin/load_migration_integration_test.go": {
+      "sha256": "314640e0add72a27a9401f432572cde35ac94aa6a896a429b7568dbb3699c453",
+      "bytes": 1700
+    },
+    "apps/server/internal/admin/migrations_test.go": {
+      "sha256": "e2b5437811ef7f2c75d9caa3f25d56dbbd2108526ccbeeb8b1a23010645c09a2",
+      "bytes": 1140
+    },
+    "apps/server/internal/admin/operations.go": {
+      "sha256": "5fcd622e8f25d359adfb28ef27a70e0089cd305c1fed714a20f66d1df5b8d82f",
+      "bytes": 8800
+    },
+    "apps/server/internal/admin/performance_migration_integration_test.go": {
+      "sha256": "22d4f15600d6bfa269cf82ad46ebc15a5b94bf5c4b09a2175fd042902b071c8b",
+      "bytes": 1663
+    },
+    "apps/server/internal/admin/recovery_init.go": {
+      "sha256": "142f37acf9c394905719a3a7627fc448ce766eb51a4e6752c4412650112d7a0d",
+      "bytes": 7042
+    },
+    "apps/server/internal/admin/recovery_migration_integration_test.go": {
+      "sha256": "5c74d6aa73f162180794e82f49ed648d0044700e29184d39bc671e8c68b18355",
+      "bytes": 2050
+    },
+    "apps/server/internal/admin/vo2_migration_integration_test.go": {
+      "sha256": "fbcc8d82cfccdaa11ac250155f210346fd8787945c08948c78c4d66849840bb2",
+      "bytes": 2660
+    },
+    "apps/server/internal/httpapi/server.go": {
+      "sha256": "a1b649f8c1a37c103bff66e9086ebbdbf838e57a4553338685f295ec10dbd444",
+      "bytes": 31987
+    },
+    "apps/server/internal/httpapi/vo2max.go": {
+      "sha256": "1a95f9d40f99349d9982bc41067a23e53d11ac59dcfec633a65d3b2482995453",
+      "bytes": 1039
+    },
+    "apps/server/internal/storage/postgres/dbgen/models.go": {
+      "sha256": "be39e20bd8d1421aab0799413adce1471d0e98583643aee98906ba3ad73a059a",
+      "bytes": 14832
+    },
+    "apps/server/internal/storage/postgres/schema.go": {
+      "sha256": "7bb14a24cd2dca5649905b04d385741a33bfd46f351f2a79d8c164bcbcdc5338",
+      "bytes": 283
+    },
+    "apps/server/internal/storage/postgres/store.go": {
+      "sha256": "3be32669789c8e2a58f99aa968dfafb88e3869a54a9e6815756113a66f8e19c6",
+      "bytes": 23306
+    },
+    "apps/server/internal/storage/postgres/vo2max.go": {
+      "sha256": "953de926af8cf44752bbed1d73c145cee8023e56103d134fc4308d44bf002cec",
+      "bytes": 10866
+    },
+    "apps/server/internal/syncing/protocol.go": {
+      "sha256": "e7ed873b69c5ca3375c359cd5073bfa98ddd553b659d891a1c6e97e55bb6edf9",
+      "bytes": 20263
+    },
+    "apps/server/internal/syncing/store.go": {
+      "sha256": "c645f4dbc82fdf4b266e9b6c5166eaee0c5a07eee086f8951d2da733145a3ab6",
+      "bytes": 5816
+    },
+    "apps/server/internal/syncing/vo2max.go": {
+      "sha256": "a27acdb362cb96a14778702b7ff4be80a4d434747d4a82a7c68b8713f713420b",
+      "bytes": 17780
+    },
+    "apps/server/internal/syncing/vo2max_test.go": {
+      "sha256": "e291da5378c34cfff8cf63b12c4aca3e5d70555bed9731cd1c5553513bf5b252",
+      "bytes": 8988
+    },
+    "apps/server/migrations/00024_vo2max_facts.sql": {
+      "sha256": "18865c86021d4bdc1b96da1b7db27cc2745cb5c83b09e63b7c5a59017a94d29f",
+      "bytes": 3292
+    },
+    "apps/server/migrations/checksums.json": {
+      "sha256": "36fd7d883659189dee35f6bf0afcec354116f9cb94eb03e816ad853468f03f7c",
+      "bytes": 2376
+    },
+    "contracts/fixtures/vo2max-provenance.canonical.json": {
+      "sha256": "08e55fea5a74c313399a8799b973312c9f0683e0446ed8830a5c634d7aa2fa14",
+      "bytes": 249
+    },
+    "contracts/fixtures/vo2max-v1.json": {
+      "sha256": "d70baff94193d9e71fb64d90ba016041fbe5dc70d0fd67565ff1043eada7e69a",
+      "bytes": 1203
+    },
+    "contracts/openapi-v2.yaml": {
+      "sha256": "7e742a737531efda88937c400d2a01d983b004b364ccb04b6e35960fa5b7ee45",
+      "bytes": 103284
+    },
+    "ios/RAI/App/BackgroundTransfers.swift": {
+      "sha256": "f7b84fdb0f6f2f762b7142bae9b5ce36f4b293e0eacd02a11a74bc7c1fbe0039",
+      "bytes": 7439
+    },
+    "ios/RAI/App/HealthKitClient.swift": {
+      "sha256": "e20c3458dc3a79b62fdb1e6c1c35ec1a8c4d0b1e3a2dbda4375da53632c89c9c",
+      "bytes": 50348
+    },
+    "ios/RAI/App/RAIApp.swift": {
+      "sha256": "11ace3908e3b78f4de5251ed69b3e011c171559bba78ffad922a615ab1290586",
+      "bytes": 59360
+    },
+    "ios/RAI/App/SyncCoordinator.swift": {
+      "sha256": "ff63a919dc9aeaa76f1730a4bbc5878bddbc40689d9e2a111eafae1c4263804c",
+      "bytes": 51619
+    },
+    "ios/RAI/App/VO2MaxNormalizer.swift": {
+      "sha256": "5e08e2af81dc21be9bcd4b49160bcd52a668bbbbfca41caa508640a1160c230d",
+      "bytes": 3916
+    },
+    "ios/RAI/AppTests/NormalizerTests.swift": {
+      "sha256": "445111fd2ac49e4313466342a30eaaf0cc8a6572a7a556d1c86debc04aba7ae5",
+      "bytes": 66185
+    },
+    "ios/RAI/Package.swift": {
+      "sha256": "ae4c805185178b8d337f868456c5ad0fc4787cb450fd7b06ae637c2330a05fad",
+      "bytes": 1222
+    },
+    "ios/RAI/RAI.xcodeproj/project.pbxproj": {
+      "sha256": "4115f28e4a40f662ae141ee8e9e0976b9d069b080f2a9a8f38558cb8d0b8ee75",
+      "bytes": 27859
+    },
+    "ios/RAI/Sources/SyncCore/OutboxStore.swift": {
+      "sha256": "64109291abc5be5b18b5bc30972302f7f02c3fe91467f34c7fbeac200f07e2b9",
+      "bytes": 41419
+    },
+    "ios/RAI/Sources/SyncCore/RAIAPIClient.swift": {
+      "sha256": "b349668edf8917a75173fe410d2408722dd6404272a19829954f2bbf808638b3",
+      "bytes": 21655
+    },
+    "ios/RAI/Sources/SyncCore/VO2Max.swift": {
+      "sha256": "60b829a69baa3b54dab11234dbfe8f8ea97f13a3310a1a181334f714e1f45c46",
+      "bytes": 16835
+    },
+    "ios/RAI/Tests/SyncCoreTests/Fixtures/vo2max-provenance.canonical.json": {
+      "sha256": "08e55fea5a74c313399a8799b973312c9f0683e0446ed8830a5c634d7aa2fa14",
+      "bytes": 249
+    },
+    "ios/RAI/Tests/SyncCoreTests/VO2MaxTests.swift": {
+      "sha256": "bf5fbdb77080fa1b7ab8cb9a5db19f61ab3c51ee4246d66e5af738eba724d31c",
+      "bytes": 15815
+    },
+    "ios/RAI/Tools/VO2Probe/main.swift": {
+      "sha256": "d9a09599fecc54114e28d56764ec02e7f793401fb6ec36daa77eba69da4aba43",
+      "bytes": 5006
+    }
+  },
+  "B2Files": [
+    "apps/server/integration/p7_security_test.go",
+    "apps/server/integration/recovery_restore_test.go",
+    "apps/server/integration/vo2max_client_test.go",
+    "apps/server/integration/vo2max_simulator_test.go",
+    "apps/server/integration/vo2max_test.go",
+    "apps/server/internal/admin/daily_migration_integration_test.go",
+    "apps/server/internal/admin/dataset_migration_integration_test.go",
+    "apps/server/internal/admin/features_migration_integration_test.go",
+    "apps/server/internal/admin/load_migration_integration_test.go",
+    "apps/server/internal/admin/migrations_test.go",
+    "apps/server/internal/admin/operations.go",
+    "apps/server/internal/admin/performance_migration_integration_test.go",
+    "apps/server/internal/admin/recovery_init.go",
+    "apps/server/internal/admin/recovery_migration_integration_test.go",
+    "apps/server/internal/admin/vo2_migration_integration_test.go",
+    "apps/server/internal/httpapi/server.go",
+    "apps/server/internal/httpapi/vo2max.go",
+    "apps/server/internal/storage/postgres/dbgen/models.go",
+    "apps/server/internal/storage/postgres/schema.go",
+    "apps/server/internal/storage/postgres/store.go",
+    "apps/server/internal/storage/postgres/vo2max.go",
+    "apps/server/internal/syncing/protocol.go",
+    "apps/server/internal/syncing/store.go",
+    "apps/server/internal/syncing/vo2max.go",
+    "apps/server/internal/syncing/vo2max_test.go",
+    "apps/server/migrations/00024_vo2max_facts.sql",
+    "apps/server/migrations/checksums.json",
+    "contracts/fixtures/vo2max-provenance.canonical.json",
+    "contracts/fixtures/vo2max-v1.json",
+    "contracts/openapi-v2.yaml",
+    "docs/IMPLEMENTATION.md",
+    "docs/M4B2_RESULT.md",
+    "docs/evidence/m4b2/README.md",
+    "docs/evidence/m4b2/baseline.json",
+    "docs/evidence/m4b2/compatibility.json",
+    "docs/evidence/m4b2/performance.json",
+    "docs/evidence/m4b2/platform.json",
+    "docs/evidence/m4b2/validation.json",
+    "ios/RAI/App/BackgroundTransfers.swift",
+    "ios/RAI/App/HealthKitClient.swift",
+    "ios/RAI/App/RAIApp.swift",
+    "ios/RAI/App/SyncCoordinator.swift",
+    "ios/RAI/App/VO2MaxNormalizer.swift",
+    "ios/RAI/AppTests/NormalizerTests.swift",
+    "ios/RAI/Package.swift",
+    "ios/RAI/RAI.xcodeproj/project.pbxproj",
+    "ios/RAI/Sources/SyncCore/OutboxStore.swift",
+    "ios/RAI/Sources/SyncCore/RAIAPIClient.swift",
+    "ios/RAI/Sources/SyncCore/VO2Max.swift",
+    "ios/RAI/Tests/SyncCoreTests/Fixtures/vo2max-provenance.canonical.json",
+    "ios/RAI/Tests/SyncCoreTests/VO2MaxTests.swift",
+    "ios/RAI/Tools/VO2Probe/main.swift"
+  ]
+}

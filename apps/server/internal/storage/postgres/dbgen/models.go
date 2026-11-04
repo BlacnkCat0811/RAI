@@ -150,17 +150,22 @@ type CollectorLease struct {
 }
 
 type DailyHealthCoverage struct {
-	DatasetID         string
-	StreamID          string
-	BootstrapStartUs  int64
-	LastDiscoveryAtUs int64
-	LastSyncAt        pgtype.Timestamptz
-	LastFactAtUs      pgtype.Int8
-	BootstrapComplete bool
-	HasMore           bool
-	SampleCount       int32
-	DeletedCount      int32
-	SourceContext     []byte
+	DatasetID             string
+	StreamID              string
+	BootstrapStartUs      int64
+	LastDiscoveryAtUs     int64
+	LastSyncAt            pgtype.Timestamptz
+	LastFactAtUs          pgtype.Int8
+	BootstrapComplete     bool
+	HasMore               bool
+	SampleCount           int32
+	DeletedCount          int32
+	SourceContext         []byte
+	FlowCreatedAtUs       pgtype.Int8
+	QueryCompletedAtUs    pgtype.Int8
+	AnchorPresent         pgtype.Bool
+	SourceSummary         []byte
+	SummaryObservationSeq pgtype.Int8
 }
 
 type Dataset struct {
@@ -205,13 +210,14 @@ type EntityChange struct {
 }
 
 type EntityTombstone struct {
-	DatasetID     string
-	SampleType    string
-	SampleUuid    string
-	DeletedRev    int64
-	PreviousStart pgtype.Timestamptz
-	PreviousEnd   pgtype.Timestamptz
-	Reason        string
+	DatasetID          string
+	SampleType         string
+	SampleUuid         string
+	DeletedRev         int64
+	PreviousStart      pgtype.Timestamptz
+	PreviousEnd        pgtype.Timestamptz
+	Reason             string
+	ProvenanceSnapshot []byte
 }
 
 type HealthSample struct {

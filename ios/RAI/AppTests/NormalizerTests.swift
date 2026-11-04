@@ -667,3 +667,195 @@ extension NormalizerTests {
         }
     }
 }
+
+// Unsaved SDK objects have no persisted source revision. This fixture installs
+// an explicitly synthetic descriptor into the in-memory SDK object via KVC;
+// production App code never changes sourceRevision and never writes HealthKit.
+private func syntheticVO2(_ sample: HKQuantitySample) -> HKQuantitySample {
+    let revision = HKSourceRevision(source: HKSource.default(), version: "synthetic", productType: "Synthetic1,1", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
+    sample.setValue(revision, forKey: "sourceRevision")
+    return sample
+}
+private actor SyntheticVO2Health: HealthKitReading {
+    private(set) var requestedAnchors: [Data?] = []
+    var unknown = false
+    private var wake: (@Sendable () async -> Void)?
+    func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws { wake = handler }
+    func fireVO2ObserverHint() async { await wake?() }
+    func authorize() async throws {}
+    func workout(_ id: String) async throws -> HKWorkout? { nil }
+    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage { throw SyncFailure.invalid("unused") }
+    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
+    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
+    func setUnknown() { unknown = true }
+    func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage {
+        requestedAnchors.append(anchor)
+        let date = max(start.addingTimeInterval(1), Date().addingTimeInterval(-3600))
+        let metadata: [String: Any] = unknown ? ["futureSyntheticKey": Data([1])] : [HKMetadataKeyVO2MaxTestType: NSNumber(value: 4), HKMetadataKeyAppleDeviceCalibrated: NSNumber(value: true), HKMetadataKeyAlgorithmVersion: NSNumber(value: Int64(9007199254740993))]
+        let samples: [HKSample] = anchor == nil ? [syntheticVO2(HKQuantitySample(type: HKQuantityType(.vo2Max), quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 42.123456789012345), start: date, end: date, metadata: metadata))] : []
+        return HealthPage(samples: samples, deleted: [], anchor: try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: requestedAnchors.count), requiringSecureCoding: true), limit: limit)
+    }
+}
+extension NormalizerTests {
+    func testVO2SDKMetadataAndProvenance() throws {
+        let date = Date(timeIntervalSince1970: 1793000000)
+        for test in [nil, 1, 2, 3, 4] as [Int?] {
+            for manual in [nil, false, true] as [Bool?] {
+                for calibrated in [nil, false, true] as [Bool?] {
+                    var metadata: [String: Any] = [HKMetadataKeyDateOfEarliestDataUsedForEstimate: date,
+                        HKMetadataKeyVO2MaxValue: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 41.25)]
+                    if let test { metadata[HKMetadataKeyVO2MaxTestType] = NSNumber(value: test) }
+                    if let manual { metadata[HKMetadataKeyWasUserEntered] = NSNumber(value: manual) }
+                    if let calibrated { metadata[HKMetadataKeyAppleDeviceCalibrated] = NSNumber(value: calibrated) }
+                    let d = HKDevice(name: "Synthetic Device", manufacturer: "Synthetic", model: "Fixture", hardwareVersion: nil, firmwareVersion: nil, softwareVersion: nil, localIdentifier: "excluded", udiDeviceIdentifier: "excluded")
+                    let sample = syntheticVO2(HKQuantitySample(type: HKQuantityType(.vo2Max), quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 80.12345678901234), start: date, end: date, device: d, metadata: metadata))
+                    let fact = try VO2MaxNormalizer.fact(sample)
+                    XCTAssertEqual(fact["quantity"]["value"], .number(80.12345678901234))
+                    XCTAssertEqual(fact["metadata"][HKMetadataKeyVO2MaxValue]["type"], .string("quantity"))
+                    XCTAssertEqual(fact["provenance"]["device"]["name"], .string("Synthetic Device"))
+                    XCTAssertEqual(fact["provenance"]["device"]["firmwareVersion"], .null)
+                    XCTAssertFalse(String(decoding: try fact.data(), as: UTF8.self).contains("excluded"))
+                }
+            }
+        }
+        for integer in [Int64(9007199254740993), .min, .max] {
+            let sample = syntheticVO2(HKQuantitySample(type: HKQuantityType(.vo2Max), quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 42), start: date, end: date, metadata: [HKMetadataKeyAlgorithmVersion: NSNumber(value: integer)]))
+            XCTAssertEqual(try VO2MaxNormalizer.fact(sample)["metadata"][HKMetadataKeyAlgorithmVersion]["value"], .int(integer))
+        }
+        for metadata: [String: Any] in [["future": "x"], ["future": Data()], ["future": ["nested": 1]], [HKMetadataKeyVO2MaxTestType: NSNumber(value: 0)], [HKMetadataKeyVO2MaxTestType: NSNumber(value: 5)]] {
+            let sample = syntheticVO2(HKQuantitySample(type: HKQuantityType(.vo2Max), quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 42), start: date, end: date))
+            // Deliberately invalid future metadata cannot be constructed by the
+            // public SDK factory; inject only in this synthetic read fixture.
+            sample.setValue(metadata, forKey: "metadata")
+            XCTAssertThrowsError(try VO2MaxNormalizer.fact(sample))
+        }
+        let event = HKCategorySample(type: HKCategoryType(.lowCardioFitnessEvent), value: HKCategoryValueLowCardioFitnessEvent.lowFitness.rawValue, start: date, end: date, metadata: [HKMetadataKeyVO2MaxValue: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 30)])
+        XCTAssertThrowsError(try VO2MaxNormalizer.fact(event))
+        XCTAssertThrowsError(try VO2MaxNormalizer.quantity(HKQuantity(unit: .liter().unitDivided(by: .minute()), doubleValue: 4)))
+    }
+    func testVO2IndependentPendingAndBlockedSDKPage() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-vo2-sdk-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory), health = SyntheticVO2Health()
+        try await store.bind(CoordinatorReplies.identity)
+        let coordinator = SyncCoordinator(store: store, health: health)
+        try await coordinator.discoverVO2(); try await coordinator.discoverVO2()
+        let state = await store.snapshot()
+        XCTAssertNil(state.vo2?.anchor); XCTAssertNotNil(state.vo2?.pending)
+        let queries = await health.requestedAnchors.count; XCTAssertEqual(queries, 1)
+        XCTAssertNil(state.daily)
+        try await coordinator.observeDaily()
+        await health.fireVO2ObserverHint()
+        let observed = await store.snapshot()
+        XCTAssertEqual(observed.vo2WakeGeneration, 1)
+        XCTAssertNil(observed.dailyWakeGeneration)
+        XCTAssertEqual(observed.vo2?.pending?.hash, state.vo2?.pending?.hash)
+        XCTAssertNil(observed.vo2?.anchor)
+        let pending = try XCTUnwrap(state.vo2?.pending)
+        let raw = try Data(contentsOf: await store.fileURL(pending.file))
+        XCTAssertEqual(try JSON.decode(raw)["facts"].list.count, 1)
+        let other = try OutboxStore(directory: directory.appendingPathComponent("blocked")), badHealth = SyntheticVO2Health()
+        try await other.bind(CoordinatorReplies.identity); await badHealth.setUnknown()
+        let blocked = SyncCoordinator(store: other, health: badHealth); try await blocked.discoverVO2()
+        let bad = await other.snapshot()
+        XCTAssertNotNil(bad.vo2?.blocked); XCTAssertNil(bad.vo2?.pending); XCTAssertNil(bad.vo2?.anchor)
+    }
+    func testVO2SimulatorHTTPPostgresEndToEnd() async throws {
+        guard let encoded = ProcessInfo.processInfo.environment["RAI_M4B2_SYNTHETIC"] else { throw XCTSkip("requires isolated PG18 Simulator harness") }
+        let config = try JSON.decode(Data(encoded.utf8))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-vo2-e2e-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory), health = SyntheticVO2Health()
+        let scope = Scope(serviceID: try XCTUnwrap(config["serviceID"].text), datasetID: try XCTUnwrap(config["datasetID"].text), datasetEpoch: try XCTUnwrap(config["datasetEpoch"].text), collectorEpoch: try XCTUnwrap(config["collectorEpoch"].text))
+        try await store.bind(scope)
+        let coordinator = SyncCoordinator(store: store, health: health)
+        try await coordinator.discoverVO2()
+        let staged = await store.snapshot()
+        let pending = try XCTUnwrap(staged.vo2?.pending)
+        let raw = try Data(contentsOf: await store.fileURL(pending.file))
+        let secret = ClientConfiguration.Secret(configuration: .init(baseURL: URL(string: try XCTUnwrap(config["baseURL"].text))!, collectorEpoch: scope.collectorEpoch), token: try XCTUnwrap(config["token"].text))
+        let transfers = BackgroundTransfers(directory: directory, identifier: "com.rai.v2.m4b2." + Wire.id())
+        for _ in 0..<12 {
+            try await coordinator.syncDaily(secret: secret, transfers: transfers)
+            let state = await store.snapshot()
+            if state.vo2?.anchor != nil { break }
+            XCTAssertEqual(state.vo2?.pending?.batchID, pending.batchID)
+            let pendingURL = try await store.fileURL(pending.file)
+            XCTAssertEqual(try Data(contentsOf: pendingURL), raw)
+            let delay = max(1, state.vo2?.pending?.nextAttempt.timeIntervalSinceNow ?? 1)
+            try await Task.sleep(for: .seconds(min(delay + 0.2, 10)))
+        }
+        let final = await store.snapshot()
+        XCTAssertNil(final.vo2?.pending); XCTAssertNotNil(final.vo2?.anchor)
+        XCTAssertEqual(final.vo2?.sequence, 2)
+        XCTAssertEqual(final.vo2?.lastReceipt?["requestSHA256"], .string(Wire.hash(raw)))
+        XCTAssertEqual(final.vo2?.lastReceipt?["analysisStatus"], .string("awaiting_model_implementation"))
+        let reopened = try OutboxStore(directory: directory)
+        let reloaded = await reopened.snapshot()
+        XCTAssertEqual(reloaded.vo2?.anchor, final.vo2?.anchor)
+    }
+    func testVO2SDKNormalizationPerformance() throws {
+        let date = Date(timeIntervalSince1970: 1793000000)
+        for count in [0,1,128,90] {
+            let samples = (0..<count).map { i in syntheticVO2(HKQuantitySample(type: HKQuantityType(.vo2Max), quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 42.123456789012345), start: date.addingTimeInterval(Double(i)*86400), end: date.addingTimeInterval(Double(i)*86400), metadata: [HKMetadataKeyVO2MaxTestType: NSNumber(value: 4)])) }
+            let start = Date(); var bytes = 0
+            for sample in samples { bytes += try VO2MaxNormalizer.fact(sample).data().count }
+            print("M4B2_SYNTHETIC_NORMALIZE count=\(count) bytes=\(bytes) us=\(Date().timeIntervalSince(start)*1_000_000)")
+        }
+    }
+}
+
+private final class VO2OnlyHandshake: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let s = CoordinatorReplies.identity
+        let body: JSON = .object(["protocolVersion": .int(3), "serviceID": .string(s.serviceID), "datasetID": .string(s.datasetID), "datasetEpoch": .string(s.datasetEpoch),
+            "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3), "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) }),
+                "vo2maxFactsVersion": .int(1), "vo2maxMetadataRegistryVersion": .int(1), "vo2maxMaxChanges": .int(128), "vo2maxMaxBytes": .int(524288)])])
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+private final class VO2CoordinatorUploader: FileUploader, Sendable {
+    let paths = Mutex<[String]>([])
+    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
+        paths.withLock { $0.append(request.url!.path) }
+        let raw = try Data(contentsOf: file), body = try JSON.decode(raw)
+        var fields = body.fields.filter { ["contract", "version", "metadataRegistryVersion", "batchID", "datasetID", "datasetEpoch", "collectorEpoch", "streamID", "clientSeq"].contains($0.key) }
+        fields["requestSHA256"] = .string(Wire.hash(raw)); fields["ingestStatus"] = .string("committed"); fields["commitRevision"] = .int(1)
+        fields["deleteStatus"] = .string("none"); fields["analysisStatus"] = .string("awaiting_model_implementation")
+        fields["counts"] = .object(["inserted": .int(1), "unchanged": .int(0), "deleted": .int(0), "tombstoned": .int(0), "suppressed": .int(0)])
+        return UploadResponse(data: try JSON.object(fields).data(), status: 200, contentType: "application/json")
+    }
+    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) { let r = try await response(request, file: file, identity: identity); return (r.data, r.status, r.retryAfter) }
+}
+extension NormalizerTests {
+    func testVO2CapabilityOperatesIndependentlyOfDailyCapability() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rai-vo2-only-" + Wire.id()); defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try OutboxStore(directory: dir), health = SyntheticVO2Health(), uploader = VO2CoordinatorUploader()
+        try await store.bind(CoordinatorReplies.identity)
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [VO2OnlyHandshake.self]
+        let coordinator = SyncCoordinator(store: store, health: health, session: URLSession(configuration: config))
+        try await coordinator.discoverVO2()
+        let secret = ClientConfiguration.Secret(configuration: .init(baseURL: URL(string: "https://synthetic.invalid")!, collectorEpoch: CoordinatorReplies.identity.collectorEpoch), token: "synthetic")
+        try await coordinator.syncDaily(secret: secret, transfers: uploader)
+        let state = await store.snapshot()
+        XCTAssertNotNil(state.vo2?.anchor); XCTAssertNil(state.vo2?.pending); XCTAssertNil(state.daily)
+        XCTAssertEqual(uploader.paths.withLock { $0 }, ["/v2/sync/vo2max-facts"])
+    }
+}
+
+extension NormalizerTests {
+    func testVO2SDKBootstrapPredicateKeepsOverlappingInterval() throws {
+        let lower = Date(timeIntervalSince1970: 1793000000)
+        let predicate = HKQuery.predicateForSamples(withStart: lower, end: nil, options: [])
+        func sample(_ start: Double, _ end: Double) -> HKQuantitySample {
+            HKQuantitySample(type: HKQuantityType(.vo2Max), quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 42), start: lower.addingTimeInterval(start), end: lower.addingTimeInterval(end))
+        }
+        XCTAssertTrue(predicate.evaluate(with: sample(-1, 1)))
+        XCTAssertTrue(predicate.evaluate(with: sample(1, 2)))
+        XCTAssertFalse(predicate.evaluate(with: sample(-2, -1)))
+    }
+}

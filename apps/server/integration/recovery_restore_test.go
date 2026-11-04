@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"rai/server/internal/admin"
+	"rai/server/migrations"
 )
 
 func TestRestoredBackupIsNotActiveContinuation(t *testing.T) {
@@ -72,7 +73,7 @@ func TestRestoredBackupIsNotActiveContinuation(t *testing.T) {
 	if e = f.s.Pool.QueryRow(ctx, `SELECT count(*) FROM pg_constraint WHERE contype='f' AND connamespace='public'::regnamespace AND convalidated`).Scan(&fkCount); e != nil {
 		t.Fatal(e)
 	}
-	mb, _ := json.Marshal(map[string]any{"dumpSHA256": hex.EncodeToString(dumpHash[:]), "schema": 23, "tables": tableCount, "foreignKeys": fkCount, "purpose": "quarantine_archive_only"})
+	mb, _ := json.Marshal(map[string]any{"dumpSHA256": hex.EncodeToString(dumpHash[:]), "schema": migrations.LatestVersion(), "tables": tableCount, "foreignKeys": fkCount, "purpose": "quarantine_archive_only"})
 	manifestHash := sha256.Sum256(mb)
 	if e = os.WriteFile(manifest, mb, 0600); e != nil {
 		t.Fatal(e)
@@ -119,7 +120,7 @@ func TestRestoredBackupIsNotActiveContinuation(t *testing.T) {
 			t.Fatal("backup dataset identity/revision changed")
 		}
 		status, e := admin.MigrationStatus(ctx, restored.s.Pool.Config().ConnString())
-		if e != nil || len(status) != 23 {
+		if e != nil || int64(len(status)) != migrations.LatestVersion() {
 			t.Fatal("restored schema mismatch", e)
 		}
 		var tables, fks, invalid int
@@ -186,5 +187,5 @@ func TestRestoredBackupIsNotActiveContinuation(t *testing.T) {
 	if e != nil || after.CommitRevision != metadata.CommitRevision {
 		t.Fatal("quarantine revision advanced")
 	}
-	t.Logf("PHASE5B_RESTORE schema=23 tables=%d validated_FKs=%d manifest_sha256=%x dump_sha256=%x restore_ms=%d no_api_exposure=true read_only=true", tableCount, fkCount, manifestHash, dumpHash, elapsed.Milliseconds())
+	t.Logf("PHASE5B_RESTORE schema=%d tables=%d validated_FKs=%d manifest_sha256=%x dump_sha256=%x restore_ms=%d no_api_exposure=true read_only=true", migrations.LatestVersion(), tableCount, fkCount, manifestHash, dumpHash, elapsed.Milliseconds())
 }

@@ -197,6 +197,9 @@ var Units = map[string]string{
 }
 
 func (e Event) Validate(sampleType string) error {
+	if _, spoofed := e.Metadata[VO2Reserved]; spoofed {
+		return Fail(422, "unsupported_metadata")
+	}
 	unit, ok := Units[e.Type]
 	isWorkout := e.Type == WorkoutType
 	if (!ok && !isWorkout) || e.Type != sampleType || !ValidID(e.UUID) ||
@@ -241,6 +244,9 @@ func (e Event) Canonical() ([]byte, []byte) {
 		e.Metadata = nil
 	}
 	b, _ := json.Marshal(e)
+	if e.Type == VO2Type && e.Metadata[VO2Reserved] != nil {
+		b = VO2Canonical(e)
+	}
 	h := sha256.Sum256(b)
 	return b, h[:]
 }

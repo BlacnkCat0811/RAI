@@ -46,7 +46,7 @@ func TestDailyMigration19To20PreservesFactsAndRepeats(t *testing.T) {
 		t.Fatal("existing fact changed", err)
 	}
 	var version, rev, count int
-	if err = db.QueryRowContext(ctx, `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied),commit_rev,(SELECT count(*) FROM daily_health_coverage) FROM datasets`).Scan(&version, &rev, &count); err != nil || version != 23 || rev != 42 || count != 0 {
+	if err = db.QueryRowContext(ctx, `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied),commit_rev,(SELECT count(*) FROM daily_health_coverage) FROM datasets`).Scan(&version, &rev, &count); err != nil || int64(version) != migrations.LatestVersion() || rev != 42 || count != 0 {
 		t.Fatal("migration rewrote state", err)
 	}
 }

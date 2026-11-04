@@ -1,0 +1,27 @@
+{
+  "dailyOpenAPISchemaLinesByteUnchanged": 5,
+  "modelSourceUnchanged": {
+    "apps/server/internal/workoutfeatures/": true,
+    "apps/server/internal/trainingload/": true,
+    "apps/server/internal/performance/": true
+  },
+  "frozenFilesSHA256": {
+    "docs/WORKOUT_FEATURE_CONTRACT.md": "27f0b9c3189afab61379e93eebe6df6098c4eda7df6b2f979c1dcc49c226b693",
+    "docs/TRAINING_LOAD_V1_CONTRACT.md": "c9ce6865bbd0ae7e0316051d606155f3a5ede48254dee38eae038a7ce4bfe08d",
+    "docs/RUNNING_ABILITY_V1_CONTRACT.md": "1919640cc033868fdafc8f5fc0ed30aefa21d821d4d7d735ec17de20470294f4",
+    "docs/DAILY_HEALTH_SYNC_CONTRACT.md": "ed226db9cb4105c5529129a6f3b49ecd5b61ab19a07098b959cf784ca5e97660",
+    "ios/RAI/App/DailyHealthNormalizer.swift": "dd874e076237a23078fc82be2b06e20d9c8e0997506c9465bf2aa1ada5716f9a",
+    "ios/RAI/Sources/SyncCore/DailyHealth.swift": "b3bfe2e98fdf60b670a6e479d168ebd47ab021f02ac83356e90e615b90bdcae5"
+  },
+  "migrations00001Through00023ByteUnchanged": true,
+  "newMigration": "00024_vo2max_facts.sql",
+  "newTables": 0,
+  "newIndexes": 0,
+  "newSequences": 0,
+  "newProjectionHandlers": 0,
+  "newGrants": 0,
+  "preExistingB1DocumentsCurrentSHA256": {
+    "docs/M4B_IMPLEMENTATION_PLAN.md": "e3f32ca7238b90a7c76cc961dc0f0e2b7a225800e53c03db98e8bbb31df896ad",
+    "docs/VO2MAX_EXTERNAL_CONTRACT.md": "3af9fed82bb4ddcc523e9e03ce1c00b336eb0fef438ae334f7c60361738871bc"
+  }
+}

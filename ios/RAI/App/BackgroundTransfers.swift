@@ -29,6 +29,9 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
         state.withLock { $0.session = session }
     }
     private func resultURL(_ identity: String) -> URL { directory.appendingPathComponent(Wire.hash(Data(identity.utf8)) + ".transfer.json") }
+    func cachedResultFilename(_ identity: String) -> String? {
+        resultURL(sessionID.map { $0 + ":" + identity } ?? identity).lastPathComponent
+    }
     func discardCachedResult(_ identity: String) {
         let scoped = sessionID.map { $0 + ":" + identity } ?? identity
         try? FileManager.default.removeItem(at: resultURL(scoped))
