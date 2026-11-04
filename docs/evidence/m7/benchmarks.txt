@@ -1,0 +1,21 @@
+goos: darwin
+goarch: amd64
+pkg: rai/server/internal/athletemodel
+cpu: AMD Ryzen 5 3600X 6-Core Processor             
+BenchmarkProductProjection-12       	 1000000	      1120 ns/op	     960 B/op	      15 allocs/op
+BenchmarkProductProjection-12       	 1000000	      1071 ns/op	     960 B/op	      15 allocs/op
+BenchmarkProductProjection-12       	 1000000	      1094 ns/op	     960 B/op	      15 allocs/op
+BenchmarkProductSerialization/full-12         	   32638	     36279 ns/op	   11156 B/op	       3 allocs/op
+BenchmarkProductSerialization/full-12         	   33915	     35365 ns/op	   11155 B/op	       3 allocs/op
+BenchmarkProductSerialization/full-12         	   30686	     37351 ns/op	   11155 B/op	       3 allocs/op
+BenchmarkProductSerialization/new_user-12     	   51381	     20676 ns/op	    8714 B/op	       3 allocs/op
+BenchmarkProductSerialization/new_user-12     	   58974	     19766 ns/op	    8712 B/op	       3 allocs/op
+BenchmarkProductSerialization/new_user-12     	   59311	     19381 ns/op	    8715 B/op	       3 allocs/op
+BenchmarkProductSerialization/mixed-12        	   36793	     31454 ns/op	   10766 B/op	       3 allocs/op
+BenchmarkProductSerialization/mixed-12        	   39116	     37344 ns/op	   10769 B/op	       3 allocs/op
+BenchmarkProductSerialization/mixed-12        	   30952	     36037 ns/op	   10763 B/op	       3 allocs/op
+BenchmarkProductSerialization/stale_vo2-12    	   30280	     38416 ns/op	   11152 B/op	       3 allocs/op
+BenchmarkProductSerialization/stale_vo2-12    	   29695	     38404 ns/op	   11152 B/op	       3 allocs/op
+BenchmarkProductSerialization/stale_vo2-12    	   29997	     38152 ns/op	   11155 B/op	       3 allocs/op
+PASS
+ok  	rai/server/internal/athletemodel	17.396s

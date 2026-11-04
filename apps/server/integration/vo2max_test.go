@@ -326,10 +326,15 @@ func TestVO2RestrictedRoles(t *testing.T) {
 		t.Fatal("restricted coverage", err)
 	}
 	worker := openRole(workerRole)
-	for _, sql := range []string{`INSERT INTO health_samples SELECT * FROM health_samples LIMIT 0`, `UPDATE daily_health_coverage SET anchor_present=false`, `SELECT * FROM daily_health_coverage`} {
+	for _, sql := range []string{`INSERT INTO health_samples SELECT * FROM health_samples LIMIT 0`, `UPDATE daily_health_coverage SET anchor_present=false`} {
 		if _, err = worker.Pool.Exec(ctx, sql); err == nil {
 			t.Fatal("worker raw/coverage permission expanded")
 		}
+	}
+	// M4-B3 explicitly adds SELECT-only coverage access for the projection
+	// snapshot; B2 raw/coverage mutation restrictions above remain frozen.
+	if _, err = worker.Pool.Exec(ctx, `SELECT * FROM daily_health_coverage`); err != nil {
+		t.Fatal("worker cannot read projection coverage", err)
 	}
 	for _, sql := range []string{`UPDATE health_samples SET value_numeric=1`, `SELECT * FROM analysis_artifacts`, `UPDATE entity_tombstones SET provenance_snapshot='{}'`, `CREATE TABLE forbidden_vo2(x int)`} {
 		if _, err = api.Pool.Exec(ctx, sql); err == nil {

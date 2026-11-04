@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "rai.m4b3.validation/1",
+  "date": "2026-11-04",
+  "timezone": "Asia/Shanghai",
+  "generatedAt": "2026-11-04T11:42:55.949954+08:00",
+  "baselineHEAD": "380a6fe96d13d1e57f69ceac50e52e72908af2b8",
+  "branch": "main",
+  "result": "PASS WITH RISKS",
+  "development": "B3 CLOSED FOR DEVELOPMENT",
+  "nextRecommendedPhase": "M4-B4 — Simulator End-to-End & Engineering Closure",
+  "b4Started": false,
+  "goUnit": {
+    "file": "go-final-test.jsonl",
+    "passedTestSubtestEvents": 552,
+    "failedTestSubtestEvents": 0,
+    "skippedTestSubtestEvents": 4,
+    "failures": [],
+    "skips": [
+      {
+        "test": "TestBundleProductionServerSlowUpload",
+        "reason": "=== RUN   TestBundleProductionServerSlowUpload\n    bundle_timeout_test.go:53: explicit 5/15/30s real socket pacing run\n--- SKIP: TestBundleProductionServerSlowUpload (0.00s)"
+      },
+      {
+        "test": "TestBundleProductionBodyBudget",
+        "reason": "=== RUN   TestBundleProductionBodyBudget\n    bundle_timeout_test.go:159: explicit ~180s production deadline boundary run\n--- SKIP: TestBundleProductionBodyBudget (0.00s)"
+      },
+      {
+        "test": "TestBundleACKWriteDeadlineAfterCommit",
+        "reason": "=== RUN   TestBundleACKWriteDeadlineAfterCommit\n    bundle_timeout_test.go:220: explicit 6s ACK write deadline test\n--- SKIP: TestBundleACKWriteDeadlineAfterCommit (0.00s)"
+      },
+      {
+        "test": "TestBundleProductionThrottledUpload",
+        "reason": "=== RUN   TestBundleProductionThrottledUpload\n    bundle_timeout_test.go:256: explicit real TCP bandwidth pacing run\n--- SKIP: TestBundleProductionThrottledUpload (0.00s)"
+      }
+    ],
+    "disposableCleanup": {
+      "leftoverDatabasesZero": false,
+      "clusterRemoved": false
+    }
+  },
+  "goRace": {
+    "file": "go-final-race.jsonl",
+    "passedTestSubtestEvents": 552,
+    "failedTestSubtestEvents": 0,
+    "skippedTestSubtestEvents": 4,
+    "failures": [],
+    "skips": [
+      {
+        "test": "TestBundleProductionServerSlowUpload",
+        "reason": "=== RUN   TestBundleProductionServerSlowUpload\n    bundle_timeout_test.go:53: explicit 5/15/30s real socket pacing run\n--- SKIP: TestBundleProductionServerSlowUpload (0.00s)"
+      },
+      {
+        "test": "TestBundleProductionBodyBudget",
+        "reason": "=== RUN   TestBundleProductionBodyBudget\n    bundle_timeout_test.go:159: explicit ~180s production deadline boundary run\n--- SKIP: TestBundleProductionBodyBudget (0.00s)"
+      },
+      {
+        "test": "TestBundleACKWriteDeadlineAfterCommit",
+        "reason": "=== RUN   TestBundleACKWriteDeadlineAfterCommit\n    bundle_timeout_test.go:220: explicit 6s ACK write deadline test\n--- SKIP: TestBundleACKWriteDeadlineAfterCommit (0.00s)"
+      },
+      {
+        "test": "TestBundleProductionThrottledUpload",
+        "reason": "=== RUN   TestBundleProductionThrottledUpload\n    bundle_timeout_test.go:256: explicit real TCP bandwidth pacing run\n--- SKIP: TestBundleProductionThrottledUpload (0.00s)"
+      }
+    ],
+    "disposableCleanup": {
+      "leftoverDatabasesZero": false,
+      "clusterRemoved": false
+    }
+  },
+  "finalTreePlainCommands": {
+    "go test ./...": {
+      "exitCode": 0,
+      "file": "go-exit-test.log"
+    },
+    "go test -race ./...": {
+      "exitCode": 0,
+      "file": "go-exit-race.log"
+    },
+    "go vet ./...": {
+      "exitCode": 0,
+      "file": "go-final-vet.log"
+    },
+    "go vet -tags=integration ./...": {
+      "exitCode": 0,
+      "file": "go-final-vet-integration.log"
+    },
+    "go build ./...": {
+      "exitCode": 0,
+      "file": "go-build.log"
+    }
+  },
+  "postgresFullRace": {
+    "file": "pg-exit-full-race.jsonl",
+    "passedTestSubtestEvents": 1142,
+    "failedTestSubtestEvents": 0,
+    "skippedTestSubtestEvents": 11,
+    "failures": [],
+    "skips": [
+      {
+        "test": "TestFeatureSnapshotPerformanceMatrix",
+        "reason": "=== RUN   TestFeatureSnapshotPerformanceMatrix\n    features_performance_test.go:19: explicit synthetic M1 performance matrix\n--- SKIP: TestFeatureSnapshotPerformanceMatrix (0.00s)"
+      },
+      {
+        "test": "TestLoadPerformanceMatrix",
+        "reason": "=== RUN   TestLoadPerformanceMatrix\n    load_performance_test.go:49: explicit synthetic M2 performance matrix\n--- SKIP: TestLoadPerformanceMatrix (0.00s)"
+      },
+      {
+        "test": "TestPerformanceMatrix",
+        "reason": "=== RUN   TestPerformanceMatrix\n    performance_performance_test.go:23: explicit synthetic M3 performance matrix\n--- SKIP: TestPerformanceMatrix (0.00s)"
+      },
+      {
+        "test": "TestPhase4DesignatedDeviceBackend",
+        "reason": "=== RUN   TestPhase4DesignatedDeviceBackend\n    workout_device_acceptance_test.go:27: requires explicit designated-device acceptance run\n--- SKIP: TestPhase4DesignatedDeviceBackend (0.00s)"
+      },
+      {
+        "test": "TestPhase4PerformanceMatrix",
+        "reason": "=== RUN   TestPhase4PerformanceMatrix\n    workout_performance_test.go:75: set RAI_PHASE4_PERF=baseline|after for isolated performance evidence\n--- SKIP: TestPhase4PerformanceMatrix (0.00s)"
+      },
+      {
+        "test": "TestPhase4IndexWriteCost",
+        "reason": "=== RUN   TestPhase4IndexWriteCost\n    workout_performance_test.go:202: explicit paired index write-cost measurement\n--- SKIP: TestPhase4IndexWriteCost (0.00s)"
+      },
+      {
+        "test": "TestPhase4FreshGzipDurationMatrix",
+        "reason": "=== RUN   TestPhase4FreshGzipDurationMatrix\n    workout_performance_test.go:239: explicit fresh gzip import/worker measurements\n--- SKIP: TestPhase4FreshGzipDurationMatrix (0.00s)"
+      },
+      {
+        "test": "TestBundleProductionServerSlowUpload",
+        "reason": "=== RUN   TestBundleProductionServerSlowUpload\n    bundle_timeout_test.go:53: explicit 5/15/30s real socket pacing run\n--- SKIP: TestBundleProductionServerSlowUpload (0.00s)"
+      },
+      {
+        "test": "TestBundleProductionBodyBudget",
+        "reason": "=== RUN   TestBundleProductionBodyBudget\n    bundle_timeout_test.go:159: explicit ~180s production deadline boundary run\n--- SKIP: TestBundleProductionBodyBudget (0.00s)"
+      },
+      {
+        "test": "TestBundleACKWriteDeadlineAfterCommit",
+        "reason": "=== RUN   TestBundleACKWriteDeadlineAfterCommit\n    bundle_timeout_test.go:220: explicit 6s ACK write deadline test\n--- SKIP: TestBundleACKWriteDeadlineAfterCommit (0.00s)"
+      },
+      {
+        "test": "TestBundleProductionThrottledUpload",
+        "reason": "=== RUN   TestBundleProductionThrottledUpload\n    bundle_timeout_test.go:256: explicit real TCP bandwidth pacing run\n--- SKIP: TestBundleProductionThrottledUpload (0.00s)"
+      }
+    ],
+    "disposableCleanup": {
+      "leftoverDatabasesZero": true,
+      "clusterRemoved": true
+    }
+  },
+  "postgresB3FocusedRace": {
+    "file": "pg-exit-focused.jsonl",
+    "passedTestSubtestEvents": 62,
+    "failedTestSubtestEvents": 0,
+    "skippedTestSubtestEvents": 0,
+    "failures": [],
+    "skips": [],
+    "disposableCleanup": {
+      "leftoverDatabasesZero": true,
+      "clusterRemoved": true
+    }
+  },
+  "additionalEpochTieEmptyMatrix": {
+    "file": "pg-epoch-tie-performance.log",
+    "passedTestSubtestEvents": 6,
+    "failed": 0,
+    "cases": [
+      "empty0",
+      "epochs32",
+      "epochs33_fail_closed",
+      "ties256",
+      "ties257_fail_closed"
+    ],
+    "clusterRemoved": true
+  },
+  "restrictedRoleRecheck": {
+    "file": "pg-exit-roles.log",
+    "passed": true
+  },
+  "swift": {
+    "tests": 129,
+    "suites": 16,
+    "failed": 0,
+    "file": "swift-regression.log",
+    "realDeviceAcceptance": false
+  },
+  "sqlcAndFreeze": {
+    "sqlc": "1.31.1",
+    "generatedFiles": 7,
+    "secondGenerationByteStable": true,
+    "protectedFiles": 131,
+    "changedProtectedFiles": [],
+    "swiftChanges": false,
+    "oldMigrationsChanged": false,
+    "gofmtCheckedNonignoredGoFiles": 253,
+    "existingIgnoredGofmtIssueNotModified": "apps/server/.local/m5a-rd-setup/main.go"
+  },
+  "boundaries": {
+    "file": "boundaries.log",
+    "passed": true
+  },
+  "moduleVerify": {
+    "file": "module-verify.log",
+    "passed": true
+  },
+  "privacyRedactions": {
+    "uuidOccurrencesRedacted": 132,
+    "sqlDiagnosticOutputsRedacted": 258
+  },
+  "developmentFailuresResolved": [
+    "Migration constraint-name assumptions corrected against real PostgreSQL.",
+    "Role test adapted to B3-approved SELECT-only coverage access; mutation prohibitions retained.",
+    "Synthetic fixture expectations for existing withdrawal and lease retry delay corrected."
+  ],
+  "knownUnresolvedP0": [],
+  "knownUnresolvedP1": [],
+  "notVerified": [
+    "real device acceptance (DEFERRED)",
+    "real Apple Watch source distribution",
+    "real HealthKit update/delete behavior",
+    "production",
+    "WAN",
+    "physiological validity"
+  ],
+  "ownVO2MaxModel": "NOT IMPLEMENTED",
+  "active": "legacy",
+  "sourceSHA256": {
+    "apps/server/integration/vo2_external_crash_test.go": "da510c331e292900648b9e4994c628e0fa0afcab71d9f13cc03dd4277e59e124",
+    "apps/server/integration/vo2_external_explain_test.go": "395d43a95215bf2e8886f7ce28a6f3908ea96195fe860abfd847cd712b9a02a3",
+    "apps/server/integration/vo2_external_faults_test.go": "2343cdc051bb22c889750e8fc2260f6f9eeef2c64ae5859948d2271e5db731a4",
+    "apps/server/integration/vo2_external_properties_test.go": "2a12d7bbd842270e82132c369c1296328acd88a2980ffbe219efa12b1a4bc1ec",
+    "apps/server/integration/vo2_external_roles_test.go": "fcbcdfd521455ff15e284612d492a3d70f73936417f28d354b36e93091ab75b0",
+    "apps/server/integration/vo2_external_test.go": "71d9bf054750b6e67ca43eb3a9609fdc708069cd763a1675dd63f7939d6bbba5",
+    "apps/server/integration/vo2max_test.go": "8521f813b2a23f38687656509c39ae491f097bbd60bf7b2b3bddae54e209c379",
+    "apps/server/internal/admin/analysis.go": "293edcb2de1f595938d6bf962af2f19e2f43142e53874c23e95935d02b196f40",
+    "apps/server/internal/admin/features.go": "65ab7183e039dd5f337244ab7ab2d9d595915cd222fcc49b2184fba96d4fa214",
+    "apps/server/internal/admin/load.go": "b767a7eaa51db8c7dc0f40cf380cb107bd09b5ae0029ae410a8351b3a05716cc",
+    "apps/server/internal/admin/performance.go": "282e4880c811705f3c43f9ec839dc1f4be35b66e729d816d85c53b7f190f060f",
+    "apps/server/internal/admin/vo2_external.go": "80782afe773273544b1b6bb333827ab0562d3a03f59b6724213ac8a8f4f095cc",
+    "apps/server/internal/admin/vo2_external_migration_integration_test.go": "4bf972bbdb320b7cef3d3980f1b6087295671db50db2e281a56063bca82ed609",
+    "apps/server/internal/analysis/candidate_vo2_external.go": "0b78d13ea049221874693c4ebfd50346453511029fc87485818a80b17a3f23ce",
+    "apps/server/internal/analysis/model.go": "0df1ad0f5f174d560aee387fd0b3e17b632f0d5a59acef6093a7631975062215",
+    "apps/server/internal/jobs/worker.go": "7c2cc46a099cbcd36502bdb23e69711a0cb1345bfb19e17528a4bcf3ab258966",
+    "apps/server/internal/storage/postgres/analysis_input.go": "7394eb8a8ab1734544c2496b95f8f77e90803b8057a3da96467f01e61e150249",
+    "apps/server/internal/storage/postgres/analysis_publish.go": "6fb1b0e84fad85d7c34cdec8330bd55c5d31c482382082e4fcd68dc98e15debc",
+    "apps/server/internal/storage/postgres/dbgen/vo2_external.sql.go": "a57e1bd65a13b228eec731f2c0f4c276483348d42bced3f3edbf713c4d8a86aa",
+    "apps/server/internal/storage/postgres/schema.go": "ce3a22996d1f599360c4e1c980d2ff3873d8ab9b7b1eb51d0424d403cacc2f43",
+    "apps/server/internal/storage/postgres/vo2_external_input.go": "fc3fb651532ba254ce219f715b1a2aa0c97cf4d73bb77272cbe47d1d64e832a7",
+    "apps/server/internal/storage/postgres/vo2_external_publish.go": "ac69436fbe953a0040cad18703c08bb2c498e589e9bc774da0849f52b2bd1257",
+    "apps/server/internal/vo2maxexternal/freshness.go": "51f51428d2a770361a29170fdf46cd8ca11c07123a2543f0b46c8505b14a6a63",
+    "apps/server/internal/vo2maxexternal/model.go": "0f6ddbcf3629748f25f104f0e91651c54891b2bc5a1132a00ce0c3327b281914",
+    "apps/server/internal/vo2maxexternal/select.go": "4e0432edfd40718269a736eb64f5f43e12c65d99113596269909daff581ad053",
+    "apps/server/internal/vo2maxexternal/select_test.go": "a13bcfeabe332db9ece3b760da675c4551e312b33959c84c5a60a06f6137e634",
+    "apps/server/migrations/00025_vo2max_external_projection.sql": "24fa2628ed5d7a718f5373bba8a041e5801b7843f4540a7ff7ed8d13c98fcd83",
+    "apps/server/migrations/checksums.json": "490476960384e5b35530e0fba96d71adf78f849f26888e9fe9503c672ab6a271",
+    "apps/server/queries/vo2_external.sql": "3009344e1c171c1a3b936bda1435fd3d2e38656c7ed7d1cb0a40d337130b3de8",
+    "deploy/postgres/roles.sql": "474caa7518ed4235dcb44f6e573bfc5e024dc8ad591b705c9eaf313d7ab59a44",
+    "scripts/check-boundaries.py": "8b102115d6822cff740d772106bd5bc6fe9530a2d2cc402971fe8bed5cb1cf90"
+  }
+}

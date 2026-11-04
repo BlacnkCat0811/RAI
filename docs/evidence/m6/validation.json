@@ -1,0 +1,182 @@
+{
+  "clientDate": "2026-11-04",
+  "result": "PASS WITH RISKS",
+  "candidateOnly": true,
+  "schemaVersion": 27,
+  "realDeviceAcceptance": "DEFERRED",
+  "physiologicalValidation": "NOT VERIFIED",
+  "commands": [
+    {
+      "command": "go test ./...",
+      "exitCode": 0,
+      "durationSeconds": 2.287
+    },
+    {
+      "command": "go test -race ./...",
+      "exitCode": 0,
+      "durationSeconds": 1.707
+    },
+    {
+      "command": "go vet ./...",
+      "exitCode": 0,
+      "durationSeconds": 0.261
+    },
+    {
+      "command": "go vet -tags=integration ./...",
+      "exitCode": 0,
+      "durationSeconds": 0.893
+    },
+    {
+      "command": "python3 scripts/check-boundaries.py",
+      "exitCode": 0,
+      "durationSeconds": 1.473
+    },
+    {
+      "command": "/Users/ta/RAI/.local/bin/sqlc generate",
+      "exitCode": 0,
+      "durationSeconds": 1.376
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0,
+      "durationSeconds": 0.039
+    }
+  ],
+  "fullPG": {
+    "command": "RAI_M6_PERF=1 scripts/test-postgres.sh go test -race -count=1 -timeout=25m -tags=integration ./...",
+    "exitCode": 0,
+    "integrationSeconds": 957.597,
+    "serverVersion": "18.6",
+    "cluster": "fresh isolated Unix socket; checksums/fsync/full_page_writes/synchronous_commit enabled",
+    "leftoverDatabases": 0,
+    "clusterRemoved": true,
+    "scopeNote": "Complete pre-final-boundary compiled snapshot. The last M2 unit/schema/scope and future-baseline guards are additionally verified in the final current-source M6/race suite."
+  },
+  "finalFocusedPG": {
+    "command": "scripts/test-postgres.sh go test -race -count=1 -timeout=12m -tags=integration -run TestReadiness -v ./internal/admin ./integration",
+    "exitCode": 0,
+    "integrationSeconds": 97.714,
+    "includesFinalBoundaryGuards": true,
+    "leftoverDatabases": 0,
+    "clusterRemoved": true
+  },
+  "finalPerformancePG": {
+    "exitCode": 0,
+    "integrationSeconds": 99.674,
+    "matrixCases": 25,
+    "histories": [
+      14,
+      42,
+      90,
+      180,
+      365
+    ],
+    "recentDensities": [
+      0,
+      1,
+      5,
+      20,
+      100
+    ],
+    "sparseOldHistory": true,
+    "includesRaceDetector": true,
+    "productionSLO": false,
+    "leftoverDatabases": 0,
+    "clusterRemoved": true
+  },
+  "domainTopLevelTests": 9,
+  "pgTopLevelTests": 14,
+  "migrationTopLevelTests": 1,
+  "incrementalRebuildSteps": 18,
+  "randomMathPropertyIterations": 2000,
+  "migration": "empty->27;26->27;repeat PASS",
+  "roles": "actual restricted rai_api/rai_worker PASS",
+  "faultStages": [
+    "snapshot_run_capture",
+    "artifact",
+    "result",
+    "publication",
+    "dirty_clean",
+    "run_terminal",
+    "job_terminal",
+    "attempt_terminal"
+  ],
+  "backendTerminationStages": [
+    "after_artifact",
+    "before_publication",
+    "before_clean"
+  ],
+  "fences": [
+    "new_workout",
+    "delete_workout",
+    "load_revision",
+    "recovery_withdraw",
+    "recovery_revision",
+    "coverage",
+    "config",
+    "assignment",
+    "timezone",
+    "collector",
+    "device",
+    "m2_assignment",
+    "lease",
+    "takeover"
+  ],
+  "realM2ParameterRevisionSameM5B": "PASS",
+  "M3M4Independence": "PASS",
+  "productDTOIsolation": "PASS",
+  "rawDeleteRollback": "PASS",
+  "knownFutureWorkoutCannotAffectBaseline": "PASS",
+  "M2UnitMismatchRefused": "PASS",
+  "orphanedDependencyGenerationPrevented": "PASS",
+  "workoutRealCoverageTransport": "NOT IMPLEMENTED: ordinary candidates sync_incomplete; explicit synthetic fixture evidence only",
+  "swiftFullPackage": {
+    "command": "swift test --package-path ios/RAI",
+    "exitCode": 1,
+    "status": "FAILED: installed CommandLineTools lacks Testing module",
+    "developerDir": null,
+    "xcodeSelect": "/Library/Developer/CommandLineTools",
+    "sourceChangesByM6": false,
+    "simulatorUITested": false
+  },
+  "queryPlan": "forced-index capability EXPLAIN/ANALYZE; bounded range and index verified; natural production planner not verified",
+  "publicEvidenceFullUUIDCount": 0,
+  "frozenSourceCount": 40,
+  "oldSourcesMigrationsChecksums": "UNCHANGED",
+  "notVerified": [
+    "real Training Load completeness",
+    "real Recovery distribution",
+    "real Readiness validity",
+    "real training response",
+    "injury prediction",
+    "illness prediction",
+    "population calibration",
+    "WAN",
+    "production",
+    "real device acceptance",
+    "physiological validation",
+    "Swift full package regression",
+    "Simulator UI"
+  ],
+  "knownOpenP0": [],
+  "knownOpenP1": [],
+  "deployment": false,
+  "gitCommitOrPush": false,
+  "productionAccess": false,
+  "M7Started": false,
+  "finalSourceSHA256": {
+    "apps/server/integration/readiness_fault_test.go": "9380f50b98589d3503e17bd8145762df38d057a0458d9c56adde7068166cb370",
+    "apps/server/integration/readiness_performance_test.go": "f4abaf2a0d7890baf6e8e46926d72fab6ea1174235c20c99e6211dafd8530927",
+    "apps/server/integration/readiness_test.go": "021428300ab398b02b414666b2ac0ccfe7a6821d8df40cceec212eb8df53c24d",
+    "apps/server/internal/admin/readiness_candidate.go": "710875680f2726bd666e01a4f0971f23bedc63ee7780617835e9cae536a33af3",
+    "apps/server/internal/admin/readiness_migration_integration_test.go": "810f11c5411a1643bf156f3b5f003c396725db6fd58fd1bb55e547360fa0d64e",
+    "apps/server/internal/analysis/candidate_readiness.go": "6312f22454027d46d4f1c2a32837abece33f746f251fa140a13bf03f46d68d02",
+    "apps/server/internal/readiness/calculate.go": "80840e491a17650322ba34eeedd9707b512c6f1edd7fbdb97646f2dca274629b",
+    "apps/server/internal/readiness/model.go": "355dbea7c303c95574cbe0641a95a21d1ba57de79a514828c812041aa677f698",
+    "apps/server/internal/readiness/readiness_test.go": "6b10b46e6bd9dc44e7fe705db5ddb13877e8df93433ace28d81f1ca9ddd817ef",
+    "apps/server/internal/storage/postgres/readiness_input.go": "8416a4706956cd3d65a2da00b79cbbba4a76ec0089dfc374974d3e8b89fa4058",
+    "apps/server/internal/storage/postgres/readiness_publish.go": "e47f9dbaad06d01345bf7d96ebfd6660c9351fb28bbadaf188904d7d28623156",
+    "apps/server/migrations/00027_training_readiness.sql": "53944ca13b75c65cb368a7aa6320870644d020861f157f3ed6335cf8ef689c73",
+    "apps/server/queries/readiness.sql": "82f546b70a2e46a7fc1454fec7ba626a3df297c18360ad4e3048d829a88856bf"
+  }
+}

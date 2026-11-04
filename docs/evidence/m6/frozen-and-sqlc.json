@@ -1,0 +1,9 @@
+{
+  "sqlcRegeneration": "PASS",
+  "frozenSourceHashes": "UNCHANGED",
+  "priorChecksumEntries": "UNCHANGED",
+  "frozenFileCount": 40,
+  "schemaVersion": 27,
+  "go": "go version go1.27.3 darwin/amd64",
+  "sqlc": "v1.31.1"
+}

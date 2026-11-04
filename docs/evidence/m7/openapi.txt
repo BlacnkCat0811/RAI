@@ -1,0 +1,6 @@
+== redocly 2.71.1 (node 22.23.2) ==
+You have 33 warnings.
+
+OpenAPI lint: 0 errors, 33 warnings
+/Users/ta/RAI/docs/evidence/local-contracts-lint.json
+CONTRACTS LINT: PASS

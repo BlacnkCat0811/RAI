@@ -1,0 +1,401 @@
+[0/1] Planning build
+Building for debugging...
+[0/14] Write sources
+[1/14] Copying Fixtures
+[2/14] Write swift-version-1CC3DFB9598CC82.txt
+[4/8] Compiling ProductCore AthleteModel.swift
+[5/8] Emitting module ProductCore
+[5/10] Write Objects.LinkFileList
+[7/10] Linking ProductProbe
+[8/10] Applying ProductProbe
+[9/10] Linking RAIClientPackageTests
+Build complete! (5.12s)
+Test Suite 'All tests' started at 2026-11-04 22:43:07.062.
+Test Suite 'RAIClientPackageTests.xctest' started at 2026-11-04 22:43:07.064.
+Test Suite 'DisasterRecoveryLiveTests' started at 2026-11-04 22:43:07.064.
+Test Case '-[SyncCoreTests.DisasterRecoveryLiveTests testRecoveryAcrossActualSwiftGoPostgres]' started.
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/DisasterRecoveryLiveTests.swift:8: -[SyncCoreTests.DisasterRecoveryLiveTests testRecoveryAcrossActualSwiftGoPostgres] : Test skipped - Run via disposable PostgreSQL recovery harness
+Test Case '-[SyncCoreTests.DisasterRecoveryLiveTests testRecoveryAcrossActualSwiftGoPostgres]' skipped (0.003 seconds).
+Test Suite 'DisasterRecoveryLiveTests' passed at 2026-11-04 22:43:07.067.
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'WorkoutBundleTests' started at 2026-11-04 22:43:07.067.
+Test Case '-[SyncCoreTests.WorkoutBundleTests testBundleIsOneDeterministicProtocol3Document]' started.
+Test Case '-[SyncCoreTests.WorkoutBundleTests testBundleIsOneDeterministicProtocol3Document]' passed (0.003 seconds).
+Test Case '-[SyncCoreTests.WorkoutBundleTests testMultipartUsesSingleFileField]' started.
+Test Case '-[SyncCoreTests.WorkoutBundleTests testMultipartUsesSingleFileField]' passed (0.001 seconds).
+Test Suite 'WorkoutBundleTests' passed at 2026-11-04 22:43:07.071.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'WorkoutPerformanceTests' started at 2026-11-04 22:43:07.071.
+Test Case '-[SyncCoreTests.WorkoutPerformanceTests testDurationMatrix]' started.
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/WorkoutPerformanceTests.swift:7: -[SyncCoreTests.WorkoutPerformanceTests testDurationMatrix] : Test skipped - explicit synthetic performance run
+Test Case '-[SyncCoreTests.WorkoutPerformanceTests testDurationMatrix]' skipped (0.001 seconds).
+Test Suite 'WorkoutPerformanceTests' passed at 2026-11-04 22:43:07.072.
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'WorkoutReliabilityLiveTests' started at 2026-11-04 22:43:07.072.
+Test Case '-[SyncCoreTests.WorkoutReliabilityLiveTests testActualClientHTTPDatabaseRecovery]' started.
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/WorkoutReliabilityLiveTests.swift:14: -[SyncCoreTests.WorkoutReliabilityLiveTests testActualClientHTTPDatabaseRecovery] : Test skipped - Run via isolated PostgreSQL Go integration harness
+Test Case '-[SyncCoreTests.WorkoutReliabilityLiveTests testActualClientHTTPDatabaseRecovery]' skipped (0.001 seconds).
+Test Suite 'WorkoutReliabilityLiveTests' passed at 2026-11-04 22:43:07.073.
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'RAIClientPackageTests.xctest' passed at 2026-11-04 22:43:07.074.
+	 Executed 5 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'All tests' passed at 2026-11-04 22:43:07.074.
+	 Executed 5 tests, with 3 tests skipped and 0 failures (0 unexpected) in 0.008 (0.012) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: x86_64-apple-macos14.0
+◇ Suite HealthIntegrityTests started.
+◇ Suite RecoveryBoundaryTests started.
+◇ Suite HealthDiscoveryTests started.
+◇ Suite SyncCoreTests started.
+◇ Suite WorkoutTaskTests started.
+◇ Suite ForegroundSyncSchedulerTests started.
+◇ Suite RecoverySessionTests started.
+◇ Suite WorkoutDetailTests started.
+◇ Suite VO2MaxTests started.
+◇ Suite ProductTests started.
+◇ Suite APITests started.
+◇ Suite GarbageCollectionTests started.
+◇ Suite WorkoutReliabilityTests started.
+◇ Suite SyncSessionTests started.
+◇ Suite DailyHealthTests started.
+◇ Suite TrainingPageTests started.
+◇ Test coverageEmptyFailedUnknownAndProcessingAreDistinct() started.
+◇ Suite AthleteModelTests started.
+◇ Test routeSpoolChunkBoundaryRegressionAndIllegalValues() started.
+◇ Test legacyPagesArePurgedWithTheirFiles() started.
+◇ Test deletionBlocksOldUploadWithoutFalseACK() started.
+◇ Test routeCaptureReplaysPrefixKeepsAllTimestampsAndInterruptedBytes() started.
+◇ Test existingLocalTaskKeepsLateChildChangesSelected() started.
+◇ Test partialReadACKKeepsCoverageAndRetriesBounded() started.
+◇ Test routeIncompleteTailAndCountNeverComplete() started.
+◇ Test writeFailuresCannotPromoteOrLoseJournal() started.
+◇ Test bundleFileIsDurableAndReclaimedAfterAck() started.
+◇ Test OldSessionBecomesRecoveryRequiredAndOnlyExplicitIdentityProofTriggersIt() started.
+◇ Test deviceScopedNativeWatchRequiresProductAndDevice() started.
+◇ Test RecoverySessionRequiresEveryHandshakeFieldAndActivationIsAtomic() started.
+◇ Test backgroundCancellationDoesNotStartQueuedManualWork() started.
+◇ Test decodesFreshnessStatesAndEmptyBundle() started.
+◇ Test unresolvedDeletionResolvedOnlyByExplicitIndex() started.
+◇ Test manualSyncWaitsForAutomaticCleanupAndReservesPriority() started.
+◇ Test permanentRejectionStopsAutomaticWritesWithoutDiscardingPending(code:) started.
+◇ Test boundedHistoricalBatchesSurviveEveryRestart() started.
+◇ Test childDeleteParksExactUnacknowledgedBytes() started.
+◇ Test decodesNativeDetailAndSeriesContracts() started.
+◇ Test canonicalGoldenAndLimits() started.
+◇ Test provenanceUsesEvidenceAndNeverNames() started.
+◇ Test pendingIntentIncludesTheEntireSemanticPayload() started.
+◇ Test failuresAndLostACKKeepPending(status:) started.
+◇ Test parentDeleteACKCannotReleaseLaterChildDeletionBundle() started.
+◇ Test blockedPageAndOrphansAreGCRoots() started.
+◇ Test precisionAndRegistry() started.
+◇ Test RecoverySessionDoesNotReuseOldACKOutboxDeletedSetOrKeychainAccountAndCanRepeat() started.
+◇ Test sharedContextBackoffAndSchedulerOpportunitySurviveRestart() started.
+◇ Test bodyBeforeFailedStatePublishIsReclaimed() started.
+◇ Test regeneratedEffectiveProjectionKeepsServerValues() started.
+◇ Test fixedFingerprintAndOldStateCompatibility() started.
+◇ Test pendingSubmissionRequiresTheExactOriginalIdentity() started.
+◇ Test effectivePresentationUsesServerFields() started.
+◇ Test twoPhaseAnchorCrashReplayAndIndependentTypes() started.
+◇ Test successfulGenerationDoesNotShowAnErrorSentinel() started.
+◇ Test rejectedCommandRetainsDraftUntilExplicitReview() started.
+◇ Test manualAndCreateDraftChangesAreDistinct() started.
+◇ Test malformedTransportResponseKeepsUnknownCommit() started.
+◇ Test missingAndQualityAreNotZero() started.
+◇ Test transferCacheIsReclaimedWithACK() started.
+◇ Test equivalentFactsDoNotCreateWorkWhenArchiveBytesDiffer() started.
+◇ Test noCapabilityNoFallbackAndACKReplacementFailure() started.
+◇ Test invalidAnchorAndContractStayQuarantined() started.
+◇ Test killAfterServerCommitAndFailedAnchorSaveRecoverOldOrNewState() started.
+◇ Test preparedSessionSurvivesRestartAndHandshakeMustPassBeforeAtomicActivation() started.
+◇ Test deliveredPayloadMayBeUnavailableAfterServerRollback() started.
+◇ Test durableAnchorPrecedesSweepAndPendingFilesSurvive() started.
+◇ Test offlineHandshakeDefersDailyAlongsideExistingRecovery() started.
+◇ Test observerDuringQueryRetainsNewerWakeGeneration() started.
+◇ Test perTypeAnchorsPendingAndDeletesSurviveRestart() started.
+◇ Test newSessionUsesIndependentDirectoryKeychainAndEmptyOutbox() started.
+◇ Test oldBackgroundCallbackResolvesOnlyItsOwnSession() started.
+◇ Test boundedBodyAndImmutablePending() started.
+◇ Test immutableCommandSurvivesReopenAndLostACK() started.
+◇ Test failedOutboxInitializationResumesSamePreparedIdentity() started.
+◇ Test oldBundleCannotUploadInNewSessionAndNewACKIsScopedByBundleHash() started.
+◇ Test nilAnchorDiscoversVisibleHistoryWithoutInheritingOldDeletionAndRepeatedDiscoveryIsIdempotent() started.
+◇ Test workoutDeletionRequiresDurableACK() started.
+◇ Test commandReceiptCannotAcknowledgeAnotherExecution() started.
+◇ Test reusedTokenOrDatasetCannotPrepareAnotherSession() started.
+◇ Test pendingSleepGetsCapacityBeforeFreshEmptyQueries() started.
+◇ Test perWorkoutStreamsAreIndependent() started.
+◇ Test failedUploadAndLostACKKeepExactBytes(_:) started.
+◇ Test cancelledDeliveryKeepsBundleAndCachedResponseForReattachment() started.
+◇ Test legacyOutboxCannotBeReboundAsNewSession() started.
+◇ Test case passing 1 argument code → "collector_fenced" to permanentRejectionStopsAutomaticWritesWithoutDiscardingPending(code:) started.
+◇ Test case passing 1 argument code → "generation_conflict" to permanentRejectionStopsAutomaticWritesWithoutDiscardingPending(code:) started.
+◇ Test case passing 1 argument code → "sample_identity_conflict" to permanentRejectionStopsAutomaticWritesWithoutDiscardingPending(code:) started.
+◇ Test case passing 1 argument code → "unsupported_metadata" to permanentRejectionStopsAutomaticWritesWithoutDiscardingPending(code:) started.
+◇ Test case passing 1 argument status → -1 to failuresAndLostACKKeepPending(status:) started.
+◇ Test case passing 1 argument status → 500 to failuresAndLostACKKeepPending(status:) started.
+◇ Test case passing 1 argument status → 429 to failuresAndLostACKKeepPending(status:) started.
+◇ Test case passing 1 argument status → 201 to failuresAndLostACKKeepPending(status:) started.
+◇ Test canonicalEnvelopeFixture() started.
+M4B2_SYNTHETIC_STATE_COMMIT bytes=660 duration_us=16077.041625976562
+◇ Test auditInitialMoreFailureRetryAndTerminalCursor() started.
+◇ Test unknownModelCanChangeValueShape() started.
+◇ Test sharedGoldenDecodeAndSemanticRoundTrip() started.
+◇ Test unknownEnumsNeverCrashAndNullNeverBecomesZero() started.
+◇ Test case passing 1 argument mode → .offline to failedUploadAndLostACKKeepExactBytes(_:) started.
+◇ Test case passing 1 argument mode → .lostACK to failedUploadAndLostACKKeepExactBytes(_:) started.
+◇ Test case passing 1 argument mode → .internalError to failedUploadAndLostACKKeepExactBytes(_:) started.
+◇ Test case passing 1 argument mode → .wrongACK to failedUploadAndLostACKKeepExactBytes(_:) started.
+✔ Test coverageEmptyFailedUnknownAndProcessingAreDistinct() passed after 0.150 seconds.
+✔ Test deviceScopedNativeWatchRequiresProductAndDevice() passed after 0.150 seconds.
+✔ Test decodesFreshnessStatesAndEmptyBundle() passed after 0.150 seconds.
+✔ Test routeIncompleteTailAndCountNeverComplete() passed after 0.151 seconds.
+✔ Test routeSpoolChunkBoundaryRegressionAndIllegalValues() passed after 0.151 seconds.
+✔ Test routeCaptureReplaysPrefixKeepsAllTimestampsAndInterruptedBytes() passed after 0.151 seconds.
+✔ Test legacyPagesArePurgedWithTheirFiles() passed after 0.151 seconds.
+✔ Test bundleFileIsDurableAndReclaimedAfterAck() passed after 0.151 seconds.
+✔ Test unresolvedDeletionResolvedOnlyByExplicitIndex() passed after 0.151 seconds.
+✔ Test deletionBlocksOldUploadWithoutFalseACK() passed after 0.151 seconds.
+✔ Test existingLocalTaskKeepsLateChildChangesSelected() passed after 0.151 seconds.
+✔ Test provenanceUsesEvidenceAndNeverNames() passed after 0.151 seconds.
+✔ Test decodesNativeDetailAndSeriesContracts() passed after 0.151 seconds.
+✔ Test pendingIntentIncludesTheEntireSemanticPayload() passed after 0.151 seconds.
+✔ Test OldSessionBecomesRecoveryRequiredAndOnlyExplicitIdentityProofTriggersIt() passed after 0.152 seconds.
+✔ Test partialReadACKKeepsCoverageAndRetriesBounded() passed after 0.152 seconds.
+✔ Test childDeleteParksExactUnacknowledgedBytes() passed after 0.152 seconds.
+✔ Test permanentRejectionStopsAutomaticWritesWithoutDiscardingPending(code:) with 4 test cases passed after 0.152 seconds.
+✔ Test parentDeleteACKCannotReleaseLaterChildDeletionBundle() passed after 0.152 seconds.
+✔ Test precisionAndRegistry() passed after 0.152 seconds.
+✔ Test writeFailuresCannotPromoteOrLoseJournal() passed after 0.152 seconds.
+✔ Test regeneratedEffectiveProjectionKeepsServerValues() passed after 0.152 seconds.
+✔ Test failuresAndLostACKKeepPending(status:) with 4 test cases passed after 0.152 seconds.
+✔ Test effectivePresentationUsesServerFields() passed after 0.152 seconds.
+✔ Test blockedPageAndOrphansAreGCRoots() passed after 0.152 seconds.
+✔ Test successfulGenerationDoesNotShowAnErrorSentinel() passed after 0.152 seconds.
+✔ Test rejectedCommandRetainsDraftUntilExplicitReview() passed after 0.152 seconds.
+✔ Test missingAndQualityAreNotZero() passed after 0.152 seconds.
+✔ Test manualAndCreateDraftChangesAreDistinct() passed after 0.152 seconds.
+✔ Test pendingSubmissionRequiresTheExactOriginalIdentity() passed after 0.153 seconds.
+✔ Test malformedTransportResponseKeepsUnknownCommit() passed after 0.153 seconds.
+✔ Test sharedContextBackoffAndSchedulerOpportunitySurviveRestart() passed after 0.153 seconds.
+✔ Test bodyBeforeFailedStatePublishIsReclaimed() passed after 0.153 seconds.
+✔ Test RecoverySessionRequiresEveryHandshakeFieldAndActivationIsAtomic() passed after 0.154 seconds.
+✔ Test twoPhaseAnchorCrashReplayAndIndependentTypes() passed after 0.153 seconds.
+✔ Test noCapabilityNoFallbackAndACKReplacementFailure() passed after 0.153 seconds.
+✔ Test equivalentFactsDoNotCreateWorkWhenArchiveBytesDiffer() passed after 0.153 seconds.
+✔ Test invalidAnchorAndContractStayQuarantined() passed after 0.153 seconds.
+✔ Test transferCacheIsReclaimedWithACK() passed after 0.153 seconds.
+✔ Test offlineHandshakeDefersDailyAlongsideExistingRecovery() passed after 0.153 seconds.
+✔ Test killAfterServerCommitAndFailedAnchorSaveRecoverOldOrNewState() passed after 0.153 seconds.
+✔ Test durableAnchorPrecedesSweepAndPendingFilesSurvive() passed after 0.153 seconds.
+✔ Test deliveredPayloadMayBeUnavailableAfterServerRollback() passed after 0.153 seconds.
+✔ Test fixedFingerprintAndOldStateCompatibility() passed after 0.154 seconds.
+✔ Test preparedSessionSurvivesRestartAndHandshakeMustPassBeforeAtomicActivation() passed after 0.161 seconds.
+✔ Test boundedBodyAndImmutablePending() passed after 0.161 seconds.
+✔ Test immutableCommandSurvivesReopenAndLostACK() passed after 0.162 seconds.
+✔ Test commandReceiptCannotAcknowledgeAnotherExecution() passed after 0.162 seconds.
+✔ Test oldBackgroundCallbackResolvesOnlyItsOwnSession() passed after 0.162 seconds.
+✔ Test newSessionUsesIndependentDirectoryKeychainAndEmptyOutbox() passed after 0.162 seconds.
+✔ Test reusedTokenOrDatasetCannotPrepareAnotherSession() passed after 0.163 seconds.
+✔ Test observerDuringQueryRetainsNewerWakeGeneration() passed after 0.163 seconds.
+✔ Test perTypeAnchorsPendingAndDeletesSurviveRestart() passed after 0.163 seconds.
+✔ Test perWorkoutStreamsAreIndependent() passed after 0.163 seconds.
+✔ Test failedOutboxInitializationResumesSamePreparedIdentity() passed after 0.163 seconds.
+✔ Test oldBundleCannotUploadInNewSessionAndNewACKIsScopedByBundleHash() passed after 0.163 seconds.
+✔ Test legacyOutboxCannotBeReboundAsNewSession() passed after 0.163 seconds.
+✔ Test nilAnchorDiscoversVisibleHistoryWithoutInheritingOldDeletionAndRepeatedDiscoveryIsIdempotent() passed after 0.163 seconds.
+✔ Test canonicalEnvelopeFixture() passed after 0.099 seconds.
+✔ Test unknownEnumsNeverCrashAndNullNeverBecomesZero() passed after 0.043 seconds.
+✔ Test unknownModelCanChangeValueShape() passed after 0.043 seconds.
+✔ Suite HealthIntegrityTests passed after 0.165 seconds.
+✔ Suite ProductTests passed after 0.166 seconds.
+✔ Suite WorkoutDetailTests passed after 0.166 seconds.
+◇ Test failedAuthorityCommitAndInterruptedSweepRecover() started.
+◇ Test oneWorkoutPageCarriesOneWorkoutEventAndTaskIdentity() started.
+◇ Test pendingAndPartiallyAcknowledgedJournalSurvivesRestart() started.
+✔ Suite SyncSessionTests passed after 0.166 seconds.
+◇ Test pageManifestFixture() started.
+✔ Test failedUploadAndLostACKKeepExactBytes(_:) with 4 test cases passed after 0.166 seconds.
+✔ Test backgroundCancellationDoesNotStartQueuedManualWork() passed after 0.168 seconds.
+✔ Test manualSyncWaitsForAutomaticCleanupAndReservesPriority() passed after 0.168 seconds.
+✔ Suite ForegroundSyncSchedulerTests passed after 0.169 seconds.
+✔ Test pendingSleepGetsCapacityBeforeFreshEmptyQueries() passed after 0.170 seconds.
+✔ Test cancelledDeliveryKeepsBundleAndCachedResponseForReattachment() passed after 0.170 seconds.
+✔ Suite DailyHealthTests passed after 0.172 seconds.
+◇ Test networkThen404RetriesOriginalBundle(_:) started.
+◇ Test case passing 1 argument code → Code(rawValue: -1009) to networkThen404RetriesOriginalBundle(_:) started.
+✔ Test auditInitialMoreFailureRetryAndTerminalCursor() passed after 0.053 seconds.
+◇ Test historySummaryPaginationAndRetry() started.
+✔ Test oneWorkoutPageCarriesOneWorkoutEventAndTaskIdentity() passed after 0.010 seconds.
+◇ Test taskRetryOnlyTouchesItsOwnPages() started.
+✔ Test pendingAndPartiallyAcknowledgedJournalSurvivesRestart() passed after 0.012 seconds.
+✔ Suite RecoveryBoundaryTests passed after 0.179 seconds.
+✔ Test failedAuthorityCommitAndInterruptedSweepRecover() passed after 0.014 seconds.
+✔ Test workoutDeletionRequiresDurableACK() passed after 0.179 seconds.
+◇ Test referencedOrAuthorityFilesCannotBeSwept() started.
+◇ Test commitResponseLossAndProcessReconstruction() started.
+✔ Test historySummaryPaginationAndRetry() passed after 0.007 seconds.
+◇ Test emptyAuditAndOversizedResponsePreserveCursor() started.
+✔ Test pageManifestFixture() passed after 0.016 seconds.
+◇ Test goNumberBoundaries() started.
+✔ Test goNumberBoundaries() passed after 0.001 seconds.
+◇ Test goRouteCanonicalAndHashVectors() started.
+✔ Test emptyAuditAndOversizedResponsePreserveCursor() passed after 0.002 seconds.
+◇ Test fitnessV2RemainsVisibleWithUnknownVersionRejected() started.
+✔ Test fitnessV2RemainsVisibleWithUnknownVersionRejected() passed after 0.001 seconds.
+✔ Suite TrainingPageTests passed after 0.186 seconds.
+✔ Test taskRetryOnlyTouchesItsOwnPages() passed after 0.033 seconds.
+✔ Test referencedOrAuthorityFilesCannotBeSwept() passed after 0.028 seconds.
+✔ Suite GarbageCollectionTests passed after 0.210 seconds.
+✔ Test RecoverySessionDoesNotReuseOldACKOutboxDeletedSetOrKeychainAccountAndCanRepeat() passed after 0.209 seconds.
+◇ Test taskStateProjectionAndRestart() started.
+✔ Suite RecoverySessionTests passed after 0.211 seconds.
+✔ Test sharedGoldenDecodeAndSemanticRoundTrip() passed after 0.092 seconds.
+✔ Suite AthleteModelTests passed after 0.214 seconds.
+✔ Test taskStateProjectionAndRestart() passed after 0.004 seconds.
+◇ Test stagedTaskAcknowledgesOnlyAfterAllPagesDeliver() started.
+◇ Test case passing 1 argument code → Code(rawValue: -1005) to networkThen404RetriesOriginalBundle(_:) started.
+✔ Test stagedTaskAcknowledgesOnlyAfterAllPagesDeliver() passed after 0.004 seconds.
+◇ Test earlyPageCannotMarkWholeTaskAcknowledged() started.
+✔ Test earlyPageCannotMarkWholeTaskAcknowledged() passed after 0.004 seconds.
+◇ Test permanentlyRejectedTaskPageSettlesAsFailed() started.
+✔ Test permanentlyRejectedTaskPageSettlesAsFailed() passed after 0.004 seconds.
+◇ Test interruptedPreparationBecomesRetryableFailure() started.
+✔ Test interruptedPreparationBecomesRetryableFailure() passed after 0.003 seconds.
+◇ Test rejectedIdentityPageCanBeDiscardedBeforeItsBatchCommits() started.
+✔ Test canonicalGoldenAndLimits() passed after 0.235 seconds.
+✔ Suite VO2MaxTests passed after 0.236 seconds.
+✔ Test commitResponseLossAndProcessReconstruction() passed after 0.055 seconds.
+◇ Test timeoutBeforeCommitRetriesSameBodyAndIdentity() started.
+◇ Test case passing 1 argument code → Code(rawValue: -1001) to networkThen404RetriesOriginalBundle(_:) started.
+✔ Test rejectedIdentityPageCanBeDiscardedBeforeItsBatchCommits() passed after 0.012 seconds.
+◇ Test oldWorkoutReferenceStillDecodesWithoutProvenanceVersion() started.
+✔ Test oldWorkoutReferenceStillDecodesWithoutProvenanceVersion() passed after 0.001 seconds.
+◇ Test provenanceVersionCanBeRecordedForOneWorkout() started.
+✔ Test provenanceVersionCanBeRecordedForOneWorkout() passed after 0.002 seconds.
+◇ Test legacyRelationshipPageIsAdoptedByExactlyOneTask() started.
+✔ Test legacyRelationshipPageIsAdoptedByExactlyOneTask() passed after 0.002 seconds.
+◇ Test legacyStateWithoutTasksStillDecodes() started.
+✔ Test legacyStateWithoutTasksStillDecodes() passed after 0.003 seconds.
+✔ Suite WorkoutTaskTests passed after 0.256 seconds.
+✔ Test networkThen404RetriesOriginalBundle(_:) with 3 test cases passed after 0.089 seconds.
+◇ Test invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "empty" to invalidACKPreservesSource(_:) started.
+✔ Test timeoutBeforeCommitRetriesSameBodyAndIdentity() passed after 0.034 seconds.
+◇ Test missingReferencedPayloadCannotAdvanceAnchorAndRetrySurvivesGC() started.
+◇ Test case passing 1 argument variant → "json" to invalidACKPreservesSource(_:) started.
+✔ Test goRouteCanonicalAndHashVectors() passed after 0.093 seconds.
+◇ Test goStringEscapingAndSeriesCanonical() started.
+✔ Test goStringEscapingAndSeriesCanonical() passed after 0.001 seconds.
+◇ Test gzipStableAndEmpty() started.
+✔ Test gzipStableAndEmpty() passed after 0.001 seconds.
+◇ Test candidatePersistsWithoutAdvancingDelivered() started.
+◇ Test case passing 1 argument variant → "trailing_json" to invalidACKPreservesSource(_:) started.
+✔ Test candidatePersistsWithoutAdvancingDelivered() passed after 0.012 seconds.
+◇ Test receiptCannotAdvanceWrongBatchOrHash() started.
+✔ Test receiptCannotAdvanceWrongBatchOrHash() passed after 0.008 seconds.
+◇ Test batchACKAdvancesSequenceButWaitsForPageSeal() started.
+◇ Test case passing 1 argument variant → "null" to invalidACKPreservesSource(_:) started.
+✔ Test missingReferencedPayloadCannotAdvanceAnchorAndRetrySurvivesGC() passed after 0.041 seconds.
+✔ Test batchACKAdvancesSequenceButWaitsForPageSeal() passed after 0.012 seconds.
+◇ Test serviceUnavailablePreservesCandidateAndBackoff() started.
+◇ Test malformedDurableReceiptCannotAdvanceState() started.
+◇ Test case passing 1 argument variant → "empty_jobs" to invalidACKPreservesSource(_:) started.
+✔ Test serviceUnavailablePreservesCandidateAndBackoff() passed after 0.010 seconds.
+◇ Test rateLimitStopsPassInsteadOfHammeringEveryPage() started.
+✔ Test malformedDurableReceiptCannotAdvanceState() passed after 0.013 seconds.
+◇ Test receiptAllowsCollapsedEventsAndAllFrozenOutcomes() started.
+◇ Test case passing 1 argument variant → "bad_job" to invalidACKPreservesSource(_:) started.
+✔ Test receiptAllowsCollapsedEventsAndAllFrozenOutcomes() passed after 0.006 seconds.
+◇ Test missingPayloadAndSecondPendingPageRefused() started.
+✔ Test rateLimitStopsPassInsteadOfHammeringEveryPage() passed after 0.011 seconds.
+◇ Test conflictDoesNotAutomaticallyRetry() started.
+✔ Test missingPayloadAndSecondPendingPageRefused() passed after 0.002 seconds.
+◇ Test failedAtomicWriteCannotAdvanceMemoryOrDisk() started.
+◇ Test case passing 1 argument variant → "missing_id" to invalidACKPreservesSource(_:) started.
+✔ Test conflictDoesNotAutomaticallyRetry() passed after 0.012 seconds.
+◇ Test wrongSealedManifestCannotAdvanceAnchor() started.
+✔ Test failedAtomicWriteCannotAdvanceMemoryOrDisk() passed after 0.012 seconds.
+◇ Test multiFragmentPageCannotPromoteAnchorAfterFirstACK() started.
+◇ Test case passing 1 argument variant → "wrong_id" to invalidACKPreservesSource(_:) started.
+✔ Test wrongSealedManifestCannotAdvanceAnchor() passed after 0.021 seconds.
+◇ Test seriesConcurrencyKeepsReceiptsAndWaitsForPageSeal() started.
+◇ Test case passing 1 argument variant → "wrong_receipt" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "zero_rev" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "missing_rev" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "null_rev" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "type_rev" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "status" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "missing_jobs" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "null_jobs" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "counts_type" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "counts_missing" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "counts_negative" to invalidACKPreservesSource(_:) started.
+✔ Test boundedHistoricalBatchesSurviveEveryRestart() passed after 0.515 seconds.
+✔ Suite HealthDiscoveryTests passed after 0.516 seconds.
+◇ Test case passing 1 argument variant → "delete_ack" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "201" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "202" to invalidACKPreservesSource(_:) started.
+✔ Test multiFragmentPageCannotPromoteAnchorAfterFirstACK() passed after 0.316 seconds.
+◇ Test sourceDeletionCancelsStaleAssociationWithoutForgingReceipt() started.
+◇ Test case passing 1 argument variant → "204" to invalidACKPreservesSource(_:) started.
+✔ Test sourceDeletionCancelsStaleAssociationWithoutForgingReceipt() passed after 0.041 seconds.
+◇ Test scopeSwitchAndCorruptStateRefused() started.
+◇ Test case passing 1 argument variant → "500" to invalidACKPreservesSource(_:) started.
+✔ Test scopeSwitchAndCorruptStateRefused() passed after 0.005 seconds.
+◇ Test retryClassificationAndCap() started.
+✔ Test retryClassificationAndCap() passed after 0.001 seconds.
+◇ Test routeSpoolBoundsHashesAndRestartFiles() started.
+✔ Test seriesConcurrencyKeepsReceiptsAndWaitsForPageSeal() passed after 0.346 seconds.
+◇ Test lateAssociationWakesOnlyAfterNewDurableFacts() started.
+◇ Test case passing 1 argument variant → "502" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "503" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "content_type" to invalidACKPreservesSource(_:) started.
+◇ Test case passing 1 argument variant → "missing_content_type" to invalidACKPreservesSource(_:) started.
+✔ Test lateAssociationWakesOnlyAfterNewDurableFacts() passed after 0.068 seconds.
+◇ Test taskScopedDrainLeavesOtherTasksAndLegacyPagesUntouched() started.
+✔ Test invalidACKPreservesSource(_:) with 28 test cases passed after 0.529 seconds.
+◇ Test committedResponseRecoveredByExactHash(_:) started.
+◇ Test case passing 1 argument mode → "lost" to committedResponseRecoveredByExactHash(_:) started.
+◇ Test case passing 1 argument mode → "corrupt" to committedResponseRecoveredByExactHash(_:) started.
+✔ Test committedResponseRecoveredByExactHash(_:) with 2 test cases passed after 0.027 seconds.
+◇ Test retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 408 to retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 429 to retryAndBlockedClassification(_:) started.
+✔ Test taskScopedDrainLeavesOtherTasksAndLegacyPagesUntouched() passed after 0.054 seconds.
+✔ Suite APITests passed after 0.839 seconds.
+◇ Test case passing 1 argument status → 500 to retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 502 to retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 503 to retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 401 to retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 403 to retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 400 to retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 422 to retryAndBlockedClassification(_:) started.
+◇ Test case passing 1 argument status → 409 to retryAndBlockedClassification(_:) started.
+✔ Test retryAndBlockedClassification(_:) with 10 test cases passed after 0.151 seconds.
+◇ Test authenticationRefreshOnceAndRetryAfterDate() started.
+✔ Test authenticationRefreshOnceAndRetryAfterDate() passed after 0.017 seconds.
+◇ Test twoWorkersOneClaimAndRestartReleasesInFlight() started.
+✔ Test twoWorkersOneClaimAndRestartReleasesInFlight() passed after 0.006 seconds.
+◇ Test stateWriteFailureDuplicateACKAndCleanupFailure() started.
+✔ Test stateWriteFailureDuplicateACKAndCleanupFailure() passed after 0.039 seconds.
+◇ Test explicitRescanAndProoflessLegacyACKCannotReleaseBundle() started.
+✔ Test explicitRescanAndProoflessLegacyACKCannotReleaseBundle() passed after 0.008 seconds.
+◇ Test handshakeFailureBackoffSurvivesRestart() started.
+✔ Test handshakeFailureBackoffSurvivesRestart() passed after 0.016 seconds.
+◇ Test concurrentDeliveryAndLateDeletionCallbacks() started.
+✔ Test concurrentDeliveryAndLateDeletionCallbacks() passed after 0.010 seconds.
+◇ Test deterministicGzipArtifactSurvivesRestartCorruptionAndACK() started.
+✔ Test deterministicGzipArtifactSurvivesRestartCorruptionAndACK() passed after 0.026 seconds.
+◇ Test gzipHasFixedHeadersAndBytes() started.
+✔ Test gzipHasFixedHeadersAndBytes() passed after 0.001 seconds.
+✔ Suite WorkoutReliabilityTests passed after 1.098 seconds.
+✔ Test routeSpoolBoundsHashesAndRestartFiles() passed after 0.521 seconds.
+◇ Test routeRejectsInvalidMeasurements() started.
+✔ Test routeRejectsInvalidMeasurements() passed after 0.001 seconds.
+◇ Test routeManifestSealAndDeletePayloads() started.
+✔ Test routeManifestSealAndDeletePayloads() passed after 0.006 seconds.
+◇ Test deleteWireHasOnlyFrozenFourFields() started.
+✔ Test deleteWireHasOnlyFrozenFourFields() passed after 0.001 seconds.
+✔ Suite SyncCoreTests passed after 1.241 seconds.
+✔ Test run with 132 tests in 17 suites passed after 1.242 seconds.

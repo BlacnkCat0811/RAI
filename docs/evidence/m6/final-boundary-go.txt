@@ -1,0 +1,4 @@
+ok  	rai/server/internal/readiness	1.096s
+ok  	rai/server/internal/analysis	(cached)
+ok  	rai/server/internal/jobs	1.022s
+ok  	rai/server/internal/storage/postgres	(cached)

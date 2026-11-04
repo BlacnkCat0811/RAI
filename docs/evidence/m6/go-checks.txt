@@ -1,0 +1,91 @@
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/internal/admin	(cached)
+ok  	rai/server/internal/analysis	(cached)
+ok  	rai/server/internal/config	(cached)
+ok  	rai/server/internal/httpapi	(cached)
+ok  	rai/server/internal/jobs	0.014s
+ok  	rai/server/internal/performance	(cached)
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/readiness	0.021s
+ok  	rai/server/internal/recovery	(cached)
+ok  	rai/server/internal/storage/postgres	(cached)
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	(cached)
+ok  	rai/server/internal/training	(cached)
+ok  	rai/server/internal/trainingload	(cached)
+ok  	rai/server/internal/vo2maxexternal	(cached)
+ok  	rai/server/internal/workoutdetail	(cached)
+?   	rai/server/internal/workoutdomain	[no test files]
+ok  	rai/server/internal/workoutfeatures	(cached)
+?   	rai/server/migrations	[no test files]
+CHECK {"command": "go test ./...", "exitCode": 0, "durationSeconds": 2.287}
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/internal/admin	(cached)
+ok  	rai/server/internal/analysis	(cached)
+ok  	rai/server/internal/config	(cached)
+ok  	rai/server/internal/httpapi	(cached)
+ok  	rai/server/internal/jobs	(cached)
+ok  	rai/server/internal/performance	(cached)
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/readiness	(cached)
+ok  	rai/server/internal/recovery	(cached)
+ok  	rai/server/internal/storage/postgres	(cached)
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	(cached)
+ok  	rai/server/internal/training	(cached)
+ok  	rai/server/internal/trainingload	(cached)
+ok  	rai/server/internal/vo2maxexternal	(cached)
+ok  	rai/server/internal/workoutdetail	(cached)
+?   	rai/server/internal/workoutdomain	[no test files]
+ok  	rai/server/internal/workoutfeatures	(cached)
+?   	rai/server/migrations	[no test files]
+CHECK {"command": "go test -race ./...", "exitCode": 0, "durationSeconds": 1.707}
+CHECK {"command": "go vet ./...", "exitCode": 0, "durationSeconds": 0.261}
+CHECK {"command": "go vet -tags=integration ./...", "exitCode": 0, "durationSeconds": 0.893}
+PASS: online import graph excludes admin, migration and goose (257 packages)
+PASS: pure analysis domain excludes database, network and filesystem
+PASS: pure training domain excludes database, network and filesystem
+PASS: feature foundation excludes I/O, presentation, randomness and system clock
+PASS: performance consumes only M1 features; no M2/VO2/raw-history dependency
+PASS: external VO2 is pure; no M1/M2/M3/HR reference dependency
+PASS: recovery has no load/ability/VO2/Readiness, raw mutation or I/O dependency
+PASS: readiness is pure; consumes no raw/ability/VO2; product and generator stay isolated
+CHECK {"command": "python3 scripts/check-boundaries.py", "exitCode": 0, "durationSeconds": 1.473}
+CHECK {"command": "/Users/ta/RAI/.local/bin/sqlc generate", "exitCode": 0, "durationSeconds": 1.376}
+CHECK {"command": "git diff --check", "exitCode": 0, "durationSeconds": 0.039}
+goos: darwin
+goarch: amd64
+pkg: rai/server/internal/readiness
+cpu: AMD Ryzen 5 3600X 6-Core Processor             
+BenchmarkReadiness/0/load_decay-12         	  661527	        93.84 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/0/baseline-12           	   26794	      2232 ns/op	      80 B/op	       3 allocs/op
+BenchmarkReadiness/0/formula-12            	 2975412	        21.95 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/0/calculate-12          	    1128	     52651 ns/op	   16936 B/op	      65 allocs/op
+BenchmarkReadiness/0/serialization-12      	    4269	     13460 ns/op	    4484 B/op	       3 allocs/op
+BenchmarkReadiness/0/freshen-12            	  187753	       288.5 ns/op	      32 B/op	       4 allocs/op
+BenchmarkReadiness/1/load_decay-12         	  577566	       104.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/1/baseline-12           	   23598	      2865 ns/op	      80 B/op	       3 allocs/op
+BenchmarkReadiness/1/formula-12            	 2814852	        21.44 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/1/calculate-12          	    1074	     60188 ns/op	   17669 B/op	      69 allocs/op
+BenchmarkReadiness/1/serialization-12      	    4358	     13962 ns/op	    4484 B/op	       3 allocs/op
+BenchmarkReadiness/1/freshen-12            	  192694	       348.0 ns/op	      32 B/op	       4 allocs/op
+BenchmarkReadiness/5/load_decay-12         	  301399	       195.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/5/baseline-12           	   14946	      3944 ns/op	      80 B/op	       3 allocs/op
+BenchmarkReadiness/5/formula-12            	 2320807	        32.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/5/calculate-12          	     612	     92524 ns/op	   23402 B/op	      90 allocs/op
+BenchmarkReadiness/5/serialization-12      	    2719	     25407 ns/op	    5516 B/op	       3 allocs/op
+BenchmarkReadiness/5/freshen-12            	  125062	       527.7 ns/op	      32 B/op	       4 allocs/op
+BenchmarkReadiness/20/load_decay-12        	   92912	       582.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/20/baseline-12          	    4495	     13458 ns/op	      80 B/op	       3 allocs/op
+BenchmarkReadiness/20/formula-12           	 2701035	        22.55 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/20/calculate-12         	     542	    117204 ns/op	   41616 B/op	     154 allocs/op
+BenchmarkReadiness/20/serialization-12     	    2122	     27443 ns/op	    7568 B/op	       3 allocs/op
+BenchmarkReadiness/20/freshen-12           	  107929	       571.7 ns/op	      32 B/op	       4 allocs/op
+BenchmarkReadiness/100/load_decay-12       	   37597	      1513 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/100/baseline-12         	    1707	     35506 ns/op	      80 B/op	       3 allocs/op
+BenchmarkReadiness/100/formula-12          	 2845519	        21.98 ns/op	       0 B/op	       0 allocs/op
+BenchmarkReadiness/100/calculate-12        	     188	    311001 ns/op	  142172 B/op	     482 allocs/op
+BenchmarkReadiness/100/serialization-12    	     730	     82932 ns/op	   20085 B/op	       3 allocs/op
+BenchmarkReadiness/100/freshen-12          	   35944	      1661 ns/op	      32 B/op	       4 allocs/op
+PASS
+ok  	rai/server/internal/readiness	2.276s

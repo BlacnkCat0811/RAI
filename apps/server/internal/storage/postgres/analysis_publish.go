@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	ve "rai/server/internal/vo2maxexternal"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
 	pf "rai/server/internal/performance"
+	rd "rai/server/internal/readiness"
+	rc "rai/server/internal/recovery"
 	"rai/server/internal/syncing"
 	tl "rai/server/internal/trainingload"
 	wf "rai/server/internal/workoutfeatures"
@@ -25,6 +28,15 @@ func (s *Store) StartAnalysisRun(ctx context.Context, l Lease, in analysis.Snaps
 		return "", analysis.Invalid()
 	}
 	lineage := map[string]any{"snapshotGeneration": in.Generation, "revision": in.Revision, "inputVersion": in.InputVersion}
+	if in.ReadinessInput != nil {
+		lineage["readiness"] = readinessLineage(*in.ReadinessInput)
+	}
+	if in.RecoveryInput != nil {
+		lineage["recovery"] = recoveryLineage(*in.RecoveryInput)
+	}
+	if in.ExternalInput != nil {
+		lineage["external"] = externalLineage(*in.ExternalInput)
+	}
 	if in.Workout != nil {
 		lineage["workoutID"] = in.Workout.ID
 		lineage["deleted"] = in.Workout.Deleted
@@ -146,6 +158,33 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 	if generation != l.TargetGeneration || in.Generation != l.TargetGeneration {
 		status = "SUPERSEDED"
 	}
+	if status == "SUCCEEDED" && l.Kind == rd.JobKind {
+		current, e := s.readinessCurrent(ctx, tx, l, in)
+		if e != nil {
+			return "", e
+		}
+		if !current {
+			status = "SUPERSEDED"
+		}
+	}
+	if status == "SUCCEEDED" && l.Kind == rc.JobKind {
+		current, e := s.recoveryCurrent(ctx, tx, l, in)
+		if e != nil {
+			return "", e
+		}
+		if !current {
+			status = "SUPERSEDED"
+		}
+	}
+	if status == "SUCCEEDED" && l.Kind == ve.JobKind {
+		current, e := s.vo2ExternalCurrent(ctx, tx, l, in)
+		if e != nil {
+			return "", e
+		}
+		if !current {
+			status = "SUPERSEDED"
+		}
+	}
 	if status == "SUCCEEDED" && (l.Kind == wf.JobKind || l.Kind == tl.JobKind || l.Kind == tl.StateJobKind || l.Kind == pf.JobKind) {
 		var enabled bool
 		err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM analysis_model_channels WHERE dataset_id=$1 AND channel='candidate' AND stack_id=$2 AND config_sha256=decode($3,'hex'))`, l.DatasetID, wf.StackID(), wf.DefaultPolicy().Hash()).Scan(&enabled)
@@ -181,6 +220,21 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 		}
 	}
 	if status == "SUCCEEDED" {
+		if l.Kind == rd.JobKind {
+			if err = writeReadinessArtifact(ctx, tx, l, id, in, metrics); err != nil {
+				return "", err
+			}
+		}
+		if l.Kind == rc.JobKind {
+			if err = writeRecoveryArtifacts(ctx, tx, l, id, in, metrics); err != nil {
+				return "", err
+			}
+		}
+		if l.Kind == ve.JobKind {
+			if err = writeVO2ExternalArtifact(ctx, tx, l, id, in, metrics); err != nil {
+				return "", err
+			}
+		}
 		if l.Kind == pf.JobKind {
 			if err = writePerformanceArtifacts(ctx, tx, l, id, in, metrics); err != nil {
 				return "", err
@@ -223,6 +277,15 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 		}
 		// Deletions publish no workout pointer, but still propagate their former day.
 		family := "workout"
+		if l.Kind == rd.JobKind {
+			family = rd.Family
+		}
+		if l.Kind == rc.JobKind {
+			family = rc.Family
+		}
+		if l.Kind == ve.JobKind {
+			family = ve.Family
+		}
 		if l.Kind == pf.JobKind {
 			family = "performance_candidate"
 			if _, err = tx.Exec(ctx, `DELETE FROM analysis_publications WHERE dataset_id=$1 AND scope_key=$2`, l.DatasetID, l.ScopeKey); err != nil {
@@ -405,6 +468,15 @@ func (s *Store) AdvanceAnalysisDay(ctx context.Context, at time.Time) error {
 			}
 			return e
 		}
+	}
+	if err := s.advanceExternalControls(ctx, at); err != nil {
+		return err
+	}
+	if err := s.advanceRecoveryDay(ctx, at); err != nil {
+		return err
+	}
+	if err := s.advanceReadinessDay(ctx, at); err != nil {
+		return err
 	}
 	return s.advanceCandidateLoadDay(ctx, at)
 }

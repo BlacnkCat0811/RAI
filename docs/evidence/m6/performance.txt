@@ -1,0 +1,48 @@
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+=== RUN   TestReadinessPerformanceMatrix
+=== RUN   TestReadinessPerformanceMatrix/14
+    readiness_performance_test.go:121: M6_PERF history=14 recent_entries=0 input_workouts=2 snapshot_us=8187 decay_ns=750 baseline_ns=19840 formula_ns=520 calculate_us=909 serialization_us=548 publication_us=13196 reader_us=9534 freshen_ns=5260 allocations=1760 allocated_bytes=410888 artifact_bytes=2985
+    readiness_performance_test.go:121: M6_PERF history=14 recent_entries=1 input_workouts=3 snapshot_us=7968 decay_ns=700 baseline_ns=14990 formula_ns=600 calculate_us=580 serialization_us=179 publication_us=15621 reader_us=9816 freshen_ns=4470 allocations=1014 allocated_bytes=335864 artifact_bytes=3365
+    readiness_performance_test.go:121: M6_PERF history=14 recent_entries=5 input_workouts=7 snapshot_us=9217 decay_ns=890 baseline_ns=28240 formula_ns=670 calculate_us=688 serialization_us=227 publication_us=20615 reader_us=11634 freshen_ns=4670 allocations=1588 allocated_bytes=451936 artifact_bytes=4894
+    readiness_performance_test.go:121: M6_PERF history=14 recent_entries=20 input_workouts=22 snapshot_us=19212 decay_ns=1670 baseline_ns=67630 formula_ns=640 calculate_us=1294 serialization_us=513 publication_us=33908 reader_us=24952 freshen_ns=6070 allocations=3498 allocated_bytes=856848 artifact_bytes=10625
+    readiness_performance_test.go:121: M6_PERF history=14 recent_entries=100 input_workouts=102 snapshot_us=101047 decay_ns=6070 baseline_ns=477760 formula_ns=730 calculate_us=5576 serialization_us=1771 publication_us=138480 reader_us=103367 freshen_ns=5060 allocations=13907 allocated_bytes=2934952 artifact_bytes=41186
+=== RUN   TestReadinessPerformanceMatrix/42
+    readiness_performance_test.go:121: M6_PERF history=42 recent_entries=0 input_workouts=6 snapshot_us=15963 decay_ns=1080 baseline_ns=40960 formula_ns=620 calculate_us=935 serialization_us=328 publication_us=30089 reader_us=17466 freshen_ns=14550 allocations=1505 allocated_bytes=428424 artifact_bytes=4564
+    readiness_performance_test.go:121: M6_PERF history=42 recent_entries=1 input_workouts=7 snapshot_us=13222 decay_ns=1000 baseline_ns=34470 formula_ns=430 calculate_us=709 serialization_us=293 publication_us=20789 reader_us=14871 freshen_ns=9610 allocations=1534 allocated_bytes=440896 artifact_bytes=4943
+    readiness_performance_test.go:121: M6_PERF history=42 recent_entries=5 input_workouts=11 snapshot_us=12129 decay_ns=1120 baseline_ns=57690 formula_ns=730 calculate_us=914 serialization_us=297 publication_us=20246 reader_us=14393 freshen_ns=9270 allocations=2043 allocated_bytes=531824 artifact_bytes=6477
+    readiness_performance_test.go:121: M6_PERF history=42 recent_entries=20 input_workouts=26 snapshot_us=21601 decay_ns=2020 baseline_ns=95430 formula_ns=480 calculate_us=1413 serialization_us=520 publication_us=36503 reader_us=25891 freshen_ns=9870 allocations=4003 allocated_bytes=874432 artifact_bytes=12217
+    readiness_performance_test.go:121: M6_PERF history=42 recent_entries=100 input_workouts=106 snapshot_us=83408 decay_ns=5810 baseline_ns=358070 formula_ns=460 calculate_us=4260 serialization_us=1720 publication_us=159880 reader_us=98014 freshen_ns=12580 allocations=14754 allocated_bytes=3216144 artifact_bytes=42771
+=== RUN   TestReadinessPerformanceMatrix/90
+    readiness_performance_test.go:121: M6_PERF history=90 recent_entries=0 input_workouts=8 snapshot_us=14268 decay_ns=940 baseline_ns=54260 formula_ns=630 calculate_us=846 serialization_us=259 publication_us=19349 reader_us=12487 freshen_ns=7570 allocations=1762 allocated_bytes=478824 artifact_bytes=5332
+    readiness_performance_test.go:121: M6_PERF history=90 recent_entries=1 input_workouts=9 snapshot_us=10969 decay_ns=980 baseline_ns=37000 formula_ns=490 calculate_us=753 serialization_us=262 publication_us=18458 reader_us=13051 freshen_ns=8090 allocations=1766 allocated_bytes=469960 artifact_bytes=5710
+    readiness_performance_test.go:121: M6_PERF history=90 recent_entries=5 input_workouts=13 snapshot_us=12207 decay_ns=1190 baseline_ns=51660 formula_ns=550 calculate_us=931 serialization_us=357 publication_us=25015 reader_us=15646 freshen_ns=7290 allocations=2305 allocated_bytes=578360 artifact_bytes=7242
+    readiness_performance_test.go:121: M6_PERF history=90 recent_entries=20 input_workouts=28 snapshot_us=24927 decay_ns=1950 baseline_ns=107780 formula_ns=500 calculate_us=1454 serialization_us=602 publication_us=36400 reader_us=26842 freshen_ns=13590 allocations=4229 allocated_bytes=937592 artifact_bytes=12979
+    readiness_performance_test.go:121: M6_PERF history=90 recent_entries=100 input_workouts=108 snapshot_us=90709 decay_ns=5960 baseline_ns=387330 formula_ns=460 calculate_us=4464 serialization_us=1730 publication_us=122031 reader_us=92433 freshen_ns=13910 allocations=14646 allocated_bytes=3127216 artifact_bytes=43537
+=== RUN   TestReadinessPerformanceMatrix/180
+    readiness_performance_test.go:121: M6_PERF history=180 recent_entries=0 input_workouts=11 snapshot_us=13214 decay_ns=1070 baseline_ns=44310 formula_ns=430 calculate_us=839 serialization_us=297 publication_us=20691 reader_us=14635 freshen_ns=7010 allocations=2082 allocated_bytes=513056 artifact_bytes=6477
+    readiness_performance_test.go:121: M6_PERF history=180 recent_entries=1 input_workouts=12 snapshot_us=12970 decay_ns=1110 baseline_ns=48820 formula_ns=500 calculate_us=917 serialization_us=304 publication_us=21150 reader_us=15561 freshen_ns=8370 allocations=2207 allocated_bytes=566624 artifact_bytes=6856
+    readiness_performance_test.go:121: M6_PERF history=180 recent_entries=5 input_workouts=16 snapshot_us=14264 decay_ns=1310 baseline_ns=54900 formula_ns=480 calculate_us=1028 serialization_us=387 publication_us=24749 reader_us=17565 freshen_ns=9160 allocations=2801 allocated_bytes=692968 artifact_bytes=8388
+    readiness_performance_test.go:121: M6_PERF history=180 recent_entries=20 input_workouts=31 snapshot_us=24159 decay_ns=2260 baseline_ns=97660 formula_ns=480 calculate_us=1603 serialization_us=588 publication_us=53754 reader_us=30894 freshen_ns=9770 allocations=4821 allocated_bytes=1052624 artifact_bytes=14128
+    readiness_performance_test.go:121: M6_PERF history=180 recent_entries=100 input_workouts=111 snapshot_us=74322 decay_ns=5910 baseline_ns=326580 formula_ns=460 calculate_us=4205 serialization_us=1677 publication_us=127102 reader_us=93440 freshen_ns=14610 allocations=15128 allocated_bytes=3014704 artifact_bytes=44683
+=== RUN   TestReadinessPerformanceMatrix/365
+    readiness_performance_test.go:121: M6_PERF history=365 recent_entries=0 input_workouts=11 snapshot_us=13622 decay_ns=1130 baseline_ns=44460 formula_ns=490 calculate_us=841 serialization_us=290 publication_us=21564 reader_us=14255 freshen_ns=8280 allocations=2119 allocated_bytes=538832 artifact_bytes=6479
+    readiness_performance_test.go:121: M6_PERF history=365 recent_entries=1 input_workouts=12 snapshot_us=14070 decay_ns=1360 baseline_ns=66400 formula_ns=690 calculate_us=988 serialization_us=419 publication_us=36691 reader_us=19118 freshen_ns=7890 allocations=2140 allocated_bytes=546312 artifact_bytes=6857
+    readiness_performance_test.go:121: M6_PERF history=365 recent_entries=5 input_workouts=16 snapshot_us=14809 decay_ns=1520 baseline_ns=66090 formula_ns=500 calculate_us=1006 serialization_us=359 publication_us=24682 reader_us=18341 freshen_ns=9680 allocations=2700 allocated_bytes=647288 artifact_bytes=8388
+    readiness_performance_test.go:121: M6_PERF history=365 recent_entries=20 input_workouts=31 snapshot_us=25678 decay_ns=2370 baseline_ns=113980 formula_ns=520 calculate_us=1508 serialization_us=592 publication_us=41041 reader_us=30228 freshen_ns=9830 allocations=4727 allocated_bytes=1097704 artifact_bytes=14127
+    readiness_performance_test.go:121: M6_PERF history=365 recent_entries=100 input_workouts=111 snapshot_us=84892 decay_ns=5950 baseline_ns=373700 formula_ns=460 calculate_us=4289 serialization_us=1770 publication_us=143217 reader_us=113805 freshen_ns=14710 allocations=14915 allocated_bytes=2980504 artifact_bytes=44679
+--- PASS: TestReadinessPerformanceMatrix (96.28s)
+    --- PASS: TestReadinessPerformanceMatrix/14 (18.95s)
+    --- PASS: TestReadinessPerformanceMatrix/42 (21.23s)
+    --- PASS: TestReadinessPerformanceMatrix/90 (21.10s)
+    --- PASS: TestReadinessPerformanceMatrix/180 (14.15s)
+    --- PASS: TestReadinessPerformanceMatrix/365 (20.87s)
+=== RUN   TestReadinessPersistedDependencyAlwaysQueuesCurrent
+--- PASS: TestReadinessPersistedDependencyAlwaysQueuesCurrent (2.36s)
+PASS
+ok  	rai/server/integration	99.674s
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1

@@ -1,0 +1,3446 @@
+[
+  {
+    "action": "skip",
+    "package": "rai/server/cmd/rai",
+    "testHash": null,
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "5e483b6bd7565453f06134188cf54a55c3342faa120b08cfa8b24c6bfb6f3ae4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "6b8957ca482dba1bc2d822f15c86cdca0cc539867dc8a0057c2ec4506c620545",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/config",
+    "testHash": "5caee4b9150d0225097211dfddf0392bef5e27b305decd9817e22a6a2cced474",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/admin",
+    "testHash": "6978953f8d9e7283d792f49e55e2ce84aabc6916f839cd34ec81c473496f89d4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/config",
+    "testHash": "1f7a24c85f60e7e11e007500541a9a72aec5c3caf946d065c934dc39ae54c54a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "10923ec81c8499a2b1a9e746afec80b913cdfdfe0817b16f551d8161640f9ea2",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/config",
+    "testHash": "bcc309d804c1b1815c2de0d44ba75ce669b819c540e2e9e94aefb1a09c620304",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/admin",
+    "testHash": "d083510536f928f1fe5859cee013bc605ed390b5370c432a4b9947224e62f206",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "2b2af98db69b9521445efc0484b007a5c83e34c0cec979d4dc749dcfef2af11e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/admin",
+    "testHash": "3e6d60019272dcb863c7bc46d441e825b0416c8bbef0f9a34e6bb04ea6a87123",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "1a1e022fccfb251828155f40d6702bf2c34867ea86fd387d6ac2f7fdfda5fcf5",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "e707573e2174987d0510c5014bfc56f3beb0b22d7e372a1205ef67f0dcae6d2f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "1a22d49b1652bf2b6d56fd9672450f3114c622d5a3f9b0902d90f1f35c6bc67d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "824a07ca32749acfbb432526aa77dad7e15a778fa58ddf79d75d27efd92d7b7c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "f6ea8f7ccdff1dd5804198d79e574ce1dd7ee9ad9f83803952d56b71e75d3ec0",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "7320a1e497cc60e83cfc895eefc61ae03b3195e83f03668fdb1853ac0f8b9f3b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "ff7747eb21b75147f0371cb99f4fa9e1a8ff2cd3101163b58d3ddb1ba2f573bf",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "f033941145447ed15cd5217607179a4222f402b29670866c903635dee340c1f6",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "99db01fa3c55921e41ac7dd2dc9de575f90547a62b1c5f085f8c03815bc0a892",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "skip",
+    "package": "rai/server/internal/product",
+    "testHash": null,
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/config",
+    "testHash": "270e0e7323884bfc3be42638683215ded9ba86fcee5dad84ca33e5e0130e5a1a",
+    "elapsedSeconds": 0.05
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "96568f4f8d4e479bbc398019fb6d7950b11b021fcc521b2d96fd2e7af541be11",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "eec411fc4f5c5643a6470ccbdb663a6a18b29ee82294ae6a3fce95fd810b6c17",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "3693c92687c6992d3b2281d0ecc55a1a25a7e353f3b7c7a5cbadce0cbfb15cfa",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "28f4567d2d8b1e4b2830d83aa5e3658009429b7e326b6b33bfec5cd189b91a62",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "6681898dc9329f2b3c7437ae57e3cdf1398fc211115c2970aea46be8407d095e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "20a0af35d87884980b633bd5fbb15e6e801a0dd9d67668e4530d588382cdb91c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "929923c0c5b230500d5a89607914dd0a49fd72e1f1025c68912c75f07bf50c5c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "d9073a716456b73aa58c8397214f8c3e22fa00db46bf0d9d37a903f9b39f1401",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "6f5977d945dd56ff952c0fbebe2bab3574ba1de65b4f72121d95d2f2a50be7b2",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "dcaf0b9c36acb2ed6866aff4c600eb07e411f1bd2f540d1d29008a46ab0e2040",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "a438965018ac04c3bbb5f539b3fe491d27d77a7a0d007c3c2e097ef2d655e847",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/jobs",
+    "testHash": "ba7b63609f92c09d495b342fdfbd4c68b8fe0d86db2cc8919f17c55fa883782e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "4a071b27f05a07deb527b55aec813b19b4cf13338b2c3d0dde9a9f98b3f24902",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "bf2beb778b09e28a386a2ac357f6fe6bcb481b9d64f241ee70da97d03f18c9e6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "b8a7fe093df6c5691ca815eba098433c4b627c0b311cbbd7c2ab05a8d3791d49",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "3e7a22421457d36e01995bba5fac694aae0de712c6f7905714997b3ada6a3ccc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "67a601c99d0506ee37321360f6eebb47b1f07616436ec706a01e854ae9b35d55",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "cc4b2c8ca8b96d9e5d82a5638732e3a87277bec80fdd319ec884ea04781b8152",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/jobs",
+    "testHash": "a30fbc015d87b0e19fa828b9c17f36191dcc9c098588ac934b88d22d776aa5fd",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "3e1e3e9cdd8aa6db54306791a19c067669fb6d289d24f1b9d77cf7a4600adade",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "skip",
+    "package": "rai/server/internal/storage/postgres/dbgen",
+    "testHash": null,
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "165fc687b1bd60deb320cb1abfb3907e029ab31fbb432297822f8ff86e504014",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "3864a673651f8fb3869d21b16370ec8ecc67af35225b741b7f3bf20d1eeb0062",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "0f492aed3857784a05a936aa25d75f1891f427bc4035377798d6c76062aa1380",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "07df8d6ef0e12e72c5187df253dd0500665785a6e2bc520ec94172b5236c4bc4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "57aacbaac7c0e44745fbf1dc998ce5338e2de92dd512c69fca0f5c6675acb3d8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": "a06362db8bb4dde8b8f4e8e3468ec74d5a8bc8d88b8cb8f2c025a44fc37e32bb",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": "7599b2b61f88ed97697eb594be4fe0a8d41c4641e97e879561c582a3e03dfe46",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": "1f1788946a05289dcde61406476031347088514b0ff2c2e952846a8c088036ac",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "d9f5a76f223e21efe9a69f475b01a29fc9b43bba8233dfe19362e0b1364faef1",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": "d0bb056777240990a1c0250b78bd639505eb7fac3bf70e34dfd2324eb924e48c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "0950ce7b9acfdbb6cd9589ec8bae3ea48ee8fd6464ab97108d4ff49feec081ce",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": "9ac11247798fe97e10ac6ae36be325a6d27a23e90ba0caf57f75ed49d8a93f98",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": "7f4260f415d6a92f9c2d4b600845ffd3cd9270c70aa54349f4acd22973e6dae6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "3c672e0073a01adb38363f72c066a9adf295fbb6890fcd0e1636b6b1ce822d47",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": "3786b513db3a5cc01fac016a8ee7b5dfc63fc12597a7fa80c95ccaa9ffb1ecaa",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "9f39ca80c533ab5eea7525da65e0aec120205c3d85948c9e6cb1bd36f7abb9ae",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "1b10a8928b7250ea3cd888c2980122ca3adf26b1c951422fabd14383ba48c300",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "9a90db3c4ebbe723c959fd1a90cf66308c554f7e06ac1ac60c742535a402b4cc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": "df80163680b7601f0d70e1cdf7ab7432093c03c60c0ef54f73fb2106eb19a04b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "450b9d9b91f24ad3dbe06041489550f5edec358b08a18bf70a4be629faf58f4a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "c7c353b78455aa5f402b544b03e32c338ec96b27effe18e7fb0de9aefe454a22",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "044ed59d846b1abcc235d6203d299cbab66884c208fd5381b28c7d106b36a8e2",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "0fa101daae4234ca5ce00ccb1a0d6e9de1e6be3851d911b65d95a059ec107d81",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "47e750200fb7cca43065c34542e0f88bb6dc9ad423948092270e365a21e4a040",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "296a39d8e29ce4d0265aa7203e6023700923982e5ae84bcea5f10a18a57c34cd",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "d80d15f87758dd18274ad856c887e01bd4a53abd187a48f7bb74e72b5d288624",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "21aa5bc65cc69f07a7323d6d2aab8fe81785d5451da3f0b5f1fde71533f466ab",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "b790f80b65b3a0c1eba44441811677610999bb4040969c0015e955aa6adf7a5f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "9c2610d13931e179593fab22280fd9cca9a17bf4818aea9ea60b59f6d781b414",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "0038c6c9e20aa1d7f954147be634a2c5a05f2acdd29f86b8d5361c84d46deaca",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "70305710c5e616609ac1496a1a5b4c52e56943edd1966b6b04c64c7bcd8e5af0",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5562c7584afbd259a9d15d0430b1f79b0292acf71b50f0da05918a8d280af80a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "cb7925094699dc7d768b0a946f538acbaefd1988db8b0cfea0173a16753c43aa",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "a66791c245ed6a05fb8864714edf60009fa2a40b8df2b679372ed91a252ccd7d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "d3d35aa819d7ac4e46a1aff1d7a8bd7a28f5a9e683d06c5df119012225e4cdb2",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "80089b8a754eaa35711ac2d348fc907a26139b801a686672dbf6830ff4e96ebb",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "f0c33505742a50f78f16700b25c42a7091f89a3a48eb7e1b1671712afa8786da",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "c77bc47acb9958129ede70a00d923a1a14cec28acfc37e8d266a5caf9dde69fc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "163e82ed199563533613adcdfac1c2252d9577ff9322fafda62eda53b1363fc8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "d2c633d9417f6d93fef37d581200844d626e5df3e9407a0830a993cfee6462f5",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "f8a6f2d44c7e2888776abc6bfe9a9eda8f714bc0f1d7793169184fc9e0443845",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "134016d048db4fe5a4e3bcdbd64046bddf57fdb92287d6686108bce3bd29331d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "dabb352e1866f5adc09b78ea808ca29c74a8b2b149b999f6c02590e2bfa4b409",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "048c83872ea4740aa67639093b88d227bd807b503c1cd1ad7495a98170b49575",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "d85d6ede0f546ac4975e7bc461c0bb331e889af468e17c48a9db58e5499b9697",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "9831a0f8a33f0a76e1f4c1b8ea4606bb53e1dbd149e46982b972e62686ab54af",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "52baac17aa9c4941c0eb0b5c755eef47a7ec98d4eae9878501094e3b5dfb78ec",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "dbda2a41a976cbc8b92ad5acf378edac2ae89ece92b1a3a3672c489d9ef50e9d",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "c69b3f59fbf3f27f24695fac8c3e5a2be27c98a42fb55b5539ce5a3518060d7c",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "4b3c59bdf85ebf7ce2a77b97be2ba1c61582ce7c3582242295b79a37c5a8f4b9",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "3d9d6ee633224a4a2868e430c69a51e85bacb386549371412ccf964b4a3253d4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "349b8efb6bb5d54e186bd0e074257f5b9ffd1615e24b42f01e1e04430f651a4e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c76fb182297ddf71d495f9432a1ab3e91eef924399c9bb4cb0f443b80034be9b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "41f582947f6cc1c62b26f3c7b729a5988e407c42bf53a9e20d4d2b9ac10138e8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "c5be98471d8e2d4195b4fac1a64b458d3a48396fe2b65b0502c7317f9c2e245a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "d8e102d8423a0848bd11c1b154dadf93900ad0bc216bd9a4c061b9e30dee2ffe",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "6bbfd7eb991b18b8973ac480f41aa76fd5e802d83238dfbfc0b1aefbe5abfe88",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "a6ff189be52b3b4d790420192903078df7a87ea14ece812472813e047d8b90e4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "9fd47cab6b8f58a8d162e3cae5b0976847f7778e43884fff08469491d4e6a9c4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "0ab31fde8143c077ef33d49beb26ff8610873d072ce70e95fb2358478d1446d9",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "3b414748c8db54642ef0712258ab81360c96dca303c5863b9ab7fb482ab1b7ee",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "b74a5dd86cf4f062bfbcde7c83d00fdb6a1d29d10c9d6a603bfcce3afc917478",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "14bc9e4003972ebf9c494dfad2e5dc2d4af402dfb4fa1e2905aae88bec08b819",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "9ef73710bab0b0efd176e4c1187cea22927f1b93fa1e413afd0517eb84d2139a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "882667faa4c19453e7379f42361f5099ed31f550be2e1d38709178264e863251",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "95bac9628938c9e475698d7651b9c973b0d7f0612a5594f9f8fa76d87b86aefe",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "2228206fed3b81955b6165071b42859d121517504d0cce6bb726bc3ef802457a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "b52a877066e06ba84aca85ae37e8272bd1bdf853d092fb21cabb3684012d91d4",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "a0597413cab7b787065f58e28a5e413b4a5aefdbe827c326bcef1027049265a0",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f30866b4461f637051d35fea40010b19a89386c79553cddd7eb02c48765411e8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ecbf27b9b54a940059fa8295b0c3196d7d9888565c32199eb1f961d2d7f02e2e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "bf50a8db6a774160dbca73054d307aaa38f833240080b00740b0a363ffcd1a83",
+    "elapsedSeconds": 0.04
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "41fef4dba09dc8f9137725728b0184f95e6421190ae434e627c74e3af8e19b80",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "d0cacf7b7265a309fc1e3e1f5fa1af0a951b3ea0cf75e9b0f579b2c5c27f5cdf",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "b604f398b2d93885172eb758c569f0c6a257ccfe7b0d92fd3151efcb7148f387",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "6291ded88b68fd085a18fbf1e0927fced053a77c2591bc6ba52599235c21256f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e65d3046a178a3416256ad3d51b017b4f7e301d6b58e410c970f7678f41ef07b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f4060ff10cd84da7f0346399006e04c7b01456a08271a7cb0bf3266f4633a970",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "84d363ec815f3b788f02829ba18b89064ec9d4461b8863ff18fb6b3a7af83d61",
+    "elapsedSeconds": 0.15
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "75b088da27c04e09519336634470dfe1ab0474693c5a816880f88890894e44ef",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c61b100a4ba05e6ddeed9470aa3f964c6ccc1d2c6d477477a6d5e6a7bfb0b4c3",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "7d767bd0f0fc527b6156f7856abaa5d838c0ae0cb220a5e39db933acb66f12ce",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "3f5601affead939a438dddbaea0ec62a6770e5f3ea5a416e22d4a561fcd4c74c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "4a0aba7ee1ed214ee952f3cdf55337717bf008f7c352ac4c3065021fec016830",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ca93acef5b989ca433078df47b4ddce351120b1812697786fc82cb7aa623f189",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "616dec4211e061f327ac2a95f523244ad446701ccd90fe80455433c4fc0721b2",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "cf50d6839a2a2e04e5e6e89a36eaecad7bf8f36047357eacdfd1ee78e4551e37",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c4d0929c79e9daa014c6454d7368696c00ff1bc1e5701c74193e0338746d6ef9",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "668683ccac408b9427ebb08681aba13251abef7e736fee996117039b2b11dbad",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ab1d0c23755166fb7b046b5facefff60c5db7b232bc821497fdcb35e612039da",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "6a15cbb94c9a81de6da98b3e7b81f59b883c0859c37bb6c32413c0c4c75e8b9d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "934c8fecce9200c550193ef2d52f3d155e1496ff5578f1a28b36f2c4b4492940",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "d61b386927dba6aba3d85df9b3f91b61193a81a56981e1514af072ff4e06a6ea",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8364715bf2c04872ffd54a709f09d24b4fcf3e76663ba64af5c9463eb0a4da3b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7a3615fd208ae777fbed5ae63e8314012e481d66d10e6f9f0857c9acc06b63e3",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "202f27840dadecf523a8a2269daf27d635a5d35d4364443edd6870f3af7d08e4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5014a93613a4399d9a0741987b696cbf8d9f7208df81040d746292b134f47e27",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f34c9f82d64885a4fe0e2731fc5f0b58819a46c5ef18e00f6b3685f91a7bbb8f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "d38ebd858698f48b50005be0d0b06eb595ec1b2c50c7804049b62a3186eced6a",
+    "elapsedSeconds": 0.05
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e6089ab5294a3522b83c26872ece88ab829261a327b92d304e0b354e672475a4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": "ce2f255fbb244e48212a6325f8a06f0bf8461224c573dbeee3b36aab8bc94599",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "9fddbe33a4db75cf4879bd5e2c12abd88f741239dd934e1f717298ae7c946f6a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "1a673adc3eb26992833a2cfa66cd2ebfcb75fb84af21039cf467f1b45ba09cf3",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ced8d1ba7e9a8467f1f44c326cca920e99698af6ebd3bb4b3a23eb0f5937aeec",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8c864d36919ede72a948a277ac36079b9ee0bda297b0e49c77ad5d0a61776299",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "9cd68669ddd8b9f67555b0ee39a10c59908bef32b141bec44fcbf7f483bcb707",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "017a589dbff3130b72bd6c11cabec06b94f06cc73ca7bae55cb2091fab826d29",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "88011c66546666c3c834ed16da23c4adf8998b3790e4dd00ef1ea58b9b59c11e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "2f9a8fa229aa2131873e957a28d26172b9c81b3e128c636cd7318e83c0997042",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "14bdc1255e7b9ff3dc661eacd70bc838a3e77afece4ba7aa7ceb696db0767ad5",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0027de0aea4c884c3924d276f9e6027167c4f0a23ea52a8b8da4446450c378bc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b0f1de4dab646c3482d416354cf27475afb9e631bc2c39a90af971a60b98fc72",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "55e4bd12d804386b0d918ed82fc08be9509849f01eff5ab84c70521450e81a45",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "78c5a87e092dfe1ebaa7a536cc873989220884ea150fc519aeafa9da5f7dab96",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0fa532e11a0b56ae5d2d57edd72e7663c685d921c6a3be60a98b770b6b61b45e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e47b41d02153004d8ffda83e748f6643d401c9b300d242caebcc2347d3f5478b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "fc736033e6c563c9ec26d2112684d49aa52ff5da96bd63f928515ac746d4e23c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b9eee323cadcc889cffe384887700e7066cb018d567ce98a0cc09ba947206d56",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0ae486b18ec41ff5f413b251c701918555f27f77b3e3641961ea03fa7030eacc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "10e756fe28c6bdee3e6bc5b69365314fea3b40eb0da4f8ce6bda9ab526e2f145",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "edd6fa353a522c5fd55064284a1699e1da9b9969c7a6066153d0ca8624b31d01",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "96609e20326ee8cbb2e5e3aaf8717e817aa13454c5dea3df463472b81761ccea",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "640cd842b1bf2f689d57a3d86c8e831398a1178a040b0f783b7bba395aaa6d6d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "2a5805c3c7e71617a1fe2dff01f844389a9818886b2ae0588e3ae6d2e10f071b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "273db12ce608318419a313a906bcc4e2d4898766983e1413957dafbe01cfcba3",
+    "elapsedSeconds": 0.13
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "8e7324941062975959821ba5fc364717540267ae918332f3463299a81cdb3b41",
+    "elapsedSeconds": 0.07
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "60b49d9352fc47fb8666ea33e560fb871c75e592d2a6127d4a436bb80f0f76d7",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "91b73fbcef37feeda891472598c5d8561ea6ac89871d984b3323ba7a455b4558",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "776d20f34798edca670db304c7e8fee1c52961620d9f212fb3696589db00ac40",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b270d62f37d1c6e4b5ce101bb48d771013fa14d50470289e72e0c39fbc25b18d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "d8cef78b50fc97389fa7f7a1f2daf9f05d97d89b246e740d2e8fbe07902114ef",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c6c0912ae7996ad7c287cb151b5acaea0905c282f1461dca598fcad210b78a30",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "50856e644592ba14c89dbb290add84684f58bd9cc0734b74f7b75575c03b488e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "822d153ed1ff5d3f6b528a5edb517ddcdb9f04ae01dd390f6b2ffeff459ee8bd",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "883ff86ae5ace0f8e14207d37d4b8597afde245e6cd791439d2d1857a8465fe7",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7066956c92a6706a3297dc7baa908e5cc920b5a48ae6bfba2a01ac402f8b1b55",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "c669aa8f9af57bd7f50756902b1f946e500b3a6b045b2d699b33cb49a75cd774",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f2904d68ab61eea055f5860666a63d73bf6b674f216e0cf89abe4bc38abf3210",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "1ec5dd1ea592d8ea937435e7dfbcac4d44353d2cf1cd01b19e69e580066c0827",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "651de841062b93d56aeffed3fc9f44f5b94b4a75538f719a7b62f5cc84d55467",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5a567c271d0fa171b551f69bd90fdb2c524992e7ab27a0c4bf6dad512597773f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ae552257485959ea92cdc79da7d801a5e97e1eb9219e1a132fc0e15ee8221d87",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "270384108d558b1a569b790f4f0c1506811109c9aac62ae2c28b24396e7eae48",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "9addc1ef98b9f7c4a05a47a9f78d00e49d4f43decf670ffe3e5dfba2bd208bfb",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b5a2918ed4bba7c4fd25f68dd01d7372f62d7deaeb65178df0ae830403382cf1",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f7a3da38e349138ddc2a8ada4c098f71d49e336c8f6ce06993a3cd637382517d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "15fafd701f936ed128dd8ea0de4df8d61772fb1393876ff7eee3c7365e371882",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f5563684f7d3b53925dfa8d83694da566e2a5604b7863f49c63ed01ab04d30bd",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0dbc7425e1ac833ff3788012a3ab2e07ff7b2fe466b8eac839463227b13a8a13",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "916909291a978ae0601039a1b7d885616e768b5d8db03fb7758df5b2af7b54fe",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "fb4b166a0084ebd28d6628d64740d0fb9ba9a650ecabbae9debe07d31da6c145",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "25c734f9ebf34c5e2ad2657fba1233e2374ea735366106d3d88fe2c223ac04c9",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e3a5e2c2b8e82f984156ea62de9e81dcbb483d139a69e51921bbf7a7d8bedc9d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "658469af97f5ada6c5a163210cd4432399989706240816f6bf51577b722110bc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "f95d1e2b51c6eabd33e5074cffa71747b2d9be5bb66321a1230351a882fffe8c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "b25533d3b88bbb7ecbe80e93aca248f65528d9d2a196b7b0b53a11a7a690e733",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "97bd2dd2015f73ee441d4f3975b563f9f8f48fb9d83c92a8fe9a6e4109c05d31",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "d5844d1f06d560f402059835da3907d6ac065ae5144ed261b0476c377013c0a5",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "67290d0a3f3e3701aa917829c3cd5ca80e5d92f37b605b82165d3911dea8ade6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5bb04e2f8f463626ec882e49c1981719e1345081341a3bd49a05492b911a54cb",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "701352ebf193103b7003597e8ab487127ea3f0f9d4d879a4ae34bc58f42a6c30",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "bf4e2794d371a133d2c77fcf92efaf2340eb0f4c1e4b34d35385180ac59af95a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "3ae8cb1c2248cd600bdbef36be0f7ed4f751dfaff69eeaae90cc6c2130a9e375",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "eac97f9906ed4357196c286b5aca21a105415e858f80cd11480acffb7a516c15",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "bf34aed98b462724c3c496a37f39f9e921d0519c431fd254b745b2a52e6f0b09",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "ab7473ae1f97974fa497fa723c5b8401625922181586f30a77899606df444a1a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": "12be6a4b433d91c51e810b12b2c0e350e511657c92f70583969403cdc27a8528",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "fe7edc4e190dd9845144813ad64a31d4075b432bda514cf5a9fa41026c841cd1",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "9706e38aea4a4844710a9ecf23c9804d9fd053326fca74c808ab5e2c8c4a93a8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "708795f73fb8c8df8c437c2e48fa95922eb51ebd5ac2ac97216fac01cbecdf14",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ed89995c96a74979f027373bb0af22d5e2ad41603cdd78e990a17d3741e4b1fd",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b9cd16a9b3ddb6d5ef5dd43a0d6d882c3e173958ec5d105d22fdc97768b7b401",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "6ef315b623ae01581fd94ae348d60d2281a781a9cc93e096631b5f3887e6d7ff",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f11614b72f9cd149c3d86e6ea95d859c92e517ede9876201edca81620d53011d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8a4f906f2917fc6d0fb669fdf378054720291f9122de966aa9d1512fe79163d4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "2123ef1879bdc98a43baf03243aca20bc3bdba3eb14ea7a7fd2675aeaf9ccbc7",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0285dc41869e389394879d4da847e35a84b512cf66025de06c3385aacd1f4edb",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "09559b9485f416f5d23c65fadb18702a49cf57adf4d2e9832851cc680d6290d2",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ef2aae58a7ddb0de4666ebc2d54b44bb4433a611d6fca015d03c447549d57c53",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "a600d143e79640eadf51ea472d601340b85485d5ffe736188d2b3186bc9bbddf",
+    "elapsedSeconds": 0.23
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": "853e1027732f227ac415e406b4e6ea1252b157bcd2d4dcd0ee282754a502dee7",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8c35ac9286021de11f5545a64f470a2fc9f44141b9dff2cecfbe657d2214a4de",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "2756c792850081a4c08db3c6eaaa863c817d82b9669b074cb74dbcea9463628c",
+    "elapsedSeconds": 0.11
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "a3304c954f17bcfe789dc10f56ada4094242e66a9034701dce28e22026a544d0",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "7e0f63ebf978d5f7213b01e75d2cfee6d4d0b1df4bc10c8616ff34a0f8fe0148",
+    "elapsedSeconds": 0.33
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "99a24d061194ca6a9008e304ccfdfbcf9b79f68e224aea39f8e0b851e97d41d6",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "cee7b141941b4208b10f91619e9fd82e8ca5e3f279539c1a724e348769ce2be6",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "c14b2477dcbbb868bcaed77c832ef624fdd3617bdda9da2021c370a9435a7cd0",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "6bb2d7a0968f7c66fc6690f4783f576b8bdc6cdf65c2382b2c86dc9392fcdfaf",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "cd76fbcf0e72acf23798af09c31d61ee30448ff53c53e276df268dde675c8c74",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "090d9d1a9a8c3ee041936334530803627203332ace2cf975830fc045ea8d715b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "3846fc4a89a815dd7cb5e85333a50f14cf814f5faf54a3aae1ce6c568ecb85fe",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "d39d4af701cba070d346cbc39c03a3fb0d345853d16b4471995506f30ba22acf",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "1a62ae66226729f97da4c0fa8892a96f962166e53d30dc44348d07f106a4b47d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "e217bc1d9c41b8e3e0e04c56751dbc858ffee2668759fea7b91b44ed25b73735",
+    "elapsedSeconds": 0.3
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "d185199db357f50c96057f326fb5e1bc57a4ac846d9723f4b84dc3cc05d6ff85",
+    "elapsedSeconds": 0.55
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "330c621257a6d5b82e1cde06a12a202cd8f291a4b74b426ff87b1e586ec371df",
+    "elapsedSeconds": 0.23
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "bf0b76e18041dd8508435dbd0d946dd346adf2d74b12ecd89ad2e67e32c9ed56",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "aecb406a9c0022343da9ca6e0975519653a41052fc33742f812c65b027685549",
+    "elapsedSeconds": 0.55
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "382ec7229f44e61942bd1c2341f36725d21c4fb938144de5095675e26542a7cc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "336cfda8f833220c6674f872c02cc8f0fd1c0ff2ed8a26bd72af8f5f33fcc1e6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "fa58f7616ff873e129d05e02f85616bf804fee35b69c2ad1099cd41d7e1eddef",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "825b6c9fe279611df5164c2c75d5e314cb89071513a2234c1305cf21f1825b2c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "10487b18d468d852824cd05e62375e7172054e9a028bdb01fdaf3069fd460206",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "a54890a9e9e61f42d530a08be193cf16418c50c38a09e8cb533d210c75a87135",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "f6df05c884289090104fbf50dfa4d24a4e4b559363469f2d7e026b9e34f58a93",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": "519bd00f2f788153393dcf652f89ac0a5e825dfb5a8df9731296967257744cbf",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "f793767992bcdc45de34efbb81e848308e6a37c0fdda4e3d2b754087aa68efb7",
+    "elapsedSeconds": 0.33
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "8be4676da1bbd53b9560938e3b7a593528f36c56868654fa3855d1464a6f8e49",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "195653e80335339c17f33511dcb866d646a35c5b7e256809332a81142c981c43",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "82487112d7c02b10deb8f8590003e36a30b722d3d1077bcb4d45068146a9c96b",
+    "elapsedSeconds": 0.66
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "f0133c43e6f9b33bcd5d8e3cccedadd043cbd24070e1e1d4af78af4ad65473ee",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "67f20d98643105248d6ef7b89fe7e7238c03ff33db0badfb197971d818283b2b",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/admin",
+    "testHash": null,
+    "elapsedSeconds": 1.034
+  },
+  {
+    "action": "skip",
+    "package": "rai/server/internal/workoutdomain",
+    "testHash": null,
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/config",
+    "testHash": null,
+    "elapsedSeconds": 1.086
+  },
+  {
+    "action": "skip",
+    "package": "rai/server/migrations",
+    "testHash": null,
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/jobs",
+    "testHash": null,
+    "elapsedSeconds": 1.032
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/storage/postgres",
+    "testHash": null,
+    "elapsedSeconds": 1.04
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "8d4dbcc756201961f881545bb6345e690f1ba3104272e93875f97eb61b8a2f76",
+    "elapsedSeconds": 0.5
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/training",
+    "testHash": null,
+    "elapsedSeconds": 1.125
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "12d4694cdfede06ca08345d3674f54c1e37fcf16306cceafcc50e74af7121261",
+    "elapsedSeconds": 0.85
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "fa59e975c69306139563723d20869c35de455ffeb0355cf0adc818f5ad358d2c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "409c226145b1efd8ca0ffc99dfbdb267c74a0441b3e52de559b8b902fab343f7",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "fd4940423850303d815010b6cecdec88f762fe1fb2a14f2ff8645df7e3a27d9b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "4d8140ba9f08c49c6f8e1255b9449135c7b13754b7b511edc75c7a89c5653c8c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "3184b215138783ff0fecde7636fa770fd3a54e6e63b52e53cbfcb283d0a48059",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0ae343843ce80e6a1931df48f1c8a697bd4e24cc803360eb77f86c4ef4e71bc3",
+    "elapsedSeconds": 0.9
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e77f0fccbd0de262c728ca31e1ac0a2b86c6736cefb38e174767f51b1ae3efc1",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "96cdef5b8d1859b029bcf470a60bd40457f07fe48c5090e95cd43522b3f2bdd7",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0551d4f50677c8f85de4688b1cfae6a90679595f8c66e9b9249dac0fc953a449",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "2cd23913a230f1421dd7fc161d8c0eed4d3106313ba87166b4aee98f65302880",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ee6b0fb5098d76c5edab7ac1ca00bc84c4c5159d2fc332b0c69f1824ffc63a1b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "933dc660316ff1849cac61c24b141861b49242bdc6c05adfe24587fef9331a6a",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "924e35a84c35ba9d6a04e953a72e7f2c382bd67a3459a85b6a02d919154b48b4",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "953459ddfb7f49103f259951cfd2bed4b0d7181cbf845f1d9000b956888757d8",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "4b152083e99e6ff3a50fb31a742a4bda343880cb97187b3613413a0f6e233cab",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "4e1df2b34316f9fafbc3449e6a230d4305b3c24a563d8910a739eccf0bc889b6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "84dba91861d9e25ecbf58d25b2a59ae0a3f87221d7549818b256828f79bfabe8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "9b40d3abac8f3b09aef1e330c0a002a5c6d576f46bfe9c7c24f94f5cc452db66",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "d01498ef8df1dcc8340012f00b51c359868e147cf89c828385a6d620d2a10a9a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "659b1e4d78a4c277f0252cde2f91286b4a595844a2faf5582048566e7587c3b4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "9e091b732df086107e00a24426bc863066f32a7fe9b31582a29b26de21c2b162",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "60eeaa01b967ed10c1a1c9c12fb308b4b6e02aec6223f38f13669fe83ea7b954",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e6236ff4e39f34f957633e5e99edfc46cb0db59d41de17eaf3c9a3e94cd4a932",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "36955eee04ab2421d1fb0bedca963aef1c007d495009f988f6a07bfe11ba6abc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "d1aeaefe52eb9ed0be2c0a4f29c453bfad02921b29f00bbd2a4bcb4876bc2e03",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f2c9e02ff697704aa5a127878863a98eb7105bbced8533d49a1413e2d421b0d5",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutdetail",
+    "testHash": null,
+    "elapsedSeconds": 1.028
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0deed5dfa1562b3bb862258fa1025ecd54f768120a33f4de34b4f7ff8c9b556a",
+    "elapsedSeconds": 0.05
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "48f919178bb2f2ad5f7a8284efb44cd63396b9d2a4d40c7c1f7759c44c7358e9",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "256f6e00c41561b505edb6cb9821509fa66ab8222c7e920155ebcb0a41f4593e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "34fae93e4b988e5ab0fb92c50b141e8c79b8a2d2f203425fdb985fd795695199",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "64822063dfdd5e4666e9bac34ed5b0e430306c8cf7c63e331c17b02a0d708d2e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/vo2maxexternal",
+    "testHash": null,
+    "elapsedSeconds": 1.279
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "ef5130738b90b332f01b114aecd03c8fe19ead20bb1049bb5f35e94566ef0399",
+    "elapsedSeconds": 0.54
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "d243f4ca4015adbe4dea871aaf8bc095e9f7015f2024d42d171d6c5d67585759",
+    "elapsedSeconds": 0.53
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/analysis",
+    "testHash": null,
+    "elapsedSeconds": 1.759
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "d32a9cba4c2aaf5f9013bd0b42a215285e824fc04fca6fa56b82299bb2076976",
+    "elapsedSeconds": 0.83
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e192cb11e5b788766294c1cb1a8e0725c86efd2f8e75aca39451d97ad3108cb6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "d8da6951b2e155b40fe3ff22efc0b46683c840f7f4bc17a38103abf5decc1230",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "35d467f5f94fdea99283441b6716363729dd2435b8db03d694f48c11fd7c1a95",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "1bdd55c5c6ad1ee4d4599bdeb438eea5e973a8ad9959d0f2d79d2c717651facc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f6159b73753f6b22fba870f34f717e545e4dfaf5da012cf19c0219b958fb1775",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "39d34f7ff1b35cd6739739e1100a63a768c8bf6494147985850a7076ec108eb8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ffa7954c7f1daafa1c10a975607387d33e4b892adb12520a727034f903d8ddb3",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "ac3b6d7fa87ec024709b228e70fa7a2d648ad4b071d9645815ab5698515aa2a9",
+    "elapsedSeconds": 0.52
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "53fc8d93e50e7b08984f3c7136de54b7db4813231ceea0013265e652cb34f9eb",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c5fdd8fc05c002b00ebb3d6db48691e8089821366b6b0187ecfd724ead9c1877",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8e13478af4ce1295c54653acbaa60288568eebfd3f25fb5604b9cdf85f70bb69",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7a5a887b1b2f29536c30d307b9f96f17345821c1d6514c28a18d37944303ef12",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7c95c556857799a0b6171c4b45e509bf9b10d65351a34764357339718513da64",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "4f2c9caacbc7e40ab2b4d36b7c0875c34654bbbf1e1cdf3ad8e2b90f3919812e",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "1541b54b8e203f0a3887a5ae24ca8b4d1b019e06afecdfc38e991661272a4e71",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "a812077085ac4c98faae6442d31ec558a3893036dc142e15eacf65b06f94f081",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0f5324cbd5fa4687697f58942e58cec13b0fabd960178f6eda85a16f5dbea1ef",
+    "elapsedSeconds": 0.15
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "840fe0d0f54aa1b23c8d51cc57eb1bd28212e08644066563456d72b36bd91532",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5a2a64ee646bb5df4e88cef05c7c2d8c98d5bb24cc7f7d31878d26c5f38508dc",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "bb2fd82ea54cbc49a3f2b61050b80d64cf864e0d7bd8645ed523b5e2f9fa27c7",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "51a18062d7bb81aa9de9d5341334dd3dd0f9b4c51654b5581ee8014b7dbb67e0",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8149ce64dec1bb753f39208251e3f2d4970e8809aa2984cebdeb98f205629075",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "932ec33f43ac26e087d8aef0c3f1c1d9e5034708d4ea11a093633a168f975a4c",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "12da9c49758f7003b7038688510ea8a8fe244d38518389e69061cd24c90ab485",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ad8f816e11c77b4add6212fb652716a98fd3a258518df8dd9b7747791a81ce13",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "74abbf6a6e52c26c0a9f07d86f534d52d81b9abbf1d66fea746c3f8487a6a217",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "cf9602a70461befd86d0660c6d06eec42431a41643f7671fe141a93b9b9d766e",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "cac67f4dda9baa7b58730ec9a9e5dfa4d701f82c4d8c809c51fb6c79f2e754d4",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "13c88fd404850349f821021908cc38ca3b85f4fd915192379849881221072380",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8fdc223a81219ea05427303d6ff22f1ac371866d1c21f1c65cf9eec1fca2dd9f",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "bb8bc8e2caa32af2cef4de9821146ce8be2226208805ea7de3e6591fa0dc4f64",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "a95a8b614d3e4d1a82b8effc0b0e0ff9e356148c22bc3fe27a16b375c778effa",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "92370362228f685f91d783861e3890a15fd157cf9755a97d0c8ac840a12d65f8",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "4a30214ca3b6ab3616c1d954bf434e43a0aec38223194696785a36b0e646f377",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7dbadd98e88d86120e7944e2b73bbd5d02119a1318ec9083cbd763cb2aeb9941",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "6c23e7c0e64350e534ac3356382b8a5d7adac0c283d4a09903601514981d92aa",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e102863cfcdb2a97ef9cb277e23bf9af946d7f3891f955076d88b797ff1a93c1",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "1c475f7a83dd5341abba4c4adbdf92d6648179beb1b5493b9c18f8c1fa8f8ab6",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "55d206541876a7a82a767ca780f5f9b332c9f909c9032c9aea62ff6d52257677",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "09884a30e4a7e9cca0ec78de37f19d9ee564b8321174aa23b3a007036de4dd31",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "67e46bf988ec56e361b3a01d135a99a112292ec553ddf61601b9402754c4be95",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e207669c6ddd2a77818665ffc48434f18ae29b3bc5f1d1e141e153415081d03e",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5c95a18e2d1d8d2dd2eded71844f4cfd0a124608bc96ae0e702c21271e12ed45",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "1aeead7708c1308d993abbba59917a3165f254ec5567e7200e5a22e855eed140",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b7917e3984ec2691c68b4d6296f97245ea5b7712e2bc4a7d5e79afff849aecfb",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5d1ddabedafc33d6e239370bda728c1f703ae01268bb4e29c8deae7aa5f609e6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7af5d9764c91b14bf3693f7e5e60a00aa4213c946de0e4bd7fb141d8d65597e7",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "016c4e2206014f8da64a805e4c59ebd2ef5d52b75ce63cdde18fce6ab49ecb6c",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "3800d7532e51f0df4c7e4e4eacf5e99896b2d1151e5ea074fd66eae0a072dd88",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7ef58716414c16d409065f57de9817c1bd47b9535677a5cd3bd07b406566f4e3",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7202771b27c57e07a5d544be2669ea26bea6e889ba8322114c0de8f15e2208bb",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c9df4310acbc92334fbf7ef91339860aeaa46f554b41a38b5f464ed61833130b",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "3d2dcf84e2f24e3dd0932ade2aa3a594374c48364016dc99a55ca2482feca4c6",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "569ece2e86696e947eac36ab3e0b4014ef3972b5c816cfd8a890bfc6ba04f2c2",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f770aa350ff63df3c0b86d79241ddd0b60e37299f21b77df2c21f87ae6e81c2a",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b67e2ac696281751f6e4eaab5f0a5be761599ea743ab6304579798e680eed4ce",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ced50cafa9e9443ba64d606d7e18df0d2869513000248b14b4e23a4454391250",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "093cef9ab066017b412b3b2a08066b5d946c7c2a27fe06bdc1bdc5741a94700b",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "51713f1204a7d6144ab6dd8fb4680188fc06043afcb265caa52310773ed5ce4c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "77369cfa5ba4b7695116321426e61ddf801d80d0eea159cceb855cb73cdbf018",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c2fc093e8b51045fc4fb379691f849892edef370d5763e3d52e2a24b4845baaa",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "a4665b80200a78d5b9816e680d7279378cec2b6df0376ace98e9f9864156f573",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c13576bbeaf4a7d53a6508d9cf3810934c505080da7a9681cd53433ae3529657",
+    "elapsedSeconds": 0.27
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "24bad2f8eeaf1b62d9a711e771f795a19cec87fa017d86350c654d40445cf12f",
+    "elapsedSeconds": 0.5
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "6ba7236119c01dc98899e9612225bc798d31e9a29aad213a530d087a5dcd5245",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "586cec65f6b9a1aba2077da92f33fa26201aaca4e8d088d152876918e38228db",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "0b092642f3868642e1a306c00fe4390354c5f00ab5e38e559b333494c216f92e",
+    "elapsedSeconds": 1.27
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "07ac9b08501ee3d2f1aec5bb599678331232f89441ba7bd1d1e144fc47139d44",
+    "elapsedSeconds": 0.68
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "06e0bda28d89dd49e2a4c8ef19d570fe5900c6666d137e51e5d9e032ff5fe9e8",
+    "elapsedSeconds": 1.37
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e76f79ad4562fbb03be18d4057576ab087f6350c52c2886804ebc68780ce47aa",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "a85507dbbd0f9d7832573317bf11d900e344c6304a6ddaa6f43b38e005fe5d91",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "12904eb42c2cf7f678c0018c5b4908bdeeef23fde0e17592ae9e30dae37eddf7",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0434cec9f8ef9a3195af6e134dcace4199dc07afbf1dbfeb144c6b1fc4ff34b7",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "210f45b84e076810dc770961092e6eaa3aba8fef1155df912143eb55cec517ce",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "44561612eddfbbc6db89cf9fd7ccc1bea4ab9923df25cfc393dd29596800dd13",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8a84b493028dc2a29c1df1ec81d3c5ec43042f19cf0d3abc499925bad9e01f85",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "a0deea2d4062aa4b25494d5aa2b6f3e046c23ddbca8be6833839db40f9ff81b4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "6f983e1ece4588134981235d7dfcb1d816e7afc65c8212e9bab37afb095477c6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "516e9a207d6509f979216fab9b0e51da5591a27ab29f90f8be0b4ba097118616",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f5e7e6652e41930c93ec12bb3561696e6c14acec234a7c0c0bbbc04d5dcb5e4c",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "fe5a7a7f5d6fa782cadcdef3a8aa878734b0e9b9f5d1c92e4a4674d97aa1252a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e0c0aced5a68e4223d6adc266c456b3a58693ee27048445bf1a1348d319bec97",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7fed5ef124e8b18576b49dc8b6f661bf6ec3cc70c45940e70dcc77b5c108839e",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c3456e2d8b3868b1315187f81a56b95f3939c92ef95d0454ebf99caa10451962",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "82ca339f7f1e48da88c4c7a1718c4c2f503402c2247cd729e19977d7fb819c8a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b69726b458ade39f24bc57919e115f01a9e013ff0847bbf3a57545b58fc597be",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "6e63d557aced9a358597d3e0d9dcc102a6277405c2891fc16ed8d1f8d0639269",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5a1b95c9c433d4c2b3f9c0e3cc027b07e905d2e243f584495ebcc69342bfbbbe",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "5b4f5252360d0556d0d3a68f6b5aa18798b4696762ad1f5d986e94438008f8a1",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e606b6e3da079d1dbf2039ace3c3304c57114d1bc086e86e6f1ce3cf352d653f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "55edfea68b30df765e49246e41e98b40ef8ee88f1bc5970de456091ab470a22a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "afbbf399168ef04b8765a7a66b4b3c9814e5450896711d1fe966d93316ae66b7",
+    "elapsedSeconds": 0.04
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "337491633ea5ee6775d050e75d318e3a6df0508ad390665d31564a05a47d932b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c4b817b6598e6e7266ba5761503b9fd7404255eaf014a32af409c78c17774c6a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "6b8fc9ca492a67a1e5edeb7fc5682eb3e6a17e433ffe2b1dec81d150f80d48cc",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b4c48394101da5f2cb3d892b70e387a06f83b6fc6ed1a749b79a044ba46738bb",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "c0e2cf34b00c3abe511405312e4d6be4ed710abf2dfb772d01113ae48d17f01f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "ccb9db7766e897fe22cef403a79d57a0e61c2989c05117cc23883f10e2ff19eb",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "23b3906c43547ad25f858e74b7f6c655429a8fad63e14e7c18b4c5abd0bf0e41",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "cca2f2f1d50a7e800d6116524779fd19a8fc0712f130a4386bac2d347a0a5ef4",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "2f66fad6f2b31c5c99a702bb8dd7eb1bbfacabee3b43e9028b05769f15fe9509",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e4374b5a36ae27b1b91e96922df7fad181f84345be3bf21dc088036ff558b06b",
+    "elapsedSeconds": 0.04
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "3d18e30928347dab71d360b3cd40da53445cdb79bc600a8eb3fda91cad6c207a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "bf5bc5883c1f7e4e79993c7ee0cea90edd70bc8c3a731bc3b2e190d0f0229349",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "fe0d77f413445500479f5d6ae812883a3d1a22f8ecef41c472ae4e5fa14fc1db",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "06c0835a1d26b01f46c202ab4c542ad1c4275881bfe20ed5a090b3ff2b590175",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "bca9717674687a496c1d41ae8813276d83840d0c28f126aa4ceb9685c4efe3e7",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f6f529e6159e6de402f8cdb8b23e14f720da6c4d694843581d6540ade5ff56c1",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0de1ec4e4f37a6add2e54f9b70b06fb5458d2fbdc46bba05a7f76eb392387b51",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "3b442a47df71b76abf9f061713bf6abe5e6b897780f3a0f9ea01aec7266c4d34",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "9f4d721c0695219fa50e4cd948e624d425ad745bef29e4c1373ad3b5f918405a",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "499ec9f3f402da331afa3c512583cf773049fa6751fb48a77bf8a8362d4db8b5",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "db6edf59e2695e7da68a0f4ffcd991e5f95cbd61b0928da945e5581421739522",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f3c1e1ad2e0f03d13d5c0bdc785cd6ba7e811cbba4217f0a50441dc1d5eae068",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "3912ae853d1f3cf135d53837fbd192536fe86f20007af4aab9ed966045977b41",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "31edf33cd4d3fd817d7102db962f978d4ea8384f74e0fcedb07c480faefff98a",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7ec8604027eff822c1bfbfd049dc7e02f28b6210bd6d95c7f8760547a1d9a4a1",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "4706dc634d409397d1d5b5519f49e15f4ad6da1f226aaf40b3eb33f471785a4c",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f95a6769362a8531cb39e35be3879bd22fa73bb1281b0ec04e09d0c3fd1cc3f8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "8b9c347f1ddd26694a603e60683c03714c3336cd7473c998be104b1d9c5acc00",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "b0f293dd062c400ed68d026481716418628f66363bb232e863d0e89495f44b58",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "d40b757be16ad04bc94c74d6299e759f4ea2f426ebeddf3c56b9e9901b7443c5",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "fd2b0988143fb7af5c4a8fe27991d416fd1b35837c57bebd235385d2d5725a19",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "f36ed500bd8af6be1bfbf6b91fb98e0fde485435b25ea6cf3db8158e5ac3b535",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "929f5978825b5f369790413f677cab686e32c739d35da3277c6098b0aa0072e9",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "e95cf0f42278709446ada803416546aa73cf5e2b04a752ced3ec83a62bc175aa",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "7c1c8f2b6210ac55438ae183f051304cd2f70e93ad0977c156160acd4df5ee7e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "94bfe69aa160d685daba8e52f6ecf6a1e7f0679bbcc3b5d886bac5a9620df183",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0a16e2cc1aa05fd466e74b0203e87f7987c9e0f149c7f9a0ca1d29e25ad1fe54",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "0d4cbbb525d5aedab0c574f9a2632214223339f38ddf360eb36621edd1f83190",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "2a459693adb6971f8b090426cc8630ab62441372338da09703cee0fdcbdb831c",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "dbdf1fb028e54850c66b1a91e93a156ceb6fa3bf0d0e34084e8daaae70b41841",
+    "elapsedSeconds": 0.15
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "936f6751f188368a50e7b85da35197833eca47d2febdbf57f1d1705fa0f6c35b",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": "86e00fd4e95a53f12bf52fcb087c05f6768c606da4c065133ae87815401df2a6",
+    "elapsedSeconds": 0.51
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/syncing",
+    "testHash": null,
+    "elapsedSeconds": 5.754
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "59fdc15a2363e34c4c8b44474184cce2488ab87360c799a2032a5d85e411ebe2",
+    "elapsedSeconds": 2.46
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "c707d3b5dc7212de15b4d89db5c94281697cd82329e73810b64b891197561c11",
+    "elapsedSeconds": 5.77
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "610fe074166d73e0020f4853e11e3e5bb5939a96a5bfa19e9f49fa167bddb21e",
+    "elapsedSeconds": 3.79
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "ba5972ebf567df2bb648184e4f9de25d61f2302dd76756b75a1a635996df9b2b",
+    "elapsedSeconds": 0.05
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "95ccc9cedc518f82ebaeb83db6cf54f704b79821c154ecb56203f070c69f30c3",
+    "elapsedSeconds": 7.39
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "ba91680750c2a99b950dac1e640dfb8ac78db722f7d7f14f07a9fe8fa33a4f29",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "8226c360a258f33647f410b50d8f96d97e19c33f536c20e885237c21205fc053",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "28f950a6472a799d8e90aa8ffaf23eb12fa554a748fdac0d4496482ae0311478",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "781bacd7aa11cb7d05637249a5bd22339c6c9a4405682e89e8af896b34f47e6c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "dd78db7835864893a2cba2972cd2c73076b9b04e6a39bd02b94b476040cc1112",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "f170c3e7fa444bb55339e3700e6f71f5948a81f65e067ea987944e7b681de263",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "553ec2d6540cad463fb6eef09c14c329ecd810f0ef2482438223c0b5a4e1b93c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "b697ea7bfc79a0b9ea2bee81d277804bc33ed7989a714ec63443d4795f0921b4",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "98f95cd47c64c3a6d3c06a77299cdc71726202bb8c43f207a365022b76bb868c",
+    "elapsedSeconds": 1.83
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "3c651d522140e188ca3e5513e038c1a6128272dc3da16e523c9a8c817c9d6a29",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "69c297bfbb9fc1882126b333282312ca3572202e1732776a3eb28cfca270029a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "2dd3fe39217d2567397bd23e24f4eb8b6e5608bef1c2277943ff2a45f80cfa6a",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "e053d03c2136fca033d781864f666259ee935fabe7d8836aac5664952fe9f152",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "0d6ee02645e01b57250bff8cf5345bf1c0e16abfd8adbbf17e5d9b394808fc04",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "6930e8ef875472b5f555c838450b1691b3858be1297517d2f6fdaeb7f574b6b6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "66e8d30a4d92afb99826ba46092d655d5300419e45eaf412efe368796f9dc8ea",
+    "elapsedSeconds": 0.03
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "c4752807ce3f0b311f49effb1c4588969734659182e8e1e5820c0902d10e4d26",
+    "elapsedSeconds": 5.56
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "83330657f4ba0e434594156657a40a0678b194d719e311f5a4a53b4455bf9d7e",
+    "elapsedSeconds": 6.48
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "3e31ee1e4e3f1f2b5c65159481e8bc07212e75a70bb78940944b69945533638b",
+    "elapsedSeconds": 12.14
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "8241c50db512d3c761dfd47b2e5e178bf9cb716410e9df7757d6c1a2edf7c9c2",
+    "elapsedSeconds": 0.24
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "b32c24865c318219004a1f45e85162e25b1dcfd5b2bd2d1b3e4f4f9ca92b0d3d",
+    "elapsedSeconds": 0.25
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "555c4c8629cf4e23d17d4efc11475ce9859b02492e4714d45f86aab79c7a7793",
+    "elapsedSeconds": 0.25
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "15c88b78156bce3cb448876f0b5b516521d483766d98e38acc39b20ae2a22f20",
+    "elapsedSeconds": 0.24
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "ac55d4919901eeb8ab382e3fe756ee83b7690b269f2227cd301cf84b1ecb35b3",
+    "elapsedSeconds": 0.25
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "75c8292afeae4572ad54267501c867c4a202a4c509321b42c23a9649b2499cd2",
+    "elapsedSeconds": 4.84
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "f7594063919d66cf0c67941eff7d1a3a0c1fcef64607873edfc59730aa6c22a0",
+    "elapsedSeconds": 13.77
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "76382820fb4787a945dfb9ec893069bad757a8e296005b5a35510803272a86a8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "b7bf79736757a56a810d9bf28e75291cc9e901079a25eb8b312e46dab0490022",
+    "elapsedSeconds": 0.22
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "044c61b171767204829cf98d3e30da43ed02db7fb557b484aea3f68eebe704a4",
+    "elapsedSeconds": 0.24
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "893fcd4c81a192bb547b2cf12e9961fee254124379a0b049043c9d8612a0ad90",
+    "elapsedSeconds": 0.49
+  },
+  {
+    "action": "skip",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "9f193b40a32930ac55c40d97226346c3b7f445ca63dd6ec913ea9159d55ffb0d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "48643dfb57b966fd3e90bdeeb107c56dca38da21df1f4bd4c0b95a7ff42df6ec",
+    "elapsedSeconds": 0.24
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "892a023e41f30505980b48eaf02bb4ecbd1e721c5cbb49e87295505042015cf3",
+    "elapsedSeconds": 3.85
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "37a5dd115a032ff1e634373a8afe0fc1a98fb989c683cd83333b50091033cefb",
+    "elapsedSeconds": 0.23
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "83c03340cde669fb9a50be3d8b5710797dadaa9723922d675ebd042472b86ce5",
+    "elapsedSeconds": 0.23
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "1615df106e503b3708f57b4120e59e1f66f5bf82ede17ab01a862f47f23099c5",
+    "elapsedSeconds": 2.39
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "df082528df74aa2ba8063b56ca068617c87dd257e54acb34670b8de4e598d17a",
+    "elapsedSeconds": 0.6
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "f3a7c0d48fa9b358b52eb1fd573add2ec9054d2b4093fd532b654c657785a672",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "fee2eee8ad5daf7aec34b47936785e0cc367e4ded6868098e007aba21425c267",
+    "elapsedSeconds": 0.6
+  },
+  {
+    "action": "skip",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "ea42fdf42ccf2da923773869376ee8a94c88a84ef66f411f50d0de0f27e78cd6",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "skip",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "547cd1f85661cf6dc508bfdebfcc42febf426c9ec670e41fad040d9aab31f969",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "skip",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "97544066b59d69c25ecd3a8a72d16b536f5c011a97781199bf0c16ec59d97914",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "0638af071272bb34b6ab13f0159b0d22772470435fa855a1e345158ec7cf6281",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "25c37b61605e3cea017c27d6749aaad7d44b9a6cc03d1686b3c9087e10cfc491",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "d9cac3276627eb2dde29f2fe62c4892349c3dccb5f5c1b6c400a701d64a1928f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "b9fd3964eca6270777a5175e91b4eee55fdd262e1ca0771e80821da47e143f9a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "30c65844c147a1e13991a80bb552c2c5eba00937c212ebf3b9331e75ca5544d8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "45fa4988d9f77eb24f6ca5663cf9d6fecbbbfae2272867740c8ea7ab65a7ac87",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "79294aeca4e5649131f1c85fe1c15f465e00dba625e39104a4674062e4db37a0",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "f2f7a2e27855d7fea67d32ff6de585d04801ac30fc8270f180786fe6a3865725",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "283df1739e329abea820891c7b5f620a1f246d0b8e1909ce336d8f39c96c60a4",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "40f207e4e253c64aada7085215c36892af9dac73df6af64373b61499c18e65c7",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "9fe8fca6a428dc73913e923051142b629a3f7189cc7633f6f5331d87ec8ecaa8",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "a28f4b7cc61cc3906a85687c704a68936c9a27c5201ca119de7a1285aad8049d",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "9f5424680c328cf9a0c104d1825740d70c5318a7e4458578c7df95316d6c6585",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "4c3e248f0516d11ce95db56e3a0838407c5baab158185c679e9b6b7a96d9705e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "af4af56dcbff8806048e42dc7d3e9ce56e32f3112f1f50b051affa066cf2504a",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "b5f868630aa07708bdae13a7c1afa380ec0417584456fc863b4d3c4c3a323118",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "45a9ed65445070a9f2f63cea83ba2c0e570ed38a536bdac57b367d715604c65c",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "bee8070cba2d14816c30fce7688594920aa81f3e82ffb0a19e77fde51013d16e",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "2f0d6e01289e17bf02bba6ab855e7fa6cc0d03162e60caa1ec268a4f8e641c2f",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": "aa6840054d1f1ef7c15fa2196c2054b698f48083914de9081b3b92d45d9f8469",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "6980ea81c9c0764b4c560b8c14aea4567a0389186dcb40a1166a32e5dd3a2a6e",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "3ae397483cf63c5b1f88d8391b81423c466bf0cb0f3894f8292b7076a324ffc2",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "33401e9d133acabd2a0d3d33cd5984bf3bff1b319015dadb293dc576b8ad8fd6",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "9c8612a7976c30140c5579531caeca2d609770afde2d14b27cae8dd08c4f57cd",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "64c211d13c7e1ac53713c3283a3035e3b87920e1372725bc5d6a4dbd25cb74ca",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "37e35ca6ccf66aa5ce6ed89fa3b9919e6f7e30cd3ece0e0f6d1c4361fa08167f",
+    "elapsedSeconds": 0.01
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "f583ec7fa69677141050302eb20fb8b1ee7f12ae3ba99910c2601f7d080ea9cc",
+    "elapsedSeconds": 0.23
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "c1a9cd9e2967c5190770e8810ef0d334261a7177fcf4e3c70a11b63c4fee998e",
+    "elapsedSeconds": 0.23
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "1d4fd35c7d9522bb639a69127526c59f9d5a4c96b9875f9164b3b9f19c60cc22",
+    "elapsedSeconds": 0.89
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "74f4d1800e2499acbbebe86b8aff3abf9a1d0eac6442635182f36052bbccd8ff",
+    "elapsedSeconds": 0.21
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "9c307958f738772a5b5e04a0cbfaffb42f7cdf4c2277fe95c83011cdc99914fc",
+    "elapsedSeconds": 0.24
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "bd52906573c05d4367c976ce3e6a955efd18fccebb9490440c61e8581e2cf286",
+    "elapsedSeconds": 0.22
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/httpapi",
+    "testHash": null,
+    "elapsedSeconds": 16.674
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "f89481211f65e0a0eb57dfe6a59a53061a48a67502c2454ac0711d6ebfd492cd",
+    "elapsedSeconds": 0.21
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "e75cd1014037edad075313c924637b4e8e28b2973cdcbfbfb308c678c708dc9d",
+    "elapsedSeconds": 0.22
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "36ac0443409b33080219adc09b7e450da25eac748a06e432940a6f154e8b9d76",
+    "elapsedSeconds": 0.23
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "d7a8afb827644254c5e435af9ca972982ed735ab30703b0b45b151da075d6c57",
+    "elapsedSeconds": 0.22
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "e937be8d61dc35eee15d66c08a94881a6b2e204cdf94cca4978ac72fcb2bebd3",
+    "elapsedSeconds": 0.22
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "d255f17cf37628b1e3637fd0951d37e838bc5d4e1cae767a88aec453ee50ff31",
+    "elapsedSeconds": 2.23
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "7fcba6198e2d8117a417cc7867c98a8dccdf53f68d087d427912a8fd22b7a2be",
+    "elapsedSeconds": 0.68
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "ad2174bd5072a14077a329bd3361be294f06f0477720ed8490cd4db597b9db41",
+    "elapsedSeconds": 2.34
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "5ffb89029a52b4d7dc8ba004d5fbe6d7e875d075357cc49724454fb8a989ee54",
+    "elapsedSeconds": 0.67
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "171ca6db550a071466df5e30160ae4bbbd2dee7a83d1e298e36bbcae9cf194da",
+    "elapsedSeconds": 0.67
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "27006a38bf8ad60c4dab2b676138bd513e113831991a4e7fdfc45739014a87df",
+    "elapsedSeconds": 0.69
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "6ca6cf601de0aed82a0ec14071be230a58a17da30be7a6696956a7429d56aca9",
+    "elapsedSeconds": 2.34
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "ff831a01f95f529f414a95fc98f1ec3c9b74a859623a321f27137e52e417fe44",
+    "elapsedSeconds": 0
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "c0b3463dc2d716ff588a8890efb0e0a06e22f5d5ddaa9735d2188adb496aaf66",
+    "elapsedSeconds": 0.81
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "158032a5c601237ca56f58d66d2522cf2c8ab92f5a7e3dbfc30f350a96d9e662",
+    "elapsedSeconds": 0.7
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "b5f5b2275a9a15ff39369e86c897159fb787a52ba99ce17a40534805f779fd28",
+    "elapsedSeconds": 0.66
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "33a037a5118ebf0ece8ab823bd918e2243aa9687086ae0760dadfd7eefa6a20c",
+    "elapsedSeconds": 0.7
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "35359f2ba2d82f600ca80447c5466eca20c5affea4141a6e7c58efdde3705275",
+    "elapsedSeconds": 0.67
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "ac240d35d36c4d1ba8ffd0a5f92df325e6a2c7b1715a305627e9b16879687f68",
+    "elapsedSeconds": 0.7
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "3c7415cedae544449ce8a28b32a4ea98db591933812db02ef4ce0cbc1550bf92",
+    "elapsedSeconds": 14.8
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": "2ebe0b8e02414fff4cc245161bb0838a1d14c25f0c6d45a234c87834fee50932",
+    "elapsedSeconds": 0.45
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "58c5ddb9c9fe61b457593fd82fb1154ccbadf76c333b379e313dc80376aacbdc",
+    "elapsedSeconds": 0.65
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "c24c3fc12d4867ca8dbda6efb4fef060190826ac43376dd3e70ebd022bd02ccf",
+    "elapsedSeconds": 0.62
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/trainingload",
+    "testHash": null,
+    "elapsedSeconds": 26.183
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "c80f5a0a1bc0a91369a2540d0d83f16ab408b512453e18dd216a78e8094ad138",
+    "elapsedSeconds": 0.65
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "2213712e06a73aa596484adebfb3414d7f86a0769cab83f05677dc5859584670",
+    "elapsedSeconds": 8.86
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "bdf1291b135e5053d4cb961fae13fec1fac8d840280dd3a87f4de848ea1a7cbd",
+    "elapsedSeconds": 0.26
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "d191a7831ff4b2beff52428c38b1d0f0b0b785d7259df87c29fdd5c1d34a87c8",
+    "elapsedSeconds": 0.28
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "87e751ef11b3e53c3c9be4d9e45306bf1b3287c861ca25a497a80c97cf3ed08e",
+    "elapsedSeconds": 0.27
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "e68796058f44d26378e6849d3744248c6e66aaf12c8ed74b9a8ddfc5ad81e7d0",
+    "elapsedSeconds": 0.26
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "cdb06eebee4ef111224fe12eeda3d6340e98011c4ee55d1c3562d377095d4516",
+    "elapsedSeconds": 1.07
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "3acba29f28cee932fe1180c0205e8e374da16a2b403b9fc7e642045e856135b9",
+    "elapsedSeconds": 9.87
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "9edac7d5382dcde26ae83597458209f580031f349bc061894e2b0e0b2db8cf17",
+    "elapsedSeconds": 0.57
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "c1d52eb9d35da1dae46154f018dc3d20f132cd5817136ff03233154f24dd72f7",
+    "elapsedSeconds": 2.5
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "7dd07a699e4fbf610235495e77ed07c9027ee4d634e65846deef9256fe591c54",
+    "elapsedSeconds": 0.28
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "a8fffe924631f30cf2fbf9993bd5a26fdee65478cf2c3446f75567e402463c4a",
+    "elapsedSeconds": 1.31
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "a5d6883ab4601d81ed8932b295cba37eafdef98aa0fb1897cd8b7bc4f67f99ca",
+    "elapsedSeconds": 0.81
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "4da65f347ef0c3e80585595ffa25d28709caf2ce6f868462575ba915a76ed09d",
+    "elapsedSeconds": 0.41
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "18a180f231f6478972eb99f20ceeb207ed3d14eddec362483222d163b95f3ea2",
+    "elapsedSeconds": 0.79
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "2eef5a490b8e552dd87488df9d5c9ed0ab1a9c697115b1e35862d0546dbbb705",
+    "elapsedSeconds": 2.07
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "4fe4762f54fcbc72e1c5f0666bcfee8010aee4b80047bf8980d82373d24749eb",
+    "elapsedSeconds": 0.67
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "094d19b254a48c52712561474d7b5fef165d3df4b3f87e1384178f937510a830",
+    "elapsedSeconds": 0.65
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "783a3b86d81f8eba261555e9b0821d04838210afb718e9ce69b8b205e748608e",
+    "elapsedSeconds": 0.15
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "27836aeaf39a02df5082449755e2dc5d15a040757a79c48c767349a6ca1c2647",
+    "elapsedSeconds": 0.16
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "167bc221ae4f6c5ddac4f02296944b6657d077fd9acd731842c7e3439ab857a8",
+    "elapsedSeconds": 0.15
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": "467e5318d90776cace48536b1bfb2dc12c1a83dee54a77eb8d7a99597987447b",
+    "elapsedSeconds": 0.47
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/workoutfeatures",
+    "testHash": null,
+    "elapsedSeconds": 48.118
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "823f4b038149f05d5543c983f1fe22b6ffa2e7c36efcd42e5331ef9b2c33f2de",
+    "elapsedSeconds": 29.03
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "ea2f38536f5a38ef5507cd0018634af3998c7bc965eb1253ac0dbce8c1fa811f",
+    "elapsedSeconds": 0.02
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "04fe2e10e6cd134315a2311f61446a80306fae773fabc653b38981a95d4657a2",
+    "elapsedSeconds": 0.41
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "67e5adbdc6a49db67449756abefeef3aed3f87a4509719162d6430955574a210",
+    "elapsedSeconds": 0.78
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "3e0a18a8befa45b1504802eff478bd7bbf8f0b2662ca817f61ca62493a18dfc7",
+    "elapsedSeconds": 1.36
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "1a7e0e2b985dcdbe7afe291cffb62a5fbc8a8d283d7fe0c41efef1a53c7c274e",
+    "elapsedSeconds": 0.77
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "37ab125009b6061857f7395a1c9cfabb029ff3cff67e097e29455e0435d54f55",
+    "elapsedSeconds": 1.15
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "53226e61fd31fd9987fa067f9a80aaaf9a66986fb4c107147aaa25b8509157d3",
+    "elapsedSeconds": 0.78
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": "d56e8d41f3fe40e9523b90c1f8b8553dcdb0043efd06f415e767b5667b210f65",
+    "elapsedSeconds": 0.78
+  },
+  {
+    "action": "pass",
+    "package": "rai/server/internal/performance",
+    "testHash": null,
+    "elapsedSeconds": 56.87
+  }
+]

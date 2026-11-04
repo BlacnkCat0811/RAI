@@ -16,7 +16,7 @@ dc exec -T api /rai version
 dc logs --tail 100 api worker postgres
 ```
 
-日志有界10MiB×3/服务。分享前仍须脱敏；不输出环境变量、secret文件、raw表、请求正文、GPS或心率值。HTTP request_id用于关联；operation是规范路由模板，无原始路径/query。durable_commit只表示事务已耐久；响应丢失从原身份恢复，不新建batch。Worker claim、processing/publication duration、稳定error_code用于定位；scope/job/run仅是受限运维日志的内部关联，聚合指标不返回这些ID。
+日志有界10MiB×3/服务。分享前仍须脱敏；不输出环境变量、secret文件、raw表、请求正文、GPS或心率值。HTTP `request_hash`（`X-Request-ID` UTF-8 字节的 SHA-256 hex）用于关联；operation是规范路由模板，无原始路径/query。durable_commit只表示事务已耐久；响应丢失从原身份恢复，不新建batch。Worker claim、processing/publication duration、稳定error_code用于定位；B4 起普通日志只记录 `scope_hash` / `job_hash` / `run_hash`，训练的 plan/base/effective identity 也只记录 SHA-256 hash；不输出完整 UUID。HTTP 回应的 `X-Request-ID` 和业务回执身份保持原样，聚合指标不返回这些 ID。
 
 ## 监控与告警
 

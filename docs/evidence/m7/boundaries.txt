@@ -1,0 +1,9 @@
+PASS: online import graph excludes admin, migration and goose (258 packages)
+PASS: pure analysis domain excludes database, network and filesystem
+PASS: pure training domain excludes database, network and filesystem
+PASS: feature foundation excludes I/O, presentation, randomness and system clock
+PASS: performance consumes only M1 features; no M2/VO2/raw-history dependency
+PASS: external VO2 is pure; no M1/M2/M3/HR reference dependency
+PASS: recovery has no load/ability/VO2/Readiness, raw mutation or I/O dependency
+PASS: readiness is pure; consumes no raw/ability/VO2; product and generator stay isolated
+PASS: M7 typed projection is pure; reader only validates/Freshens/maps; legacy consumers unchanged

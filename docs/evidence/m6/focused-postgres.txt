@@ -1,0 +1,152 @@
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+=== RUN   TestReadinessMigration26To27
+--- PASS: TestReadinessMigration26To27 (1.56s)
+PASS
+ok  	rai/server/internal/admin	2.588s
+=== RUN   TestReadinessFaultRollback
+=== RUN   TestReadinessFaultRollback/snapshot
+=== RUN   TestReadinessFaultRollback/artifact
+=== RUN   TestReadinessFaultRollback/result
+=== RUN   TestReadinessFaultRollback/publication
+=== RUN   TestReadinessFaultRollback/dirty_clean
+=== RUN   TestReadinessFaultRollback/run_terminal
+=== RUN   TestReadinessFaultRollback/job_terminal
+=== RUN   TestReadinessFaultRollback/attempt_terminal
+--- PASS: TestReadinessFaultRollback (18.94s)
+    --- PASS: TestReadinessFaultRollback/snapshot (2.38s)
+    --- PASS: TestReadinessFaultRollback/artifact (2.57s)
+    --- PASS: TestReadinessFaultRollback/result (2.77s)
+    --- PASS: TestReadinessFaultRollback/publication (2.51s)
+    --- PASS: TestReadinessFaultRollback/dirty_clean (2.42s)
+    --- PASS: TestReadinessFaultRollback/run_terminal (2.13s)
+    --- PASS: TestReadinessFaultRollback/job_terminal (2.14s)
+    --- PASS: TestReadinessFaultRollback/attempt_terminal (2.02s)
+=== RUN   TestReadinessBackendCrashAtomicity
+=== RUN   TestReadinessBackendCrashAtomicity/after_artifact
+=== RUN   TestReadinessBackendCrashAtomicity/before_publication
+=== RUN   TestReadinessBackendCrashAtomicity/before_clean
+--- PASS: TestReadinessBackendCrashAtomicity (8.42s)
+    --- PASS: TestReadinessBackendCrashAtomicity/after_artifact (2.87s)
+    --- PASS: TestReadinessBackendCrashAtomicity/before_publication (2.49s)
+    --- PASS: TestReadinessBackendCrashAtomicity/before_clean (3.06s)
+=== RUN   TestReadinessForgedOutputs
+=== RUN   TestReadinessForgedOutputs/score
+=== RUN   TestReadinessForgedOutputs/baseline
+=== RUN   TestReadinessForgedOutputs/metrics
+=== RUN   TestReadinessForgedOutputs/snapshot
+--- PASS: TestReadinessForgedOutputs (10.28s)
+    --- PASS: TestReadinessForgedOutputs/score (2.90s)
+    --- PASS: TestReadinessForgedOutputs/baseline (2.46s)
+    --- PASS: TestReadinessForgedOutputs/metrics (2.41s)
+    --- PASS: TestReadinessForgedOutputs/snapshot (2.50s)
+=== RUN   TestReadinessRolesAndRawRollback
+--- PASS: TestReadinessRolesAndRawRollback (2.26s)
+=== RUN   TestReadinessPerformanceMatrix
+    readiness_performance_test.go:25: explicit synthetic M6 matrix
+--- SKIP: TestReadinessPerformanceMatrix (0.00s)
+=== RUN   TestReadinessSnapshotRepeatableRead
+--- PASS: TestReadinessSnapshotRepeatableRead (2.18s)
+=== RUN   TestReadinessBoundedQueryAndIndependentInputs
+    readiness_performance_test.go:220: M6_QUERY_PLAN [
+          {
+            "Plan": {
+              "Node Type": "Index Only Scan",
+              "Parallel Aware": false,
+              "Async Capable": false,
+              "Scan Direction": "Forward",
+              "Index Name": "readiness_workout_end",
+              "Relation Name": "workouts",
+              "Alias": "workouts",
+              "Startup Cost": 0.13,
+              "Total Cost": 8.15,
+              "Plan Rows": 1,
+              "Plan Width": 24,
+              "Actual Startup Time": 0.022,
+              "Actual Total Time": 0.024,
+              "Actual Rows": 6.00,
+              "Actual Loops": 1,
+              "Disabled": false,
+              "Index Cond": "((dataset_id = '<dataset>'::uuid) AND (event_end >= '2026-05-08 11:39:44.805018+00'::timestamp with time zone) AND (event_end < '2026-11-04 16:00:00+00'::timestamp with time zone))",
+              "Rows Removed by Index Recheck": 0,
+              "Heap Fetches": 6,
+              "Index Searches": 1,
+              "Shared Hit Blocks": 2,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning": {
+              "Shared Hit Blocks": 43,
+              "Shared Read Blocks": 0,
+              "Shared Dirtied Blocks": 0,
+              "Shared Written Blocks": 0,
+              "Local Hit Blocks": 0,
+              "Local Read Blocks": 0,
+              "Local Dirtied Blocks": 0,
+              "Local Written Blocks": 0,
+              "Temp Read Blocks": 0,
+              "Temp Written Blocks": 0
+            },
+            "Planning Time": 0.242,
+            "Triggers": [
+            ],
+            "Execution Time": 0.031
+          }
+        ]
+--- PASS: TestReadinessBoundedQueryAndIndependentInputs (2.19s)
+=== RUN   TestReadinessPublication
+--- PASS: TestReadinessPublication (2.13s)
+=== RUN   TestReadinessMissingCoverageAndUnknownLoad
+--- PASS: TestReadinessMissingCoverageAndUnknownLoad (2.57s)
+=== RUN   TestReadinessPublicationFences
+=== RUN   TestReadinessPublicationFences/new_workout
+=== RUN   TestReadinessPublicationFences/delete_workout
+=== RUN   TestReadinessPublicationFences/load_revision
+=== RUN   TestReadinessPublicationFences/recovery_withdraw
+=== RUN   TestReadinessPublicationFences/recovery_revision
+=== RUN   TestReadinessPublicationFences/coverage
+=== RUN   TestReadinessPublicationFences/config
+=== RUN   TestReadinessPublicationFences/assignment
+=== RUN   TestReadinessPublicationFences/timezone
+=== RUN   TestReadinessPublicationFences/collector
+=== RUN   TestReadinessPublicationFences/device
+=== RUN   TestReadinessPublicationFences/m2_assignment
+=== RUN   TestReadinessPublicationFences/lease
+=== RUN   TestReadinessPublicationFences/takeover
+--- PASS: TestReadinessPublicationFences (33.73s)
+    --- PASS: TestReadinessPublicationFences/new_workout (2.54s)
+    --- PASS: TestReadinessPublicationFences/delete_workout (2.35s)
+    --- PASS: TestReadinessPublicationFences/load_revision (2.33s)
+    --- PASS: TestReadinessPublicationFences/recovery_withdraw (2.32s)
+    --- PASS: TestReadinessPublicationFences/recovery_revision (2.62s)
+    --- PASS: TestReadinessPublicationFences/coverage (2.31s)
+    --- PASS: TestReadinessPublicationFences/config (2.25s)
+    --- PASS: TestReadinessPublicationFences/assignment (2.20s)
+    --- PASS: TestReadinessPublicationFences/timezone (2.93s)
+    --- PASS: TestReadinessPublicationFences/collector (2.35s)
+    --- PASS: TestReadinessPublicationFences/device (2.29s)
+    --- PASS: TestReadinessPublicationFences/m2_assignment (2.50s)
+    --- PASS: TestReadinessPublicationFences/lease (2.27s)
+    --- PASS: TestReadinessPublicationFences/takeover (2.47s)
+=== RUN   TestReadinessDeleteRevisionAndRebuild
+--- PASS: TestReadinessDeleteRevisionAndRebuild (4.77s)
+=== RUN   TestReadinessActualM2RevisionAndRecoveryIndependence
+--- PASS: TestReadinessActualM2RevisionAndRecoveryIndependence (3.18s)
+=== RUN   TestReadinessPersistedDependencyAlwaysQueuesCurrent
+--- PASS: TestReadinessPersistedDependencyAlwaysQueuesCurrent (2.69s)
+=== RUN   TestReadinessRejectsM2UnitMismatch
+--- PASS: TestReadinessRejectsM2UnitMismatch (3.32s)
+PASS
+ok  	rai/server/integration	97.714s
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1

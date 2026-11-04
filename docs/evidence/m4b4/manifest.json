@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "rai.m4b4.evidence/1",
+  "files": {
+    "sqlc.json": "e7c293081bdc5d8ffffe20f7ba662c187b402de1096ff86761ec5ae8ea1e6be2",
+    "freeze-scan.json": "09aab46fb68c800e7e589e908b6c0169b590310c2fe03e3fac0797a12d2432d1",
+    "simulator-app-xctest-observations.json": "80023f8120888883d798cba114b3d3c38ef82f6a52d23e42c5c4253299a3080a",
+    "README.md": "f12f2413b0de1fd919084970cf1afbe33cda223f2afc71be0d9bb61e6119430c",
+    "go-final-race-events.json": "fc898d59de8ebc44d27116ba172c1330a1fc41f212b0e18b4b5a633f85648ec9",
+    "baseline.json": "b6328f0d37ba6e38511946ff427057d02572dae97a936c78464548f30105a14b",
+    "validation.json": "f6bdb060434a67c602c8cf015f7f5b977ec1382579bdf82abe69a9dcb78ba31f",
+    "pg-b4-real-login-observations.json": "90837e2f736c6ef37dec5623bd483b694e5f0c60ba17f4a9000311ce89e25c6e",
+    "go-final-test-events.json": "0c9abe81abcf14b10ae7c94b4738e22b2c503ffa2831c15b0eaa8e71234d0b27",
+    "simulator-real-login-closure-observations.json": "618aa05aa25b025a6e8de3b8ea6548b6477fdb57a6c20548f3de05af1e14dec9",
+    "pg-full-race-events.json": "f66adf509970986f1e4295382d9019d8a3c5f5b5ac246d61161f7dd907820af5",
+    "client-real-login-closure-observations.json": "dc8dafda066ae2f40421637c58603ddad9e21c2a5df3cfc88d4e1eea55dd5fdb"
+  },
+  "privacy": "Only synthetic counts, status, command results, hashes and timings. No health payload or credentials."
+}

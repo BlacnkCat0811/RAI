@@ -1,0 +1,10 @@
+2026-11-04 22:43:21.584 xcodebuild[92784:979530] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+Writing result bundle at path:
+	/Users/ta/RAI/.local/m7-xctest.e6w7V3/result.xcresult
+
+2026-11-04 22:43:21.593 xcodebuild[92784:979530] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-11-04 22:43:21.919 xcodebuild[92784:979530] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-11-04 22:43:42.338 xcodebuild[92784:979530] [MT] IDETestOperationsObserverDebug: 20.412 elapsed -- Testing started completed.
+2026-11-04 22:43:42.338 xcodebuild[92784:979530] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-04 22:43:42.338 xcodebuild[92784:979530] [MT] IDETestOperationsObserverDebug: 20.412 sec, +20.412 sec -- end
+Testing started

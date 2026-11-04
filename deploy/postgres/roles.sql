@@ -90,3 +90,18 @@ GRANT EXECUTE ON FUNCTION rai_feature_downstream_dirty(uuid,text,timestamptz,tim
 
 -- M2: append-only candidate ledger; API has no load-ledger/artifact access.
 GRANT SELECT, INSERT ON analysis_load_ledger TO rai_worker;
+
+-- M4-B3: read-only snapshot identity/coverage for external candidate worker.
+GRANT SELECT ON daily_health_coverage, sync_streams, collector_leases TO rai_worker;
+GRANT SELECT(dataset_id,batch_id,dataset_epoch,envelope) ON sync_batches TO rai_worker;
+GRANT SELECT(dataset_id,id,can_collect,revoked_at) ON devices TO rai_worker;
+
+-- Fixed-scope, dataset-locked control-boundary invalidation; no channel/input writes.
+GRANT EXECUTE ON FUNCTION rai_vo2_external_dirty(uuid) TO rai_worker;
+
+-- M5B: day advancement only; no assignment/raw mutation privilege.
+GRANT EXECUTE ON FUNCTION rai_recovery_dirty_day(uuid,date) TO rai_worker;
+GRANT SELECT ON change_events TO rai_worker;
+
+-- M6: candidate invalidation/day advancement, no coverage/assignment writes.
+GRANT EXECUTE ON FUNCTION rai_readiness_dirty(uuid) TO rai_worker;

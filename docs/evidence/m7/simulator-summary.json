@@ -1,0 +1,55 @@
+{
+  "devicesAndConfigurations": [
+    {
+      "device": {
+        "architecture": "x86_64",
+        "deviceName": "RAI M4B2 Synthetic",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23F77",
+        "osVersion": "26.5",
+        "platform": "iOS Simulator"
+      },
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "passedTests": 41,
+      "skippedTests": 2,
+      "testPlanConfiguration": {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription": "RAI \u00b7 Built with macOS 26.7.2",
+  "expectedFailures": 0,
+  "failedTests": 0,
+  "finishTime": 1793803422.35,
+  "passedTests": 41,
+  "result": "Passed",
+  "skippedTests": 2,
+  "startTime": 1793803401.597,
+  "statistics": [],
+  "testFailures": [],
+  "title": "Test - RAI",
+  "topInsights": [
+    {
+      "category": "Longest Test Runs",
+      "impact": "72% of duration",
+      "text": "1 longest test run with outlier durations exceeding 4.92s (three standard deviations)"
+    }
+  ],
+  "totalTestCount": 43,
+  "m7AndSkippedTests": [
+    {
+      "name": "testB4SimulatorFullExternalClosure()",
+      "result": "Skipped"
+    },
+    {
+      "name": "testM7SharedProductGoldenContract()",
+      "result": "Passed"
+    },
+    {
+      "name": "testVO2SimulatorHTTPPostgresEndToEnd()",
+      "result": "Skipped"
+    }
+  ]
+}

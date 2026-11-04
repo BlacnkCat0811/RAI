@@ -1,0 +1,11 @@
+{
+  "sqlc": "1.31.1",
+  "generatedFiles": 7,
+  "secondGenerationByteStable": true,
+  "protectedFiles": 131,
+  "changedProtectedFiles": [],
+  "swiftChanges": false,
+  "oldMigrationsChanged": false,
+  "gofmtCheckedNonignoredGoFiles": 253,
+  "existingIgnoredGofmtIssueNotModified": "apps/server/.local/m5a-rd-setup/main.go"
+}

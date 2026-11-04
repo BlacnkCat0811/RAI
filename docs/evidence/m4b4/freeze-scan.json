@@ -1,0 +1,16 @@
+{
+  "originalPlanPreserved": true,
+  "changedBaselineFiles": [
+    "apps/server/internal/httpapi/server.go",
+    "apps/server/internal/jobs/worker.go",
+    "ios/RAI/AppTests/NormalizerTests.swift",
+    "docs/IMPLEMENTATION.md",
+    "docs/ARCHITECTURE.md",
+    "docs/P7_OPERATIONS.md"
+  ],
+  "protectedFiles": 40,
+  "changedProtectedFiles": [],
+  "highestMigration": 25,
+  "openAPIChanged": false,
+  "executableOwnOrLaboratoryMatches": []
+}

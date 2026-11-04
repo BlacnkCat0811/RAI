@@ -1,0 +1,99 @@
+{
+  "clientDate": "2026-11-04",
+  "result": "PASS WITH RISKS",
+  "highestMigration": 26,
+  "deviceMode": "SIMULATOR / SYNTHETIC ONLY",
+  "realDeviceAcceptance": "DEFERRED",
+  "physiologicalValidation": "NOT VERIFIED",
+  "performance": [
+    {
+      "historyDays": 14,
+      "inputFacts": 45,
+      "loadUs": 10646,
+      "computeUs": 6048,
+      "publishUs": 37741,
+      "bundleJSONBytes": 43581,
+      "persistedJSONBBytes": 47301
+    },
+    {
+      "historyDays": 28,
+      "inputFacts": 87,
+      "loadUs": 17068,
+      "computeUs": 6549,
+      "publishUs": 50074,
+      "bundleJSONBytes": 52890,
+      "persistedJSONBBytes": 56834
+    },
+    {
+      "historyDays": 42,
+      "inputFacts": 89,
+      "loadUs": 15810,
+      "computeUs": 7497,
+      "publishUs": 48411,
+      "bundleJSONBytes": 53224,
+      "persistedJSONBBytes": 57180
+    },
+    {
+      "historyDays": 90,
+      "inputFacts": 89,
+      "loadUs": 15906,
+      "computeUs": 7054,
+      "publishUs": 55085,
+      "bundleJSONBytes": 53224,
+      "persistedJSONBBytes": 57180
+    },
+    {
+      "historyDays": 180,
+      "inputFacts": 89,
+      "loadUs": 16472,
+      "computeUs": 6328,
+      "publishUs": 48591,
+      "bundleJSONBytes": 53224,
+      "persistedJSONBBytes": 57180
+    },
+    {
+      "historyDays": 365,
+      "inputFacts": 89,
+      "loadUs": 16712,
+      "computeUs": 6440,
+      "publishUs": 52866,
+      "bundleJSONBytes": 53224,
+      "persistedJSONBBytes": 57180
+    }
+  ],
+  "performanceContext": "final sparse synthetic fixture with race detector; individual measurements, not production latency",
+  "publicLogsFullUUIDCount": 0,
+  "fullPGRegressionDuringImplementation": "go test -race -count=1 -timeout=20m -tags=integration ./... : PASS",
+  "finalFocusedPGRevalidation": "TestRecoveryModel* : PASS",
+  "finalRawTransactionRollback": "PASS",
+  "goTest": "PASS",
+  "goRace": "PASS",
+  "goVet": "PASS",
+  "boundaries": "PASS",
+  "sqlcRegeneration": "PASS",
+  "swiftDailyProbeRealHTTPPG18": "PASS",
+  "swiftPackageDailyTests": "NOT RUN: installed CommandLineTools lacks Testing module",
+  "noSwiftSourceChangesByM5B": true,
+  "modelInputs": [
+    "SDNN",
+    "RHR",
+    "Sleep"
+  ],
+  "candidateOnly": true,
+  "readinessHandler": false,
+  "productionAccess": false,
+  "deployment": false,
+  "gitCommitOrPush": false,
+  "actualDifferentM2LoadSameRecovery": "PASS",
+  "allProductAndTrainingDTOIsolation": "PASS",
+  "pureDomainTopLevelTests": 14,
+  "pgTopLevelTestsIncludingMigration": 17,
+  "finalSourceSHA256": {
+    "apps/server/internal/recovery/calculate.go": "1ba4279561ce4228ae6547936dc82505f2811e2a3c2f78d1f1aa5f6b03ef080b",
+    "apps/server/internal/recovery/model.go": "f4f3a3a6dc7c4c301fff908bfc8f69eaca6756695f0e69e241260d41d1a99985",
+    "apps/server/internal/recovery/recovery_test.go": "3b7e204ab11a811ab8fb0debbaf0e1acf37e8327dfa695db18546216b5d57c97",
+    "apps/server/internal/recovery/sleep.go": "1fb224ecd934413dd995f96af944627b9768c1d675d7e78010395af037338030",
+    "apps/server/migrations/00026_recovery_foundation.sql": "7147c6400ebd0625a99bcb0d52af5e6878c0e7479a691c34ac1efff1d169679c",
+    "apps/server/integration/recovery_model_test.go": "44d603ae383542ab878f0e1115552ff245743508ca7c6d9d6c967f32c904ad41"
+  }
+}

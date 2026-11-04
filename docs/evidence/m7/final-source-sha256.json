@@ -1,0 +1,13 @@
+{
+  "apps/server/integration/athlete_model_test.go": "da8a2f51018fed78b40229e522b5fbc545becda3c8fecaf62be225e939f72a6c",
+  "apps/server/internal/admin/model_stack.go": "ed766e96f1a828e5a27384da770389766580e0a274e23e48725aecbae3a34804",
+  "apps/server/internal/athletemodel/contract.go": "c114e246c52ab0ef495d9cdb211d183cf57a053135acabe605c36bffe5b491ae",
+  "apps/server/internal/athletemodel/contract_test.go": "239eb1b56cb8441ac355357a16e493fbe5ce2a07cc572a4244af9772df79343a",
+  "apps/server/internal/athletemodel/projection.go": "174cbbe651f703df942d44d95b34f5c8e6330e848202587f204b7c3ff226b22a",
+  "apps/server/internal/athletemodel/promotion.go": "061ef26f15dfd651d19318c9f488f51eeadbd36714a5fca95d37010004d533f5",
+  "apps/server/internal/storage/postgres/athlete_model.go": "678c8b73cca824ad7c3a32c284d8ae66178943421e7a9c0966e8a104fd29b44a",
+  "apps/server/internal/storage/postgres/dbgen/athlete_model.sql.go": "b861877a94c0c780cc02be84b73ea027db4adfb96759922983b0cb67a7afdb3a",
+  "apps/server/queries/athlete_model.sql": "2c02ec56b68631302180dd74b4cd262e726903441e964358cbfc3bb3fb7b340c",
+  "ios/RAI/Sources/ProductCore/AthleteModel.swift": "30a78e0dfc1ed6e01ac305f2c689d68b3db840cb7a7fef681e3b3b2a17523c26",
+  "ios/RAI/Tests/ProductCoreTests/AthleteModelTests.swift": "30101c68e93fc250e324a6e024b3c6189f1d03000d3e8964c3e520043c127696"
+}

@@ -1,0 +1,31 @@
+ M apps/server/integration/vo2max_test.go
+ M apps/server/internal/admin/analysis.go
+ M apps/server/internal/admin/features.go
+ M apps/server/internal/admin/load.go
+ M apps/server/internal/admin/performance.go
+ M apps/server/internal/analysis/model.go
+ M apps/server/internal/jobs/worker.go
+ M apps/server/internal/storage/postgres/analysis_input.go
+ M apps/server/internal/storage/postgres/analysis_publish.go
+ M apps/server/internal/storage/postgres/schema.go
+ M apps/server/migrations/checksums.json
+ M deploy/postgres/roles.sql
+ M docs/IMPLEMENTATION.md
+ M scripts/check-boundaries.py
+?? apps/server/integration/vo2_external_crash_test.go
+?? apps/server/integration/vo2_external_explain_test.go
+?? apps/server/integration/vo2_external_faults_test.go
+?? apps/server/integration/vo2_external_properties_test.go
+?? apps/server/integration/vo2_external_roles_test.go
+?? apps/server/integration/vo2_external_test.go
+?? apps/server/internal/admin/vo2_external.go
+?? apps/server/internal/admin/vo2_external_migration_integration_test.go
+?? apps/server/internal/analysis/candidate_vo2_external.go
+?? apps/server/internal/storage/postgres/dbgen/vo2_external.sql.go
+?? apps/server/internal/storage/postgres/vo2_external_input.go
+?? apps/server/internal/storage/postgres/vo2_external_publish.go
+?? apps/server/internal/vo2maxexternal/
+?? apps/server/migrations/00025_vo2max_external_projection.sql
+?? apps/server/queries/vo2_external.sql
+?? docs/M4B3_RESULT.md
+?? docs/evidence/m4b3/

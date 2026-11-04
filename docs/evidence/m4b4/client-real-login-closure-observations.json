@@ -1,0 +1,8 @@
+[
+  "B4_WORKER_TIMING snapshot_ms=10.195 projection_ms=0.825 publication_ms=39",
+  "B4_TIMING phase=worker_claim_through_publication duration_us=103434",
+  "B4_MACOS_SIGKILL phase=before-upload raw=1 receipt=1 projection=1 anchor_recovered=true",
+  "B4_WORKER_TIMING snapshot_ms=10.883 projection_ms=0.262 publication_ms=15",
+  "B4_TIMING phase=worker_claim_through_publication duration_us=36089",
+  "B4_MACOS_SIGKILL phase=after-commit raw=1 receipt=1 projection=1 anchor_recovered=true"
+]

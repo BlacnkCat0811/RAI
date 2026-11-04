@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-11-04T22:59:02.833765+08:00",
+  "result": "PASS WITH RISKS",
+  "syntheticOnly": true,
+  "highestMigration": 27,
+  "newMigrations": 0,
+  "baseline": {
+    "head": "380a6fe96d13d1e57f69ceac50e52e72908af2b8",
+    "branch": "main",
+    "frozenFiles": 79,
+    "changedFrozenFiles": []
+  },
+  "checks": {
+    "goTest": {
+      "exitCode": 0,
+      "log": "go-test.txt"
+    },
+    "goRace": {
+      "exitCode": 0,
+      "log": "go-race.txt"
+    },
+    "goVet": {
+      "exitCode": 0,
+      "log": "go-vet.txt"
+    },
+    "integrationVet": {
+      "exitCode": 0,
+      "log": "integration-vet.txt"
+    },
+    "pgFullRace": {
+      "exitCode": 0,
+      "log": "pg-full-race.txt",
+      "integrationSeconds": 1018.755,
+      "scope": "full regression compilation before final reader validation refinements"
+    },
+    "pgFinalM7Race": {
+      "exitCode": 0,
+      "log": "pg-final.txt",
+      "scope": "final reader, latest-pending, dependency withdrawal, corruption, race, roles, actual DAG, performance"
+    },
+    "swiftFull": {
+      "exitCode": 0,
+      "tests": 132,
+      "suites": 17,
+      "log": "swift-full.txt"
+    },
+    "simulatorApp": {
+      "exitCode": 0,
+      "passed": 41,
+      "skippedDedicatedLiveTests": 2,
+      "m7Golden": "Passed"
+    },
+    "simulatorDedicatedLive": {
+      "exitCode": 0,
+      "B4GroupsCases": [
+        9,
+        8
+      ],
+      "B2LostACK": "PASS",
+      "log": "simulator-live-regression.txt"
+    },
+    "openapi": {
+      "exitCode": 0,
+      "redocly": "2.71.1",
+      "node": "22.23.2",
+      "errors": 0,
+      "baselineWarnings": 31,
+      "currentWarnings": 33,
+      "newWarnings": [
+        "AthleteModelCandidateSnapshot unused (CLI only)",
+        "ModelPromotionGate unused (CLI only)"
+      ]
+    },
+    "schemaCompatibility": {
+      "exitCode": 0,
+      "sharedGoldenCount": 11,
+      "legacyPathsAndSchemasUnchanged": true,
+      "swiftFixtureByteIdentity": true
+    },
+    "boundary": {
+      "exitCode": 0,
+      "log": "boundaries.txt"
+    },
+    "sqlc": {
+      "version": "v1.31.1",
+      "files": 10,
+      "regenerationStable": true
+    },
+    "gitDiffCheck": {
+      "exitCode": 0
+    }
+  },
+  "activation": {
+    "active": "legacy",
+    "candidateOnly": true,
+    "promotable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "productActivation": "NOT AUTHORIZED"
+  },
+  "notVerified": [
+    "REAL DEVICE ACCEPTANCE: DEFERRED",
+    "PHYSIOLOGICAL VALIDATION: NOT VERIFIED",
+    "real metric availability",
+    "real source behavior",
+    "real load completeness",
+    "real Running Ability calibration",
+    "real Recovery validity",
+    "real Readiness validity",
+    "production",
+    "WAN",
+    "new UI/accessibility/product acceptance",
+    "rollback exercise"
+  ],
+  "nextPhase": "Unified Real-Device & Calibration Acceptance (recommendation only; not started)"
+}

@@ -1,0 +1,1 @@
+PASS: 11 synthetic golden schemas; exact Swift fixture identity; unchanged existing paths/schemas; new typed OpenAPI definitions match standalone schema

@@ -1,0 +1,13 @@
+-- name: CurrentCandidateVO2External :one
+SELECT a.payload,encode(a.content_sha256,'hex'),r.id::text FROM analysis_publications p
+ JOIN datasets d ON d.id=p.dataset_id AND d.retired_at IS NULL
+ JOIN dirty_scopes x ON x.dataset_id=p.dataset_id AND x.scope_key=p.scope_key AND x.generation=p.generation AND x.clean_generation=x.generation
+ JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.status='SUCCEEDED' AND r.target_generation=p.generation
+ JOIN analysis_model_channels m ON m.dataset_id=p.dataset_id AND m.channel='candidate'
+ JOIN analysis_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key='vo2max_external_projection'
+ LEFT JOIN collector_leases c ON c.dataset_id=d.id
+ LEFT JOIN devices v ON v.dataset_id=c.dataset_id AND v.id=c.device_id
+ WHERE (c.dataset_id IS NULL OR (v.can_collect AND v.revoked_at IS NULL)) AND p.dataset_id=$1 AND p.scope_key=($2::text) AND p.metric_family=($3::text) AND a.schema_version=($4::text)
+ AND a.payload->>'datasetGeneration'=d.epoch::text AND a.payload->>'collectorEpoch'=COALESCE(c.collector_epoch::text,'')
+ AND a.payload->>'assignmentID'=m.extension_configs->($5::text)->>'assignmentID' AND a.payload->>'configHash'=m.extension_configs->($5::text)->>'configHash'
+ AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(a.payload->'factRefs') f LEFT JOIN health_samples h ON h.dataset_id=p.dataset_id AND h.sample_type='HKQuantityTypeIdentifierVO2Max' AND h.sample_uuid=(f->>0)::uuid WHERE h.content_sha256 IS NULL OR encode(h.content_sha256,'hex')<>f->>1);

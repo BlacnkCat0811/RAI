@@ -1,0 +1,49 @@
+{
+  "scope": "synthetic, local, race detector; SELECT count excludes BEGIN/COMMIT; not an SLO",
+  "results": [
+    {
+      "scenario": "all_available",
+      "samples": 10,
+      "dbReads": 5,
+      "readNS": 30799033,
+      "freshenNS": 17176,
+      "mappingNS": 1820862,
+      "serializationNS": 443011,
+      "bytes": 7043,
+      "readerAndJSONAllocs": 2150
+    },
+    {
+      "scenario": "mixed_freshness",
+      "samples": 10,
+      "dbReads": 5,
+      "readNS": 14310121,
+      "freshenNS": 9273,
+      "mappingNS": 1846937,
+      "serializationNS": 405334,
+      "bytes": 6160,
+      "readerAndJSONAllocs": 1209
+    },
+    {
+      "scenario": "three_unavailable",
+      "samples": 10,
+      "dbReads": 4,
+      "readNS": 19231590,
+      "freshenNS": 3124,
+      "mappingNS": 1803965,
+      "serializationNS": 341769,
+      "bytes": 5313,
+      "readerAndJSONAllocs": 1419
+    },
+    {
+      "scenario": "all_unavailable",
+      "samples": 10,
+      "dbReads": 3,
+      "readNS": 1038336,
+      "freshenNS": 270,
+      "mappingNS": 22375,
+      "serializationNS": 270161,
+      "bytes": 4152,
+      "readerAndJSONAllocs": 312
+    }
+  ]
+}

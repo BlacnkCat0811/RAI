@@ -63,6 +63,10 @@ func QueueFeatureCandidate(ctx context.Context, s *postgres.Store, dataset, work
 	if !matches {
 		return errors.New("candidate assignment conflict")
 	}
+	// Explicit enrollment ends an external-only slot's M1 suppression.
+	if _, err = tx.Exec(ctx, `UPDATE analysis_model_channels SET extension_configs=extension_configs-'rai.vo2max.external_only/v1' WHERE dataset_id=$1 AND channel='candidate' AND extension_configs ? 'rai.vo2max.external_only/v1'`, dataset); err != nil {
+		return err
+	}
 	_, err = tx.Exec(ctx, `INSERT INTO admin_operations(operation_id,operation_type,actor,status,subject_dataset,details) VALUES($1,'feature_candidate',$2,'committed',$3,$4)`, operation, actor, dataset, b)
 	if err != nil {
 		return err

@@ -2,11 +2,16 @@ package jobs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"log/slog"
+	ve "rai/server/internal/vo2maxexternal"
 	"time"
 
 	"rai/server/internal/analysis"
 	pf "rai/server/internal/performance"
+	rd "rai/server/internal/readiness"
+	rc "rai/server/internal/recovery"
 	"rai/server/internal/training"
 	tl "rai/server/internal/trainingload"
 	wf "rai/server/internal/workoutfeatures"
@@ -23,7 +28,7 @@ type Queue interface {
 	AdvanceAnalysisDay(context.Context, time.Time) error
 }
 
-var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "analysis.training_state", "training.plan", wf.JobKind, tl.JobKind, tl.StateJobKind, pf.JobKind}
+var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "analysis.training_state", "training.plan", wf.JobKind, tl.JobKind, tl.StateJobKind, pf.JobKind, ve.JobKind, rc.JobKind, rd.JobKind}
 
 // Run uses one processing slot. The short poll waits on cancellation and the
 // independent renewal loop cancels calculation immediately after lease loss.
@@ -144,7 +149,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		if err != nil {
 			errorCode = "training_failed"
 		}
-		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_id", trainingPlanFromScope(l.ScopeKey), "generation", l.TargetGeneration, "base_version", baseID, "effective_version", effectiveID, "job_id", l.ID, "run_id", id, "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
+		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_hash", logIdentity(trainingPlanFromScope(l.ScopeKey)), "generation", l.TargetGeneration, "base_hash", logIdentity(baseID), "effective_hash", logIdentity(effectiveID), "job_hash", logIdentity(l.ID), "run_hash", logIdentity(id), "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
 		return
 	}
 	snapshotStart := time.Now()
@@ -164,7 +169,13 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 	algorithmDuration := time.Duration(0)
 	if err == nil && in.Generation == l.TargetGeneration {
 		algorithmStart := time.Now()
-		if l.Kind == pf.JobKind {
+		if l.Kind == rd.JobKind {
+			ms, err = analysis.CalculateCandidateReadiness(&in)
+		} else if l.Kind == rc.JobKind {
+			ms, err = analysis.CalculateCandidateRecovery(&in)
+		} else if l.Kind == ve.JobKind {
+			ms, err = analysis.CalculateCandidateVO2External(&in)
+		} else if l.Kind == pf.JobKind {
 			ms, err = analysis.CalculateCandidatePerformance(&in)
 		} else if l.Kind == tl.JobKind || l.Kind == tl.StateJobKind {
 			ms, err = analysis.CalculateCandidateLoad(&in, l.Kind)
@@ -213,7 +224,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 	if err != nil {
 		errorCode, _ = analysis.ErrorCode(err)
 	}
-	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_id", l.ID, "scope_key", l.ScopeKey, "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.BundleVersion(l.Kind), "snapshot_ms", float64(snapshotDuration.Microseconds())/1000, "algorithm_ms", float64(algorithmDuration.Microseconds())/1000, "run_id", id, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
+	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_hash", logIdentity(l.ID), "scope_hash", logIdentity(l.ScopeKey), "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.BundleVersion(l.Kind), "snapshot_ms", float64(snapshotDuration.Microseconds())/1000, "algorithm_ms", float64(algorithmDuration.Microseconds())/1000, "run_hash", logIdentity(id), "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
 }
 
 // TrainingQueue extends the same queue with a distinct domain handler.
@@ -243,4 +254,12 @@ func featureMetrics(f wf.WorkoutFeatures) []analysis.Metric {
 		return nil
 	}
 	return []analysis.Metric{{Day: analysis.WorkoutDay, Name: "feature_active_seconds", Algorithm: wf.Algorithm, Version: wf.Version, Value: f.Timing.Active, Unit: "s", Quality: map[bool]string{true: "insufficient", false: "partial"}[f.Timing.Active == nil], Details: map[string]any{"artifactKey": wf.ArtifactKey}}, {Day: analysis.WorkoutDay, Name: "feature_preferred_distance", Algorithm: wf.Algorithm, Version: wf.Version, Value: f.Distance.Preferred, Unit: "m", Quality: map[bool]string{true: "insufficient", false: "partial"}[f.Distance.Preferred == nil], Details: map[string]any{"artifactKey": wf.ArtifactKey}}}
+}
+
+func logIdentity(value string) string {
+	if value == "" {
+		return ""
+	}
+	h := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(h[:])
 }

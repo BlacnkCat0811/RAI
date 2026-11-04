@@ -1,0 +1,330 @@
+{
+  "schemaVersion": "rai.athlete_model/1",
+  "asOf": 1793757600000000,
+  "evaluationAt": 1793757600000000,
+  "datasetRevision": 17,
+  "timezone": "Asia/Shanghai",
+  "calendarDate": "2026-11-04",
+  "assignment": {
+    "channel": "candidate",
+    "stackID": "synthetic",
+    "version": 1
+  },
+  "responseState": "complete_response",
+  "presentationOrder": [
+    "trainingReadiness",
+    "physiologicalRecovery",
+    "trainingLoad",
+    "runningAbility",
+    "externalVO2Max"
+  ],
+  "notices": [
+    "informational_fitness_metrics",
+    "not_medical_diagnosis"
+  ],
+  "trainingLoad": {
+    "envelope": {
+      "id": "trainingLoad",
+      "metric": "trainingLoad",
+      "modelVersion": "rai.training_load.hrr_integral/v1",
+      "payloadVersion": "rai.training_load/1",
+      "mappingVersion": "rai.product_metric_mapping/1",
+      "state": "available",
+      "modelStatus": "available",
+      "quality": "complete",
+      "confidence": null,
+      "evidenceSupport": "not_presented",
+      "asOf": 1793755800000000,
+      "evaluationAt": 1793757600000000,
+      "freshness": "fresh",
+      "updatedAt": 1793755800000000,
+      "reasonCodes": [],
+      "productReasonCodes": [],
+      "lineageSummary": {
+        "dataSources": [
+          "Apple Health",
+          "RAI-derived"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "latestWorkoutLoad": 70,
+      "latestWorkoutAsOf": 1793750400000000,
+      "acute": 35,
+      "chronic": 30,
+      "balance": -5,
+      "trend7": 2,
+      "knownness": "known_recorded_running",
+      "unit": "RAI_AU",
+      "stateUnit": "RAI_AU/day",
+      "stateModelVersion": "rai.load_state.exp_finite/v1"
+    },
+    "trend": {
+      "kind": "m2_trend7",
+      "value": 2,
+      "unit": "RAI_AU/day²",
+      "reasonCodes": []
+    },
+    "explanation": {
+      "headline": "trainingLoad.available",
+      "supportingFacts": [
+        {
+          "code": "load.latest_recorded_workout",
+          "value": 70,
+          "unit": "RAI_AU"
+        },
+        {
+          "code": "load.recent_recorded_running",
+          "value": 35,
+          "unit": "RAI_AU/day"
+        },
+        {
+          "code": "load.long_term_recorded_running",
+          "value": 30,
+          "unit": "RAI_AU/day"
+        }
+      ],
+      "limitations": [
+        "not_overtraining_diagnosis",
+        "not_total_body_load",
+        "recorded_running_load"
+      ]
+    }
+  },
+  "runningAbility": {
+    "envelope": {
+      "id": "runningAbility",
+      "metric": "runningAbility",
+      "modelVersion": "rai.running_ability/v1",
+      "payloadVersion": "rai.performance/1",
+      "mappingVersion": "rai.product_metric_mapping/1",
+      "state": "available",
+      "modelStatus": "available",
+      "quality": "not_provided",
+      "confidence": 0.4,
+      "evidenceSupport": "stronger_evidence",
+      "asOf": 1793671200000000,
+      "evaluationAt": 1793757600000000,
+      "freshness": "fresh",
+      "updatedAt": 1793671200000000,
+      "reasonCodes": [],
+      "productReasonCodes": [],
+      "lineageSummary": {
+        "dataSources": [
+          "Apple Health",
+          "RAI-derived"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "score": 55,
+      "v60": 3.3,
+      "gamma": 0.9,
+      "enduranceRetention": 0.88,
+      "stability": "stable",
+      "evidenceMode": "demonstrated",
+      "evidenceCount": 6,
+      "speedUnit": "m/s",
+      "scoreUnit": "score_0_100"
+    },
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "no_comparable_result"
+      ]
+    },
+    "explanation": {
+      "headline": "runningAbility.available",
+      "supportingFacts": [
+        {
+          "code": "running_ability.v60",
+          "value": 3.3,
+          "unit": "m/s"
+        },
+        {
+          "code": "running_ability.evidence_count",
+          "value": 6,
+          "unit": "count"
+        }
+      ],
+      "limitations": [
+        "evidence_support_not_probability",
+        "not_vo2max",
+        "recent_demonstrated_running_performance"
+      ]
+    }
+  },
+  "externalVO2Max": {
+    "envelope": {
+      "id": "externalVO2Max",
+      "metric": "externalVO2Max",
+      "modelVersion": "rai.vo2max.external_projection/v1",
+      "payloadVersion": "rai.vo2max.external_projection/1",
+      "mappingVersion": "rai.product_metric_mapping/1",
+      "state": "available",
+      "modelStatus": "available",
+      "quality": "complete",
+      "confidence": null,
+      "evidenceSupport": "not_presented",
+      "asOf": 1792720800000000,
+      "evaluationAt": 1793757600000000,
+      "freshness": "fresh",
+      "updatedAt": 1792720800000000,
+      "reasonCodes": [],
+      "productReasonCodes": [],
+      "lineageSummary": {
+        "dataSources": [
+          "Apple Health estimate"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "value": 42,
+      "unit": "mL/kg/min",
+      "provider": "Apple Health",
+      "origin": null,
+      "sampleDate": 1792720800000000,
+      "externalEstimate": true
+    },
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "source_value_history_only"
+      ]
+    },
+    "explanation": {
+      "headline": "externalVO2Max.available",
+      "supportingFacts": [
+        {
+          "code": "external_vo2.apple_health_estimate",
+          "value": 42,
+          "unit": "mL/kg/min"
+        }
+      ],
+      "limitations": [
+        "external_estimate",
+        "not_laboratory_ground_truth",
+        "not_rai_measured"
+      ]
+    }
+  },
+  "physiologicalRecovery": {
+    "envelope": {
+      "id": "physiologicalRecovery",
+      "metric": "physiologicalRecovery",
+      "modelVersion": "",
+      "payloadVersion": "",
+      "mappingVersion": "rai.product_metric_mapping/1",
+      "state": "unavailable",
+      "modelStatus": "insufficient_data",
+      "quality": "insufficient",
+      "confidence": null,
+      "evidenceSupport": "not_presented",
+      "asOf": null,
+      "evaluationAt": 1793757600000000,
+      "freshness": "unknown",
+      "updatedAt": null,
+      "reasonCodes": [
+        "insufficient_data"
+      ],
+      "productReasonCodes": [
+        "insufficient_evidence"
+      ],
+      "lineageSummary": {
+        "dataSources": []
+      },
+      "technicalError": null
+    },
+    "value": null,
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "no_comparable_result"
+      ]
+    },
+    "explanation": {
+      "headline": "physiologicalRecovery.state",
+      "supportingFacts": [],
+      "limitations": [
+        "insufficient_data"
+      ]
+    }
+  },
+  "trainingReadiness": {
+    "envelope": {
+      "id": "trainingReadiness",
+      "metric": "trainingReadiness",
+      "modelVersion": "rai.readiness.training/v1",
+      "payloadVersion": "rai.readiness.training/1",
+      "mappingVersion": "rai.product_metric_mapping/1",
+      "state": "available",
+      "modelStatus": "available",
+      "quality": "complete",
+      "confidence": 0.4,
+      "evidenceSupport": "stronger_evidence",
+      "asOf": 1793754000000000,
+      "evaluationAt": 1793757600000000,
+      "freshness": "fresh",
+      "updatedAt": 1793754000000000,
+      "reasonCodes": [],
+      "productReasonCodes": [],
+      "lineageSummary": {
+        "dataSources": [
+          "Apple Health",
+          "RAI-derived"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "score": 54,
+      "recoveryScore": 82,
+      "loadMultiplier": 0.66,
+      "recentRecordedLoad": 60,
+      "unit": "score_0_100",
+      "scope": "running_focused"
+    },
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "instant_state_no_long_term_trend"
+      ]
+    },
+    "explanation": {
+      "headline": "trainingReadiness.available",
+      "supportingFacts": [
+        {
+          "code": "readiness.recovery_score",
+          "value": 82,
+          "unit": "score_0_100"
+        },
+        {
+          "code": "readiness.recent_recorded_running_load",
+          "value": 60,
+          "unit": "RAI_AU"
+        },
+        {
+          "code": "readiness.load_multiplier",
+          "value": 0.66,
+          "unit": "ratio"
+        }
+      ],
+      "limitations": [
+        "evidence_support_not_probability",
+        "informational_not_training_instruction",
+        "running_focused"
+      ]
+    }
+  }
+}

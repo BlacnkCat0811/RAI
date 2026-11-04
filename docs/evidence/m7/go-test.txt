@@ -1,0 +1,21 @@
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/internal/admin	(cached)
+ok  	rai/server/internal/analysis	(cached)
+ok  	rai/server/internal/athletemodel	0.123s
+ok  	rai/server/internal/config	(cached)
+ok  	rai/server/internal/httpapi	(cached)
+ok  	rai/server/internal/jobs	(cached)
+ok  	rai/server/internal/performance	(cached)
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/readiness	(cached)
+ok  	rai/server/internal/recovery	(cached)
+ok  	rai/server/internal/storage/postgres	(cached)
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	(cached)
+ok  	rai/server/internal/training	(cached)
+ok  	rai/server/internal/trainingload	(cached)
+ok  	rai/server/internal/vo2maxexternal	(cached)
+ok  	rai/server/internal/workoutdetail	(cached)
+?   	rai/server/internal/workoutdomain	[no test files]
+ok  	rai/server/internal/workoutfeatures	(cached)
+?   	rai/server/migrations	[no test files]

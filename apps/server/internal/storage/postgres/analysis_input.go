@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	ve "rai/server/internal/vo2maxexternal"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
 	pf "rai/server/internal/performance"
+	rd "rai/server/internal/readiness"
+	rc "rai/server/internal/recovery"
 	"rai/server/internal/syncing"
 	tl "rai/server/internal/trainingload"
 	wf "rai/server/internal/workoutfeatures"
@@ -57,6 +60,12 @@ func (s *Store) LoadAnalysis(ctx context.Context, l Lease, asOf time.Time) (anal
 		return in, nil
 	}
 	switch l.Kind {
+	case rd.JobKind:
+		err = s.loadReadinessInput(ctx, tx, l, &in, asOf)
+	case rc.JobKind:
+		err = s.loadRecoveryInput(ctx, tx, l, &in, asOf)
+	case ve.JobKind:
+		err = s.loadVO2ExternalInput(ctx, tx, l, &in, asOf)
 	case pf.JobKind:
 		err = s.loadPerformanceInput(ctx, tx, l, &in, asOf, tz)
 	case tl.JobKind:

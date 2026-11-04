@@ -1,0 +1,163 @@
+[0/1] Planning build
+Building for debugging...
+[0/18] Write swift-version--1AB21518FC5DEDBE.txt
+[1/45] Linking GCProbe
+[2/45] Applying GCProbe
+[4/45] Compiling SyncCoreTests WorkoutBundleTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[5/45] Compiling SyncCoreTests WorkoutPerformanceTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[6/46] Compiling SyncCoreTests HealthIntegrityTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[7/46] Compiling SyncCoreTests RecoveryBoundaryTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[8/46] Compiling SyncCoreTests WorkoutTaskTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[9/46] Compiling SyncCoreTests GarbageCollectionTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[10/46] Compiling SyncCoreTests HealthDiscoveryTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[11/46] Compiling SyncCoreTests DisasterRecoveryLiveTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[12/46] Compiling SyncCoreTests ForegroundSyncSchedulerTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[13/46] Compiling SyncCoreTests resource_bundle_accessor.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[14/46] Compiling SyncCoreTests SyncSessionTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[15/46] Compiling SyncCoreTests VO2MaxTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[16/46] Compiling SyncCoreTests WorkoutReliabilityLiveTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[17/46] Compiling SyncCoreTests WorkoutReliabilityTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[18/46] Compiling SyncCoreTests RecoverySessionTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[19/46] Compiling SyncCoreTests SyncCoreTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[20/46] Emitting module SyncCoreTests
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[21/46] Compiling SyncCoreTests APITests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[22/46] Compiling SyncCoreTests DailyHealthTests.swift
+/Users/ta/RAI/ios/RAI/Tests/SyncCoreTests/APITests.swift:3:8: error: no such module 'Testing'
+  1 | import Foundation
+  2 | import Synchronization
+  3 | import Testing
+    |        `- error: no such module 'Testing'
+  4 | @testable import SyncCore
+  5 | 
+[23/46] Emitting module ProductCore
+[24/46] Emitting module SyncProbe
+[25/46] Emitting module VO2Probe
+[26/46] Emitting module DailyProbe
+error: fatalError

@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -132,7 +134,7 @@ func (a *API) observe(next http.Handler) http.Handler {
 		if operation == "" {
 			operation = "unmatched"
 		}
-		a.log.Info("http_request", "request_id", requestID, "component", "api", "operation", operation,
+		a.log.Info("http_request", "request_hash", logIdentity(requestID), "component", "api", "operation", operation,
 			"status", sw.status, "error_code", sw.errorCode, "duration_ms", time.Since(start).Milliseconds())
 	})
 }
@@ -435,7 +437,7 @@ func (a *API) registerBatch(w http.ResponseWriter, r *http.Request, p syncing.Pr
 	}
 	result, err := a.store.RegisterBatch(r.Context(), p, req)
 	if err == nil {
-		a.log.Info("batch_registration", "component", "sync", "operation", "register_batch", "request_id", w.Header().Get("X-Request-ID"), "status", result.State, "event_count", req.EventCount)
+		a.log.Info("batch_registration", "component", "sync", "operation", "register_batch", "request_hash", logIdentity(w.Header().Get("X-Request-ID")), "status", result.State, "event_count", req.EventCount)
 		respond(w, 200, result)
 	}
 	return err
@@ -447,7 +449,7 @@ func (a *API) batch(w http.ResponseWriter, r *http.Request, p syncing.Principal)
 	}
 	result, err := a.store.Batch(r.Context(), p, id)
 	if err == nil {
-		a.log.Info("receipt_recovery", "component", "sync", "operation", "get_batch", "request_id", w.Header().Get("X-Request-ID"), "status", result.State)
+		a.log.Info("receipt_recovery", "component", "sync", "operation", "get_batch", "request_hash", logIdentity(w.Header().Get("X-Request-ID")), "status", result.State)
 		respond(w, 200, result)
 	}
 	return err
@@ -903,7 +905,7 @@ func (a *API) logDurable(w http.ResponseWriter, operation string, body []byte, e
 		CommittedChunks int64          `json:"committedChunks"`
 	}
 	_ = json.Unmarshal(body, &summary)
-	a.log.Info("durable_commit", "component", "sync", "operation", operation, "request_id", w.Header().Get("X-Request-ID"), "duration_ms", elapsed.Milliseconds(), "status", summary.Status, "counts", summary.Counts, "point_count", summary.TotalPoints, "chunk_count", summary.CommittedChunks)
+	a.log.Info("durable_commit", "component", "sync", "operation", operation, "request_hash", logIdentity(w.Header().Get("X-Request-ID")), "duration_ms", elapsed.Milliseconds(), "status", summary.Status, "counts", summary.Counts, "point_count", summary.TotalPoints, "chunk_count", summary.CommittedChunks)
 }
 
 // Only active uploads occupy map entries. The global two-slot cap bounds both
@@ -927,4 +929,13 @@ func (a *API) acquireUpload(p syncing.Principal) (func(), error) {
 	default:
 		return nil, &syncing.Error{Status: 429, Code: "upload_capacity_exceeded", RetryAfterSeconds: 1}
 	}
+}
+
+// Correlation stays possible without emitting client-controlled full UUIDs.
+func logIdentity(value string) string {
+	if value == "" {
+		return ""
+	}
+	h := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(h[:])
 }

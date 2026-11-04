@@ -1,0 +1,365 @@
+/Users/ta/RAI/ios/RAI/App/DailyHealthNormalizer.swift:69:17: warning: switch must be exhaustive
+                switch error {
+                ^
+/Users/ta/RAI/ios/RAI/App/DailyHealthNormalizer.swift:69:17: note: add missing case: '.wifiAware(_)'
+                switch error {
+                ^
+/Users/ta/RAI/ios/RAI/AppTests/NormalizerTests.swift:355:17: warning: 'init(activityType:start:end:duration:totalEnergyBurned:totalDistance:metadata:)' was deprecated in iOS 17.0: Use HKWorkoutBuilder
+        value = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60), duration: 60,
+                ^
+/Users/ta/RAI/ios/RAI/AppTests/NormalizerTests.swift:134:23: warning: 'init(activityType:start:end:duration:totalEnergyBurned:totalDistance:metadata:)' was deprecated in iOS 17.0: Use HKWorkoutBuilder
+        let workout = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60),
+                      ^
+/Users/ta/RAI/ios/RAI/AppTests/NormalizerTests.swift:355:17: warning: 'init(activityType:start:end:duration:totalEnergyBurned:totalDistance:metadata:)' was deprecated in iOS 17.0: Use HKWorkoutBuilder
+        value = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60), duration: 60,
+                ^
+/Users/ta/RAI/ios/RAI/AppTests/NormalizerTests.swift:380:23: warning: no 'async' operations occur within 'await' expression
+        let workout = await health.value, id = workout.uuid.uuidString.lowercased()
+                      ^
+/Users/ta/RAI/ios/RAI/AppTests/NormalizerTests.swift:386:30: warning: no 'async' operations occur within 'await' expression
+        let observedSample = await health.quantity
+                             ^
+/Users/ta/RAI/ios/RAI/AppTests/NormalizerTests.swift:414:23: warning: 'init(activityType:start:end:duration:totalEnergyBurned:totalDistance:metadata:)' was deprecated in iOS 17.0: Use HKWorkoutBuilder
+        let workout = HKWorkout(activityType: .running, start: date, end: date, duration: 0, totalEnergyBurned: nil, totalDistance: nil, metadata: ["synthetic_private_metadata": "never-upload"])
+                      ^
+/Users/ta/RAI/ios/RAI/AppTests/NormalizerTests.swift:416:53: warning: 'init(activityType:start:end:duration:totalEnergyBurned:totalDistance:metadata:)' was deprecated in iOS 17.0: Use HKWorkoutBuilder
+        let partial = try Normalizer.integrityEvent(HKWorkout(activityType: .running, start: date, end: date, duration: 0, totalEnergyBurned: nil, totalDistance: nil, metadata: nil))
+                                                    ^
+/Users/ta/RAI/ios/RAI/AppTests/NormalizerTests.swift:494:23: warning: no 'async' operations occur within 'await' expression
+        let workout = await health.value, id = workout.uuid.uuidString.lowercased(), query = DiscoveryQuery(type: HKObjectType.workoutType().identifier)
+                      ^
+note: Using codesigning identity override: -
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+=== RUN   TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=704
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=30286
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=391
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=1199
+=== RUN   TestB4SimulatorVO2FullE2E/fresh
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=fresh duration_us=75885
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.717 projection_ms=0.175 publication_ms=11
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=27332
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=fresh duration_us=10466
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=fresh facts=1 receipts=1 status=available
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=152
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=5303
+=== RUN   TestB4SimulatorVO2FullE2E/fresh#01
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=2.735 projection_ms=0.047 publication_ms=4
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=10216
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_HOT_EMPTY=PASS count=0 value_preserved=true
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=109
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=13797
+=== RUN   TestB4SimulatorVO2FullE2E/empty
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=empty duration_us=28435
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=6.64 projection_ms=0.027 publication_ms=10
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=24272
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=empty duration_us=10341
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=empty facts=0 receipts=1 status=no_sample_observed
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=344
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=20972
+=== RUN   TestB4SimulatorVO2FullE2E/stale
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=stale duration_us=39382
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.262 projection_ms=0.034 publication_ms=12
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=26566
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=stale duration_us=10579
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=stale facts=1 receipts=1 status=stale
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=363
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=26349
+=== RUN   TestB4SimulatorVO2FullE2E/expired
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=expired duration_us=36197
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.645 projection_ms=0.032 publication_ms=11
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=26083
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=expired duration_us=10424
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=expired facts=1 receipts=1 status=expired
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=348
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=21376
+=== RUN   TestB4SimulatorVO2FullE2E/third_party
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=third_party duration_us=36599
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.843 projection_ms=0.023 publication_ms=11
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=25708
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=third_party duration_us=10332
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=third_party facts=1 receipts=1 status=source_selection_required
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=372
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=19748
+=== RUN   TestB4SimulatorVO2FullE2E/manual
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=manual duration_us=31053
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.48 projection_ms=0.031 publication_ms=11
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=26265
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=manual duration_us=10635
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=manual facts=1 receipts=1 status=source_selection_required
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=330
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=17877
+=== RUN   TestB4SimulatorVO2FullE2E/unclassified
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=unclassified duration_us=54189
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.751 projection_ms=0.042 publication_ms=17
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=32786
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=unclassified duration_us=11855
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=unclassified facts=1 receipts=1 status=source_selection_required
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=563
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=21790
+=== RUN   TestB4SimulatorVO2FullE2E/epochs
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=epochs duration_us=38224
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.119 projection_ms=0.036 publication_ms=11
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=25324
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=epochs duration_us=10483
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=2.987 projection_ms=0.03 publication_ms=5
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=10966
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=2.644 projection_ms=0.029 publication_ms=5
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=10525
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=epochs facts=2 receipts=1 status=source_selection_required
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=1 duration_us=7484
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=1 duration_us=18834
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=1 duration_us=1181457
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=0 duration_us=4
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=hot_empty_e2e count=0 duration_us=1098561
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=1 duration_us=2442557
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=0 duration_us=2
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=0 duration_us=3720
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=0 duration_us=59921
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=0 duration_us=140743
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=1 duration_us=169
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=1 duration_us=4173
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=1 duration_us=64280
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=1 duration_us=158205
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=1 duration_us=87
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=1 duration_us=4233
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=1 duration_us=68251
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=1 duration_us=161193
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=1 duration_us=90
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=1 duration_us=8545
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=1 duration_us=70819
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=1 duration_us=167759
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=1 duration_us=112
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=1 duration_us=7015
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=1 duration_us=70498
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=1 duration_us=159540
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=1 duration_us=86
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=1 duration_us=11784
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=1 duration_us=58760
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=1 duration_us=182913
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=2 duration_us=120
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=2 duration_us=5897
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=2 duration_us=78599
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=2 duration_us=236732
+    vo2_b4_simulator_test.go:236: M4B4_SIMULATOR_VO2_FULL_E2E=PASS cases=9 restricted_api=true restricted_worker=true lost_ack=true
+--- PASS: TestB4SimulatorVO2FullE2E (19.93s)
+    --- PASS: TestB4SimulatorVO2FullE2E/fresh (0.08s)
+    --- PASS: TestB4SimulatorVO2FullE2E/fresh#01 (0.02s)
+    --- PASS: TestB4SimulatorVO2FullE2E/empty (0.07s)
+    --- PASS: TestB4SimulatorVO2FullE2E/stale (0.08s)
+    --- PASS: TestB4SimulatorVO2FullE2E/expired (0.08s)
+    --- PASS: TestB4SimulatorVO2FullE2E/third_party (0.08s)
+    --- PASS: TestB4SimulatorVO2FullE2E/manual (0.07s)
+    --- PASS: TestB4SimulatorVO2FullE2E/unclassified (0.10s)
+    --- PASS: TestB4SimulatorVO2FullE2E/epochs (0.13s)
+PASS
+ok  	rai/server/integration	19.953s
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+=== RUN   TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=24863
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=115494
+=== RUN   TestB4SimulatorVO2FullE2E/incomplete
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=incomplete duration_us=202845
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=26.431 projection_ms=0.291 publication_ms=33
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=73897
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=incomplete duration_us=14622
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=incomplete facts=128 receipts=1 status=sync_incomplete
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=729
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=25509
+=== RUN   TestB4SimulatorVO2FullE2E/conflict
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=conflict duration_us=35876
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.646 projection_ms=0.057 publication_ms=13
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=31109
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=conflict duration_us=10854
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=conflict facts=2 receipts=1 status=conflicting_data
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=1227
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=20628
+=== RUN   TestB4SimulatorVO2FullE2E/equivalent
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=equivalent duration_us=37175
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=7.751 projection_ms=0.048 publication_ms=12
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=27632
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=equivalent duration_us=11862
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=equivalent facts=2 receipts=1 status=available
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=23133
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=82531
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=127
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=2945
+=== RUN   TestB4SimulatorVO2FullE2E/facts128
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=facts128 duration_us=36407
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=24.876 projection_ms=0.102 publication_ms=31
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=68137
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=facts128 duration_us=14904
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=facts128 facts=128 receipts=2 status=available
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=15176
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=69748
+=== RUN   TestB4SimulatorVO2FullE2E/bootstrap90
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=bootstrap90 duration_us=130413
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=19.439 projection_ms=0.121 publication_ms=27
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=56382
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=bootstrap90 duration_us=12618
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=bootstrap90 facts=90 receipts=1 status=available
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=20678
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=104267
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=25227
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=71136
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=21021
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=70432
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=23551
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=74385
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=21690
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=67242
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=25155
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=85640
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=20783
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=74674
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=21853
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=81881
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=111
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=2413
+=== RUN   TestB4SimulatorVO2FullE2E/refs1024
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=refs1024 duration_us=31250
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=147.222 projection_ms=0.861 publication_ms=168
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=339642
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=refs1024 duration_us=198407
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=refs1024 facts=1024 receipts=9 status=available
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=5120
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=35099
+=== RUN   TestB4SimulatorVO2FullE2E/epochs32
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=epochs32 duration_us=64646
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=11.125 projection_ms=0.055 publication_ms=16
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=35300
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=epochs32 duration_us=11150
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=epochs32 facts=32 receipts=1 status=available
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=22078
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=86928
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=21171
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=73968
+    vo2_b4_simulator_test.go:154: B4_HTTP status=429
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_parse duration_us=142
+    vo2_b4_simulator_test.go:123: B4_PG_TIMING phase=vo2_transaction duration_us=4193
+=== RUN   TestB4SimulatorVO2FullE2E/ties256
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=ack_to_worker_queue recipe=ties256 duration_us=37743
+    vo2_b4_simulator_test.go:217: B4_WORKER_TIMING snapshot_ms=48.353 projection_ms=0.239 publication_ms=51
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=worker_claim_through_publication duration_us=111201
+    vo2_b4_simulator_test.go:217: B4_TIMING phase=candidate_reader recipe=ties256 duration_us=24123
+    vo2_b4_simulator_test.go:217: B4_SIMULATOR_CASE recipe=ties256 facts=256 receipts=3 status=available
+=== NAME  TestB4SimulatorVO2FullE2E
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=6579
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=128 duration_us=262170
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=unsupported_metadata pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=128 duration_us=420246
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=128 duration_us=874662
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=2 duration_us=162
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=2 duration_us=9835
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=2 duration_us=94326
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=2 duration_us=196828
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=2 duration_us=114
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=2 duration_us=9891
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=2 duration_us=81483
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=2 duration_us=190801
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2503
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=128 duration_us=216981
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=0 duration_us=3
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=128 duration_us=382474
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=128 duration_us=750022
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=90 duration_us=1734
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=90 duration_us=158336
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=90 duration_us=245450
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=90 duration_us=541975
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2470
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=1024 duration_us=215651
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2517
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2566
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2560
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2526
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2732
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2454
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2611
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=0 duration_us=3
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=1024 duration_us=14209196
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=1024 duration_us=15457455
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=32 duration_us=740
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=32 duration_us=64647
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=32 duration_us=136062
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=32 duration_us=299966
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2466
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=normalize_outbox count=256 duration_us=215806
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=128 duration_us=2462
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=fixture count=0 duration_us=3
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=delivery_final status=none pending=false anchor=true
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=http_ack_anchor count=256 duration_us=2852447
+    vo2_b4_simulator_test.go:224: M4B4_SYNTHETIC phase=total_e2e count=256 duration_us=3299119
+    vo2_b4_simulator_test.go:236: M4B4_SIMULATOR_VO2_FULL_E2E=PASS cases=8 restricted_api=true restricted_worker=true lost_ack=true
+--- PASS: TestB4SimulatorVO2FullE2E (35.74s)
+    --- PASS: TestB4SimulatorVO2FullE2E/incomplete (0.13s)
+    --- PASS: TestB4SimulatorVO2FullE2E/conflict (0.08s)
+    --- PASS: TestB4SimulatorVO2FullE2E/equivalent (0.09s)
+    --- PASS: TestB4SimulatorVO2FullE2E/facts128 (0.14s)
+    --- PASS: TestB4SimulatorVO2FullE2E/bootstrap90 (0.13s)
+    --- PASS: TestB4SimulatorVO2FullE2E/refs1024 (1.02s)
+    --- PASS: TestB4SimulatorVO2FullE2E/epochs32 (0.09s)
+    --- PASS: TestB4SimulatorVO2FullE2E/ties256 (0.22s)
+PASS
+ok  	rai/server/integration	35.755s
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+=== RUN   TestVO2SimulatorAppToIsolatedPG18
+    vo2max_simulator_test.go:99: M4B2_SIMULATOR_APP_E2E=PASS facts=1 receipts=1 dirty=1 lost_ack_injected=true committed_anchor_asserted=true
+--- PASS: TestVO2SimulatorAppToIsolatedPG18 (9.35s)
+PASS
+ok  	rai/server/integration	10.388s
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1

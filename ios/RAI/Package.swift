@@ -8,7 +8,7 @@ let package = Package(
         .target(name: "RAICompression", linkerSettings: [.linkedLibrary("z")]),
         .target(name: "SyncCore", dependencies: ["RAICompression"]),
         .target(name: "ProductCore", dependencies: ["SyncCore"]),
-        .testTarget(name: "ProductCoreTests", dependencies: ["ProductCore"]),
+        .testTarget(name: "ProductCoreTests", dependencies: ["ProductCore"], resources: [.copy("Fixtures")]),
         .executableTarget(name: "ProductProbe", dependencies: ["ProductCore", "SyncCore"], path: "Tools/ProductProbe"),
         .executableTarget(name: "SyncProbe", dependencies: ["SyncCore"], path: "Tools/SyncProbe"),
         .executableTarget(name: "GCProbe", dependencies: ["SyncCore"], path: "Tools/GCProbe"),

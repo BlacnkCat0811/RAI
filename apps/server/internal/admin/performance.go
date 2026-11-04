@@ -58,6 +58,10 @@ func QueuePerformanceCandidate(ctx context.Context, s *postgres.Store, dataset, 
 	if !matches {
 		return errors.New("candidate assignment conflict")
 	}
+	// Explicit enrollment ends an external-only slot's M1 suppression.
+	if _, err = tx.Exec(ctx, `UPDATE analysis_model_channels SET extension_configs=extension_configs-'rai.vo2max.external_only/v1' WHERE dataset_id=$1 AND channel='candidate' AND extension_configs ? 'rai.vo2max.external_only/v1'`, dataset); err != nil {
+		return err
+	}
 	if _, err = tx.Exec(ctx, `UPDATE analysis_model_channels SET extension_configs=extension_configs||jsonb_build_object('rai.performance_curve/v1',$2::text) WHERE dataset_id=$1 AND channel='candidate'`, dataset, pf.ConfigHash()); err != nil {
 		return err
 	}

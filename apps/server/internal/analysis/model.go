@@ -8,7 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	pf "rai/server/internal/performance"
+	rd "rai/server/internal/readiness"
+	rc "rai/server/internal/recovery"
 	tl "rai/server/internal/trainingload"
+	ve "rai/server/internal/vo2maxexternal"
 	"rai/server/internal/workoutdomain"
 	wf "rai/server/internal/workoutfeatures"
 	"strings"
@@ -59,24 +62,30 @@ type Metric struct {
 	Details   map[string]any `json:"details"`
 }
 type Snapshot struct {
-	PerformanceInput    *pf.Input              `json:"performanceInput,omitempty"`
-	PerformanceArtifact *pf.Result             `json:"-"`
-	Generation          int64                  `json:"generation"`
-	Revision            int64                  `json:"revision"`
-	From                time.Time              `json:"from"`
-	Through             time.Time              `json:"through"`
-	InputVersion        string                 `json:"inputVersion"`
-	Workout             *WorkoutInput          `json:"workout,omitempty"`
-	State               *StateInput            `json:"state,omitempty"`
-	LoadInput           *tl.WorkoutInput       `json:"loadInput,omitempty"`
-	LoadArtifact        *tl.Result             `json:"-"`
-	LoadStateInput      *tl.StateInput         `json:"loadStateInput,omitempty"`
-	LoadStateArtifact   *tl.StateResult        `json:"-"`
-	ExposureRequired    bool                   `json:"exposureRequired,omitempty"`
-	ExposureArtifact    *wf.HRExposure         `json:"-"`
-	FeatureInput        *wf.RawWorkoutSnapshot `json:"featureInput,omitempty"`
-	FeatureArtifact     *wf.WorkoutFeatures    `json:"-"`
-	Dependencies        []string               `json:"dependencies,omitempty"`
+	ReadinessInput      *rd.ReadinessSnapshot   `json:"readinessInput,omitempty"`
+	ReadinessArtifact   *rd.Result              `json:"-"`
+	RecoveryInput       *rc.Input               `json:"recoveryInput,omitempty"`
+	RecoveryArtifact    *rc.Bundle              `json:"-"`
+	ExternalInput       *ve.ExternalVO2Snapshot `json:"externalInput,omitempty"`
+	ExternalArtifact    *ve.Result              `json:"-"`
+	PerformanceInput    *pf.Input               `json:"performanceInput,omitempty"`
+	PerformanceArtifact *pf.Result              `json:"-"`
+	Generation          int64                   `json:"generation"`
+	Revision            int64                   `json:"revision"`
+	From                time.Time               `json:"from"`
+	Through             time.Time               `json:"through"`
+	InputVersion        string                  `json:"inputVersion"`
+	Workout             *WorkoutInput           `json:"workout,omitempty"`
+	State               *StateInput             `json:"state,omitempty"`
+	LoadInput           *tl.WorkoutInput        `json:"loadInput,omitempty"`
+	LoadArtifact        *tl.Result              `json:"-"`
+	LoadStateInput      *tl.StateInput          `json:"loadStateInput,omitempty"`
+	LoadStateArtifact   *tl.StateResult         `json:"-"`
+	ExposureRequired    bool                    `json:"exposureRequired,omitempty"`
+	ExposureArtifact    *wf.HRExposure          `json:"-"`
+	FeatureInput        *wf.RawWorkoutSnapshot  `json:"featureInput,omitempty"`
+	FeatureArtifact     *wf.WorkoutFeatures     `json:"-"`
+	Dependencies        []string                `json:"dependencies,omitempty"`
 }
 
 func (s Snapshot) Hash() ([]byte, error) {
@@ -143,6 +152,12 @@ func Finite(v float64) bool  { return workoutdomain.Finite(v) }
 func Ptr(v float64) *float64 { return &v }
 func Algorithm(kind string) (string, error) {
 	switch kind {
+	case rd.JobKind:
+		return rd.Algorithm, nil
+	case rc.JobKind:
+		return rc.Algorithm, nil
+	case ve.JobKind:
+		return ve.Algorithm, nil
 	case pf.JobKind:
 		return pf.CurveModel, nil
 	case tl.JobKind:

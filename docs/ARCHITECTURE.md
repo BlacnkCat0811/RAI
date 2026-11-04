@@ -140,7 +140,7 @@ Workout 查询同时检查 raw 父存在、当前 clean generation 和参数版�
 
 新增 `GET /v2/analysis/workouts/{id}`、`GET /v2/analysis/state`，相同 Bearer/dataset/read budget；额外 query 参数拒绝，未准备好为404 analysis_not_ready。DTO 与 dbgen 模型分离；返回 published run、generation、算法/输入版本/hash、时间、nullable metrics、quality 和解释。handshake analysis=true；changefeed 仍 false（有限通知不是完整事实下载）。OpenAPI 1.1.0，wire protocolVersion 仍2。
 
-P3 API、limits、鉴权、持久 admission 与上传租约沿用既有实现。稳定错误码，日志不含 payload/HR/GPS/token/DSN。Worker 日志记录 job_id/scope/generation/algorithm/version/run_id/duration/result_status。现有 roles.sql 扩展 API 只读 derived，Worker 可读输入、写 derived/dirty/jobs，不能修改 raw；owner 连接仍可绕过权限，不称生产安全验收。
+P3 API、limits、鉴权、持久 admission 与上传租约沿用既有实现。稳定错误码，日志不含 payload/HR/GPS/token/DSN。Worker 日志记录 job_hash/scope_hash/generation/algorithm/version/run_hash/duration/result_status；B4 起所有普通日志关联身份均使用 SHA-256 hash，HTTP 使用 request_hash，原回执和 X-Request-ID 不变。现有 roles.sql 扩展 API 只读 derived，Worker 可读输入、写 derived/dirty/jobs，不能修改 raw；owner 连接仍可绕过权限，不称生产安全验收。
 
 P3同步语义保持：Swift actors、HealthKit anchored query、candidate/delivered anchor、backup-excluded immutable gzip 和 state.json 原子替换、严格回执校验、device-only Keychain、稳定后台 URLSession。当前P6产品集成见第13节。实际 HealthKit 授权、来源覆盖、background OS lifecycle、iPhone kill/GPS 和 iPhone→fnOS 仍 NOT VERIFIED。
 
@@ -254,3 +254,17 @@ iOS 使用 `SyncSessionDescriptor`，原子 `sessions.json` 同时提交 active 
 准备时持久 token/descriptor，初始化独立 Outbox，再核对完整握手（包含 device、collector、Dataset 状态），成功后原子激活。prepared 可重启恢复，不重新生成身份。后台 identifier 为 `com.rai.v2.sync.<sessionID>`（52 字符），taskDescription 也带 sessionID；callback 根据原 identifier 找原目录，旧 callback 不能 ACK 新 Session。旧固定 identifier 只映射旧根目录。
 
 新发现 anchor 为 nil，重新发现 HealthKit 当前可见历史。这不是服务器迁移。旧 Dataset 删除历史不复制，因此仍可见的已删 Workout 可以进入新事实空间；已从 HealthKit 删除、权限不可见或 Apple 不再返回的对象不保证恢复。真机切换与完整灾难恢复留待 Phase 5B/5C，见 [实施审计](audits/PHASE5A_NEW_DATASET_SESSION_REVIEW.md)。
+
+## M5B Physiological Recovery candidate（2026-11-04）
+
+独立 `rai.recovery.physiological/v1`：M5A raw → daily SDNN/RHR/Sleep canonical summaries → 28-day robust personal baselines → deviations → physiological proxy → candidate publication。`internal/recovery` 不导入其他模型/I/O，不接入 active/Home/Coach/Training。M2 training load、M3 running ability、M4 VO₂max 均不是数值输入；未来 Readiness 只有 dependency/dirty substrate，无 handler。
+
+Migration 26 只扩展既有 derived artifact/config/dependency constraints 和日窗索引；原 raw/receipt/anchor/删除优先不变。单日 scope 的 features/baseline/recovery artifacts 和 result/publication/clean/job 同事务，dataset/collector/config/generation/lease/delete fences 与 bounded snapshot 复验保护 current。细节、明确的参数工程假设与真实/未验证证据见 [M5B 合同](RECOVERY_FOUNDATION_CONTRACT.md) 和 [结果](M5B_RESULT.md)。本段的生理恢复模型与前文备份/灾难恢复是不同领域。
+
+## M6 Training Readiness candidate（2026-11-04）
+
+`rai.readiness.training/v1` 在独立 `internal/readiness` 组合当日 M5B full candidate 与 M2 per-workout immutable load ledger：`P × exp(−ln2 × D/B)`。D 从每次完成时间以36h衰减；B 为前42个完整civil days的非零complete daily load median，至少5个训练日、跨度14d且最新≤14d。180d有限负荷窗有基于M2最大有效AU和UUID有限空间的严格尾误差证明；不扫描lifetime、不重新解析raw HRV/RHR/Sleep/HR，不消费M3/M4/计划或E7/E42。M2/M5B各自语义不变。
+
+Migration 27 扩展既有 candidate artifact/config/family/dependency allowlist、固定 definer trigger 和 bounded Workout end index。M2/M5B/delete/revision/coverage/config/session变化在原事务内失效current并排新generation；REPEATABLE READ loader、发布前有界reread、原run hash与lease fencing共同保护原子publication。Reader只做显式evaluationAt的不可变projection，遇P/coverage/day/future结束边界停止current。
+
+当前Workout wire没有服务器可验证的全stream追平信号；普通M6候选保留sync_incomplete，数值工程验收仅使用明确syntheticOnly的版本化coverage fixture。无产品入口、active替换、自动计划调整或Swift改动。冻结合同、21节结果和真实/未验项见 [M6 contract](TRAINING_READINESS_CONTRACT.md)、[M6 result](M6_RESULT.md)；M5B段落的“future Readiness”描述保留其阶段历史，不表示M5B自身获得load依赖。

@@ -1,0 +1,29 @@
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+?   	rai/server/cmd/rai	[no test files]
+ok  	rai/server/integration	1018.755s
+ok  	rai/server/internal/admin	20.485s
+ok  	rai/server/internal/analysis	1.953s
+ok  	rai/server/internal/athletemodel	1.137s
+ok  	rai/server/internal/config	1.138s
+ok  	rai/server/internal/httpapi	19.087s
+ok  	rai/server/internal/jobs	1.044s
+ok  	rai/server/internal/performance	72.457s
+?   	rai/server/internal/product	[no test files]
+ok  	rai/server/internal/readiness	1.146s
+ok  	rai/server/internal/recovery	4.392s
+ok  	rai/server/internal/storage/postgres	1.062s
+?   	rai/server/internal/storage/postgres/dbgen	[no test files]
+ok  	rai/server/internal/syncing	6.330s
+ok  	rai/server/internal/training	1.142s
+ok  	rai/server/internal/trainingload	29.023s
+ok  	rai/server/internal/vo2maxexternal	1.317s
+ok  	rai/server/internal/workoutdetail	1.041s
+?   	rai/server/internal/workoutdomain	[no test files]
+ok  	rai/server/internal/workoutfeatures	61.367s
+?   	rai/server/migrations	[no test files]
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1

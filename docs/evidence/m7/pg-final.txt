@@ -1,0 +1,27 @@
+waiting for server to start.... done
+server started
+{"server_version" : "18.6 (Postgres.app)", "fsync" : "on", "full_page_writes" : "on", "synchronous_commit" : "on", "data_checksums" : "on", "listen_addresses" : "", "shared_buffers" : "64MB"}
+=== RUN   TestAthleteModelFullAndLeakage
+--- PASS: TestAthleteModelFullAndLeakage (10.03s)
+=== RUN   TestAthleteModelMissingAndCorruption
+--- PASS: TestAthleteModelMissingAndCorruption (8.92s)
+=== RUN   TestAthleteModelStableAssignmentRevisionAndPointerRace
+--- PASS: TestAthleteModelStableAssignmentRevisionAndPointerRace (7.91s)
+=== RUN   TestAthleteModelRuntimeRoles
+=== RUN   TestAthleteModelRuntimeRoles/api
+=== RUN   TestAthleteModelRuntimeRoles/worker
+--- PASS: TestAthleteModelRuntimeRoles (7.98s)
+    --- PASS: TestAthleteModelRuntimeRoles/api (0.01s)
+    --- PASS: TestAthleteModelRuntimeRoles/worker (0.01s)
+=== RUN   TestAthleteModelPerformance
+    athlete_model_test.go:458: M7 synthetic all_available samples=10 dbReads=5 read_ns=30799033 freshen_ns=17176 map_ns=1820862 serialization_ns=443011 bytes=7043 reader_plus_json_allocs=2150
+    athlete_model_test.go:458: M7 synthetic mixed_freshness samples=10 dbReads=5 read_ns=14310121 freshen_ns=9273 map_ns=1846937 serialization_ns=405334 bytes=6160 reader_plus_json_allocs=1209
+    athlete_model_test.go:458: M7 synthetic three_unavailable samples=10 dbReads=4 read_ns=19231590 freshen_ns=3124 map_ns=1803965 serialization_ns=341769 bytes=5313 reader_plus_json_allocs=1419
+    athlete_model_test.go:458: M7 synthetic all_unavailable samples=10 dbReads=3 read_ns=1038336 freshen_ns=270 map_ns=22375 serialization_ns=270161 bytes=4152 reader_plus_json_allocs=312
+--- PASS: TestAthleteModelPerformance (8.68s)
+PASS
+ok  	rai/server/integration	44.561s
+RAI_TEST_LEFTOVER_DATABASES=0
+waiting for server to shut down.... done
+server stopped
+RAI_TEST_CLUSTER_REMOVED=1

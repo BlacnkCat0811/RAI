@@ -1,11 +1,34 @@
 import XCTest
+import ObjectiveC
 import Security
 import HealthKit
 import SyncCore
 import Synchronization
+import ProductCore
 @testable import RAI
 
 final class NormalizerTests: XCTestCase {
+    func testM7SharedProductGoldenContract() throws {
+        guard let path = ProcessInfo.processInfo.environment["RAI_M7_GOLDEN_DIR"] else {
+            throw XCTSkip("M7 shared golden requires explicit synthetic test runner")
+        }
+        let root = URL(fileURLWithPath: path)
+        let files = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil).filter { $0.pathExtension == "json" }
+        XCTAssertEqual(files.count, 11)
+        for file in files {
+            let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: Data(contentsOf: file))
+            XCTAssertEqual(snapshot.schemaVersion, "rai.athlete_model/1")
+            XCTAssertEqual(snapshot, try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONEncoder().encode(snapshot)))
+            if file.lastPathComponent == "new_user.json" {
+                XCTAssertNil(snapshot.runningAbility.value)
+                XCTAssertNil(snapshot.trainingReadiness.value)
+            }
+            if file.lastPathComponent == "future_unknown.json" {
+                XCTAssertEqual(snapshot.runningAbility.envelope.presentationState.rawValue, "limited")
+                XCTAssertNil(snapshot.runningAbility.presentationValue)
+            }
+        }
+    }
     func testHeartRateUsesCountPerMinute() throws {
         let q = HKQuantity(unit: .count().unitDivided(by: .minute()), doubleValue: 120)
         let value = try Normalizer.quantity(q, type: HKQuantityTypeIdentifier.heartRate.rawValue)
@@ -857,5 +880,163 @@ extension NormalizerTests {
         XCTAssertTrue(predicate.evaluate(with: sample(-1, 1)))
         XCTAssertTrue(predicate.evaluate(with: sample(1, 2)))
         XCTAssertFalse(predicate.evaluate(with: sample(-2, -1)))
+    }
+}
+
+// B4 fixture injection ends at HealthKitReading. No HKHealthStore is queried.
+// Runtime-allocated SDK descriptors are synthetic and exist only in XCTest.
+private actor B4SyntheticHealth: HealthKitReading {
+    let recipe: String
+    let count: Int
+    let now = Date()
+    private var offset = 0
+    private var query = 0
+    init(_ recipe: String, count: Int) { self.recipe = recipe; self.count = count }
+    func authorize() async throws {}
+    func workout(_ id: String) async throws -> HKWorkout? { nil }
+    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage { throw SyncFailure.invalid("unused") }
+    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
+    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
+    func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage {
+        query += 1
+        if recipe == "incomplete" && offset > 0 { throw SyncFailure.invalid("unsupported_metadata") }
+        let begin = Date()
+        var samples: [HKSample] = []
+        for i in offset..<min(count, offset + limit) {
+            let source = class_createInstance(HKSource.self, 0) as! HKSource
+            source.setValue(recipe == "third_party" ? "org.synthetic.other" : "com.apple.health", forKey: "bundleIdentifier")
+            source.setValue("Synthetic", forKey: "name")
+            let epoch = recipe == "epochs32" || recipe == "epochs" ? i : 0
+            let revision = HKSourceRevision(source: source, version: "synthetic-\(epoch)", productType: "Watch6,1", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
+            let age: Double = recipe == "stale" ? 45 * 86400 : recipe == "expired" ? 91 * 86400 : recipe == "bootstrap90" ? Double(i) * 86400 + 3600 : 3600 + (recipe == "ties256" || recipe == "conflict" || recipe == "equivalent" ? 0 : Double(i))
+            let date = now.addingTimeInterval(-age)
+            let device = HKDevice(name: "Synthetic", manufacturer: "Apple", model: "Watch", hardwareVersion: nil, firmwareVersion: nil, softwareVersion: nil, localIdentifier: nil, udiDeviceIdentifier: nil)
+            var metadata: [String: Any] = [HKMetadataKeyVO2MaxTestType: NSNumber(value: recipe == "unclassified" ? 1 : 4), HKMetadataKeyAppleDeviceCalibrated: NSNumber(value: true), HKMetadataKeyAlgorithmVersion: NSNumber(value: Int64(9007199254740993))]
+            if recipe == "manual" { metadata[HKMetadataKeyWasUserEntered] = NSNumber(value: true) }
+            let value = recipe == "conflict" && i == 1 ? 48.123456789012344 : 47.123456789012344
+            let sample = HKQuantitySample(type: HKQuantityType(.vo2Max), quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: value), start: date, end: date, device: device, metadata: metadata)
+            sample.setValue(revision, forKey: "sourceRevision")
+            // Explicitly check the actual SDK quantity before the formal normalizer.
+            guard sample.quantity.doubleValue(for: VO2MaxNormalizer.unit).bitPattern == value.bitPattern else { throw SyncFailure.invalid("fixture_precision") }
+            samples.append(sample)
+        }
+        offset += samples.count
+        print("M4B4_SYNTHETIC phase=fixture count=\(samples.count) duration_us=\(Int(Date().timeIntervalSince(begin)*1_000_000))")
+        return HealthPage(samples: samples, deleted: [], anchor: try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: query), requiringSecureCoding: true), limit: limit)
+    }
+}
+
+extension NormalizerTests {
+    func testB4SimulatorFullExternalClosure() async throws {
+        guard let encoded = ProcessInfo.processInfo.environment["RAI_M4B4_SYNTHETIC"] else { throw XCTSkip("requires B4 disposable PG18 host") }
+        let configs = try JSON.decode(Data(encoded.utf8)).list
+        XCTAssertFalse(configs.isEmpty)
+        for config in configs {
+            let recipe = try XCTUnwrap(config["recipe"].text), count = Int(try XCTUnwrap(config["count"].integer))
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-b4-" + Wire.id())
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let begin = Date(), store = try OutboxStore(directory: directory), health = B4SyntheticHealth(recipe, count: count)
+            let scope = Scope(serviceID: config["serviceID"].text!, datasetID: config["datasetID"].text!, datasetEpoch: config["datasetEpoch"].text!, collectorEpoch: config["collectorEpoch"].text!)
+            try await store.bind(scope)
+            _ = try await store.vo2Flow(now: Date().addingTimeInterval(-3 * 86400))
+            let coordinator = SyncCoordinator(store: store, health: health)
+            let stageStart = Date()
+            try await coordinator.discoverVO2()
+            let initial = await store.snapshot(), pending = try XCTUnwrap(initial.vo2?.pending)
+            XCTAssertNil(initial.vo2?.anchor)
+            let raw = try Data(contentsOf: await store.fileURL(pending.file))
+            XCTAssertEqual(Wire.hash(raw), pending.hash)
+            print("M4B4_SYNTHETIC phase=normalize_outbox count=\(count) duration_us=\(Int(Date().timeIntervalSince(stageStart)*1_000_000))")
+            let secret = ClientConfiguration.Secret(configuration: .init(baseURL: URL(string: config["baseURL"].text!)!, collectorEpoch: scope.collectorEpoch), token: config["token"].text!)
+            let transfers = BackgroundTransfers(directory: directory, identifier: "com.rai.v2.b4." + Wire.id())
+            let deliveryStart = Date()
+            for _ in 0..<40 {
+                try await coordinator.syncDaily(secret: secret, transfers: transfers)
+                let state = await store.snapshot()
+                if recipe == "incomplete" && state.vo2?.error != nil { break }
+                if state.vo2?.bootstrapComplete == true && state.vo2?.pending == nil { break }
+                if state.vo2?.pending?.batchID == pending.batchID {
+                    XCTAssertNil(state.vo2?.anchor)
+                    let retainedURL = try await store.fileURL(pending.file)
+                    XCTAssertEqual(try Data(contentsOf: retainedURL), raw)
+                }
+                try await Task.sleep(for: .seconds(1))
+            }
+            let final = await store.snapshot()
+            print("M4B4_SYNTHETIC phase=delivery_final status=\(final.vo2?.error ?? "none") pending=\(final.vo2?.pending != nil) anchor=\(final.vo2?.anchor != nil)")
+            XCTAssertNil(final.vo2?.pending); XCTAssertNotNil(final.vo2?.anchor); XCTAssertEqual(final.vo2?.bootstrapComplete, recipe != "incomplete")
+            let reopened = try OutboxStore(directory: directory)
+            let restored = await reopened.snapshot()
+            XCTAssertEqual(restored.vo2?.anchor, final.vo2?.anchor)
+            print("M4B4_SYNTHETIC phase=http_ack_anchor count=\(count) duration_us=\(Int(Date().timeIntervalSince(deliveryStart)*1_000_000))")
+            // This private harness checkpoint waits for real admin selection,
+            // Worker Claim/Process, candidate read and assertions in the PG host.
+            var request = URLRequest(url: URL(string: config["baseURL"].text! + "/__b4/checkpoint")!)
+            request.httpMethod = "POST"
+            let (_, response) = try await URLSession.shared.data(for: request)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
+            if recipe == "fresh" {
+                let hot = Date()
+                try await store.markVO2Wake()
+                try await coordinator.discoverVO2()
+                for _ in 0..<15 {
+                    try await coordinator.syncDaily(secret: secret, transfers: transfers)
+                    let state = await store.snapshot()
+                    if state.vo2?.pending == nil { break }
+                    try await Task.sleep(for: .seconds(1))
+                }
+                let hotState = await store.snapshot()
+                XCTAssertNil(hotState.vo2?.pending)
+                XCTAssertNotEqual(hotState.vo2?.anchor, final.vo2?.anchor)
+                let (_, hotResponse) = try await URLSession.shared.data(for: request)
+                XCTAssertEqual((hotResponse as? HTTPURLResponse)?.statusCode, 204)
+                print("M4B4_SYNTHETIC phase=hot_empty_e2e count=0 duration_us=\(Int(Date().timeIntervalSince(hot)*1_000_000))")
+            }
+
+            print("M4B4_SYNTHETIC phase=total_e2e count=\(count) duration_us=\(Int(Date().timeIntervalSince(begin)*1_000_000))")
+        }
+    }
+}
+
+extension NormalizerTests {
+    // Component observations complement the separately executed full E2E.
+    // ACK here is synthetic: this test never claims HTTP/PG/Worker acceptance.
+    func testB4SDKAndOutboxPhaseObservations() async throws {
+        for count in [0, 1, 128, 90, 1024, 32, 256] {
+            let health = B4SyntheticHealth("component", count: count)
+            var samples: [HKSample] = []
+            repeat {
+                let page = try await health.readVO2(anchor: nil, start: .distantPast, limit: 128)
+                samples += page.samples
+                if !page.isFull { break }
+            } while true
+            let normalize = Date(), facts = try samples.map { try VO2MaxNormalizer.fact($0) }
+            let normalizeUs = Int(Date().timeIntervalSince(normalize)*1_000_000)
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-b4-phases-" + Wire.id())
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let store = try OutboxStore(directory: directory)
+            try await store.bind(CoordinatorReplies.identity)
+            _ = try await store.vo2Flow()
+            var persistenceUs = 0, ackUs = 0, anchorUs = 0
+            for page in 0..<max(1, (count + 127) / 128) {
+                let flow = try await store.vo2Flow(), begin = Date()
+                let chunk = Array(facts.dropFirst(page * 128).prefix(128))
+                try await store.stageVO2(previousAnchor: flow.anchor, candidateAnchor: Data([UInt8(page + 1)]), facts: chunk, deleted: [], observedAt: Date(), hasMore: (page + 1) * 128 < count, wakeGeneration: 0)
+                persistenceUs += Int(Date().timeIntervalSince(begin)*1_000_000)
+                let stagedState = await store.snapshot()
+                let pending = try XCTUnwrap(stagedState.vo2?.pending)
+                let raw = try Data(contentsOf: await store.fileURL(pending.file)), body = try JSON.decode(raw)
+                var ack = body.fields.filter { ["contract", "version", "metadataRegistryVersion", "batchID", "datasetID", "datasetEpoch", "collectorEpoch", "streamID", "clientSeq"].contains($0.key) }
+                ack["requestSHA256"] = .string(Wire.hash(raw)); ack["ingestStatus"] = .string("committed"); ack["commitRevision"] = .int(Int64(page+1)); ack["deleteStatus"] = .string("none"); ack["analysisStatus"] = .string("awaiting_model_implementation")
+                ack["counts"] = .object(["inserted": .int(Int64(chunk.count)), "unchanged": .int(0), "deleted": .int(0), "tombstoned": .int(0), "suppressed": .int(0)])
+                let receipt = JSON.object(ack), validate = Date()
+                try await store.validateVO2Receipt(receipt)
+                ackUs += Int(Date().timeIntervalSince(validate)*1_000_000)
+                let commit = Date()
+                try await store.acknowledgeVO2(receipt)
+                anchorUs += Int(Date().timeIntervalSince(commit)*1_000_000)
+            }
+            print("M4B4_COMPONENT count=\(count) normalize_us=\(normalizeUs) outbox_us=\(persistenceUs) ack_validation_us=\(ackUs) validated_anchor_commit_us=\(anchorUs)")
+        }
     }
 }

@@ -1,0 +1,30 @@
+{
+  "fullUUIDCounts": {
+    "sqlc.json": 0,
+    "benchmarks.txt": 0,
+    "simulator-summary.json": 0,
+    "go-race.txt": 0,
+    "openapi-baseline.txt": 0,
+    "contract-validation.txt": 0,
+    "integration-vet.txt": 0,
+    "pg-full-race.txt": 0,
+    "toolchain.txt": 0,
+    "pg-final.txt": 0,
+    "contract-tools.txt": 0,
+    "simulator-live-regression.txt": 0,
+    "performance.json": 0,
+    "baseline.json": 0,
+    "final-source-sha256.json": 0,
+    "openapi.txt": 0,
+    "go-vet.txt": 0,
+    "go-test.txt": 0,
+    "validation.json": 0,
+    "simulator.txt": 0,
+    "diff-check.txt": 0,
+    "frozen-check.json": 0,
+    "boundaries.txt": 0,
+    "swift-full.txt": 0
+  },
+  "passed": true,
+  "scope": "M7 newly produced evidence; no raw health or credential inspection"
+}
