@@ -1,6 +1,8 @@
 -- Explicitly run as bootstrap after owner migration and roles.sql.
 GRANT rai_api TO rai_api_login;
 GRANT rai_worker TO rai_worker_login;
+GRANT SELECT, INSERT ON workout_sync_completeness TO rai_api;
+GRANT SELECT ON workout_sync_completeness TO rai_worker;
 GRANT USAGE ON SCHEMA public TO rai_backup_login,rai_monitor_login;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO rai_backup_login;
 GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO rai_backup_login;

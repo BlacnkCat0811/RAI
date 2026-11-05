@@ -39,12 +39,14 @@ protocol HealthKitReading: Sendable {
     func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead
     func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws
     func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
+    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage
     func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
     func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws
 }
 
 extension HealthKitReading {
+    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage { throw SyncFailure.invalid("unsupported_completeness_query") }
     func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws {}
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
@@ -129,6 +131,22 @@ actor HealthKitClient: HealthKitReading {
         guard let uuid = UUID(uuidString: id) else { throw SyncFailure.invalid("invalid_workout_uuid") }
         let query = HKSampleQueryDescriptor(predicates: [.workout(HKQuery.predicateForObject(with: uuid))], sortDescriptors: [], limit: 1)
         return try await query.result(for: health).first
+    }
+    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage {
+        let previous = try Self.decodeAnchor(anchor)
+        let predicate: NSPredicate
+        if type == HKObjectType.workoutType(), workout == nil {
+            predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [HKQuery.predicateForWorkouts(with: .running),
+                HKQuery.predicateForSamples(withStart: from, end: nil, options: [])])
+        } else {
+            guard let workout, (Self.quantityTypes + [HKSeriesType.workoutRoute()]).contains(type) else { throw SyncFailure.invalid("unsupported_completeness_query") }
+            predicate = HKQuery.predicateForObjects(from: workout)
+        }
+        let limit = type == HKObjectType.workoutType() ? 25 : 1000
+        let query = HKAnchoredObjectQueryDescriptor(predicates: [.sample(type: type, predicate: predicate)], anchor: previous, limit: limit)
+        let result = try await query.result(for: health)
+        return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
+            anchor: try NSKeyedArchiver.archivedData(withRootObject: result.newAnchor, requiringSecureCoding: true), limit: limit)
     }
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage {
         guard Self.dailyTypes.contains(type), (1...DailyHealth.maxChanges).contains(limit) else { throw SyncFailure.invalid("unsupported_type") }
@@ -377,6 +395,35 @@ actor HealthKitClient: HealthKitReading {
 #if DEBUG
 enum WorkoutInspection {
     static func fingerprint(_ value: String) -> String { SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined() }
+    /// Review diagnostics contain key digests and carrier counts only. Even
+    /// arbitrary metadata keys may contain identifying text, so never emit them.
+    static func blockedMetadataShape(_ workout: HKWorkout) -> JSON {
+        let allowed = Set([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout, HKMetadataKeyAverageMETs,
+            HKMetadataKeyElevationAscended, HKMetadataKeyElevationDescended, HKMetadataKeyWeatherHumidity,
+            HKMetadataKeyWeatherTemperature, HKMetadataKeyAverageSpeed, HKMetadataKeyMaximumSpeed])
+        var counts: [String: Int] = [:]
+        func inspect(_ context: String, _ metadata: [String: Any]?) {
+            for (key, value) in metadata ?? [:] where !allowed.contains(key) {
+                let carrier: String
+                if let number = value as? NSNumber { carrier = "NSNumber:" + String(cString: number.objCType) }
+                else if value is HKQuantity { carrier = "HKQuantity" }
+                else if value is String { carrier = "String" }
+                else if value is Date { carrier = "Date" }
+                else if value is Data { carrier = "Data" }
+                else if value is [Any] { carrier = "Array" }
+                else { carrier = "Other" }
+                counts[context + "|key-sha256:" + fingerprint(key) + "|" + carrier, default: 0] += 1
+            }
+        }
+        inspect("workout", workout.metadata)
+        for activity in workout.workoutActivities {
+            inspect("activity", activity.metadata)
+            for event in activity.workoutEvents { inspect("activity_event", event.metadata) }
+        }
+        for event in workout.workoutEvents ?? [] { inspect("workout_event", event.metadata) }
+        return .object(["unsupportedFieldCount": .int(Int64(counts.values.reduce(0, +))),
+            "contextKeyCarrierCounts": .object(counts.mapValues { .int(Int64($0)) })])
+    }
     static func metadata(_ values: [String: Any]?) -> JSON {
         .array((values ?? [:]).sorted { $0.key < $1.key }.map { key, value in
             let kind: String

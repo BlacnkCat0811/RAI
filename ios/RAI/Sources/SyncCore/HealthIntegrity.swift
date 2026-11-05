@@ -1,5 +1,32 @@
 import Foundation
 
+/// Comparison identity only. Never substitute these bytes for the immutable
+/// event, upload payload or stored content hash. Native quantities have already
+/// been converted to their canonical units by the HealthKit normalizer.
+public enum WorkoutCoreIdentity {
+    public static func canonical(_ event: JSON) throws -> Data {
+        func core(_ value: JSON) -> JSON {
+            switch value {
+            case .object(let fields):
+                var result = fields.filter { $0.key != "metadata" }.mapValues(core)
+                // Signed zero is the same physical quantity. Restrict this
+                // equivalence to quantity values; exact integer fields and
+                // opaque/version identifiers are never converted to Double.
+                if fields.count == 2, fields["unit"]?.text != nil,
+                   case .number(let number) = fields["value"], number == 0 {
+                    result["value"] = .int(0)
+                }
+                return .object(result)
+            case .array(let values): return .array(values.map(core))
+            default: return value
+            }
+        }
+        // The frozen canonical codec already gives 42 and 42.0 identical
+        // bytes, without rounding Int64 or changing global JSON equality.
+        return try core(event).data()
+    }
+}
+
 /// RAI classification, separate from the HealthKit-provided fields. Names are
 /// descriptive only. A third-party writer on Watch is never native Apple data.
 public enum HealthSourcePolicy {
@@ -118,14 +145,9 @@ extension OutboxStore {
     public func originalWorkout(_ id: String, event: JSON) throws -> JSON {
         guard let task = state.tasks?[id] else { throw SyncFailure.localState("unknown_workout_task") }
         if let saved = task.originalWorkout {
-            func core(_ value: JSON) -> JSON {
-                switch value {
-                case .object(let fields): return .object(fields.filter { $0.key != "metadata" }.mapValues(core))
-                case .array(let values): return .array(values.map(core))
-                default: return value
-                }
+            guard try WorkoutCoreIdentity.canonical(saved) == WorkoutCoreIdentity.canonical(event) else {
+                throw SyncFailure.localState("workout_core_change_requires_review")
             }
-            guard core(saved) == core(event) else { throw SyncFailure.localState("workout_core_change_requires_review") }
             return saved
         }
         try updateTask(id) { $0.originalWorkout = event }; return event

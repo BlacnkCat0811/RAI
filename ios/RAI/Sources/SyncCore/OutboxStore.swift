@@ -106,6 +106,7 @@ public struct LocalState: Codable, Sendable {
     public var factCaptureFiles: [String]?
     public var daily: [String: DailyFlow]?
     public var vo2: VO2Flow?
+    public var workoutCompleteness: WorkoutCompletenessState?
     public var vo2WakeGeneration: Int64?
     public var dailyWakePending: Bool?
     public var dailyWakeGeneration: Int64?
@@ -120,6 +121,7 @@ public actor OutboxStore {
     public nonisolated let directory: URL
     var state: LocalState
     private var activeBundleAttempts: Set<String> = []
+    var activeCompletenessManifest: String?
     var vo2OrphansReconciled = false
     public init(directory: URL) throws {
         self.directory = directory
@@ -647,6 +649,11 @@ public actor OutboxStore {
         referenced.formUnion(state.factCaptureFiles ?? [])
         referenced.formUnion((state.daily ?? [:]).values.compactMap { $0.pending?.file })
         referenced.formUnion([state.vo2?.pending?.file, state.vo2?.blocked?.file].compactMap { $0 })
+        referenced.formUnion([state.workoutCompleteness?.cycle?.pendingFile].compactMap { $0 })
+        referenced.formUnion(state.workoutCompleteness?.cycle?.seriesFiles.keys.map { $0 } ?? [])
+        for captures in state.workoutCompleteness?.cycle?.captures.values ?? Dictionary<String, [WorkoutCompletenessCapture]>().values {
+            referenced.formUnion(captures.map(\.archiveFile))
+        }
         for capture in (state.routeCaptures ?? [:]).values { referenced.insert(capture.file) }
         for event in (state.discovery?.events ?? [:]).values {
             if let file = event.archiveFile { referenced.insert(file) }
@@ -657,7 +664,7 @@ public actor OutboxStore {
         }
         guard candidates.allSatisfy({ !referenced.contains($0) }) else { throw SyncFailure.localState("gc_referenced_file") }
         for file in candidates {
-            guard file.hasSuffix(".json") || file.hasSuffix(".gz") else { throw SyncFailure.localState("gc_unmanaged_file") }
+            guard file.hasSuffix(".json") || file.hasSuffix(".gz") || file.hasSuffix(".completeness.archive") else { throw SyncFailure.localState("gc_unmanaged_file") }
             let url = try fileURL(file)
             guard file != "state.json" else { throw SyncFailure.localState("gc_authority_file") }
             if FileManager.default.fileExists(atPath: url.path) {

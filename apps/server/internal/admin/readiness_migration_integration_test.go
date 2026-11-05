@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestReadinessMigration26To27(t *testing.T) {
+func TestReadinessMigration26ToLatest(t *testing.T) {
 	ctx := context.Background()
 	dsn := isolatedDatabase(t)
 	db, e := sql.Open("pgx", dsn)
@@ -31,7 +31,7 @@ func TestReadinessMigration26To27(t *testing.T) {
 		}
 	}
 	var v int64
-	if e = db.QueryRowContext(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&v); e != nil || v != 27 {
-		t.Fatal("26->27", e, v)
+	if e = db.QueryRowContext(ctx, `SELECT max(version_id) FROM goose_db_version WHERE is_applied`).Scan(&v); e != nil || v != migrations.LatestVersion() {
+		t.Fatal("26->latest", e, v)
 	}
 }

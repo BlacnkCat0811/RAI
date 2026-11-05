@@ -1,0 +1,168 @@
+{
+  "result": "PASS WITH RISKS",
+  "registryVersion": 1,
+  "wireChanged": false,
+  "acceptedSemanticSetChanged": false,
+  "nativeInspection": {
+    "anchorCommitted": false,
+    "blockedArchiveSHA256": "f1c54f81733d742f7b9f02660974710f6feff2d3e967e41e6b0d134ada509506",
+    "healthValuesExported": false,
+    "mode": "native_inspection",
+    "nativeShape": {
+      "deletedCount": 0,
+      "fieldCarrierCounts": {
+        "HKAlgorithmVersion|NSNumber/objCType:d/CFNumberType:6": 13,
+        "HKMetadataKeySyncIdentifier|string": 24,
+        "HKMetadataKeySyncVersion|NSNumber/objCType:d/CFNumberType:6": 24,
+        "HKVO2MaxTestType|NSNumber/objCType:d/CFNumberType:6": 24
+      },
+      "numericCheckCounts": {
+        "finite": 61,
+        "inside_safe_double_integer_magnitude": 61,
+        "integral": 61
+      },
+      "sampleCount": 24
+    },
+    "result": "INSPECTED",
+    "sequence": 1
+  },
+  "beforeACK": {
+    "anchorCommitted": false,
+    "blockedArchiveSHA256": "f1c54f81733d742f7b9f02660974710f6feff2d3e967e41e6b0d134ada509506",
+    "blockedRetained": true,
+    "bootstrapComplete": false,
+    "hasMore": true,
+    "healthValuesExported": false,
+    "mode": "stage",
+    "nativeShape": {
+      "deletedCount": 0,
+      "fieldCarrierCounts": {
+        "HKAlgorithmVersion|NSNumber/objCType:d/CFNumberType:6": 13,
+        "HKMetadataKeySyncIdentifier|string": 24,
+        "HKMetadataKeySyncVersion|NSNumber/objCType:d/CFNumberType:6": 24,
+        "HKVO2MaxTestType|NSNumber/objCType:d/CFNumberType:6": 24
+      },
+      "numericCheckCounts": {
+        "finite": 61,
+        "inside_safe_double_integer_magnitude": 61,
+        "integral": 61
+      },
+      "sampleCount": 24
+    },
+    "pending": true,
+    "pendingSHA256": "2f83f453d3402704f69de528b20b59836b2c7d5d1b83145bbae8a322e0ddc3e1",
+    "result": "COMPLETED",
+    "sequence": 1,
+    "stagedFactCount": 24,
+    "stagedMetadataFieldCounts": {
+      "HKAlgorithmVersion": 13,
+      "HKMetadataKeySyncIdentifier": 24,
+      "HKMetadataKeySyncVersion": 24,
+      "HKVO2MaxTestType": 24
+    }
+  },
+  "afterACKAndContinuation": {
+    "anchorCommitted": true,
+    "blockedRetained": false,
+    "bootstrapComplete": true,
+    "hasMore": false,
+    "healthValuesExported": false,
+    "mode": "deliver",
+    "pending": false,
+    "result": "COMPLETED",
+    "sequence": 3
+  },
+  "server": [
+    {
+      "kind": "vo2Facts",
+      "count": 24,
+      "contextCount": 24
+    },
+    {
+      "kind": "typedMetadata",
+      "field": "HKAlgorithmVersion",
+      "tag": "int64",
+      "count": 13
+    },
+    {
+      "kind": "typedMetadata",
+      "field": "HKMetadataKeySyncIdentifier",
+      "tag": "string",
+      "count": 24
+    },
+    {
+      "kind": "typedMetadata",
+      "field": "HKMetadataKeySyncVersion",
+      "tag": "int64",
+      "count": 24
+    },
+    {
+      "kind": "typedMetadata",
+      "field": "HKVO2MaxTestType",
+      "tag": "int64",
+      "count": 24
+    },
+    {
+      "kind": "vo2Coverage",
+      "bootstrapComplete": true,
+      "hasMore": false,
+      "anchorPresent": true,
+      "pageCount": 2
+    },
+    {
+      "kind": "vo2Batch",
+      "sequence": 1,
+      "events": 24,
+      "state": "committed",
+      "requestSHA256": "2f83f453d3402704f69de528b20b59836b2c7d5d1b83145bbae8a322e0ddc3e1"
+    },
+    {
+      "kind": "vo2Batch",
+      "sequence": 2,
+      "events": 0,
+      "state": "committed",
+      "requestSHA256": "65f3027253b0016d5519f8c5acc0a757459e35b3be566da2e3955018ea5762aa"
+    },
+    {
+      "kind": "externalProjection",
+      "status": "source_selection_required",
+      "reasonCodes": [
+        "source_selection_required",
+        "source_unknown"
+      ],
+      "originClass": null,
+      "factRefCount": 24,
+      "valuePresent": false
+    },
+    {
+      "kind": "externalRuns",
+      "status": "SUCCEEDED",
+      "count": 2
+    },
+    {
+      "kind": "active",
+      "stack": "legacy"
+    },
+    {
+      "kind": "hrReferences",
+      "count": 0
+    }
+  ],
+  "sdkHeaderSHA256": "ce1c107200f9e330d66347f0bf22c8529bf102b26302eb8ef49b16d9945a353d",
+  "swiftPassed": 146,
+  "simulatorPassed": 44,
+  "simulatorSkipped": 2,
+  "isolatedPG": {
+    "passed": 29,
+    "skipped": 0,
+    "seconds": 153.576,
+    "leftoverDatabases": 0,
+    "clusterRemoved": true
+  },
+  "remainingRisks": [
+    "single_device",
+    "source_selection_required",
+    "source_unknown",
+    "physiological_validation_not_verified"
+  ]
+}

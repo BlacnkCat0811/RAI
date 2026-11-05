@@ -1,0 +1,247 @@
+{
+  "schema": "rai.ua1.daily/1",
+  "currentRunFirstEventIndex": 1274,
+  "currentRunLastEventIndex": 2179,
+  "daily": {
+    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+      "discoveredAdditions": 3128,
+      "discoveredDeletions": 0,
+      "realQueryCount": 33,
+      "queryMsMin": 3.1189918518066406,
+      "queryMsMax": 228.18899154663086,
+      "normalizationMsTotal": 36.58723831176758,
+      "server": {
+        "kind": "sampleType",
+        "type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+        "count": 3128,
+        "visibleDayCount": 65,
+        "sourceCount": 3,
+        "crossDayIntervals": 9,
+        "dailyDescriptorDurationGroups": 571,
+        "vo2SourceEpochCount": 0
+      },
+      "identityPreserved": true,
+      "intervalsPreserved": true,
+      "discoveredCountMatchesStored": true
+    },
+    "HKQuantityTypeIdentifierRestingHeartRate": {
+      "discoveredAdditions": 82,
+      "discoveredDeletions": 7,
+      "realQueryCount": 10,
+      "queryMsMin": 2.9790401458740234,
+      "queryMsMax": 91.68291091918945,
+      "normalizationMsTotal": 1.4202594757080078,
+      "server": {
+        "kind": "sampleType",
+        "type": "HKQuantityTypeIdentifierRestingHeartRate",
+        "count": 82,
+        "visibleDayCount": 71,
+        "sourceCount": 4,
+        "crossDayIntervals": 8,
+        "dailyDescriptorDurationGroups": 5,
+        "vo2SourceEpochCount": 0
+      },
+      "identityPreserved": true,
+      "intervalsPreserved": true,
+      "discoveredCountMatchesStored": true
+    },
+    "HKCategoryTypeIdentifierSleepAnalysis": {
+      "discoveredAdditions": 1529,
+      "discoveredDeletions": 0,
+      "realQueryCount": 20,
+      "queryMsMin": 2.6990175247192383,
+      "queryMsMax": 16.607999801635742,
+      "normalizationMsTotal": 9.621143341064453,
+      "server": {
+        "kind": "sampleType",
+        "type": "HKCategoryTypeIdentifierSleepAnalysis",
+        "count": 1529,
+        "visibleDayCount": 49,
+        "sourceCount": 3,
+        "crossDayIntervals": 16,
+        "dailyDescriptorDurationGroups": 4,
+        "vo2SourceEpochCount": 0
+      },
+      "identityPreserved": true,
+      "intervalsPreserved": true,
+      "discoveredCountMatchesStored": true
+    }
+  },
+  "finalFlows": {
+    "HKCategoryTypeIdentifierSleepAnalysis": {
+      "anchorFingerprint": "d0c6441e790a117e208fd368ada0bd98aa33a683a8ebeb45d5619de2a5c24941",
+      "anchorPresent": true,
+      "bootstrapComplete": true,
+      "bootstrapWindowFingerprint": "bcf5243962ea97cab480e2a3f105e2752107a938baaa3a92442af84642df212d",
+      "exists": true,
+      "hasError": false,
+      "hasMore": false,
+      "pending": false,
+      "receiptCommitted": true,
+      "sequence": 21
+    },
+    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+      "anchorFingerprint": "a68ece0131b8a2e3bf0558f05359cd6fa9c8d514bce6554f11c139c56e852d2a",
+      "anchorPresent": true,
+      "bootstrapComplete": true,
+      "bootstrapWindowFingerprint": "f37eec7cfd7f58361c184092ff608dfddda4ba42527e5729d6931ef854997b06",
+      "exists": true,
+      "hasError": false,
+      "hasMore": false,
+      "pending": false,
+      "receiptCommitted": true,
+      "sequence": 34
+    },
+    "HKQuantityTypeIdentifierRestingHeartRate": {
+      "anchorFingerprint": "2c2c19fa312788b18e39e8c0d9b4e5836bbc6222d46633ff09155f8989da2a9d",
+      "anchorPresent": true,
+      "bootstrapComplete": true,
+      "bootstrapWindowFingerprint": "7e4338748339fff021edfb53f0b4b12d6c2e166fcec5bbf7dda5b6156c69523a",
+      "exists": true,
+      "hasError": false,
+      "hasMore": false,
+      "pending": false,
+      "receiptCommitted": true,
+      "sequence": 11
+    }
+  },
+  "secondSyncChecks": {
+    "threeRealQueries": true,
+    "allUsedCommittedAnchor": true,
+    "zeroAdditionsDeletions": true,
+    "sameBootstrapWindow": true,
+    "anchorsRecoveredAfterRelaunch": true
+  },
+  "sleepCategoryCounts": [
+    {
+      "kind": "category",
+      "category": 1,
+      "count": 7
+    },
+    {
+      "kind": "category",
+      "category": 2,
+      "count": 336
+    },
+    {
+      "kind": "category",
+      "category": 3,
+      "count": 715
+    },
+    {
+      "kind": "category",
+      "category": 4,
+      "count": 204
+    },
+    {
+      "kind": "category",
+      "category": 5,
+      "count": 267
+    }
+  ],
+  "descriptorPresence": [
+    {
+      "kind": "dailyDescriptorPresence",
+      "type": "HKCategoryTypeIdentifierSleepAnalysis",
+      "count": 1529,
+      "versionPresent": 1529,
+      "devicePresent": 0,
+      "osPresent": 1529,
+      "deviceNamesStored": 0
+    },
+    {
+      "kind": "dailyDescriptorPresence",
+      "type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+      "count": 3128,
+      "versionPresent": 3128,
+      "devicePresent": 3128,
+      "osPresent": 3128,
+      "deviceNamesStored": 0
+    },
+    {
+      "kind": "dailyDescriptorPresence",
+      "type": "HKQuantityTypeIdentifierRestingHeartRate",
+      "count": 82,
+      "versionPresent": 82,
+      "devicePresent": 0,
+      "osPresent": 82,
+      "deviceNamesStored": 0
+    }
+  ],
+  "semanticHashes": [
+    {
+      "kind": "dailyRawSemantic",
+      "type": "HKCategoryTypeIdentifierSleepAnalysis",
+      "storedCount": 1529,
+      "serverSemanticHash": "b563cfe5ab386e04a93c5717518be990f7bf2d59a944b63a049e9c4002cf45ca"
+    },
+    {
+      "kind": "dailyRawSemantic",
+      "type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+      "storedCount": 3128,
+      "serverSemanticHash": "803f32fcc30c4a39ac065f8ec70de3b9ce85e2b6c87124fd08e7489799c38ddc"
+    },
+    {
+      "kind": "dailyRawSemantic",
+      "type": "HKQuantityTypeIdentifierRestingHeartRate",
+      "storedCount": 82,
+      "serverSemanticHash": "1906f0fc3799dad6fbbfd7c72ef2c87d2ad387be0290e7027cf70a8eee00dfb1"
+    }
+  ],
+  "finalLocalState": {
+    "mode": "base",
+    "activeDatasetVerified": true,
+    "taskCount": 0,
+    "vo2": {
+      "sequence": 1,
+      "bootstrapComplete": false,
+      "hasMore": true,
+      "error": "unsupported_metadata"
+    },
+    "vo2BlockedPresent": true,
+    "daily": {
+      "HKCategoryTypeIdentifierSleepAnalysis": {
+        "sequence": 21,
+        "bootstrapComplete": true,
+        "hasMore": false,
+        "error": null,
+        "pending": false,
+        "anchorPresent": true
+      },
+      "HKQuantityTypeIdentifierRestingHeartRate": {
+        "sequence": 11,
+        "bootstrapComplete": true,
+        "hasMore": false,
+        "error": null,
+        "pending": false,
+        "anchorPresent": true
+      },
+      "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+        "sequence": 34,
+        "bootstrapComplete": true,
+        "hasMore": false,
+        "error": null,
+        "pending": false,
+        "anchorPresent": true
+      }
+    },
+    "healthValuesExported": false,
+    "rawStateCopyRetained": false,
+    "automaticWorkoutDiscoveryWorkCount": 0,
+    "dailyPendingCount": 0
+  },
+  "observer": {
+    "registered": true,
+    "durableActiveCallbacks": 3,
+    "naturalBackgroundWake": "NOT OBSERVED",
+    "explicitBackgroundRelaunch": "NOT EXECUTED: operator selected not executed"
+  },
+  "usbDisconnectedForeground": {
+    "operatorPerformed": true,
+    "operatorObserved": "daily records still pending",
+    "laterDailyPendingCount": 0,
+    "laterAutomaticWorkoutDeliveryCount": 0,
+    "caseResult": "PARTIAL: no exact receipt correlation during disconnected interval"
+  },
+  "result": "PASS WITH RISKS: HRV/RHR/Sleep transport only; VO2 and Workout separate"
+}

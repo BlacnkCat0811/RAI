@@ -8,6 +8,30 @@ import ProductCore
 @testable import RAI
 
 final class NormalizerTests: XCTestCase {
+    func testBlockedWorkoutMetadataDiagnosticsRedactKeysAndValues() throws {
+        let key = "synthetic.private.metadata.key", value = "synthetic-private-value"
+        let workout = HKWorkout(activityType: .running, start: Date(), end: Date(), duration: 0,
+            totalEnergyBurned: nil, totalDistance: nil, metadata: [key: value])
+        XCTAssertThrowsError(try Normalizer.integrityEvent(workout))
+        let report = WorkoutInspection.blockedMetadataShape(workout)
+        let text = String(decoding: try report.data(), as: UTF8.self)
+        XCTAssertEqual(report["unsupportedFieldCount"], .int(1))
+        XCTAssertTrue(text.contains(WorkoutInspection.fingerprint(key)))
+        XCTAssertFalse(text.contains(key)); XCTAssertFalse(text.contains(value))
+        XCTAssertFalse(text.contains(workout.uuid.uuidString.lowercased()))
+    }
+    func testR1CanonicalQuantityIdentitySurvivesNativeUnitConversionAndPersistence() throws {
+        let type = HKQuantityTypeIdentifier.distanceWalkingRunning.rawValue
+        let kilometers = try Normalizer.quantity(HKQuantity(unit: .meterUnit(with: .kilo), doubleValue: 0.042), type: type)
+        let meters = try Normalizer.quantity(HKQuantity(unit: .meter(), doubleValue: 42), type: type)
+        let persisted = try JSON.decode(kilometers.data())
+        XCTAssertNotEqual(persisted, meters)
+        XCTAssertEqual(try WorkoutCoreIdentity.canonical(persisted), try WorkoutCoreIdentity.canonical(meters))
+        XCTAssertEqual(try persisted.data(), try meters.data())
+        for value in [Double.nan, .infinity, -.infinity] {
+            XCTAssertThrowsError(try Normalizer.quantity(HKQuantity(unit: .meter(), doubleValue: value), type: type))
+        }
+    }
     func testM7SharedProductGoldenContract() throws {
         guard let path = ProcessInfo.processInfo.environment["RAI_M7_GOLDEN_DIR"] else {
             throw XCTSkip("M7 shared golden requires explicit synthetic test runner")
@@ -372,6 +396,168 @@ private actor SyntheticAnchoredHealth: HealthKitReading {
     func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
     func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
 }
+
+private actor SyntheticCompletenessHealth: HealthKitReading {
+    let value: HKWorkout
+    let quantity: HKQuantitySample
+    private(set) var anchors: [Data?] = []
+    private(set) var bundleReads = 0
+    var failType: String?
+    init() {
+        let start = Date().addingTimeInterval(-3600)
+        value = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60), duration: 60,
+            totalEnergyBurned: nil, totalDistance: nil, metadata: [HKMetadataKeyIndoorWorkout: true])
+        quantity = HKQuantitySample(type: HKQuantityType(.heartRate), quantity: HKQuantity(unit: .count().unitDivided(by: .minute()), doubleValue: 120), start: start, end: start)
+        let source = class_createInstance(HKSource.self, 0) as! HKSource
+        source.setValue("com.apple.health", forKey: "bundleIdentifier"); source.setValue("Synthetic", forKey: "name")
+        let revision = HKSourceRevision(source: source, version: "synthetic", productType: "Watch7,1", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
+        value.setValue(revision, forKey: "sourceRevision"); quantity.setValue(revision, forKey: "sourceRevision")
+    }
+    func setFailure(_ type: String?) { failType = type }
+    func authorize() async throws {}
+    func workout(_ id: String) async throws -> HKWorkout? { id == value.uuid.uuidString.lowercased() ? value : nil }
+    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage {
+        if type.identifier == failType { throw SyncFailure.invalid("completeness_temporarily_unavailable") }
+        anchors.append(anchor)
+        return try page(type: type, anchor: anchor)
+    }
+    private func page(type: HKSampleType, anchor: Data?) throws -> HealthPage {
+        let samples: [HKSample] = anchor != nil ? [] : type == HKObjectType.workoutType() ? [value] : type.identifier == quantity.sampleType.identifier ? [quantity] : []
+        let next = try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: anchor == nil ? 1 : 2), requiringSecureCoding: true)
+        return HealthPage(samples: samples, deleted: [], anchor: next, limit: 1000)
+    }
+    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage { try page(type: type, anchor: anchor) }
+    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage { try page(type: HKObjectType.workoutType(), anchor: anchor) }
+    func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] {
+        bundleReads += 1; return type.identifier == quantity.sampleType.identifier ? [quantity] : []
+    }
+    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { [:] }
+    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead { HealthRouteRead(routes: [], coverage: [:], enumerationCompleted: true) }
+    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
+    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
+}
+private final class CompletenessReplies: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let scope = CoordinatorReplies.identity
+        let body: JSON
+        if request.url!.path == "/v2/handshake" {
+            body = .object(["protocolVersion": .int(3), "serviceID": .string(scope.serviceID), "datasetID": .string(scope.datasetID),
+                "datasetEpoch": .string(scope.datasetEpoch), "capabilities": .object([
+                    "workoutBundles": .bool(true), "bundleProtocolVersion": .int(3), "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
+                    "workoutSyncCompletenessVersion": .int(1), "workoutStreamSetVersion": .int(1),
+                    "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])])
+        } else { body = .object(["metrics": .array([])]) }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+private final class NativeCompletenessUploader: FileUploader, Sendable {
+    let loseManifestACK = Mutex(true), manifests = Mutex<[Data]>([])
+    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
+        let receipt: JSON
+        if request.url!.path == "/v2/sync/workout-completeness" {
+            let raw = try Data(contentsOf: file); manifests.withLock { $0.append(raw) }
+            if loseManifestACK.withLock({ $0 }) { throw URLError(.networkConnectionLost) }
+            let body = try JSON.decode(raw)
+            var fields = body.fields.filter { ["contract", "protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "manifestID", "generation"].contains($0.key) }
+            fields["manifestSHA256"] = .string(Wire.hash(raw)); fields["ingestStatus"] = .string("committed"); fields["commitRevision"] = .int(2)
+            fields["streamCount"] = .int(Int64(body["streams"].list.count)); fields["workoutCount"] = .int(Int64(body["workouts"].list.count)); receipt = .object(fields)
+        } else {
+            let parts = identity.split(separator: ":"); var counts: [String: JSON] = ["workoutInserted": .bool(true)]
+            for key in ["samplesInserted", "samplesUnchanged", "samplesDeleted", "associationsInserted", "associationsUnchanged", "associationsDeleted", "seriesInserted", "seriesUnchanged", "routesInserted", "routesUnchanged", "routesDeleted"] { counts[key] = .int(0) }
+            receipt = .object(["workoutID": .string(String(parts[0])), "bundleSHA256": .string(String(parts[1])), "ingestStatus": .string("committed"),
+                "commitRevision": .int(1), "counts": .object(counts), "analysisStatus": .string("not_required"), "analysisJobIDs": .array([])])
+        }
+        return UploadResponse(data: try receipt.data(), status: 200, contentType: "application/json")
+    }
+    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
+        let reply = try await response(request, file: file, identity: identity); return (reply.data, reply.status, reply.retryAfter)
+    }
+}
+final class WorkoutCompletenessNativeTests: XCTestCase {
+    func testR3SimulatorHTTPPostgres() async throws {
+        guard let config = ProcessInfo.processInfo.environment["RAI_UA1_R_SIMULATOR_CONFIG"] else { throw XCTSkip("Requires explicit isolated synthetic PG18 runner") }
+        let value = try JSON.decode(Data(config.utf8))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-http-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let health = SyntheticCompletenessHealth(), store = try OutboxStore(directory: directory)
+        guard let baseURL = value["baseURL"].text.flatMap(URL.init(string:)), baseURL.scheme == "http", baseURL.host == "127.0.0.1" else { throw SyncFailure.invalid("synthetic_loopback_required") }
+        // Explicit isolated loopback fixture, as in the existing SDK/PG tests.
+        // The product's exact configured-debug-host and TLS rules are unchanged.
+        let secret = ClientConfiguration.Secret(configuration: .init(baseURL: baseURL, collectorEpoch: value["collectorEpoch"].text!), token: value["token"].text!)
+        let transfers = BackgroundTransfers(directory: directory, identifier: "com.rai.v2.ua1r.synthetic." + Wire.id())
+        let coordinator = SyncCoordinator(store: store, health: health)
+        for _ in 0..<12 {
+            do { try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: transfers) }
+            catch {
+                if let upload = error as? UploadError, upload.status == 429 {
+                    try await Task.sleep(for: .seconds(max(2, upload.retryAfter ?? 2)))
+                } else { try await Task.sleep(for: .seconds(2)) }
+            }
+            if await store.snapshot().workoutCompleteness?.generation == 1 { break }
+        }
+        let first = await store.snapshot().workoutCompleteness
+        XCTAssertEqual(first?.generation, 1); XCTAssertEqual(first?.anchors.count, 12)
+        let reads = await health.bundleReads
+        let reopened = try OutboxStore(directory: directory)
+        let incremental = SyncCoordinator(store: reopened, health: health)
+        for _ in 0..<12 {
+            do { try await incremental.syncWorkoutCompleteness(secret: secret, transfers: transfers) }
+            catch let upload as UploadError where upload.status == 429 {
+                try await Task.sleep(for: .seconds(max(2, upload.retryAfter ?? 2)))
+            }
+            if await reopened.snapshot().workoutCompleteness?.generation == 2 { break }
+        }
+        let second = await reopened.snapshot().workoutCompleteness, finalReads = await health.bundleReads
+        XCTAssertEqual(second?.generation, 2); XCTAssertEqual(second?.lastQueryCounts?["committedAnchor"], 12)
+        XCTAssertEqual(second?.lastQueryCounts?["bootstrap"], 0); XCTAssertEqual(finalReads, reads)
+        print("UA1_R_SYNTHETIC_HTTP_PG generations=2 streams=12 incremental_bootstrap=0")
+    }
+    func testR3AllSupportedStreamsLostACKRelaunchAndIncrementalAnchors() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-native-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let health = SyntheticCompletenessHealth(), store = try OutboxStore(directory: directory)
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [CompletenessReplies.self]
+        let session = URLSession(configuration: config), uploader = NativeCompletenessUploader()
+        let secret = try ClientConfiguration.validatedSecret(baseURL: "https://synthetic.invalid", collectorEpoch: CoordinatorReplies.identity.collectorEpoch, token: String(repeating: "s", count: 48))
+        do { try await SyncCoordinator(store: store, health: health, session: session).syncWorkoutCompleteness(secret: secret, transfers: uploader); XCTFail("Lost ACK committed") } catch {}
+        let pending = await store.snapshot().workoutCompleteness
+        XCTAssertEqual(pending?.generation, 0); XCTAssertEqual(pending?.anchors.count, 0); XCTAssertNotNil(pending?.cycle?.pendingFile)
+        let queriesBeforeRetry = await health.anchors.count
+        let reopened = try OutboxStore(directory: directory); uploader.loseManifestACK.withLock { $0 = false }
+        let coordinator = SyncCoordinator(store: reopened, health: health, session: session)
+        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
+        let queriesAfterRetry = await health.anchors.count
+        XCTAssertEqual(queriesAfterRetry, queriesBeforeRetry)
+        let first = await reopened.snapshot().workoutCompleteness
+        XCTAssertEqual(first?.generation, 1); XCTAssertEqual(first?.anchors.count, 12)
+        let body = try JSON.decode(uploader.manifests.withLock { $0[0] })
+        XCTAssertEqual(body["workouts"].list[0]["routeState"], .string("absent"))
+        XCTAssertTrue(body["workouts"].list[0]["series"].list.allSatisfy { $0["pointCount"] == .int(0) })
+        XCTAssertEqual(uploader.manifests.withLock { $0[0] }, uploader.manifests.withLock { $0[1] })
+        let bundleReads = await health.bundleReads
+        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
+        let second = await reopened.snapshot().workoutCompleteness, finalBundleReads = await health.bundleReads
+        XCTAssertEqual(second?.generation, 2); XCTAssertEqual(second?.lastQueryCounts?["committedAnchor"], 12)
+        XCTAssertEqual(second?.lastQueryCounts?["bootstrap"], 0); XCTAssertEqual(finalBundleReads, bundleReads)
+    }
+    func testR3TemporarilyUnavailableRequiredStreamCannotPublish() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-pending-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let health = SyntheticCompletenessHealth(); await health.setFailure(HKQuantityTypeIdentifier.runningPower.rawValue)
+        let store = try OutboxStore(directory: directory), config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [CompletenessReplies.self]
+        let coordinator = SyncCoordinator(store: store, health: health, session: URLSession(configuration: config)), uploader = NativeCompletenessUploader()
+        let secret = try ClientConfiguration.validatedSecret(baseURL: "https://synthetic.invalid", collectorEpoch: CoordinatorReplies.identity.collectorEpoch, token: String(repeating: "s", count: 48))
+        do { try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader); XCTFail("Unavailable stream completed") } catch {}
+        let flow = await store.snapshot().workoutCompleteness
+        XCTAssertEqual(flow?.generation, 0); XCTAssertTrue(flow?.anchors.isEmpty == true)
+        XCTAssertNil(flow?.cycle?.pendingFile); XCTAssertTrue(uploader.manifests.withLock { $0.isEmpty })
+    }
+}
 final class Phase3HealthKitIntegrityTests: XCTestCase {
     func testRealHKSecureArchiveAndScopedIncrementalDiscovery() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rai-hk-discovery-" + Wire.id())
@@ -720,6 +906,63 @@ private actor SyntheticVO2Health: HealthKitReading {
     }
 }
 extension NormalizerTests {
+    func testR2OldBlockedNativeArchiveReopensWithoutHealthQueryOrEarlyAnchor() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r2-archive-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let date = Date(timeIntervalSince1970: 1793000000)
+        let sample = syntheticVO2(HKQuantitySample(type: HKQuantityType(.vo2Max),
+            quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 42), start: date, end: date,
+            metadata: [HKMetadataKeyVO2MaxTestType: NSNumber(value: 2.0), HKMetadataKeyAlgorithmVersion: NSNumber(value: 3.0),
+                HKMetadataKeySyncVersion: NSNumber(value: 7.0), HKMetadataKeySyncIdentifier: "synthetic-sync-identity"]))
+        let archive = try NSKeyedArchiver.archivedData(withRootObject: [sample], requiringSecureCoding: true)
+        XCTAssertEqual(try VO2MaxNormalizer.blockedNativeShape(archive)["sampleCount"], .int(1))
+        let store = try OutboxStore(directory: directory)
+        try await store.bind(CoordinatorReplies.identity); _ = try await store.vo2Flow()
+        try await store.blockVO2(previousAnchor: nil, candidateAnchor: Data([9]), archive: archive, category: "unsupported_metadata")
+        let file = directory.appendingPathComponent("state.json")
+        var state = try JSON.decode(Data(contentsOf: file)).fields, vo2 = state["vo2"]!.fields, blocked = vo2["blocked"]!.fields
+        blocked.removeValue(forKey: "parserRevision"); blocked.removeValue(forKey: "hasMore")
+        vo2["blocked"] = .object(blocked); state["vo2"] = .object(vo2)
+        try OutboxStore.write(JSON.object(state).data(), to: file)
+        let reopened = try OutboxStore(directory: directory), counters = CoordinatorCounters()
+        let coordinator = SyncCoordinator(store: reopened, health: NoHealthReads(counters: counters))
+        try await coordinator.discoverVO2()
+        let result = await reopened.snapshot(), pending = try XCTUnwrap(result.vo2?.pending)
+        XCTAssertNil(result.vo2?.anchor); XCTAssertNotNil(result.vo2?.blocked)
+        XCTAssertTrue(pending.hasMore); XCTAssertEqual(counters.reads.withLock { $0 }, 0)
+        let body = try JSON.decode(Data(contentsOf: await reopened.fileURL(pending.file)))
+        XCTAssertEqual(body["facts"].list.count, 1)
+        XCTAssertEqual(body["facts"].list.first?["metadata"].fields.count, 4)
+        XCTAssertEqual(body["facts"].list.first?["metadata"][HKMetadataKeySyncVersion]["value"], .int(7))
+        let retainedURL = try await reopened.fileURL(try XCTUnwrap(result.vo2?.blocked).file)
+        XCTAssertEqual(try Data(contentsOf: retainedURL), archive)
+    }
+
+    func testR2FutureMetadataStillRetainsOriginalBlockedArchive() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r2-future-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let date = Date(timeIntervalSince1970: 1793000000)
+        let sample = syntheticVO2(HKQuantitySample(type: HKQuantityType(.vo2Max),
+            quantity: HKQuantity(unit: VO2MaxNormalizer.unit, doubleValue: 42), start: date, end: date))
+        sample.setValue(["futureSyntheticKey": NSNumber(value: 2.0)], forKey: "metadata")
+        let archive = try NSKeyedArchiver.archivedData(withRootObject: [sample], requiringSecureCoding: true)
+        let store = try OutboxStore(directory: directory)
+        try await store.bind(CoordinatorReplies.identity); _ = try await store.vo2Flow()
+        try await store.blockVO2(previousAnchor: nil, candidateAnchor: Data([9]), archive: archive, category: "unsupported_metadata")
+        let file = directory.appendingPathComponent("state.json")
+        var state = try JSON.decode(Data(contentsOf: file)).fields, vo2 = state["vo2"]!.fields, blocked = vo2["blocked"]!.fields
+        blocked.removeValue(forKey: "parserRevision"); vo2["blocked"] = .object(blocked); state["vo2"] = .object(vo2)
+        try OutboxStore.write(JSON.object(state).data(), to: file)
+        let reopened = try OutboxStore(directory: directory)
+        try await SyncCoordinator(store: reopened, health: NoHealthReads(counters: CoordinatorCounters())).discoverVO2()
+        let result = await reopened.snapshot()
+        XCTAssertNil(result.vo2?.anchor); XCTAssertNil(result.vo2?.pending)
+        XCTAssertEqual(result.vo2?.error, "unsupported_metadata")
+        XCTAssertEqual(result.vo2?.blocked?.parserRevision, VO2Max.nativeMetadataParserRevision)
+        let retainedURL = try await reopened.fileURL(try XCTUnwrap(result.vo2?.blocked).file)
+        XCTAssertEqual(try Data(contentsOf: retainedURL), archive)
+    }
+
     func testVO2SDKMetadataAndProvenance() throws {
         let date = Date(timeIntervalSince1970: 1793000000)
         for test in [nil, 1, 2, 3, 4] as [Int?] {

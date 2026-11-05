@@ -4,6 +4,27 @@ import Foundation
 /// presence of a sample in `samples`; no separate per-sample request exists.
 /// Completeness fields describe read coverage; missing children are retained.
 public enum WorkoutBundleAssembler {
+    /// Reuse an original v3 request only when the entire rebuilt payload can
+    /// reproduce its exact durable identity. Observation time alone is not a
+    /// HealthKit change. The receipt supplies the old capture time; its hash
+    /// must still match every fact, source, coverage field and session byte.
+    public static func exactReplay(rebuilt: Data, receipt: JSON) throws -> Data? {
+        var fields = try JSON.decode(rebuilt).fields
+        guard fields["protocolVersion"]?.integer == 3,
+              let id = fields["workoutID"]?.text,
+              receipt["sourceObservation"]["version"].integer == 1,
+              let observedAt = receipt["sourceObservation"]["observedAtUs"].integer,
+              case .object(var observation) = fields["observation"] else { return nil }
+        observation["observedAtUs"] = .int(observedAt)
+        fields["observation"] = .object(observation)
+        let original = try JSON.object(fields).data(), hash = Wire.hash(original)
+        guard receipt["bundleSHA256"].text == hash else { return nil }
+        try WorkoutBundleACK.validate(receipt, workoutID: id, bundleHash: hash,
+            sampleDeletions: fields["sampleDeletions"]?.list.count ?? 0,
+            routeDeletions: fields["routeDeletions"]?.list.count ?? 0)
+        return original
+    }
+
     public static func data(scope: Scope, workoutID: String, workout: JSON, samples: [JSON],
                             series: [JSON], routes: [JSON], completeSampleTypes: [String],
                             completeRoutes: Bool, observation: JSON? = nil, sampleDeletions: [JSON] = [], routeDeletions: [String] = [], deletionOnly: Bool = false) throws -> Data {

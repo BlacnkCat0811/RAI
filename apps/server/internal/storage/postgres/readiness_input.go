@@ -63,12 +63,17 @@ func (s *Store) loadReadinessInput(ctx context.Context, tx pgx.Tx, l Lease, in *
 	if json.Unmarshal(manifest, &streams) != nil {
 		return analysis.Invalid()
 	}
-	// No production transport currently proves Workout discovery completion.
-	// Only explicitly labelled synthetic evidence is supported in this phase.
+	// Preserve visibly synthetic isolated model fixtures; real transport evidence
+	// is accepted only from the immutable, server-validated control plane below.
 	if a, ok := streams.([]any); ok && len(a) > 128 {
 		return &analysis.Failure{Code: "analysis_input_limit"}
 	}
 	x.Coverage.CaughtUp = x.Coverage.CaughtUp && x.Coverage.Synthetic && x.Coverage.StreamHash == rd.Hash(streams)
+	if coverage, found, err := verifiedWorkoutCompleteness(ctx, tx, l.DatasetID, epoch, collector); err != nil {
+		return err
+	} else if found {
+		x.Coverage = coverage
+	}
 	if x.Coverage.Through > x.AsOf {
 		x.Coverage.CaughtUp = false
 		x.Coverage.Through = x.AsOf

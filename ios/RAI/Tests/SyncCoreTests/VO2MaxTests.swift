@@ -33,6 +33,47 @@ private func vo2Store() async throws -> (OutboxStore, URL) {
     return (store, dir)
 }
 @Suite struct VO2MaxTests {
+    @Test func legacyBlockedArchiveStagesAtomicallyAndSurvivesLostACKUntilCommit() async throws {
+        let (store, dir) = try await vo2Store(); defer { try? FileManager.default.removeItem(at: dir) }
+        let archive = Data("synthetic-blocked-archive".utf8)
+        try await store.blockVO2(previousAnchor: nil, candidateAnchor: Data([9]), archive: archive, category: "unsupported_metadata")
+        var old = await store.snapshot(); old.vo2?.blocked?.hasMore = nil; old.vo2?.blocked?.parserRevision = nil
+        try await store.commit(old)
+        let blocked = try #require(old.vo2?.blocked)
+        try await store.stageBlockedVO2(expectedHash: blocked.hash, facts: [], deleted: [], observedAt: Date())
+        let staged = await store.snapshot()
+        #expect(staged.vo2?.anchor == nil && staged.vo2?.blocked != nil && staged.vo2?.pending?.hasMore == true)
+        let pending = try #require(staged.vo2?.pending), raw = try Data(contentsOf: await store.fileURL(pending.file))
+        #expect(try await store.collectGarbage(dryRun: true) == 0)
+        let reopened = try OutboxStore(directory: dir), uploader = VO2Uploader()
+        uploader.mode.withLock { $0 = -1 }
+        let api = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic", uploader: uploader)
+        do { _ = try await VO2MaxDelivery(store: reopened, api: api).deliver(capabilities: vo2Capabilities); Issue.record("Lost ACK committed") } catch {}
+        #expect(await reopened.snapshot().vo2?.anchor == nil)
+        #expect(try Data(contentsOf: await reopened.fileURL(blocked.file)) == archive)
+        uploader.mode.withLock { $0 = 200 }
+        #expect(try await VO2MaxDelivery(store: reopened, api: api).deliver(capabilities: vo2Capabilities, now: .distantFuture))
+        let committed = await reopened.snapshot()
+        #expect(committed.vo2?.anchor == Data([9]) && committed.vo2?.blocked == nil && committed.vo2?.pending == nil)
+        #expect(committed.vo2?.bootstrapComplete == false && committed.vo2?.hasMore == true)
+        #expect(uploader.bodies.withLock { $0.allSatisfy { $0 == raw } })
+    }
+
+    @Test func blockedStageStateFailureKeepsOldArchiveAnchorAndRevision() async throws {
+        let (store, dir) = try await vo2Store(); defer { try? FileManager.default.removeItem(at: dir) }
+        try await store.blockVO2(previousAnchor: nil, candidateAnchor: Data([3]), archive: Data("synthetic".utf8), category: "unsupported_metadata")
+        let before = await store.snapshot(), blocked = try #require(before.vo2?.blocked)
+        let stateFile = dir.appendingPathComponent("state.json"), backup = dir.appendingPathComponent("saved-state")
+        try FileManager.default.moveItem(at: stateFile, to: backup); try FileManager.default.createDirectory(at: stateFile, withIntermediateDirectories: false)
+        do { try await store.stageBlockedVO2(expectedHash: blocked.hash, facts: [], deleted: [], observedAt: Date()); Issue.record("State failure accepted") } catch {}
+        let failed = await store.snapshot()
+        #expect(failed.vo2?.anchor == nil && failed.vo2?.pending == nil && failed.vo2?.blocked?.hash == blocked.hash)
+        #expect(failed.vo2?.blocked?.parserRevision == before.vo2?.blocked?.parserRevision)
+        try FileManager.default.removeItem(at: stateFile); try FileManager.default.moveItem(at: backup, to: stateFile)
+        let reopened = try OutboxStore(directory: dir); _ = try await reopened.vo2Flow()
+        #expect(try Data(contentsOf: await reopened.fileURL(blocked.file)) == Data("synthetic".utf8))
+    }
+
     @Test func fixedFingerprintAndOldStateCompatibility() async throws {
         let (store, dir) = try await vo2Store(); defer { try? FileManager.default.removeItem(at: dir) }
         for type in DailyHealth.types {

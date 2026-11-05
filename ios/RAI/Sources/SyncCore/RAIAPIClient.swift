@@ -87,7 +87,7 @@ public struct RAIAPIClient: Sendable {
     }
     private func performCall(_ method: String, _ path: String, body: Data?, file: URL?,
                              mediaType: String, gzip: Bool, identity: String, query: [String: String]) async throws -> JSON {
-        let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path == "/v2/sync/daily-facts" || path == "/v2/sync/vo2max-facts"
+        let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path == "/v2/sync/workout-completeness" || path == "/v2/sync/daily-facts" || path == "/v2/sync/vo2max-facts"
         let networkStart = Date()
         defer {
             metrics.elapsed("network_ms", since: networkStart)

@@ -23,6 +23,46 @@ func vo2Fixture() VO2Batch {
 	}
 	return b
 }
+func TestVO2NativeCarrierSharedGolden(t *testing.T) {
+	raw, err := os.ReadFile("../../../../contracts/fixtures/vo2max-native-metadata-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		MetadataRegistryVersion int  `json:"metadataRegistryVersion"`
+		SyntheticOnly           bool `json:"syntheticOnly"`
+		Cases                   []struct {
+			Name              string                 `json:"name"`
+			CanonicalMetadata map[string]VO2Metadata `json:"canonicalMetadata"`
+		} `json:"cases"`
+	}
+	if err = json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.MetadataRegistryVersion != 1 || !fixture.SyntheticOnly || len(fixture.Cases) != 6 {
+		t.Fatal("golden contract mismatch")
+	}
+	for _, tc := range fixture.Cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			b := vo2Fixture()
+			b.Facts[0].Metadata = tc.CanonicalMetadata
+			body, err := json.Marshal(b)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoded, err := DecodeVO2Batch(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, _ := json.Marshal(tc.CanonicalMetadata)
+			got, _ := json.Marshal(decoded.Facts[0].Metadata)
+			if !bytes.Equal(want, got) {
+				t.Fatal("typed metadata changed in strict wire decoder")
+			}
+		})
+	}
+}
+
 func TestVO2StrictContract(t *testing.T) {
 	for _, tc := range []struct {
 		name, code string

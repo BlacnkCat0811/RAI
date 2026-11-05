@@ -72,8 +72,8 @@ type RecoveryEvidence struct {
 	Coverage   float64  `json:"evidenceCoverage"`
 }
 
-// Synthetic coverage is an explicit engineering fixture, never inferred from
-// uploads. The current Workout wire protocol has no server catch-up assertion.
+// Coverage comes from verified Workout completeness control-plane receipts.
+// Synthetic is retained solely as the visible marker of isolated model fixtures.
 type Coverage struct {
 	Identity   string `json:"identity"`
 	From       int64  `json:"fromUs"`

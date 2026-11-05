@@ -37,6 +37,108 @@ final class SyncModel {
     var workoutsRefreshedAt: Date?
     #if DEBUG
     private var dailyRDIsolated = false
+    func runUA1RCompletenessAcceptance() async {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let reportURL = documents.appendingPathComponent("ua1-r-completeness-report.json")
+        var report: [String: JSON] = ["result": .string("RUNNING"), "healthValuesExported": .bool(false)]
+        try? OutboxStore.write(JSON.object(report).data(), to: reportURL)
+        let started = Date()
+        busy = true; UIApplication.shared.isIdleTimerDisabled = true
+        defer {
+            busy = false; UIApplication.shared.isIdleTimerDisabled = false
+            report["wallMs"] = .number(Date().timeIntervalSince(started) * 1000)
+            try? OutboxStore.write(JSON.object(report).data(), to: reportURL)
+        }
+        do {
+            guard let expected = ProcessInfo.processInfo.environment["RAI_UA1_R_DATASET_SHA256"],
+                  let descriptor = try ClientConfiguration.activeDescriptor(), Wire.hash(Data(descriptor.datasetID.utf8)) == expected,
+                  let baseStore = store else { throw SyncFailure.localState("completeness_isolation_mismatch") }
+            let configURL = documents.appendingPathComponent("ua1-r-completeness-config.json")
+            let config = try JSON.decode(Data(contentsOf: configURL))
+            try FileManager.default.removeItem(at: configURL)
+            guard let namespace = config["outboxNamespace"].text.flatMap(UUID.init(uuidString:)) else { throw SyncFailure.invalid("completeness_config_invalid") }
+            let store = try OutboxStore(directory: baseStore.directory.appendingPathComponent("acceptance-" + namespace.uuidString.lowercased()))
+            if ProcessInfo.processInfo.environment["RAI_UA1_R_COMPLETENESS"] == "inspect" {
+                let health = HealthKitClient(), tasks = await store.snapshot().tasks ?? [:]
+                var shapes: [JSON] = []
+                for (id, task) in tasks where task.errorCode == "metadata_requires_review" {
+                    if let workout = try await health.workout(id) { shapes.append(WorkoutInspection.blockedMetadataShape(workout)) }
+                }
+                report["blockedWorkoutCount"] = .int(Int64(shapes.count))
+                report["metadataShapes"] = .array(shapes)
+                report["result"] = .string("INSPECTED")
+                return
+            }
+            let transfers = BackgroundTransfers(directory: store.directory, identifier: "com.rai.v2.phase3." + namespace.uuidString.lowercased())
+            let coordinator = SyncCoordinator(store: store, health: HealthKitClient())
+            let secret = try ClientConfiguration.validatedSecret(baseURL: config["baseURL"].text ?? "", collectorEpoch: config["collectorEpoch"].text ?? "", token: config["token"].text ?? "")
+            do { try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: transfers) }
+            catch {
+                let code = VO2Max.failureCode(error)
+                report["reason"] = .string(code.range(of: #"^[a-z0-9_:-]{1,128}$"#, options: .regularExpression) != nil ? code : "completeness_failed")
+            }
+            guard let flow = await store.snapshot().workoutCompleteness else { throw SyncFailure.localState("completeness_not_started") }
+            report["generation"] = .int(flow.generation)
+            report["manifestSHA256"] = flow.lastManifestSHA256.map(JSON.string) ?? .null
+            report["committedAnchorCount"] = .int(Int64(flow.anchors.count))
+            report["committedWorkoutCount"] = .int(Int64(flow.inventory.count))
+            report["cyclePending"] = .bool(flow.cycle != nil)
+            report["manifestPending"] = .bool(flow.cycle?.pendingFile != nil)
+            let cutoff = flow.cycle?.cutoffUs ?? flow.lastCutoffUs
+            report["cutoffSHA256"] = cutoff.map { .string(Wire.hash(Data(String($0).utf8))) } ?? .null
+            let counts = flow.cycle.map { ["committedAnchor": $0.committedAnchorQueries, "stagedCursor": $0.stagedCursorQueries, "bootstrap": $0.bootstrapQueries] } ?? flow.lastQueryCounts ?? [:]
+            report["queryCounts"] = .object(counts.mapValues { .int(Int64($0)) })
+            report["capturedWorkoutCount"] = .int(Int64(flow.cycle?.inventory.count ?? flow.inventory.count))
+            report["processedWorkoutCount"] = .int(Int64(flow.cycle?.completedWorkouts.count ?? flow.inventory.count))
+            report["result"] = .string(flow.generation > 0 && flow.cycle == nil && flow.errorCode == nil ? "ACKNOWLEDGED" : "BLOCKED")
+        } catch { report["result"] = .string("BLOCKED"); report["reason"] = .string(VO2Max.failureCode(error)) }
+    }
+    func runUA1RVO2Acceptance() async {
+        guard let expected = ProcessInfo.processInfo.environment["RAI_UA1_R_DATASET_SHA256"],
+              let descriptor = try? ClientConfiguration.activeDescriptor(),
+              Wire.hash(Data(descriptor.datasetID.utf8)) == expected, let store else { return }
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let mode = ProcessInfo.processInfo.environment["RAI_UA1_R_VO2"] ?? "inspect"
+        var report: [String: JSON] = ["mode": .string(mode), "healthValuesExported": .bool(false)]
+        do {
+            let flow = try await store.vo2Flow()
+            if let blocked = flow.blocked {
+                let archive = try Data(contentsOf: await store.fileURL(blocked.file))
+                guard Wire.hash(archive) == blocked.hash else { throw SyncFailure.localState("vo2_payload_corrupt") }
+                report["blockedArchiveSHA256"] = .string(blocked.hash)
+                report["nativeShape"] = try VO2MaxNormalizer.blockedNativeShape(archive)
+            } else if mode != "deliver" { throw SyncFailure.localState("vo2_blocked_missing") }
+            if mode == "stage" {
+                guard let coordinator else { throw SyncFailure.localState("sync_unavailable") }
+                try await coordinator.discoverVO2()
+            } else if mode == "deliver" {
+                guard let coordinator, let transfers, let secret = try ClientConfiguration.load() else {
+                    throw SyncFailure.localState("sync_unavailable")
+                }
+                try await coordinator.syncVO2Only(secret: secret, transfers: transfers)
+            }
+            let current = try await store.vo2Flow()
+            report["anchorCommitted"] = .bool(current.anchor != nil)
+            report["sequence"] = .int(current.sequence)
+            report["bootstrapComplete"] = .bool(current.bootstrapComplete)
+            report["hasMore"] = .bool(current.hasMore)
+            report["blockedRetained"] = .bool(current.blocked != nil)
+            report["pending"] = .bool(current.pending != nil)
+            if let code = current.error { report["errorCode"] = .string(code) }
+            if let pending = current.pending {
+                let raw = try Data(contentsOf: await store.fileURL(pending.file))
+                guard Wire.hash(raw) == pending.hash else { throw SyncFailure.localState("vo2_payload_corrupt") }
+                let body = try JSON.decode(raw), facts = body["facts"].list
+                report["pendingSHA256"] = .string(pending.hash)
+                report["stagedFactCount"] = .int(Int64(facts.count))
+                var fields: [String: Int] = [:]
+                for fact in facts { for key in fact["metadata"].fields.keys { fields[key, default: 0] += 1 } }
+                report["stagedMetadataFieldCounts"] = .object(fields.mapValues { .int(Int64($0)) })
+            }
+            report["result"] = .string(mode == "inspect" ? "INSPECTED" : (current.error == nil ? "COMPLETED" : "BLOCKED"))
+        } catch { report["result"] = .string("BLOCKED"); report["reason"] = .string(VO2Max.failureCode(error)) }
+        try? OutboxStore.write(JSON.object(report).data(), to: documents.appendingPathComponent("ua1-r-vo2-report.json"))
+    }
     /// Operator-enabled device acceptance. Uses the real App's session,
     /// Outbox, scheduler and Daily delivery; never discovers Workout data.
     func runDailyDeviceAcceptance() async {
@@ -168,6 +270,7 @@ final class SyncModel {
             report["metadataKeys"] = .array((workout.metadata ?? [:]).keys.sorted().map { .string($0.hasPrefix("HK") ? $0 : "unrecognized_key") })
             report["sourceFieldsPresent"] = .object(["version": .bool(source["version"] != .null), "productType": .bool(source["productType"] != .null), "os": .bool(source["operatingSystemVersion"] != .null), "device": .bool(source["device"] != .null)])
             report["stage"] = .string("first_anchored_discovery")
+            let beforeDiscovery = await store.discoverySnapshot()
             try await coordinator.discoverChanges(workoutIDs: [id])
             let first = await store.discoverySnapshot()
             try await coordinator.discoverChanges(workoutIDs: [id])
@@ -176,6 +279,8 @@ final class SyncModel {
             report["independentAnchors"] = .int(Int64(second.flows.count))
             report["outOfScopeAnchors"] = .int(Int64(second.flows.values.filter { $0.query.workoutID != id }.count))
             report["unchangedReadCreatesNoWork"] = .bool(first.events.count == second.events.count && first.work[id]?.generation == second.work[id]?.generation)
+            report["discoveryQueryEvidence"] = await coordinator.discoveryQueryEvidence()
+            report["newSemanticEvents"] = .int(Int64(second.events.keys.filter { beforeDiscovery.events[$0] == nil }.count))
             report["stage"] = .string("load_isolated_config")
             let secret = try ClientConfiguration.validatedSecret(baseURL: config["baseURL"].text ?? "", collectorEpoch: config["collectorEpoch"].text ?? "", token: config["token"].text ?? "")
             report["stage"] = .string("single_workout_upload")
@@ -811,6 +916,8 @@ struct RAIApp: App {
                 .environment(\.locale, Locale(identifier: "zh-Hans-CN"))
                 .task {
                     #if DEBUG
+                    if ProcessInfo.processInfo.environment["RAI_UA1_R_COMPLETENESS"] != nil { await model.runUA1RCompletenessAcceptance(); return }
+                    if ProcessInfo.processInfo.environment["RAI_UA1_R_VO2"] != nil { await model.runUA1RVO2Acceptance(); return }
                     if DailyDeviceDiagnostics.enabled { await model.runDailyDeviceAcceptance(); return }
                     if ProcessInfo.processInfo.environment["RAI_PHASE4_ACCEPTANCE"] == "1" { await model.runPhase3Acceptance(phase: 4); return }
                     if ProcessInfo.processInfo.environment["RAI_PHASE3_ACCEPTANCE"] == "1" { await model.runPhase3Acceptance(); return }
@@ -820,6 +927,8 @@ struct RAIApp: App {
                 .onChange(of: phase) { _, phase in
                     if phase == .active {
                         #if DEBUG
+                        if ProcessInfo.processInfo.environment["RAI_UA1_R_COMPLETENESS"] != nil { return }
+                        if ProcessInfo.processInfo.environment["RAI_UA1_R_VO2"] != nil { return }
                         if DailyDeviceDiagnostics.enabled {
                             Task { try? await DailyDeviceDiagnostics.shared.event("scene_active") }
                             model.recoverPending(discoverDaily: true)

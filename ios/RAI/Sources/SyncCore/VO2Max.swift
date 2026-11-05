@@ -6,6 +6,8 @@ public enum VO2Max {
     public static let type = "HKQuantityTypeIdentifierVO2Max"
     public static let maxChanges = 128, maxBytes = 524288, maxContextBytes = 65536
     public static let windowUs: Int64 = 90 * 86_400_000_000
+    /// Local parser revision, not a wire registry/schema version.
+    public static let nativeMetadataParserRevision = 2
     public static func fingerprint(startUs: Int64) -> String {
         "sha256:" + Wire.hash(Data("\(contract)|\(type)|\(startUs)|overlap-v1".utf8))
     }
@@ -46,8 +48,21 @@ public enum VO2Max {
         switch key {
         case "HKVO2MaxTestType", "HKMetadataKeySyncVersion", "HKAlgorithmVersion":
             guard let n = value as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID(),
-                  String(cString: n.objCType).first.map({ "cCsSiIlLqQ".contains($0) }) == true,
-                  let integer = Int64(n.stringValue) else { throw unsupported }
+                  !(n is NSDecimalNumber) else { throw unsupported }
+            let carrier = String(cString: n.objCType)
+            let integer: Int64
+            if carrier.count == 1, carrier.first.map({ "cCsSiIlLqQ".contains($0) }) == true {
+                guard let exact = Int64(n.stringValue) else { throw unsupported }
+                integer = exact
+            } else if carrier == "d" || carrier == "f" {
+                let x = n.doubleValue
+                // Exclude the rounding boundary too: floating (2^53 + 1)
+                // has already rounded to 2^53 and cannot recover its origin.
+                let boundary: Double = carrier == "f" ? 16_777_216 : 9_007_199_254_740_992
+                guard x.isFinite, x.rounded(.towardZero) == x, abs(x) < boundary,
+                      let exact = Int64(exactly: x) else { throw unsupported }
+                integer = exact
+            } else { throw unsupported }
             if key == "HKVO2MaxTestType", !(1...4).contains(integer) { throw SyncFailure.invalid("unsupported_test_type") }
             tag = "int64"; payload = .int(integer)
         case "HKWasUserEntered", "HKMetadataKeyAppleDeviceCalibrated":
@@ -73,10 +88,13 @@ public struct VO2Pending: Codable, Sendable {
     public let hasMore: Bool
     public var attempt = 0
     public var nextAttempt = Date.distantPast
+    public var sourceBlockedHash: String?
 }
 public struct VO2Blocked: Codable, Sendable {
     public let file: String, hash: String, category: String
     public let candidateAnchor: Data
+    public var hasMore: Bool?
+    public var parserRevision: Int?
 }
 public struct VO2Flow: Codable, Sendable {
     public let streamID: String
@@ -167,12 +185,40 @@ extension OutboxStore {
         var next = state; next.vo2 = flow
         do { try commit(next) } catch { vo2OrphansReconciled = false; throw error }
     }
-    public func blockVO2(previousAnchor: Data?, candidateAnchor: Data, archive: Data, category: String) throws {
+    public func blockVO2(previousAnchor: Data?, candidateAnchor: Data, archive: Data, category: String, hasMore: Bool? = nil) throws {
         guard var flow = state.vo2, flow.anchor == previousAnchor, flow.pending == nil, flow.blocked == nil else { throw SyncFailure.localState("vo2_state_conflict") }
         let file = try savePayload(archive, suffix: "vo2-blocked.json")
-        flow.blocked = VO2Blocked(file: file, hash: Wire.hash(archive), category: category, candidateAnchor: candidateAnchor)
+        flow.blocked = VO2Blocked(file: file, hash: Wire.hash(archive), category: category, candidateAnchor: candidateAnchor,
+            hasMore: hasMore, parserRevision: VO2Max.nativeMetadataParserRevision)
         flow.error = category; var next = state; next.vo2 = flow
         do { try commit(next) } catch { vo2OrphansReconciled = false; throw error }
+    }
+    /// One atomic archive -> pending transition. The archive remains a GC root
+    /// until a validated durable ACK commits its candidate anchor.
+    public func stageBlockedVO2(expectedHash: String, facts: [JSON], deleted: [String], observedAt: Date) throws {
+        guard var flow = state.vo2, let blocked = flow.blocked, blocked.hash == expectedHash,
+              flow.pending == nil, let scope = state.scope,
+              Wire.hash(try Data(contentsOf: fileURL(blocked.file))) == expectedHash else {
+            throw SyncFailure.localState("vo2_state_conflict")
+        }
+        // Older archives did not retain query-fullness. Conservatively require
+        // a fresh anchored continuation after their ACK before claiming end.
+        let hasMore = blocked.hasMore ?? true, batchID = Wire.id()
+        let raw = try flow.body(scope: scope, facts: facts, deleted: deleted, observedAt: observedAt,
+            hasMore: hasMore, batchID: batchID)
+        let file = try savePayload(raw, suffix: "vo2.json")
+        flow.pending = VO2Pending(batchID: batchID, file: file, hash: Wire.hash(raw),
+            candidateAnchor: blocked.candidateAnchor, hasMore: hasMore, sourceBlockedHash: blocked.hash)
+        flow.lastDiscovery = observedAt; flow.error = nil
+        var next = state; next.vo2 = flow
+        do { try commit(next) } catch { vo2OrphansReconciled = false; throw error }
+    }
+    public func recordBlockedVO2ParserAttempt(expectedHash: String, code: String) throws {
+        guard var flow = state.vo2, var blocked = flow.blocked, blocked.hash == expectedHash,
+              flow.pending == nil else { throw SyncFailure.localState("vo2_state_conflict") }
+        blocked.parserRevision = VO2Max.nativeMetadataParserRevision
+        flow.blocked = blocked; flow.error = code
+        var next = state; next.vo2 = flow; try commit(next)
     }
     public func vo2Failure(code: String, retryAfter: TimeInterval? = nil, now: Date = Date()) throws {
         guard var flow = state.vo2 else { return }
@@ -205,10 +251,15 @@ extension OutboxStore {
     public func acknowledgeVO2(_ receipt: JSON, transferCacheFile: String? = nil) throws {
         try validateVO2Receipt(receipt)
         guard var flow = state.vo2, let pending = flow.pending else { throw SyncFailure.localState("vo2_pending_missing") }
+        var archiveFiles: [String] = []
+        if let blocked = flow.blocked {
+            guard pending.sourceBlockedHash == blocked.hash else { throw SyncFailure.localState("vo2_state_conflict") }
+            archiveFiles = [blocked.file]; flow.blocked = nil
+        } else if pending.sourceBlockedHash != nil { throw SyncFailure.localState("vo2_state_conflict") }
         flow.anchor = pending.candidateAnchor; flow.previousBatchID = pending.batchID; flow.sequence += 1
         flow.bootstrapComplete = flow.bootstrapComplete || !pending.hasMore; flow.hasMore = pending.hasMore
         flow.pending = nil; flow.lastReceipt = receipt; flow.lastSync = Date(); flow.error = nil
-        var next = state; next.vo2 = flow; next.reclaimFiles = Array(Set((next.reclaimFiles ?? []) + [pending.file] + [transferCacheFile].compactMap { $0 })).sorted(); try commit(next)
+        var next = state; next.vo2 = flow; next.reclaimFiles = Array(Set((next.reclaimFiles ?? []) + [pending.file] + archiveFiles + [transferCacheFile].compactMap { $0 })).sorted(); try commit(next)
     }
     /// Reconcile interrupted body-before-state writes on restart, bounded to
     /// this flow's private filenames. Published pending and blocked pages root GC.
@@ -228,6 +279,7 @@ public struct VO2MaxDelivery: Sendable {
         guard VO2Max.supported(capabilities) else { throw SyncFailure.invalid("unsupported_capability") }
         let flow = try await store.vo2Flow()
         guard !VO2Max.blocksAutomaticDelivery(flow.error) else { return false }
+        guard flow.blocked == nil || flow.pending?.sourceBlockedHash == flow.blocked?.hash else { return false }
         guard let pending = flow.pending else { return true }; guard pending.nextAttempt <= now else { return false }
         do {
             try Task.checkCancellation()

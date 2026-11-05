@@ -1,0 +1,240 @@
+{
+  "cases": [
+    {
+      "canonicalMetadata": {
+        "HKAlgorithmVersion": {
+          "type": "int64",
+          "value": 2
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "type": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "type": "int64",
+          "value": 7
+        },
+        "HKVO2MaxTestType": {
+          "type": "int64",
+          "value": 1
+        }
+      },
+      "name": "real_shape_synthetic_test_1",
+      "native": {
+        "HKAlgorithmVersion": {
+          "carrier": "double",
+          "value": "2.0"
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "carrier": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "carrier": "double",
+          "value": "7.0"
+        },
+        "HKVO2MaxTestType": {
+          "carrier": "double",
+          "value": "1.0"
+        }
+      }
+    },
+    {
+      "canonicalMetadata": {
+        "HKAlgorithmVersion": {
+          "type": "int64",
+          "value": 2
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "type": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "type": "int64",
+          "value": 7
+        },
+        "HKVO2MaxTestType": {
+          "type": "int64",
+          "value": 2
+        }
+      },
+      "name": "real_shape_synthetic_test_2",
+      "native": {
+        "HKAlgorithmVersion": {
+          "carrier": "double",
+          "value": "2.0"
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "carrier": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "carrier": "double",
+          "value": "7.0"
+        },
+        "HKVO2MaxTestType": {
+          "carrier": "double",
+          "value": "2.0"
+        }
+      }
+    },
+    {
+      "canonicalMetadata": {
+        "HKAlgorithmVersion": {
+          "type": "int64",
+          "value": 2
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "type": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "type": "int64",
+          "value": 7
+        },
+        "HKVO2MaxTestType": {
+          "type": "int64",
+          "value": 3
+        }
+      },
+      "name": "real_shape_synthetic_test_3",
+      "native": {
+        "HKAlgorithmVersion": {
+          "carrier": "double",
+          "value": "2.0"
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "carrier": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "carrier": "double",
+          "value": "7.0"
+        },
+        "HKVO2MaxTestType": {
+          "carrier": "double",
+          "value": "3.0"
+        }
+      }
+    },
+    {
+      "canonicalMetadata": {
+        "HKAlgorithmVersion": {
+          "type": "int64",
+          "value": 2
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "type": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "type": "int64",
+          "value": 7
+        },
+        "HKVO2MaxTestType": {
+          "type": "int64",
+          "value": 4
+        }
+      },
+      "name": "real_shape_synthetic_test_4",
+      "native": {
+        "HKAlgorithmVersion": {
+          "carrier": "double",
+          "value": "2.0"
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "carrier": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "carrier": "double",
+          "value": "7.0"
+        },
+        "HKVO2MaxTestType": {
+          "carrier": "double",
+          "value": "4.0"
+        }
+      }
+    },
+    {
+      "canonicalMetadata": {
+        "HKAlgorithmVersion": {
+          "type": "int64",
+          "value": -9223372036854775808
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "type": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "type": "int64",
+          "value": 9223372036854775807
+        },
+        "HKWasUserEntered": {
+          "type": "boolean",
+          "value": false
+        }
+      },
+      "name": "exact_integer_extremes",
+      "native": {
+        "HKAlgorithmVersion": {
+          "carrier": "int64",
+          "value": "-9223372036854775808"
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "carrier": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "carrier": "int64",
+          "value": "9223372036854775807"
+        },
+        "HKWasUserEntered": {
+          "carrier": "boolean",
+          "value": false
+        }
+      }
+    },
+    {
+      "canonicalMetadata": {
+        "HKAlgorithmVersion": {
+          "type": "int64",
+          "value": 9007199254740991
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "type": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "type": "int64",
+          "value": -3
+        },
+        "HKWasUserEntered": {
+          "type": "boolean",
+          "value": false
+        }
+      },
+      "name": "safe_signed_floating_versions",
+      "native": {
+        "HKAlgorithmVersion": {
+          "carrier": "double",
+          "value": "9007199254740991"
+        },
+        "HKMetadataKeySyncIdentifier": {
+          "carrier": "string",
+          "value": "synthetic-sync-identity"
+        },
+        "HKMetadataKeySyncVersion": {
+          "carrier": "double",
+          "value": "-3"
+        },
+        "HKWasUserEntered": {
+          "carrier": "boolean",
+          "value": false
+        }
+      }
+    }
+  ],
+  "metadataRegistryVersion": 1,
+  "syntheticOnly": true
+}

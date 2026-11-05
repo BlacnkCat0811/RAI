@@ -1,0 +1,322 @@
+{
+  "schema": "rai.ua1.faults/1",
+  "initialPending": {
+    "HKCategoryTypeIdentifierSleepAnalysis": {
+      "anchorFingerprint": null,
+      "anchorPresent": false,
+      "batchBytes": 44087,
+      "batchFingerprint": "dc866dc5665b2ad193cf46ff8891e7f7ce91c6bf01101a7ae4395bea9153813c",
+      "bodyFingerprint": "2a6a23b0ebe087e974e61059eba516765979286d1c9d15f1416bf10789877dfe",
+      "bootstrapComplete": false,
+      "bootstrapWindowFingerprint": "bcf5243962ea97cab480e2a3f105e2752107a938baaa3a92442af84642df212d",
+      "candidateAnchorFingerprint": "4d723921460959d23870b72988b81daec9f19e8f86693dae6d80b67755401e8a",
+      "exists": true,
+      "hasError": false,
+      "hasMore": true,
+      "pending": true,
+      "receiptCommitted": false,
+      "retryAttempt": 0,
+      "sequence": 1
+    },
+    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+      "anchorFingerprint": null,
+      "anchorPresent": false,
+      "batchBytes": 62194,
+      "batchFingerprint": "ff261a9bd6031d73ef9a5b5cf216e5f27e7c5113492a941fbaf9b3b5c66a4ee8",
+      "bodyFingerprint": "562e1ae1c1179606c82d16bc5fa19b14e953a1c656276e58a068855c274ae9a0",
+      "bootstrapComplete": false,
+      "bootstrapWindowFingerprint": "f37eec7cfd7f58361c184092ff608dfddda4ba42527e5729d6931ef854997b06",
+      "candidateAnchorFingerprint": "fa96740f28011a817d263e579294d5d072a8261693c6999045e3ee77eff92e36",
+      "exists": true,
+      "hasError": false,
+      "hasMore": true,
+      "pending": true,
+      "receiptCommitted": false,
+      "retryAttempt": 0,
+      "sequence": 1
+    },
+    "HKQuantityTypeIdentifierRestingHeartRate": {
+      "anchorFingerprint": null,
+      "anchorPresent": false,
+      "batchBytes": 27159,
+      "batchFingerprint": "f5c43c7233f2a30baca18070c0fea9986ab666d2158cab7f88441c4d996fc947",
+      "bodyFingerprint": "8d3083180d79bd325ab4c0c11a16eadd5f68a185542053a9d8671757ad228abe",
+      "bootstrapComplete": false,
+      "bootstrapWindowFingerprint": "7e4338748339fff021edfb53f0b4b12d6c2e166fcec5bbf7dda5b6156c69523a",
+      "candidateAnchorFingerprint": "2c2c19fa312788b18e39e8c0d9b4e5836bbc6222d46633ff09155f8989da2a9d",
+      "exists": true,
+      "hasError": false,
+      "hasMore": true,
+      "pending": true,
+      "receiptCommitted": false,
+      "retryAttempt": 0,
+      "sequence": 1
+    }
+  },
+  "apiUnavailable": {
+    "checks": {
+      "HKCategoryTypeIdentifierSleepAnalysis": {
+        "batchFingerprint": true,
+        "bodyFingerprint": true,
+        "candidateAnchorFingerprint": true,
+        "anchorFingerprint": true,
+        "sequence": true,
+        "pending": true
+      },
+      "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+        "batchFingerprint": true,
+        "bodyFingerprint": true,
+        "candidateAnchorFingerprint": true,
+        "anchorFingerprint": true,
+        "sequence": true,
+        "pending": true
+      },
+      "HKQuantityTypeIdentifierRestingHeartRate": {
+        "batchFingerprint": true,
+        "bodyFingerprint": true,
+        "candidateAnchorFingerprint": true,
+        "anchorFingerprint": true,
+        "sequence": true,
+        "pending": true
+      }
+    },
+    "allPassed": true
+  },
+  "phoneOffline": {
+    "operatorConfirmed": "airplane mode + Wi-Fi off",
+    "retention": {
+      "checks": {
+        "HKCategoryTypeIdentifierSleepAnalysis": {
+          "batchFingerprint": true,
+          "bodyFingerprint": true,
+          "candidateAnchorFingerprint": true,
+          "anchorFingerprint": true,
+          "sequence": true,
+          "pending": true
+        },
+        "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+          "batchFingerprint": true,
+          "bodyFingerprint": true,
+          "candidateAnchorFingerprint": true,
+          "anchorFingerprint": true,
+          "sequence": true,
+          "pending": true
+        },
+        "HKQuantityTypeIdentifierRestingHeartRate": {
+          "batchFingerprint": true,
+          "bodyFingerprint": true,
+          "candidateAnchorFingerprint": true,
+          "anchorFingerprint": true,
+          "sequence": true,
+          "pending": true
+        }
+      },
+      "allPassed": true
+    }
+  },
+  "lostACK": {
+    "proxyMechanism": "existing M5A-RD response suppression, deployed as temporary TLS acceptance wrapper; API/DB semantics unchanged",
+    "proxyDropped": {
+      "requests": 36,
+      "droppedACKs": 1,
+      "offlineRequests": 26,
+      "statuses": {
+        "200": 9,
+        "404": 1
+      },
+      "droppedRequestSHA256": "562e1ae1c1179606c82d16bc5fa19b14e953a1c656276e58a068855c274ae9a0",
+      "droppedReceiptSHA256": "d572e7531991a9494a9ee7949d6bbe92b1ace9ba056bc67fc1815e3708413bcd"
+    },
+    "serverBefore": {
+      "matches": 1,
+      "allCommitted": true,
+      "receiptSHA256": "d43c08f84c77d7501fd1a596e2f61e88f61bcc3a410ca4c26703c5e5839d7fbe"
+    },
+    "serverAfter": {
+      "matches": 1,
+      "allCommitted": true,
+      "receiptSHA256": "d43c08f84c77d7501fd1a596e2f61e88f61bcc3a410ca4c26703c5e5839d7fbe",
+      "receiptWithEncoderNewlineSHA256": "d572e7531991a9494a9ee7949d6bbe92b1ace9ba056bc67fc1815e3708413bcd"
+    },
+    "checks": {
+      "checks": {
+        "batchRestored": true,
+        "bodyRestored": true,
+        "oldAnchorRestored": true,
+        "oldSequenceRestored": true,
+        "candidateAppliedAfterReceipt": true,
+        "oneLogicalReceipt": true,
+        "originalReceiptUnchanged": true,
+        "wireReceiptMatchesStoredPlusEncoderNewline": true
+      },
+      "allPassed": true,
+      "firstComparatorIssue": "HTTP JSON encoder adds LF; initial direct wire-hash-to-DB-hash comparison was invalid and corrected without changing server/client data."
+    },
+    "K04KillExecuted": true,
+    "standardAPIAndTLSRestored": true,
+    "temporaryProxyAndUpstreamRemoved": true
+  },
+  "workerUnavailable": {
+    "workerRunning": false,
+    "committedRawAndQueuedAnalysis": {
+      "kind": "counts",
+      "workouts": 1,
+      "samples": 10199,
+      "associations": 5464,
+      "workoutImports": 1,
+      "dailyReceipts": 39,
+      "routeCount": 1,
+      "routePoints": 1768,
+      "jobs": 1473,
+      "pendingJobs": 1471
+    },
+    "workerRecovered": true,
+    "finalQueue": {
+      "kind": "counts",
+      "workouts": 1,
+      "samples": 10203,
+      "associations": 5464,
+      "workoutImports": 1,
+      "dailyReceipts": 63,
+      "routeCount": 1,
+      "routePoints": 1768,
+      "jobs": 1556,
+      "pendingJobs": 0
+    }
+  },
+  "databaseUnavailable": {
+    "readinessHTTP": 503,
+    "clientRetention": {
+      "checks": {
+        "HKCategoryTypeIdentifierSleepAnalysis": {
+          "batchFingerprint": true,
+          "bodyFingerprint": true,
+          "candidateAnchorFingerprint": true,
+          "anchorFingerprint": true,
+          "sequence": true,
+          "pending": true
+        },
+        "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+          "batchFingerprint": true,
+          "bodyFingerprint": true,
+          "candidateAnchorFingerprint": true,
+          "anchorFingerprint": true,
+          "sequence": true,
+          "pending": true
+        },
+        "HKQuantityTypeIdentifierRestingHeartRate": {
+          "batchFingerprint": true,
+          "bodyFingerprint": true,
+          "candidateAnchorFingerprint": true,
+          "anchorFingerprint": true,
+          "sequence": true,
+          "pending": true
+        }
+      },
+      "allPassed": true,
+      "terminalEvents": [
+        {
+          "event": "offline_transport_failed",
+          "index": 2119,
+          "systemCode": 1
+        },
+        {
+          "command": "offline",
+          "event": "run_completed",
+          "index": 2122
+        }
+      ]
+    },
+    "clientRecovery": {
+      "checks": {
+        "HKCategoryTypeIdentifierSleepAnalysis": {
+          "sameBodyRestored": true,
+          "sameBatchRestored": true,
+          "oldAnchorRestored": true,
+          "firstReceiptAdvancesOneSequence": true,
+          "originalCandidateCommittedAtFirstACK": true
+        },
+        "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": {
+          "sameBodyRestored": true,
+          "sameBatchRestored": true,
+          "oldAnchorRestored": true,
+          "firstReceiptAdvancesOneSequence": true,
+          "originalCandidateCommittedAtFirstACK": true
+        },
+        "HKQuantityTypeIdentifierRestingHeartRate": {
+          "sameBodyRestored": true,
+          "sameBatchRestored": true,
+          "oldAnchorRestored": true,
+          "firstReceiptAdvancesOneSequence": true,
+          "originalCandidateCommittedAtFirstACK": true
+        }
+      },
+      "allPassed": true,
+      "checkerNote": "Compare the first ACK checkpoint; later bounded discovery may legitimately add empty coverage receipts or deliver naturally arrived facts."
+    },
+    "originalPendingReceipts": [
+      {
+        "type": "HKCategoryTypeIdentifierSleepAnalysis",
+        "matches": 1,
+        "committed": true,
+        "bodySHA256": "09c13a292e91523f9e2920dd940ff61b35dee5f220ba716446c272b90fc41393",
+        "receiptSHA256": "3aae322b4302c6ccfbc152c2196109f27ff4a292a169952cfec2d947ef7d47d9"
+      },
+      {
+        "type": "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
+        "matches": 1,
+        "committed": true,
+        "bodySHA256": "24d470a43296dbbe72757a93322c5a085d0079258445580a16ab1e8019be2d6a",
+        "receiptSHA256": "60a509ac7c550b01c9ce7323b9ffebc767abb3653e0d27e68973cbd7eba3cf6b"
+      },
+      {
+        "type": "HKQuantityTypeIdentifierRestingHeartRate",
+        "matches": 1,
+        "committed": true,
+        "bodySHA256": "fb8f1f802a546b433c39a7113b9e1309777a29b12d0989909d63514bdb1f685a",
+        "receiptSHA256": "36e9f2ae10170b83a900665a1de4156faaaad31d355585e6c9d95c340b332456"
+      }
+    ],
+    "scope": "request failed during handshake/admission with DB down; no mid-transaction commit interruption injected"
+  },
+  "restartDurability": {
+    "allCountsAndHashesEqual": true,
+    "before": {
+      "kind": "bounded_acceptance_integrity",
+      "scope": "new single-device acceptance DB only; audit, never a sync watermark",
+      "workoutCount": 1,
+      "sampleCount": 10201,
+      "tombstoneCount": 7,
+      "dailyReceiptCount": 57,
+      "workoutReceiptCount": 1,
+      "routePointCount": 1768,
+      "workoutHashes": "98c59ecefbd9a5c08006237c8ebb75e01949630190ee80ac58c5101bd6129d32",
+      "sampleHashes": "5ce4a6f1a14c1d31bb666419007a9c91cfa193d24b4ad7218c6c4e1e10fcb58b",
+      "dailyReceiptHashes": "c588826d723b1192830c006ecc2499617b7e60b08c073abec45aaba515796aa2",
+      "workoutReceiptHashes": "318325231b16191da7d53edbd5515296405b7c7d3aea9161fc5ec4ceaa1b7eba",
+      "routeManifestHashes": "2e1131f9e7c63f6bed1462bce79e1d29512f5758c5dcd5973c36af8e51149b4d"
+    },
+    "after": {
+      "kind": "bounded_acceptance_integrity",
+      "scope": "new single-device acceptance DB only; audit, never a sync watermark",
+      "workoutCount": 1,
+      "sampleCount": 10201,
+      "tombstoneCount": 7,
+      "dailyReceiptCount": 57,
+      "workoutReceiptCount": 1,
+      "routePointCount": 1768,
+      "workoutHashes": "98c59ecefbd9a5c08006237c8ebb75e01949630190ee80ac58c5101bd6129d32",
+      "sampleHashes": "5ce4a6f1a14c1d31bb666419007a9c91cfa193d24b4ad7218c6c4e1e10fcb58b",
+      "dailyReceiptHashes": "c588826d723b1192830c006ecc2499617b7e60b08c073abec45aaba515796aa2",
+      "workoutReceiptHashes": "318325231b16191da7d53edbd5515296405b7c7d3aea9161fc5ec4ceaa1b7eba",
+      "routeManifestHashes": "2e1131f9e7c63f6bed1462bce79e1d29512f5758c5dcd5973c36af8e51149b4d"
+    }
+  },
+  "killMatrix": {
+    "K01": "NOT EXECUTED: no deterministic pre-pending hook",
+    "K02": "PASS: SIGKILL after real durable pending, before upload; all three pages restored",
+    "K03": "NOT EXECUTED: no deterministic upload-in-progress hook",
+    "K04": "PASS: server committed, TLS proxy suppressed ACK, SIGKILL, same body/batch/original receipt recovery",
+    "K05": "NOT EXECUTED: no deterministic validated-receipt/local-replacement hook"
+  }
+}

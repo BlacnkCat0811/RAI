@@ -27,37 +27,50 @@ func seedAnalysisHistory(t *testing.T, f *fixture, days int) string {
 func seedAnalysisHistoryDensity(t *testing.T, f *fixture, days, density int) string {
 	t.Helper()
 	ctx := context.Background()
-	if _, e := f.s.Pool.Exec(ctx, `CREATE TABLE p4_history AS SELECT gen_random_uuid() AS id,gen_random_uuid() AS job,gen_random_uuid() AS run,
+	// Bulk synthetic setup is not an online operation. Keep its timeout local
+	// to this transaction; the measured API/query pool retains its 2s budget.
+	tx, err := f.s.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout='120s'; SET LOCAL transaction_timeout='180s'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, e := tx.Exec(ctx, `CREATE TABLE p4_history AS SELECT gen_random_uuid() AS id,gen_random_uuid() AS job,gen_random_uuid() AS run,
  date_trunc('day',clock_timestamp(),'Asia/Shanghai')-(n/$2::integer)*interval '1 day'+interval '2 hours'+(n%$2::integer)*interval '1 minute' AS at FROM generate_series(0,$1::integer-1) n`, days*density, density); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := f.s.Pool.Exec(ctx, `INSERT INTO workouts(dataset_id,workout_uuid,event_start,event_end,activity_type,duration_us,source_bundle_id,content_sha256,entity_revision,payload)
+	if _, e := tx.Exec(ctx, `INSERT INTO workouts(dataset_id,workout_uuid,event_start,event_end,activity_type,duration_us,source_bundle_id,content_sha256,entity_revision,payload)
  SELECT $1,id,at,at+interval '1 hour',37,3600000000,'synthetic.capacity',sha256(convert_to(id::text,'UTF8')),1,
  jsonb_build_object('op','upsert','kind','workout','type','HKWorkoutTypeIdentifier','uuid',id,'startUs',(extract(epoch from at)*1000000)::bigint,'endUs',(extract(epoch from at+interval '1 hour')*1000000)::bigint,'source',jsonb_build_object('bundleID','synthetic.capacity'),'workout',jsonb_build_object('activityType',37,'durationUs',3600000000,'totalDistance',jsonb_build_object('value',10000,'unit','m'))) FROM p4_history`, f.p.DatasetID); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := f.s.Pool.Exec(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,clean_generation,dirty_from,dirty_through) SELECT $1,'workout:HKWorkoutTypeIdentifier:'||id,1,1,at,at+interval '1 hour' FROM p4_history`, f.p.DatasetID); e != nil {
+	if _, e := tx.Exec(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,clean_generation,dirty_from,dirty_through) SELECT $1,'workout:HKWorkoutTypeIdentifier:'||id,1,1,at,at+interval '1 hour' FROM p4_history`, f.p.DatasetID); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := f.s.Pool.Exec(ctx, `INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,state) SELECT job,$1,'analysis.workout','workout:HKWorkoutTypeIdentifier:'||id,1,'succeeded' FROM p4_history`, f.p.DatasetID); e != nil {
+	if _, e := tx.Exec(ctx, `INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,state) SELECT job,$1,'analysis.workout','workout:HKWorkoutTypeIdentifier:'||id,1,'succeeded' FROM p4_history`, f.p.DatasetID); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := f.s.Pool.Exec(ctx, `INSERT INTO analysis_runs(dataset_id,id,job_id,fencing_token,scope_key,target_generation,algorithm_name,algorithm_version,input_version,input_hash,input_from,input_through,lineage,status,finished_at)
+	if _, e := tx.Exec(ctx, `INSERT INTO analysis_runs(dataset_id,id,job_id,fencing_token,scope_key,target_generation,algorithm_name,algorithm_version,input_version,input_hash,input_from,input_through,lineage,status,finished_at)
  SELECT $1,run,job,1,'workout:HKWorkoutTypeIdentifier:'||id,1,'workout.bundle','v1','synthetic.capacity/v1',sha256(convert_to(id::text,'UTF8')),at,at+interval '1 hour','{}','SUCCEEDED',now() FROM p4_history`, f.p.DatasetID); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := f.s.Pool.Exec(ctx, `INSERT INTO analysis_results(dataset_id,run_id,day,metric,algorithm_name,algorithm_version,value,unit,quality) SELECT $1,run,'0001-01-01','workout_load','training_load.trimp','v1',100,'AU','available' FROM p4_history`, f.p.DatasetID); e != nil {
+	if _, e := tx.Exec(ctx, `INSERT INTO analysis_results(dataset_id,run_id,day,metric,algorithm_name,algorithm_version,value,unit,quality) SELECT $1,run,'0001-01-01','workout_load','training_load.trimp','v1',100,'AU','available' FROM p4_history`, f.p.DatasetID); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := f.s.Pool.Exec(ctx, `INSERT INTO analysis_publications(dataset_id,scope_key,metric_family,day,published_run_id,generation) SELECT $1,'workout:HKWorkoutTypeIdentifier:'||id,'workout','0001-01-01',run,1 FROM p4_history`, f.p.DatasetID); e != nil {
+	if _, e := tx.Exec(ctx, `INSERT INTO analysis_publications(dataset_id,scope_key,metric_family,day,published_run_id,generation) SELECT $1,'workout:HKWorkoutTypeIdentifier:'||id,'workout','0001-01-01',run,1 FROM p4_history`, f.p.DatasetID); e != nil {
 		t.Fatal(e)
 	}
 	var latest string
-	if e := f.s.Pool.QueryRow(ctx, `SELECT id::text FROM p4_history ORDER BY at DESC LIMIT 1`).Scan(&latest); e != nil {
+	if e := tx.QueryRow(ctx, `SELECT id::text FROM p4_history ORDER BY at DESC LIMIT 1`).Scan(&latest); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := f.s.Pool.Exec(ctx, `ANALYZE workouts;ANALYZE dirty_scopes;ANALYZE jobs;ANALYZE analysis_results;ANALYZE analysis_publications;ANALYZE analysis_runs`); e != nil {
+	if _, e := tx.Exec(ctx, `ANALYZE workouts;ANALYZE dirty_scopes;ANALYZE jobs;ANALYZE analysis_results;ANALYZE analysis_publications;ANALYZE analysis_runs`); e != nil {
 		t.Fatal(e)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
 	}
 	return latest
 }

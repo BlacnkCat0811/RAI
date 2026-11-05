@@ -105,3 +105,7 @@ GRANT SELECT ON change_events TO rai_worker;
 
 -- M6: candidate invalidation/day advancement, no coverage/assignment writes.
 GRANT EXECUTE ON FUNCTION rai_readiness_dirty(uuid) TO rai_worker;
+
+-- UA1-R: append-only verified coverage; no runtime mutation of history.
+GRANT SELECT, INSERT ON workout_sync_completeness TO rai_api;
+GRANT SELECT ON workout_sync_completeness TO rai_worker;

@@ -1,10 +1,20 @@
 import Foundation
 import HealthKit
 import SyncCore
+import CoreFoundation
 
 /// Only a genuine root VO2 quantity sample produces a fact. Event metadata
 /// (including HKVO2MaxValue) cannot create a second fact.
 enum VO2MaxNormalizer {
+    static func blockedPage(_ archive: Data) throws -> (facts: [JSON], deleted: [String]) {
+        guard let objects = try NSKeyedUnarchiver.unarchivedObject(
+            ofClasses: [NSArray.self, HKSample.self, HKDeletedObject.self], from: archive) as? [NSObject],
+              objects.allSatisfy({ $0 is HKSample || $0 is HKDeletedObject }) else {
+            throw SyncFailure.localState("vo2_blocked_archive_invalid")
+        }
+        return (try objects.compactMap { $0 as? HKSample }.map(fact),
+            objects.compactMap { $0 as? HKDeletedObject }.map { $0.uuid.uuidString.lowercased() })
+    }
     static let unit = HKUnit.literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo)).unitDivided(by: .minute())
     static func quantity(_ quantity: HKQuantity) throws -> Double {
         guard quantity.is(compatibleWith: unit) else { throw SyncFailure.invalid("unsupported_unit") }
@@ -53,3 +63,45 @@ enum VO2MaxNormalizer {
                     "major": .int(Int64(os.majorVersion)), "minor": .int(Int64(os.minorVersion)), "patch": .int(Int64(os.patchVersion))])])])
     }
 }
+
+#if DEBUG
+extension VO2MaxNormalizer {
+    /// No quantities, UUIDs, source descriptors or metadata values leave this
+    /// protected inspection. Native numeric checks are evaluated in memory.
+    static func blockedNativeShape(_ archive: Data) throws -> JSON {
+        guard let objects = try NSKeyedUnarchiver.unarchivedObject(
+            ofClasses: [NSArray.self, HKSample.self, HKDeletedObject.self], from: archive) as? [NSObject] else {
+            throw SyncFailure.localState("vo2_blocked_archive_invalid")
+        }
+        var shapes: [String: Int] = [:], checks: [String: Int] = [:]
+        for sample in objects.compactMap({ $0 as? HKSample }) {
+            for (key, value) in sample.metadata ?? [:] {
+                let field = key.hasPrefix("HK") && key.utf8.count <= 128 ? key : "unrecognized_field"
+                let carrier: String
+                if let number = value as? NSNumber {
+                    if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                        carrier = "boolean"; checks["boolean", default: 0] += 1
+                    } else {
+                        let type = String(cString: number.objCType)
+                        let cf = CFGetTypeID(number) == CFNumberGetTypeID()
+                            ? String(CFNumberGetType(unsafeBitCast(number, to: CFNumber.self)).rawValue) : "not_CFNumber"
+                        carrier = "NSNumber/objCType:" + type + "/CFNumberType:" + cf
+                        let x = number.doubleValue
+                        checks[x.isFinite ? "finite" : "nonfinite", default: 0] += 1
+                        if x.isFinite {
+                            checks[x.rounded(.towardZero) == x ? "integral" : "fractional", default: 0] += 1
+                            checks[abs(x) < 9_007_199_254_740_992 ? "inside_safe_double_integer_magnitude" : "outside_safe_double_integer_magnitude", default: 0] += 1
+                        }
+                    }
+                } else if value is String { carrier = "string" }
+                else { carrier = "other" }
+                shapes[field + "|" + carrier, default: 0] += 1
+            }
+        }
+        return .object(["sampleCount": .int(Int64(objects.filter { $0 is HKSample }.count)),
+            "deletedCount": .int(Int64(objects.filter { $0 is HKDeletedObject }.count)),
+            "fieldCarrierCounts": .object(shapes.mapValues { .int(Int64($0)) }),
+            "numericCheckCounts": .object(checks.mapValues { .int(Int64($0)) })])
+    }
+}
+#endif

@@ -653,3 +653,22 @@ type WorkoutStatistic struct {
 	SampleType  string
 	Payload     []byte
 }
+
+type WorkoutSyncCompleteness struct {
+	DatasetID        string
+	DatasetEpoch     string
+	CollectorEpoch   string
+	Generation       int64
+	ManifestID       string
+	StreamSetVersion int32
+	WindowFromUs     int64
+	KnownCutoffUs    int64
+	FactRevision     int64
+	CommitRev        int64
+	RequestSha256    []byte
+	HeadState        []byte
+	Inventory        []byte
+	RequestBytes     []byte
+	Receipt          []byte
+	CreatedAt        pgtype.Timestamptz
+}

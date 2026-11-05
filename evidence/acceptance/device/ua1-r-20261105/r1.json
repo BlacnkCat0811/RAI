@@ -1,0 +1,64 @@
+{
+  "result": "PASS",
+  "realDevice": true,
+  "sameNamespace": true,
+  "statePreservedAcrossInstall": true,
+  "runs": [
+    {
+      "result": "ACKNOWLEDGED",
+      "newSemanticEvents": 0,
+      "discoveryQueryEvidence": {
+        "queries": 24,
+        "queriesUsingCommittedAnchor": 24
+      },
+      "uploadAcknowledged": true,
+      "bundleSHA256": "1bda753b55876a288170becddc3fe627fcf127e65206587086650e3324b381f3",
+      "unchangedReadCreatesNoWork": true,
+      "noSpuriousFactGenerationDuringAssembly": true,
+      "noPendingDiscoveryAfterACK": true
+    },
+    {
+      "result": "ACKNOWLEDGED",
+      "newSemanticEvents": 0,
+      "discoveryQueryEvidence": {
+        "queries": 24,
+        "queriesUsingCommittedAnchor": 24
+      },
+      "uploadAcknowledged": true,
+      "bundleSHA256": "1bda753b55876a288170becddc3fe627fcf127e65206587086650e3324b381f3",
+      "unchangedReadCreatesNoWork": true,
+      "noSpuriousFactGenerationDuringAssembly": true,
+      "noPendingDiscoveryAfterACK": true
+    }
+  ],
+  "serverCountDeltas": {
+    "workouts": 0,
+    "associations": 0,
+    "workoutImports": 0,
+    "routeCount": 0,
+    "routePoints": 0
+  },
+  "originalWorkoutHashUnchanged": true,
+  "originalImportReceiptUnchanged": true,
+  "anchorsAndOriginalLocalWorkoutUnchanged": true,
+  "naturalOtherStreamCountDeltas": {
+    "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": 4
+  },
+  "targetedPG": {
+    "passed": 33,
+    "skipped": 4,
+    "seconds": 145.483,
+    "leftoverDatabases": 0,
+    "clusterRemoved": true
+  },
+  "swift": {
+    "passed": 140
+  },
+  "simulator": {
+    "passed": 42,
+    "skipped": 2,
+    "r1NativeUnitConversionPassed": true,
+    "m7GoldenPassed": true
+  },
+  "privacyIncident": "One tool output included a route UUID in a coverage map key; output mapper corrected; public artifacts exclude raw identifiers."
+}

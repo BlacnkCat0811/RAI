@@ -1,0 +1,47 @@
+{
+  "schema": "rai.ua1.validation/1",
+  "goRace": {
+    "command": "go test -race -count=1 ./...",
+    "status": "PASS",
+    "logSHA256": "44d6a7d4a89ec2466f7e97f4fac7a8e33e1fab55d748efc504e15dc8f8b4918e"
+  },
+  "goVet": {
+    "command": "go vet ./...",
+    "status": "PASS"
+  },
+  "dependencyBoundaries": {
+    "command": "python3 scripts/check-boundaries.py",
+    "status": "PASS",
+    "packages": 258
+  },
+  "postgresIntegration": {
+    "command": "scripts/test-postgres.sh go test -race -count=1 -tags=integration ./internal/admin ./internal/storage/postgres",
+    "status": "PASS",
+    "postgresVersion": "18.6 (Postgres.app)",
+    "leftoverDatabases": 0,
+    "clusterRemoved": true,
+    "scope": "synthetic engineering regression; not real-device evidence"
+  },
+  "swift": {
+    "command": "DEVELOPER_DIR=/Users/ta/Downloads/Xcode.app/Contents/Developer swift test",
+    "status": "PASS",
+    "testCount": 132,
+    "suiteCount": 17
+  },
+  "signedBuild": "PASS",
+  "deviceInstall": "PASS",
+  "deviceLaunch": "PASS after initial iOS Security failure; exact resolution not independently verified",
+  "codeChanges": false,
+  "productActivation": "NOT AUTHORIZED",
+  "physiologicalValidation": "NOT VERIFIED",
+  "finalChecksRepeated": true,
+  "syntheticDiagnosticProbe": {
+    "canonicalBytesRemainEqual": true,
+    "enumEqualitySurvivesPersistence": false,
+    "originalCaseIsNumber": true,
+    "realWorkoutFieldCauseVerified": false,
+    "reloadedCaseIsInteger": true,
+    "syntheticFloatingIntegerMetadataRejected": true,
+    "syntheticOnly": true
+  }
+}

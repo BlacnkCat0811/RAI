@@ -1,0 +1,163 @@
+{
+  "result": "PASS",
+  "goTestAll": "PASS",
+  "goTestRaceAll": "PASS",
+  "goVetAllAndIntegrationUA1RSim": "PASS",
+  "dependencyBoundaries": "PASS",
+  "gofmt": "PASS (295 runtime/test Go source files; private ignored helpers excluded)",
+  "goModVerify": "PASS",
+  "sqlcRegenerationByteStable": true,
+  "oldMigrationChecksumsUnchanged": 27,
+  "currentSchemaVersion": 28,
+  "openapi": {
+    "result": "PASS",
+    "errors": 0,
+    "warnings": 33,
+    "existingPathsUnchanged": 36,
+    "m7GoldenSchemas": 11
+  },
+  "swift": {
+    "passed": 150,
+    "suites": 21,
+    "fullXcode": true
+  },
+  "simulator": {
+    "passed": 47,
+    "skipped": 3,
+    "failed": 0,
+    "total": 50,
+    "r3DedicatedHTTPTestSeparatelyExecuted": true
+  },
+  "r3SimulatorHTTPPostgres": {
+    "result": "PASS",
+    "seconds": 57.423,
+    "generations": 2,
+    "streams": 12,
+    "imports": 1,
+    "lostACK": true,
+    "incrementalCommittedAnchors": 12,
+    "incrementalBootstrapQueries": 0,
+    "m6Synthetic": false,
+    "unknownLoads": 1
+  },
+  "isolatedPG": {
+    "command": "scripts/test-postgres.sh go test -race -count=1 -timeout=45m -p=1 -json -tags=integration ./...",
+    "result": "PASS",
+    "serverVersion": "18.6",
+    "integrationTopLevel": {
+      "pass": 305,
+      "skip": 8
+    },
+    "integrationSeconds": 959.027,
+    "passedPackages": {
+      "rai/server/integration": {
+        "status": "pass",
+        "seconds": 959.027
+      },
+      "rai/server/internal/admin": {
+        "status": "pass",
+        "seconds": 9.332
+      },
+      "rai/server/internal/analysis": {
+        "status": "pass",
+        "seconds": 1.524
+      },
+      "rai/server/internal/athletemodel": {
+        "status": "pass",
+        "seconds": 2.487
+      },
+      "rai/server/internal/config": {
+        "status": "pass",
+        "seconds": 1.065
+      },
+      "rai/server/internal/httpapi": {
+        "status": "pass",
+        "seconds": 12.003
+      },
+      "rai/server/internal/jobs": {
+        "status": "pass",
+        "seconds": 1.018
+      },
+      "rai/server/internal/performance": {
+        "status": "pass",
+        "seconds": 49.527
+      },
+      "rai/server/internal/readiness": {
+        "status": "pass",
+        "seconds": 1.074
+      },
+      "rai/server/internal/recovery": {
+        "status": "pass",
+        "seconds": 3.128
+      },
+      "rai/server/internal/storage/postgres": {
+        "status": "pass",
+        "seconds": 1.024
+      },
+      "rai/server/internal/syncing": {
+        "status": "pass",
+        "seconds": 4.662
+      },
+      "rai/server/internal/training": {
+        "status": "pass",
+        "seconds": 1.071
+      },
+      "rai/server/internal/trainingload": {
+        "status": "pass",
+        "seconds": 21.075
+      },
+      "rai/server/internal/vo2maxexternal": {
+        "status": "pass",
+        "seconds": 1.178
+      },
+      "rai/server/internal/workoutdetail": {
+        "status": "pass",
+        "seconds": 1.018
+      },
+      "rai/server/internal/workoutfeatures": {
+        "status": "pass",
+        "seconds": 41.639
+      }
+    },
+    "leftoverDatabases": 0,
+    "clusterRemoved": true
+  },
+  "priorAttempts": [
+    {
+      "log": "pg-final.log",
+      "result": "FAIL",
+      "note": "post-R3 full run failed; outdated schema/table assertions and synthetic seed/resource timing failures; not counted as pass"
+    },
+    {
+      "log": "pg-final2.log",
+      "result": "FAIL",
+      "integrationResult": "PASS",
+      "integrationSeconds": 1207.53,
+      "note": "four stale migration expectations plus gzip decoded-limit timeout under concurrent load; test expectations corrected; production limits unchanged"
+    },
+    {
+      "stage": "Simulator",
+      "result": "FAIL then recovered",
+      "note": "concurrent runners on the same Simulator killed test hosts; serial full regression and isolated HTTP/PG E2E passed"
+    },
+    {
+      "stage": "R3 HTTP test fixture",
+      "result": "corrected",
+      "note": "explicit isolated loopback fixture; backoff honors 429; product TLS/config validation unchanged"
+    }
+  ],
+  "logSHA256": {
+    "pg-final3.jsonl": "d1c935be8953b271d336eba7c415c5935b617216bb0a696d5495d8f1664b21ca",
+    "pg-final2.log": "4e81cdcad56ec005b4643295a1a0b5f47795cea1fc9ee1cfb329e27390d073b2",
+    "pg-final.log": "f8d575b3b946f5c5586bb06c0a1cfdc67634060730e98d8f81f288004e07b7a7",
+    "r3-pg-post-sqlc.log": "4ec66ae3ba4675ecb25c2add129a3335513260a3d581ee68aa626f6a0f58a567",
+    "r3-simulator-pg-serial.log": "d1b4b70ae428bb58c31a3b9d642fc9267a1f5021b8fa78c23cb970238eb75c3c",
+    "go-post-sqlc.log": "6ca3c6533001c13298440c85582b46d5b2cc7192e85a5a9edbb06b0af6927314",
+    "swift-final2.log": "99532ef8c761489eab598b2ce8016d41adc108bb79af9c7dd199e454bae97662",
+    "boundary-final3.log": "0aff6a3ce10a149ddda5d1762a334ec82b23ea174aec71d3fdd9d7c632bb1e57",
+    "vet-final3.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "openapi-final3.log": "96e6a21af2ceac464db4a4a7534a0aa0bcc8779d475d0747ef87511b5a5f1674",
+    "gzip-recheck-final.log": "0bc2086769926905e37b951cad08d2ec43cfcf2abe259f30a952c0e21c57846c"
+  },
+  "realAcceptanceNotSubstitutedByTests": true
+}

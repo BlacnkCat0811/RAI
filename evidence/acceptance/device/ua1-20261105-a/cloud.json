@@ -1,0 +1,236 @@
+{
+  "schema": "rai.ua1.cloud/1",
+  "runAlias": "ua1-20261105-a",
+  "environment": "acceptance/test",
+  "hostname": "VM-0-12-ubuntu",
+  "os": "Ubuntu 24.04.4 LTS",
+  "architecture": "x86_64",
+  "cpuCount": 2,
+  "ramMiB": 1935,
+  "swapMiB": 1987,
+  "diskTotalGiB": 50,
+  "diskAvailableGiB": 20,
+  "dockerVersion": "29.1.3",
+  "composeVersion": "2.40.3+ds1-0ubuntu1~24.04.1",
+  "existingRAIProject": "rai-cloud-test-20261101",
+  "existingRAISchemaVersion": 19,
+  "existingOtherContainerCount": 2,
+  "newProject": "rai-ua1-20261105",
+  "deploymentPath": "/opt/rai-ua1-20261105",
+  "apiOrigin": "https://tpandmr.xyz:19443",
+  "postgresImage": "rai-cloud-postgres:18.6-20261101",
+  "appImage": "rai-ua1:20261105-9a8839d",
+  "newIndependentVolume": true,
+  "newIndependentRoles": true,
+  "postgresPortPublished": false,
+  "emptySchemaTableCountBeforeMigration": 0,
+  "migrationChecksumScope": "source files + frozen manifest + exact deployed binary/source hashes; goose ledger stores versions, not per-migration checksums",
+  "readiness": {
+    "api": "PASS",
+    "database": "PASS",
+    "workerSchemaRole": "PASS",
+    "workerRealJobProgress": "PASS: real candidate SUCCEEDED publications inspected; pendingJobs=0 at final snapshot"
+  },
+  "localTLS": {
+    "host": "tpandmr.xyz",
+    "port": 19443,
+    "path": "server_loopback",
+    "certificateValidation": true,
+    "tlsVersion": "TLSv1.3",
+    "certificateExpires": "Jan 30 22:21:16 2027 GMT"
+  },
+  "developerMachineNetwork": {
+    "host": "tpandmr.xyz",
+    "port": 19443,
+    "path": "direct_verified_target",
+    "certificateValidation": false,
+    "connectionErrorType": "SSLEOFError",
+    "wallMs": 5007
+  },
+  "realHealthFactCounts": {
+    "kind": "counts",
+    "workouts": 1,
+    "samples": 10203,
+    "associations": 5464,
+    "workoutImports": 1,
+    "dailyReceipts": 63,
+    "routeCount": 1,
+    "routePoints": 1768,
+    "jobs": 1556,
+    "pendingJobs": 0
+  },
+  "previousAcceptanceDeploymentUnchanged": true,
+  "productionEntrancesUnchanged": true,
+  "serverRebootExecuted": false,
+  "phoneNetwork": {
+    "status": "PASS for real Wi-Fi daily requests and receipt replay",
+    "operatorConfirmedWiFi": true,
+    "initialHandshakeTimeoutResolved": true,
+    "phoneNegotiatedTLSVersion": "NOT MEASURED"
+  },
+  "finalServiceState": {
+    "newAPI": "healthy, readiness PASS",
+    "newWorker": "healthy, schema/role readiness PASS; queue drained at snapshot",
+    "newPostgres": "healthy; real-data restart fingerprint retained",
+    "oldAcceptanceAPI": "readiness PASS"
+  },
+  "developerMachineNetworkAfterSecurityGroupOpened": {
+    "host": "tpandmr.xyz",
+    "port": 19443,
+    "certificateValidation": true,
+    "tlsVersion": "TLSv1.2",
+    "certificateExpires": "Jan 30 22:21:16 2027 GMT",
+    "readyStatus": 200,
+    "wallMs": 98
+  },
+  "realDataRestart": {
+    "allCountsAndHashesEqual": true,
+    "before": {
+      "kind": "bounded_acceptance_integrity",
+      "scope": "new single-device acceptance DB only; audit, never a sync watermark",
+      "workoutCount": 1,
+      "sampleCount": 10201,
+      "tombstoneCount": 7,
+      "dailyReceiptCount": 57,
+      "workoutReceiptCount": 1,
+      "routePointCount": 1768,
+      "workoutHashes": "98c59ecefbd9a5c08006237c8ebb75e01949630190ee80ac58c5101bd6129d32",
+      "sampleHashes": "5ce4a6f1a14c1d31bb666419007a9c91cfa193d24b4ad7218c6c4e1e10fcb58b",
+      "dailyReceiptHashes": "c588826d723b1192830c006ecc2499617b7e60b08c073abec45aaba515796aa2",
+      "workoutReceiptHashes": "318325231b16191da7d53edbd5515296405b7c7d3aea9161fc5ec4ceaa1b7eba",
+      "routeManifestHashes": "2e1131f9e7c63f6bed1462bce79e1d29512f5758c5dcd5973c36af8e51149b4d"
+    },
+    "after": {
+      "kind": "bounded_acceptance_integrity",
+      "scope": "new single-device acceptance DB only; audit, never a sync watermark",
+      "workoutCount": 1,
+      "sampleCount": 10201,
+      "tombstoneCount": 7,
+      "dailyReceiptCount": 57,
+      "workoutReceiptCount": 1,
+      "routePointCount": 1768,
+      "workoutHashes": "98c59ecefbd9a5c08006237c8ebb75e01949630190ee80ac58c5101bd6129d32",
+      "sampleHashes": "5ce4a6f1a14c1d31bb666419007a9c91cfa193d24b4ad7218c6c4e1e10fcb58b",
+      "dailyReceiptHashes": "c588826d723b1192830c006ecc2499617b7e60b08c073abec45aaba515796aa2",
+      "workoutReceiptHashes": "318325231b16191da7d53edbd5515296405b7c7d3aea9161fc5ec4ceaa1b7eba",
+      "routeManifestHashes": "2e1131f9e7c63f6bed1462bce79e1d29512f5758c5dcd5973c36af8e51149b4d"
+    }
+  },
+  "resourceSnapshotAfterRealData": [
+    "rai-ua1-20261105-api-1 0.00% 6.719MiB / 256MiB 0B / 0B",
+    "rai-ua1-20261105-worker-1 0.03% 9.102MiB / 384MiB 0B / 0B",
+    "rai-ua1-20261105-postgres-1 19.99% 88.95MiB / 512MiB 881kB / 104MB",
+    "Filesystem      Size  Used Avail Use% Mounted on",
+    "/dev/vda2        50G   28G   20G  60% /",
+    "NAME                          IMAGE                              COMMAND                  SERVICE    CREATED          STATUS                    PORTS",
+    "rai-ua1-20261105-api-1        rai-ua1:20261105-9a8839d           \"/rai api\"               api        35 minutes ago   Up 4 minutes (healthy)    0.0.0.0:19443->8443/tcp",
+    "rai-ua1-20261105-postgres-1   rai-cloud-postgres:18.6-20261101   \"docker-entrypoint.s…\"   postgres   35 minutes ago   Up 30 minutes (healthy)   5432/tcp",
+    "rai-ua1-20261105-worker-1     rai-ua1:20261105-9a8839d           \"/rai worker\"            worker     35 minutes ago   Up 3 minutes (healthy)    "
+  ],
+  "initialEmptyEnvironmentCounts": {
+    "workouts": 0,
+    "samples": 0,
+    "receipts": 0
+  },
+  "initialEmptyEnvironmentRestartResults": [
+    "DB_UNAVAILABLE_READINESS_HTTP=503",
+    "PG_RECOVERY_READINESS=PASS",
+    "API_WORKER_RESTART_READINESS=PASS",
+    "EMPTY_ENVIRONMENT_COUNTS_PRESERVED=PASS"
+  ],
+  "initialEmptyEnvironmentRestartScope": "empty environment; no real facts or receipts yet",
+  "initialDatabaseAudit": [
+    {
+      "schemaVersion": 27,
+      "appliedMigrations": 27,
+      "tableCount": 53,
+      "serverVersion": "18.6 (Debian 18.6-1.pgdg12+2)",
+      "fsync": "on",
+      "fullPageWrites": "on",
+      "synchronousCommit": "on",
+      "dataChecksums": "on"
+    },
+    {
+      "role": "rai_api",
+      "superuser": false,
+      "createDB": false,
+      "createRole": false,
+      "bypassRLS": false,
+      "login": false
+    },
+    {
+      "role": "rai_api_login",
+      "superuser": false,
+      "createDB": false,
+      "createRole": false,
+      "bypassRLS": false,
+      "login": true
+    },
+    {
+      "role": "rai_backup_login",
+      "superuser": false,
+      "createDB": false,
+      "createRole": false,
+      "bypassRLS": false,
+      "login": true
+    },
+    {
+      "role": "rai_bootstrap",
+      "superuser": true,
+      "createDB": true,
+      "createRole": true,
+      "bypassRLS": true,
+      "login": true
+    },
+    {
+      "role": "rai_monitor_login",
+      "superuser": false,
+      "createDB": false,
+      "createRole": false,
+      "bypassRLS": false,
+      "login": true
+    },
+    {
+      "role": "rai_owner",
+      "superuser": false,
+      "createDB": false,
+      "createRole": false,
+      "bypassRLS": false,
+      "login": true
+    },
+    {
+      "role": "rai_worker",
+      "superuser": false,
+      "createDB": false,
+      "createRole": false,
+      "bypassRLS": false,
+      "login": false
+    },
+    {
+      "role": "rai_worker_login",
+      "superuser": false,
+      "createDB": false,
+      "createRole": false,
+      "bypassRLS": false,
+      "login": true
+    },
+    {
+      "role": "rai_api_login",
+      "schemaUsage": true,
+      "schemaCreate": false,
+      "migrationsRead": true
+    },
+    {
+      "role": "rai_worker_login",
+      "schemaUsage": true,
+      "schemaCreate": false,
+      "migrationsRead": true
+    },
+    {
+      "workouts": 0,
+      "samples": 0,
+      "receipts": 0
+    }
+  ],
+  "appImageID": "sha256:c1f634816bee2958fc5274f51defdb2da3706c8111a0ae5069e622981509cb7c"
+}

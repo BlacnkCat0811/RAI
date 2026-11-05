@@ -154,7 +154,7 @@ SourceRevision 是描述写入源的 revision；Device 是样本关联设备；�
 | `date` | `{type:"date",epochUs:Int64}` | NSDate→UTC 微秒，统一最近微秒转换，记录 microsecond-resolution-v1；不 stringify 成当地日期。 |
 | `quantity` | `{type:"quantity",value:finite binary64,unit:String}` | 每个已支持 key 有明确 compatible unit；禁止通用 description 字符串。 |
 
-NSNumber 判别先 CFBoolean、再按 registry 期待类型及底层整数表示处理；Int64 用整数/stringValue 精确解析，不能先 `.doubleValue` 再取整。超 Int64、无法精确表达的整数/decimal、错误 tag 均拒绝。Go 用 typed union + RawMessage/json.Number，Swift 用 Int64 case，PG JSONB 保留整数。B2 必测 2^53+1、Int64 两端、Bool/NSNumber 混淆和跨语言 round trip。Date 的原始 SDK double 时间按上述已声明微秒精度表达，不宣称位级 NSDate archive。
+NSNumber 判别先 CFBoolean、再按 registry 期待类型处理。整数 carrier 用 stringValue 精确解析 Int64，不能先转 Double；UA1-R 修复额外接受 finite、数学上为整数、处于安全精度范围的浮点 carrier，并用 Int64(exactly:) 校验，不能截断。double carrier 要求绝对值严格小于 2^53，float carrier 严格小于 2^24；边界保守拒绝，整数 carrier 仍保留完整 Int64 域。超 Int64、decimal、错误 tag、Bool 冒充整数仍拒绝。此为 v1 native parser bugfix，wire/semantic domain 不变，详见 [native compatibility](VO2_NATIVE_METADATA_COMPATIBILITY.md)。Go 用 typed union + RawMessage/json.Number，Swift 用 Int64 case，PG JSONB 保留整数。B2 必测 2^53+1、Int64 两端、Bool/NSNumber 混淆和跨语言 round trip。Date 的原始 SDK double 时间按上述已声明微秒精度表达，不宣称位级 NSDate archive。
 
 只支持明确 registry 中的 key，支持六种 tag 不代表接受任意 metadata。registry v1 如下；多于64 key 或总 body 超限整页阻塞：
 
