@@ -918,3 +918,27 @@ Final regression PASS: full isolated PG18.6/race, serial packages, integration 3
 UA1-R / UA1 RE-ACCEPTANCE: BLOCKED, R3 remains open. Real-device engineering PARTIALLY VERIFIED / NOT ACCEPTED. Server has 5 distinct Workouts / 5 imports; original Workout still has exactly 1 import and its original identity/receipt. Real M6 correctly retains load_sync_incomplete/recent_load_unknown/baseline insufficient/recovery_stale; no synthetic assignment, HR references=0. M6 formulas/qualification unchanged; active=legacy, candidate-only. Physiological validation NOT VERIFIED; product activation NOT AUTHORIZED. No UA2/UA3/UA4 work started. [Full 17-section result](UA1_R_RESULT.md). Further real manifest/ACK/incremental/M6 validation requires reviewing the newly observed unsupported Activity metadata; it is not presumed to pass. This round stops after evidence preservation.
 
 Privacy incidents: one tool output included a route UUID in a coverage map key; the mapper was corrected to hash that key. A later lock-state check also printed a device identifier because the whole result object was output instead of a boolean whitelist. Public artifacts exclude both identifiers, but this run cannot claim zero identifier disclosure. No health values, route coordinates, source bundles, sleep times or credentials were exported in public remediation evidence.
+
+## UA1-R3A — 真实 Activity metadata 合同与 completeness 续跑
+
+两类真实 WorkoutActivity metadata（仅以 SHA-256 表示）经本机 iPhoneOS 26.5 SDK/header 与模拟器二进制字符串全量比对确认属 `undocumented_real_metadata`，决策为 **supported opaque-preserved**：activity scope 专用、精确 native carrier（String / `NSNumber:q`→SInt64）、有界（每对象 64 key、文本 64 字节）、不解释、不参与模型逻辑。registry 1 → 2，wire 新增可选 `metadataRegistryVersion`（缺省=1；旧服务器严格解码拒收 ⇒ 客户端保留 pending、不推进 anchor）。[合同](../contracts/workout-metadata-registry-v2.md) · [共享 vectors](../contracts/fixtures/workout-metadata-registry-v2.json)。
+
+回归：Go 全量/race/vet/build/sqlc/边界 PASS；隔离 PG18.6 `-race -tags=integration` `ok rai/server/integration 1095.623s`、无残留库、集群已移除；Swift 155 tests / 22 suites；模拟器 App XCTest 56 passed / 0 failed / 3 skipped；`git diff --check` clean。隔离云测试环境已按用户当次授权重新部署（schema 仍 28，registry v2 无迁移）。
+
+真机：preserved R3 state 原样续跑，原 metadata blocker 消失（该 Workout 完成，blocked metadata Workout 归零；pages 63→74、streams 56→67、additions 32,709→32,712）。随后出现新阻塞 **`source_policy_pending`**：44 条可见 running Workout 中 31 条 apple_watch、13 条 third_party，而冻结合同要求每条可见 inventory Workout 都有 v3 receipt。R3 保持 BLOCKED，无 manifest、无 anchor 推进、无第二 generation。R1 真机复跑两次 bundle hash 一致、`newSemanticEvents=0`、24/24 committed anchor；R2 无新增阻塞件。M6 未在未验证 completeness 上重跑。[17/19 节结果](UA1_R3A_RESULT.md) · [证据](../evidence/acceptance/device/ua1-r3a-20261105/r3a.json) · [隐私门禁](../scripts/check-ua1-r3a-privacy.py)（公开产物 5 文件 0 命中）。
+
+UA1-R3A / UA1 RE-ACCEPTANCE: BLOCKED。下一步需要用户决定 completeness inventory 的 scope（source-eligible 或把第三方 Workout 明确声明为 not-applicable），这是 reviewed contract 变更，未在本轮自行放宽。未进入 UA2/UA3/UA4、Shadow 或激活；active=legacy 未变。
+
+## UA1-R3B — Source Policy & Eligible Inventory Contract
+
+冻结合同变更：新增 `workout-sync-completeness/v2` 与 source policy 身份 `rai.workout.source_policy.apple_watch_only/v1`（摘要 `63713b4f…e0654`，classification version 1），把 inventory 语义从「每条可见 Workout 都需 receipt」改为「每条可见 Workout 都必须被确定解释为 eligible 或 explicitly excluded」。v1 未原地修改，仍被接受。[结果](UA1_R3B_RESULT.md) · [v2 合同](../contracts/workout-completeness-v2.md) · [policy 合同](../contracts/workout-source-policy-v1.md)。
+
+实现：Go 侧 `source_policy.go`（outcome 表、evidence 规范化与摘要、identity/inventory 哈希）、`workout_completeness_v2.go`（严格解码 + 校验，含服务器重跑分类器）、`storage/postgres/workout_completeness_v2.go`（同一事务内 page 链、inventory 不变量、visible/eligible 集合比对、逐条 exclusion evidence 重分类、immutable receipt）、加法迁移 `00029`（schema 28 → 29，六列 + v1/v2 行约束，编号由 `LatestVersion()` 推导）、HTTP 按 `contract` 分派 + handshake 广告 `workoutSyncCompletenessV2Version`/`workoutSourcePolicyVersion`。Swift 侧 `WorkoutSourcePolicy.swift`、`WorkoutCompleteness` 的 v2 staging/双 contract ack/`completenessClassify`、`SyncCoordinator` 的分类与 excluded 短路（不读子流、不上传、不建分析任务）。
+
+验证：Go gofmt/vet(±integration)/build/unit/sqlc 稳定、依赖边界 PASS、OpenAPI lint PASS（0 error/36 warning）、隔离 PG18 `-race -tags=integration` `ok rai/server/integration 1021.528s`（`-timeout 40m`，默认 10m 在该 host 不足属既有环境事实）。Swift 163 tests / 23 suites PASS；模拟器 App XCTest 60 例（57 通过 / 0 失败 / 3 显式外部环境跳过），新增 v2 排除项测试。Simulator → 真实 Go HTTP → 真实 PG18 v2 E2E PASS：`workout_sync_completeness` 落 2 行（generation 1、2），均 `protocol_version = 2`、policy 身份一致、inventory 摘要齐备、exclusions 空。云测试环境重新部署：schema 28 → 29、v2 列 6、`apiInsert=true/apiUpdate=false`、`activeStack=legacy`、handshake 广告 v2。
+
+真机：**未执行**。设备在 `devicectl` 中 `unavailable`（`device info details` 可读，`install`/`lockState` 返回 CoreDevice error 1011），已刷新 device 标识并完成 `generic/platform=iOS` 构建，但无法安装/启动/取证；用户当次决定「先跳过真机，仅完成其余交付」。因此真实 44/31/13 inventory 未复核、eligible 全量补齐未验证、真实 lost-ACK 与第二增量未执行、M6 未重评。
+
+隐私门禁 PASS（3 文件 0 命中）：公开证据只含 count/hash/分类分布/reason。
+
+UA1-R3B / UA1 RE-ACCEPTANCE: BLOCKED（真机侧未验证）。R1 合同未变、R2 未回归；未提交、未 push、未部署生产、未切换 legacy、未进入 UA2，`active=legacy` 未变。

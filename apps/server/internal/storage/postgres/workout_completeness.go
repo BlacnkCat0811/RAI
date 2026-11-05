@@ -200,7 +200,7 @@ func (s *Store) CommitWorkoutCompleteness(ctx context.Context, p syncing.Princip
 		return nil, syncing.Fail(409, "completeness_known_workout_missing")
 	}
 	for _, proof := range m.Workouts {
-		if err = verifyCompletenessWorkout(ctx, tx, p, m, proof, streamMap, tombstones); err != nil {
+		if err = verifyCompletenessWorkout(ctx, tx, p, completenessScope{datasetID: m.DatasetID, datasetEpoch: m.DatasetEpoch, collectorEpoch: m.CollectorEpoch}, proof, streamMap, tombstones); err != nil {
 			return nil, err
 		}
 	}
@@ -231,10 +231,13 @@ func (s *Store) CommitWorkoutCompleteness(ctx context.Context, p syncing.Princip
 	return body, nil
 }
 
+// completenessScope is the dataset identity a completeness proof must match.
+type completenessScope struct{ datasetID, datasetEpoch, collectorEpoch string }
+
 func completeCoverage(c syncing.BundleCoverage) bool {
 	return c.QueryCompleted && c.LocalPersisted && (c.State == "complete" || c.State == "no_records_observed")
 }
-func verifyCompletenessWorkout(ctx context.Context, tx pgx.Tx, p syncing.Principal, m syncing.WorkoutSyncCompletenessManifest, proof syncing.CompletenessWorkout, streams map[string]syncing.CompletenessStream, tombstones map[string]bool) error {
+func verifyCompletenessWorkout(ctx context.Context, tx pgx.Tx, p syncing.Principal, scope completenessScope, proof syncing.CompletenessWorkout, streams map[string]syncing.CompletenessStream, tombstones map[string]bool) error {
 	var raw, receiptRaw []byte
 	err := tx.QueryRow(ctx, `SELECT payload,receipt FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND bundle_sha256=decode($3,'hex')`, p.DatasetID, proof.WorkoutID, proof.BundleSHA256).Scan(&raw, &receiptRaw)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -248,7 +251,7 @@ func verifyCompletenessWorkout(ctx context.Context, tx pgx.Tx, p syncing.Princip
 	if json.Unmarshal(raw, &b) != nil || json.Unmarshal(receiptRaw, &receipt) != nil {
 		return errors.New("invalid persisted workout receipt")
 	}
-	if b.DatasetID != m.DatasetID || b.DatasetEpoch != m.DatasetEpoch || b.CollectorEpoch != m.CollectorEpoch || b.Observation == nil || receipt.IngestStatus != "committed" || receipt.BundleSHA256 != proof.BundleSHA256 || receipt.WorkoutID != proof.WorkoutID {
+	if b.DatasetID != scope.datasetID || b.DatasetEpoch != scope.datasetEpoch || b.CollectorEpoch != scope.collectorEpoch || b.Observation == nil || receipt.IngestStatus != "committed" || receipt.BundleSHA256 != proof.BundleSHA256 || receipt.WorkoutID != proof.WorkoutID {
 		return syncing.Fail(409, "completeness_receipt_scope_conflict")
 	}
 	var latest int64

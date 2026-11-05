@@ -58,14 +58,40 @@ final class SyncModel {
             try FileManager.default.removeItem(at: configURL)
             guard let namespace = config["outboxNamespace"].text.flatMap(UUID.init(uuidString:)) else { throw SyncFailure.invalid("completeness_config_invalid") }
             let store = try OutboxStore(directory: baseStore.directory.appendingPathComponent("acceptance-" + namespace.uuidString.lowercased()))
-            if ProcessInfo.processInfo.environment["RAI_UA1_R_COMPLETENESS"] == "inspect" {
+            if ["inspect", "inspect-keys"].contains(ProcessInfo.processInfo.environment["RAI_UA1_R_COMPLETENESS"] ?? "") {
                 let health = HealthKitClient(), tasks = await store.snapshot().tasks ?? [:]
-                var shapes: [JSON] = []
+                var shapes: [JSON] = [], inventory: [JSON] = []
                 for (id, task) in tasks where task.errorCode == "metadata_requires_review" {
-                    if let workout = try await health.workout(id) { shapes.append(WorkoutInspection.blockedMetadataShape(workout)) }
+                    if let workout = try await health.workout(id) {
+                        shapes.append(WorkoutInspection.blockedMetadataShape(workout))
+                        inventory.append(WorkoutInspection.keyInventory(workout))
+                    }
                 }
                 report["blockedWorkoutCount"] = .int(Int64(shapes.count))
                 report["metadataShapes"] = .array(shapes)
+                let flow = await store.snapshot().workoutCompleteness
+                var classificationCounts: [String: Int] = [:], productCounts: [String: Int] = [:]
+                var nonWatch: [JSON] = []
+                for id in flow?.cycle?.inventory ?? flow?.inventory ?? [] {
+                    guard let workout = try await health.workout(id) else { continue }
+                    let shape = WorkoutInspection.sourceShape(workout)
+                    let classification = shape["classification"].text ?? "unknown"
+                    classificationCounts[classification, default: 0] += 1
+                    productCounts[shape["productClass"].text ?? "unknown", default: 0] += 1
+                    if classification != "apple_watch", nonWatch.count < 8 { nonWatch.append(shape) }
+                }
+                report["sourceSurveyTotal"] = .int(Int64(classificationCounts.values.reduce(0, +)))
+                report["sourceSurveyClassifications"] = .object(classificationCounts.mapValues { .int(Int64($0)) })
+                report["sourceSurveyProductClasses"] = .object(productCounts.mapValues { .int(Int64($0)) })
+                report["sourceSurveyNonWatchShapes"] = .array(nonWatch)
+                if ProcessInfo.processInfo.environment["RAI_UA1_R_COMPLETENESS"] == "inspect-keys" {
+                    // Raw key names remain inside the protected App container;
+                    // the device report above stays digest-only.
+                    try OutboxStore.write(JSON.object(["schema": .string("rai.ua1-r3a.metadata-keys/1"),
+                        "healthValuesExported": .bool(false), "workouts": .array(inventory)]).data(),
+                        to: documents.appendingPathComponent("ua1-r-metadata-keys.json"))
+                    report["keyInventoryWorkouts"] = .int(Int64(inventory.count))
+                }
                 report["result"] = .string("INSPECTED")
                 return
             }
@@ -90,6 +116,22 @@ final class SyncModel {
             report["queryCounts"] = .object(counts.mapValues { .int(Int64($0)) })
             report["capturedWorkoutCount"] = .int(Int64(flow.cycle?.inventory.count ?? flow.inventory.count))
             report["processedWorkoutCount"] = .int(Int64(flow.cycle?.completedWorkouts.count ?? flow.inventory.count))
+            if let cycle = flow.cycle, cycle.contract == WorkoutCompleteness.v2Contract {
+                // Counts only: no Workout identity, descriptor or health value
+                // leaves the device in this report.
+                let known = cycle.classification ?? [:]
+                var classes: [String: Int] = [:]
+                for id in cycle.inventory { classes[known[id] ?? "unclassified", default: 0] += 1 }
+                func count(_ outcome: String) -> Int64 {
+                    Int64(cycle.inventory.filter { WorkoutSourcePolicy.outcome(known[$0] ?? "") == outcome }.count)
+                }
+                report["sourcePolicyVersion"] = .string(WorkoutSourcePolicy.version)
+                report["visibleWorkoutCount"] = .int(Int64(cycle.inventory.count))
+                report["eligibleWorkoutCount"] = .int(count(WorkoutSourcePolicy.eligible))
+                report["excludedWorkoutCount"] = .int(Int64((cycle.exclusions ?? [:]).count))
+                report["unclassifiedWorkoutCount"] = .int(count(WorkoutSourcePolicy.unclassified))
+                report["sourceClassificationCounts"] = .object(classes.mapValues { .int(Int64($0)) })
+            }
             report["result"] = .string(flow.generation > 0 && flow.cycle == nil && flow.errorCode == nil ? "ACKNOWLEDGED" : "BLOCKED")
         } catch { report["result"] = .string("BLOCKED"); report["reason"] = .string(VO2Max.failureCode(error)) }
     }

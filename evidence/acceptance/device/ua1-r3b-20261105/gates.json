@@ -1,0 +1,63 @@
+{
+  "go": {
+    "boundaries": "PASS",
+    "build": "ok",
+    "goModVerify": "all modules verified",
+    "gofmt": "clean",
+    "integrationPackage": {
+      "durationSeconds": 1021.5,
+      "note": "the default 10m go test timeout is insufficient for this package on this host (pre-existing, identical failure in the R3A gate log); the longer -timeout is an environment budget, not a product timeout change",
+      "result": "ok",
+      "timeoutFlagSeconds": 2400
+    },
+    "openapiLint": {
+      "errors": 0,
+      "redocly": "2.71.1",
+      "result": "PASS",
+      "warnings": 36
+    },
+    "sqlcGenerateDiff": "only the expected workout_sync_completeness model columns",
+    "unitTests": "ok (all packages)",
+    "vet": "clean (with and without -tags=integration)"
+  },
+  "privacy": {
+    "findings": [],
+    "result": "PASS",
+    "scannedFiles": 3
+  },
+  "realDevice": {
+    "executed": false,
+    "reason": "device unavailable for devicectl install/launch (CoreDevice error 1011)"
+  },
+  "stage": "UA1-R3B",
+  "swift": {
+    "packageTests": {
+      "result": "passed",
+      "suites": 23,
+      "tests": 163
+    },
+    "simulatorPgBackedV2EndToEnd": {
+      "contract": "workout-sync-completeness/v2",
+      "generations": [
+        1,
+        2
+      ],
+      "incrementalBootstrapQueries": 0,
+      "manifestsCommitted": 2,
+      "result": "passed",
+      "test": "WorkoutCompletenessNativeTests/testR3SimulatorHTTPPostgres"
+    },
+    "simulatorSuite": {
+      "failed": 0,
+      "passed": 57,
+      "skipped": 3,
+      "skippedReason": "these three tests require an external disposable PG18 host and are gated by explicit environment configuration",
+      "skippedTests": [
+        "NormalizerTests/testB4SimulatorFullExternalClosure",
+        "NormalizerTests/testVO2SimulatorHTTPPostgresEndToEnd",
+        "WorkoutCompletenessNativeTests/testR3SimulatorHTTPPostgres"
+      ],
+      "total": 60
+    }
+  }
+}

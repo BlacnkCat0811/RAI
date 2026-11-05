@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-11-03T05:58:51.519375+00:00",
+  "generated_at": "2026-11-05T10:10:40.332099+00:00",
   "command": "npm exec --yes --package=@redocly/cli@2.71.1 -- redocly lint contracts/openapi-v2.yaml",
   "node": "22.23.2",
   "redocly": "2.71.1",
   "contract": "contracts/openapi-v2.yaml",
-  "contract_sha256": "13095a8804fb95b031fdfe12a9d82599ab05f39ba4ebe909fa923e8a1a56a450",
+  "contract_sha256": "240dcd3b4aa2d34b64b160f652a511be6daea7a7a2035f5e74c692425a6ee498",
   "errors": 0,
-  "warnings": 31,
+  "warnings": 36,
   "result": "PASS",
-  "log_sha256": "7fd557b1dd1c1c5190e795a6fbe58f35034f9455281450231aefa5d023b24b1d",
+  "log_sha256": "4c601c0c700bd13bd621c09567076d3cb004bf5bb05fb559f3c2bdb10d5f17fb",
   "note": "Static contract lint only. It proves the OpenAPI document is valid and self-consistent; it does not prove the Go handlers implement it. Warnings are the pre-existing baseline and are not suppressed or fixed here."
 }

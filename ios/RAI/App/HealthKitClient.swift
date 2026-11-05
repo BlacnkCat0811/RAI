@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import CoreFoundation
 import CoreLocation
 import CryptoKit
 import Metal
@@ -424,6 +425,105 @@ enum WorkoutInspection {
         return .object(["unsupportedFieldCount": .int(Int64(counts.values.reduce(0, +))),
             "contextKeyCarrierCounts": .object(counts.mapValues { .int(Int64($0)) })])
     }
+    /// Review diagnostics for a Workout whose source policy is still pending.
+    /// Only coarse classes are emitted: never a bundle identifier, product
+    /// type, manufacturer, model, device name or any health value.
+    static func sourceShape(_ workout: HKWorkout) -> JSON {
+        let source = Normalizer.source(workout)
+        let bundleClass: String
+        if let bundle = source["bundleID"].text {
+            let prefix = "com.apple.health."
+            let suffix = bundle.hasPrefix(prefix) ? String(bundle.dropFirst(prefix.count)) : ""
+            let scoped = UUID(uuidString: suffix).map { $0.uuidString != "00000000-0000-0000-0000-000000000000" } ?? false
+            if ["com.apple.health", "com.apple.Workout"].contains(bundle) { bundleClass = "apple_health" }
+            else if scoped { bundleClass = "apple_health_scoped" }
+            else if bundle.hasPrefix("com.apple.") { bundleClass = "apple_other" }
+            else { bundleClass = "third_party" }
+        } else { bundleClass = "absent" }
+        let productClass: String
+        if let product = source["productType"].text {
+            if product.range(of: #"^Watch[0-9]+,[0-9]+$"#, options: .regularExpression) != nil { productClass = "watch" }
+            else if product.hasPrefix("iPhone") { productClass = "iphone" }
+            else if product.hasPrefix("iPad") { productClass = "ipad" }
+            else if product.hasPrefix("Mac") { productClass = "mac" }
+            else { productClass = "other" }
+        } else { productClass = "absent" }
+        let manufacturer = source["device"]["manufacturer"].text
+        let model = source["device"]["model"].text
+        return .object(["classification": .string(HealthSourcePolicy.classification(source)),
+            "bundleClass": .string(bundleClass), "productClass": .string(productClass),
+            "manufacturerClass": .string(manufacturer.map { ["Apple", "Apple Inc."].contains($0) ? "apple" : "other" } ?? "absent"),
+            "modelClass": .string(model.map { $0.lowercased().contains("watch") ? "watch" : "other" } ?? "absent"),
+            "hasDevice": .bool(source["device"] != nil), "hasVersion": .bool(source["version"].text != nil),
+            "activityCount": .int(Int64(workout.workoutActivities.count))])
+    }
+    /// Local protected inspection only. Raw key names are written to a file
+    /// inside this App's data container for operator review; they never reach
+    /// stdout, a device report or any other evidence artifact. No metadata
+    /// value, date, UUID or source descriptor is included.
+    static func keyInventory(_ workout: HKWorkout) -> JSON {
+        var rows: [String: [String: JSON]] = [:], order: [String] = [], counts: [String: Int] = [:]
+        func record(_ context: String, _ metadata: [String: Any]?) {
+            for (key, value) in (metadata ?? [:]).sorted(by: { $0.key < $1.key }) {
+                let id = context + "|" + fingerprint(key)
+                if rows[id] == nil {
+                    order.append(id)
+                    var row: [String: JSON] = ["context": .string(context), "key": .string(key),
+                        "keySHA256": .string(fingerprint(key)), "occurrences": .int(0)]
+                    switch value {
+                    case let number as NSNumber:
+                        let cf = CFGetTypeID(number) == CFNumberGetTypeID() ? CFNumberGetType(unsafeBitCast(number, to: CFNumber.self)) : nil
+                        let x = number.doubleValue, magnitude = abs(x)
+                        row["carrier"] = .string("NSNumber:" + String(cString: number.objCType))
+                        row["cfNumberType"] = cf.map { .int(Int64($0.rawValue)) } ?? .null
+                        row["isBoolean"] = .bool(CFGetTypeID(number) == CFBooleanGetTypeID())
+                        row["finite"] = .bool(x.isFinite)
+                        row["integral"] = .bool(x.isFinite && x.rounded(.towardZero) == x)
+                        row["sign"] = .string(x < 0 ? "negative" : x > 0 ? "positive" : "zero")
+                        row["withinSafeInteger"] = .bool(x.isFinite && magnitude < 9_007_199_254_740_992)
+                        row["magnitudeClass"] = .string(magnitude < 16 ? "lt2p4" : magnitude < 65_536 ? "lt2p16"
+                            : magnitude < 4_294_967_296 ? "lt2p32" : magnitude < 9_007_199_254_740_992 ? "lt2p53" : "ge2p53")
+                    case is HKQuantity:
+                        row["carrier"] = .string("HKQuantity")
+                    case let text as String:
+                        row["carrier"] = .string("String")
+                        row["empty"] = .bool(text.isEmpty)
+                        row["lengthClass"] = .string(text.count <= 8 ? "le8" : text.count <= 32 ? "le32"
+                            : text.count <= 64 ? "le64" : text.count <= 128 ? "le128" : "gt128")
+                        row["formatClass"] = .string(formatClass(text))
+                        row["utf8RoundTrip"] = .bool(String(decoding: Array(text.utf8), as: UTF8.self) == text)
+                    case is Date: row["carrier"] = .string("Date")
+                    case is Data: row["carrier"] = .string("Data")
+                    case is [Any]: row["carrier"] = .string("Array")
+                    default: row["carrier"] = .string("Other")
+                    }
+                    rows[id] = row
+                }
+                counts[id, default: 0] += 1
+            }
+        }
+        record("workout", workout.metadata)
+        for activity in workout.workoutActivities {
+            record("activity", activity.metadata)
+            for event in activity.workoutEvents { record("activity_event", event.metadata) }
+        }
+        for event in workout.workoutEvents ?? [] { record("workout_event", event.metadata) }
+        return .array(order.compactMap { id in
+            guard var row = rows[id] else { return nil }
+            row["occurrences"] = .int(Int64(counts[id] ?? 0))
+            return JSON.object(row)
+        })
+    }
+    /// Shape only: never returns any part of the value.
+    static func formatClass(_ text: String) -> String {
+        if text.isEmpty { return "empty" }
+        if UUID(uuidString: text) != nil { return "uuid" }
+        if text.allSatisfy({ $0.isHexDigit }) { return "hex" }
+        if text.allSatisfy({ $0.isNumber }) { return "digits" }
+        if text.allSatisfy({ $0.isLetter || $0.isNumber || ".-_:".contains($0) }) { return "token" }
+        if text.allSatisfy({ $0.isLetter || $0.isNumber || ".-_:/ ".contains($0) }) { return "text" }
+        return "other"
+    }
     static func metadata(_ values: [String: Any]?) -> JSON {
         .array((values ?? [:]).sorted { $0.key < $1.key }.map { key, value in
             let kind: String
@@ -494,6 +594,8 @@ enum Normalizer {
         case "ms": .secondUnit(with: .milli)
         case "kg": .gramUnit(with: .kilo)
         case "1": .percent()
+        case "degC": .degreeCelsius()
+        case "kcal/(kg*hr)": .kilocalorie().unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .hour()))
         case "mL/kg/min": HKUnit.literUnit(with: .milli).unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .minute()))
         default: throw SyncFailure.invalid("unsupported_unit")
         }
@@ -520,36 +622,45 @@ enum Normalizer {
     }
     // Keep the existing sample mapping immutable. The inspected Workout's
     // additional source quantities use the existing JSON metadata field.
-    static func workoutMetadata(_ metadata: [String: Any]?) throws -> JSON? {
+    /// Workout, Activity and event metadata under the versioned registry.
+    /// Scope is explicit: an Activity key is never accepted at Workout level,
+    /// and an unknown key, an unsupported native carrier or a wrong-scope key
+    /// stops this upload instead of being dropped or coerced.
+    static func workoutMetadata(_ metadata: [String: Any]?,
+                                scope: WorkoutMetadataRegistry.Scope = .workout) throws -> JSON? {
         let values = metadata ?? [:]
-        let units: [String: (HKUnit, String)] = [
-            HKMetadataKeyAverageMETs: (.kilocalorie().unitDivided(by: .gramUnit(with: .kilo).unitMultiplied(by: .hour())), "kcal/(kg*hr)"),
-            HKMetadataKeyElevationAscended: (.meter(), "m"),
-            HKMetadataKeyElevationDescended: (.meter(), "m"),
-            HKMetadataKeyWeatherHumidity: (.percent(), "1"),
-            HKMetadataKeyWeatherTemperature: (.degreeCelsius(), "degC"),
-            HKMetadataKeyAverageSpeed: (.meter().unitDivided(by: .second()), "m/s"),
-            HKMetadataKeyMaximumSpeed: (.meter().unitDivided(by: .second()), "m/s"),
-        ]
-        let allowed = Set(units.keys).union([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout])
-        if let zone = values[HKMetadataKeyTimeZone] {
-            guard let text = zone as? String, !text.isEmpty else { throw SyncFailure.invalid("unsupported_workout_metadata_type") }
+        var output: [String: JSON] = [:]
+        for key in values.keys.sorted() {
+            guard let entry = WorkoutMetadataRegistry.entry(key, scope: scope) else {
+                throw SyncFailure.invalid("metadata_requires_review")
+            }
+            let value = values[key]
+            switch entry.kind {
+            case let .text(maxBytes):
+                guard let text = value as? String else { throw SyncFailure.invalid("unsupported_workout_metadata_type") }
+                try WorkoutMetadataRegistry.validateText(text, maxBytes: maxBytes)
+                output[key] = WorkoutMetadataRegistry.json(entry, text: text)
+            case .boolean:
+                guard let number = value as? NSNumber else { throw SyncFailure.invalid("unsupported_workout_metadata_type") }
+                output[key] = .bool(number.boolValue)
+            case let .quantity(label):
+                guard let quantity = value as? HKQuantity else { throw SyncFailure.invalid("unsupported_workout_metadata_unit:" + key) }
+                let unit = try hkUnit(label)
+                guard quantity.is(compatibleWith: unit) else { throw SyncFailure.invalid("unsupported_workout_metadata_unit:" + key) }
+                let number = quantity.doubleValue(for: unit)
+                guard number.isFinite else { throw SyncFailure.invalid("nonfinite_workout_metadata") }
+                output[key] = .object(["value": .number(number), "unit": .string(label)])
+            case .signedInteger:
+                // Exact carrier only: a boolean, a floating carrier or an
+                // out-of-range value is rejected, never truncated or coerced.
+                guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                      String(cString: number.objCType) == "q" else {
+                    throw SyncFailure.invalid("unsupported_workout_metadata_type")
+                }
+                output[key] = .int(number.int64Value)
+            }
         }
-        if let indoor = values[HKMetadataKeyIndoorWorkout], !(indoor is NSNumber) {
-            throw SyncFailure.invalid("unsupported_workout_metadata_type")
-        }
-        var output = self.metadata(values)?.fields ?? [:]
-        for (key, (unit, label)) in units where values[key] != nil {
-            guard let quantity = values[key] as? HKQuantity, quantity.is(compatibleWith: unit) else { throw SyncFailure.invalid("unsupported_workout_metadata_unit:" + key) }
-            let value = quantity.doubleValue(for: unit)
-            guard value.isFinite else { throw SyncFailure.invalid("nonfinite_workout_metadata") }
-            output[key] = .object(["value": .number(value), "unit": .string(label)])
-        }
-        // Strict allowlist. Unknown metadata remains in the secure HealthKit
-        // discovery archive and stops this upload for explicit review; it is
-        // never copied into an arbitrary server JSON map.
-        guard Set(values.keys).isSubset(of: allowed) else { throw SyncFailure.invalid("metadata_requires_review") }
-        guard output.count <= 64 else { throw SyncFailure.invalid("workout_metadata_limit") }
+        guard output.count <= WorkoutMetadataRegistry.maxKeysPerObject else { throw SyncFailure.invalid("workout_metadata_limit") }
         return output.isEmpty ? nil : .object(output)
     }
 
@@ -596,24 +707,23 @@ enum Normalizer {
             guard Set((route.metadata ?? [:]).keys).isSubset(of: [HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout]) else { throw SyncFailure.invalid("metadata_requires_review") }
             event = .object(["uuid": .string(route.uuid.uuidString.lowercased()), "type": .string(route.sampleType.identifier),
                 "startUs": .int(us(route.startDate)), "endUs": .int(us(route.endDate)), "pointCount": .int(Int64(route.count)),
-                "metadata": try workoutMetadata(route.metadata) ?? .object([:])])
+                "metadata": try workoutMetadata(route.metadata, scope: .route) ?? .object([:])])
         } else { event = try integrityEvent(sample) }
         return Wire.hash(try JSON.object(["fact": event, "source": source(sample)]).data())
     }
     static func integrityEvent(_ sample: HKSample) throws -> JSON {
         // Unknown metadata stays in the secure local discovery archive. It is
         // not serialized into an arbitrary server JSON map.
-        let workoutAllowed = Set([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout, HKMetadataKeyAverageMETs,
-            HKMetadataKeyElevationAscended, HKMetadataKeyElevationDescended, HKMetadataKeyWeatherHumidity,
-            HKMetadataKeyWeatherTemperature, HKMetadataKeyAverageSpeed, HKMetadataKeyMaximumSpeed])
         let sampleAllowed = Set([HKMetadataKeyTimeZone, HKMetadataKeyIndoorWorkout] + sampleMetadataEnumKeys)
-        func validate(_ metadata: [String: Any]?, allowed: Set<String>) throws {
-            guard Set((metadata ?? [:]).keys).isSubset(of: allowed) else { throw SyncFailure.invalid("metadata_requires_review") }
+        // Registry-scoped: the version 2 Activity keys are valid only on
+        // WorkoutActivity metadata and stay unknown everywhere else.
+        func validate(_ metadata: [String: Any]?, scope: WorkoutMetadataRegistry.Scope) throws {
+            _ = try workoutMetadata(metadata, scope: scope)
         }
         if sample is HKWorkout {
-            try validate(sample.metadata, allowed: workoutAllowed)
+            try validate(sample.metadata, scope: .workout)
         } else {
-            try validate(sample.metadata, allowed: sampleAllowed)
+            guard Set((sample.metadata ?? [:]).keys).isSubset(of: sampleAllowed) else { throw SyncFailure.invalid("metadata_requires_review") }
         }
         if let zone = sample.metadata?[HKMetadataKeyTimeZone], !(zone is String) { throw SyncFailure.invalid("unsupported_sample_metadata_type") }
         if let indoor = sample.metadata?[HKMetadataKeyIndoorWorkout], !(indoor is NSNumber) { throw SyncFailure.invalid("unsupported_sample_metadata_type") }
@@ -624,10 +734,10 @@ enum Normalizer {
         }
         if let workout = sample as? HKWorkout {
             for activity in workout.workoutActivities {
-                try validate(activity.metadata, allowed: workoutAllowed)
-                for event in activity.workoutEvents { try validate(event.metadata, allowed: workoutAllowed) }
+                try validate(activity.metadata, scope: .activity)
+                for event in activity.workoutEvents { try validate(event.metadata, scope: .activityEvent) }
             }
-            for event in workout.workoutEvents ?? [] { try validate(event.metadata, allowed: workoutAllowed) }
+            for event in workout.workoutEvents ?? [] { try validate(event.metadata, scope: .workoutEvent) }
         }
         return try event(sample)
     }
@@ -642,7 +752,7 @@ enum Normalizer {
         // descriptors) is a supplement and must be sent through
         // /v2/sync/workout-enrichments, never through this immutable payload.
         if sample is HKWorkout {
-            if let m = try workoutMetadata(sample.metadata) { object["metadata"] = m }
+            if let m = try workoutMetadata(sample.metadata, scope: .workout) { object["metadata"] = m }
         } else if let m = metadata(sample.metadata) { object["metadata"] = m }
         if let workout = sample as? HKWorkout { object["workout"] = try self.workout(workout) }
         else if let sample = sample as? HKQuantitySample { object["quantity"] = try quantity(sample.quantity, type: sample.quantityType.identifier) }
@@ -664,10 +774,11 @@ enum Normalizer {
             return .object(object)
         }
     }
-    static func events(_ events: [HKWorkoutEvent]?) throws -> [JSON] {
+    static func events(_ events: [HKWorkoutEvent]?,
+                       scope: WorkoutMetadataRegistry.Scope = .workoutEvent) throws -> [JSON] {
         try (events ?? []).map { event in
             var object: [String: JSON] = ["type": .int(Int64(event.type.rawValue)), "startUs": .int(us(event.dateInterval.start)), "endUs": .int(us(event.dateInterval.end))]
-            if let m = try workoutMetadata(event.metadata) { object["metadata"] = m }; return .object(object)
+            if let m = try workoutMetadata(event.metadata, scope: scope) { object["metadata"] = m }; return .object(object)
         }
     }
     static func workout(_ w: HKWorkout) throws -> JSON {
@@ -687,9 +798,9 @@ enum Normalizer {
             var activity: [String: JSON] = ["uuid": .string(a.uuid.uuidString.lowercased()), "startUs": .int(us(a.startDate)),
                 "durationUs": .int(Int64((a.duration * 1_000_000).rounded())), "configuration": .object(config)]
             if let end = a.endDate { activity["endUs"] = .int(us(end)) }
-            if let m = try workoutMetadata(a.metadata) { activity["metadata"] = m }
+            if let m = try workoutMetadata(a.metadata, scope: .activity) { activity["metadata"] = m }
             let stats = try statistics(a.allStatistics); if !stats.isEmpty { activity["statistics"] = .array(stats) }
-            let events = try self.events(a.workoutEvents); if !events.isEmpty { activity["events"] = .array(events) }
+            let events = try self.events(a.workoutEvents, scope: .activityEvent); if !events.isEmpty { activity["events"] = .array(events) }
             return .object(activity)
         }
         if !activities.isEmpty { object["activities"] = .array(activities) }

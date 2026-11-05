@@ -38,6 +38,10 @@ public enum WorkoutBundleAssembler {
             "routes": .array(routes),
             "completeSampleTypes": .array(completeSampleTypes.map(JSON.string)),
             "completeRoutes": .bool(completeRoutes),
+            // Declares which Workout metadata registry produced this payload.
+            // A server that does not know the version rejects the bundle; it
+            // never drops metadata it cannot read.
+            "metadataRegistryVersion": .int(WorkoutMetadataRegistry.version),
         ]) { _, new in new }
         if deletionOnly { request["deletionOnly"] = .bool(true) }
         if let observation { request["observation"] = observation }

@@ -489,3 +489,25 @@ Dataset 身份核验后检查退役，再检查 collector fencing。retired 写�
 ACK wire 结构保持不变，没有虚构 datasetID 字段。ACK 的 bundleSHA256 绑定包含 Dataset/Epoch/Collector 的原始 JSON 字节；验证该 hash、握手 scope 和独立 Outbox，回执及 analysis job/publication 都属于新 Dataset。
 
 新 Session 的 nil Anchor 是 **fresh HealthKit import**。旧 tombstone 不复制，故旧服务器已删、但 HealthKit 当前仍可见的 UUID 可以重新导入新空间；重复发现与重试保持幂等。旧 Session 不删除、不覆盖、不移动；预备、Keychain、Outbox 和成功握手之后才原子替换 active pointer。迟到后台 callback 使用自己的 session identifier 与 taskDescription，只能写自己的目录。
+
+## UA1-R3B — Source Policy & Eligible Inventory Contract（2026-11-05）
+
+冻结 `RAI Workout Source Policy V1`（`rai.workout.source_policy.apple_watch_only/v1`）：
+只有 Apple Watch native running Workout 是 eligible；明确第三方或用户录入的 Workout 是
+`excluded_by_source_policy`；无法安全分类一律 BLOCKED。
+
+新增控制面 `workout-sync-completeness/v2`（`protocolVersion = 2`，`streamSetVersion` 仍为 1），
+与 v1 共用 `POST /v2/sync/workout-completeness`，由 body 的 `contract` 选择语义。
+v1 语义不原地修改：`workout-sync-completeness/v1` 仍是“每条可见 Workout 都需要 receipt”，
+v2 才是“每条可见 Workout 都必须被确定解释为 eligible 或 explicitly excluded”。
+
+Workout Protocol 3 的 wire facts 完全不变；eligible Workout 仍按原方式上传。
+excluded Workout 不产生 receipt、不产生 samples/route 上传、不产生分析任务，只产生
+不可变 exclusion evidence（identity hash + 分类 + 原因 + 策略版本 + evidence digest + 最小 source evidence）。
+服务器重新执行同一冻结策略校验 evidence，不接受 `excluded=true` 之类的自证。
+
+inventory 不变量：`visible = eligible + excluded + unclassified`，且 `unclassified = 0`、
+`pendingClassification = 0`；三条 inventory digest 证明成员身份，计数本身不能提交。
+M1/M2/M3/M6 只消费 eligible Workout 域；产品文案不得称 all/total training load。
+
+细节见 `contracts/workout-completeness-v2.md` 与 `contracts/workout-source-policy-v1.md`。

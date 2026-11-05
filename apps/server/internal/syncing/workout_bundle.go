@@ -24,15 +24,20 @@ const (
 // scalar samples, and all routes in one immutable JSON document. Membership in
 // Samples is the association; there is no separate per-sample request.
 type WorkoutBundle struct {
-	ProtocolVersion int                   `json:"protocolVersion"`
-	DatasetID       string                `json:"datasetID"`
-	DatasetEpoch    string                `json:"datasetEpoch"`
-	CollectorEpoch  string                `json:"collectorEpoch"`
-	WorkoutID       string                `json:"workoutID"`
-	Workout         Event                 `json:"workout"`
-	Samples         []Event               `json:"samples"`
-	Series          []WorkoutBundleSeries `json:"series,omitempty"`
-	Routes          []WorkoutBundleRoute  `json:"routes,omitempty"`
+	ProtocolVersion int `json:"protocolVersion"`
+	// MetadataRegistryVersion declares which Workout metadata registry produced
+	// this payload. Absent means registry version 1 (the original nine-key
+	// allowlist). A server that does not know the declared version rejects the
+	// bundle; it never drops the metadata it cannot read.
+	MetadataRegistryVersion *int                  `json:"metadataRegistryVersion,omitempty"`
+	DatasetID               string                `json:"datasetID"`
+	DatasetEpoch            string                `json:"datasetEpoch"`
+	CollectorEpoch          string                `json:"collectorEpoch"`
+	WorkoutID               string                `json:"workoutID"`
+	Workout                 Event                 `json:"workout"`
+	Samples                 []Event               `json:"samples"`
+	Series                  []WorkoutBundleSeries `json:"series,omitempty"`
+	Routes                  []WorkoutBundleRoute  `json:"routes,omitempty"`
 	// CompleteSampleTypes describes the client's read coverage only. Snapshot
 	// absence, even after a successful read, is never a deletion event.
 	CompleteSampleTypes []string `json:"completeSampleTypes,omitempty"`
@@ -86,6 +91,9 @@ func (b WorkoutBundle) Validate() error {
 		b.Workout.UUID != b.WorkoutID || len(b.Samples) > MaxWorkoutBundleEvents ||
 		len(b.Routes) > MaxBundleRoutes {
 		return bad()
+	}
+	if err := b.validateMetadataRegistryVersion(); err != nil {
+		return err
 	}
 	if err := b.Workout.Validate(WorkoutType); err != nil {
 		return bundleValidationContext(err, "workout", "invalid_workout")

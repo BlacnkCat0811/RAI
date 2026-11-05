@@ -1,3 +1,11 @@
+## 2026-11-05 — UA1-R3B / workout-sync-completeness/v2 / source policy v1
+
+- 新增 `rai.workout.source_policy.apple_watch_only/v1` 与共享 golden vectors（Swift/Go 同源）。
+- 新增 `workout-sync-completeness/v2`：三层 inventory（visible = eligible + excluded + unclassified）、
+  exclusion evidence、策略版本绑定与服务器侧策略重算；v1 语义与 wire facts 不变。
+- schema 00029 为 `workout_sync_completeness` 增加 v2 列与协议/策略一致性约束；v1 行保持原语义。
+- 握手新增 `workoutSyncCompletenessV2Version` 与 `workoutSourcePolicyVersion` 能力。
+
 ## 2026-11-01 — Phase 5A / OpenAPI 1.5.0 / Protocol 3 / Schema 18
 
 - operator-only `rai admin new-dataset`：全新五项身份、初始 revision 0、source 原地退役；创建/retire/审计同事务，operation 幂等，0600 一次凭证文件支持响应丢失恢复，dry-run 严格只读。

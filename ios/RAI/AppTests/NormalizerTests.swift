@@ -477,6 +477,99 @@ private final class NativeCompletenessUploader: FileUploader, Sendable {
         let reply = try await response(request, file: file, identity: identity); return (reply.data, reply.status, reply.retryAfter)
     }
 }
+private actor SyntheticPolicyCompletenessHealth: HealthKitReading {
+    let eligible: HKWorkout
+    let excluded: HKWorkout
+    let quantity: HKQuantitySample
+    private(set) var anchors: [Data?] = []
+    private(set) var bundleReads = 0
+    var eligibleID: String { eligible.uuid.uuidString.lowercased() }
+    var excludedID: String { excluded.uuid.uuidString.lowercased() }
+    init() {
+        let start = Date().addingTimeInterval(-3600)
+        eligible = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60), duration: 60,
+            totalEnergyBurned: nil, totalDistance: nil, metadata: [HKMetadataKeyIndoorWorkout: true])
+        excluded = HKWorkout(activityType: .running, start: start.addingTimeInterval(-120), end: start.addingTimeInterval(-60), duration: 60,
+            totalEnergyBurned: nil, totalDistance: nil, metadata: [HKMetadataKeyIndoorWorkout: true])
+        quantity = HKQuantitySample(type: HKQuantityType(.heartRate), quantity: HKQuantity(unit: .count().unitDivided(by: .minute()), doubleValue: 120), start: start, end: start)
+        let watch = class_createInstance(HKSource.self, 0) as! HKSource
+        watch.setValue("com.apple.health", forKey: "bundleIdentifier"); watch.setValue("Synthetic watch", forKey: "name")
+        let watchRevision = HKSourceRevision(source: watch, version: "synthetic", productType: "Watch7,1", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
+        eligible.setValue(watchRevision, forKey: "sourceRevision"); quantity.setValue(watchRevision, forKey: "sourceRevision")
+        let writer = class_createInstance(HKSource.self, 0) as! HKSource
+        writer.setValue("synthetic.third.party.writer", forKey: "bundleIdentifier"); writer.setValue("Synthetic writer", forKey: "name")
+        excluded.setValue(HKSourceRevision(source: writer, version: "synthetic", productType: "iPhone14,5", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0)), forKey: "sourceRevision")
+    }
+    func authorize() async throws {}
+    func workout(_ id: String) async throws -> HKWorkout? { [eligible, excluded].first { $0.uuid.uuidString.lowercased() == id } }
+    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage {
+        anchors.append(anchor); return try page(type: type, anchor: anchor)
+    }
+    private func page(type: HKSampleType, anchor: Data?) throws -> HealthPage {
+        let samples: [HKSample]
+        if anchor != nil { samples = [] }
+        else if type == HKObjectType.workoutType() { samples = [excluded, eligible] }
+        else { samples = type.identifier == quantity.sampleType.identifier ? [quantity] : [] }
+        let next = try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: anchor == nil ? 1 : 2), requiringSecureCoding: true)
+        return HealthPage(samples: samples, deleted: [], anchor: next, limit: 1000)
+    }
+    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage { try page(type: type, anchor: anchor) }
+    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage {
+        let samples: [HKSample] = anchor == nil ? [eligible, excluded].filter { $0.uuid.uuidString.lowercased() == id } : []
+        let next = try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: anchor == nil ? 1 : 2), requiringSecureCoding: true)
+        return HealthPage(samples: samples, deleted: [], anchor: next, limit: 25)
+    }
+    func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] {
+        bundleReads += 1; return type.identifier == quantity.sampleType.identifier ? [quantity] : []
+    }
+    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { [:] }
+    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead { HealthRouteRead(routes: [], coverage: [:], enumerationCompleted: true) }
+    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
+    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
+}
+private final class PolicyCompletenessReplies: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let scope = CoordinatorReplies.identity
+        let body: JSON
+        if request.url!.path == "/v2/handshake" {
+            body = .object(["protocolVersion": .int(3), "serviceID": .string(scope.serviceID), "datasetID": .string(scope.datasetID),
+                "datasetEpoch": .string(scope.datasetEpoch), "capabilities": .object([
+                    "workoutBundles": .bool(true), "bundleProtocolVersion": .int(3), "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
+                    "workoutSyncCompletenessVersion": .int(1), "workoutSyncCompletenessV2Version": .int(2), "workoutStreamSetVersion": .int(1),
+                    "workoutSourcePolicyVersion": .string(WorkoutSourcePolicy.version),
+                    "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])])
+        } else { body = .object(["metrics": .array([])]) }
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+private final class V2CompletenessUploader: FileUploader, Sendable {
+    let manifests = Mutex<[Data]>([]), bundles = Mutex<[String]>([])
+    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
+        let receipt: JSON
+        if request.url!.path == "/v2/sync/workout-completeness" {
+            let raw = try Data(contentsOf: file); manifests.withLock { $0.append(raw) }
+            let body = try JSON.decode(raw)
+            var fields = body.fields.filter { ["contract", "protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "manifestID", "generation", "sourcePolicyVersion"].contains($0.key) }
+            for key in ["visibleCount", "eligibleCount", "excludedCount", "unclassifiedCount", "visibleSHA256", "eligibleSHA256", "excludedSHA256"] { fields[key] = body["inventory"][key] }
+            fields["manifestSHA256"] = .string(Wire.hash(raw)); fields["ingestStatus"] = .string("committed"); fields["commitRevision"] = .int(2)
+            fields["streamCount"] = .int(Int64(body["streams"].list.count)); fields["workoutCount"] = .int(Int64(body["workouts"].list.count)); receipt = .object(fields)
+        } else {
+            bundles.withLock { $0.append(identity) }
+            let parts = identity.split(separator: ":"); var counts: [String: JSON] = ["workoutInserted": .bool(true)]
+            for key in ["samplesInserted", "samplesUnchanged", "samplesDeleted", "associationsInserted", "associationsUnchanged", "associationsDeleted", "seriesInserted", "seriesUnchanged", "routesInserted", "routesUnchanged", "routesDeleted"] { counts[key] = .int(0) }
+            receipt = .object(["workoutID": .string(String(parts[0])), "bundleSHA256": .string(String(parts[1])), "ingestStatus": .string("committed"),
+                "commitRevision": .int(1), "counts": .object(counts), "analysisStatus": .string("not_required"), "analysisJobIDs": .array([])])
+        }
+        return UploadResponse(data: try receipt.data(), status: 200, contentType: "application/json")
+    }
+    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
+        let reply = try await response(request, file: file, identity: identity); return (reply.data, reply.status, reply.retryAfter)
+    }
+}
 final class WorkoutCompletenessNativeTests: XCTestCase {
     func testR3SimulatorHTTPPostgres() async throws {
         guard let config = ProcessInfo.processInfo.environment["RAI_UA1_R_SIMULATOR_CONFIG"] else { throw XCTSkip("Requires explicit isolated synthetic PG18 runner") }
@@ -556,6 +649,58 @@ final class WorkoutCompletenessNativeTests: XCTestCase {
         let flow = await store.snapshot().workoutCompleteness
         XCTAssertEqual(flow?.generation, 0); XCTAssertTrue(flow?.anchors.isEmpty == true)
         XCTAssertNil(flow?.cycle?.pendingFile); XCTAssertTrue(uploader.manifests.withLock { $0.isEmpty })
+    }
+    func testR3SourcePolicyV2ExcludedInventoryIsEvidenced() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-policy-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let health = SyntheticPolicyCompletenessHealth(), store = try OutboxStore(directory: directory)
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [PolicyCompletenessReplies.self]
+        let session = URLSession(configuration: config), uploader = V2CompletenessUploader()
+        let secret = try ClientConfiguration.validatedSecret(baseURL: "https://synthetic.invalid", collectorEpoch: CoordinatorReplies.identity.collectorEpoch, token: String(repeating: "s", count: 48))
+        let coordinator = SyncCoordinator(store: store, health: health, session: session)
+        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
+        let eligibleID = await health.eligibleID, excludedID = await health.excludedID
+        let flow = await store.snapshot().workoutCompleteness
+        XCTAssertEqual(flow?.generation, 1); XCTAssertEqual(flow?.inventory.count, 2); XCTAssertEqual(flow?.anchors.count, 12)
+        XCTAssertTrue(flow?.inventory.contains(excludedID) == true)
+        let manifests = uploader.manifests.withLock { $0 }
+        XCTAssertEqual(manifests.count, 1)
+        let body = try JSON.decode(manifests[0])
+        XCTAssertEqual(body["contract"], .string(WorkoutCompleteness.v2Contract))
+        XCTAssertEqual(body["protocolVersion"], .int(2))
+        XCTAssertEqual(body["sourcePolicyVersion"], .string(WorkoutSourcePolicy.version))
+        XCTAssertEqual(body["sourcePolicySHA256"], .string(WorkoutSourcePolicy.sha256))
+        XCTAssertEqual(body["inventory"]["visibleCount"], .int(2))
+        XCTAssertEqual(body["inventory"]["eligibleCount"], .int(1))
+        XCTAssertEqual(body["inventory"]["excludedCount"], .int(1))
+        XCTAssertEqual(body["inventory"]["unclassifiedCount"], .int(0))
+        XCTAssertEqual(body["inventory"]["visibleSHA256"], .string(WorkoutSourcePolicy.inventorySHA256([eligibleID, excludedID])))
+        XCTAssertEqual(body["workouts"].list.count, 1)
+        XCTAssertEqual(body["workouts"].list[0]["workoutID"], .string(eligibleID))
+        XCTAssertEqual(body["streams"].list.count, 12)
+        XCTAssertEqual(body["exclusions"].list.count, 1)
+        let exclusion = body["exclusions"].list[0]
+        XCTAssertEqual(exclusion["workoutIdentitySHA256"], .string(WorkoutSourcePolicy.identitySHA256(excludedID)))
+        XCTAssertEqual(exclusion["outcome"], .string(WorkoutSourcePolicy.excluded))
+        XCTAssertEqual(exclusion["reason"], .string(WorkoutSourcePolicy.excludedReason))
+        XCTAssertEqual(exclusion["classificationVersion"], .int(WorkoutSourcePolicy.classificationVersion))
+        XCTAssertEqual(exclusion["sourcePolicyVersion"], .string(WorkoutSourcePolicy.version))
+        // Server-side re-classification proof: the shipped evidence must reproduce the claimed class.
+        XCTAssertEqual(HealthSourcePolicy.classification(exclusion["sourceEvidence"]), "third_party")
+        XCTAssertEqual(exclusion["evidenceSHA256"], .string(Wire.hash(try exclusion["sourceEvidence"].data())))
+        // Excluded Workout never reaches Protocol 3, samples, routes or analysis.
+        let bundles = uploader.bundles.withLock { $0 }
+        XCTAssertFalse(bundles.contains { $0.hasPrefix(excludedID + ":") })
+        XCTAssertTrue(bundles.contains { $0.hasPrefix(eligibleID + ":") })
+        let firstReads = await health.bundleReads
+        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
+        let second = await store.snapshot().workoutCompleteness
+        XCTAssertEqual(second?.generation, 2); XCTAssertEqual(second?.inventory.count, 2)
+        XCTAssertEqual(second?.lastQueryCounts?["committedAnchor"], 12)
+        XCTAssertEqual(second?.lastQueryCounts?["bootstrap"], 0)
+        let finalReads = await health.bundleReads
+        XCTAssertEqual(finalReads, firstReads)
+        XCTAssertEqual(uploader.manifests.withLock { $0.count }, 2)
     }
 }
 final class Phase3HealthKitIntegrityTests: XCTestCase {
@@ -1281,5 +1426,112 @@ extension NormalizerTests {
             }
             print("M4B4_COMPONENT count=\(count) normalize_us=\(normalizeUs) outbox_us=\(persistenceUs) ack_validation_us=\(ackUs) validated_anchor_commit_us=\(anchorUs)")
         }
+    }
+}
+
+/// UA1-R3A: the two real WorkoutActivity metadata keys are preserved exactly
+/// under registry version 2 and stay Activity-scope only. Native carriers are
+/// reproduced synthetically; no real metadata value is used.
+final class WorkoutMetadataRegistryNativeTests: XCTestCase {
+    private let integerKey = "WOIntervalStepSuccessful"
+    private let textKey = "WOIntervalStepKeyPath"
+
+    func testOpaqueIntegerAcceptsExactSignedCarrier() throws {
+        let value = try XCTUnwrap(Normalizer.workoutMetadata([integerKey: NSNumber(value: Int64(1))], scope: .activity))
+        XCTAssertEqual(value[integerKey], .int(1))
+        // Sign is not interpreted: the value is preserved, not domain-filtered.
+        let negative = try XCTUnwrap(Normalizer.workoutMetadata([integerKey: NSNumber(value: Int64(-1))], scope: .activity))
+        XCTAssertEqual(negative[integerKey], .int(-1))
+        let large = try XCTUnwrap(Normalizer.workoutMetadata([integerKey: NSNumber(value: Int64(9_000_000_000))], scope: .activity))
+        XCTAssertEqual(large[integerKey], .int(9_000_000_000))
+    }
+
+    func testOpaqueIntegerRejectsWrongCarrierAndOverflow() {
+        for metadata: [String: Any] in [[integerKey: NSNumber(value: 1.5)],
+                                        [integerKey: NSNumber(value: true)],
+                                        [integerKey: NSNumber(value: Double(9_300_000_000_000_000_000))],
+                                        [integerKey: NSNumber(value: UInt64.max)],
+                                        [integerKey: "1"],
+                                        [integerKey: [1]]] {
+            XCTAssertThrowsError(try Normalizer.workoutMetadata(metadata, scope: .activity), "accepted \(metadata)")
+        }
+    }
+
+    func testOpaqueTextIsPreservedExactly() throws {
+        let value = try XCTUnwrap(Normalizer.workoutMetadata([textKey: "synthetic-step-path"], scope: .activity))
+        XCTAssertEqual(value[textKey], .string("synthetic-step-path"))
+        // No trimming, case folding or Unicode normalization.
+        let exact = try XCTUnwrap(Normalizer.workoutMetadata([textKey: " Synthetic-步-1 "], scope: .activity))
+        XCTAssertEqual(exact[textKey], .string(" Synthetic-步-1 "))
+    }
+
+    func testOpaqueTextRejectsEmptyOversizedAndControl() {
+        for text in ["", String(repeating: "a", count: 65), "synthetic\npath", "synthetic\u{7f}path"] {
+            XCTAssertThrowsError(try Normalizer.workoutMetadata([textKey: text], scope: .activity), "accepted \(text.count)")
+        }
+        XCTAssertThrowsError(try Normalizer.workoutMetadata([textKey: NSNumber(value: 7)], scope: .activity))
+    }
+
+    func testOpaqueKeysAreActivityScopeOnly() {
+        XCTAssertThrowsError(try Normalizer.workoutMetadata([integerKey: NSNumber(value: 1)], scope: .workout)) { error in
+            XCTAssertEqual(error as? SyncFailure, .invalid("metadata_requires_review"))
+        }
+        for scope in [WorkoutMetadataRegistry.Scope.activityEvent, .workoutEvent, .route, .observation] {
+            XCTAssertThrowsError(try Normalizer.workoutMetadata([textKey: "synthetic-step-path"], scope: scope), "accepted at \(scope)")
+        }
+    }
+
+    func testUnknownKeysStillFailClosedAtEveryScope() {
+        for scope in [WorkoutMetadataRegistry.Scope.workout, .activity, .activityEvent, .workoutEvent, .route] {
+            XCTAssertThrowsError(try Normalizer.workoutMetadata(["synthetic_future_key": "synthetic"], scope: scope)) { error in
+                XCTAssertEqual(error as? SyncFailure, .invalid("metadata_requires_review"))
+            }
+        }
+    }
+
+    func testVersionOneKeysStillWorkAtEveryScope() throws {
+        for scope in [WorkoutMetadataRegistry.Scope.workout, .activity, .activityEvent, .workoutEvent] {
+            let value = try XCTUnwrap(Normalizer.workoutMetadata([HKMetadataKeyTimeZone: "Etc/UTC", HKMetadataKeyIndoorWorkout: true], scope: scope))
+            XCTAssertEqual(value[HKMetadataKeyTimeZone], .string("Etc/UTC"))
+            XCTAssertEqual(value[HKMetadataKeyIndoorWorkout], .bool(true))
+        }
+        let route = try XCTUnwrap(Normalizer.workoutMetadata([HKMetadataKeyIndoorWorkout: false], scope: .route))
+        XCTAssertEqual(route[HKMetadataKeyIndoorWorkout], .bool(false))
+        XCTAssertThrowsError(try Normalizer.workoutMetadata([HKMetadataKeyAverageMETs: HKQuantity(unit: .meter(), doubleValue: 1)], scope: .route))
+    }
+
+    /// The blocker itself: a Workout whose Activity carries the two real keys
+    /// must now normalise instead of throwing metadata_requires_review, while
+    /// an unknown Activity key still stops the upload.
+    func testIntegrityEventAcceptsActivityKeysAndStillRejectsUnknownOnes() throws {
+        let start = Date(timeIntervalSince1970: 1_793_059_200), end = start.addingTimeInterval(60)
+        let activityMetadata: [String: Any] = [textKey: "synthetic-step-path", integerKey: NSNumber(value: Int64(1))]
+        let activity = try Normalizer.workoutMetadata(activityMetadata, scope: .activity)
+        XCTAssertNotNil(activity)
+        // Unknown key at Activity scope keeps the pre-existing fail-closed rule.
+        XCTAssertThrowsError(try Normalizer.workoutMetadata(["synthetic_future_key": 1], scope: .activity))
+        // A Workout-level event with registry version 1 metadata still normalises.
+        let workout = HKWorkout(activityType: .running, start: start, end: end, duration: 60, totalEnergyBurned: nil, totalDistance: nil,
+                                metadata: [HKMetadataKeyIndoorWorkout: false, HKMetadataKeyTimeZone: "Etc/UTC"])
+        XCTAssertNoThrow(try Normalizer.integrityEvent(workout))
+        XCTAssertThrowsError(try Normalizer.integrityEvent(HKWorkout(activityType: .running, start: start, end: end, duration: 60,
+                                                                   totalEnergyBurned: nil, totalDistance: nil,
+                                                                   metadata: ["synthetic_future_key": 1]))) { error in
+            XCTAssertEqual(error as? SyncFailure, .invalid("metadata_requires_review"))
+        }
+    }
+
+    /// The per-object bound still exists and cannot be exceeded by the registry.
+    func testPerObjectMetadataBoundIsUnchanged() {
+        XCTAssertLessThanOrEqual(WorkoutMetadataRegistry.entries.count, WorkoutMetadataRegistry.maxKeysPerObject)
+        XCTAssertEqual(WorkoutMetadataRegistry.maxKeysPerObject, 64)
+        let all = Dictionary(uniqueKeysWithValues: WorkoutMetadataRegistry.entries
+            .filter { entry in
+                guard entry.scopes.contains(.activity) else { return false }
+                if case .quantity = entry.kind { return false }
+                return true
+            }
+            .map { ($0.key, $0.kind == .boolean ? (true as Any) : ($0.kind == .signedInteger ? (NSNumber(value: Int64(1)) as Any) : ("synthetic" as Any))) })
+        XCTAssertNoThrow(try Normalizer.workoutMetadata(all, scope: .activity))
     }
 }

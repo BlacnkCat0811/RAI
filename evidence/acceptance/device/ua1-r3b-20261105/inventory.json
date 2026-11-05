@@ -1,0 +1,13 @@
+{
+  "lastObserved": {
+    "eligibleAppleWatch": 31,
+    "excludedThirdParty": 13,
+    "source": "UA1-R3A real device survey",
+    "unclassified": 0,
+    "visible": 44
+  },
+  "policyExpectation": "with the frozen source policy the same inventory must produce eligible = apple_watch count, excluded = third_party + user_entered count, unclassified = 0; any deviation blocks completeness",
+  "realInventoryReread": false,
+  "reason": "real device was unavailable for devicectl install/launch during this stage; the inventory below is the last observed real-device inventory from UA1-R3A and is NOT re-verified here",
+  "stage": "UA1-R3B"
+}

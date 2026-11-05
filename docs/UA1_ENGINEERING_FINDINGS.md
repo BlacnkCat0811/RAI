@@ -54,3 +54,36 @@
 - 本轮为单设备/固定窗口；无 physiological validation、population study、UI/Instruments/长期电量或生产容量结论。
 
 **先处理工程问题并复验 UA1，再评估 UA2。** 本轮没有自动开始这些后续任务，没有改变 active=legacy。
+
+## UA1-04 — 真实 Activity metadata 已按 typed registry 支持；completeness 新阻塞在 source policy
+
+UA1-R3A 在真机上把「两类未知 WorkoutActivity metadata」处理为 versioned contract：
+
+- 两类 key 都不在 iPhoneOS 26.5 公开 HealthKit 头文件、也不在 iOS 26.5 HealthKit 二进制字符串中（1,847 个 `HK*` 与 79,135 个字符串全量哈希比对无匹配），按合同属 `undocumented_real_metadata`，不据名称推断业务含义。
+- 决策为 **supported opaque-preserved**：Activity scope 专用、精确 native carrier（String / `NSNumber:q` → SInt64）、有界、不解释、不参与模型逻辑、不做 normalize；其余未知 key 继续 `metadata_requires_review`。
+- registry 版本 1 → 2，wire 上新增可选 `metadataRegistryVersion`（缺省=1）；旧服务器因严格解码拒收，客户端保留 pending 且不推进 anchor。
+- metadata 不在 `WorkoutCoreIdentity.canonical` 内，R1 core identity 不受影响；真机 R1 复跑两次 bundle hash 一致、`newSemanticEvents=0`、24/24 使用 committed anchor。
+
+真机续跑结论：原 metadata blocker 消失（该 Workout 正常完成，blocked metadata Workout 归零），但 **R3 仍 BLOCKED，原因换成 `source_policy_pending`**。
+
+真机 44 条可见 running Workout 的来源分布（脱敏类别统计，见
+[source-survey.json](../evidence/acceptance/device/ua1-r3a-20261105/source-survey.json)）：
+
+| classification | 数量 | product class |
+| --- | --- | --- |
+| apple_watch | 31 | watch |
+| third_party | 13 | iphone |
+
+13 条来自第三方写入方（productType 为 iPhone、无 manufacturer/model）。冻结合同要求「每个可见 inventory Workout 都持有当前 collector 的不可变 v3 receipt」，而这些 Workout 因既有 source policy 永远不会被采集，因此 completeness 在当前合同下不可满足。这不是本阶段可以自行放宽的 parser 修复：它改变 inventory 谓词与 stream 语义，属于需要重新评审的合同变更（合同文档已写明「A changed stream set requires a new reviewed contract」）。
+
+因此 R3A 结果保持 **BLOCKED**，preserved state（generation 0、committed anchors 0）原样保留，未提交 manifest、未推进 anchor。下一步必须先由用户决定 completeness inventory 的 scope（例如仅 source-eligible Workout，或把第三方 Workout 明确声明为 not-applicable 并在 manifest 中留证），再以 reviewed contract 变更继续。
+
+## UA1-05 — 可见 inventory ≠ eligible inventory（R3B 合同变更）
+
+**观察**：真实设备 44 条可见 running Workout 中 31 条 apple_watch、13 条 third_party（productType=iPhone、无 manufacturer/model）。既有 completeness v1 要求「每条可见 Workout 都有 receipt」，而既有 source policy 只允许 apple_watch 进入 RAI，两条合同逻辑上不可同时满足。
+
+**决策**：以 reviewed contract 变更解决，而非放宽来源或修改 v1 —— 新增 `workout-sync-completeness/v2`，inventory 语义改为「可见 = eligible + excluded + unclassified，且 unclassified/pending = 0」，excluded 必须携带可被服务器重新分类的 canonical source evidence；policy 身份 `rai.workout.source_policy.apple_watch_only/v1` 进入 manifest、行约束、receipt 与 change_events。v1 保持字节不变并继续被接受。
+
+**边界**：excluded 不是 ignored（有证据、可回答「为什么没同步」），unknown 不是 excluded（unclassified → BLOCKED），第三方 Workout 不得进入 M1/M2/M3/M6 或 features/load baseline。
+
+**状态**：工程与合成/服务器侧验证 PASS；真机侧未验证（设备不可用，用户当次授权跳过），因此 R3 保持 BLOCKED，UA1 重验收 BLOCKED。真机恢复后需按 completeness #1 → 真实 lost-ACK → completeness #2 → M6 重评顺序续跑。

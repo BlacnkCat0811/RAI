@@ -29,28 +29,39 @@ public enum WorkoutCoreIdentity {
 
 /// RAI classification, separate from the HealthKit-provided fields. Names are
 /// descriptive only. A third-party writer on Watch is never native Apple data.
+///
+/// UA1-R3B freezes this classifier as the source of the Workout source policy.
+/// It adds exactly one deterministic class, `user_entered`, and no new eligible
+/// class. An empty descriptor field means "HealthKit did not report it"; the Go
+/// server reads the same bytes the same way, and both implementations are held
+/// to contracts/fixtures/workout-source-policy-v1.json.
 public enum HealthSourcePolicy {
+    static func descriptor(_ value: JSON) -> String? { value.text.flatMap { $0.isEmpty ? nil : $0 } }
     public static func classification(_ source: JSON, associatedWorkout: JSON? = nil) -> String {
-        guard let bundle = source["bundleID"].text else { return "source_unknown" }
+        guard let bundle = descriptor(source["bundleID"]) else { return "source_unknown" }
+        // Data entered by hand in the Health app reports no product type and no
+        // device. It is a deterministic exclusion, never an unresolved source.
+        if bundle == "com.apple.Health", descriptor(source["productType"]) == nil,
+           source["device"].fields.values.allSatisfy({ descriptor($0) == nil }) { return "user_entered" }
         let prefix = "com.apple.health."
         let suffix = bundle.hasPrefix(prefix) ? String(bundle.dropFirst(prefix.count)) : ""
         let scoped = UUID(uuidString: suffix).map { $0.uuidString != "00000000-0000-0000-0000-000000000000" } ?? false
         guard ["com.apple.health", "com.apple.Workout"].contains(bundle) || scoped else {
             return bundle.hasPrefix("com.apple.") ? "source_unknown" : "third_party"
         }
-        let product = source["productType"].text
+        let product = descriptor(source["productType"])
         if let product, product.range(of: #"^Watch[0-9]+,[0-9]+$"#, options: .regularExpression) == nil { return "source_unknown" }
-        if let manufacturer = source["device"]["manufacturer"].text,
-           !["Apple", "Apple Inc."].contains(manufacturer) { return "source_unknown" }
-        if let model = source["device"]["model"].text, !model.lowercased().contains("watch") { return "source_unknown" }
+        let manufacturer = descriptor(source["device"]["manufacturer"]), model = descriptor(source["device"]["model"])
+        if let manufacturer, !["Apple", "Apple Inc."].contains(manufacturer) { return "source_unknown" }
+        if let model, !model.lowercased().contains("watch") { return "source_unknown" }
         if product != nil {
             // Device-scoped Apple Health writers require actual Watch device
             // evidence, or the separately proven parent association below.
-            if !scoped || source["device"]["manufacturer"].text != nil && source["device"]["model"].text != nil { return "apple_watch" }
+            if !scoped || manufacturer != nil && model != nil { return "apple_watch" }
         }
         if let parent = associatedWorkout, classification(parent) == "apple_watch",
-           parent["bundleID"] == source["bundleID"], let version = source["version"].text,
-           version == parent["version"].text {
+           parent["bundleID"] == source["bundleID"], let version = descriptor(source["version"]),
+           version == descriptor(parent["version"]) {
             return "associated_apple_watch"
         }
         return "source_unknown"

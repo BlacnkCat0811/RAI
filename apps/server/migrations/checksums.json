@@ -26,5 +26,6 @@
   "00025_vo2max_external_projection.sql": "24fa2628ed5d7a718f5373bba8a041e5801b7843f4540a7ff7ed8d13c98fcd83",
   "00026_recovery_foundation.sql": "7147c6400ebd0625a99bcb0d52af5e6878c0e7479a691c34ac1efff1d169679c",
   "00027_training_readiness.sql": "53944ca13b75c65cb368a7aa6320870644d020861f157f3ed6335cf8ef689c73",
-  "00028_workout_sync_completeness.sql": "4ac5492d23fdbfa1d1a17cd6d528035b11105d33fd7cbd8d3c8ea4ea08e43b87"
+  "00028_workout_sync_completeness.sql": "4ac5492d23fdbfa1d1a17cd6d528035b11105d33fd7cbd8d3c8ea4ea08e43b87",
+  "00029_workout_completeness_v2.sql": "6f18c85df2cf8131f4173aefbcec17612a18cc959dae20fbe2466f08d13c6ab2"
 }

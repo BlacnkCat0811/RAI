@@ -27,7 +27,21 @@ func (a *API) workoutCompleteness(w http.ResponseWriter, r *http.Request, p sync
 	if err != nil {
 		return err
 	}
-	receipt, err := a.store.CommitWorkoutCompleteness(r.Context(), p, raw, lease)
+	var envelope struct {
+		Contract string `json:"contract"`
+	}
+	if err = json.Unmarshal(raw, &envelope); err != nil {
+		return syncing.Fail(422, "invalid_payload")
+	}
+	var receipt json.RawMessage
+	switch envelope.Contract {
+	case syncing.WorkoutCompletenessContract:
+		receipt, err = a.store.CommitWorkoutCompleteness(r.Context(), p, raw, lease)
+	case syncing.WorkoutCompletenessV2Contract:
+		receipt, err = a.store.CommitWorkoutCompletenessV2(r.Context(), p, raw, lease)
+	default:
+		return syncing.Fail(422, "unsupported_version")
+	}
 	if err != nil {
 		return dailyAPIError(err)
 	}

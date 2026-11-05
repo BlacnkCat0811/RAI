@@ -742,9 +742,13 @@ extension SyncCoordinator {
         do {
             let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
             let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-            guard vo2Capabilities["workoutSyncCompletenessVersion"].integer == 1,
-                  vo2Capabilities["workoutStreamSetVersion"].integer == 1 else { throw SyncFailure.invalid("unsupported_completeness_capability") }
-            let initial = try await store.beginWorkoutCompleteness()
+            guard vo2Capabilities["workoutStreamSetVersion"].integer == 1 else { throw SyncFailure.invalid("unsupported_completeness_capability") }
+            // v2 is the reviewed contract: visible inventory is explained as
+            // eligible (receipts) plus explicit source-policy exclusions.
+            let reviewed = vo2Capabilities["workoutSyncCompletenessV2Version"].integer == 2
+            guard reviewed || vo2Capabilities["workoutSyncCompletenessVersion"].integer == 1 else { throw SyncFailure.invalid("unsupported_completeness_capability") }
+            let contract = reviewed ? WorkoutCompleteness.v2Contract : WorkoutCompleteness.contract
+            let initial = try await store.beginWorkoutCompleteness(contract: contract)
             if initial.cycle?.pendingFile != nil {
                 try await WorkoutCompletenessDelivery(store: store, api: api).deliver(); return
             }
@@ -754,8 +758,19 @@ extension SyncCoordinator {
             let inventory = await store.snapshot().workoutCompleteness?.cycle?.inventory ?? []
             for id in inventory {
                 try Task.checkCancellation()
-                if await store.snapshot().workoutCompleteness?.cycle?.completedWorkouts.contains(id) == true { continue }
                 guard let workout = try await health.workout(id) else { throw SyncFailure.localState("completeness_workout_not_visible") }
+                if reviewed {
+                    // Classification is evidence, not a filter: an excluded
+                    // Workout leaves a durable exclusion entry and no receipt.
+                    let source = Normalizer.source(workout)
+                    let classification = HealthSourcePolicy.classification(source)
+                    let outcome = WorkoutSourcePolicy.outcome(classification)
+                    try await store.completenessClassify(id, classification: classification,
+                        evidence: WorkoutSourcePolicy.evidence(source))
+                    if outcome == WorkoutSourcePolicy.excluded { continue }
+                    guard outcome == WorkoutSourcePolicy.eligible else { throw SyncFailure.invalid("inventory_unclassified") }
+                }
+                if await store.snapshot().workoutCompleteness?.cycle?.completedWorkouts.contains(id) == true { continue }
                 for type in HealthKitClient.quantityTypes + [HKSeriesType.workoutRoute()] {
                     try await captureCompletenessStream(type: type, workout: workout)
                 }

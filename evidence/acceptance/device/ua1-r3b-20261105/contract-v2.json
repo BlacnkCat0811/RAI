@@ -1,0 +1,16 @@
+{
+  "classificationVersion": 1,
+  "contract": "workout-sync-completeness/v2",
+  "fixture": {
+    "eligibleWorkouts": 2,
+    "excludedWorkouts": 1,
+    "manifestSHA256": "334edc9f4b693a5f564bbce96529b1d992fd922f7e3c01cb4dc9fd5cff9567b0",
+    "visibleWorkouts": 3
+  },
+  "inventoryInvariant": "visible = eligible + excluded + unclassified, unclassified = 0 and pendingClassification = 0",
+  "protocolVersion": 2,
+  "sourcePolicySHA256": "63713b4f82a33c6e9544de37fbd0701c42a29b71f2ca54588c7fc9cf463e0654",
+  "sourcePolicyVersion": "rai.workout.source_policy.apple_watch_only/v1",
+  "streamSetVersion": 1,
+  "v1Semantics": "unchanged: workout-sync-completeness/v1 still requires a receipt for every visible Workout"
+}
