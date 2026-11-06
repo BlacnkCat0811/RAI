@@ -288,7 +288,7 @@ def install():
                   f'INFOPLIST_FILE={ROOT / "ios/RAI/Config/Info-Debug.plist"}'] if CONFIGURATION != 'Debug' else []
     execute(['xcodebuild', '-project', ROOT / 'ios/RAI/RAI.xcodeproj', '-scheme', 'RAI',
              '-configuration', CONFIGURATION, '-destination', 'generic/platform=iOS', '-derivedDataPath', DERIVED,
-             f'RAI_DEV_HTTP_HOST={state["host"]}'] + conditions + ['build', '-quiet'], timeout=1200)
+             f'RAI_DEV_HTTP_HOST={state["host"]}'] + conditions + ['-allowProvisioningUpdates', 'build', '-quiet'], timeout=1800)
     app = DERIVED / f'Build/Products/{CONFIGURATION}-iphoneos/RAI.app'
     execute(['xcrun', 'devicectl', 'device', 'install', 'app', '--device', identifier, app,
              '--json-output', RUN / 'install-result.json'], timeout=180)
@@ -331,7 +331,12 @@ def report(state):
                         'sample_archive_ms', 'sample_archive_writes', 'series_read_ms', 'bundle_encode_ms',
                         'bundle_persist_ms', 'series_capture_flushes', 'series_capture_synchronizations',
                         'series_capture_points', 'route_capture_flushes', 'route_capture_synchronizations',
-                        'route_capture_points', 'workout_sync_skipped_unchanged'}
+                        'route_capture_points', 'workout_sync_skipped_unchanged',
+                        'capture_max_active_streams', 'capture_stream_limit', 'capture_peak_queue_bytes',
+                        'capture_writer_batches', 'capture_writer_records', 'normalized_capture_ms',
+                        'normalized_segment_writes', 'sample_archive_calls', 'sample_unarchive_calls',
+                        'object_archive_calls', 'bundle_gzip_derive_ms', 'bundle_gzip_wire_bytes',
+                        'bundle_gzip_post_attempt', 'bundle_gzip_post_success'}
         result['timings'] = {k: v for k, v in raw['timings'].items()
                              if k in timing_names and isinstance(v, (int, float))}
     if isinstance(raw.get('queryCounts'), dict):
@@ -347,16 +352,21 @@ def report(state):
     return result
 
 
-def launch(command, workout=None):
+def launch(command, workout=None, streams=None, port=None):
     state = load()
     identifier = device(state)
     package = json.loads((RUN / 'enrollment.json').read_text())
     enrollment = package['enrollment']
-    config = {k: state[k] for k in ('environment', 'baseURL', 'datasetSHA256', 'outboxNamespace')}
+    base_url = f'http://{state["host"]}:{port}' if port else state['baseURL']
+    config = {'environment': state['environment'], 'baseURL': base_url,
+              'datasetSHA256': state['datasetSHA256'], 'outboxNamespace': state['outboxNamespace']}
     config.update(command=command, collectorEpoch=enrollment['collectorEpoch'], token=enrollment['token'])
     if workout:
         # Private selector; the pulled report never contains a Workout identity.
         config['workoutID'] = workout
+    if streams is not None:
+        # Acceptance-only policy selector; the shipped product default stays 2.
+        config['captureConcurrency'] = streams
     write(RUN / 'device-config.json', config)
     write(RUN / 'report-sentinel.json', {'result': 'RUNNING', 'command': command})
     copy(state, 'to', RUN / 'report-sentinel.json', 'Documents/local-device-report.json')
@@ -441,13 +451,13 @@ class ManifestACKDropper:
     committed manifest response. The API and the App protocol are untouched;
     the server still commits durably before this proxy closes the client side."""
 
-    def __init__(self, upstream):
+    def __init__(self, listen, upstream):
         self.upstream = upstream
         self.dropped = threading.Event()
         self.facts = {}
         self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listener.bind(upstream)
+        self.listener.bind(listen)
         self.listener.listen(8)
         self.connections = []
 
@@ -523,10 +533,240 @@ class ManifestACKDropper:
                 pass
 
 
+
+class BundleRejectProxy:
+    """Reject bundle uploads before they reach the API, leaving a durable
+    prepared bundle on the phone. Every other request is relayed unchanged."""
+
+    def __init__(self, listen, upstream):
+        self.upstream = upstream
+        self.rejected = threading.Event()
+        self.facts = {}
+        self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.listener.bind(listen)
+        self.listener.listen(8)
+        self.connections = []
+
+    def serve(self):
+        while not self.rejected.is_set():
+            try:
+                client, _ = self.listener.accept()
+            except OSError:
+                return
+            self.connections.append(client)
+            threading.Thread(target=self.relay, args=(client,), daemon=True).start()
+
+    def relay(self, client):
+        try:
+            upstream = socket.create_connection(self.upstream, timeout=120)
+        except OSError:
+            client.close()
+            return
+        self.connections.append(upstream)
+        client.settimeout(300); upstream.settimeout(300)
+        cbuf = ubuf = b''
+        try:
+            while True:
+                head, cbuf = _read_until(client, cbuf, b'\r\n\r\n')
+                if head is None:
+                    return
+                method, path = (head.split(b'\r\n', 1)[0].split(b' ') + [b'', b''])[:2]
+                request_headers = _headers(head)
+                body, cbuf = _read_body(client, cbuf, request_headers)
+                if method == b'POST' and path == b'/v2/sync/workout-bundles':
+                    self.facts = {'method': 'POST', 'path': '/v2/sync/workout-bundles',
+                                  'requestBytes': len(body), 'responseStatus': 503,
+                                  'forwarded': False}
+                    self.rejected.set()
+                    payload = b'{"error":"injected_bundle_upload_failure"}'
+                    client.sendall(b'HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n'
+                                   b'Content-Length: ' + str(len(payload)).encode() + b'\r\nConnection: close\r\n\r\n' + payload)
+                    return
+                upstream.sendall(head + body)
+                response, ubuf = _read_until(upstream, ubuf, b'\r\n\r\n')
+                if response is None:
+                    return
+                response_headers = _headers(response)
+                payload, ubuf = _read_body(upstream, ubuf, response_headers)
+                client.sendall(response + payload)
+                if (response_headers.get('connection', '').lower() == 'close'
+                        or request_headers.get('connection', '').lower() == 'close'):
+                    return
+        except OSError:
+            return
+        finally:
+            for sock in (client, upstream):
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+
+    def shutdown(self):
+        try:
+            self.listener.close()
+        except OSError:
+            pass
+        for sock in self.connections:
+            try:
+                sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                sock.close()
+            except OSError:
+                pass
+
+
+class CaptureBundleProxy(BundleRejectProxy):
+    """Relay normally while saving the first bundle multipart body for a
+    repeatable two-slot server-side replay measurement."""
+
+    def __init__(self, listen, upstream):
+        super().__init__(listen, upstream)
+        self.captured = threading.Event()
+        self.capture_path = RUN / 'captured-bundle-request.bin'
+        self.capture_headers = {}
+
+    def serve(self):
+        while not self.captured.is_set():
+            try:
+                client, _ = self.listener.accept()
+            except OSError:
+                return
+            self.connections.append(client)
+            threading.Thread(target=self.relay, args=(client,), daemon=True).start()
+
+    def relay(self, client):
+        try:
+            upstream = socket.create_connection(self.upstream, timeout=120)
+        except OSError:
+            client.close()
+            return
+        self.connections.append(upstream)
+        client.settimeout(300); upstream.settimeout(300)
+        cbuf = ubuf = b''
+        try:
+            while True:
+                head, cbuf = _read_until(client, cbuf, b'\r\n\r\n')
+                if head is None:
+                    return
+                method, path = (head.split(b'\r\n', 1)[0].split(b' ') + [b'', b''])[:2]
+                request_headers = _headers(head)
+                body, cbuf = _read_body(client, cbuf, request_headers)
+                if method == b'POST' and path == b'/v2/sync/workout-bundles' and not self.captured.is_set():
+                    self.capture_path.write_bytes(body)
+                    self.capture_headers = {k: v for k, v in request_headers.items()}
+                    self.captured.set()
+                upstream.sendall(head + body)
+                response, ubuf = _read_until(upstream, ubuf, b'\r\n\r\n')
+                if response is None:
+                    return
+                response_headers = _headers(response)
+                payload, ubuf = _read_body(upstream, ubuf, response_headers)
+                client.sendall(response + payload)
+                if (response_headers.get('connection', '').lower() == 'close'
+                        or request_headers.get('connection', '').lower() == 'close'):
+                    return
+        except OSError:
+            return
+        finally:
+            for sock in (client, upstream):
+                try:
+                    sock.close()
+                except OSError:
+                    pass
+
+
+def capturebundle(workout=None):
+    state = load(); identifier = device(state)
+    proxy = CaptureBundleProxy((state['host'], PROXY_PORT + 3), (state['host'], HTTP_PORT))
+    threading.Thread(target=proxy.serve, daemon=True).start()
+    try:
+        launch('single', workout, None, port=PROXY_PORT + 3)
+        result = {}
+        for _ in range(180):
+            time.sleep(2)
+            result = report(state)
+            if result.get('result') != 'RUNNING':
+                break
+        if not proxy.captured.is_set():
+            raise RuntimeError('no workout bundle POST was captured')
+        meta = {'bytes': proxy.capture_path.stat().st_size,
+                'contentType': proxy.capture_headers.get('content-type', ''),
+                'authorization': proxy.capture_headers.get('authorization', '')}
+        write(RUN / 'captured-bundle-meta.json', meta)
+        print(json.dumps({'result': 'BUNDLE_CAPTURED', 'bytes': meta['bytes'], 'acceptance': result.get('result'),
+                          'path': str(proxy.capture_path)}, ensure_ascii=False))
+    finally:
+        proxy.shutdown()
+
+
+def failbundle(workout=None):
+    """Inject one bundle-upload rejection, then retry the prepared bundle in a
+    second launch with a healthy direct API."""
+    state = load()
+    identifier = device(state)
+    proxy = BundleRejectProxy((state['host'], PROXY_PORT + 2), (state['host'], HTTP_PORT))
+    threading.Thread(target=proxy.serve, daemon=True).start()
+    try:
+        launch('single', workout, None, port=PROXY_PORT + 2)
+        failed = {}
+        for _ in range(180):
+            time.sleep(2)
+            failed = report(state)
+            if failed.get('result') != 'RUNNING':
+                break
+        if failed.get('result') != 'BLOCKED':
+            raise RuntimeError('Bundle rejection did not produce a blocked acceptance report')
+        write(RUN / 'bundle-failure-report.json', failed)
+        before = taskstate_summary()
+        write(RUN / 'bundle-failure-task.json', before)
+    finally:
+        proxy.shutdown()
+    launch('single', workout, None)
+    recovered = {}
+    for _ in range(180):
+        time.sleep(2)
+        recovered = report(state)
+        if recovered.get('result') != 'RUNNING':
+            break
+    after = taskstate_summary()
+    write(RUN / 'bundle-recovery-task.json', after)
+    print(json.dumps({'result': 'PREPARED_BUNDLE_RECOVERY',
+                      'rejection': proxy.facts, 'failure': failed, 'recovered': recovered,
+                      'before': before, 'after': after}, ensure_ascii=False))
+
+
+def taskstate_summary():
+    state = load(); device(state)
+    namespace = state['outboxNamespace']
+    destination = RUN / 'client-task-state.json'
+    copy(state, 'from', f'Library/Application Support/RAIV2Sync/local-acceptance-{namespace}/state.json', destination)
+    raw = json.loads(destination.read_text())
+    rows = []
+    for workout, task in (raw.get('tasks') or {}).items():
+        metrics = task.get('metrics') or {}
+        receipt = task.get('uploadReceipt') or {}
+        rows.append({
+            'workoutIDSHA256': hashlib.sha256(workout.encode()).hexdigest(),
+            'phase': task.get('phase'),
+            'bundleFilePresent': bool(task.get('bundleFile')),
+            'bundleBytes': metrics.get('bundle_bytes'),
+            'bundleSHA256': task.get('bundleSHA256'),
+            'receiptPresent': bool(task.get('uploadReceipt')),
+            'receiptBundleSHA256': receipt.get('bundleSHA256'),
+            'gzipPostAttempt': metrics.get('bundle_gzip_post_attempt'),
+            'gzipPostSuccess': metrics.get('bundle_gzip_post_success'),
+            'gzipWireBytes': metrics.get('bundle_gzip_wire_bytes'),
+        })
+    return rows
+
+
 def lostack():
     state = load()
     identifier = device(state)
-    dropper = ManifestACKDropper((state['host'], PROXY_PORT))
+    dropper = ManifestACKDropper((state['host'], PROXY_PORT), (state['host'], HTTP_PORT))
     threading.Thread(target=dropper.serve, daemon=True).start()
     package = json.loads((RUN / 'enrollment.json').read_text())['enrollment']
     config = {k: state[k] for k in ('environment', 'datasetSHA256', 'outboxNamespace')}
@@ -621,8 +861,10 @@ def stop():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['prepare', 'reset', 'install', 'probe', 'list', 'single', 'completeness',
-                                            'lostack', 'clientstate', 'report', 'status', 'stop'])
+                                            'workouts', 'failbundle', 'capturebundle', 'taskstate', 'lostack', 'clientstate', 'report', 'status', 'stop'])
     parser.add_argument('--workout', help='private Workout selector for the single command')
+    parser.add_argument('--streams', type=int, choices=(1, 2, 4),
+                        help='acceptance-only capture concurrency for the single command')
     args = parser.parse_args()
     RUN.mkdir(parents=True, exist_ok=True, mode=0o700)
     RUN.chmod(0o700)
@@ -641,7 +883,19 @@ def main():
     elif args.command == 'install':
         install()
     elif args.command in ('probe', 'list', 'single', 'completeness'):
-        launch(args.command, getattr(args, 'workout', None))
+        launch(args.command, getattr(args, 'workout', None), getattr(args, 'streams', None))
+    elif args.command == 'failbundle':
+        failbundle(getattr(args, 'workout', None))
+    elif args.command == 'capturebundle':
+        capturebundle(getattr(args, 'workout', None))
+    elif args.command == 'taskstate':
+        print(json.dumps(taskstate_summary(), indent=2, ensure_ascii=False))
+    elif args.command == 'workouts':
+        state = load()
+        copy(state, 'from', 'Documents/eligible-workouts.json', RUN / 'eligible-workouts.json')
+        raw = json.loads((RUN / 'eligible-workouts.json').read_text())
+        print(json.dumps([{k: row[k] for k in ('workoutID', 'durationMinutes', 'indoor')}
+                          for row in raw.get('workouts', []) if isinstance(row, dict)], ensure_ascii=False))
     elif args.command == 'lostack':
         lostack()
     elif args.command == 'clientstate':

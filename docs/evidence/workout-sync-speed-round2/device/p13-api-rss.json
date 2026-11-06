@@ -1,0 +1,24 @@
+{
+  "note": "API RSS sampled every 50 ms while one iPhone uploaded the 8,565,743-byte S60H bundle; no health values or identifiers.",
+  "limitMiB": 512,
+  "singleSlot": {
+    "baselineMiB": 10.5,
+    "peakMiB": 104.8,
+    "samples": 311,
+    "intervalMs": 50
+  },
+  "concurrentReplay": {
+    "attempt": "two concurrent POSTs from one device token",
+    "statuses": [
+      429,
+      200
+    ],
+    "peakMiB": 74.2,
+    "note": "429 device_upload_capacity_exceeded; true two-slot concurrency not established"
+  },
+  "mainThread": {
+    "s60MaxStallMs": 4,
+    "s60hMaxStallMs": 6.6,
+    "stallsOver250": 0
+  }
+}

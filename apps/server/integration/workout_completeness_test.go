@@ -353,3 +353,52 @@ func TestWorkoutCompletenessHTTPAndRuntimeRoles(t *testing.T) {
 		t.Fatal("identity conflict", err)
 	}
 }
+
+func TestWorkoutCompletenessHeartRateAbsentIsCoveredNotFailed(t *testing.T) {
+	f := setup(t)
+	b, _ := testWorkoutBundle(t, f, 1)
+	// A real outdoor workout can legitimately have no heart-rate samples while
+	// still carrying distance/energy/route facts. Absence must be recorded as
+	// no_records_observed, not treated as a failed or unsupported import.
+	b.Samples[0].Type = "HKQuantityTypeIdentifierDistanceWalkingRunning"
+	b.Samples[0].Quantity = &syncing.Quantity{Value: 1000, Unit: "m"}
+	b.Series = nil
+	b.CompleteRoutes = true
+	phase3Observation(&b)
+	for _, kind := range syncing.WorkoutCompletenessQuantities {
+		count := 0
+		for _, sample := range b.Samples {
+			if sample.Type == kind {
+				count++
+			}
+		}
+		state := "no_records_observed"
+		if count > 0 {
+			state = "complete"
+		}
+		b.Observation.Coverage[kind] = syncing.BundleCoverage{State: state, SampleCount: count, QueryCompleted: true, LocalPersisted: true}
+		_, points := syncing.CompletenessSeriesDigest(b.Series, kind)
+		state = "no_records_observed"
+		if points > 0 {
+			state = "complete"
+		}
+		b.Observation.Coverage["series:"+kind] = syncing.BundleCoverage{State: state, SampleCount: points, QueryCompleted: true, LocalPersisted: true}
+	}
+	routePoints := 0
+	for _, route := range b.Routes {
+		routePoints += len(route.Points)
+	}
+	routeState := "no_records_observed"
+	if routePoints > 0 {
+		routeState = "complete"
+	}
+	b.Observation.Coverage["route"] = syncing.BundleCoverage{State: routeState, SampleCount: routePoints, QueryCompleted: true, LocalPersisted: true}
+	receipt, _ := importPhase3(t, f, b)
+	if receipt.Counts.SamplesInserted != 1 || receipt.AnalysisStatus == "failed" {
+		t.Fatalf("heart-rate-absent workout was not imported: %+v", receipt)
+	}
+	m := completenessManifest(f, []syncing.WorkoutBundle{b})
+	if _, err := commitCompleteness(t, f, m); err != nil {
+		t.Fatalf("heart-rate-absent completeness rejected: %v", err)
+	}
+}

@@ -2,7 +2,7 @@
 
 对应交付文档：`docs/WORKOUT_SYNC_SPEED_ROUND2_RESULT.md`。
 执行环境：本机 Mac（AMD Ryzen 5 3600X，12 逻辑核，macOS 26.7.2）、Go 1.27.3、PostgreSQL 18.6（`.local/toolchain`）、Swift 6.3.3、Xcode（`~/Downloads/Xcode.app`）。
-所有数字均在本机实跑产生；未执行项在文档 §8 与 §9 中显式标注 NOT RUN / NOT VERIFIED。
+所有数字均由本机或已连接的 iPhone 12 Pro Max 实跑产生（真机聚合见 `device/round2-device.md`）；未执行项在文档 §8 与 §9 中显式标注 NOT RUN / NOT VERIFIED。
 
 ## 目录结构
 
@@ -10,6 +10,7 @@
 server/            Go 服务端：性能入口、集合化写入候选、严格 JSON
 ios-capture/       iOS 捕获侧：捕获/ACK 边界、规范化捕获、有界并发、门禁映射
 ios-transport/     iOS 传输侧：gzip-only 上传
+device/            真机验收：首导入、并发、无变化重复、原包恢复、RSS/批量
 lead/              跨域门禁与最终校验（full gate 日志）
 ```
 
@@ -49,6 +50,14 @@ lead/              跨域门禁与最终校验（full gate 日志）
 | --- | --- |
 | `README.md` | R4 gzip-only：改动点、能力协商、计数器、测试与残留 PARTIAL |
 
+## device/
+
+| 文件 | 内容 |
+| --- | --- |
+| `round2-device.md` | 2026-11-06 iPhone 12 Pro Max 真机聚合结果：S60/S60H 时延与 RSS、1/2/4 并发、P06/P07、P11、P13、P14；含口径、限制与复现命令。仅聚合值，无健康值/UUID/GPS/设备标识。 |
+| `measurements-summary.json` | 上述 S60/S60H/1/2/4 的机器可读聚合值（P50/P95/min/max、gzip、RSS、主线程停顿），无身份字段。 |
+| `p13-api-rss.json` | 单槽 API RSS 与并发重放的 429/200 结果、主线程停顿上限。 |
+
 ## lead/
 
 | 文件 | 内容 |
@@ -70,6 +79,12 @@ scripts/local/test.sh swift --scratch-path .local/swift-build/capture
 # Swift 客户端 → 真实 HTTP → 真实隔离 PG
 scripts/local/test.sh integration -tags=integration,swiftclient -count=1 \
   -run '^TestWorkoutReliabilitySwiftClientPostgres$' ./integration
+
+# 真机（USB，Release+验收仪器；详见 device/round2-device.md）
+python3 scripts/local/device.py prepare
+python3 scripts/local/device.py install
+python3 scripts/local/device.py probe
+python3 scripts/local/device_sample.py --profile s60 --workout <private-id> --samples 20 --streams 2
 
 # 模拟器端到端（完整性 v2 两代）
 scripts/local/test.sh e2e

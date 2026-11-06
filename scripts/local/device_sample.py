@@ -49,14 +49,15 @@ def percentile(values, fraction):
     return ordered[rank - 1]
 
 
-def measure(profile, workout, samples, reset, poll_seconds):
+def measure(profile, workout, samples, reset, poll_seconds, streams=None):
     target = RUN / 'samples' / profile
     target.mkdir(parents=True, exist_ok=True)
     collected = []
     for index in range(samples):
         if reset:
             call('reset', timeout=300)
-        call('single', '--workout', workout, timeout=120)
+        extra = ['--streams', str(streams)] if streams is not None else []
+        call('single', '--workout', workout, *extra, timeout=120)
         deadline = time.time() + poll_seconds
         report = {}
         while time.time() < deadline:
@@ -110,8 +111,9 @@ def main():
     parser.add_argument('--samples', type=int, default=10)
     parser.add_argument('--no-reset', action='store_true')
     parser.add_argument('--poll-seconds', type=int, default=240)
+    parser.add_argument('--streams', type=int, choices=(1, 2, 4))
     args = parser.parse_args()
-    collected = measure(args.profile, args.workout, args.samples, not args.no_reset, args.poll_seconds)
+    collected = measure(args.profile, args.workout, args.samples, not args.no_reset, args.poll_seconds, args.streams)
     summarize(args.profile, collected)
 
 

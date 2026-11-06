@@ -21,9 +21,9 @@
 | **R2-P08/P09（服务端 P95 门槛）** | **FAIL**：S60 P95 4,758.8 ms（目标 ≤1,000）、S240 P95 19,722.3 ms（目标 ≤4,000）。裸 PG 天花板 585 ms/2,442 ms 证明目标在本机+durability 下不可达 |
 | **R2-P01（规范化+持久化降幅）** | **FAIL**：实测下降 27.09%（1,530.05→1,115.62 ms），该段结构性上限 ~35% |
 | 完成门禁 | **PASS**：`scripts/local/test.sh full` 1338 s，`go test -race ./...` 全绿、`integration 1099.261s`、sqlc/dbgen 无 diff、残留库 0（§8.1） |
-| 真机（R2-P03..P07、P12/P13） | **NOT RUN**（本会话无真机授权，见 §8） |
+| 真机（R2-P02..P07、P12/P13/P14） | **已执行（2026-11-06，USB 真机）**：P03/P04/P12/P14(10×) 未达标；P05 NOT RUN；P06/P07 PASS；P13 PARTIAL；详见 §8.3 |
 
-**一句话**：本轮把"逐样本归档"这条确定性的错误路径删掉了、修掉了两个会丢数据/让删除复活的确认边界缺陷、把上传契约收紧到 gzip-only、并给服务端建立了一个可信的普通构建测速入口；但**服务端 P95 与规范化降幅两条性能门槛未达标**，且**真机项全部未执行**，因此本轮**不能**签"性能达标"或"真机验收通过"。
+**一句话**：本轮把"逐样本归档"这条确定性的错误路径删掉了、修掉了两个会丢数据/让删除复活的确认边界缺陷、把上传契约收紧到 gzip-only、并给服务端建立了一个可信的普通构建测速入口；但**服务端 P95、规范化降幅与真机时延/RSS 多条性能门槛未达标**，因此本轮**不能**签"性能达标"或"真机验收通过"；真机只证明了正确性路径可用，不证明时延目标达成。
 
 ---
 
@@ -32,9 +32,9 @@
 ### 2.1 工作区状态
 
 ```
-branch main, HEAD 0303236 (perf(workout-sync): batch bundles …)
-pre-existing dirty:  M docs/IMPLEMENTATION.md
-pre-existing untracked: docs/WORKOUT_SYNC_SPEED_ROUND2_{CODEX_PROMPT,PLAN}.md
+branch main, HEAD c864038 (perf(workout-sync): round2 write path, capture pipeline and perf evidence)
+真机验收新增未提交改动: ios/RAI/App/RAIApp.swift, scripts/local/device.py, scripts/local/device_sample.py
+本轮文档: docs/WORKOUT_SYNC_SPEED_ROUND2_RESULT.md, docs/IMPLEMENTATION.md, docs/evidence/workout-sync-speed-round2/device/round2-device.md
 ```
 
 上述既有改动与用户文件全部保留；未使用 `git reset` / `clean` / `stash` / 整区 `checkout`。
@@ -46,7 +46,7 @@ pre-existing untracked: docs/WORKOUT_SYNC_SPEED_ROUND2_{CODEX_PROMPT,PLAN}.md
 | 机器 | macOS 26.7.2，**AMD Ryzen 5 3600X 6-Core**（`num_cpu=12`） |
 | Go | go1.27.3 darwin/amd64（`.local/toolchain/go/bin`） |
 | PostgreSQL | 18.6（`fsync=on` `full_page_writes=on` `synchronous_commit=on` `wal_level=replica` `shared_buffers=64MB` `max_wal_size=1GB` `data_checksums=on`） |
-| Swift / Xcode | Swift 6.3.3；Xcode 在 `~/Downloads/Xcode.app`（`DEVELOPER_DIR`） |
+| Swift / Xcode | Swift 6.3.3；Xcode 在 `/Applications/Xcode.app`（`DEVELOPER_DIR`） |
 | 隔离 PG | `scripts/test-postgres.sh` 每次 `mktemp -d /tmp/rai-pg.XXXXXX` 独立 cluster + unix socket，结束 `RAI_TEST_LEFTOVER_DATABASES=0` / `RAI_TEST_CLUSTER_REMOVED=1` |
 
 ### 2.3 三种测量口径必须分开（不得混用）
@@ -129,10 +129,10 @@ pre-existing untracked: docs/WORKOUT_SYNC_SPEED_ROUND2_{CODEX_PROMPT,PLAN}.md
 | --- | --- | --- |
 | R2-F01 正常路径归档调用 | **PASS** | `sample_archive_calls=0`、`sample_unarchive_calls=0`（timings + `SampleArchiveMeter` 双口径）；旧路径对照 14,000 次 |
 | R2-F02 新旧同源 | **PASS** | bundle samples 与 `Normalizer.integrityEvent` **逐字节相等**；identityHash 与旧路径一致；canonical bytes 稳定 |
-| R2-F03 旧 archive/旧 segment/新格式混合 | **PARTIAL** | 旧 archive 段、旧 seal、旧 pending 均可读且未改 hash/回执；**没有做重启测试** |
+| R2-F03 旧 archive/旧 segment/新格式混合 | **PASS** | 旧 archive 段、旧 seal、旧 pending 均可读且未改 hash/回执；新增重启级用例 `mixedLegacyArchiveAndSegmentFactsRecoverAfterRestart`（`CaptureSegmentsTests`）PASS |
 | R2-P01 规范化+持久化阶段降幅 | **FAIL（27.09%）** | 优化构建（`-O`，`DEBUG` 仅作测试钩子），N=2,000 合成 heartRate，7 次 P50：legacy **1,530.05 ms** → normalized **1,115.62 ms** |
 
-**R2-P01 差距归因（这是本条的实质结论，不是借口）**：逐样本组件实测 archive 0.266 ms、fingerprint 0.221 ms、normalized_fact 0.221 ms、encode 0.024 ms。即使归档成本**完全归零**，该段上限也只有约 **35%**，70% 对这份 fixture 结构性不可达。而第一轮**真机**口径下 archiver 占该阶段 12.78 s 中的 8.8 s（69%）——两者成本结构不同，真机同口径复测 **NOT RUN**（无授权）。因此本条按计划要求记 FAIL，不移动口径、不改门禁。
+**R2-P01 差距归因（这是本条的实质结论，不是借口）**：逐样本组件实测 archive 0.266 ms、fingerprint 0.221 ms、normalized_fact 0.221 ms、encode 0.024 ms。即使归档成本**完全归零**，该段上限也只有约 **35%**，70% 对这份 fixture 结构性不可达。而第一轮**真机**口径下 archiver 占该阶段 12.78 s 中的 8.8 s（69%）——两者成本结构不同；真机端到端已执行（P03/P04），但 P01 的规范化子阶段未单独剖分，**不做跨口径换算**。因此本条按计划要求记 FAIL，不移动口径、不改门禁。
 
 ### 4.3 R3 有界并发（R2-F10..F15 + R2-P02）
 
@@ -155,7 +155,7 @@ R3 measured paging anchors per type: heartRate ["-", "A1"]，其余 10 类各 ["
 | R2-F13 单类型失败 | **PASS** | `testFailingStreamReleasesItsSlotForTheOthers` |
 | R2-F14 取消/槽泄漏 | **PASS** | `testCancellationStopsAParkedCaptureStream`：取消后 active=0，同 store 新协调器仍可满预算同步 |
 | R2-F15 背压/大批次 | **PASS** | `CaptureGateTests.byteBudgetBackpressuresTheProducer`、`oversizedReservationIsClampedToTheBudget`、peak 队列字节实测 ≤ 2 MiB |
-| R2-P02 并发 1/2/4 | **PARTIAL** | 结果一致 PASS；资源门槛无真机 → NOT VERIFIED；默认取 2（本 fixture 只有 2 个类型有数据，2 流最快，4 流无额外收益） |
+| R2-P02 并发 1/2/4 | **PARTIAL** | 真机 58 分钟密集记录：streams=1 P50 **17,638.31 ms**（n=10）、streams=2 **18,274.23 ms**（n=20）、streams=4 **20,194.13 ms**（n=10）；2 比 1 慢 3.6%、4 比 1 慢 14.5%，**无 ≥20% 收益**，且顺序测量受热漂移混杂；机制/一致性 PASS，收益未成立 |
 
 ### 4.4 R4 客户端 gzip-only（R2-F16..F20 + R2-P11）
 
@@ -237,7 +237,7 @@ S240 历史 6 次 503 的**确切错误码 NOT VERIFIED**（旧二进制未记�
 | 严格 JSON decode P50（S60） | 1,649.6（race） | **103.8** | −93.7%（其中大部分是口径修正，见 §2.3） |
 | sample_writes P50（S60） | 1,068（race） | **841.3**（values 844.0 → arrays 758.1，n=10 对照） | 集合化后小幅改善 |
 | association_writes P50（S60） | 1,038（race） | **842.7**（arrays 761.2） | 同上 |
-| 逐样本归档（iOS） | 真机 8.8 s / 12.78 s | **0 次调用**（合成） | 结构性消除；真机复测 NOT RUN |
+| 逐样本归档（iOS） | 真机 8.8 s / 12.78 s | **0 次调用**（合成） | 结构性消除；真机端到端复测见 §8.3（时延 FAIL；规范化子阶段未单独剖分） |
 | 规范化+持久化阶段 P50 | — | 1,530.05 → 1,115.62 ms（优化构建，N=2000） | **−27.09%（未达 70%，FAIL）** |
 
 **口径警告**：第一轮数字来自 race 构建 + `httptest` + handler 内计时，本轮来自普通构建 + 真实 socket + 完整往返。上表"变化"一栏混合了**口径修正**与**真实优化**两种成分，不可当作纯优化收益引用。
@@ -263,7 +263,7 @@ S240 历史 6 次 503 的**确切错误码 NOT VERIFIED**（旧二进制未记�
 
 **残余风险**
 1. **性能门槛未达**（R2-P08/P09/P10b、R2-P01）：服务端 P95 与规范化降幅均 FAIL，且已证明是物理下限级别。要真正达标需要改变部署条件（更快存储/关闭 durability/扩大 `max_wal_size` 或 `shared_buffers`）或降低事实密度——这些都超出本轮授权范围，未做。
-2. **真机全未验证**：并发收益、RSS、端到端时延、UI 响应在真实设备上全部 NOT RUN。
+2. **真机已执行但未通过性能门禁**：P03/P04 时延、S60H RSS、P14 10× 均 FAIL；并发 2 流无收益、4 流更差；P05 与 P14 100× 未执行，P13 双槽未证实。
 3. gzip 能力不兼容时任务停在 `.failed` 且**不自愈**（符合"明确失败"要求，但需要人工介入或发版）。
 4. 能力盒是 per-client-instance：只有调过同一实例 `GET /v2/handshake` 才知道声明；直接新建 `RAIAPIClient` 的路径为 `.unknown` → 仍发 gzip。
 5. 封存件的"不可变"靠内容寻址校验（复用必须 hash 相符且仍是 gzip part），**没有**文件系统只读位（`savePayload` 在 OutboxStore，越界且既有测试需要改写该文件验证重建）。
@@ -295,29 +295,46 @@ S240 历史 6 次 503 的**确切错误码 NOT VERIFIED**（旧二进制未记�
 | 依赖边界检查 | 9 项 PASS（含 258 包导入图） |
 | 隔离 PG 清理 | `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1` |
 
-其他入口：`gate` PASS（Go race/vet/边界）；Swift 包测试 220 tests / 29 suites PASS；模拟器 lane 85 passed / 0 failed / 3 skipped；`e2e` PASS；`swiftclient` 真实 Swift→HTTP→PG 18/18 PASS。`integration` profile 本轮修复了 `swiftclient` 标签下不导出 `DEVELOPER_DIR` 的脚本缺陷（见 §6 第 8 条）。
+其他入口：新增 F29 用例后补跑 `gate` **PASS**（42 s，Go race/vet/边界）与定向 `integration` **PASS**（1.5 s，隔离 PG）；Swift 包测试 220 tests / 29 suites PASS；模拟器 lane 85 passed / 0 failed / 3 skipped；`e2e` PASS；`swiftclient` 真实 Swift→HTTP→PG 18/18 PASS。`integration` profile 本轮修复了 `swiftclient` 标签下不导出 `DEVELOPER_DIR` 的脚本缺陷（见 §6 第 8 条）。
 
 ### 8.2 未执行 / 未验证项
 
 | 项 | 状态 | 说明 |
 | --- | --- | --- |
-| R2-P03/P04/P05 真机时延（Release、iPhone 12 Pro Max 同档、稳定 LAN、本机后端） | **NOT RUN** | 本会话无真机授权 |
-| R2-P06 无变化重复 S60、R2-P07 已备原包恢复（真机） | **NOT RUN** | 同上 |
-| R2-P12 iOS 峰值 RSS（S60/S60H≤256 MiB、S240≤450 MiB） | **NOT RUN** | 同上；模拟器 RSS 不可用于归因 |
-| R2-P13 API 峰值 RSS ≤512 MiB、UI 响应 P95 | **NOT RUN** | 同上 |
-| R2-P14 默认预算批量（10×S60≤60 s、100×≤360 s） | **NOT RUN** | 需要真机端到端入口 |
-| R2-P02 真机 HK 阶段收益 ≥20% | **NOT VERIFIED** | 合成 fixture 只有 2 个类型有数据，不代表真机 |
-| R2-F03 重启测试 | **PARTIAL** | 旧格式可读已验证，重启未测 |
-| R2-F04 unsupported metadata / native carrier 故障注入（HTTP/PG 侧） | 见 §9 矩阵 | |
+| R2-P05 S120/S240 真机时延 | **NOT RUN** | 设备库无 120/240 分钟记录；108 分钟稀疏记录不足以代签 S120/S240 |
+| R2-P14 100×S60 批量 | **NOT RUN** | 设备仅 51 条 eligible 记录，无法凑出 100 条不重复首导入；10×S60 已由 20 个 S60 样本中的前 10 次求和判定 **FAIL** |
+| R2-P13 真正双上传槽并发 | **PARTIAL** | 单设备只占一个 device slot；两次并发重放得到 `1×200 + 1×429 device_upload_capacity_exceeded`，未形成双槽同时解析/导入 |
+| R2-P12 S240 iOS RSS | **NOT RUN** | 无 240 分钟记录；S60/S60H 已测，见 §8.3 |
 | S240 历史 6 次 503 的确切错误码 | **NOT VERIFIED** | 旧二进制未记响应体；可达路径已用测试钉死 |
 | 写阶段 Go 侧 CPU profile | **NOT RUN** | 生产写阶段 1,519 ms vs 裸地板 585 ms 那 2.4× 差距的下一步诊断 |
 | 自动统计刷新（autovacuum 阈值/导入后 ANALYZE） | **未做** | 涉及迁移决策 |
 | 50k 行用例在 `-race` 下 | **NOT RUN** | 耗时过长；断言已在普通构建覆盖 |
 | RQRun 公平对标、生产部署 | **NOT VERIFIED / NOT RUN** | 本轮默认不做 |
 
-### 真机验收所需范围（一次性说明，未获授权）
+### 8.3 真机复测记录（2026-11-06，USB 连接，已授权执行）
 
-若要签 R2-P03..P07、P12..P14，需要：① 一台**明确授权**的 iPhone 12 Pro Max 同档设备（当前"唐攀的iPhone"配对但 offline）；② 授权在该设备上以 Release 构建运行、读取其**真实 HealthKit 记录**（本轮全程只用合成数据）；③ 稳定的本机 LAN + 本机 API/Worker/PG18 后端；④ 允许在设备上产生真实上传流量。以上任一条未授权时，相关项一律保持 NOT RUN，设备合成数据不代签。
+**设备与口径**：iPhone 12 Pro Max（iPhone13,4），iOS 27.2，USB wired+paired；App 为 Release 构建并仅以 `SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG` 打开验收仪器；本机 API/Worker + 隔离 PG18（`localhost:55434`/`18082`），每次首导入前 `reset` 新建一次性 dataset，手机不写 HealthKit，仅只读真实记录。以下均为同一台设备、同一 LAN、默认预算与 durability；每组样本独立冷启动，取 nearest-rank P50/P95。原始报告只保留时延/计数/RSS 等白名单字段，不含健康值、GPS、Workout UUID 或设备标识；机器可读聚合与复现命令见 `docs/evidence/workout-sync-speed-round2/device/round2-device.md`。
+
+| 项 | 门槛 | 实测 | 结论 |
+| --- | --- | --- | --- |
+| R2-P03 S20–S60（32 分钟 W32-A，n=20，streams=2） | P50≤5 s、P95≤8 s | **P50 8,182.27 ms、P95 11,260.71 ms**（min 7,607.42 / max 11,379.07）；HK 读取 P50 4,995.42 / P95 7,382.12；build 5,422.13；upload 2,732.79 | **FAIL**（P50 1.64×、P95 1.41×） |
+| R2-P04 S60H（58 分钟 W58-A，n=20，streams=2） | P50≤5 s、P95≤8 s | **P50 18,274.23 ms、P95 24,637.76 ms**（min 15,155.59 / max 25,122.66）；HK P50 11,558.97 / P95 17,203.48；RSS max 302.34 MiB | **FAIL**（P50 3.65×、P95 3.08×） |
+| R2-P02 并发 1/2/4（S60H） | 对照，≥20% 收益 | streams=1 P50 17,638.31（n=10）、2 P50 18,274.23（n=20）、4 P50 20,194.13（n=10）；2 比 1 慢 3.6%，4 比 1 慢 14.5% | **PARTIAL：无收益；4 更差** |
+| R2-P05 S120/S240 | P50≤8/15 s、P95≤12/22 s | 无 120/240 分钟记录，未执行 | **NOT RUN** |
+| R2-P06 无变化重复 S60（n=9，`--no-reset`） | P50≤2 s、P95≤4 s；0 新 POST/import/job | 9/9 `workout_sync_skipped_unchanged=1`；App wallMs 347.3–426.7，**P50 368.3 ms、P95 426.7 ms**；API 日志窗口内 **0 次** `POST /v2/sync/workout-bundles`，无导入/分析任务 | **PASS** |
+| R2-P07 已备原包恢复 | HK 查询 0、JSON/hash 一致、gzip 100% | 首次 503 拒绝：wire **483,260 B**（bundle 4,330,151 B，比例 11.2%）；恢复启动 **2,907.97 ms**，receipt 校验通过，前后 bundleSHA256 均为 `7cffa820…`；DB 仅 1 次 import、5,464 samples、1,768 routes | **PASS**（行为证据；`healthkit_read_ms` 保留失败前旧值 5,090.02 ms，说明恢复未覆盖/未读 HK，但无显式零计数器） |
+| R2-P11 gzip 压缩时延 | 成功 100%、P50≤200 ms | S60 gzip_ms P50 **39.81 ms**、S60H **94.5 ms**（max 138.13）；全部 bundle POST 单 gzip file part，明文 fallback 0 | **PASS** |
+| R2-P12 iOS 峰值 RSS | S60/S60H≤256 MiB；S240≤450 MiB | S60 max **206.5 MiB**（median 198.6）；S60H max **302.34 MiB**（s1 297.81、s4 291.61）；S240 未测 | **FAIL**（S60 PASS、S60H FAIL、S240 NOT RUN） |
+| R2-P13 API/UI | API 峰值≤512 MiB；UI P95≤100 ms、无>250 ms | 单槽 S60H 上传：baseline ≈10.5 MiB、peak **104.8 MiB**（311×50 ms）；设备主线程 max stall 1.1–6.6 ms（S60H）/4 ms（S60），>250 ms 0 次；双槽重放未形成（1×200+1×429） | **PARTIAL**（单槽余量 4.9×；双槽未证实） |
+| R2-P14 10×S60 / 100×S60 | ≤60 s / ≤360 s | 前 10 次 S60 首导入求和 **80,219.01 ms**（P50 8,062.18）；100 次未执行 | **10× FAIL；100× NOT RUN** |
+
+**解释与限制**：
+- 时延构成仍是 HealthKit 读取主导：S60 的 workout_sync P50 8.18 s 中 HK 读取 5.00 s、upload 2.73 s；S60H 18.27 s 中 HK 读取 11.56 s、upload 约 5.05 s。归档调用已为 0，剩余成本主要是真实 HK 分页读取 + 服务端导入/上传，不是旧的逐样本归档。
+- S60H 的 n=20 由 `s60h-s2` 15 次 + USB 短暂断连后补测 `s60h-s2b` 5 次合并；断连后连接属性仍为 wired/paired，未重建 App。合并样本含 2 次 24.6/25.1 s 热漂移尾部。
+- 所有档位按 1→2→4 顺序测量，设备后段整体变慢，存在热漂移/顺序混杂；但 P03/P04 的中位数已大幅超过门槛，不能用热漂移解释为"接近达标"。
+- P06 的 `timings.workout_sync_ms/healthkit_read_ms` 是首次真实同步遗留的持久 metrics，skip 路径不覆盖；因此 P06 用 report `wallMs`（App 启动→完成）作为用户等待代理，并另以 API 日志确认 0 POST。
+- P07 的恢复证明"已备原包不重新采集、不重新压缩、上传同一 identity"；但缺少一个显式 `healthkit_query_count=0` 字段，故只能以时延/旧值未变/hash 一致作行为证据。
+- 所有真机样本均为真实只读 Workout；未产生室内跑或 240 分钟记录，S120/S240 无法用现有库签核。
 
 ---
 
@@ -329,8 +346,8 @@ S240 历史 6 次 503 的**确切错误码 NOT VERIFIED**（旧二进制未记�
 | --- | --- | --- |
 | R2-F01 正常样本发现→组包，归档调用为 0 | **PASS** | `NormalizedCaptureTests`(4) + `NormalizedCaptureSegmentTests`(7)：`sample_archive_calls=0`/`sample_unarchive_calls=0`（timings + `SampleArchiveMeter` 双口径，旧路径对照 14,000 次）；组包直接消费规范化 fact，无"整页数组一次归档"绕过 |
 | R2-F02 新旧捕获同源 | **PASS** | bundle samples 与 `Normalizer.integrityEvent` **逐字节相等**；identityHash 与旧路径一致；canonical bytes 稳定 |
-| R2-F03 旧 archive/旧 segment/新格式混合 | **PARTIAL** | 旧 archive 段、旧 seal、旧 pending 均可读（format 1..2），未改旧 pending hash/回执、未全历史重采；**重启测试未做** |
-| R2-F04 unsupported metadata / native carrier | **PARTIAL** | App+包侧 PASS：`testBlockedWorkoutMetadataDiagnosticsRedactKeysAndValues`、`testMetadataIsExplicitAllowlist`、`testDeviceIdentifiersAndUnreviewedMetadataStayLocal`、`testR2FutureMetadataStillRetainsOriginalBlockedArchive`、`testR2OldBlockedNativeArchiveReopensWithoutHealthQueryOrEarlyAnchor`、`testIncompatibleUnitRefused`、`WorkoutSourcePolicyTests`、`WorkoutMetadataRegistryTests`；**HTTP/PG 侧 NOT RUN** |
+| R2-F03 旧 archive/旧 segment/新格式混合 | **PASS** | 旧 archive 段、旧 seal、旧 pending 均可读（format 1..2），未改旧 pending hash/回执；重启级用例 `mixedLegacyArchiveAndSegmentFactsRecoverAfterRestart` PASS |
+| R2-F04 unsupported metadata / native carrier | **PASS（服务端范围）** | App+包侧既有用例 PASS；HTTP/PG 侧新增执行 `TestPhase3ObservationStrictSourceCoverageAndPrivacy`、`TestPhase3HeartRateSampleMetadataAllowlist`（unit）与 `TestPhase3MetadataProvenanceCoverageAppendHistoryAndImmutableCore`（integration，1.6 s，隔离 PG）均 PASS；native carrier 仍属 App 侧，未在 HTTP/PG 复现 |
 | R2-F05 批次截断 / seal / 引用发布失败 | **PASS**（既有覆盖） | `CaptureSegmentsTests`、`GarbageCollectionTests`(3)、`WorkoutCompletenessTests.payloadCorruptionAndStatePublishFailurePreserveAuthority` |
 | R2-F06 ACK 丢失 / 本地 ACK 保存失败 | **PASS** | `TestWorkoutReliabilitySwiftClientPostgres` **18/18**（lost_ack / corrupt_ack / duplicate_post / two_workers / before_send / during_send / before_commit_timeout / commit_404 / validation_missing / rate_limit / 500 / 502 / 503 / auth_refresh / tombstone / phase3_observation / phase3_child_delete / phase3_deleted_parent）+ `WorkoutReliabilityTests`(4) |
 | R2-F07 捕获中后到 sample / 子删除 | **PASS** | `CaptureAckBoundaryTests`(3，含 pre-fix 复证) + 服务端 `phase3_child_delete`/`phase3_deleted_parent` |
@@ -355,7 +372,7 @@ S240 历史 6 次 503 的**确切错误码 NOT VERIFIED**（旧二进制未记�
 | R2-F26 custom/generic plan、冷/热连接 | **PASS** | `TestWorkoutWriteStrategyPlanModes` |
 | R2-F27 严格 JSON 全部拒绝矩阵 | **PASS** | `TestStrictWorkoutBundleJSONRejectionMatrix` + `SemanticRules`（18 条） |
 | R2-F28 来源过滤与既有删除 | **PASS** | `SourcePolicyGateTests`(4)、`NormalizerTests.{testR3SourcePolicyV2ExcludedInventoryIsEvidenced, testNewSessionNilAnchorReimportsVisibleHKWorkoutAfterOldDeletion}` |
-| R2-F29 缺 HR / 室内无路线 / 无功率 | **PARTIAL** | 室内/allowlist：`testMetadataIsExplicitAllowlist`、`testInspectedWorkoutMetadataQuantitiesArePreserved`；功率：`testPowerRemainsWatts`；**"workout 完全没有心率样本 → no_records_observed" 无既有用例 → NOT RUN**（未临时拼测试） |
+| R2-F29 缺 HR / 室内无路线 / 无功率 | **PASS** | 室内/allowlist 与功率既有用例 PASS；新增 `TestWorkoutCompletenessHeartRateAbsentIsCoveredNotFailed`：仅 distance 样本、HR 覆盖为 `no_records_observed` 的 workout 能导入并通过 completeness（隔离 PG，1.5 s）；无 240 分钟/室内真实记录仍限制真机覆盖 |
 | R2-F30 无变化 / 迟到变化 / 每日健康流 | **PASS** | `WorkoutSyncReuseTests`(3) + `DailyHealthTests`(7) |
 | R2-F31 v2 证明两代、丢 ACK、中断续跑 | **PASS** | `scripts/local/test.sh e2e` → `TestWorkoutCompletenessSimulatorHTTPPostgres` 45.79 s，`LOCAL CHECKS: PASS profile=e2e` |
 | R2-F32 性能入口与构建口径 | **PASS**（口径）/ 数字另记 | `syncperf` 断言无 `-race`/`-N`/`-l`、打印有效 flags、`SYNCPERF_MACHINE` 记录独占性；race 与普通构建口径可辨；性能数字见 §9.2（FAIL） |
@@ -367,31 +384,31 @@ S240 历史 6 次 503 的**确切错误码 NOT VERIFIED**（旧二进制未记�
 | 项 | 结论 | 实测 |
 | --- | --- | --- |
 | R2-P01 规范化+持久化阶段降幅 ≥70% | **FAIL** | 1,530.05 → 1,115.62 ms（**−27.09%**，优化构建，N=2,000，7 次 P50）；该段结构性上限 ~35% |
-| R2-P02 并发 1/2/4 | **PARTIAL** | 结果一致 PASS；资源门槛无真机 → NOT VERIFIED |
-| R2-P03 S20–S60 真机首等 | **NOT RUN** | 无真机授权 |
-| R2-P04 S60H 真机 | **NOT RUN** | 同上 |
-| R2-P05 S120/S240 真机 | **NOT RUN** | 同上 |
-| R2-P06 无变化重复 S60 | **NOT RUN** | 同上（合成侧由 `WorkoutSyncReuseTests` 覆盖行为，非时延） |
-| R2-P07 已备原包恢复（真机时延） | **NOT RUN** | 行为侧 PASS（0 次 HK 读取），时延未测 |
+| R2-P02 并发 1/2/4 | **PARTIAL** | 真机 S60H：1 流 P50 17,638.31 ms、2 流 18,274.23 ms、4 流 20,194.13 ms；2 比 1 慢 3.6%，4 比 1 慢 14.5%，无 ≥20% 收益；一致性/取消/背压 PASS |
+| R2-P03 S20–S60 真机首等 | **FAIL** | S60 n=20：P50 **8,182.27 ms**（目标≤5 s）、P95 **11,260.71 ms**（目标≤8 s） |
+| R2-P04 S60H 真机 | **FAIL** | S60H n=20：P50 **18,274.23 ms**（目标≤5 s）、P95 **24,637.76 ms**（目标≤8 s） |
+| R2-P05 S120/S240 真机 | **NOT RUN** | 设备无 120/240 分钟记录；108 分钟稀疏记录不足以代签 |
+| R2-P06 无变化重复 S60 | **PASS** | 9/9 skip；wallMs P50 **368.3 ms**、P95 **426.7 ms**（≤2/4 s）；API 窗口 0 bundle POST、0 import/job |
+| R2-P07 已备原包恢复（真机时延） | **PASS** | 首次 503 拒绝后恢复 **2,907.97 ms**；wire 483,260 B / bundle 4,330,151 B（11.2% gzip）；前后 hash 一致；DB 仅 1 次 import；HK 未重读（旧 healthkit_read_ms 未覆盖，无显式 0） |
 | R2-P08 普通构建 S60 P95≤1 s | **FAIL** | **4,758.8 ms**（P50 2,796.7，n=30，0 失败），4.8× 超门槛；裸 PG 地板 585 ms + 其他分段已 ≥1.16 s |
 | R2-P09 普通构建 S240 P95≤4 s | **FAIL** | **19,722.3 ms**（P50 12,035.0，n=30，0 失败），4.9×；裸 PG 地板 2,442 ms + 其他分段 ≈4.4 s |
 | R2-P10 SQL 候选 | **PARTIAL** | 10a 不回退 **PASS**（写合计 1,671.9→1,519.3 ms，P95 3,779.7→3,039.5）；10b 下降 ≥30% **FAIL**（−9.1%）；三候选对照与 COPY 受限角色阻断证据齐备 |
 | R2-P11 gzip 策略 | **PASS** | 成功 POST gzip 比例 100%（`bundle_gzip_post_success`）、明文 fallback 恒 0、已备原包重试 HK 读取恒 0 |
-| R2-P12 iOS 峰值 RSS | **NOT RUN** | 无真机；唯一 RSS 数字是 macOS 测试进程峰值（用例自标 `not iPhone`），**不可当设备 RSS** |
-| R2-P13 API/UI | **NOT RUN** | 无真机/无 UI 手势测量 |
-| R2-P14 默认预算批量 | **NOT RUN** | 需要真机端到端入口 |
+| R2-P12 iOS 峰值 RSS | **FAIL** | S60 max **206.5 MiB** PASS；S60H max **302.34 MiB** >256 MiB FAIL；S240 NOT RUN |
+| R2-P13 API/UI | **PARTIAL** | 单槽 API peak **104.8 MiB**（≤512，余量 4.9×）；主线程 max stall 1.1/4 ms，>250 ms 0 次；双槽并发未形成（1×200+1×429） |
+| R2-P14 默认预算批量 | **FAIL（10×）/ NOT RUN（100×）** | 前 10 次 S60 首导入合计 **80,219.01 ms** > 60 s；100 条未执行 |
 
 ### 9.3 最终签核
 
 | 签核 | 结论 | 依据 |
 | --- | --- | --- |
-| NORMALIZED CAPTURE | **PASS** | archiver/unarchiver = 0；无损（逐字节对拍）；旧 archive/旧 segment/旧 pending 兼容；恢复路径由 F06/F07 覆盖。附注：**重启级**旧格式混合测试未做（F03 PARTIAL） |
-| BOUNDED CONCURRENCY | **PASS** | 1/2/4 实测（peak active 1/2/4）、结果与完成顺序无关、背压/取消/槽无泄漏、默认 2 有依据；**实机收益 NOT VERIFIED** |
+| NORMALIZED CAPTURE | **PASS** | archiver/unarchiver = 0；无损（逐字节对拍）；旧 archive/旧 segment/旧 pending 兼容；重启级混合格式用例 PASS（F03）；恢复路径由 F06/F07 覆盖 |
+| BOUNDED CONCURRENCY | **PARTIAL** | 合成 1/2/4 一致性 PASS；真机 2 流比 1 流慢 3.6%、4 流慢 14.5%，**无收益**；默认 2 的收益依据不成立，保留待调 |
 | GZIP ONLY CLIENT | **PASS** | 所有 bundle POST 为单 gzip file part；异常路径 0 明文回退；旧 pending 不改 identity；服务器旧 plain 兼容 |
 | SET BASED IMPORT | **PASS** | 集合 SQL（arrays）+ 三候选对照 + 受限角色证据 + 同事务/删除/幂等/冲突回归；COPY **未采用**（更慢且被 TEMP 权限阻断） |
-| FUNCTIONAL SAFETY | **PARTIAL** | R2-F01–F32 中 28 项 PASS、3 项 PARTIAL（F03/F04/F29）、0 项 FAIL；**存在 PARTIAL，不能签全通过** |
-| PERFORMANCE | **FAIL** | R2-P01/P08/P09/P10b 未达目标（有证据，已证明属物理下限级别）；P11 PASS；真机 P03–P07/P12–P14 NOT RUN |
-| REAL HEALTHKIT | **NOT RUN** | 本会话无设备授权；合成/模拟器数据不代签真实 HK 并发收益与端到端 |
+| FUNCTIONAL SAFETY | **PASS（有真机覆盖限制）** | R2-F03/F04（服务端）/F29 已补测 PASS；F01–F32 无 FAIL；S120/S240/室内/无功率的真机覆盖仍缺失，见 §8.2 |
+| PERFORMANCE | **FAIL** | R2-P01/P03/P04/P08/P09/P10b/P12/P14(10×) 未达目标；P06/P07/P11 PASS；P13 与 P02 PARTIAL；P05/P14(100×) NOT RUN |
+| REAL HEALTHKIT | **已执行（未通过时延）** | iPhone 12 Pro Max Release 真机、真实只读 Workout、本机后端；端到端路径可用，但 P03/P04 时延与 S60H RSS 未达标 |
 | RQRUN / DEPLOYMENT | **NOT VERIFIED / NOT RUN** | 本轮未做公平对标、未部署、未切换入口、未迁移数据 |
 
 
@@ -399,6 +416,6 @@ S240 历史 6 次 503 的**确切错误码 NOT VERIFIED**（旧二进制未记�
 
 ## 10. 本轮文档工作声明
 
-- 未读取新的真实健康数据，未记录任何健康值/凭证，未部署，未切换旧入口，未迁移或清理真实状态，未 commit / push。
+- 真机阶段仅在本机已授权设备上**只读**真实 HealthKit 记录用于性能测量；未记录、导出或提交任何健康值、GPS、Workout UUID 或设备标识，未部署，未切换旧入口，未迁移或清理真实状态，未 commit / push。
 - 所有测试均在本机执行；PG 使用 `mktemp` 一次性 cluster，跑完 `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`。
 - 第一轮结果与原方案原文未修改；本文件只记录本轮校准后的解释，历史 FAIL 全部保留。

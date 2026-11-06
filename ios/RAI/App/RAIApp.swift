@@ -99,7 +99,13 @@ final class SyncModel {
             let directory = try ClientConfiguration.sessionRoot().appendingPathComponent("local-acceptance-" + namespace.uuidString.lowercased())
             let store = try OutboxStore(directory: directory)
             let transfers = BackgroundTransfers(directory: directory, identifier: "com.rai.v2.local-acceptance." + namespace.uuidString.lowercased())
-            let health = HealthKitClient(), coordinator = SyncCoordinator(store: store, health: health)
+            let health = HealthKitClient()
+            // Acceptance-only bounded-concurrency selector (1/2/4) so the real
+            // device can compare the same Workout under each policy. Absent or
+            // out-of-range values keep the product default.
+            let requestedStreams = Int(config["captureConcurrency"].integer ?? 0)
+            let captureStreams = (1...4).contains(requestedStreams) ? requestedStreams : CaptureConcurrencyPolicy.standard.streams
+            let coordinator = SyncCoordinator(store: store, health: health, captureConcurrency: captureStreams)
             try checkpoint("read_authorization")
             try await health.authorize()
             let watchdog = MainThreadWatchdog()

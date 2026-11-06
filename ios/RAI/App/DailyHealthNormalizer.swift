@@ -70,7 +70,12 @@ actor DailyDeviceDiagnostics {
                 case .dns(let value): fields["dnsCode"] = .int(Int64(value))
                 case .posix(let value): fields["posixCode"] = .int(Int64(value.rawValue))
                 case .tls(let value): fields["tlsCode"] = .int(Int64(value))
-                @unknown default: break
+                default:
+                    // NWError gained .wifiAware in the iOS 26 SDK; the app
+                    // still deploys to iOS 18, so match it only when present.
+                    if #available(iOS 26.0, *), case .wifiAware(let value) = error {
+                        fields["wifiAwareCode"] = .int(Int64(value))
+                    }
                 }
             }
             let record = fields

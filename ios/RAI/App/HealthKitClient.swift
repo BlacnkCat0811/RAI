@@ -595,7 +595,7 @@ enum WorkoutInspection {
             "bundleClass": .string(bundleClass), "productClass": .string(productClass),
             "manufacturerClass": .string(manufacturer.map { ["Apple", "Apple Inc."].contains($0) ? "apple" : "other" } ?? "absent"),
             "modelClass": .string(model.map { $0.lowercased().contains("watch") ? "watch" : "other" } ?? "absent"),
-            "hasDevice": .bool(source["device"] != nil), "hasVersion": .bool(source["version"].text != nil),
+            "hasDevice": .bool(source["device"] != .null), "hasVersion": .bool(source["version"].text != nil),
             "activityCount": .int(Int64(workout.workoutActivities.count))])
     }
     /// Local protected inspection only. Raw key names are written to a file
@@ -846,7 +846,7 @@ enum Normalizer {
     /// callers that already built the event and source. Keeps the discovery
     /// identity byte-identical while avoiding a second JSON construction.
     static func discoveryFingerprint(event: JSON, source: JSON) throws -> String {
-        try Wire.hash(try JSON.object(["fact": event, "source": source]).data())
+        Wire.hash(try JSON.object(["fact": event, "source": source]).data())
     }
 
     static func discoveryFingerprint(_ sample: HKSample) throws -> String {
