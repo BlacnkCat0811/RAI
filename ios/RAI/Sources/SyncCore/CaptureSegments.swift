@@ -6,28 +6,50 @@ import CryptoKit
 // A segment is one immutable, self-describing Outbox file holding many captured
 // HealthKit objects instead of one small file per sample. Its layout is:
 //
-//   frame  := uint32 BE headerLength | header JSON | archive bytes
+//   frame  := uint32 BE headerLength | header JSON | payload bytes
 //   seal   := seal JSON | uint32 BE sealLength
-//   seal JSON := {"byteLength":B,"format":1,"recordCount":N,"sha256":"<hex>"}
+//   seal JSON := {"byteLength":B,"format":2,"recordCount":N,"sha256":"<hex>"}
+//
+// A payload is either the exact NSKeyedArchiver output of one HealthKit object
+// (header key `encoding` absent, format 1 segments) or the canonical JSON bytes
+// of one `NormalizedFact` (header `"encoding":"normalized"`, format 2). Both are
+// immutable, self-verifying and read back through the same frame parser; a
+// reader accepts either format so an upgraded build keeps every older segment.
 //
 // `sha256` covers exactly the frame region `[0, B)`; the seal trailer is not
 // part of its own digest. A file without a readable trailer is not sealed and
 // can never be referenced by a committed fact, so a crash during capture or
 // during sealing leaves an unreferenced orphan rather than a partial fact.
 //
-// Nothing here re-encodes an archive: the stored bytes are the exact
+// Nothing here re-encodes a payload: an archive record stores the exact
 // NSKeyedArchiver output, so a fact keeps the same identity hash and the same
 // `DiscoveryEvent.id` whether it is referenced as an old `archiveFile` or as a
-// segment record.
+// segment record. A normalized record stores the canonical JSON of the fact
+// itself, which is what the bundle is assembled from — no archive is produced
+// or consumed on that path at all.
+
+/// How a captured record's bytes are to be interpreted.
+public enum CaptureRecordEncoding: String, Sendable, Equatable, Codable {
+    /// Exact `NSKeyedArchiver` output of one HealthKit object (format 1).
+    case archive
+    /// Canonical JSON bytes of one `NormalizedFact` (format 2).
+    case normalized
+}
 
 /// One captured object on its way into a segment.
 public struct CapturedFact: Sendable, Equatable {
     public let type: String
     public let uuid: String
+    /// The record payload. Named `archive` for source compatibility with the
+    /// archive-only format; read `payload` to avoid implying a serialization.
     public let archive: Data
     public let identityHash: String?
-    public init(type: String, uuid: String, archive: Data, identityHash: String? = nil) {
+    public let encoding: CaptureRecordEncoding
+    public var payload: Data { archive }
+    public init(type: String, uuid: String, archive: Data, identityHash: String? = nil,
+                encoding: CaptureRecordEncoding = .archive) {
         self.type = type; self.uuid = uuid; self.archive = archive; self.identityHash = identityHash
+        self.encoding = encoding
     }
 }
 
@@ -74,7 +96,10 @@ public struct CaptureSegmentSeal: Codable, Sendable, Equatable {
 public enum CaptureSegmentFormat {
     public static let suffix = ".capture-segment"
     public static let temporarySuffix = ".capture-segment.tmp"
-    public static let version: Int64 = 1
+    /// Format written by this build. Readers accept every format in
+    /// `readableFormats`, so a v1 segment stays readable after an upgrade.
+    public static let version: Int64 = 2
+    static let readableFormats: ClosedRange<Int64> = 1...2
     static let maximumHeaderBytes = 1 << 20
     static let maximumSealBytes = 1 << 16
 }
@@ -138,6 +163,8 @@ public final class CaptureSegmentWriter: @unchecked Sendable {
             ("type", .string(fact.type)), ("uuid", .string(fact.uuid)),
         ]
         if let identityHash = fact.identityHash { fields.append(("identityHash", .string(identityHash))) }
+        // Absent means archive, so a format 1 header keeps its exact bytes.
+        if fact.encoding != .archive { fields.append(("encoding", .string(fact.encoding.rawValue))) }
         let header = try Wire.object(fields)
         guard header.count <= CaptureSegmentFormat.maximumHeaderBytes else { throw SyncFailure.invalid("capture_segment_header_too_large") }
         var frame = Data()
@@ -223,6 +250,7 @@ struct CaptureSegmentRecord: Sendable, Equatable {
     let archiveSHA256: String
     let archive: Data
     let identityHash: String?
+    let encoding: CaptureRecordEncoding
 }
 
 /// Outcome of one batch capture. `events` always reference durable bytes: an
@@ -312,7 +340,7 @@ extension OutboxStore {
             if discovery.events[event.id] == nil {
                 var work = discovery.work[parent] ?? DiscoveryWork(); work.generation += 1
                 work.error = nil; work.nextAttemptAt = nil; work.attempt = 0
-                event.generation = work.generation
+                event.generation = work.generation; event.ordinal = discovery.nextOrdinal()
                 discovery.work[parent] = work; event.status = "pending"; discovery.events[event.id] = event
                 published.append(event.id)
             }
@@ -320,6 +348,52 @@ extension OutboxStore {
         next.discovery = discovery; try commit(next)
         return published
     }
+    /// Capture normalized facts into one sealed segment (format 2 records).
+    ///
+    /// This is the capture entry point the bundle path uses: the fact is
+    /// already the shape the bundle needs, so nothing is serialized per sample.
+    @discardableResult
+    public func captureNormalizedFacts(type: String, workoutID: String?, facts: [NormalizedFact],
+                                       publish: Bool = true,
+                                       policy: CaptureSegmentPolicy = .standard) throws -> CaptureSegmentResult {
+        guard facts.allSatisfy({ $0.type == type }) else { throw SyncFailure.localState("discovery_type_mismatch") }
+        guard facts.allSatisfy({ !$0.deleted }) else { throw SyncFailure.localState("deleted_fact_requires_tombstone") }
+        var records: [CapturedFact] = []
+        records.reserveCapacity(facts.count)
+        for fact in facts {
+            records.append(CapturedFact(type: fact.type, uuid: fact.uuid, archive: try fact.encoded(),
+                                        identityHash: fact.identityHash, encoding: .normalized))
+        }
+        return try captureFactSegment(type: type, workoutID: workoutID, records: records,
+                                      publish: publish, policy: policy)
+    }
+
+    /// The normalized fact behind one committed event, when it is stored as a
+    /// format 2 record.
+    ///
+    /// Nil means the event carries an archive instead (a format 1 segment or a
+    /// legacy single file); the caller may still read that through
+    /// `discoveryArchiveBytes`. A corrupt or mismatched record throws rather
+    /// than returning nil, so a damaged fact is never silently skipped.
+    public func discoveryNormalizedFact(_ event: DiscoveryEvent) throws -> NormalizedFact? {
+        guard let file = event.segmentFile, let offset = event.segmentOffset, let length = event.segmentLength else {
+            return nil
+        }
+        let record = try readCaptureSegmentRecord(file: file, offset: offset, length: length)
+        guard record.type == event.type, record.uuid == event.uuid else {
+            throw SyncFailure.localState("corrupt_discovery_archive")
+        }
+        if let digest = event.archiveSHA256, digest != record.archiveSHA256 {
+            throw SyncFailure.localState("corrupt_discovery_archive")
+        }
+        guard record.encoding == .normalized else { return nil }
+        let fact = try NormalizedFact.decode(record.archive)
+        guard fact.type == event.type, fact.uuid == event.uuid else {
+            throw SyncFailure.localState("corrupt_normalized_fact")
+        }
+        return fact
+    }
+
     /// Segment half of `verifyDiscoveryArchive`. The old `archiveFile` path keeps
     /// its original logic, so legacy and segment facts can be mixed freely.
     func verifyCaptureSegmentRecord(_ event: DiscoveryEvent) throws {
@@ -423,7 +497,8 @@ extension OutboxStore {
             throw SyncFailure.localState("corrupt_discovery_archive")
         }
         let seal = try decodeSegmentJSON(sealBytes)
-        guard seal["format"].integer == CaptureSegmentFormat.version, let byteLength = seal["byteLength"].integer,
+        guard let format = seal["format"].integer, CaptureSegmentFormat.readableFormats.contains(format),
+              let byteLength = seal["byteLength"].integer,
               let recordCount = seal["recordCount"].integer, let digest = seal["sha256"].text,
               byteLength >= 0, recordCount >= 0, byteLength == fileSize - 4 - sealLength else {
             throw SyncFailure.localState("corrupt_discovery_archive")
@@ -464,7 +539,9 @@ extension OutboxStore {
             throw SyncFailure.localState("corrupt_discovery_archive")
         }
         guard Wire.hash(archive) == digest else { throw SyncFailure.localState("corrupt_discovery_archive") }
-        return CaptureSegmentRecord(type: type, uuid: uuid, archiveSHA256: digest, archive: archive, identityHash: header["identityHash"].text)
+        let encoding = header["encoding"].text.flatMap(CaptureRecordEncoding.init(rawValue:)) ?? .archive
+        return CaptureSegmentRecord(type: type, uuid: uuid, archiveSHA256: digest, archive: archive,
+                                    identityHash: header["identityHash"].text, encoding: encoding)
     }
     private static func decodeSegmentJSON(_ data: Data) throws -> JSON {
         do { return try JSON.decode(data) } catch { throw SyncFailure.localState("corrupt_discovery_archive") }

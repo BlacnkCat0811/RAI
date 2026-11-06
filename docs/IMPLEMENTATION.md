@@ -995,3 +995,31 @@ NOT RUN / NOT VERIFIED：iPhone 真机口径的 P01–P03/P10/P12、P08/P09 批�
 - 来源过滤真机清单：4 页扫描 100 条，51 合格 / 49 排除 / 0 未分类，191ms。
 - 完整性 v2 真机尝试未完成：运行 15 分钟后进程被系统终止，已导入 10 条记录，`workout_sync_completeness` 仍为 0 行（未伪造 receipt）→ NOT COMPLETED。
 - 未执行：P02（无 S120 密度记录）、P03（无 240 分钟记录）、P08/P09 批量端到端、API 进程 RSS、部署、RQRun 公平对标。
+
+## Workout 同步提速第二轮计划与 Codex 执行提示词（2026-11-06，仅文档）
+
+按用户要求新增 [第二轮完整计划与验收条件](WORKOUT_SYNC_SPEED_ROUND2_PLAN.md) 和 [可直接交给 Codex 的执行提示词](WORKOUT_SYNC_SPEED_ROUND2_CODEX_PROMPT.md)。入口为 `main / 0303236`，工作区干净。第一轮计划、结果和原架构方案保留原文，不把本轮设计当已实现。
+
+第二轮明确四项要求：正常受支持样本的归档/还原调用为零（规范化持久捕获，保留必要anchor/根对象及旧格式兼容）；HealthKit 独立类型查询按1/2/4有界并发对照，单写者、字节背压、取消和capture/ACK边界；新版客户端WorkoutBundle POST强制gzip、失败/超限不回退明文、旧pending身份不变、服务器保留旧plain兼容；现有集合SQL之上实测VALUES/数组/COPY-staging候选并保持受限角色和同事务保证。计划包含R0–R6七阶段、32项R2-F功能/故障验收、14项R2-P性能/资源门槛、回退与证据交付要求。
+
+测速先分离普通构建与race：当前`integration`入口默认`-race`，第一轮对应handler内数字保留为历史诊断，第二轮须新增普通构建真实TCP HTTP/认证/准入/PG口径；不得降低race正确性门禁、扩大默认预算或删除慢/失败样本。S60H仅为合成密集结构，不复制真实值。真实HealthKit并发收益、真实端到端和RQRun公平对标各自单列未验证项。
+
+本轮仅写两份MD并追加本节。文档链接、围栏、示例shell语法、编号完整/唯一检查PASS；入口1193个既有tracked文件已核对，除本文件追加外内容保持不变。本机`scripts/local/test.sh gate` PASS（11s，Go race单测使用缓存，vet、258包依赖边界、控制器安全4例通过）；`git diff --check` PASS。第二轮R0–R6代码、并发/格式/gzip-only/SQL新方案、真实隔离PG新方案集成及新性能/真机验收均为NOT STARTED或NOT RUN；不据门禁宣称本轮提速达成。无新真实健康数据读取、生产数据库访问、部署、状态清理、真实数据迁移或commit/push。
+
+## Workout 同步提速第二轮 — 实施结果（2026-11-06）
+
+按 [第二轮计划](WORKOUT_SYNC_SPEED_ROUND2_PLAN.md) 与 [Codex 执行提示词](WORKOUT_SYNC_SPEED_ROUND2_CODEX_PROMPT.md) 完成真机之外的全部实现与实测；逐项结果、分段数字与签核矩阵见 [第二轮实施结果](WORKOUT_SYNC_SPEED_ROUND2_RESULT.md)，原始证据与复现命令见 `docs/evidence/workout-sync-speed-round2/`（README 索引、服务端 10 份日志与 4 份说明、iOS 捕获 4 份、传输 1 份、lead 的 `full` 门禁日志）。工作树基于 `main / 0303236` 的既有未提交改动之上，未 reset/clean/覆盖历史；无 commit/push、无部署、无真实数据迁移、未切换旧入口、未读取生产数据库。
+
+捕获侧（R1–R3）：新增不可变 `CaptureManifest`（`coveredEventIDs` + `deletionEventIDs`，cursor 仅作证据）与每事件 ordinal，ACK 只确认本包真实覆盖的身份，`isAlreadyDelivered` 增加第二重守卫。这修掉两个**真实缺陷**（pre-fix 用当前测试 + `manifest: nil` 复证）：捕获中迟到的 sample 被 ACK 确认后水位照常前进、第二遍 `uploads == 0` 造成样本永久丢失；捕获中的子删除被 ACK 确认后服务端样本复活。父删除本已由 `claimBundle` 的 `pendingDelete != true` 守卫挡住，仅纳入回归。新增 `NormalizedWorkoutCapture` 与 segment format v2（`encoding:"normalized"`，format 1..2 均可读），正常路径 `sample_archive_calls=0`/`sample_unarchive_calls=0`（timings 与 `SampleArchiveMeter` 双口径，旧路径对照 14,000 次），bundle 与 `Normalizer.integrityEvent` 逐字节相等。新增 `CaptureConcurrency`（2 流/2 MiB 字节背压的 `CaptureGate` + 单写者 `CaptureWriter`），`performSync` 改为 `withThrowingTaskGroup` 并发并按固定顺序合并，实测 peak active `[1:1, 2:2, 4:4]`、peak 队列字节 1,572/1,572/2,370 B、墙钟 87.69/58.04/63.57 ms，默认取 2。**未做**：真实 HealthKit 并发收益、真机 RSS、route 流按字节预留。
+
+传输侧（R4）：删除"压缩后 > 8 MiB 回退明文"的分支，`WorkoutBundleDelivery.deliver` 现在只有"复用已封存 gzip（校验 hash 与 gzip file part）"或"从本地权威原包重新派生 gzip"两条路径，原 multipart 永不上传；新增 `BundleGzipCapability`/`HandshakeCapabilities`，服务端握手未声明 `bundleGzipPart` 时以 `bundle_gzip_unsupported`(422) 明确失败并保留任务，而不是发明端点或发明明文。计数器 `bundle_plain_fallback`/`bundle_healthkit_reread` 每次尝试恒 0，`bundle_gzip_post_success` 覆盖全部成功 POST。
+
+服务端（R0/R5）：新增 `scripts/local/test.sh syncperf` 普通构建入口（逐 token 过滤 GOFLAGS 的 `-race`/`-N`/`-l`、用 `go version -m` 断言、真实 loopback TCP → 认证/准入 → 真实 handler → 真实隔离 PG18、记录独占性与写策略），并把 `bundle_decode.go` 的两遍反射扫描改为单遍 + schema 缓存，普通构建解码 103.8/263.1/409.0 ms（第一轮的 1,649.6 ms 是 race 放大 ~14×）。写入新增 `bundle_writes.go` 的固定形状 unnest 数组候选，与 VALUES、COPY→staging 同入口 A/B：三候选 projection digest 完全一致，arrays 写合计 1,519.3 ms（values 1,671.9、copy 1,733.2）故采用 arrays；COPY 在受限 API 角色下 `permission denied to create temporary tables`（TEMP 已 REVOKE），**未采用**且如实记录所需权限。dataset 行锁、fencing、父子 tombstone、身份/关联冲突、append-only enrichment、原始事实+日志+dirty/job+回执同事务均未改动，未加 `ON CONFLICT DO NOTHING`、未扩池/槽/预算、未关 durability、未抬超时。
+
+性能实测（普通构建真实 TCP→PG，n=30，0 失败，nearest-rank P95）：S60 P50 2,796.7 / P95 **4,758.8 ms**；S60H 4,277.9 / **5,753.4 ms**；S240 12,035.0 / **19,722.3 ms**。→ **R2-P08 FAIL**（4.8×）、**R2-P09 FAIL**（4.9×）、**R2-P10a PASS**（写阶段不回退）、**R2-P10b FAIL**（−9.1%）。长尾已归因并有证据：每行 WAL ≈ 922 B、S240 单次导入 WAL 峰值 379 MB/53,406 FPI/`ckpt_sync` 6,125 ms、`identity_checks` 长尾是 autoanalyze 统计陈旧（`TestIdentityCheckScaling` 证明计划本身稳定）；裸 PG 天花板探针（同 schema/索引/durability、绕开 HTTP）COPY 直写 585 ms(S60)/2,442 ms(S240)，加其余分段后 S60 ≈1.16 s、S240 ≈4.4 s，**故 S60/S240 门槛在当前 schema 与耐久设置下属物理下限，不是实现缺陷**。客户端 **R2-P01 FAIL**：规范化捕获段 1,530.05 → 1,115.62 ms（**−27.09%**），组件实测显示即使归档成本全消该段上限也只有 ~35%，与第一轮真机"archiver 占 12.78 s 中 8.8 s"的成本结构不同，两个口径已并列写入证据，未改口径去凑 70%。
+
+测试与门禁：`scripts/local/test.sh full` **PASS**（1338 s，`all modules verified`、`go test -race -count=1 ./...` 全绿、`go vet -tags=integration`、build、sqlc/dbgen 无 diff、258 包依赖边界 9 项、`ok rai/server/integration 1099.261s`、`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`）；`gate` PASS；Swift 包测试 220 tests / 29 suites PASS；模拟器 lane 85 passed / 0 failed / 3 skipped；`e2e` PASS（`TestWorkoutCompletenessSimulatorHTTPPostgres` 45.79 s）；`swiftclient` 真实 Swift→HTTP→PG 18/18 场景 PASS；R5 新增 F21–F27 与既有 bundle 套件 `-race` 29 pass/2 skip/0 fail。期间修掉一个本机脚本缺陷：`integration` profile 不导出 `DEVELOPER_DIR`，`swiftclient` 标签在 CommandLineTools 下编译期即死（`no such module 'Testing'`）表现为 18 个子用例全 FAIL，已在参数含 `swiftclient` 时调用 `rai_xcode_env`，修后同入口 18/18 PASS。
+
+签核：NORMALIZED CAPTURE PASS、BOUNDED CONCURRENCY PASS、GZIP ONLY CLIENT PASS、SET BASED IMPORT PASS、**FUNCTIONAL SAFETY PARTIAL**（R2-F01–F32 中 28 PASS / 3 PARTIAL：F03 重启级旧格式混合未测、F04 的 HTTP/PG 侧未跑、F29 的"无心率 workout"无既有用例）、**PERFORMANCE FAIL**、REAL HEALTHKIT NOT RUN、RQRUN/DEPLOYMENT NOT VERIFIED。
+
+NOT RUN / NOT VERIFIED：真机与真实 HealthKit 全部未执行（本会话无设备授权；iPhone 12 Pro Max「唐攀的iPhone」配对但 offline），因此 R2-P03–P07/P12–P14、真机 RSS（S60/S60H ≤256 MiB、S240 ≤450 MiB、API 两上传槽 ≤512 MiB）、并发 1/2/4 的真机收益、默认预算下 10 条 ≤60 s / 100 条 ≤360 s 均未验证；R2-F04 的 HTTP/PG 侧、R2-F29 的无心率场景、R2-F03 的重启测试未做；写阶段 Go CPU profile、导入后统计刷新（ANALYZE/autovacuum 阈值）、50k 用例在 `-race` 下未跑；S240 历史 6 次 503 的确切错误码 NOT VERIFIED（现二进制实测为 `503 {"code":"database_statement_timeout_or_cancel"}` @30,049 ms 且整包回滚）。本机 Debug/macOS 数字不替代真机；服务端时延未达标不因客户端改善而抵消。

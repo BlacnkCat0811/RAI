@@ -27,6 +27,12 @@ public struct DiscoveryEvent: Codable, Sendable, Equatable {
     public var segmentFile: String? = nil
     public var segmentOffset: Int64? = nil
     public var segmentLength: Int64? = nil
+    /// Monotonic capture ordinal assigned by the single writer when this event
+    /// is committed to the journal. A bundle pins the highest ordinal it really
+    /// encoded per type (`CaptureManifest.cursors`), so a fact captured while a
+    /// bundle is being built keeps a higher ordinal and is never mistaken for
+    /// delivered work. Optional so a pre-R1 `state.json` still decodes.
+    public var ordinal: Int64? = nil
     public init(type: String, uuid: String, deleted: Bool, archiveFile: String? = nil, archiveHash: String = "", workoutID: String? = nil, identityHash: String? = nil,
                 segmentFile: String? = nil, segmentOffset: Int64? = nil, segmentLength: Int64? = nil) {
         self.type = type; self.uuid = uuid; self.deleted = deleted; self.archiveFile = archiveFile; self.archiveSHA256 = archiveHash.isEmpty ? nil : archiveHash; self.workoutID = workoutID
@@ -84,7 +90,13 @@ public struct DiscoveryState: Codable, Sendable {
     public var scanCursor = 0
     public var cycleRemaining = 0
     public var recoveryOverrides: [String: DiscoveryQuery]?
+    /// Single-writer capture sequence. Only `OutboxStore` advances it, inside
+    /// the same commit that appends the event, so ordinals are gap-free and
+    /// strictly ordered by commit.
+    public var sequence: Int64 = 0
     public init() {}
+    /// Advance the capture sequence and return the new ordinal.
+    mutating func nextOrdinal() -> Int64 { sequence += 1; return sequence }
 }
 
 extension OutboxStore {
@@ -139,7 +151,7 @@ extension OutboxStore {
                     if state.tasks?[parent] != nil || state.workouts[parent] != nil { work.selected = true }
                     if state.deletedWorkouts.contains(parent) && !event.deleted {
                         event.status = "suppressed_by_workout_delete"
-                    } else { work.generation += 1; event.generation = work.generation }
+                    } else { work.generation += 1; event.generation = work.generation; event.ordinal = discovery.nextOrdinal() }
                     if state.deletedWorkouts.contains(parent) && event.deleted && event.type != "HKWorkoutTypeIdentifier" { work.selected = true }
                     work.error = nil; work.nextAttemptAt = nil
                     if event.deleted && event.type == "HKWorkoutTypeIdentifier" { work.pendingDelete = true }
@@ -183,7 +195,7 @@ extension OutboxStore {
             if discovery.events[event.id] == nil {
                 var work = discovery.work[parent] ?? DiscoveryWork(); work.generation += 1
                 work.error = nil; work.nextAttemptAt = nil; work.attempt = 0
-                event.generation = work.generation
+                event.generation = work.generation; event.ordinal = discovery.nextOrdinal()
                 discovery.work[parent] = work; event.status = "pending"; discovery.events[event.id] = event
             }
         }
@@ -213,7 +225,7 @@ extension OutboxStore {
                 event.workoutID = workoutID; event.status = "pending"; discovery.events[id] = event
                 var work = discovery.work[workoutID] ?? DiscoveryWork(); work.generation += 1
                 work.error = nil; work.nextAttemptAt = nil; work.attempt = 0
-                event.generation = work.generation
+                event.generation = work.generation; event.ordinal = discovery.nextOrdinal()
                 discovery.events[id] = event; discovery.work[workoutID] = work
             }
         }

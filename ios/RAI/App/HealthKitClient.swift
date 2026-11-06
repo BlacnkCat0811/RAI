@@ -842,6 +842,13 @@ enum Normalizer {
     /// avoids treating archive object graph differences as new HealthKit facts.
     /// Unsupported metadata falls back to the full archive identity and remains
     /// available for review instead of being dropped by a partial fingerprint.
+    /// Hash of the same canonical pair the single-sample builder produces, for
+    /// callers that already built the event and source. Keeps the discovery
+    /// identity byte-identical while avoiding a second JSON construction.
+    static func discoveryFingerprint(event: JSON, source: JSON) throws -> String {
+        try Wire.hash(try JSON.object(["fact": event, "source": source]).data())
+    }
+
     static func discoveryFingerprint(_ sample: HKSample) throws -> String {
         let event: JSON
         if let route = sample as? HKWorkoutRoute {
@@ -852,6 +859,53 @@ enum Normalizer {
         } else { event = try integrityEvent(sample) }
         return Wire.hash(try JSON.object(["fact": event, "source": source(sample)]).data())
     }
+    /// Series provenance of one multi-value sample, if it has one.
+    static func series(of sample: HKSample) -> NormalizedSeries? {
+        guard let quantity = sample as? HKQuantitySample, quantity.count > 1 else { return nil }
+        return NormalizedSeries(parentUUID: quantity.uuid.uuidString.lowercased(), pointCount: Int64(quantity.count))
+    }
+
+    /// The normalized fact of one sample: identity and exact range, the original
+    /// unit and value, the supported metadata, the native carrier, the source
+    /// descriptor and the exact bundle event.
+    ///
+    /// Strict: a sample this build cannot describe throws, and the caller
+    /// reports the stream as failed. The capture path uses `capturedFact`, which
+    /// tolerates the same samples the archived path tolerated (they stay local
+    /// and are never put in a bundle).
+    static func normalizedFact(_ sample: HKSample, type: String, workoutID: String?) throws -> NormalizedFact {
+        let quantityJSON: JSON?
+        if let quantity = sample as? HKQuantitySample { quantityJSON = try self.quantity(quantity.quantity, type: type) }
+        else { quantityJSON = nil }
+        let sourceJSON = source(sample)
+        let eventJSON = try integrityEvent(sample)
+        // The route branch of discoveryFingerprint builds its own event shape, so
+        // it keeps its builder. Everything else hashes the event just built, which
+        // is the same canonical pair and avoids constructing it twice.
+        let identity = sample is HKWorkoutRoute
+            ? try discoveryFingerprint(sample)
+            : try discoveryFingerprint(event: eventJSON, source: sourceJSON)
+        return NormalizedFact(type: type, uuid: sample.uuid.uuidString.lowercased(), workoutID: workoutID,
+                              startUs: us(sample.startDate), endUs: us(sample.endDate),
+                              source: sourceJSON, event: eventJSON,
+                              quantity: quantityJSON, metadata: metadata(sample.metadata),
+                              series: series(of: sample), identityHash: identity)
+    }
+
+    /// Tolerant capture form: an undescribable sample is still captured (with no
+    /// event), so discovery keeps its anchor and the failure surfaces where it
+    /// belongs — when a bundle tries to include that fact.
+    static func capturedFact(_ sample: HKSample, type: String, workoutID: String?) -> NormalizedFact {
+        let quantityJSON: JSON?
+        if let quantity = sample as? HKQuantitySample { quantityJSON = try? self.quantity(quantity.quantity, type: type) }
+        else { quantityJSON = nil }
+        return NormalizedFact(type: type, uuid: sample.uuid.uuidString.lowercased(), workoutID: workoutID,
+                              startUs: us(sample.startDate), endUs: us(sample.endDate),
+                              source: source(sample), event: try? integrityEvent(sample),
+                              quantity: quantityJSON, metadata: metadata(sample.metadata),
+                              series: series(of: sample), identityHash: try? discoveryFingerprint(sample))
+    }
+
     static func integrityEvent(_ sample: HKSample) throws -> JSON {
         // Unknown metadata stays in the secure local discovery archive. It is
         // not serialized into an arbitrary server JSON map.

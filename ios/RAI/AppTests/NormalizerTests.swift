@@ -218,7 +218,7 @@ private final class CoordinatorReplies: URLProtocol, @unchecked Sendable {
         let handshake = request.url!.path == "/v2/handshake"
         let body: JSON = handshake ? .object(["protocolVersion": .int(3), "serviceID": .string(Self.identity.serviceID),
             "datasetID": .string(Self.identity.datasetID), "datasetEpoch": .string(Self.identity.datasetEpoch),
-            "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3),
+            "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3),
                 "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])]) : .object(["code": .string("workout_import_not_found")])
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: handshake ? 200 : 404, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)
@@ -453,7 +453,7 @@ private final class CompletenessReplies: URLProtocol, @unchecked Sendable {
         if request.url!.path == "/v2/handshake" {
             body = .object(["protocolVersion": .int(3), "serviceID": .string(scope.serviceID), "datasetID": .string(scope.datasetID),
                 "datasetEpoch": .string(scope.datasetEpoch), "capabilities": .object([
-                    "workoutBundles": .bool(true), "bundleProtocolVersion": .int(3), "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
+                    "workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3), "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
                     "workoutSyncCompletenessVersion": .int(1), "workoutStreamSetVersion": .int(1),
                     "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])])
         } else { body = .object(["metrics": .array([])]) }
@@ -544,7 +544,7 @@ private final class PolicyCompletenessReplies: URLProtocol, @unchecked Sendable 
         if request.url!.path == "/v2/handshake" {
             body = .object(["protocolVersion": .int(3), "serviceID": .string(scope.serviceID), "datasetID": .string(scope.datasetID),
                 "datasetEpoch": .string(scope.datasetEpoch), "capabilities": .object([
-                    "workoutBundles": .bool(true), "bundleProtocolVersion": .int(3), "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
+                    "workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3), "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
                     "workoutSyncCompletenessVersion": .int(1), "workoutSyncCompletenessV2Version": .int(2), "workoutStreamSetVersion": .int(1),
                     "workoutSourcePolicyVersion": .string(WorkoutSourcePolicy.version),
                     "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])])
@@ -824,7 +824,7 @@ extension Phase5ASessionPlatformTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let credentials = PlatformSessionCredentials(), sessions = try SyncSessionStore(root: root, credentials: credentials)
         func descriptor() -> SyncSessionDescriptor { .init(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!) }
-        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3)])]) }
+        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3)])]) }
         let a = descriptor(), b = descriptor(), health = SyntheticAnchoredHealth()
         _ = try await sessions.prepare(a, token: "old"); try await sessions.activate(a.sessionID, handshake: hello(a))
         let old = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: a.sessionID))
@@ -871,7 +871,7 @@ extension Phase5ASessionPlatformTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let keys = SessionKeychain(), sessions = try SyncSessionStore(root: root, credentials: keys)
         func descriptor() -> SyncSessionDescriptor { .init(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!) }
-        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3)])]) }
+        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3)])]) }
         let a = descriptor(), b = descriptor()
         defer {
             for d in [a, b] { SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "RAI.V3.SyncSession", kSecAttrAccount as String: d.sessionID] as CFDictionary) }
@@ -911,7 +911,7 @@ extension Phase5ASessionPlatformTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let sessions = try SyncSessionStore(root: root, credentials: PlatformSessionCredentials())
         let d = SyncSessionDescriptor(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!)
-        let hello: JSON = .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3)])])
+        let hello: JSON = .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3)])])
         _ = try await sessions.prepare(d, token: "synthetic"); try await sessions.activate(d.sessionID, handshake: hello)
         let store = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: d.sessionID)), counters = CoordinatorCounters()
         let secret = ClientConfiguration.Secret(configuration: .init(baseURL: d.baseURL, collectorEpoch: d.collectorEpoch), token: "synthetic")
@@ -1230,7 +1230,7 @@ private final class VO2OnlyHandshake: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         let s = CoordinatorReplies.identity
         let body: JSON = .object(["protocolVersion": .int(3), "serviceID": .string(s.serviceID), "datasetID": .string(s.datasetID), "datasetEpoch": .string(s.datasetEpoch),
-            "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3), "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) }),
+            "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3), "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) }),
                 "vo2maxFactsVersion": .int(1), "vo2maxMetadataRegistryVersion": .int(1), "vo2maxMaxChanges": .int(128), "vo2maxMaxBytes": .int(524288)])])
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)

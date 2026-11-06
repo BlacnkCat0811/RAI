@@ -29,8 +29,13 @@ type API struct {
 
 type uploadDevice struct{ datasetID, deviceID string }
 
+// ProcessUploadSlots is the process-wide concurrent upload ceiling. It is the
+// default budget the handshake advertises and the capacity of the upload slot
+// channel; performance entries must not raise it.
+const ProcessUploadSlots = 2
+
 func New(store syncing.Store, log *slog.Logger) http.Handler {
-	a := &API{store: store, log: log, uploads: make(chan struct{}, 2), devices: make(map[uploadDevice]bool)}
+	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool)}
 	m := http.NewServeMux()
 	live := func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) }
 	ready := func(w http.ResponseWriter, r *http.Request) {
@@ -304,7 +309,7 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	}
 	sort.Strings(types)
 	respond(w, 200, map[string]any{"protocolVersion": 3, "deviceID": m.DeviceID, "collectorEpoch": m.CollectorEpoch, "datasetStatus": m.DatasetStatus, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
-		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": 2, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
+		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": ProcessUploadSlots, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
 		"capabilities": map[string]any{"workoutSyncCompletenessVersion": 1, "workoutSyncCompletenessV2Version": 2, "workoutStreamSetVersion": 1, "workoutSourcePolicyVersion": syncing.WorkoutSourcePolicyVersion, "vo2maxFactsVersion": 1, "vo2maxMetadataRegistryVersion": 1, "vo2maxMaxChanges": syncing.MaxVO2Changes, "vo2maxMaxBytes": syncing.MaxVO2Bytes, "dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 3, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": 3, "bundleObservationVersion": 1, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
 	return nil
 }

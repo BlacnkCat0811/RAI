@@ -3,10 +3,7 @@ package postgres
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -21,6 +18,21 @@ import (
 // Each statement below is capped by row count and by the bytes it carries, and
 // every decision it feeds keeps the per-key semantics, ordering and conflict
 // code of the scalar checks it replaces.
+
+// SampleIdentityStatement is the set-based identity lookup the import
+// transaction runs for every sample batch. It is a package constant so the
+// write-path measurement harness can EXPLAIN exactly the production text.
+const SampleIdentityStatement = `SELECT k.sample_type,k.sample_uuid::text,
+				(h.sample_uuid IS NOT NULL),
+				EXISTS(SELECT 1 FROM entity_tombstones t
+					WHERE t.dataset_id=$1 AND t.sample_type=k.sample_type AND t.sample_uuid=k.sample_uuid::uuid),
+				COALESCE(w.workout_uuid::text,''),
+				h.content_sha256,h.event_start,h.event_end,h.unit,h.value_numeric,h.value_category,h.source_bundle_id
+			FROM unnest($2::text[],$3::text[]) AS k(sample_type,sample_uuid)
+			LEFT JOIN health_samples h
+				ON h.dataset_id=$1 AND h.sample_type=k.sample_type AND h.sample_uuid=k.sample_uuid::uuid
+			LEFT JOIN workout_samples w
+				ON w.dataset_id=$1 AND w.sample_type=k.sample_type AND w.sample_uuid=k.sample_uuid::uuid`
 
 const (
 	// bundleBatchRows bounds the keys or rows of one set-based statement.
@@ -104,18 +116,7 @@ func loadSampleIdentities(ctx context.Context, tx pgx.Tx, dataset string, rows [
 		for n, index := range batch {
 			types[n], uuids[n] = rows[index].event.Type, rows[index].event.UUID
 		}
-		query, err := tx.Query(ctx, `SELECT k.sample_type,k.sample_uuid::text,
-				(h.sample_uuid IS NOT NULL),
-				EXISTS(SELECT 1 FROM entity_tombstones t
-					WHERE t.dataset_id=$1 AND t.sample_type=k.sample_type AND t.sample_uuid=k.sample_uuid::uuid),
-				COALESCE(w.workout_uuid::text,''),
-				h.content_sha256,h.event_start,h.event_end,h.unit,h.value_numeric,h.value_category,h.source_bundle_id
-			FROM unnest($2::text[],$3::text[]) AS k(sample_type,sample_uuid)
-			LEFT JOIN health_samples h
-				ON h.dataset_id=$1 AND h.sample_type=k.sample_type AND h.sample_uuid=k.sample_uuid::uuid
-			LEFT JOIN workout_samples w
-				ON w.dataset_id=$1 AND w.sample_type=k.sample_type AND w.sample_uuid=k.sample_uuid::uuid`,
-			dataset, types, uuids)
+		query, err := tx.Query(ctx, SampleIdentityStatement, dataset, types, uuids)
 		if err != nil {
 			return nil, err
 		}
@@ -465,89 +466,4 @@ func routeChunkHashes(ctx context.Context, tx pgx.Tx, dataset string, ids []stri
 		}
 	}
 	return hashes, nil
-}
-
-// insertSampleRows writes new samples with one multi-row statement per bounded
-// batch. It never uses ON CONFLICT: a duplicate key here is a real conflict and
-// must abort the whole bundle, not be hidden.
-// insertSampleRows writes new facts in bounded batches. Each statement carries
-// one multi-row parameter tuple per sample, so the statement count follows the
-// batch count instead of the sample count. No ON CONFLICT clause appears here: a
-// duplicate identity must still fail loudly instead of being silently skipped.
-func insertSampleRows(ctx context.Context, tx pgx.Tx, dataset string, rows []sampleRow, rev int64) error {
-	metadata := make([]json.RawMessage, len(rows))
-	for index, row := range rows {
-		value := row.event.Metadata
-		if value == nil {
-			value = map[string]any{}
-		}
-		raw, err := json.Marshal(value)
-		if err != nil {
-			return err
-		}
-		metadata[index] = raw
-	}
-	for _, batch := range batchIndexes(len(rows), func(i int) int { return len(metadata[i]) + 96 }) {
-		var sql strings.Builder
-		sql.WriteString(`INSERT INTO health_samples(dataset_id,sample_type,sample_uuid,event_start,event_end,value_numeric,value_category,unit,source_bundle_id,content_sha256,entity_revision,metadata) VALUES `)
-		args := make([]any, 0, 1+len(batch)*11)
-		args = append(args, dataset)
-		for position, index := range batch {
-			if position > 0 {
-				sql.WriteByte(',')
-			}
-			base := 2 + position*11
-			sql.WriteString("($1")
-			for field := 0; field < 11; field++ {
-				fmt.Fprintf(&sql, ",$%d", base+field)
-			}
-			sql.WriteByte(')')
-			event := rows[index].event
-			var value *float64
-			var unit *string
-			if event.Quantity != nil {
-				value, unit = &event.Quantity.Value, &event.Quantity.Unit
-			}
-			args = append(args, event.Type, event.UUID,
-				time.UnixMicro(*event.StartUs).UTC(), time.UnixMicro(*event.EndUs).UTC(),
-				value, event.Category, unit, event.Source.BundleID, rows[index].hash, rev, metadata[index])
-		}
-		if _, err := tx.Exec(ctx, sql.String(), args...); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// insertAssociationRows writes the membership rows for samples that had no
-// association yet. The association identity is generated here so each row stays
-// immutable, and the statement is again one per bounded batch.
-func insertAssociationRows(ctx context.Context, tx pgx.Tx, dataset, workoutID string, rows []sampleRow, rev int64) error {
-	for _, batch := range batchIndexes(len(rows), func(i int) int {
-		return len(rows[i].event.Type) + len(rows[i].event.UUID) + len(rows[i].event.Source.BundleID) + 64
-	}) {
-		var sql strings.Builder
-		sql.WriteString(`INSERT INTO workout_samples(dataset_id,sample_type,sample_uuid,workout_uuid,association_id,source_bundle_id,commit_rev) VALUES `)
-		args := make([]any, 0, len(batch)*7)
-		for position, index := range batch {
-			if position > 0 {
-				sql.WriteByte(',')
-			}
-			base := 1 + position*7
-			sql.WriteByte('(')
-			for field := 0; field < 7; field++ {
-				if field > 0 {
-					sql.WriteByte(',')
-				}
-				fmt.Fprintf(&sql, "$%d", base+field)
-			}
-			sql.WriteByte(')')
-			event := rows[index].event
-			args = append(args, dataset, event.Type, event.UUID, workoutID, syncing.NewID(), event.Source.BundleID, rev)
-		}
-		if _, err := tx.Exec(ctx, sql.String(), args...); err != nil {
-			return err
-		}
-	}
-	return nil
 }

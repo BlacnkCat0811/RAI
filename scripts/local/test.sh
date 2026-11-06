@@ -6,7 +6,7 @@ umask 077
 
 usage() {
   cat <<'USAGE'
-usage: scripts/local/test.sh [quick|gate|unit|integration|full|swift|simulator|e2e|perf] [test arguments]
+usage: scripts/local/test.sh [quick|gate|unit|integration|full|syncperf|swift|simulator|e2e|perf] [test arguments]
   quick        cached Go unit tests, vet and dependency boundaries (default)
   gate         cached Go race, vet and boundaries; add affected PG tests for transactions
   unit         Go unit tests; accepts -run and package arguments
@@ -16,6 +16,11 @@ usage: scripts/local/test.sh [quick|gate|unit|integration|full|swift|simulator|e
   simulator    synthetic App XCTest on a dedicated local Simulator
   e2e          Simulator -> local Go HTTP -> disposable local PG18 (R3 v2)
   perf         synthetic 1/10/100/500-Workout local HTTP/PG throughput
+  syncperf     R0 optimized (no -race) build, real loopback TCP HTTP -> production
+               handler -> isolated PG18 with default budgets and durability.
+               usage: syncperf --profiles S60,S60H,S240 --iterations 30 --warmups 3
+               [--cold 5]; prints build facts, race state, per-profile n/failures
+               and nearest-rank P50/P95. Never signs the race correctness gates.
 Quick checks do not replace required completion gates or real-device acceptance.
 USAGE
 }
@@ -89,7 +94,83 @@ case "$rai_profile" in
     ;;
   integration)
     rai_require_toolchain
+    # The `swiftclient` tag compiles the Swift client inside the Go integration
+    # tests, which needs the Testing/XCTest modules that ship with full Xcode.
+    # CommandLineTools alone fails at compile time with "no such module 'Testing'".
+    if [[ " $* " == *swiftclient* ]]; then rai_xcode_env; fi
     pg_tests "$@"
+    ;;
+  syncperf)
+    # R0: the only entry point that measures the optimized build. It must not
+    # inherit race instrumentation or disabled optimizations from an ambient
+    # GOFLAGS, and it asserts the effective build settings before measuring.
+    rai_require_toolchain
+    rai_syncperf_profiles="S60,S60H,S240"
+    rai_syncperf_iterations=30
+    rai_syncperf_warmups=3
+    rai_syncperf_cold=5
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --profiles) rai_syncperf_profiles="${2:?--profiles needs a value}"; shift 2 ;;
+        --iterations) rai_syncperf_iterations="${2:?--iterations needs a value}"; shift 2 ;;
+        --warmups) rai_syncperf_warmups="${2:?--warmups needs a value}"; shift 2 ;;
+        --cold) rai_syncperf_cold="${2:?--cold needs a value}"; shift 2 ;;
+        *) echo "unknown syncperf argument: $1" >&2; usage >&2; exit 2 ;;
+      esac
+    done
+    # Exclusivity snapshot: a shared machine inflates the tail, so every perf
+    # log carries the load average and any competing build/simulator lane.
+    rai_syncperf_machine() {
+      local competitors
+      competitors="$(pgrep -fl 'xcodebuild|simctl|swiftc|swift-frontend|swift-build' 2>/dev/null | wc -l | tr -d ' ' || true)"
+      local top
+      top="$(ps -Aro pcpu,comm 2>/dev/null | head -4 | tr '\n' ';' || true)"
+      echo "SYNCPERF_MACHINE phase=$1 exclusive=$([[ "$competitors" == "0" ]] && echo true || echo false) competitors=${competitors} load=\"$(uptime)\" top_cpu=\"${top}\""
+    }
+    rai_syncperf_machine before
+
+    rai_syncperf_goflags_in="${GOFLAGS:-}"
+    rai_syncperf_goflags_out=""
+    for rai_token in $rai_syncperf_goflags_in; do
+      case "$rai_token" in
+        -race|-N|-l) continue ;;
+        -gcflags=*|-asmflags=*)
+          case "$rai_token" in
+            *-N*|*-l*) continue ;;
+          esac ;;
+      esac
+      rai_syncperf_goflags_out="${rai_syncperf_goflags_out:+$rai_syncperf_goflags_out }$rai_token"
+    done
+    export GOFLAGS="$rai_syncperf_goflags_out"
+    echo "SYNCPERF_GOFLAGS_IN=${rai_syncperf_goflags_in:-<unset>}"
+    echo "SYNCPERF_GOFLAGS_EFFECTIVE=${GOFLAGS:-<empty>}"
+    rai_syncperf_bin="$rai_local/testing/syncperf.test"
+    mkdir -p "$rai_local/testing"
+    (cd "$rai_root/apps/server" && go test -c -tags=integration -o "$rai_syncperf_bin" ./integration)
+    rai_syncperf_settings="$(go version -m "$rai_syncperf_bin")"
+    printf '%s\n' "$rai_syncperf_settings" | grep -E '^[[:space:]]+build' || true
+    if printf '%s\n' "$rai_syncperf_settings" | grep -qE '^[[:space:]]+build[[:space:]]+-race'; then
+      echo 'SYNCPERF BUILD FAIL: measured binary was compiled with -race' >&2; exit 1
+    fi
+    if printf '%s\n' "$rai_syncperf_settings" | grep -qE '^[[:space:]]+build[[:space:]]+-gcflags=.*(-N|-l)'; then
+      echo 'SYNCPERF BUILD FAIL: measured binary has disabled optimizations' >&2; exit 1
+    fi
+    if ! printf '%s\n' "$rai_syncperf_settings" | grep -qE '^[[:space:]]+build[[:space:]]+-tags=.*integration'; then
+      echo 'SYNCPERF BUILD FAIL: integration build tag is not in effect' >&2; exit 1
+    fi
+    echo "SYNCPERF_PROFILES=$rai_syncperf_profiles iterations=$rai_syncperf_iterations warmups=$rai_syncperf_warmups cold=$rai_syncperf_cold"
+    echo "SYNCPERF_GO=$(go version)"
+    echo "SYNCPERF_PG=$("$rai_pgbin/postgres" --version)"
+    export RAI_SYNC_PERF=1
+    export RAI_SYNC_PERF_PROFILES="$rai_syncperf_profiles"
+    export RAI_SYNC_PERF_ITERATIONS="$rai_syncperf_iterations"
+    export RAI_SYNC_PERF_WARMUPS="$rai_syncperf_warmups"
+    export RAI_SYNC_PERF_COLD="$rai_syncperf_cold"
+    "$rai_root/scripts/test-postgres.sh" "$rai_syncperf_bin" \
+      -test.run '^TestWorkoutSyncPerfServerHTTP$' -test.v -test.timeout 60m
+    rai_syncperf_status=$?
+    rai_syncperf_machine after
+    exit "$rai_syncperf_status"
     ;;
   perf)
     rai_require_toolchain

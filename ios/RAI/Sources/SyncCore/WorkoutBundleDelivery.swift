@@ -32,6 +32,15 @@ public enum WorkoutBundleACK {
 
 /// Drives the existing WorkoutSyncTask and file Outbox, without a second queue.
 /// Claims live in the store actor so two delivery workers share the same guard.
+///
+/// Transport contract (round 2): every WorkoutBundle POST — first upload, every
+/// retry, an old plain pending task resumed after an upgrade, and a deletion-only
+/// child bundle — is a multipart body with exactly one `file` part whose media
+/// type is `application/gzip` and whose filename is `workout.json.gz`. There is
+/// no plaintext fallback: `bundleSHA256` stays bound to the exact decompressed
+/// JSON bytes, the gzip wire hash is recorded separately, and any failure to
+/// derive a legal gzip artifact fails the attempt while keeping the original
+/// bundle, hash, boundary and recovery state.
 public struct WorkoutBundleDelivery: Sendable {
     public let store: OutboxStore
     public let api: RAIAPIClient
@@ -42,6 +51,18 @@ public struct WorkoutBundleDelivery: Sendable {
         guard let task = try await store.claimBundle(id, now: now) else { return false }
         let hash = task.bundleSHA256!, identity = id + ":" + hash
         do {
+            // Observability invariants, recorded on every attempt including the
+            // failing ones: a bundle POST is always a gzip part, the plaintext
+            // fallback counter must stay at zero, and preparing or retrying a
+            // bundle never re-reads HealthKit.
+            api.metrics.value("bundle_plain_fallback", 0)
+            api.metrics.value("bundle_healthkit_reread", 0)
+            // A handshake that ran and did not advertise `bundleGzipPart` makes
+            // the gzip-only contract impossible. Fail diagnosably and keep the
+            // task instead of inventing an endpoint or sending plaintext. An
+            // unobserved handshake (`unknown`) still sends gzip, because plain
+            // is never an option on the wire.
+            if api.bundleGzipCapability == .declared(false) { throw SyncFailure.localState("bundle_gzip_unsupported") }
             let file = try await store.fileURL(task.bundleFile!)
             let bytes = try Data(contentsOf: file, options: .mappedIfSafe)
             let prefix = Data(("--" + task.bundleBoundary! + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"workout.json\"\r\nContent-Type: application/json\r\n\r\n").utf8)
@@ -51,37 +72,40 @@ public struct WorkoutBundleDelivery: Sendable {
                   Wire.hash(bytes.subdata(in: prefix.count..<(bytes.count - suffix.count))) == hash else {
                 throw SyncFailure.localState("payload_corrupt")
             }
+            let raw = bytes.subdata(in: prefix.count..<(bytes.count - suffix.count))
             if let scope = await store.snapshot().scope {
-                let raw = bytes.subdata(in: prefix.count..<(bytes.count - suffix.count))
                 let bundle = try JSON.decode(raw)
                 guard bundle["datasetID"].text == scope.datasetID,
                       bundle["datasetEpoch"].text == scope.datasetEpoch,
                       bundle["collectorEpoch"].text == scope.collectorEpoch else { throw SyncFailure.localState("bundle_session_mismatch") }
             }
-            // Always verify the original exact JSON hash before deriving or
-            // reusing transport bytes. Old pending plain bundles also resume.
-            var uploadFile = file
+            // The original multipart stays the local authority and is verified
+            // above; it is never uploaded. Only a sealed gzip artifact is sent,
+            // and a cached one is reused only while its bytes still hash and it
+            // is still a gzip file part.
+            let uploadFile: URL
             if let wireName = task.bundleWireFile, let wireHash = task.bundleWireSHA256,
                let wireURL = try? await store.fileURL(wireName),
-               let wire = try? Data(contentsOf: wireURL, options: .mappedIfSafe), Wire.hash(wire) == wireHash {
+               let wire = try? Data(contentsOf: wireURL, options: .mappedIfSafe),
+               Wire.hash(wire) == wireHash, Self.isGzipMultipart(wire, boundary: task.bundleBoundary!) {
                 uploadFile = wireURL
             } else {
-                let raw = bytes.subdata(in: prefix.count..<(bytes.count - suffix.count))
-                let compressionStart = Date()
-                let zipped = try Wire.gzip(raw)
-                let gzipMS = Date().timeIntervalSince(compressionStart) * 1000
-                if zipped.count <= 8 * 1024 * 1024 {
-                    let wire = WorkoutBundleAssembler.multipart(bundle: zipped, boundary: task.bundleBoundary!, compressed: true)
-                    let name = try await store.savePayload(wire, suffix: "multipart.gz")
-                    try await store.setBundleWire(id, bundleHash: hash, file: name, sha256: Wire.hash(wire), wireBytes: wire.count, gzipMS: gzipMS)
-                    uploadFile = try await store.fileURL(name)
-                }
+                let derived = try Self.gzipWire(raw: raw, boundary: task.bundleBoundary!)
+                let name = try await store.savePayload(derived.wire, suffix: "multipart.gz")
+                try await store.setBundleWire(id, bundleHash: hash, file: name, sha256: Wire.hash(derived.wire),
+                                              wireBytes: derived.wire.count, gzipMS: derived.milliseconds)
+                api.metrics.value("bundle_gzip_derive_ms", derived.milliseconds)
+                api.metrics.value("bundle_gzip_wire_bytes", Double(derived.wire.count))
+                uploadFile = try await store.fileURL(name)
             }
+            // A bundle POST is always a gzip part.
+            api.metrics.value("bundle_gzip_post_attempt", 1)
             let receipt: JSON
             do {
                 let posted = try await api.call("POST", "/v2/sync/workout-bundles", file: uploadFile,
                     mediaType: "multipart/form-data; boundary=" + task.bundleBoundary!, identity: identity)
                 try WorkoutBundleACK.validate(posted, workoutID: id, bundleHash: hash, sampleDeletions: task.submittedSampleDeletions ?? 0, routeDeletions: task.submittedRouteDeletions ?? 0)
+                api.metrics.value("bundle_gzip_post_success", 1)
                 receipt = posted
             } catch {
                 // Preemption leaves the OS-managed transfer available for
@@ -117,6 +141,39 @@ public struct WorkoutBundleDelivery: Sendable {
             throw failure
         }
     }
+    /// One sealed gzip wire artifact plus the compression wall clock it took.
+    struct GzipWire { let wire: Data; let milliseconds: Double }
+
+    /// Derives the only legal wire artifact from the already-verified original
+    /// JSON: a multipart body with one `file` part, `Content-Type:
+    /// application/gzip`, filename `workout.json.gz`. Over-limit input throws so
+    /// the caller keeps the original bundle and reports an explicit failure; it
+    /// never pads, splits, or falls back to the plaintext part.
+    static func gzipWire(raw: Data, boundary: String) throws -> GzipWire {
+        guard raw.count <= Wire.GzipBundle.maxDecodedBytes else { throw SyncFailure.localState("bundle_too_large") }
+        let compressionStart = Date()
+        let zipped = try Wire.gzip(raw)
+        let milliseconds = Date().timeIntervalSince(compressionStart) * 1000
+        try Wire.GzipBundle.validate(decoded: raw.count, compressed: zipped.count)
+        let wire = WorkoutBundleAssembler.multipart(bundle: zipped, boundary: boundary, compressed: true)
+        guard isGzipMultipart(wire, boundary: boundary) else { throw SyncFailure.localState("gzip_wire_invalid") }
+        return GzipWire(wire: wire, milliseconds: milliseconds)
+    }
+
+    /// A cached wire artifact is only reusable while it is still a single gzip
+    /// file part; a plaintext part (or any non-gzip body) must never be sent.
+    static func isGzipMultipart(_ wire: Data, boundary: String) -> Bool {
+        let opener = Data(("--" + boundary + "\r\n").utf8)
+        guard wire.starts(with: opener) else { return false }
+        guard let separator = wire.range(of: Data("\r\n\r\n".utf8)) else { return false }
+        let headers = wire[wire.startIndex..<separator.lowerBound]
+        guard String(decoding: headers, as: UTF8.self).contains("Content-Type: application/gzip"),
+              String(decoding: headers, as: UTF8.self).contains("filename=\"workout.json.gz\"") else { return false }
+        let payload = wire.distance(from: wire.startIndex, to: separator.upperBound)
+        guard payload + 2 <= wire.count else { return false }
+        return wire[wire.startIndex + payload] == 0x1F && wire[wire.startIndex + payload + 1] == 0x8B
+    }
+
     static func failure(_ error: any Error) -> UploadError {
         if let error = error as? UploadError {
             if error.status == 401 { return UploadError(code: "authentication_required", retryAfter: 60) }

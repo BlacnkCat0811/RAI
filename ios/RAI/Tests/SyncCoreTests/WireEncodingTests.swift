@@ -114,4 +114,58 @@ struct WireEncodingTests {
         let reference = try referenceObject(fields), produced = try Wire.object(fields)
         #expect(reference == produced)
     }
+    // MARK: - R4 gzip wire contract (client side of the server's bundle limits)
+
+    /// The bundle wire is one deterministic gzip member inside one multipart
+    /// file part. Byte identity matters because the server hashes the
+    /// *decompressed* bytes as `bundleSHA256`, while the wire bytes may legally
+    /// differ (compression level, gzip header timestamp) for the same JSON.
+    @Test func gzipBundleWireIsOneDeterministicMember() throws {
+        let raw = Data(String(repeating: "{\"synthetic\":true}\n", count: 512).utf8)
+        let first = try Wire.gzip(raw)
+        let second = try Wire.gzip(raw)
+        #expect(first == second, "gzip must be deterministic so a retry reuses the sealed artifact")
+        // Fixed header: magic, deflate, no flags, MTIME 0, XFL 0, OS 255.
+        #expect(Array(first.prefix(10)) == [0x1F, 0x8B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF])
+        // Single member: the trailing 8 bytes are CRC-32 and ISIZE.
+        #expect(first.count > 18)
+        let isize = Array(first.suffix(4)).enumerated().reduce(0) { $0 | (Int($1.element) << (8 * $1.offset)) }
+        #expect(isize == raw.count, "ISIZE must equal the decompressed length")
+        // Exactly one member: no second gzip magic after the first member's header.
+        #expect(!first.dropFirst(10).dropLast(8).starts(with: Data([0x1F, 0x8B])))
+
+        let wire = WorkoutBundleAssembler.multipart(bundle: first, boundary: "rai.wire.test", compressed: true)
+        let text = String(decoding: wire.prefix(160), as: UTF8.self)
+        #expect(text.hasPrefix("--rai.wire.test\r\n"))
+        #expect(text.contains("name=\"file\""))
+        #expect(text.contains("filename=\"workout.json.gz\""))
+        #expect(text.contains("Content-Type: application/gzip"))
+        #expect(!text.contains("filename=\"workout.json\""))
+        #expect(!text.contains("application/json"))
+        #expect(wire.range(of: Data([0x1F, 0x8B])) != nil)
+        #expect(String(decoding: wire.suffix(24), as: UTF8.self).hasSuffix("--rai.wire.test--\r\n"))
+    }
+
+    /// The client mirrors the server's compressed-bundle limits so an
+    /// over-limit bundle fails locally instead of being downgraded to plaintext.
+    @Test func gzipBundleLimitsMirrorTheServerContract() throws {
+        #expect(Wire.GzipBundle.maxDecodedBytes == 32 << 20)
+        #expect(Wire.GzipBundle.maxCompressedBytes == 8 << 20)
+        #expect(Wire.GzipBundle.ratioCap == 100)
+        #expect(Wire.GzipBundle.ratioSlack == 64 << 10)
+
+        try Wire.GzipBundle.validate(decoded: 32 << 20, compressed: 8 << 20)
+        #expect(throws: SyncFailure.localState("bundle_too_large")) {
+            try Wire.GzipBundle.validate(decoded: (32 << 20) + 1, compressed: 1)
+        }
+        #expect(throws: SyncFailure.localState("bundle_compressed_too_large")) {
+            try Wire.GzipBundle.validate(decoded: 1000, compressed: (8 << 20) + 1)
+        }
+        // Ratio: exactly `100 * compressed + 64 KiB` is still legal.
+        let compressed = 1024
+        try Wire.GzipBundle.validate(decoded: 100 * compressed + (64 << 10), compressed: compressed)
+        #expect(throws: SyncFailure.localState("bundle_compression_ratio_exceeded")) {
+            try Wire.GzipBundle.validate(decoded: 100 * compressed + (64 << 10) + 1, compressed: compressed)
+        }
+    }
 }

@@ -400,3 +400,82 @@ struct APITests {
         #expect(state.pages.isEmpty)
     }
 }
+
+// MARK: - R4 transport lane: gzip capability and Content-Encoding placement
+
+/// Records the exact request the transport lane builds so the header
+/// placement can be asserted (compression lives in the file part only).
+private final class HeaderRecordingUploader: FileUploader, Sendable {
+    let box = Mutex<[URLRequest]>([])
+    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
+        box.withLock { $0.append(request) }
+        return UploadResponse(data: Data("{\"synthetic\":true}".utf8), status: 200, contentType: "application/json")
+    }
+    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
+        box.withLock { $0.append(request) }
+        return (Data("{\"synthetic\":true}".utf8), 200, nil)
+    }
+}
+
+extension APITests {
+    /// The handshake declares `bundleGzipPart`; the client must remember it so
+    /// the bundle lane can fail diagnosably when a server cannot accept gzip.
+    @Test func handshakeRecordsBundleGzipCapability() async throws {
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [MockProtocol.self]
+        let api = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic-test-token",
+                               session: URLSession(configuration: config))
+        // Before any handshake the capability is unknown, not "unsupported".
+        #expect(api.bundleGzipCapability == .unknown)
+
+        MockProtocol.state.withLock { state in
+            state = MockState()
+            state.replies["/v2/handshake"] = .object(["capabilities": .object([
+                "workoutBundles": .bool(true), "bundleProtocolVersion": .int(3), "bundleGzipPart": .bool(true)])])
+        }
+        let hello = try await api.call("GET", "/v2/handshake")
+        #expect(hello["capabilities"]["bundleGzipPart"] == .bool(true))
+        #expect(api.bundleGzipCapability == .declared(true))
+        #expect(api.capabilities.declared?["workoutBundles"] == .bool(true))
+
+        // A handshake that ran but omits the key is a declared "no".
+        let other = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic-test-token",
+                                 session: URLSession(configuration: config))
+        MockProtocol.state.withLock { state in
+            state = MockState()
+            state.replies["/v2/handshake"] = .object(["capabilities": .object(["workoutBundles": .bool(true)])])
+        }
+        _ = try await other.call("GET", "/v2/handshake")
+        #expect(other.bundleGzipCapability == .declared(false))
+        MockProtocol.state.withLock { $0 = MockState() }
+    }
+
+    /// `Content-Encoding: gzip` belongs to the batch lane only; a bundle POST
+    /// carries multipart framing and compresses inside the file part, because
+    /// the server rejects a top-level Content-Encoding with 415.
+    @Test func gzipContentEncodingStaysOnTheBatchLane() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-api-gzip-" + Wire.id())
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("payload.bin")
+        try Data("{\"synthetic\":true}".utf8).write(to: file)
+
+        MockProtocol.state.withLock { $0 = MockState() }
+        let uploader = HeaderRecordingUploader()
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [MockProtocol.self]
+        let api = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic-test-token",
+                               session: URLSession(configuration: config), uploader: uploader)
+        _ = try? await api.call("POST", "/v2/sync/workout-bundles", file: file,
+                                mediaType: "multipart/form-data; boundary=rai.test", identity: "bundle")
+        _ = try? await api.call("PUT", "/v2/sync/batches/synthetic", file: file,
+                                mediaType: "application/json", gzip: true, identity: "batch")
+
+        let requests = uploader.box.withLock { $0 }
+        #expect(requests.count == 2)
+        let bundle = try #require(requests.first)
+        #expect(bundle.value(forHTTPHeaderField: "Content-Encoding") == nil)
+        #expect(bundle.value(forHTTPHeaderField: "Content-Type") == "multipart/form-data; boundary=rai.test")
+        let batch = try #require(requests.last)
+        #expect(batch.value(forHTTPHeaderField: "Content-Encoding") == "gzip")
+        MockProtocol.state.withLock { $0 = MockState() }
+    }
+}

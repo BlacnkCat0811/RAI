@@ -19,6 +19,9 @@ enum Metrics {
 actor SyncCoordinator {
     let store: OutboxStore
     let health: any HealthKitReading
+    /// Capture producers allowed to run at the same time. Independent quantity
+    /// types overlap; one stream's paging and anchor stay serial.
+    let captureStreams: Int
     private let session: URLSession
     private let sessionStore: SyncSessionStore?
     private let sessionID: String?
@@ -198,9 +201,10 @@ actor SyncCoordinator {
         #endif
     }
 
-    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil) {
+    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil, captureConcurrency: Int = CaptureConcurrencyPolicy.standard.streams) {
         self.store = store; self.health = health; self.session = session
         self.sessionStore = sessionStore; self.sessionID = sessionID
+        self.captureStreams = max(1, captureConcurrency)
     }
 
     func authorize() async throws { try await health.authorize() }
@@ -306,6 +310,7 @@ actor SyncCoordinator {
                 if rootType {
                     for sample in chunk {
                         let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
+                        SampleArchiveMeter.recordObjectArchive()
                         let file = try await store.savePayload(archive, suffix: "healthkit.archive")
                         events.append(DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(),
                             deleted: false, archiveFile: file, archiveHash: Wire.hash(archive), workoutID: query.workoutID))
@@ -315,9 +320,11 @@ actor SyncCoordinator {
                 var records: [CapturedFact] = []
                 records.reserveCapacity(chunk.count)
                 for sample in chunk {
-                    let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
-                    records.append(CapturedFact(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(),
-                                                archive: archive, identityHash: try? Normalizer.discoveryFingerprint(sample)))
+                    // Normalized capture (P4): the fact is stored in the shape
+                    // the bundle needs, so no per-sample archive is produced.
+                    let fact = Normalizer.capturedFact(sample, type: type.identifier, workoutID: query.workoutID)
+                    records.append(CapturedFact(type: type.identifier, uuid: fact.uuid, archive: try fact.encoded(),
+                                                identityHash: fact.identityHash, encoding: .normalized))
                 }
                 let captured = try await store.captureFactSegment(type: type.identifier, workoutID: query.workoutID,
                                                                  records: records, publish: false)
@@ -329,6 +336,7 @@ actor SyncCoordinator {
             for object in page.deleted {
                 try Task.checkCancellation()
                 let archive = try NSKeyedArchiver.archivedData(withRootObject: object, requiringSecureCoding: true)
+                SampleArchiveMeter.recordObjectArchive()
                 let file = try await store.savePayload(archive, suffix: "healthkit.archive")
                 events.append(DiscoveryEvent(type: type.identifier, uuid: object.uuid.uuidString.lowercased(), deleted: true,
                     archiveFile: file, archiveHash: Wire.hash(archive), workoutID: query.workoutID))
@@ -502,45 +510,282 @@ actor SyncCoordinator {
         let snapshot = await store.discoverySnapshot()
         guard let work = snapshot.work[id], !work.pendingDelete,
               work.generation == work.deliveredGeneration else { return false }
-        // A deletion event that was never delivered outranks the skip.
-        return !snapshot.events.values.contains { $0.workoutID == id && $0.deleted && ($0.generation ?? 0) > work.deliveredGeneration }
+        // Any journal entry that is neither delivered nor explicitly
+        // suppressed outranks the skip, whether it is a deletion or an upsert
+        // that arrived after the last manifest pinned its cursor. The manifest
+        // keeps the watermark honest; this is the independent second guard.
+        return !snapshot.events.values.contains {
+            $0.workoutID == id && $0.status != "delivered" && $0.status != "suppressed_by_workout_delete"
+        }
     }
 
-    /// Samples the bundle needs for one type.
+    /// Facts the bundle needs for one type.
     ///
     /// A scoped discovery stream that is provably exhausted for this Workout
-    /// already archived every sample, so the bundle reuses those archives
-    /// instead of repeating an equivalent full read. The predicate lives in
+    /// already captured every fact, so the bundle reuses those records instead
+    /// of repeating an equivalent full read. The predicate lives in
     /// `OutboxStore.exhaustedDiscoveryFacts` and rejects any stream with a
     /// staged batch, an error, no committed anchor or a full last page; those
-    /// cases keep the existing complete read, which also archives what it
-    /// reads. Reused samples are ordered the same way the complete read orders
-    /// them so the bundle bytes stay stable.
-    private func samplesForBundle(id: String, type: HKQuantityType,
-                                  workout: HKWorkout) async throws -> (samples: [HKSample], reused: Bool) {
-        if let facts = await store.exhaustedDiscoveryFacts(workoutID: id, type: type.identifier) {
-            var samples: [HKSample] = []
-            samples.reserveCapacity(facts.count)
-            for fact in facts {
-                // Reads either representation: a legacy single archive file or a
-                // record inside a sealed capture segment.
-                guard let data = try await store.discoveryArchiveBytes(fact),
-                      let sample = try NSKeyedUnarchiver.unarchivedObject(ofClasses: [HKQuantitySample.self], from: data) as? HKSample else {
-                    // Any fact we cannot read back disqualifies the whole
-                    // stream: fall back to the complete read rather than
-                    // upload a silently short bundle.
-                    return (try await health.bundleSamples(type: type, workout: workout), false)
-                }
-                samples.append(sample)
-            }
-            samples.sort { lhs, rhs in
-                lhs.startDate == rhs.startDate
-                    ? lhs.uuid.uuidString < rhs.uuid.uuidString
-                    : lhs.startDate < rhs.startDate
-            }
-            return (samples, true)
+    /// cases keep the existing complete read, which also captures what it reads.
+    ///
+    /// A normalized record (format 2) is decoded straight into a fact. A format
+    /// 1 record or a legacy single-file archive is the only thing that still
+    /// needs an unarchive, and that call is counted. Reused facts are ordered the
+    /// way the complete read orders them (`startUs`, then uuid) so the bundle
+    /// bytes stay stable.
+    private nonisolated func factsForBundle(id: String, type: HKQuantityType, workout: HKWorkout) async throws
+        -> (facts: [NormalizedFact], reused: Bool) {
+        guard let stored = await store.exhaustedDiscoveryFacts(workoutID: id, type: type.identifier) else {
+            return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
         }
-        return (try await health.bundleSamples(type: type, workout: workout), false)
+        var facts: [NormalizedFact] = []
+        facts.reserveCapacity(stored.count)
+        for event in stored {
+            if let fact = try await store.discoveryNormalizedFact(event) {
+                facts.append(fact)
+                continue
+            }
+            // Legacy representation: read the archived object once and
+            // normalize it. Any fact that cannot be read back disqualifies the
+            // whole stream, because a silently short bundle is worse than a
+            // full read.
+            guard let data = try await store.discoveryArchiveBytes(event),
+                  let sample = (try? NSKeyedUnarchiver.unarchivedObject(ofClasses: [HKQuantitySample.self], from: data)) as? HKSample else {
+                return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
+            }
+            SampleArchiveMeter.recordUnarchive()
+            facts.append(try Normalizer.normalizedFact(sample, type: type.identifier, workoutID: id))
+        }
+        facts.sort { lhs, rhs in
+            let left = lhs.startUs ?? 0, right = rhs.startUs ?? 0
+            return left == right ? lhs.uuid < rhs.uuid : left < right
+        }
+        return (facts, true)
+    }
+
+    /// The complete HealthKit read for one type, normalized on the way in.
+    private nonisolated func freshFacts(type: HKQuantityType, workout: HKWorkout, workoutID: String) async throws -> [NormalizedFact] {
+        let samples = try await health.bundleSamples(type: type, workout: workout)
+        return try samples.map { try Normalizer.normalizedFact($0, type: type.identifier, workoutID: workoutID) }
+    }
+
+    /// What one quantity stream contributed. Streams finish in any order; the
+    /// merge walks `HealthKitClient.quantityTypes`, so the bundle bytes are the
+    /// same whatever the completion order was.
+    private struct QuantityStreamOutcome: Sendable {
+        var type: String
+        var events: [JSON] = []
+        var provenance: [JSON] = []
+        var series: [JSON] = []
+        var coverage: [String: WorkoutCoverage] = [:]
+        var cursor: Int64 = 0
+        var coveredFacts = 0
+        var coveredEventIDs: Set<String> = []
+        var complete = false
+        var reused = false
+        var fullRead = false
+        var captureWrites = 0
+        var captureMs = 0.0
+        var seriesMs = 0.0
+    }
+
+    private struct RouteStreamOutcome: Sendable {
+        var routes: [JSON] = []
+        var provenance: [JSON] = []
+        var pointCount = 0
+        var complete = false
+        var coverage: [String: WorkoutCoverage] = [:]
+    }
+
+    /// Runs one quantity stream under the capture gate.
+    ///
+    /// The slot is always released, including on cancellation, so a cancelled
+    /// sync hands its budget back instead of starving the next one. Paging and
+    /// the anchor inside a stream are sequential because a stream is a single
+    /// producer; only distinct types overlap.
+    private nonisolated func captureQuantityStream(
+        id: String, type: HKQuantityType, workout: HKWorkout, source: JSON,
+        deletedKeys: Set<String>, gate: CaptureGate, writer: CaptureWriter
+    ) async throws -> QuantityStreamOutcome {
+        try await gate.enter()
+        do {
+            let outcome = try await captureQuantityBody(id: id, type: type, workout: workout, source: source,
+                                                        deletedKeys: deletedKeys, writer: writer)
+            await gate.exit()
+            return outcome
+        } catch {
+            await gate.exit()
+            throw error
+        }
+    }
+
+    private nonisolated func captureQuantityBody(
+        id: String, type: HKQuantityType, workout: HKWorkout, source: JSON,
+        deletedKeys: Set<String>, writer: CaptureWriter
+    ) async throws -> QuantityStreamOutcome {
+        var outcome = QuantityStreamOutcome(type: type.identifier)
+        do {
+            try Task.checkCancellation()
+            let (facts, reused) = try await factsForBundle(id: id, type: type, workout: workout)
+            var events: [JSON] = []
+            if reused {
+                outcome.reused = true
+            } else {
+                outcome.fullRead = true
+                let captureStart = Date()
+                var capturedIDs = Set(await store.discoverySnapshot().events.keys)
+                for start in stride(from: 0, to: facts.count, by: 1000) {
+                    var records: [CapturedFact] = []
+                    for fact in facts[start..<min(start + 1000, facts.count)] {
+                        // No archive: the normalized bytes are the record.
+                        let payload = try fact.encoded()
+                        let eventID = DiscoveryEvent(type: type.identifier, uuid: fact.uuid, deleted: false,
+                                                     archiveHash: Wire.hash(payload), workoutID: id,
+                                                     identityHash: fact.identityHash).id
+                        if capturedIDs.contains(eventID) { continue }
+                        capturedIDs.insert(eventID)
+                        records.append(CapturedFact(type: type.identifier, uuid: fact.uuid, archive: payload,
+                                                    identityHash: fact.identityHash, encoding: .normalized))
+                    }
+                    guard !records.isEmpty else { continue }
+                    // One sealed segment file per batch replaces one atomic file
+                    // per sample; the writer is the only store caller.
+                    let captured = try await writer.append(type: type.identifier, workoutID: id, records: records)
+                    if captured.file != nil { outcome.captureWrites += 1 }
+                }
+                outcome.captureMs += Date().timeIntervalSince(captureStart) * 1000
+            }
+            let associationKeys = facts.map(\.factKey)
+            try await store.associateDiscoveredFacts(workoutID: id, keys: associationKeys)
+            // Pin the type cursor from the journal *as it is now* but only for
+            // the fact keys this bundle actually read. A late sample for this
+            // same type is absent from the read, so it keeps a higher ordinal
+            // and stays pending.
+            let journal = await store.discoverySnapshot()
+            let covered = Set(associationKeys)
+            var highest: Int64 = 0
+            for event in journal.events.values
+            where event.type == type.identifier && event.workoutID == id && !event.deleted && covered.contains(event.factKey) {
+                // Identity is what the ACK may confirm; the cursor is the
+                // evidence of the highest ordinal this stream encoded.
+                outcome.coveredEventIDs.insert(event.id)
+                if let ordinal = event.ordinal, ordinal > highest { highest = ordinal }
+            }
+            outcome.cursor = highest
+            outcome.coveredFacts = facts.count
+            if let root = journal.events.values.first(where: { $0.type == HKObjectType.workoutType().identifier && $0.uuid == id && !$0.deleted }) {
+                outcome.coveredEventIDs.insert(root.id)
+            }
+            var eligible: [NormalizedFact] = []
+            var typeProvenance: [JSON] = []
+            for fact in facts where !deletedKeys.contains(fact.factKey) {
+                guard let provenance = fact.source, let event = fact.event else {
+                    // Captured but not describable (unsupported metadata). The
+                    // archived path failed here too: the fact stays local and the
+                    // stream is reported failed.
+                    throw SyncFailure.invalid("metadata_requires_review")
+                }
+                if ["apple_watch", "associated_apple_watch"].contains(HealthSourcePolicy.classification(provenance, associatedWorkout: source)) {
+                    events.append(event); eligible.append(fact)
+                    typeProvenance.append(.object(["sampleType": .string(type.identifier), "sampleUUID": .string(fact.uuid), "source": provenance]))
+                }
+            }
+            outcome.events = events
+            outcome.provenance = typeProvenance
+            outcome.coverage[type.identifier] = .result(count: events.count)
+            if eligible.count != facts.count { outcome.coverage[type.identifier]?.state = .partial; outcome.coverage[type.identifier]?.diagnostics = ["source_policy_pending"] }
+
+            // Series failure must not discard the scalar samples that were
+            // already read for this type. Completeness describes read coverage
+            // only; absent children never prove deletion.
+            do {
+                let seriesStart = Date()
+                let seriesBySample = try await health.captureSeries(type: type, workout: workout, store: store)
+                outcome.seriesMs += Date().timeIntervalSince(seriesStart) * 1000
+                var seriesCount = 0
+                var captured: [JSON] = []
+                for fact in eligible {
+                    guard let parent = fact.series, parent.pointCount > 1 else { continue }
+                    guard let points = seriesBySample[parent.parentUUID],
+                          Int64(points.count) == parent.pointCount else {
+                        throw SyncFailure.invalid("quantity_series_incomplete")
+                    }
+                    seriesCount += points.count
+                    captured.append(.object(["sampleType": .string(type.identifier),
+                                             "sampleUUID": .string(parent.parentUUID),
+                                             "points": .array(points)]))
+                }
+                outcome.series = captured
+                outcome.coverage["series:" + type.identifier] = .result(count: seriesCount)
+                if !events.isEmpty && eligible.count == facts.count { outcome.complete = true }
+            } catch is CancellationError { throw CancellationError() }
+            catch let failure as SyncFailure {
+                outcome.coverage["series:" + type.identifier] = WorkoutCoverage(state: .failed, sampleCount: events.count, errorCode: code(failure))
+                outcome.coverage[type.identifier]?.state = .partial
+            } catch {
+                outcome.coverage["series:" + type.identifier] = WorkoutCoverage(state: .failed, sampleCount: events.count, errorCode: "healthkit_series_read_failed")
+                outcome.coverage[type.identifier]?.state = .partial
+            }
+        } catch is CancellationError { throw CancellationError() }
+        catch let failure as SyncFailure {
+            outcome.coverage[type.identifier] = WorkoutCoverage(state: .failed, errorCode: code(failure))
+        } catch {
+            outcome.coverage[type.identifier] = WorkoutCoverage(state: .failed, errorCode: "healthkit_read_failed")
+        }
+        return outcome
+    }
+
+    /// Runs the route stream under the same gate.
+    private nonisolated func captureRouteStream(
+        id: String, workout: HKWorkout, source: JSON, routeDeletions: [String], gate: CaptureGate
+    ) async throws -> RouteStreamOutcome {
+        try await gate.enter()
+        do {
+            let outcome = try await captureRouteBody(id: id, workout: workout, source: source, routeDeletions: routeDeletions)
+            await gate.exit()
+            return outcome
+        } catch {
+            await gate.exit()
+            throw error
+        }
+    }
+
+    private nonisolated func captureRouteBody(
+        id: String, workout: HKWorkout, source: JSON, routeDeletions: [String]
+    ) async throws -> RouteStreamOutcome {
+        var outcome = RouteStreamOutcome()
+        do {
+            try Task.checkCancellation()
+            let read = try await health.captureRoutes(workout: workout, store: store)
+            outcome.coverage.merge(read.coverage) { _, new in new }
+            try await store.associateDiscoveredFacts(workoutID: id, keys: read.routes.map { HKSeriesType.workoutRoute().identifier + ":" + $0.id })
+            for route in read.routes where !routeDeletions.contains(route.id) {
+                guard let provenance = route.provenance, ["apple_watch", "associated_apple_watch"].contains(HealthSourcePolicy.classification(provenance, associatedWorkout: source)) else {
+                    outcome.coverage["route:" + route.id] = WorkoutCoverage(state: .partial, errorCode: "source_policy_pending"); continue
+                }
+                outcome.provenance.append(.object(["routeID": .string(route.id), "source": provenance]))
+                outcome.pointCount += route.points.count
+                outcome.routes.append(.object([
+                    "routeID": .string(route.id),
+                    "source": .object(["bundleID": .string(route.source)]),
+                    "points": .array(route.points.map { point in
+                        var fields: [String: JSON] = ["recordedAtUs": .int(point.recordedAtUs),
+                            "latitude": .number(point.latitude), "longitude": .number(point.longitude)]
+                        for (key, value) in [("altitude", point.altitude), ("horizontalAccuracy", point.horizontalAccuracy),
+                                             ("verticalAccuracy", point.verticalAccuracy), ("speed", point.speed), ("course", point.course)] {
+                            if let value { fields[key] = .number(value) }
+                        }
+                        return .object(fields)
+                    })
+                ]))
+            }
+            outcome.complete = read.enumerationCompleted && (read.routes.isEmpty ? read.coverage.isEmpty :
+                !outcome.routes.isEmpty && read.coverage.values.allSatisfy { $0.queryCompleted == true && $0.state == .complete } && outcome.routes.count == read.routes.count)
+            outcome.coverage["route"] = .result(count: outcome.pointCount, completed: read.enumerationCompleted && (read.routes.isEmpty ? read.coverage.isEmpty : outcome.complete))
+        } catch is CancellationError { throw CancellationError() }
+        catch let failure as SyncFailure { outcome.coverage["route"] = WorkoutCoverage(state: .failed, errorCode: code(failure)) }
+        catch { outcome.coverage["route"] = WorkoutCoverage(state: .failed, errorCode: "route_read_or_mapping_failed") }
+        return outcome
     }
 
     private func performSync(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
@@ -624,132 +869,81 @@ actor SyncCoordinator {
             var samples: [JSON] = []
             var series: [JSON] = []
             var completeSampleTypes: [String] = []
-            var reusedReads = 0, fullReads = 0, archiveWrites = 0
-            var archiveMs = 0.0, seriesMs = 0.0
+            var reusedReads = 0, fullReads = 0, captureWrites = 0
+            var captureMs = 0.0, seriesMs = 0.0
+            // Serializer accounting for this sync: the normalized path must not
+            // archive or unarchive a single sample.
+            let meterStart = SampleArchiveMeter.snapshot()
+            // R1: what this bundle provably consumes, type by type. A cursor is
+            // the highest journal ordinal among the facts the bundle really
+            // encoded for that type, so work a producer commits later keeps a
+            // higher ordinal and is never confirmed by this receipt.
+            var captureCursors: [String: Int64] = [:]
+            var coveredEventIDs: Set<String> = []
+            var coveredFacts = 0
             let quantityStart = Date()
-            for type in HealthKitClient.quantityTypes {
-                try Task.checkCancellation()
-                do {
-                    let (read, reused) = try await samplesForBundle(id: id, type: type, workout: workout)
-                    var events: [JSON] = []
-                    if reused {
-                        reusedReads += 1
-                    } else {
-                        fullReads += 1
-                        let archiveStart = Date()
-                        var capturedIDs = Set(await store.discoverySnapshot().events.keys)
-                        for start in stride(from: 0, to: read.count, by: 1000) {
-                            var records: [CapturedFact] = []
-                            for sample in read[start..<min(start + 1000, read.count)] {
-                                let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
-                                let hash = Wire.hash(archive)
-                                let identity = try? Normalizer.discoveryFingerprint(sample)
-                                let eventID = DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(), deleted: false, archiveHash: hash, workoutID: id, identityHash: identity).id
-                                if capturedIDs.contains(eventID) { continue }
-                                capturedIDs.insert(eventID)
-                                records.append(CapturedFact(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(),
-                                                            archive: archive, identityHash: identity))
-                            }
-                            guard !records.isEmpty else { continue }
-                            // One sealed segment file per batch replaces one
-                            // atomic file per sample; the facts commit once.
-                            let captured = try await store.captureFactSegment(type: type.identifier, workoutID: id, records: records)
-                            if captured.file != nil { archiveWrites += 1 }
-                        }
-                        archiveMs += Date().timeIntervalSince(archiveStart) * 1000
+            // R3: independent quantity streams overlap behind one bounded gate,
+            // and their results are merged in the fixed `quantityTypes` order, so
+            // the bytes do not depend on which stream finished first.
+            let gate = CaptureGate(policy: CaptureConcurrencyPolicy(streams: captureStreams))
+            let writer = CaptureWriter(store: store, gate: gate)
+            var outcomes: [String: QuantityStreamOutcome] = [:]
+            try await withThrowingTaskGroup(of: QuantityStreamOutcome.self) { group in
+                for type in HealthKitClient.quantityTypes {
+                    group.addTask {
+                        try await self.captureQuantityStream(id: id, type: type, workout: workout, source: source,
+                                                             deletedKeys: deletedKeys, gate: gate, writer: writer)
                     }
-                    try await store.associateDiscoveredFacts(workoutID: id, keys: read.map { type.identifier + ":" + $0.uuid.uuidString.lowercased() })
-                    var eligible: [HKSample] = []
-                    var typeProvenance: [JSON] = []
-                    for sample in read where !deletedKeys.contains(type.identifier + ":" + sample.uuid.uuidString.lowercased()) {
-                        let provenance = Normalizer.source(sample)
-                        if ["apple_watch", "associated_apple_watch"].contains(HealthSourcePolicy.classification(provenance, associatedWorkout: source)) {
-                            events.append(try Normalizer.integrityEvent(sample)); eligible.append(sample)
-                            typeProvenance.append(.object(["sampleType": .string(type.identifier), "sampleUUID": .string(sample.uuid.uuidString.lowercased()), "source": provenance]))
-                        }
-                    }
-                    samples += events; sampleProvenance += typeProvenance
-                    coverage[type.identifier] = .result(count: events.count)
-                    if eligible.count != read.count { coverage[type.identifier]?.state = .partial; coverage[type.identifier]?.diagnostics = ["source_policy_pending"] }
-
-                    // Series failure must not discard the scalar samples that
-                    // were already read for this type. Completeness describes
-                    // read coverage only; absent children never prove deletion,
-                    // including when an older bundle arrives after a newer one.
-                    do {
-                        let seriesStart = Date()
-                        let seriesBySample = try await health.captureSeries(type: type, workout: workout, store: store)
-                        seriesMs += Date().timeIntervalSince(seriesStart) * 1000
-                        var seriesCount = 0
-                        for sample in eligible {
-                            guard let quantity = sample as? HKQuantitySample, quantity.count > 1 else { continue }
-                            guard let points = seriesBySample[quantity.uuid.uuidString.lowercased()],
-                                  Int64(points.count) == quantity.count else {
-                                throw SyncFailure.invalid("quantity_series_incomplete")
-                            }
-                            seriesCount += points.count
-                            series.append(.object(["sampleType": .string(type.identifier),
-                                "sampleUUID": .string(quantity.uuid.uuidString.lowercased()),
-                                "points": .array(points)]))
-                        }
-                        coverage["series:" + type.identifier] = .result(count: seriesCount)
-                        if !events.isEmpty && eligible.count == read.count { completeSampleTypes.append(type.identifier) }
-                    } catch is CancellationError { throw CancellationError() }
-                    catch let failure as SyncFailure {
-                        coverage["series:" + type.identifier] = WorkoutCoverage(state: .failed, sampleCount: events.count, errorCode: code(failure))
-                        coverage[type.identifier]?.state = .partial
-                    } catch {
-                        coverage["series:" + type.identifier] = WorkoutCoverage(state: .failed, sampleCount: events.count, errorCode: "healthkit_series_read_failed")
-                        coverage[type.identifier]?.state = .partial
-                    }
-                } catch is CancellationError { throw CancellationError() }
-                catch let failure as SyncFailure {
-                    coverage[type.identifier] = WorkoutCoverage(state: .failed, errorCode: code(failure))
-                } catch {
-                    coverage[type.identifier] = WorkoutCoverage(state: .failed, errorCode: "healthkit_read_failed")
                 }
+                for try await outcome in group { outcomes[outcome.type] = outcome }
             }
+            for type in HealthKitClient.quantityTypes {
+                guard let outcome = outcomes[type.identifier] else { continue }
+                samples += outcome.events
+                sampleProvenance += outcome.provenance
+                series += outcome.series
+                for (key, value) in outcome.coverage { coverage[key] = value }
+                captureCursors[type.identifier] = outcome.cursor
+                coveredFacts += outcome.coveredFacts
+                coveredEventIDs.formUnion(outcome.coveredEventIDs)
+                if outcome.complete { completeSampleTypes.append(type.identifier) }
+                if outcome.reused { reusedReads += 1 }
+                if outcome.fullRead { fullReads += 1 }
+                captureWrites += outcome.captureWrites
+                captureMs += outcome.captureMs
+                seriesMs += outcome.seriesMs
+            }
+            let gateTotals = await gate.snapshot()
+            let writerTotals = await writer.totals()
+            timings["capture_max_active_streams"] = Double(gateTotals.maxActive)
+            timings["capture_stream_limit"] = Double(captureStreams)
+            timings["capture_peak_queue_bytes"] = Double(gateTotals.peakReservedBytes)
+            timings["capture_writer_batches"] = Double(writerTotals.batches)
+            timings["capture_writer_records"] = Double(writerTotals.records)
             timings["healthkit_read_ms"] = Date().timeIntervalSince(quantityStart) * 1000
             timings["reused_discovery_reads"] = Double(reusedReads)
             timings["full_sample_reads"] = Double(fullReads)
-            timings["sample_archive_ms"] = archiveMs
-            timings["sample_archive_writes"] = Double(archiveWrites)
+            timings["normalized_capture_ms"] = captureMs
+            timings["normalized_segment_writes"] = Double(captureWrites)
+            let meterEnd = SampleArchiveMeter.snapshot()
+            timings["sample_archive_calls"] = Double(meterEnd.archive - meterStart.archive)
+            timings["sample_unarchive_calls"] = Double(meterEnd.unarchive - meterStart.unarchive)
+            timings["object_archive_calls"] = Double(meterEnd.objectArchive - meterStart.objectArchive)
             timings["series_read_ms"] = seriesMs
 
             var routes: [JSON] = []
             var routePointCount = 0
             var completeRoutes = false
             let routeStart = Date()
-            do {
-                let read = try await health.captureRoutes(workout: workout, store: store)
-                coverage.merge(read.coverage) { _, new in new }
-                try await store.associateDiscoveredFacts(workoutID: id, keys: read.routes.map { HKSeriesType.workoutRoute().identifier + ":" + $0.id })
-                for route in read.routes where !routeDeletions.contains(route.id) {
-                    guard let provenance = route.provenance, ["apple_watch", "associated_apple_watch"].contains(HealthSourcePolicy.classification(provenance, associatedWorkout: source)) else {
-                        coverage["route:" + route.id] = WorkoutCoverage(state: .partial, errorCode: "source_policy_pending"); continue
-                    }
-                    routeProvenance.append(.object(["routeID": .string(route.id), "source": provenance]))
-                    routePointCount += route.points.count
-                    routes.append(.object([
-                        "routeID": .string(route.id),
-                        "source": .object(["bundleID": .string(route.source)]),
-                        "points": .array(route.points.map { point in
-                            var fields: [String: JSON] = ["recordedAtUs": .int(point.recordedAtUs),
-                                "latitude": .number(point.latitude), "longitude": .number(point.longitude)]
-                            for (key, value) in [("altitude", point.altitude), ("horizontalAccuracy", point.horizontalAccuracy),
-                                                 ("verticalAccuracy", point.verticalAccuracy), ("speed", point.speed), ("course", point.course)] {
-                                if let value { fields[key] = .number(value) }
-                            }
-                            return .object(fields)
-                        })
-                    ]))
-                }
-                completeRoutes = read.enumerationCompleted && (read.routes.isEmpty ? read.coverage.isEmpty :
-                    !routes.isEmpty && read.coverage.values.allSatisfy { $0.queryCompleted == true && $0.state == .complete } && routes.count == read.routes.count)
-                coverage["route"] = .result(count: routePointCount, completed: read.enumerationCompleted && (read.routes.isEmpty ? read.coverage.isEmpty : completeRoutes))
-            } catch is CancellationError { throw CancellationError() }
-            catch let failure as SyncFailure { coverage["route"] = WorkoutCoverage(state: .failed, errorCode: code(failure)) }
-            catch { coverage["route"] = WorkoutCoverage(state: .failed, errorCode: "route_read_or_mapping_failed") }
+            // The route stream is a capture producer as well: it takes a stream
+            // slot so routes, series and sample reads share one capture budget.
+            let routeOutcome = try await captureRouteStream(id: id, workout: workout, source: source,
+                                                            routeDeletions: routeDeletions, gate: gate)
+            routes += routeOutcome.routes
+            routeProvenance += routeOutcome.provenance
+            routePointCount += routeOutcome.pointCount
+            completeRoutes = routeOutcome.complete
+            for (key, value) in routeOutcome.coverage { coverage[key] = value }
             timings["route_read_ms"] = Date().timeIntervalSince(routeStart) * 1000
             // Batch evidence: flush and synchronization counts must track
             // batches, not individual points (F15/P11).
@@ -805,8 +999,17 @@ actor SyncCoordinator {
             // taken before capture would leave `deliveredGeneration` one
             // generation behind, so an unchanged repeat sync could never be
             // recognised as already delivered.
-            let deliveredGeneration = await store.discoverySnapshot().work[id]?.generation ?? generation
-            try await store.setBundle(id, file: fileName, sha256: bundleHash, boundary: boundary, sampleDeletions: sampleDeletions.count, routeDeletions: routeDeletions.count, discoveryGeneration: deliveredGeneration, deletionEventIDs: deletions.map(\.id), pendingReadKeys: coverage.filter { $0.value.state == .failed || $0.value.state == .partial }.map(\.key).filter { $0 != "metadata" })
+            // R1: the receipt may only confirm the work this bundle really
+            // carried. The manifest pins the per-type capture cursors and the
+            // exact deletion ids encoded above; the observed generation is kept
+            // as evidence and for the legacy watermark of an old pending task.
+            let manifestGeneration = await store.discoverySnapshot().work[id]?.generation ?? generation
+            let manifest = CaptureManifest(workoutID: id, generation: manifestGeneration, cursors: captureCursors,
+                                           coveredEventIDs: coveredEventIDs.sorted(), deletionEventIDs: deletions.map(\.id),
+                                           completeTypes: completeSampleTypes, coveredFacts: coveredFacts)
+            timings["capture_manifest_facts"] = Double(manifest.coveredFacts)
+            timings["capture_manifest_types"] = Double(manifest.cursors.count)
+            try await store.setBundle(id, file: fileName, sha256: bundleHash, boundary: boundary, sampleDeletions: sampleDeletions.count, routeDeletions: routeDeletions.count, discoveryGeneration: manifestGeneration, deletionEventIDs: deletions.map(\.id), pendingReadKeys: coverage.filter { $0.value.state == .failed || $0.value.state == .partial }.map(\.key).filter { $0 != "metadata" }, manifest: manifest)
             timings["bundle_bytes"] = Double(bundle.count)
             timings["bundle_persist_ms"] = Date().timeIntervalSince(persistStart) * 1000
             timings["bundle_build_ms"] = Date().timeIntervalSince(started) * 1000
@@ -915,7 +1118,7 @@ actor SyncCoordinator {
         }
     }
 
-    private func code(_ failure: SyncFailure) -> String {
+    private nonisolated func code(_ failure: SyncFailure) -> String {
         switch failure { case .invalid(let value), .localState(let value): return value; case .receiptMismatch: return "receipt_mismatch" }
     }
 }
@@ -1030,6 +1233,9 @@ extension SyncCoordinator {
                 from: Date(timeIntervalSince1970: Double(from) / 1_000_000))
             let completed = Date()
             let archive = try NSKeyedArchiver.archivedData(withRootObject: (page.samples as [NSObject]) + (page.deleted as [NSObject]), requiringSecureCoding: true)
+            // Whole-page archive: the completeness and VO2 streams still store
+            // one blob per page. Counted apart from the per-sample meter.
+            SampleArchiveMeter.recordObjectArchive()
             try await store.captureCompletenessPage(query, previousAnchor: cursor.anchor, candidateAnchor: page.anchor,
                 additions: page.samples.map { $0.uuid.uuidString.lowercased() }, deletions: page.deleted.map { $0.uuid.uuidString.lowercased() },
                 hasMore: page.isFull, startedAt: started, completedAt: completed, archive: archive)
@@ -1101,6 +1307,9 @@ extension SyncCoordinator {
                 switch error { case SyncFailure.invalid(let c): category = c; default: throw error }
                 // Protected local SDK archive only; never emitted to diagnostics.
                 let archive = try NSKeyedArchiver.archivedData(withRootObject: (page.samples as [NSObject]) + (page.deleted as [NSObject]), requiringSecureCoding: true)
+            // Whole-page archive: the completeness and VO2 streams still store
+            // one blob per page. Counted apart from the per-sample meter.
+            SampleArchiveMeter.recordObjectArchive()
                 try await store.blockVO2(previousAnchor: flow.anchor, candidateAnchor: page.anchor, archive: archive, category: category, hasMore: page.isFull)
                 throw error
             }

@@ -213,6 +213,22 @@ public enum Wire {
         defer { rai_free(output) }
         return Data(bytes: output, count: count)
     }
+    /// Gzip transport limits for one WorkoutBundle, mirrored from the server
+    /// contract (`apps/server/internal/httpapi/bundle_body.go`). The client
+    /// enforces the same bounds so an illegal artifact fails locally and
+    /// diagnosably instead of degrading to a plaintext upload.
+    public enum GzipBundle {
+        public static let maxDecodedBytes = 32 << 20
+        public static let maxCompressedBytes = 8 << 20
+        public static let ratioCap = 100
+        public static let ratioSlack = 64 << 10
+        /// The single gzip member must stay inside every server limit.
+        public static func validate(decoded: Int, compressed: Int) throws {
+            guard decoded <= maxDecodedBytes else { throw SyncFailure.localState("bundle_too_large") }
+            guard compressed <= maxCompressedBytes else { throw SyncFailure.localState("bundle_compressed_too_large") }
+            guard decoded <= ratioCap * compressed + ratioSlack else { throw SyncFailure.localState("bundle_compression_ratio_exceeded") }
+        }
+    }
 }
 
 public struct Scope: Codable, Equatable, Sendable {

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -122,11 +123,59 @@ func bundlePath(parent, key string) string {
 	return parent + "." + key
 }
 
+// bundleShape is the memoised reflection description of one wire struct: the
+// JSON name to field type index and the statically required key list. It is
+// computed once per type instead of once per decoded object, which is what a
+// 50,000 sample bundle spends most of its lexical pass on.
+type bundleShape struct {
+	fields   map[string]reflect.Type
+	required []string
+}
+
+var bundleShapes sync.Map // reflect.Type -> *bundleShape
+
+func bundleShapeOf(t reflect.Type) *bundleShape {
+	if cached, ok := bundleShapes.Load(t); ok {
+		return cached.(*bundleShape)
+	}
+	shape := &bundleShape{fields: make(map[string]reflect.Type, t.NumField())}
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
+		if name == "" || name == "-" {
+			continue
+		}
+		shape.fields[name] = field.Type
+	}
+	shape.required = bundleRequired(t)
+	actual, loaded := bundleShapes.LoadOrStore(t, shape)
+	if loaded {
+		return actual.(*bundleShape)
+	}
+	return shape
+}
+
 // The lexical/schema pass never builds generic JSON trees or copies nested
 // RawMessages. It enforces counts before typed slices can allocate them.
 type bundleScanner struct {
 	decoder                   *json.Decoder
 	routePoints, seriesPoints int
+	// seen reuses one duplicate-detection set per nesting depth. A bundle with
+	// 50,000 samples would otherwise allocate 50,000 short lived maps.
+	seen []map[string]bool
+}
+
+// keySet returns the duplicate-detection set for one nesting depth, cleared and
+// ready for use.
+func (s *bundleScanner) keySet(depth int) map[string]bool {
+	for len(s.seen) <= depth {
+		s.seen = append(s.seen, make(map[string]bool, 16))
+	}
+	set := s.seen[depth]
+	for key := range set {
+		delete(set, key)
+	}
+	return set
 }
 
 func (s *bundleScanner) walk(t reflect.Type, path string, depth int) (any, error) {
@@ -181,7 +230,7 @@ func (s *bundleScanner) walk(t reflect.Type, path string, depth int) (any, error
 		if t.Kind() != reflect.Struct && t.Kind() != reflect.Map && t.Kind() != reflect.Interface {
 			return nil, bundleField(path, "invalid_type")
 		}
-		seen := map[string]bool{}
+		seen := s.keySet(depth)
 		eventType := ""
 		for s.decoder.More() {
 			k, e := s.decoder.Token()
@@ -198,16 +247,8 @@ func (s *bundleScanner) walk(t reflect.Type, path string, depth int) (any, error
 			}
 			fieldType := reflect.TypeOf((*any)(nil)).Elem()
 			if t.Kind() == reflect.Struct {
-				found := false
-				for i := 0; i < t.NumField(); i++ {
-					f := t.Field(i)
-					if strings.Split(f.Tag.Get("json"), ",")[0] == key {
-						fieldType = f.Type
-						found = true
-						break
-					}
-				}
-				if !found {
+				fieldType, ok = bundleShapeOf(t).fields[key]
+				if !ok {
 					return nil, bundleField(bundlePath(path, key), "unknown_field")
 				}
 			} else if t.Kind() == reflect.Map {
@@ -221,21 +262,28 @@ func (s *bundleScanner) walk(t reflect.Type, path string, depth int) (any, error
 				eventType, _ = value.(string)
 			}
 		}
-		required := bundleRequired(t)
-		if t == reflect.TypeOf(Event{}) {
-			if eventType == WorkoutType {
-				required = append(required, "workout")
-			} else if unit, ok := Units[eventType]; ok {
-				if unit == "" {
-					required = append(required, "category")
-				} else {
-					required = append(required, "quantity")
+		if t.Kind() == reflect.Struct {
+			for _, key := range bundleShapeOf(t).required {
+				if !seen[key] {
+					return nil, bundleField(bundlePath(path, key), "required")
 				}
 			}
 		}
-		for _, key := range required {
-			if !seen[key] {
-				return nil, bundleField(bundlePath(path, key), "required")
+		if t == reflect.TypeOf(Event{}) {
+			// The quantity/category/workout requirement depends on the event
+			// type, so it is checked here instead of in the cached list.
+			dependent := ""
+			if eventType == WorkoutType {
+				dependent = "workout"
+			} else if unit, ok := Units[eventType]; ok {
+				if unit == "" {
+					dependent = "category"
+				} else {
+					dependent = "quantity"
+				}
+			}
+			if dependent != "" && !seen[dependent] {
+				return nil, bundleField(bundlePath(path, dependent), "required")
 			}
 		}
 	case '[':
@@ -277,7 +325,7 @@ func (s *bundleScanner) walk(t reflect.Type, path string, depth int) (any, error
 					return nil, bundleField(path, "point_count_limit")
 				}
 			}
-			if _, e := s.walk(elem, fmt.Sprintf("%s[%d]", path, i), depth+1); e != nil {
+			if _, e := s.walk(elem, path+"["+strconv.Itoa(i)+"]", depth+1); e != nil {
 				return nil, e
 			}
 		}

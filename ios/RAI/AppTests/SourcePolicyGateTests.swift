@@ -87,7 +87,7 @@ private final class GateReplies: URLProtocol, @unchecked Sendable {
         let body: JSON = handshake ? .object(["protocolVersion": .int(3),
             "serviceID": .string(Self.identity.serviceID), "datasetID": .string(Self.identity.datasetID),
             "datasetEpoch": .string(Self.identity.datasetEpoch),
-            "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3),
+            "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3),
                 "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
                 "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])])
             : .object(["code": .string("workout_import_not_found")])

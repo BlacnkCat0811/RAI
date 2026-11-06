@@ -98,6 +98,10 @@ public struct WorkoutSyncTask: Codable, Sendable, Equatable {
     public var submittedRouteDeletions: Int?
     public var bundleDeletionEventIDs: [String]?
     public var pendingReadKeys: [String]?
+    /// R1 ACK boundary: the exact journal identities this bundle provably
+    /// encoded. A receipt confirms only what the manifest covers; anything a
+    /// producer committed later stays pending for the next delivery.
+    public var captureManifest: CaptureManifest?
     public var childDeletionOnly: Bool?
     /// Set only after the bundle receipt has been validated and the task is
     /// acknowledged. Retained for decoding older local state.

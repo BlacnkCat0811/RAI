@@ -26,6 +26,10 @@
 		B2C3D4E5F6071829304B5C6D /* SourcePolicyGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5C /* SourcePolicyGateTests.swift */; };
 		B2C3D4E5F6071829304B5C7D /* WorkoutSyncReuseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5C7 /* WorkoutSyncReuseTests.swift */; };
 		B2C3D4E5F6071829304B5C8D /* WorkoutListPagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5C8 /* WorkoutListPagingTests.swift */; };
+		B2C3D4E5F6071829304B5C9D /* CaptureAckBoundaryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5C9 /* CaptureAckBoundaryTests.swift */; };
+		B2C3D4E5F6071829304B5C9E /* NormalizedCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5CA /* NormalizedCaptureTests.swift */; };
+		B2C3D4E5F6071829304B5C9F /* NormalizedCapturePerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5CB /* NormalizedCapturePerformanceTests.swift */; };
+		B2C3D4E5F6071829304B5CA0 /* CaptureConcurrencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5CC /* CaptureConcurrencyTests.swift */; };
 		AA50E8F4DA8B6A9BE235AD89 /* RAIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1C943D1E266CB2CE42EA95 /* RAIApp.swift */; };
 		CE77CC555CD1BF81346F22E2 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C22EC825B004D4C177125E /* SyncCoordinator.swift */; };
 		D9156F70077CC7BD59084BB8 /* ClientConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE18C52EB6E3A1E357E8DCB7 /* ClientConfiguration.swift */; };
@@ -62,6 +66,10 @@
 		A1B2C3D4E5F6071829304B5C /* SourcePolicyGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourcePolicyGateTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6071829304B5C7 /* WorkoutSyncReuseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutSyncReuseTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6071829304B5C8 /* WorkoutListPagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutListPagingTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829304B5C9 /* CaptureAckBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAckBoundaryTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829304B5CA /* NormalizedCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NormalizedCaptureTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829304B5CB /* NormalizedCapturePerformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NormalizedCapturePerformanceTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6071829304B5CC /* CaptureConcurrencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureConcurrencyTests.swift; sourceTree = "<group>"; };
 		4E213295962E03E1874874CB /* RAITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RAITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		50C22EC825B004D4C177125E /* SyncCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncCoordinator.swift; sourceTree = "<group>"; };
 		530A77CFC988CC9AC635D6A8 /* ProductUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductUITests.swift; sourceTree = "<group>"; };
@@ -108,6 +116,10 @@
 				A1B2C3D4E5F6071829304B5C /* SourcePolicyGateTests.swift */,
 				A1B2C3D4E5F6071829304B5C7 /* WorkoutSyncReuseTests.swift */,
 				A1B2C3D4E5F6071829304B5C8 /* WorkoutListPagingTests.swift */,
+				A1B2C3D4E5F6071829304B5C9 /* CaptureAckBoundaryTests.swift */,
+				A1B2C3D4E5F6071829304B5CA /* NormalizedCaptureTests.swift */,
+				A1B2C3D4E5F6071829304B5CB /* NormalizedCapturePerformanceTests.swift */,
+				A1B2C3D4E5F6071829304B5CC /* CaptureConcurrencyTests.swift */,
 			);
 			path = AppTests;
 			sourceTree = "<group>";
@@ -319,6 +331,10 @@
 				B2C3D4E5F6071829304B5C6D /* SourcePolicyGateTests.swift in Sources */,
 				B2C3D4E5F6071829304B5C7D /* WorkoutSyncReuseTests.swift in Sources */,
 				B2C3D4E5F6071829304B5C8D /* WorkoutListPagingTests.swift in Sources */,
+				B2C3D4E5F6071829304B5C9D /* CaptureAckBoundaryTests.swift in Sources */,
+				B2C3D4E5F6071829304B5C9E /* NormalizedCaptureTests.swift in Sources */,
+				B2C3D4E5F6071829304B5C9F /* NormalizedCapturePerformanceTests.swift in Sources */,
+				B2C3D4E5F6071829304B5CA0 /* CaptureConcurrencyTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

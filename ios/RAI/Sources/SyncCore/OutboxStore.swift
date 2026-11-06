@@ -297,7 +297,7 @@ public actor OutboxStore {
         }
         next.tasks = tasks; try commit(next)
     }
-    public func setBundle(_ id: String, file: String, sha256: String, boundary: String, sampleDeletions: Int = 0, routeDeletions: Int = 0, discoveryGeneration: Int64? = nil, deletionEventIDs: [String] = [], pendingReadKeys: [String] = []) throws {
+    public func setBundle(_ id: String, file: String, sha256: String, boundary: String, sampleDeletions: Int = 0, routeDeletions: Int = 0, discoveryGeneration: Int64? = nil, deletionEventIDs: [String] = [], pendingReadKeys: [String] = [], manifest: CaptureManifest? = nil) throws {
         guard let task = state.tasks?[id], task.phase != .deleted,
               task.bundleFile == nil || (task.bundleFile == file && task.bundleSHA256 == sha256 && task.bundleBoundary == boundary) else {
             throw SyncFailure.localState("pending_bundle_immutable")
@@ -306,6 +306,7 @@ public actor OutboxStore {
             task.bundleFile = file; task.bundleSHA256 = sha256; task.bundleBoundary = boundary
             task.submittedSampleDeletions = sampleDeletions; task.submittedRouteDeletions = routeDeletions; task.discoveryGeneration = discoveryGeneration
             task.bundleDeletionEventIDs = deletionEventIDs; task.pendingReadKeys = pendingReadKeys
+            task.captureManifest = manifest
             task.uploadReceipt = nil; task.acknowledgedAt = nil; task.stagedAll = false
             task.attemptCount = nil; task.nextAttemptAt = nil; task.lastUploadError = nil
         }
@@ -411,11 +412,32 @@ public actor OutboxStore {
         releaseBundleFile(&acknowledged, in: &next)
         if var work = next.discovery?.work[id] {
             if (task.pendingReadKeys ?? []).isEmpty {
-                work.deliveredGeneration = max(work.deliveredGeneration, task.discoveryGeneration ?? 0)
-                work.error = nil; work.attempt = 0; work.nextAttemptAt = nil
-                for (eventID,var event) in next.discovery?.events ?? [:] where event.workoutID == id && (event.generation ?? 0) <= work.deliveredGeneration {
-                    event.status = "delivered"; next.discovery?.events[eventID] = event
+                // R1: a receipt confirms only the work this bundle provably
+                // carried. The old rule compared every event's generation with
+                // the newest generation read *after* capture, so a fact a
+                // producer committed while the bundle was being built was
+                // marked delivered without ever being encoded — a lost child
+                // deletion then resurrects a sample on the server. The manifest
+                // covers per-type ordinals pinned during capture plus the exact
+                // deletion ids the bundle listed, so concurrent work stays
+                // pending and the watermark stops below it.
+                let manifest = task.captureManifest
+                var lowestUncovered: Int64?
+                for (eventID, var event) in next.discovery?.events ?? [:] where event.workoutID == id {
+                    let covered = manifest?.covers(event)
+                        ?? ((event.generation ?? 0) <= (task.discoveryGeneration ?? 0))
+                    if covered {
+                        if event.status != "delivered" { event.status = "delivered"; next.discovery?.events[eventID] = event }
+                    } else if event.status != "delivered" {
+                        lowestUncovered = min(lowestUncovered ?? Int64.max, event.generation ?? 0)
+                    }
                 }
+                if let lowest = lowestUncovered {
+                    work.deliveredGeneration = max(work.deliveredGeneration, lowest - 1)
+                } else {
+                    work.deliveredGeneration = max(work.deliveredGeneration, work.generation)
+                }
+                work.error = nil; work.attempt = 0; work.nextAttemptAt = nil
             } else {
                 work.error = "partial_read_pending"; work.attempt += 1
                 work.nextAttemptAt = Date().addingTimeInterval(min(900, 30 * pow(2, Double(min(work.attempt, 5)))))
