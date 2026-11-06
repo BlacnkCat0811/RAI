@@ -1,0 +1,40 @@
+# Real device first import — longest available record (108 min), Release build
+
+Same device, backend, build and method as `20261106-real-device-s60-first-import.txt`:
+each sample resets only the local disposable dataset and the iPhone performs a genuine first
+capture and first import of the same real, read-only Workout. n=20, none discarded.
+
+## Why this is not a P02 (S120) sample
+
+The only record at or above 100 minutes in this library stores its measurements as HealthKit
+quantity *series* rather than individual samples: 15,335 series points and 6,480 route points,
+but only a handful of archived quantity samples. Its canonical bundle is 1,669,722 bytes, i.e.
+**about one fifth** of the plan's S120 profile (8,270,561 bytes of synthetic JSON) and even
+smaller than the S60-class real record (8,565,743 bytes). It therefore exercises a different
+cost shape, and P02 stays NOT VERIFIED: the library has no real record with S120-class density.
+
+## Aggregates (nearest-rank P95, n=20)
+
+- `workout_sync_ms`: P50 1968.3 / P95 2067.2 / min 1878.6 / max 2080.1 (n=20)
+- `healthkit_read_ms`: P50 566.9 / P95 581.4 / min 548.8 / max 642.3 (n=20)
+- `bundle_build_ms`: P50 944.1 / P95 985.1 / min 924.3 / max 1036.8 (n=20)
+- `upload_ms`: P50 1017.1 / P95 1114.7 / min 929.9 / max 1135.8 (n=20)
+- `bundle_encode_ms`: P50 72.1 / P95 83.0 / min 70.8 / max 92.5 (n=20)
+- `gzip_ms`: P50 37.5 / P95 38.1 / min 37.4 / max 49.7 (n=20)
+- `sample_archive_ms`: P50 132.5 / P95 138.7 / min 129.9 / max 151.2 (n=20)
+- `series_read_ms`: P50 238.6 / P95 244.6 / min 233.0 / max 268.3 (n=20)
+- `route_read_ms`: P50 268.6 / P95 286.6 / min 264.9 / max 298.9 (n=20)
+- `processPeakRssBytes`: median 125.2 MiB / max 125.4 MiB
+- `mainThreadMaxStallMs`: max 3.7; samples with any stall >250 ms: 0
+- acknowledged 20/20
+
+## Shape of one sample
+
+- `bundle_bytes` 1669722, series points 15335 in 35 flushes,
+  route points 6480 in 13 flushes, per-sample archive 151 ms.
+- Upload + server import + ACK 949 ms dominates this record (48% of `workout_sync_ms`).
+
+## Verdict
+
+- Reported as a real-record observation only; **P02 (S120) is NOT VERIFIED** for lack of an
+  S120-density real record. P03 (S240) is NOT RUN: no 240-minute record exists in this library.

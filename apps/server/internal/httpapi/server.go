@@ -327,7 +327,11 @@ func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p sync
 		return err
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), BundleProcessingBudget)
+	ctx = syncing.WithPhaseBudget(ctx, syncing.PhaseSemanticValidation, syncing.SemanticValidationBudget)
 	ctx = syncing.ObservePhases(ctx, func(name string, d time.Duration) {
+		if name == syncing.PhaseSemanticValidation {
+			validationTime = d
+		}
 		a.log.Info("workout_import_phase", "phase", name, "duration_ms", float64(d.Microseconds())/1000)
 	})
 	defer cancel()
@@ -343,16 +347,11 @@ func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p sync
 	if decodeTime > 15*time.Second {
 		return syncing.Fail(503, "json_decode_timeout")
 	}
-	stage = "validation"
-	s = time.Now()
-	err = syncing.ValidateWorkoutBundle(bundle)
-	validationTime = time.Since(s)
-	if err != nil {
-		return err
-	}
-	if validationTime > 5*time.Second {
-		return syncing.Fail(503, "validation_timeout")
-	}
+	// Semantic validation is deliberately not repeated here. This boundary keeps
+	// only the wire contract (UTF-8, unknown/duplicate/missing fields, JSON shape
+	// and types) and the Store import entry point runs the one semantic pass, so
+	// a direct Store caller cannot bypass it. Its duration arrives above as the
+	// semantic_validation phase and still feeds validation_ms.
 	stage = "import"
 	s = time.Now()
 	receipt, err := a.store.ImportWorkoutBundle(ctx, p, bundle, raw)

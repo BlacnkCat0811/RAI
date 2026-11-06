@@ -44,9 +44,18 @@ protocol HealthKitReading: Sendable {
     func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
     func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws
+    /// Technical capture-batch counters (flushes, synchronizations, points).
+    /// Declared `async` so an actor-isolated reader can satisfy it without
+    /// crossing the conformance's isolation boundary.
+    func captureBatchCounters() async -> (seriesFlushes: Int, seriesSynchronizations: Int, seriesPoints: Int,
+                                          routeFlushes: Int, routeSynchronizations: Int, routePoints: Int)
 }
 
 extension HealthKitReading {
+    func captureBatchCounters() async -> (seriesFlushes: Int, seriesSynchronizations: Int, seriesPoints: Int,
+                                          routeFlushes: Int, routeSynchronizations: Int, routePoints: Int) {
+        (0, 0, 0, 0, 0, 0)
+    }
     func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage { throw SyncFailure.invalid("unsupported_completeness_query") }
     func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws {}
@@ -72,6 +81,45 @@ actor HealthKitClient: HealthKitReading {
     private var observers: [HKObserverQuery] = []
     private var dailyObservers: [HKObserverQuery] = []
     private var vo2Observer: HKObserverQuery?
+    // Series capture batch counters (technical only). They exist so acceptance
+    // evidence can show flush/synchronization counts tracking batches rather
+    // than points (F15/P11).
+    private var seriesCaptureFlushes = 0
+    private var seriesCaptureSynchronizations = 0
+    private var seriesCapturePoints = 0
+    private var routeCaptureFlushes = 0
+    private var routeCaptureSynchronizations = 0
+    private var routeCapturePoints = 0
+    #if DEBUG
+    // Technical counters only: no health value, no Workout identity. Used by the
+    // source-filter acceptance evidence (F02/F05/F06).
+    private var acceptanceWorkoutListQueries = 0
+    private var acceptanceWorkoutListScanned = 0
+    private var acceptanceWorkoutListEligible = 0
+    private var acceptanceWorkoutListExcluded = 0
+    private var acceptanceWorkoutListUnclassified = 0
+    private var acceptanceWorkoutListScanLimit = 0
+    /// Test seam for the bounded list walk: when set, `recentWorkouts` reads
+    /// its pages from here instead of HealthKit. Only compiled in DEBUG, and
+    /// the app never sets it, so the shipped list path is unchanged.
+    private var workoutPageSource: (@Sendable (Date?, Int) async throws -> [HKWorkout])?
+    func setWorkoutPageSource(_ source: (@Sendable (Date?, Int) async throws -> [HKWorkout])?) {
+        workoutPageSource = source
+    }
+    func workoutListEvidence() -> JSON {
+        .object(["listQueries": .int(Int64(acceptanceWorkoutListQueries)),
+            "scannedWorkouts": .int(Int64(acceptanceWorkoutListScanned)),
+            "eligibleWorkouts": .int(Int64(acceptanceWorkoutListEligible)),
+            "excludedWorkouts": .int(Int64(acceptanceWorkoutListExcluded)),
+            "unclassifiedWorkouts": .int(Int64(acceptanceWorkoutListUnclassified)),
+            "scanLimit": .int(Int64(acceptanceWorkoutListScanLimit))])
+    }
+    func resetWorkoutListEvidence() {
+        acceptanceWorkoutListQueries = 0; acceptanceWorkoutListScanned = 0
+        acceptanceWorkoutListEligible = 0; acceptanceWorkoutListExcluded = 0
+        acceptanceWorkoutListUnclassified = 0; acceptanceWorkoutListScanLimit = 0
+    }
+    #endif
     static let vo2Type = HKObjectType.quantityType(forIdentifier: .vo2Max)!
     // No derived cadence: the current SDK has no HealthKit running-cadence
     // quantity identifier. Only real supported quantities are requested.
@@ -196,27 +244,87 @@ actor HealthKitClient: HealthKitReading {
     }
     /// Read-only list for the user-selected sync screen. This query does not
     /// use or advance any sync anchor; only a later explicit sync reads facts.
+    ///
+    /// The frozen source policy is applied here, before the list is offered and
+    /// before any detailed child read: a record policy excludes is never
+    /// selectable and never starts a quantity/series/route query. Pages are
+    /// read until enough eligible records are collected, so a history whose
+    /// most recent records are all third-party still surfaces older native
+    /// runs instead of showing an empty list. The scan is bounded, so the list
+    /// never becomes an unbounded historical query, and every scanned row is
+    /// returned so the UI can state how many records were excluded instead of
+    /// silently shrinking the list.
     func recentWorkouts(limit: Int = 100) async throws -> [HealthWorkoutSummary] {
         let bounded = min(max(limit, 1), 200)
-        let query = HKSampleQueryDescriptor(predicates: [.workout(HKQuery.predicateForWorkouts(with: .running))],
-                                            sortDescriptors: [SortDescriptor(\HKWorkout.startDate, order: .reverse)], limit: bounded)
-        let workouts = try await query.result(for: health)
-        let heartRate = HKObjectType.quantityType(forIdentifier: .heartRate)
-        let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)
-        return workouts.map { workout in
-            var distance = workout.totalDistance?.doubleValue(for: .meter())
-            if distance == nil, let distanceType { distance = workout.statistics(for: distanceType)?.sumQuantity()?.doubleValue(for: .meter()) }
-            var averageHeartRate: Double?
-            if let heartRate { averageHeartRate = workout.statistics(for: heartRate)?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute())) }
-            let indoor: Bool?
-            if let value = workout.metadata?[HKMetadataKeyIndoorWorkout] as? NSNumber { indoor = value.boolValue }
-            else if let location = workout.workoutActivities.first?.workoutConfiguration.locationType { indoor = location == .indoor }
-            else { indoor = nil }
-            return HealthWorkoutSummary(id: workout.uuid.uuidString.lowercased(), start: workout.startDate, end: workout.endDate,
-                durationS: workout.duration, distanceM: distance, averageHeartRate: averageHeartRate, isIndoor: indoor,
-                activityType: Int(workout.workoutActivityType.rawValue), sourceName: workout.sourceRevision.source.name,
-                deviceName: workout.device?.name)
+        // Enough history to reach `bounded` eligible records even when the most
+        // recent records are third-party, without an unbounded historical scan.
+        let scan = min(max(bounded * 4, bounded), 400)
+        var summaries: [HealthWorkoutSummary] = []
+        var cursor: Date?
+        var pages = 0
+        while summaries.count < scan && pages < 4 {
+            let want = min(bounded, scan - summaries.count)
+            var predicates = [HKQuery.predicateForWorkouts(with: .running)]
+            if let cursor {
+                // Strictly older than the previous page: no duplicates and no
+                // reordering while the user scrolls.
+                predicates.append(HKQuery.predicateForSamples(withStart: nil, end: cursor, options: .strictEndDate))
+            }
+            let workouts: [HKWorkout]
+            #if DEBUG
+            if let workoutPageSource {
+                workouts = try await workoutPageSource(cursor, want)
+            } else {
+                workouts = try await runningWorkoutPage(predicates: predicates, limit: want)
+            }
+            #else
+            workouts = try await runningWorkoutPage(predicates: predicates, limit: want)
+            #endif
+            pages += 1
+            summaries.append(contentsOf: workouts.map(Self.summary))
+            guard workouts.count == want, let last = workouts.last else { break }
+            cursor = last.startDate
         }
+        #if DEBUG
+        acceptanceWorkoutListQueries += pages
+        acceptanceWorkoutListScanned += summaries.count
+        acceptanceWorkoutListEligible += summaries.filter(\.isEligible).count
+        acceptanceWorkoutListExcluded += summaries.filter(\.isExcluded).count
+        acceptanceWorkoutListUnclassified += summaries.filter(\.isUnclassified).count
+        acceptanceWorkoutListScanLimit = scan
+        #endif
+        return summaries
+    }
+    /// One page of the running-workout list: strictly older than `before` when
+    /// a cursor is supplied, newest first, never more than `limit` rows.
+    private func runningWorkoutPage(predicates: [NSPredicate], limit: Int) async throws -> [HKWorkout] {
+        let query = HKSampleQueryDescriptor(
+            predicates: [.workout(NSCompoundPredicate(andPredicateWithSubpredicates: predicates))],
+            sortDescriptors: [SortDescriptor(\HKWorkout.startDate, order: .reverse)], limit: limit)
+        return try await query.result(for: health)
+    }
+    /// One Workout summary carrying its frozen source-policy outcome. Device
+    /// nickname never participates: only the HealthKit source descriptor and
+    /// its product/device fields are classified.
+    nonisolated static func summary(_ workout: HKWorkout) -> HealthWorkoutSummary {
+        var distance = workout.totalDistance?.doubleValue(for: .meter())
+        if distance == nil, let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) {
+            distance = workout.statistics(for: distanceType)?.sumQuantity()?.doubleValue(for: .meter())
+        }
+        var averageHeartRate: Double?
+        if let heartRate = HKObjectType.quantityType(forIdentifier: .heartRate) {
+            averageHeartRate = workout.statistics(for: heartRate)?.averageQuantity()?.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+        }
+        let indoor: Bool?
+        if let value = workout.metadata?[HKMetadataKeyIndoorWorkout] as? NSNumber { indoor = value.boolValue }
+        else if let location = workout.workoutActivities.first?.workoutConfiguration.locationType { indoor = location == .indoor }
+        else { indoor = nil }
+        let classification = HealthSourcePolicy.classification(Normalizer.source(workout))
+        return HealthWorkoutSummary(id: workout.uuid.uuidString.lowercased(), start: workout.startDate, end: workout.endDate,
+            durationS: workout.duration, distanceM: distance, averageHeartRate: averageHeartRate, isIndoor: indoor,
+            activityType: Int(workout.workoutActivityType.rawValue), sourceName: workout.sourceRevision.source.name,
+            deviceName: workout.device?.name, sourceClassification: classification,
+            sourceOutcome: WorkoutSourcePolicy.outcome(classification))
     }
     /// Anchored query scoped to exactly one Workout UUID. A page from this
     /// query can never contain another Workout, so the Outbox cannot discard a
@@ -263,6 +371,25 @@ actor HealthKitClient: HealthKitReading {
         let name = try await store.beginFactCapture(), url = try await store.fileURL(name)
         let file = try FileHandle(forWritingTo: url); defer { try? file.close() }
         var bySample: [String: [JSON]] = [:], count = 0
+        // Points are buffered and flushed in bounded batches: one write plus one
+        // synchronization per batch instead of one per point. The file format is
+        // unchanged (newline-delimited JSON), so an interrupted capture still
+        // leaves a readable prefix.
+        let policy = CaptureSegmentPolicy.standard
+        var buffer = Data(), pending = 0, batchStart = Date()
+        func flush() throws {
+            guard !buffer.isEmpty else { return }
+            try file.write(contentsOf: buffer)
+            try file.synchronize()
+            buffer.removeAll(keepingCapacity: true)
+            pending = 0
+            batchStart = Date()
+            seriesCaptureFlushes += 1
+            seriesCaptureSynchronizations += 1
+        }
+        // A cancelled or failed read must not silently drop buffered points: the
+        // capture prefix stays durable, exactly as the per-point writer did.
+        defer { try? flush() }
         let query = HKQuantitySeriesSampleQueryDescriptor(predicate: .quantitySample(type: type, predicate: HKQuery.predicateForObjects(from: workout)), options: [.includeSample])
         for try await value in query.results(for: health) {
             try Task.checkCancellation()
@@ -272,11 +399,22 @@ actor HealthKitClient: HealthKitReading {
             var capture: [String: JSON] = ["point": point, "type": .string(type.identifier), "workoutID": .string(workout.uuid.uuidString.lowercased())]
             if let sample = value.sample { capture["sampleUUID"] = .string(sample.uuid.uuidString.lowercased()) }
             var bytes = try JSON.object(capture).data(); bytes.append(10)
-            try file.write(contentsOf: bytes); try file.synchronize(); count += 1
+            buffer.append(bytes); pending += 1; count += 1; seriesCapturePoints += 1
+            if pending >= policy.maxRecords || buffer.count >= policy.maxBytes || Date().timeIntervalSince(batchStart) >= policy.maxInterval {
+                try flush()
+            }
             guard let sample = value.sample else { throw SyncFailure.localState("series_parent_missing") }
             bySample[sample.uuid.uuidString.lowercased(), default: []].append(point)
         }
+        try flush()
         return bySample
+    }
+    /// Technical counters for the capture batch policy: flush and
+    /// synchronization counts must track batches, not points.
+    func captureBatchCounters() async -> (seriesFlushes: Int, seriesSynchronizations: Int, seriesPoints: Int,
+                                          routeFlushes: Int, routeSynchronizations: Int, routePoints: Int) {
+        (seriesCaptureFlushes, seriesCaptureSynchronizations, seriesCapturePoints,
+         routeCaptureFlushes, routeCaptureSynchronizations, routeCapturePoints)
     }
 
     func bundleRoutes(workout: HKWorkout) async throws -> [HealthRouteBundle] {
@@ -303,6 +441,9 @@ actor HealthKitClient: HealthKitReading {
                     try capture.append(point); points.append(point)
                 }
                 try capture.finish(expected: route.count)
+                routeCaptureFlushes += capture.flushes
+                routeCaptureSynchronizations += capture.synchronizations
+                routeCapturePoints += capture.pointsWritten
                 try await store.updateRouteCapture(id, count: points.count, completed: true)
                 result.routes.append(HealthRouteBundle(id: id, source: route.sourceRevision.source.bundleIdentifier, points: points, provenance: Normalizer.source(route)))
                 var coverage = WorkoutCoverage.result(count: points.count, expected: route.count)

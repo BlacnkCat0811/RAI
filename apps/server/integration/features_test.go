@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"math"
 	"os"
 	"strings"
@@ -497,8 +498,28 @@ func TestFeatureLoaderLimitsFailWithoutTruncatingOrPublishing(t *testing.T) {
 	runOne(t, f, wf.JobKind)
 	// Bounded per-workout observation history, all synthetic. Identities only are
 	// generated; no real source data or existing raw fact is changed.
-	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO workout_imports(dataset_id,workout_uuid,bundle_sha256,payload,receipt) SELECT dataset_id,workout_uuid,decode(md5(g::text)||md5(g::text),'hex'),jsonb_build_object('observation',payload->'observation'),receipt FROM workout_imports CROSS JOIN generate_series(1,2001) g WHERE dataset_id=$1 AND workout_uuid=$2 LIMIT 2001`, f.p.DatasetID, b.WorkoutID); err != nil {
+	// Exercise the observation-count limit with legal metadata-only imports.
+	// Repeating full sample/route provenance and coverage 2001 times needlessly
+	// made the Worker assertion depend on decoding load and the normal timeout.
+	metadataOnly := b
+	observation := *b.Observation
+	observation.Provenance.Samples = nil
+	observation.Provenance.Routes = nil
+	observation.Coverage = map[string]syncing.BundleCoverage{}
+	metadataOnly.Samples, metadataOnly.Series, metadataOnly.Routes = nil, nil, nil
+	metadataOnly.Observation = &observation
+	if err := metadataOnly.Validate(); err != nil {
+		t.Fatal("invalid synthetic metadata-only observation", err)
+	}
+	raw, err := json.Marshal(observation)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO workout_imports(dataset_id,workout_uuid,bundle_sha256,payload,receipt) SELECT dataset_id,workout_uuid,decode(md5(g::text)||md5(g::text),'hex'),jsonb_build_object('observation',$3::jsonb),receipt FROM workout_imports CROSS JOIN generate_series(1,2001) g WHERE dataset_id=$1 AND workout_uuid=$2 LIMIT 2001`, f.p.DatasetID, b.WorkoutID, raw); err != nil {
+		t.Fatal(err)
+	}
+	if count(t, f, "workout_imports") != 2002 {
+		t.Fatal("synthetic observation-count boundary was not seeded")
 	}
 	if err := admin.QueueFeatureCandidate(ctx, f.s, f.p.DatasetID, b.WorkoutID, syncing.NewID(), "synthetic limit"); err != nil {
 		t.Fatal(err)
@@ -513,9 +534,9 @@ func TestFeatureLoaderLimitsFailWithoutTruncatingOrPublishing(t *testing.T) {
 	if _, _, err = f.s.CandidateFeature(ctx, f.p.DatasetID, b.WorkoutID); err == nil {
 		t.Fatal("failed limited run published")
 	}
-	var state string
-	if err = f.s.Pool.QueryRow(ctx, `SELECT state FROM jobs WHERE id=$1`, l.ID).Scan(&state); err != nil || state != "failed" {
-		t.Fatal("input limit was marked success", err)
+	var state, lastCode string
+	if err = f.s.Pool.QueryRow(ctx, `SELECT state,COALESCE(last_error_code,'') FROM jobs WHERE id=$1`, l.ID).Scan(&state, &lastCode); err != nil || state != "failed" || lastCode != "analysis_input_limit" {
+		t.Fatalf("input limit not durably failed: state=%s code=%s error=%v", state, lastCode, err)
 	}
 }
 

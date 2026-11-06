@@ -942,3 +942,56 @@ UA1-R3A / UA1 RE-ACCEPTANCE: BLOCKED。下一步需要用户决定 completeness 
 隐私门禁 PASS（3 文件 0 命中）：公开证据只含 count/hash/分类分布/reason。
 
 UA1-R3B / UA1 RE-ACCEPTANCE: BLOCKED（真机侧未验证）。R1 合同未变、R2 未回归；未提交、未 push、未部署生产、未切换 legacy、未进入 UA2，`active=legacy` 未变。
+
+## 本机开发提速与独立真机环境（2026-11-06）
+
+用户要求开发/回归/性能测试全部在本机 Mac 执行，并明确授权建立新的本机真机验收环境。新增 `scripts/local/test.sh` 的 quick/gate/unit/integration/full/swift/simulator/e2e/perf 分层入口，复用 Go/Xcode 构建缓存，数据库仍为同步落盘、checksums 开启的一次性隔离 PG18。旧 remote 两入口在任何连接前直接拒绝；AGENTS.md 已记录本机执行及原完成门禁要求。原 N100/云端数据未读取、搬迁或清理；历史报告、原方案、协议和 migrations 保留。[结果](LOCAL_DEVELOPMENT_RESULT_2026-11-06.md) · [聚合证据](evidence/local-development-2026-11-06.json)。
+
+修复客户端 `associateDiscoveredFacts` 每 sample 扫描全部 discovery events 的 `K×E` 成本，改为一次索引后按原 keys 处理，保留 generation、revision/delete、幂等、父冲突和最终原子状态提交。新增重启/重复 key/冲突回滚回归。相同本机 Swift Debug 合成 10000 events /1000 keys（含状态编码/落盘）由 9328.407ms 降至124.222ms（约75倍）；不等于真机整体75倍。series/route逐点synchronize、fresh series、完整事实与ACK/anchor要求未放宽。
+
+本机 quick 最后7s、gate19s；Swift Testing164 tests/23 suites PASS，另XCTest6项中3通过3显式跳过（含本轮opt-in性能测量）；模拟器60项57通过0失败3外部fixture跳过。真实loopback HTTP→隔离PG18的1/10/100/500条轻量合成bundle核对通过，500条提交20.955s、HTTP中位34.870ms/P95 62.931ms；每条60 scalar/3series/3route，使用显式有限benchmark admission预算，Worker未计时，不冒充密集HealthKit或容量验收，单manifest256 inventory上限未变。
+
+修复既有Simulator HTTP/PG丢ACK钩子在v2 COMMIT后误用v1严格decoder持续返回500的问题；生产协议/事务未改。新增诊断留存、按contract分派和v2断言。修复后本机PG/race专项PASS（package46.125s/入口64s）：2代v2 manifest、12streams、1import、lostACK幂等、第二轮bootstrap0、M6 synthetic=false/unknownLoads1，残留库0/cluster removed；另两项外部fixture未冒充通过。
+
+真机USB实测iPhone12ProMax wired/paired/developer-mode enabled，签名Debug更新安装成功、未卸载。`scripts/local/device.py`建立独立Mac PG18.6/schema29/API/Worker，握手v2；iPhone→Mac认证probe81.933ms，probe前后原sessions manifest hash一致。Debug独立namespace不激活/重绑定普通session，不启动旧产品轮询；数据库仅loopback，API仅私有LAN接口、HTTP仅Debug精确host，Release TLS规则未改，开发owner角色不冒充生产权限验收。首条真实eligible Workout ACK18.421s（采集组包12.050s/上传确认5.676s）；重启后12.652s精确复用原bundle且使用committed Workout anchor，server仍1Workout/1import/5464samples/1768route points；Mac后端stop→prepare后身份与1/1计数保留。常规测试仍仅合成数据，真实验收事实仅私有App/本机DB，公开仅count/timing/status/布尔。
+
+完成门禁：Go race单测、vet（含integration/ua1rsim）、build、sqlc生成一致、依赖边界、shell/Python语法和控制器安全4例通过。**全量PG/race首跑FAIL**：integration1300.994s，仅既有`TestFeatureLoaderLimitsFailWithoutTruncatingOrPublishing`末尾job状态断言失败，其余包通过、清理0残留；该项独立7.33s通过，首跑未记录最终errorCode，具体负载/超时原因未证实。已将synthetic数量边界fixture改成先通过Validate的合法metadata-only observation，仍插入并断言2002行、验证2000上限和禁止发布，新增job必须failed/analysis_input_limit断言；生产实现/上限/超时不变。修复后真实隔离PG18/race连续5次PASS（package14.743s）、清理通过。**整套未再次执行，不把首次失败改写为全绿。**
+
+本轮LOCAL DEVELOPMENT为PASS WITH RISKS；真实全量v2 completeness、真实manifest lostACK、真实第二增量与真实M6重评未执行（新库manifest0），不改变UA1-R3B历史BLOCKED结论。不进入UA2/UA3/UA4，PHYSIOLOGICAL VALIDATION NOT VERIFIED、PRODUCT ACTIVATION NOT AUTHORIZED；无模型资格/公式、生产部署、旧入口切换、commit/push或真实数据迁移。
+
+## Workout 同步提速与 Apple Watch 来源过滤实施方案（2026-11-06，仅文档）
+
+按用户要求新增 [完整实施方案与验收条件](WORKOUT_SYNC_SPEED_IMPLEMENTATION_PLAN.md)。方案包含 P0–P6 七阶段、32 项功能/故障验收（F01–F32）、12 项性能门槛（P01–P12）、默认限流下的统计方法、文件范围、兼容回退与交付签核。普通 20–60 分钟跑步的待验收目标为完整用户路径 P50≤5s/P95≤8s；不是已测成绩。RQRun 抓包起始时间不等于完整采集耗时，公平直接对标另列 NOT VERIFIED。
+
+来源过滤沿用冻结的 Apple Watch 原生 running 策略，提前到列表和子数据采集之前；保留根可见清单、exclusion evidence、明确删除及未知来源语义。提速先处理重复读取、逐样本文件/逐点刷盘和编码，再合并重复语义校验及数据库集合检查；单条持久 ACK 与异步分析、全量完整性证明分开，未完成证明不冒充模型完整。旧 pending、精确字节身份、删除优先、同事务回执、原方案与历史证据不变。
+
+本轮仅新增方案并追加本条记录，未实施 P0–P6。文档本地链接、代码围栏配对、F/P 编号唯一且完整检查 PASS；414 个既有 Go/Swift/SQL 文件相对本轮入口 hash 核对无变化，原方案 SHA-256 仍为 `6951b1d938133a964cb06d28c3aa744ad05121f25da770e184041211df53e3de`。本机 `scripts/local/test.sh gate` PASS（4s，Go race 测试使用缓存，vet、258 包依赖边界、控制器安全 4 例通过）；`git diff --check` PASS。此门禁只证明当前工程检查通过，不证明计划中的优化已实现。
+
+NOT RUN / NOT VERIFIED：新捕获格式、新 SQL/事务、App 改造、性能目标、真实隔离 PG 新方案集成、真机新操作与 RQRun 公平对照均未执行。无生产数据库访问、部署、真实数据迁移、commit/push 或产品模型激活。
+
+## Workout 同步提速与 Apple Watch 来源过滤 — 实施结果（2026-11-06）
+
+按 [实施方案](WORKOUT_SYNC_SPEED_IMPLEMENTATION_PLAN.md) 完成真机之外的部分，并在已连接的 iPhone 12 Pro Max（iOS 27.2，Release 构建，WiFi → 本机 Mac 后端）上执行真机验收；逐项结果、真实数字与未验证项见 [实施结果](WORKOUT_SYNC_SPEED_RESULT.md)，原始证据在 `docs/evidence/workout-sync-speed/`（client 编码前后与负载对照、server S60/S240 ack 各 n=30 全量迭代、Phase4 矩阵 timing 子集、7 个 `EXPLAIN (ANALYZE, BUFFERS, WAL)` 与 phase 分解）。工作树基于 `533fa82` 的既有未提交改动之上，未 reset/clean/覆盖；无 commit/push、无部署、无真实数据迁移、未切换旧入口。
+
+客户端：来源分类提前到 `recentWorkouts`（有界分页，`scan ≤ 400`、4 页、cursor 前进）、`discoverChanges`（根对象与最小证据之后、任何 quantity/series/route 子查询之前）与 `performSync` 入口；`excluded`/`unclassified` 不建任务、不读子数据、不上传，分类记录只含身份 hash 与 descriptor digest、不含 UUID 明文、不写 `state.json`。批量捕获改为 segment（512 条 / 256 KiB / 250ms 先到者，封存后不可变，无 seal 尾部永不可引用），series/route 由逐点 `synchronize()` 改为有界批刷盘且文件字节格式不变；Workout 根记录保留单文件归档，因为 `stageDiscovery` 只对 `archiveFile != nil` 的根事件登记 `workoutArchives`。采集复用新增 `exhaustedDiscoveryFacts`（要求 anchor 已提交、无 staged/error/hasMore、每条事实都有可读归档），组包可直接消费 discovery 归档并跳过二次全量 HK 读取；无变化重复同步由 `isAlreadyDelivered` 判定后不发 POST、不读 HealthKit。期间修掉两个真实缺陷：`setBundle` 使用捕获前的 generation 导致 `deliveredGeneration` 永远落后一代；根记录误入 segment 导致可见清单为空、scoped 发现停摆（被三个模拟器用例同时抓到）。分析刷新与 durable ACK 解耦，单条 ACK 后即可显示已同步。
+
+编码器把递归 `Data`/`String`/`JSONEncoder` 换成单缓冲字节追加与手写转义，数字格式、键排序、省略规则未变；字节一致性由把旧编码器原样复制为 reference 的 `WireEncodingTests` 证明（控制字符、U+2028/2029、24 个 double 边界、Int64 极值等逐字节 + hash），五档 `json_bytes` 与基线完全相同。S60 编码由 3526.48ms 降至 384.77ms（−89.1%，P11 门槛 ≤1763ms 通过）；同一代码在并发负载下 S60 曾达 884.22ms，两值均已归档并标注负载条件。
+
+服务端（server-import 交付）：语义校验收口到 Store 入口一次、HTTP 只留严格解码；身份/删除/series/route 检查与写入改集合式（≤1000 键/批、多行参数、无 `ON CONFLICT DO NOTHING`），判定顺序与冲突码逐条保持；补齐 `semantic_validation`/`dataset_lock`/`commit` 等 11 个 phase。未新增迁移或索引（最高仍 `00029`），durability 全开，未扩池。
+
+测试：`scripts/local/test.sh swift` 197 tests / 28 suites PASS；`simulator` 71 项 68 通过 0 失败 3 显式外部跳过；`e2e` PASS（`contract=v2 manifests=2 streams=12 imports=1 lost_ack=true`，残留库 0、集群已删）；`gate` PASS；`full` PASS（1312s，含 `go test -race -count=1 ./...`、`go vet -tags=integration`、sqlc 生成与 dbgen diff、全部 PG 集成测试 `ok rai/server/integration 1068.843s`）；`perf` PASS（benchmark 预算下 500 条轻量 bundle 19.18s，不能当 P08/P09）。既有断言零放宽，唯一 fixture 调整是给合成 HK 记录补上其本意描述的 Apple Watch 描述符（来源门提前后被正确判为 `source_unknown`）。
+
+性能结论：P11 PASS（S60 编码 3526.48ms → 384.77ms）。**P06 FAIL**——S60 `T_server_ack` P95 **5646.0ms** / P50 4901.3ms 对目标 ≤1000ms（n=30，0 失败，真实 handler→PG；P50 构成：严格 JSON 解码 1649.6ms + `sample_writes` 1068.1ms + `association_writes` 1038.8ms + `routes` 171.1ms + 语义校验 159.6ms + `receipt` 122.2ms + `identity_checks` 116.4ms + `dirty_job` 133.4ms + ACK 写出 0.11ms）。**P07 FAIL**——S240 P95 **31036.3ms** / P50 21080.2ms 对目标 ≤4000ms（同口径 n=30，0 失败）。S240 此前曾因集合式身份查询在热连接上拿到 generic plan（同一批 1000 键 custom 31ms vs generic 3.4s）而撞 2s `statement_timeout`，只抬超时只会把错误码换成整事务超时；已由 server-import 在导入事务内加事务局部 `plan_cache_mode='force_custom_plan'` 与有界 `statement_timeout='30s'` 修复，20k 单包回归用例 PASS，`TestPhase4PerformanceMatrix`/`TestPhase4FreshGzipDurationMatrix` 全档（含 240）转 PASS。
+
+NOT RUN / NOT VERIFIED：iPhone 真机口径的 P01–P03/P10/P12、P08/P09 批量端到端、模型与完整性联动（F30）、F05 的设备端真实历史、真实磁盘满/FileProtection/掉电、`perf` 入口、新旧实现同输入对拍（旧路径已删除，仅按合同语义断言）、部署与 RQRun 公平对标。本机 Debug/macOS 数字不替代真机，服务端时延未达标不因客户端改善而抵消。
+
+
+### 真机验收结果（iPhone 12 Pro Max，iOS 27.2，Release）
+
+- 真实只读采集，同一条记录每次重置本机一次性数据库后做真实首导入：58 分钟记录（8.57MB canonical JSON）n=20 → `T_user_ack` P50 **19.14s** / P95 19.65s、峰值 RSS 291.6MiB；32 分钟记录 n=20 → P50 9.87s / P95 12.18s、RSS 202.4MiB；库内唯一 108 分钟记录 n=20 → P50 1.97s（series 型稀疏样本，1.67MB，不构成 S120 密度样本）。
+- 同机基线对照（内部回退开关还原逐条刷盘与旧编码器，上传字节完全相同 8,565,743B）：P50 25.10s → 19.14s，**−23.7%**。→ **P01 FAIL**（对 ≤5s/≤8s，且未达 −50%），瓶颈是逐样本 `NSKeyedArchiver` 8.8s 与服务端导入 ≈5s。
+- 无变化重复同步 + 重启恢复：连续 9 次重启进程后同步，P50 **420ms**，0 次新 POST/import/job/change event → **P04 PASS**。
+- 主线程最大停顿 1.8ms（n=20）、无 >250ms 停顿 → **P10 PASS**；RSS 超限 → **P12 S60 FAIL**。
+- 来源过滤真机清单：4 页扫描 100 条，51 合格 / 49 排除 / 0 未分类，191ms。
+- 完整性 v2 真机尝试未完成：运行 15 分钟后进程被系统终止，已导入 10 条记录，`workout_sync_completeness` 仍为 0 行（未伪造 receipt）→ NOT COMPLETED。
+- 未执行：P02（无 S120 密度记录）、P03（无 240 分钟记录）、P08/P09 批量端到端、API 进程 RSS、部署、RQRun 公平对标。

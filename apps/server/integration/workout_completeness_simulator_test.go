@@ -36,6 +36,7 @@ func TestWorkoutCompletenessSimulatorHTTPPostgres(t *testing.T) {
 	var mu sync.Mutex
 	dropped := false
 	hashes := map[string]string{}
+	contracts := map[string]bool{}
 	attempts := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && r.URL.Path == "/v2/sync/workout-completeness" {
@@ -48,18 +49,39 @@ func TestWorkoutCompletenessSimulatorHTTPPostgres(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, r)
 			if recorder.Code == 200 {
-				m, err := syncing.DecodeWorkoutCompleteness(raw)
-				if err != nil {
+				// The production handler already validated and committed the body.
+				// The fault injector must decode its actual contract too: using the
+				// strict v1 decoder on v2 turned every successful COMMIT into 500.
+				var identity struct {
+					Contract string `json:"contract"`
+				}
+				err := json.Unmarshal(raw, &identity)
+				var manifestID string
+				if err == nil {
+					switch identity.Contract {
+					case syncing.WorkoutCompletenessContract:
+						var m syncing.WorkoutSyncCompletenessManifest
+						m, err = syncing.DecodeWorkoutCompleteness(raw)
+						manifestID = m.ManifestID
+					case syncing.WorkoutCompletenessV2Contract:
+						var m syncing.WorkoutSyncCompletenessManifestV2
+						m, err = syncing.DecodeWorkoutCompletenessV2(raw)
+						manifestID = m.ManifestID
+					}
+				}
+				if err != nil || !syncing.ValidID(manifestID) {
+					t.Error("successful manifest could not be decoded by the synthetic fault injector")
 					w.WriteHeader(500)
 					return
 				}
 				hash := syncing.BundleDigest(raw)
 				mu.Lock()
 				attempts++
-				if prior, ok := hashes[m.ManifestID]; ok && prior != hash {
+				if prior, ok := hashes[manifestID]; ok && prior != hash {
 					t.Error("immutable manifest changed on retry")
 				}
-				hashes[m.ManifestID] = hash
+				hashes[manifestID] = hash
+				contracts[identity.Contract] = true
 				drop := !dropped
 				dropped = true
 				mu.Unlock()
@@ -149,8 +171,9 @@ plistlib.dump(p,open(sys.argv[2],'wb'));os.chmod(sys.argv[2],0o600)`
 	}
 	mu.Lock()
 	wasDropped, total, identities := dropped, attempts, len(hashes)
+	onlyV2 := len(contracts) == 1 && contracts[syncing.WorkoutCompletenessV2Contract]
 	mu.Unlock()
-	if !wasDropped || total < 3 || identities != 2 || count(t, f, "workout_sync_completeness") != 2 || count(t, f, "workout_imports") != 1 || count(t, f, "workouts") != 1 || count(t, f, "health_samples") != 1 {
+	if !wasDropped || !onlyV2 || total < 3 || identities != 2 || count(t, f, "workout_sync_completeness") != 2 || count(t, f, "workout_imports") != 1 || count(t, f, "workouts") != 1 || count(t, f, "health_samples") != 1 {
 		t.Fatal("missing real HTTP idempotency/PG evidence")
 	}
 	runReadinessLatest(t, f)
@@ -158,5 +181,5 @@ plistlib.dump(p,open(sys.argv[2],'wb'));os.chmod(sys.argv[2],0o600)`
 	if !r.Coverage.CaughtUp || r.Coverage.Synthetic || r.UnknownLoads != 1 || strings.Contains(strings.Join(r.Reasons, ","), "load_sync_incomplete") {
 		t.Fatal("M6 did not preserve real completeness and unknown load separately")
 	}
-	t.Logf("UA1_R_SIMULATOR_HTTP_PG=PASS manifests=2 streams=12 imports=1 lost_ack=true m6_synthetic=false unknown_loads=1")
+	t.Logf("UA1_R_SIMULATOR_HTTP_PG=PASS contract=v2 manifests=2 streams=12 imports=1 lost_ack=true m6_synthetic=false unknown_loads=1")
 }

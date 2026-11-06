@@ -1,0 +1,57 @@
+# Server-side acknowledgement timing (P06 candidate measurement)
+
+Command: `RAI_SYNC_SPEED_PERF=1 RAI_SYNC_SPEED_ITERATIONS=30 RAI_SYNC_SPEED_WARMUPS=3 scripts/local/test.sh integration -run '^TestWorkoutSyncSpeedServerAckMatrix$' ./integration`
+Harness: `apps/server/integration/workout_sync_speed_test.go` (integration build tag, opt-in by env).
+Path: in-process `httpapi.New(...)` handler -> real `storage/postgres` -> disposable local PG18.6. No socket, no proxy, no rate limiter.
+Load: S60 synthetic bundle (`performanceBundle`), every iteration a brand-new Workout/sample/route identity, i.e. a real first import.
+`ack_total_ms` = handler entry (after auth) to response write. Auth middleware time is NOT included.
+
+```
+server_version 18.6 (Postgres.app); fsync=on; full_page_writes=on; synchronous_commit=on; data_checksums=on
+=== RUN   TestWorkoutSyncSpeedServerAckMatrix/S60
+    iteration 0 ack_total_ms=21729.008 import_ms=19838.077 identity_checks_ms=17972.476 sample_writes_ms=683.646
+    iteration 1 failed with HTTP 503 code="database_statement_timeout_or_cancel" stage="import" ack_total_ms=7289.122 identity_checks_ms=0.000
+    iteration 2 ack_total_ms=3859.776 import_ms=2039.888 identity_checks_ms=219.079 sample_writes_ms=590.714
+    iteration 3 ack_total_ms=3795.555 import_ms=2007.763 identity_checks_ms=114.522 sample_writes_ms=590.950
+    iteration 4 ack_total_ms=3678.061 import_ms=1865.944 identity_checks_ms=85.137 sample_writes_ms=559.548
+    iteration 5 ack_total_ms=3653.805 import_ms=1849.561 identity_checks_ms=89.731 sample_writes_ms=570.328
+    iteration 6 ack_total_ms=3754.260 import_ms=1922.392 identity_checks_ms=82.555 sample_writes_ms=619.489
+    iteration 7 ack_total_ms=3652.073 import_ms=1862.214 identity_checks_ms=85.944 sample_writes_ms=564.535
+    iteration 8 ack_total_ms=4093.142 import_ms=2145.288 identity_checks_ms=89.990 sample_writes_ms=729.973
+    iteration 9 ack_total_ms=4098.099 import_ms=2086.962 identity_checks_ms=95.021 sample_writes_ms=624.989
+    iteration 10 ack_total_ms=4344.607 import_ms=2345.277 identity_checks_ms=99.476 sample_writes_ms=760.900
+    iteration 11 ack_total_ms=4111.682 import_ms=2121.269 identity_checks_ms=103.309 sample_writes_ms=667.953
+    iteration 12 ack_total_ms=3934.042 import_ms=1971.400 identity_checks_ms=88.839 sample_writes_ms=631.498
+    iteration 13 ack_total_ms=3922.184 import_ms=2095.329 identity_checks_ms=95.830 sample_writes_ms=630.571
+    iteration 14 ack_total_ms=3922.819 import_ms=2091.439 identity_checks_ms=91.579 sample_writes_ms=676.844
+    iteration 15 ack_total_ms=4007.424 import_ms=2157.515 identity_checks_ms=101.707 sample_writes_ms=678.495
+    iteration 16 ack_total_ms=4565.883 import_ms=2417.762 identity_checks_ms=118.087 sample_writes_ms=904.702
+    iteration 17 ack_total_ms=4431.915 import_ms=2413.244 identity_checks_ms=118.833 sample_writes_ms=761.918
+    iteration 18 ack_total_ms=4385.347 import_ms=2182.912 identity_checks_ms=107.520 sample_writes_ms=698.997
+    iteration 19 ack_total_ms=4737.349 import_ms=2639.250 identity_checks_ms=119.708 sample_writes_ms=1014.315
+    iteration 20 ack_total_ms=4810.540 import_ms=2661.172 identity_checks_ms=99.691 sample_writes_ms=780.577
+    iteration 21 ack_total_ms=4267.996 import_ms=2102.196 identity_checks_ms=94.462 sample_writes_ms=722.891
+    iteration 22 ack_total_ms=4066.266 import_ms=2255.173 identity_checks_ms=95.300 sample_writes_ms=780.627
+    iteration 23 ack_total_ms=4248.807 import_ms=2486.033 identity_checks_ms=108.842 sample_writes_ms=1123.254
+    iteration 24 ack_total_ms=3973.393 import_ms=2212.342 identity_checks_ms=105.971 sample_writes_ms=751.012
+    iteration 25 ack_total_ms=3964.103 import_ms=2053.139 identity_checks_ms=105.856 sample_writes_ms=703.943
+    iteration 26 ack_total_ms=4259.654 import_ms=2490.853 identity_checks_ms=137.844 sample_writes_ms=709.709
+    iteration 27 ack_total_ms=4466.139 import_ms=2515.117 identity_checks_ms=139.613 sample_writes_ms=757.029
+    iteration 28 ack_total_ms=4307.869 import_ms=2443.770 identity_checks_ms=129.595 sample_writes_ms=784.094
+    iteration 29 ack_total_ms=5254.031 import_ms=3066.120 identity_checks_ms=217.619 sample_writes_ms=1337.099
+    iteration 30 ack_total_ms=4428.783 import_ms=2540.580 identity_checks_ms=149.938 sample_writes_ms=1037.414
+    SYNC_SPEED_SERVER_ACK={"ack_total_ms":{"max":21729.008,"min":3652.073,"p50":4098.099,"p95":5254.031},"ack_write_ms":{"p50":0.113,"p95":0.153},"client_roundtrip_ms":{"p50":4136.481,"p95":5274.115},"failures":1,"import_ms":{"p50":2157.515,"p95":3066.12},"import_phases_ms":{"association_writes":{"n":30,"p50":548.064,"p95":680.953},"commit":{"n":30,"p50":10.557,"p95":92.779},"dataset_lock":{"n":30,"p50":0.295,"p95":0.419},"deletions":{"n":30,"p50":0.385,"p95":0.692},"dirty_job":{"n":30,"p50":145.016,"p95":171.813},"identity_checks":{"n":30,"p50":103.309,"p95":219.079},"import_total":{"n":30,"p50":2157.494,"p95":3066.091},"import_transaction":{"n":30,"p50":1973.44,"p95":2814.699},"receipt":{"n":30,"p50":137.881,"p95":165.842},"routes":{"n":30,"p50":107.354,"p95":201.969},"sample_writes":{"n":30,"p50":703.943,"p95":1123.254},"semantic_validation":{"n":30,"p50":178.492,"p95":242.998},"series":{"n":30,"p50":0,"p95":0.002}},"iterations":30,"json_bytes_p50":4134363,"json_decode_ms":{"p50":1801.519,"p95":2102.582},"pg_version":"18.6 (Postgres.app)","profile":"S60","validation_ms":{"p50":178.492,"p95":242.998},"warmups":3}
+=== RUN   TestWorkoutSyncSpeedServerAckMatrix/S240
+    warmup 1 failed with HTTP 503
+--- FAIL: TestWorkoutSyncSpeedServerAckMatrix (227.49s)
+    --- PASS: TestWorkoutSyncSpeedServerAckMatrix/S60 (196.96s)
+    --- FAIL: TestWorkoutSyncSpeedServerAckMatrix/S240 (30.54s)
+```
+
+## Reading
+
+- S60 `ack_total_ms` P50 4098 ms / P95 5254 ms. The P06 target is P95 <= 1000 ms, so P06 **fails** by roughly 5x.
+- Composition of the P50 (ms): json_decode 1801.5 + import_transaction 1973.4 (sample_writes 703.9, association_writes 548.1, dirty_job 145.0, receipt 137.9, routes 107.4, identity_checks 103.3, commit 10.6) + semantic_validation 178.5 + ack_write 0.1.
+- The single largest item is strict JSON decoding (1801 ms for 4.1 MB), then the two multi-row write statements.
+- Iteration 1 failed with `database_statement_timeout_or_cancel`; the S240 profile could not be measured at all because the 26,382-sample import trips a timeout. Both are recorded as blockers, not as slowness.
+- The first iterations of a fresh cluster show `identity_checks` at 12–18 s (cold caches / plan choice); the steady state is ~100 ms. The measurement therefore excludes warmups but keeps iteration 0 in the sample, which is why `max` is far above P95.

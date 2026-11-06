@@ -90,6 +90,32 @@ import Testing
         var next = query; next.contract = 2
         await #expect(throws: (any Error).self) { try await reopened.discoveryFlow(next) }
     }
+    @Test func batchedAssociationsPreserveRevisionsDuplicatesConflictsAndRestart() async throws {
+        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try OutboxStore(directory: dir), query = DiscoveryQuery(type: "sample"), parent = Wire.id(), sample = Wire.id()
+        _ = try await store.discoveryFlow(query)
+        let archive = Data("synthetic".utf8), file = try await store.savePayload(archive)
+        let add = DiscoveryEvent(type: query.type, uuid: sample, deleted: false, archiveFile: file, archiveHash: Wire.hash(archive))
+        let deletion = DiscoveryEvent(type: query.type, uuid: sample, deleted: true)
+        let unrelated = DiscoveryEvent(type: query.type, uuid: Wire.id(), deleted: true)
+        let batch = try await store.stageDiscovery(query, previousAnchor: nil, anchor: Data([1]), events: [add, deletion, unrelated], hasMore: false)
+        try await store.promoteDiscovery(query, batchID: batch)
+        try await store.associateDiscoveredFacts(workoutID: parent, keys: [add.factKey, add.factKey])
+        let reopened = try OutboxStore(directory: dir), snapshot = await reopened.discoverySnapshot()
+        #expect(snapshot.work[parent]?.generation == 2)
+        #expect(snapshot.events[add.id]?.workoutID == parent)
+        #expect(snapshot.events[deletion.id]?.workoutID == parent)
+        #expect(snapshot.events[unrelated.id]?.workoutID == nil)
+        #expect(Set([snapshot.events[add.id]?.generation, snapshot.events[deletion.id]?.generation]) == Set([1, 2]))
+        try await reopened.associateDiscoveredFacts(workoutID: parent, keys: [add.factKey])
+        #expect(await reopened.discoverySnapshot().work[parent]?.generation == 2)
+        // A later conflict must roll back earlier changes from this same call.
+        await #expect(throws: (any Error).self) {
+            try await reopened.associateDiscoveredFacts(workoutID: Wire.id(), keys: [unrelated.factKey, add.factKey])
+        }
+        #expect(await reopened.discoverySnapshot().parents[unrelated.factKey] == nil)
+        #expect(await reopened.discoverySnapshot().events[unrelated.id]?.workoutID == nil)
+    }
     @Test func deletionBlocksOldUploadWithoutFalseACK() async throws {
         let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
         let store = try OutboxStore(directory: dir), id = Wire.id(), query = DiscoveryQuery(type: "HKWorkoutTypeIdentifier")

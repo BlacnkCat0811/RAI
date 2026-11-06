@@ -1,0 +1,24 @@
+# Server-side Phase4 performance matrix (RAI_PHASE4_PERF=after)
+
+Command: `RAI_PHASE4_PERF=after scripts/local/test.sh integration -v -run '^TestPhase4PerformanceMatrix$|^TestPhase4FreshGzipDurationMatrix$' ./integration`
+Result: `--- PASS: TestPhase4PerformanceMatrix (103.08s)` / `--- PASS: TestPhase4FreshGzipDurationMatrix (58.29s)` / `ok rai/server/integration 162.535s`
+Environment: PostgreSQL 18.6 (Postgres.app); fsync=on, full_page_writes=on, synchronous_commit=on, data_checksums=on; disposable cluster, 0 leftover databases.
+
+Each tier runs ONCE. These are single observations, not P50/P95. They are recorded to show that every supported tier (including 240 min) completes both the plain upload and the gzip identity replay. The full raw JSON per tier (including nested EXPLAIN output) is not copied here; the fields below are the timing subset.
+
+| minutes | samples | gps | json_bytes | encode_ms | gzip_ms | strict_decode_validation_ms | validation_ms | http_ack_ms | worker_total_ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 20 | 2197 | 1141 | 1378403 | 78.2 | 166.1 | 583.4 | 33.4 | 1648.6 | 469.9 |
+| 40 | 4397 | 2283 | 2757290 | 169.7 | 320.8 | 1217.4 | 69.2 | 2969.3 | 917.6 |
+| 60 | 6594 | 3424 | 4134363 | 245.6 | 466.9 | 1799.6 | 100.7 | 4463.7 | 1363.3 |
+| 120 | 13191 | 6849 | 8269177 | 479.8 | 953.4 | 3502.3 | 195.5 | 8820.0 | 2800.1 |
+| 240 | 26382 | 13698 | 16537010 | 991.6 | 1884.9 | 7153.6 | 400.4 | 17930.6 | 5489.9 |
+
+`go_peak_rss` is `NOT MEASURED` for every tier: the Go matrix does not sample process RSS, so P12's API-process memory target stays unverified.
+
+## Reading
+
+- `strict_decode_validation_ms` dominates at every tier (1799.6 ms at S60, 7153.6 ms at S240) and matches the `json_decode_ms` share of the dedicated S60 acknowledgement breakdown. Strict decoding is the single largest server-side cost.
+- `validation_ms` (semantic validation, now executed once inside the Store) is 100.7 ms at S60 and 400.4 ms at S240 — the deduplication removed a second full traversal, not the remaining one.
+- `http_ack_ms` includes client-side bundle assembly, transport and import, so it is NOT `T_server_ack`; use `20261106-sync-speed-server-ack-s60.txt` for the acknowledgement-only measurement.
+- The 240 min tier now completes: the plain upload returned 200 and the gzip identity replay returned the original receipt. Before the statement-timeout fix this tier failed with 503.

@@ -123,6 +123,12 @@ public actor OutboxStore {
     private var activeBundleAttempts: Set<String> = []
     var activeCompletenessManifest: String?
     var vo2OrphansReconciled = false
+    /// Segment ids this process is still appending to. A file with a live writer
+    /// is never an orphan, so GC can prove "no in-flight writer" (§6.3).
+    var activeCaptureSegments: Set<String> = []
+    /// Verified seal facts per segment file name, invalidated by a size change.
+    /// Sealed segments are immutable, so a hit needs no re-hash.
+    var verifiedCaptureSegments: [String: VerifiedCaptureSegment] = [:]
     public init(directory: URL) throws {
         self.directory = directory
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -657,6 +663,9 @@ public actor OutboxStore {
         for capture in (state.routeCaptures ?? [:]).values { referenced.insert(capture.file) }
         for event in (state.discovery?.events ?? [:]).values {
             if let file = event.archiveFile { referenced.insert(file) }
+            // A segment is referenced as a whole: one committed fact keeps every
+            // record in it alive, so a shared segment is never partially swept.
+            if let file = event.segmentFile { referenced.insert(file) }
         }
         for task in Array((state.tasks ?? [:]).values) + Array((state.retainedBundles ?? [:]).values) {
             if let file = task.bundleFile { referenced.insert(file) }
@@ -664,9 +673,13 @@ public actor OutboxStore {
         }
         guard candidates.allSatisfy({ !referenced.contains($0) }) else { throw SyncFailure.localState("gc_referenced_file") }
         for file in candidates {
-            guard file.hasSuffix(".json") || file.hasSuffix(".gz") || file.hasSuffix(".completeness.archive") else { throw SyncFailure.localState("gc_unmanaged_file") }
+            guard file.hasSuffix(".json") || file.hasSuffix(".gz") || file.hasSuffix(".completeness.archive") ||
+                    file.hasSuffix(CaptureSegmentFormat.suffix) || file.hasSuffix(CaptureSegmentFormat.temporarySuffix) else { throw SyncFailure.localState("gc_unmanaged_file") }
             let url = try fileURL(file)
             guard file != "state.json" else { throw SyncFailure.localState("gc_authority_file") }
+            // A file with a live writer is not an orphan, even when no committed
+            // event references it yet. Never unlink under an in-flight capture.
+            if let id = Self.captureSegmentID(file) { guard !activeCaptureSegments.contains(id) else { throw SyncFailure.localState("gc_inflight_file") } }
             if FileManager.default.fileExists(atPath: url.path) {
                 let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
                 guard values.isRegularFile == true, values.isSymbolicLink != true else { throw SyncFailure.localState("gc_unsafe_file") }

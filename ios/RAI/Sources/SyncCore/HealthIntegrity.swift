@@ -76,51 +76,129 @@ public struct RouteCaptureCheckpoint: Codable, Sendable {
     public var error: String?
 }
 
+/// Batching policy for a streamed capture. The first limit reached wins:
+/// buffered points are written and synchronized in one batch, never per point.
+/// The interval is evaluated when a point arrives (no timer thread), so an idle
+/// tail is made durable by the next point, by `flush()` or by `finish`.
+public struct RouteCaptureBatchPolicy: Sendable, Equatable {
+    public var maxPoints: Int
+    public var maxBytes: Int
+    public var maxInterval: TimeInterval
+    public static let standard = RouteCaptureBatchPolicy()
+    public init(maxPoints: Int = 512, maxBytes: Int = 262_144, maxInterval: TimeInterval = 0.25) {
+        self.maxPoints = maxPoints; self.maxBytes = maxBytes; self.maxInterval = maxInterval
+    }
+    var isValid: Bool { maxPoints > 0 && maxBytes > 0 && maxInterval > 0 }
+}
+
 /// Append-only capture is a referenced Outbox artifact before querying starts.
 /// On restart HealthKit is queried again, comparing the saved prefix byte for
 /// byte. No source points are sorted, replaced, deduplicated or rewritten.
+///
+/// The file bytes are unchanged: every point is `point.canonical(sequence:)`
+/// followed by a newline. Only the durability granularity changed. Points are
+/// buffered and written with one `synchronize()` per batch (512 points /
+/// 256 KiB / 250 ms, whichever comes first). A crash loses only the unwritten
+/// tail; the durable prefix is never rewritten, so the replayed HealthKit
+/// sequence still compares line by line against it. A partially written tail
+/// line stays a hard `route_capture_incomplete_line` error, never a silent
+/// truncation. Cancellation must not call `finish()`; teardown writes the
+/// buffered tail as an unfinished prefix instead.
 public final class RouteCaptureFile {
     private let writer: FileHandle
     private let reader: FileHandle
-    private var buffer = Data()
+    private let policy: RouteCaptureBatchPolicy
+    private let clock: @Sendable () -> Date
+    private var readBuffer = Data()
     private var reachedEOF = false
+    private var pending = Data()
+    private var pendingPoints = 0
+    private var lastFlush: Date
+    private var sealed = false
+    private var poisoned = false
     public private(set) var count = 0
+    /// Batched write+sync operations. Grows with the number of batches, not the
+    /// number of points, and is the counter P0 evidence should record.
+    public private(set) var flushes = 0
+    /// Every `synchronize()` performed by this writer, including the final one.
+    public private(set) var synchronizations = 0
+    /// Points this writer actually appended to the file (a replayed prefix that
+    /// matched the saved bytes writes nothing).
+    public private(set) var pointsWritten = 0
+    public var pendingPointCount: Int { pendingPoints }
+    public var pendingByteCount: Int { pending.count }
     public let url: URL
-    public init(url: URL) throws {
-        self.url = url
+    public init(url: URL, policy: RouteCaptureBatchPolicy = .standard, clock: @escaping @Sendable () -> Date = Date.init) throws {
+        self.url = url; self.policy = policy; self.clock = clock; self.lastFlush = clock()
+        guard policy.isValid else { throw SyncFailure.invalid("invalid_route_capture_policy") }
         if !FileManager.default.fileExists(atPath: url.path) { try OutboxStore.write(Data(), to: url) }
         writer = try FileHandle(forWritingTo: url); try writer.seekToEnd()
         reader = try FileHandle(forReadingFrom: url)
     }
-    deinit { try? writer.close(); try? reader.close() }
+    // §6.1: cancellation and normal end both make the accumulated batch durable.
+    // Teardown therefore writes the buffered tail once, without a `finish`
+    // marker: the checkpoint stays incomplete, so the capture is still reported
+    // as unfinished and the next query replays against this exact prefix. A real
+    // process death runs no deinit, so a crash loses only the unwritten tail.
+    deinit { try? flush(); try? writer.close(); try? reader.close() }
+    private func checkUsable() throws {
+        guard !poisoned else { throw SyncFailure.localState("route_capture_flush_failed") }
+        guard !sealed else { throw SyncFailure.invalid("route_capture_finished") }
+    }
     private func savedLine() throws -> Data? {
         while true {
-            if let end = buffer.firstIndex(of: 10) {
-                let line = Data(buffer[..<end]); buffer.removeSubrange(...end); return line
+            if let end = readBuffer.firstIndex(of: 10) {
+                let line = Data(readBuffer[..<end]); readBuffer.removeSubrange(...end); return line
             }
             if reachedEOF {
-                guard buffer.isEmpty else { throw SyncFailure.localState("route_capture_incomplete_line") }
+                guard readBuffer.isEmpty else { throw SyncFailure.localState("route_capture_incomplete_line") }
                 return nil
             }
             let bytes = try reader.read(upToCount: 65536) ?? Data()
-            if bytes.isEmpty { reachedEOF = true } else { buffer += bytes }
+            if bytes.isEmpty { reachedEOF = true } else { readBuffer += bytes }
         }
     }
     public func append(_ point: RoutePoint) throws {
+        try checkUsable()
         guard count < 1_000_000 else { throw SyncFailure.invalid("route_point_limit") }
         let bytes = try point.canonical(sequence: Int64(count))
         if let previous = try savedLine() {
             guard previous == bytes else { throw SyncFailure.localState("route_capture_changed") }
         } else {
-            var line = bytes; line.append(10); try writer.write(contentsOf: line)
-            // Durable before the next query element is consumed.
-            try writer.synchronize()
+            try stage(bytes)
         }
         count += 1
     }
+    public func append(contentsOf points: [RoutePoint]) throws { for point in points { try append(point) } }
+    private func stage(_ line: Data) throws {
+        if pendingPoints > 0, clock().timeIntervalSince(lastFlush) >= policy.maxInterval { try flush() }
+        pending.append(line); pending.append(10); pendingPoints += 1
+        if pendingPoints >= policy.maxPoints || pending.count >= policy.maxBytes { try flush() }
+    }
+    /// Write and synchronize the buffered tail once. Safe to call at any time.
+    public func flush() throws {
+        try checkUsable()
+        guard !pending.isEmpty else { return }
+        do {
+            try writer.write(contentsOf: pending)
+            try writer.synchronize()
+        } catch {
+            // Bytes may already be on disk. Stop touching the file so a later
+            // call cannot duplicate a partial line; the durable prefix stands.
+            poisoned = true; pending.removeAll(); pendingPoints = 0
+            throw SyncFailure.localState("route_capture_flush_failed")
+        }
+        pointsWritten += pendingPoints
+        pending.removeAll(keepingCapacity: true); pendingPoints = 0
+        flushes += 1; synchronizations += 1; lastFlush = clock()
+    }
     public func finish(expected: Int) throws {
+        try checkUsable()
         guard try savedLine() == nil, count == expected, count > 0 else { throw SyncFailure.invalid("route_count_incomplete") }
+        // Validation first: a rejected count leaves the stored prefix untouched.
+        if !pending.isEmpty { try flush() }
         try writer.synchronize()
+        synchronizations += 1; lastFlush = clock(); sealed = true
     }
 }
 

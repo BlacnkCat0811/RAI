@@ -1,0 +1,244 @@
+{
+  "stage": "local-development-2026-11-06",
+  "baselineRevision": "533fa82d1194440d5fb622b31b009299db0a1981",
+  "dirtySource": true,
+  "executionHost": "local Mac x86_64, 12 logical CPUs, 32 GiB RAM",
+  "remoteTestsInvoked": false,
+  "quick": {
+    "status": "PASS",
+    "profile": "quick",
+    "elapsedSeconds": 7
+  },
+  "gate": {
+    "status": "PASS",
+    "profile": "gate",
+    "elapsedSeconds": 19
+  },
+  "full": {
+    "status": "FAILED_ON_INITIAL_RUN",
+    "integrationPackageSeconds": 1300.994,
+    "failedTests": [
+      "TestFeatureLoaderLimitsFailWithoutTruncatingOrPublishing"
+    ],
+    "leftoverDatabases": 0,
+    "clusterRemoved": true,
+    "fullRerunAfterRemediation": false
+  },
+  "swift": {
+    "status": "PASS",
+    "swiftTestingTests": 164,
+    "swiftTestingSuites": 23,
+    "xctestExecuted": 6,
+    "xctestSkipped": 3,
+    "failures": 0
+  },
+  "associationBenchmark": {
+    "synthetic": true,
+    "environment": "macOS Swift package Debug",
+    "journalEvents": 10000,
+    "associationKeys": 1000,
+    "beforeMs": 9328.406929969788,
+    "afterMs": 124.22192096710205,
+    "ratio": 75.09469228414403,
+    "includesAtomicStateWrite": true,
+    "phoneSpeedupNotMeasured": true
+  },
+  "workoutHttpPostgresBenchmark": [
+    {
+      "benchmarkUploadBurst": 1024,
+      "benchmarkUploadPerMinute": 60000,
+      "elapsedMs": 82.85,
+      "environment": "local Mac; synthetic; loopback HTTP; durable PostgreSQL 18",
+      "healthKitMeasured": false,
+      "httpMedianMs": 82.069,
+      "httpP95Ms": 82.069,
+      "immutableReplay": true,
+      "routePointsPerWorkout": 3,
+      "rowCountsVerified": true,
+      "samplesPerWorkout": 60,
+      "seriesPointsPerWorkout": 3,
+      "workerMeasured": false,
+      "workouts": 1,
+      "workoutsPerSecond": 12.069901725411762
+    },
+    {
+      "benchmarkUploadBurst": 1024,
+      "benchmarkUploadPerMinute": 60000,
+      "elapsedMs": 303.428,
+      "environment": "local Mac; synthetic; loopback HTTP; durable PostgreSQL 18",
+      "healthKitMeasured": false,
+      "httpMedianMs": 29.593,
+      "httpP95Ms": 49.784,
+      "immutableReplay": true,
+      "routePointsPerWorkout": 3,
+      "rowCountsVerified": true,
+      "samplesPerWorkout": 60,
+      "seriesPointsPerWorkout": 3,
+      "workerMeasured": false,
+      "workouts": 10,
+      "workoutsPerSecond": 32.95673181536934
+    },
+    {
+      "benchmarkUploadBurst": 1024,
+      "benchmarkUploadPerMinute": 60000,
+      "elapsedMs": 3415.495,
+      "environment": "local Mac; synthetic; loopback HTTP; durable PostgreSQL 18",
+      "healthKitMeasured": false,
+      "httpMedianMs": 31.835,
+      "httpP95Ms": 49.466,
+      "immutableReplay": true,
+      "routePointsPerWorkout": 3,
+      "rowCountsVerified": true,
+      "samplesPerWorkout": 60,
+      "seriesPointsPerWorkout": 3,
+      "workerMeasured": false,
+      "workouts": 100,
+      "workoutsPerSecond": 29.2783320916056
+    },
+    {
+      "benchmarkUploadBurst": 1024,
+      "benchmarkUploadPerMinute": 60000,
+      "elapsedMs": 20954.686,
+      "environment": "local Mac; synthetic; loopback HTTP; durable PostgreSQL 18",
+      "healthKitMeasured": false,
+      "httpMedianMs": 34.87,
+      "httpP95Ms": 62.931,
+      "immutableReplay": true,
+      "routePointsPerWorkout": 3,
+      "rowCountsVerified": true,
+      "samplesPerWorkout": 60,
+      "seriesPointsPerWorkout": 3,
+      "workerMeasured": false,
+      "workouts": 500,
+      "workoutsPerSecond": 23.861010307880335
+    }
+  ],
+  "simulator": {
+    "status": "PASS",
+    "total": 60,
+    "passed": 57,
+    "failed": 0,
+    "skipped": 3,
+    "skipsAreExternalFixtureGates": true
+  },
+  "simulatorHttpPostgres": {
+    "status": "PASS",
+    "profile": "e2e",
+    "elapsedSeconds": 64,
+    "contract": "workout-sync-completeness/v2",
+    "generations": 2,
+    "committedStreams": 12,
+    "imports": 1,
+    "lostAck": true,
+    "incrementalBootstrapQueries": 0,
+    "m6Synthetic": false,
+    "unknownLoads": 1,
+    "postgresRacePackageSeconds": 46.125,
+    "leftoverDatabases": 0,
+    "clusterRemoved": true
+  },
+  "device": {
+    "model": "iPhone 12 Pro Max",
+    "connection": "USB wired, paired, developer mode enabled",
+    "originalCloudDataMigrated": false,
+    "independentMacBackend": true,
+    "schema": 29,
+    "completenessV2Advertised": true,
+    "authenticatedProbeMs": 81.93302154541016,
+    "originalSessionManifestPresent": true,
+    "originalSessionManifestUnchangedDuringProbe": true,
+    "firstSingleWorkout": {
+      "status": "ACKNOWLEDGED",
+      "wallMs": 18420.884013175964,
+      "healthKitReadMs": 10105.918049812317,
+      "bundleBuildMsCumulative": 12049.880981445312,
+      "uploadMs": 5675.678968429565,
+      "bundleBytes": 4330151
+    },
+    "repeatSingleWorkout": {
+      "status": "ACKNOWLEDGED",
+      "wallMs": 12651.968955993652,
+      "exactOriginalBundleReused": true,
+      "workoutQueryUsedCommittedAnchor": true,
+      "countsUnchanged": true
+    },
+    "serverCounts": {
+      "workouts": 1,
+      "imports": 1,
+      "samples": 5464,
+      "routePoints": 1768,
+      "completenessManifests": 0
+    },
+    "fullRealDeviceCompleteness": "NOT EXECUTED",
+    "physiologicalValidation": "NOT VERIFIED",
+    "productActivation": "NOT AUTHORIZED",
+    "verifiedBackendSettings": {
+      "schema": 29,
+      "postgres": "18.6 (Postgres.app)",
+      "listenAddresses": "127.0.0.1",
+      "checksums": "on",
+      "fsync": "on",
+      "fullPageWrites": "on",
+      "synchronousCommit": "on",
+      "workouts": 1,
+      "imports": 1
+    },
+    "backendStopStartVerified": true,
+    "workoutAndImportCountsUnchangedAfterBackendRestart": true
+  },
+  "controllerSafetyTests": {
+    "status": "PASS",
+    "tests": 4,
+    "syntheticOnly": true
+  },
+  "testHarnessRemediation": {
+    "issue": "v2 durable COMMIT was followed by strict v1 decode in the lost-ACK injector, yielding HTTP 500",
+    "fix": "dispatch hook decoding by actual contract; assert v2; retain private diagnostics",
+    "productionProtocolChanged": false,
+    "failedAttemptsNotCountedAsPass": true
+  },
+  "limits": [
+    "500-Workout benchmark uses small synthetic bundles and explicit finite benchmark admission budgets; not dense HealthKit or Worker throughput",
+    "Completeness v2 inventory bound remains 256",
+    "Full real-device lost-ACK and second completeness incremental not executed here",
+    "Historical Docker/Linux/P7 capacity scenarios not executed; no remote fallback",
+    "Development owner DB role and Debug scoped private-LAN HTTP; not production roles or TLS acceptance"
+  ],
+  "stageStatus": "PASS WITH RISKS; full regression not re-executed after isolated test-fixture remediation",
+  "featureLimitRemediation": {
+    "scope": "synthetic test fixture only",
+    "oldCaseIsolatedResult": "PASS",
+    "oldCaseSeconds": 7.33,
+    "change": "validate legal metadata-only observation fixture; preserve 2000 bound; assert exactly 2002 rows and permanent analysis_input_limit job failure; retain no-publication checks",
+    "targetedRaceRuns": 5,
+    "targetedRaceResults": "ALL PASS",
+    "targetedRaceCaseSeconds": [
+      2.94,
+      2.59,
+      2.83,
+      2.66,
+      2.67
+    ],
+    "targetedRacePackageSeconds": 14.743,
+    "productionTimeoutOrLimitChanged": false,
+    "fullInitialFailureNotRelabeledAsPass": true
+  },
+  "checks": {
+    "goRaceUnit": "PASS",
+    "goVet": "PASS",
+    "goVetIntegrationAndUa1rsim": "PASS",
+    "goBuild": "PASS",
+    "sqlcGeneratedDiff": "clean",
+    "dependencyBoundaries": "PASS",
+    "shellSyntax": "PASS",
+    "pythonSyntax": "PASS",
+    "remoteEntriesRefuseBeforeNetwork": "PASS",
+    "workingTreeDiffCheck": "PASS"
+  },
+  "privacy": {
+    "status": "PASS",
+    "publicArtifactsScanned": 2,
+    "implementationNewSectionScanned": true,
+    "findings": 0
+  }
+}

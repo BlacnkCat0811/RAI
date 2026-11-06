@@ -78,3 +78,15 @@ rai_require_sqlc() {
 rai_pg_running() {
   "$rai_pgbin/pg_ctl" -D "$rai_pgdata" status >/dev/null 2>&1
 }
+
+rai_xcode_env() {
+  if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+    local candidate
+    for candidate in /Applications/Xcode.app/Contents/Developer "$HOME/Downloads/Xcode.app/Contents/Developer"; do
+      if [[ -x "$candidate/usr/bin/xcodebuild" ]]; then export DEVELOPER_DIR="$candidate"; break; fi
+    done
+  fi
+  if [[ -z "${DEVELOPER_DIR:-}" || ! -x "$DEVELOPER_DIR/usr/bin/xcodebuild" ]]; then
+    echo 'Set DEVELOPER_DIR to the full Xcode Developer directory.' >&2; return 1
+  fi
+}

@@ -37,6 +37,146 @@ final class SyncModel {
     var workoutsRefreshedAt: Date?
     #if DEBUG
     private var dailyRDIsolated = false
+    /// Separate Debug-only namespace. Never activates/rebinds the normal session,
+    /// reads its credentials, or starts product polling against its backend.
+    func runLocalDeviceAcceptance() async {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let configURL = documents.appendingPathComponent("local-device-config.json")
+        let reportURL = documents.appendingPathComponent("local-device-report.json")
+        let sessionManifestURL = try? ClientConfiguration.sessionRoot().appendingPathComponent("sessions.json")
+        let originalManifestHash = sessionManifestURL.flatMap { try? Data(contentsOf: $0) }.map(Wire.hash)
+        let started = Date()
+        var report: [String: JSON] = ["environment": .string("local-mac-device/v1"), "result": .string("RUNNING"),
+            "healthValuesExported": .bool(false)]
+        func checkpoint(_ stage: String) throws {
+            report["stage"] = .string(stage)
+            report["wallMs"] = .number(Date().timeIntervalSince(started) * 1000)
+            try OutboxStore.write(JSON.object(report).data(), to: reportURL)
+            status = "本机验收：" + stage
+        }
+        busy = true; UIApplication.shared.isIdleTimerDisabled = true
+        defer {
+            busy = false; UIApplication.shared.isIdleTimerDisabled = false
+            let afterHash = sessionManifestURL.flatMap { try? Data(contentsOf: $0) }.map(Wire.hash)
+            report["originalSessionManifestPresent"] = .bool(originalManifestHash != nil)
+            report["originalSessionManifestUnchanged"] = .bool(originalManifestHash == afterHash)
+            report["wallMs"] = .number(Date().timeIntervalSince(started) * 1000)
+            try? OutboxStore.write(JSON.object(report).data(), to: reportURL)
+        }
+        do {
+            try checkpoint("configuration")
+            let config = try JSON.decode(Data(contentsOf: configURL))
+            try FileManager.default.removeItem(at: configURL)
+            guard config["environment"].text == "local-mac-device/v1",
+                  let namespace = config["outboxNamespace"].text.flatMap(UUID.init(uuidString:)),
+                  let expected = config["datasetSHA256"].text,
+                  let command = config["command"].text, ["probe", "single", "completeness", "list"].contains(command) else {
+                throw SyncFailure.invalid("local_acceptance_config_invalid")
+            }
+            let secret = try ClientConfiguration.validatedSecret(baseURL: config["baseURL"].text ?? "",
+                collectorEpoch: config["collectorEpoch"].text ?? "", token: config["token"].text ?? "")
+            let host = secret.configuration.baseURL.host ?? ""
+            let octets = host.split(separator: ".").compactMap { Int($0) }
+            let privateIPv4 = octets.count == 4 && octets.allSatisfy { (0...255).contains($0) } &&
+                (octets[0] == 10 || octets[0] == 192 && octets[1] == 168 || octets[0] == 172 && (16...31).contains(octets[1]) || octets[0] == 169 && octets[1] == 254)
+            guard secret.configuration.baseURL.scheme == "http", privateIPv4,
+                  host == Bundle.main.object(forInfoDictionaryKey: "RAIDevelopmentHTTPHost") as? String else {
+                throw SyncFailure.invalid("local_acceptance_requires_configured_lan_host")
+            }
+            try checkpoint("handshake")
+            let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token)
+            let hello = try await api.call("GET", "/v2/handshake")
+            guard let dataset = hello["datasetID"].text, Wire.hash(Data(dataset.utf8)) == expected,
+                  hello["collectorEpoch"].text == secret.configuration.collectorEpoch,
+                  hello["protocolVersion"].integer == 3,
+                  hello["capabilities"]["workoutSyncCompletenessV2Version"].integer == 2 else {
+                throw SyncFailure.invalid("local_acceptance_identity_mismatch")
+            }
+            report["handshakeVerified"] = .bool(true)
+            report["command"] = .string(command)
+            if command == "probe" { report["result"] = .string("PROBE_VERIFIED"); return }
+
+            let directory = try ClientConfiguration.sessionRoot().appendingPathComponent("local-acceptance-" + namespace.uuidString.lowercased())
+            let store = try OutboxStore(directory: directory)
+            let transfers = BackgroundTransfers(directory: directory, identifier: "com.rai.v2.local-acceptance." + namespace.uuidString.lowercased())
+            let health = HealthKitClient(), coordinator = SyncCoordinator(store: store, health: health)
+            try checkpoint("read_authorization")
+            try await health.authorize()
+            let watchdog = MainThreadWatchdog()
+            if command == "list" {
+                try checkpoint("list_workouts")
+                await health.resetWorkoutListEvidence()
+                let summaries = try await health.recentWorkouts(limit: 25)
+                var rows: [JSON] = [], privateRows: [JSON] = []
+                for summary in summaries.sorted(by: { $0.start > $1.start }) {
+                    let minutes = Int((summary.durationS / 60).rounded())
+                    rows.append(.object(["durationMinutes": .int(Int64(minutes)), "indoor": .bool(summary.isIndoor ?? false),
+                        "outcome": .string(summary.sourceOutcome)]))
+                    if summary.isEligible {
+                        privateRows.append(.object(["workoutID": .string(summary.id),
+                            "durationMinutes": .int(Int64(minutes)), "indoor": .bool(summary.isIndoor ?? false)]))
+                    }
+                }
+                // Identities stay in the protected App container; the pulled report is counts only.
+                try OutboxStore.write(JSON.object(["schema": .string("rai.local-acceptance.eligible-workouts/1"),
+                    "identifiersExportedToReport": .bool(false), "workouts": .array(privateRows)]).data(),
+                    to: documents.appendingPathComponent("eligible-workouts.json"))
+                report["visibleWorkoutCount"] = .int(Int64(summaries.count))
+                report["eligibleWorkoutCount"] = .int(Int64(summaries.filter(\.isEligible).count))
+                report["excludedWorkoutCount"] = .int(Int64(summaries.filter(\.isExcluded).count))
+                report["unclassifiedWorkoutCount"] = .int(Int64(summaries.filter(\.isUnclassified).count))
+                report["sourcePolicyVersion"] = .string(WorkoutSourcePolicy.version)
+                report["workoutList"] = .array(rows)
+                report["listEvidence"] = await health.workoutListEvidence()
+                report["result"] = .string("WORKOUT_LIST_OBSERVED")
+            } else if command == "single" {
+                let selectedURL = directory.appendingPathComponent("selected-workout.json")
+                var id = config["workoutID"].text ?? (try? JSON.decode(Data(contentsOf: selectedURL)))?["workoutID"].text
+                if id == nil {
+                    try checkpoint("select_latest_eligible")
+                    for candidate in try await health.recentWorkouts(limit: 25) {
+                        guard let workout = try await health.workout(candidate.id),
+                              HealthSourcePolicy.classification(Normalizer.source(workout)) == "apple_watch" else { continue }
+                        id = candidate.id; break
+                    }
+                    guard let selected = id else { throw SyncFailure.localState("local_eligible_workout_not_observed") }
+                    try OutboxStore.write(JSON.object(["workoutID": .string(selected)]).data(), to: selectedURL)
+                }
+                guard let id else { throw SyncFailure.localState("local_eligible_workout_not_observed") }
+                try checkpoint("single_workout_sync")
+                try await coordinator.syncWorkout(id: id, secret: secret, transfers: transfers, forceNewBundle: false)
+                guard let task = await store.task(id), task.uploadReceipt != nil else { throw SyncFailure.localState("local_workout_receipt_missing") }
+                report["timings"] = .object(task.metrics.mapValues(JSON.number))
+                report["workoutReceiptVerified"] = .bool(true)
+                report["result"] = .string("SINGLE_WORKOUT_ACKNOWLEDGED")
+            } else {
+                try checkpoint("completeness_sync")
+                try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: transfers)
+                let flow = await store.snapshot().workoutCompleteness
+                guard let flow, flow.generation > 0, flow.cycle == nil, flow.lastReceipt != nil else { throw SyncFailure.localState("local_completeness_not_acknowledged") }
+                report["generation"] = .int(flow.generation)
+                report["committedAnchorCount"] = .int(Int64(flow.anchors.count))
+                report["queryCounts"] = .object((flow.lastQueryCounts ?? [:]).mapValues { .int(Int64($0)) })
+                report["result"] = .string("COMPLETENESS_ACKNOWLEDGED")
+            }
+            let stalls = watchdog.finish()
+            report["mainThreadMaxStallMs"] = .number(stalls.maxMs)
+            report["mainThreadStallsOver250"] = .int(Int64(stalls.over250))
+            report["mainThreadTicks"] = .int(Int64(stalls.ticks))
+            report["processPeakRssBytes"] = .int(processPeakResidentBytes())
+            report["residentAfterSyncBytes"] = .int(currentResidentBytes())
+            // A list-only run never commits an Outbox state; absence is not a failure.
+            if let attributes = try? FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("state.json").path) {
+                report["stateBytes"] = .int((attributes[.size] as? NSNumber)?.int64Value ?? 0)
+            }
+            try checkpoint("completed")
+        } catch {
+            report["result"] = .string("BLOCKED")
+            report["reason"] = .string(WorkoutCompleteness.failureCode(error))
+            report["systemCode"] = .int(Int64((error as NSError).code))
+            status = "本机验收尚未完成"
+        }
+    }
     func runUA1RCompletenessAcceptance() async {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let reportURL = documents.appendingPathComponent("ua1-r-completeness-report.json")
@@ -430,6 +570,9 @@ final class SyncModel {
     private var task: Task<Void, Never>?
     init(syncScheduler: ForegroundSyncScheduler = ForegroundSyncScheduler()) {
         self.syncScheduler = syncScheduler
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" { return }
+        #endif
         do {
             let directory = try ClientConfiguration.sessionRoot()
             let sessions = try SyncSessionStore(root: directory, credentials: SessionKeychain())
@@ -946,7 +1089,10 @@ struct RAIApp: App {
         WindowGroup {
             Group {
                 #if DEBUG
-                if DailyDeviceDiagnostics.enabled {
+                if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" {
+                    VStack(spacing: 16) { Text("RAI 本机独立验收").font(.headline); Text(model.status) }
+                }
+                else if DailyDeviceDiagnostics.enabled {
                     NavigationStack { SyncView(model: model) }
                         .tint(RAITheme.orange).preferredColorScheme(.dark)
                 }
@@ -958,6 +1104,7 @@ struct RAIApp: App {
                 .environment(\.locale, Locale(identifier: "zh-Hans-CN"))
                 .task {
                     #if DEBUG
+                    if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" { await model.runLocalDeviceAcceptance(); return }
                     if ProcessInfo.processInfo.environment["RAI_UA1_R_COMPLETENESS"] != nil { await model.runUA1RCompletenessAcceptance(); return }
                     if ProcessInfo.processInfo.environment["RAI_UA1_R_VO2"] != nil { await model.runUA1RVO2Acceptance(); return }
                     if DailyDeviceDiagnostics.enabled { await model.runDailyDeviceAcceptance(); return }
@@ -969,6 +1116,7 @@ struct RAIApp: App {
                 .onChange(of: phase) { _, phase in
                     if phase == .active {
                         #if DEBUG
+                        if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" { return }
                         if ProcessInfo.processInfo.environment["RAI_UA1_R_COMPLETENESS"] != nil { return }
                         if ProcessInfo.processInfo.environment["RAI_UA1_R_VO2"] != nil { return }
                         if DailyDeviceDiagnostics.enabled {
@@ -1079,5 +1227,66 @@ private struct AcceptanceConfig: Decodable {
     let baseURL: String
     let collectorEpoch: String
     let token: String
+}
+#endif
+
+#if DEBUG
+/// Debug-only technical instrumentation for the local device acceptance path.
+///
+/// Records the longest main-thread stall observed while one sync runs, so a
+/// "no sustained main-thread blocking" claim is measured on the device instead
+/// of assumed. A main-queue timer that fires late by Δ means the main thread was
+/// unavailable for Δ; the largest Δ is the worst stall in the window.
+@MainActor
+final class MainThreadWatchdog {
+    private var timer: Timer?
+    private var last = Date()
+    private var maxMs: Double = 0
+    private var over250 = 0
+    private var ticks = 0
+    private let interval = 0.05
+
+    init() {
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    private func tick() {
+        let now = Date()
+        let lateness = now.timeIntervalSince(last) - interval
+        last = now
+        ticks += 1
+        guard lateness > 0 else { return }
+        let milliseconds = lateness * 1000
+        if milliseconds > maxMs { maxMs = milliseconds }
+        if milliseconds > 250 { over250 += 1 }
+    }
+
+    func finish() -> (maxMs: Double, over250: Int, ticks: Int) {
+        timer?.invalidate()
+        timer = nil
+        return ((maxMs * 10).rounded() / 10, over250, ticks)
+    }
+}
+
+/// Peak resident size of this process. Darwin reports `ru_maxrss` in bytes.
+func processPeakResidentBytes() -> Int64 {
+    var usage = rusage()
+    guard getrusage(RUSAGE_SELF, &usage) == 0 else { return 0 }
+    return Int64(usage.ru_maxrss)
+}
+
+func currentResidentBytes() -> Int64 {
+    var info = mach_task_basic_info()
+    var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
+    let result = withUnsafeMutablePointer(to: &info) { pointer in
+        pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+            task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+        }
+    }
+    return result == KERN_SUCCESS ? Int64(info.resident_size) : 0
 }
 #endif

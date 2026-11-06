@@ -544,6 +544,7 @@ struct WorkoutSyncView: View {
   @State private var filter: Filter = .all
   @State private var detail: HealthWorkoutSummary?
   @State private var exportStatus: String?
+  @State private var showExcluded = false
   private enum Filter: String, CaseIterable { case all = "全部", pending = "未同步", failed = "失败", synced = "已同步" }
 
   var body: some View {
@@ -552,6 +553,7 @@ struct WorkoutSyncView: View {
         intro
         if model.loadingWorkouts { ProgressView("正在读取 HealthKit 跑步记录…").font(.caption) }
         selectionBar
+        sourcePolicyNote
         ForEach(filtered) { workout in
           row(workout)
         }
@@ -616,7 +618,7 @@ struct WorkoutSyncView: View {
       }.pickerStyle(.segmented)
       HStack {
         Button(model.selected.isEmpty ? "选择全部未同步" : "清除选择（\(model.selected.count)）") {
-          if model.selected.isEmpty { model.selected = Set(model.workouts.filter { status(for: $0) == .notSynced }.map(\.id)) }
+          if model.selected.isEmpty { model.selected = Set(model.workouts.filter { $0.isEligible && status(for: $0) == .notSynced }.map(\.id)) }
           else { model.selected.removeAll() }
         }.font(.caption).disabled(!model.canStartWorkoutSync)
         Spacer()
@@ -641,7 +643,7 @@ struct WorkoutSyncView: View {
         } label: {
           Image(systemName: selected ? "checkmark.circle.fill" : "circle")
             .font(.title3).foregroundStyle(selected ? RAITheme.amber : RAITheme.secondary)
-        }.buttonStyle(.plain).disabled(!model.canStartWorkoutSync)
+        }.buttonStyle(.plain).disabled(!model.canStartWorkoutSync || !workout.isEligible)
           .accessibilityIdentifier("sync.select")
         VStack(alignment: .leading, spacing: 3) {
           HStack(spacing: 6) {
@@ -656,13 +658,22 @@ struct WorkoutSyncView: View {
           }
         }
         Spacer(minLength: 0)
-        statusBadge(phase)
+        if workout.isEligible { statusBadge(phase) } else {
+          Text(workout.isExcluded ? "已排除" : "待识别").font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(RAITheme.secondary.opacity(0.18), in: Capsule())
+            .foregroundStyle(RAITheme.secondary)
+        }
       }
       HStack(spacing: 10) {
         Text(workout.sourceName ?? "--").font(.caption2).foregroundStyle(RAITheme.secondary)
         if let device = workout.deviceName { Text(device).font(.caption2).foregroundStyle(RAITheme.secondary) }
         Spacer()
         Button("详情") { detail = workout }.font(.caption2)
+        if !workout.isEligible {
+          Text(workout.isExcluded ? "非 Apple Watch 原生来源，不上传" : "来源待识别，暂不上传")
+            .font(.caption2).foregroundStyle(RAITheme.secondary)
+        } else {
         switch phase {
         case .notSynced:
           Button("同步") { model.syncWorkouts([workout.id]) }.font(.caption.weight(.semibold)).disabled(!model.canStartWorkoutSync)
@@ -677,6 +688,7 @@ struct WorkoutSyncView: View {
           Button("更新") { model.syncWorkouts([workout.id]) }.font(.caption2).disabled(!model.canStartWorkoutSync)
         case .deleted:
           Text("HealthKit 已删除").font(.caption2).foregroundStyle(RAITheme.secondary)
+        }
         }
       }
     }.padding(16).raiGlass()
@@ -700,12 +712,41 @@ struct WorkoutSyncView: View {
 
   private var filtered: [HealthWorkoutSummary] {
     model.workouts.filter { workout in
+      // A record the frozen source policy excludes is never offered for sync.
+      // It stays visible only on request, with a plain-language reason.
+      if workout.isExcluded && !showExcluded { return false }
       let phase = status(for: workout)
       switch filter {
       case .all: return true
       case .pending: return phase == .notSynced
       case .failed: return phase == .failed
       case .synced: return ![.notSynced, .failed, .deleted].contains(phase)
+      }
+    }
+  }
+  /// Plain-language source-policy summary. No bundle identifier, hash, stack
+  /// trace or internal error name reaches this line.
+  private var sourcePolicyNote: some View {
+    let excluded = model.workouts.filter(\.isExcluded).count
+    let pending = model.workouts.filter(\.isUnclassified).count
+    return Group {
+      if excluded > 0 || pending > 0 {
+        VStack(alignment: .leading, spacing: 6) {
+          if excluded > 0 {
+            HStack(spacing: 6) {
+              Image(systemName: "applewatch.slash").font(.caption2).foregroundStyle(RAITheme.secondary)
+              Text("已隐藏 \(excluded) 条非 Apple Watch 原生跑步记录（第三方 App 或手工录入）")
+                .font(.caption2).foregroundStyle(RAITheme.secondary)
+              Spacer(minLength: 0)
+              Button(showExcluded ? "收起" : "查看") { showExcluded.toggle() }.font(.caption2)
+            }
+          }
+          if pending > 0 {
+            Text("\(pending) 条记录的来源暂无法确认，已保留在本机待识别，不会上传")
+              .font(.caption2).foregroundStyle(RAITheme.secondary)
+          }
+        }.padding(12).raiGlass()
+          .accessibilityIdentifier("sync.sourcePolicyNote")
       }
     }
   }

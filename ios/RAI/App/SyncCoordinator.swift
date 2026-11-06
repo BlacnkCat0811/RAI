@@ -23,6 +23,9 @@ actor SyncCoordinator {
     private let sessionStore: SyncSessionStore?
     private let sessionID: String?
     private var running = false
+    /// Publication checks are asynchronous follow-ups, never part of the wait
+    /// for a Workout's durable acknowledgement.
+    private var analysisRefreshes: [String: Task<Void, Never>] = [:]
     private var supportsIntegrity = false
     private var dailyRunning = false
     private var supportsDaily = false
@@ -32,9 +35,15 @@ actor SyncCoordinator {
     #if DEBUG
     private var acceptanceDiscoveryQueryCount = 0
     private var acceptanceAnchoredDiscoveryQueryCount = 0
+    private var acceptanceSourceExcludedCount = 0
+    private var acceptanceSourceUnclassifiedCount = 0
+    private var acceptanceChildQuerySkipCount = 0
     func discoveryQueryEvidence() -> JSON {
         .object(["queries": .int(Int64(acceptanceDiscoveryQueryCount)),
-            "queriesUsingCommittedAnchor": .int(Int64(acceptanceAnchoredDiscoveryQueryCount))])
+            "queriesUsingCommittedAnchor": .int(Int64(acceptanceAnchoredDiscoveryQueryCount)),
+            "sourceExcludedWorkouts": .int(Int64(acceptanceSourceExcludedCount)),
+            "sourceUnclassifiedWorkouts": .int(Int64(acceptanceSourceUnclassifiedCount)),
+            "skippedDetailedWorkouts": .int(Int64(acceptanceChildQuerySkipCount))])
     }
     #endif
 
@@ -228,6 +237,24 @@ actor SyncCoordinator {
                     visible = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKWorkout.self, from: Data(contentsOf: await store.fileURL(file)))
                 }
                 guard let workout = visible else { continue } // visibility is not deletion
+                // Source policy is decided from the root record, before any
+                // detailed child query. An excluded Workout never starts
+                // quantity/series/route collection; an undecidable one blocks
+                // only itself and stays retryable. A Workout that already has
+                // local work keeps collecting, so an explicit HealthKit
+                // deletion of already-committed facts is never lost.
+                let source = Normalizer.source(workout)
+                let classification = HealthSourcePolicy.classification(source)
+                let outcome = WorkoutSourcePolicy.outcome(classification)
+                try await store.recordSourceClassification(workoutID: id, classification: classification,
+                                                           evidence: WorkoutSourcePolicy.evidence(source))
+                if outcome != WorkoutSourcePolicy.eligible, await store.task(id) == nil {
+                    #if DEBUG
+                    if outcome == WorkoutSourcePolicy.excluded { acceptanceSourceExcludedCount += 1 } else { acceptanceSourceUnclassifiedCount += 1 }
+                    acceptanceChildQuerySkipCount += 1
+                    #endif
+                    continue
+                }
                 for type in HealthKitClient.quantityTypes + [HKSeriesType.workoutRoute()] {
                     do {
                         let scoped = DiscoveryQuery(type: type.identifier, workoutID: id)
@@ -262,13 +289,43 @@ actor SyncCoordinator {
             if type == HKObjectType.workoutType(), let id = query.workoutID { page = try await health.readWorkout(id: id, anchor: flow.anchor) }
             else { page = try await health.read(type: type, anchor: flow.anchor, workout: workout) }
             var events: [DiscoveryEvent] = []
-            for sample in page.samples {
+            // The Workout root record stays a plain archive file: it is the
+            // visible inventory (`workoutArchives`), the identity a later scan
+            // uses to enumerate scoped streams, and the fallback when a root is
+            // no longer visible. Its volume is one object per Workout, so it is
+            // not where the per-sample cost lives.
+            let rootType = type == HKObjectType.workoutType()
+            // Child upserts are archived into bounded capture segments: one
+            // sealed file per batch instead of one atomic file per sample. The
+            // events are returned unstaged and committed together with the
+            // journal and the anchor by `stageDiscovery`, so a crash before
+            // that point leaves an unreferenced orphan, never a fact.
+            for start in stride(from: 0, to: page.samples.count, by: 1000) {
                 try Task.checkCancellation()
-                let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
-                let file = try await store.savePayload(archive, suffix: "healthkit.archive")
-                events.append(DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(), deleted: false,
-                    archiveFile: file, archiveHash: Wire.hash(archive), workoutID: query.workoutID, identityHash: try? Normalizer.discoveryFingerprint(sample)))
+                let chunk = page.samples[start..<min(start + 1000, page.samples.count)]
+                if rootType {
+                    for sample in chunk {
+                        let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
+                        let file = try await store.savePayload(archive, suffix: "healthkit.archive")
+                        events.append(DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(),
+                            deleted: false, archiveFile: file, archiveHash: Wire.hash(archive), workoutID: query.workoutID))
+                    }
+                    continue
+                }
+                var records: [CapturedFact] = []
+                records.reserveCapacity(chunk.count)
+                for sample in chunk {
+                    let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
+                    records.append(CapturedFact(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(),
+                                                archive: archive, identityHash: try? Normalizer.discoveryFingerprint(sample)))
+                }
+                let captured = try await store.captureFactSegment(type: type.identifier, workoutID: query.workoutID,
+                                                                 records: records, publish: false)
+                events.append(contentsOf: captured.events)
             }
+            // Deletions keep their own archive file: a deletion event is a
+            // tombstone marker, not a fact whose bytes are ever reused, and the
+            // segment reference form is explicitly rejected for them.
             for object in page.deleted {
                 try Task.checkCancellation()
                 let archive = try NSKeyedArchiver.archivedData(withRootObject: object, requiringSecureCoding: true)
@@ -417,8 +474,73 @@ actor SyncCoordinator {
         let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
         if await store.discoverySnapshot().work[id]?.pendingDelete == true { try await deleteWorkout(id: id, api: api, scope: scope); return }
         try await store.selectDiscoveredWorkout(id)
+        if !forceNewBundle, await isAlreadyDelivered(id) {
+            // The durable ACK already covers every fact local discovery knows
+            // about, so there is nothing to read, encode or post. A later
+            // discovery generation (new samples, series, routes or an explicit
+            // deletion) re-opens this path; an unchanged repeat sync must not
+            // re-read HealthKit or re-upload an identical bundle.
+            try await store.setTaskMetrics(id, metrics: ["workout_sync_skipped_unchanged": 1])
+            Metrics.value("workout_sync_skipped_unchanged", 1)
+            return
+        }
         try await store.beginTask(id, resetBundle: forceNewBundle)
         try await performSync(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: forceNewBundle, recovery: false)
+    }
+
+    /// True when this Workout's durable ACK already covers the local discovery
+    /// state, so an unchanged repeat sync has nothing left to deliver.
+    ///
+    /// The test is deliberately conservative: a receipt for the current
+    /// generation, no pending deletion, no outstanding partial read and no new
+    /// discovery generation. Anything else keeps the ordinary prepare path.
+    private func isAlreadyDelivered(_ id: String) async -> Bool {
+        guard let task = await store.task(id), task.uploadReceipt != nil,
+              task.bundleFile == nil,
+              (task.pendingReadKeys ?? []).isEmpty,
+              [.acknowledged, .analyzing, .published, .partial].contains(task.phase) else { return false }
+        let snapshot = await store.discoverySnapshot()
+        guard let work = snapshot.work[id], !work.pendingDelete,
+              work.generation == work.deliveredGeneration else { return false }
+        // A deletion event that was never delivered outranks the skip.
+        return !snapshot.events.values.contains { $0.workoutID == id && $0.deleted && ($0.generation ?? 0) > work.deliveredGeneration }
+    }
+
+    /// Samples the bundle needs for one type.
+    ///
+    /// A scoped discovery stream that is provably exhausted for this Workout
+    /// already archived every sample, so the bundle reuses those archives
+    /// instead of repeating an equivalent full read. The predicate lives in
+    /// `OutboxStore.exhaustedDiscoveryFacts` and rejects any stream with a
+    /// staged batch, an error, no committed anchor or a full last page; those
+    /// cases keep the existing complete read, which also archives what it
+    /// reads. Reused samples are ordered the same way the complete read orders
+    /// them so the bundle bytes stay stable.
+    private func samplesForBundle(id: String, type: HKQuantityType,
+                                  workout: HKWorkout) async throws -> (samples: [HKSample], reused: Bool) {
+        if let facts = await store.exhaustedDiscoveryFacts(workoutID: id, type: type.identifier) {
+            var samples: [HKSample] = []
+            samples.reserveCapacity(facts.count)
+            for fact in facts {
+                // Reads either representation: a legacy single archive file or a
+                // record inside a sealed capture segment.
+                guard let data = try await store.discoveryArchiveBytes(fact),
+                      let sample = try NSKeyedUnarchiver.unarchivedObject(ofClasses: [HKQuantitySample.self], from: data) as? HKSample else {
+                    // Any fact we cannot read back disqualifies the whole
+                    // stream: fall back to the complete read rather than
+                    // upload a silently short bundle.
+                    return (try await health.bundleSamples(type: type, workout: workout), false)
+                }
+                samples.append(sample)
+            }
+            samples.sort { lhs, rhs in
+                lhs.startDate == rhs.startDate
+                    ? lhs.uuid.uuidString < rhs.uuid.uuidString
+                    : lhs.startDate < rhs.startDate
+            }
+            return (samples, true)
+        }
+        return (try await health.bundleSamples(type: type, workout: workout), false)
     }
 
     private func performSync(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
@@ -452,6 +574,7 @@ actor SyncCoordinator {
             let workoutAnchor = existing?.workoutAnchor
             timings["workout_query_used_committed_anchor"] = workoutAnchor == nil ? 0 : 1
             var nextWorkoutAnchor: Data?
+            let rootStart = Date()
             do {
                 let change = try await health.readWorkout(id: id, anchor: workoutAnchor)
                 nextWorkoutAnchor = change.anchor
@@ -462,9 +585,21 @@ actor SyncCoordinator {
             }
 
             guard let workout = try await health.workout(id) else { throw SyncFailure.invalid("workout_not_visible") }
+            timings["workout_query_ms"] = Date().timeIntervalSince(rootStart) * 1000
+            let classifyStart = Date()
             let source = Normalizer.source(workout)
-            guard HealthSourcePolicy.classification(source) == "apple_watch" else { throw SyncFailure.invalid("source_policy_pending") }
+            let classification = HealthSourcePolicy.classification(source)
+            let outcome = WorkoutSourcePolicy.outcome(classification)
+            try await store.recordSourceClassification(workoutID: id, classification: classification,
+                                                       evidence: WorkoutSourcePolicy.evidence(source))
+            // Entry guard for a source that changed after the list was read, or
+            // for an old queued task. A decided exclusion is terminal for this
+            // task; an undecidable source stays pending instead of guessing.
+            guard outcome == WorkoutSourcePolicy.eligible else {
+                throw SyncFailure.invalid(outcome == WorkoutSourcePolicy.excluded ? "source_policy_excluded" : "source_policy_pending")
+            }
             let observedWorkout = try Normalizer.integrityEvent(workout)
+            timings["source_classify_ms"] = Date().timeIntervalSince(classifyStart) * 1000
             let workoutEvent = try await store.originalWorkout(id, event: observedWorkout)
             let discovery = await store.discoverySnapshot()
             let generation = discovery.work[id]?.generation ?? 0
@@ -489,26 +624,39 @@ actor SyncCoordinator {
             var samples: [JSON] = []
             var series: [JSON] = []
             var completeSampleTypes: [String] = []
+            var reusedReads = 0, fullReads = 0, archiveWrites = 0
+            var archiveMs = 0.0, seriesMs = 0.0
             let quantityStart = Date()
             for type in HealthKitClient.quantityTypes {
                 try Task.checkCancellation()
                 do {
-                    let read = try await health.bundleSamples(type: type, workout: workout)
+                    let (read, reused) = try await samplesForBundle(id: id, type: type, workout: workout)
                     var events: [JSON] = []
-                    var capturedIDs = Set(await store.discoverySnapshot().events.keys)
-                    for start in stride(from: 0, to: read.count, by: 1000) {
-                        var captured: [DiscoveryEvent] = []
-                        for sample in read[start..<min(start + 1000, read.count)] {
-                            let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
-                            let hash = Wire.hash(archive)
-                            let identity = try? Normalizer.discoveryFingerprint(sample)
-                            let eventID = DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(), deleted: false, archiveHash: hash, workoutID: id, identityHash: identity).id
-                            if capturedIDs.contains(eventID) { continue }
-                            capturedIDs.insert(eventID)
-                            let file = try await store.savePayload(archive, suffix: "healthkit.archive")
-                            captured.append(DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(), deleted: false, archiveFile: file, archiveHash: hash, workoutID: id, identityHash: identity))
+                    if reused {
+                        reusedReads += 1
+                    } else {
+                        fullReads += 1
+                        let archiveStart = Date()
+                        var capturedIDs = Set(await store.discoverySnapshot().events.keys)
+                        for start in stride(from: 0, to: read.count, by: 1000) {
+                            var records: [CapturedFact] = []
+                            for sample in read[start..<min(start + 1000, read.count)] {
+                                let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
+                                let hash = Wire.hash(archive)
+                                let identity = try? Normalizer.discoveryFingerprint(sample)
+                                let eventID = DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(), deleted: false, archiveHash: hash, workoutID: id, identityHash: identity).id
+                                if capturedIDs.contains(eventID) { continue }
+                                capturedIDs.insert(eventID)
+                                records.append(CapturedFact(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(),
+                                                            archive: archive, identityHash: identity))
+                            }
+                            guard !records.isEmpty else { continue }
+                            // One sealed segment file per batch replaces one
+                            // atomic file per sample; the facts commit once.
+                            let captured = try await store.captureFactSegment(type: type.identifier, workoutID: id, records: records)
+                            if captured.file != nil { archiveWrites += 1 }
                         }
-                        try await store.recordCapturedFacts(captured)
+                        archiveMs += Date().timeIntervalSince(archiveStart) * 1000
                     }
                     try await store.associateDiscoveredFacts(workoutID: id, keys: read.map { type.identifier + ":" + $0.uuid.uuidString.lowercased() })
                     var eligible: [HKSample] = []
@@ -529,7 +677,9 @@ actor SyncCoordinator {
                     // read coverage only; absent children never prove deletion,
                     // including when an older bundle arrives after a newer one.
                     do {
+                        let seriesStart = Date()
                         let seriesBySample = try await health.captureSeries(type: type, workout: workout, store: store)
+                        seriesMs += Date().timeIntervalSince(seriesStart) * 1000
                         var seriesCount = 0
                         for sample in eligible {
                             guard let quantity = sample as? HKQuantitySample, quantity.count > 1 else { continue }
@@ -560,6 +710,11 @@ actor SyncCoordinator {
                 }
             }
             timings["healthkit_read_ms"] = Date().timeIntervalSince(quantityStart) * 1000
+            timings["reused_discovery_reads"] = Double(reusedReads)
+            timings["full_sample_reads"] = Double(fullReads)
+            timings["sample_archive_ms"] = archiveMs
+            timings["sample_archive_writes"] = Double(archiveWrites)
+            timings["series_read_ms"] = seriesMs
 
             var routes: [JSON] = []
             var routePointCount = 0
@@ -596,6 +751,15 @@ actor SyncCoordinator {
             catch let failure as SyncFailure { coverage["route"] = WorkoutCoverage(state: .failed, errorCode: code(failure)) }
             catch { coverage["route"] = WorkoutCoverage(state: .failed, errorCode: "route_read_or_mapping_failed") }
             timings["route_read_ms"] = Date().timeIntervalSince(routeStart) * 1000
+            // Batch evidence: flush and synchronization counts must track
+            // batches, not individual points (F15/P11).
+            let batches = await health.captureBatchCounters()
+            timings["series_capture_flushes"] = Double(batches.seriesFlushes)
+            timings["series_capture_synchronizations"] = Double(batches.seriesSynchronizations)
+            timings["series_capture_points"] = Double(batches.seriesPoints)
+            timings["route_capture_flushes"] = Double(batches.routeFlushes)
+            timings["route_capture_synchronizations"] = Double(batches.routeSynchronizations)
+            timings["route_capture_points"] = Double(batches.routePoints)
 
             guard samples.count <= 50_000, series.count <= 50_000,
                   series.reduce(0, { $0 + $1["points"].list.count }) <= 1_000_000,
@@ -609,10 +773,13 @@ actor SyncCoordinator {
                 "metadata": observedWorkout["metadata"] == .null ? .object([:]) : observedWorkout["metadata"],
                 "provenance": .object(["workout": source, "samples": .array(sampleProvenance), "routes": .array(routeProvenance)]),
                 "coverage": .object(coverage.mapValues(\.wire))])
+            let encodeStart = Date()
             var bundle = try WorkoutBundleAssembler.data(scope: scope, workoutID: id, workout: workoutEvent,
                                                           samples: samples, series: series, routes: routes,
                                                           completeSampleTypes: completeSampleTypes, completeRoutes: completeRoutes,
                                                           observation: observation, sampleDeletions: sampleDeletions, routeDeletions: routeDeletions)
+            timings["bundle_encode_ms"] = Date().timeIntervalSince(encodeStart) * 1000
+            let persistStart = Date()
             if existing?.originalWorkout != nil {
                 var prior: JSON?
                 do {
@@ -633,8 +800,15 @@ actor SyncCoordinator {
             let multipart = WorkoutBundleAssembler.multipart(bundle: bundle, boundary: boundary)
             let fileName = try await store.savePayload(multipart, suffix: "multipart.json")
             let file = try await store.fileURL(fileName)
-            try await store.setBundle(id, file: fileName, sha256: bundleHash, boundary: boundary, sampleDeletions: sampleDeletions.count, routeDeletions: routeDeletions.count, discoveryGeneration: generation, deletionEventIDs: deletions.map(\.id), pendingReadKeys: coverage.filter { $0.value.state == .failed || $0.value.state == .partial }.map(\.key).filter { $0 != "metadata" })
+            // The delivered generation is the one this bundle covers, which
+            // includes the facts this pass just captured. Reading the snapshot
+            // taken before capture would leave `deliveredGeneration` one
+            // generation behind, so an unchanged repeat sync could never be
+            // recognised as already delivered.
+            let deliveredGeneration = await store.discoverySnapshot().work[id]?.generation ?? generation
+            try await store.setBundle(id, file: fileName, sha256: bundleHash, boundary: boundary, sampleDeletions: sampleDeletions.count, routeDeletions: routeDeletions.count, discoveryGeneration: deliveredGeneration, deletionEventIDs: deletions.map(\.id), pendingReadKeys: coverage.filter { $0.value.state == .failed || $0.value.state == .partial }.map(\.key).filter { $0 != "metadata" })
             timings["bundle_bytes"] = Double(bundle.count)
+            timings["bundle_persist_ms"] = Date().timeIntervalSince(persistStart) * 1000
             timings["bundle_build_ms"] = Date().timeIntervalSince(started) * 1000
             try await updateTask(id, phase: .uploading, coverage: coverage, metrics: timings)
             try await uploadAndAcknowledge(id: id, file: file, bundleHash: bundleHash, boundary: boundary,
@@ -662,7 +836,21 @@ actor SyncCoordinator {
         try await store.setTaskMetrics(id, metrics: timings)
         try? await store.synced()
         _ = try? await store.collectGarbage(dryRun: false)
-        try await refreshAnalysis(id: id, api: api)
+        // A durable ACK is this Workout's completion point. Publication of the
+        // analysis is a separate, asynchronous state: the next upload must not
+        // wait for it, and a slow or missing publication never downgrades the
+        // acknowledgement.
+        scheduleAnalysisRefresh(id: id, api: api)
+    }
+
+    /// Refreshes the analysis state of one Workout without extending the
+    /// user's wait. A newer refresh for the same Workout replaces the pending
+    /// one; failures stay recorded on the task and never touch the ACK.
+    private func scheduleAnalysisRefresh(id: String, api: RAIAPIClient) {
+        analysisRefreshes[id]?.cancel()
+        analysisRefreshes[id] = Task { [api] in
+            try? await refreshAnalysis(id: id, api: api)
+        }
     }
 
     private func deleteWorkout(id: String, api: RAIAPIClient, scope: Scope) async throws {

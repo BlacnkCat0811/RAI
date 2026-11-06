@@ -121,14 +121,32 @@ public struct HealthWorkoutSummary: Identifiable, Sendable, Equatable {
     public let activityType: Int
     public let sourceName: String?
     public let deviceName: String?
+    /// Frozen source-policy classification of this Workout (`apple_watch`,
+    /// `third_party`, `user_entered`, `source_unknown`, ...). The selection list
+    /// must never offer a record that policy excludes, and an excluded record
+    /// must never start a detailed child read.
+    public let sourceClassification: String
+    /// `eligible` / `excluded` / `unclassified` from `WorkoutSourcePolicy`.
+    /// Unknown is never silently treated as either of the other two.
+    public let sourceOutcome: String
     public init(id: String, start: Date, end: Date, durationS: Double, distanceM: Double?,
                 averageHeartRate: Double?, isIndoor: Bool?, activityType: Int,
-                sourceName: String?, deviceName: String?) {
+                sourceName: String?, deviceName: String?,
+                sourceClassification: String = "source_unknown",
+                sourceOutcome: String = WorkoutSourcePolicy.unclassified) {
         self.id = id; self.start = start; self.end = end; self.durationS = durationS
         self.distanceM = distanceM; self.averageHeartRate = averageHeartRate
         self.isIndoor = isIndoor; self.activityType = activityType
         self.sourceName = sourceName; self.deviceName = deviceName
+        self.sourceClassification = sourceClassification; self.sourceOutcome = sourceOutcome
     }
+    /// Only an eligible Workout may be selected for upload.
+    public var isEligible: Bool { sourceOutcome == WorkoutSourcePolicy.eligible }
+    /// Proven third-party / user-entered exclusion: hidden by default and never
+    /// collected.
+    public var isExcluded: Bool { sourceOutcome == WorkoutSourcePolicy.excluded }
+    /// Not yet decidable. Blocks that one Workout instead of guessing either way.
+    public var isUnclassified: Bool { sourceOutcome == WorkoutSourcePolicy.unclassified }
     public var averagePaceSecondsPerM: Double? {
         guard let distanceM, distanceM > 0, durationS > 0 else { return nil }
         return durationS / distanceM

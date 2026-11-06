@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"rai/server/internal/analysis"
 	"rai/server/internal/syncing"
 	"sort"
@@ -14,59 +15,126 @@ import (
 
 // Validate explicit parent membership before changing any child. Unknown IDs
 // can establish barriers, but a known child of another Workout never can.
+//
+// The check is set-based: one statement resolves every requested child key, so
+// the cost no longer grows by one round trip per deleted sample. Decisions are
+// still taken in bundle order, so the reported conflict code is the same one
+// the scalar loop produced.
 func checkBundleDeletions(ctx context.Context, tx pgx.Tx, dataset string, b syncing.WorkoutBundle) (bool, error) {
-	changed := false
-	for _, d := range b.SampleDeletions {
-		var parent string
-		var tombstone bool
-		err := tx.QueryRow(ctx, `SELECT COALESCE((SELECT workout_uuid::text FROM workout_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3),''),EXISTS(SELECT 1 FROM entity_tombstones WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3)`, dataset, d.SampleType, d.SampleUUID).Scan(&parent, &tombstone)
-		if err != nil {
-			return false, err
-		}
-		if parent != "" && parent != b.WorkoutID {
-			return false, syncing.Fail(409, "child_workout_mismatch")
-		}
-		changed = changed || !tombstone
+	if len(b.SampleDeletions) == 0 && len(b.RouteDeletions) == 0 {
+		return false, nil
 	}
-	for _, id := range b.RouteDeletions {
-		var parent string
-		var tombstone bool
-		err := tx.QueryRow(ctx, `SELECT COALESCE((SELECT workout_uuid::text FROM workout_routes WHERE dataset_id=$1 AND route_uuid=$3),''),EXISTS(SELECT 1 FROM entity_tombstones WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3)`, dataset, syncing.RouteType, id).Scan(&parent, &tombstone)
+	changed := false
+	if len(b.SampleDeletions) > 0 {
+		types := make([]string, len(b.SampleDeletions))
+		uuids := make([]string, len(b.SampleDeletions))
+		for index, deletion := range b.SampleDeletions {
+			types[index], uuids[index] = deletion.SampleType, deletion.SampleUUID
+		}
+		parents, tombstones, err := childDeleteState(ctx, tx, dataset, `SELECT k.sample_type,k.sample_uuid::text,
+				COALESCE(w.workout_uuid::text,''),
+				EXISTS(SELECT 1 FROM entity_tombstones t
+					WHERE t.dataset_id=$1 AND t.sample_type=k.sample_type AND t.sample_uuid=k.sample_uuid::uuid)
+			FROM unnest($2::text[],$3::text[]) AS k(sample_type,sample_uuid)
+			LEFT JOIN workout_samples w
+				ON w.dataset_id=$1 AND w.sample_type=k.sample_type AND w.sample_uuid=k.sample_uuid::uuid`,
+			types, uuids)
 		if err != nil {
 			return false, err
 		}
-		if parent != "" && parent != b.WorkoutID {
-			return false, syncing.Fail(409, "child_workout_mismatch")
+		for _, deletion := range b.SampleDeletions {
+			key := sampleKey{sampleType: deletion.SampleType, sampleUUID: deletion.SampleUUID}
+			if parent := parents[key]; parent != "" && parent != b.WorkoutID {
+				return false, syncing.Fail(409, "child_workout_mismatch")
+			}
+			changed = changed || !tombstones[key]
 		}
-		changed = changed || !tombstone
+	}
+	if len(b.RouteDeletions) > 0 {
+		parents, tombstones, err := childDeleteState(ctx, tx, dataset, `SELECT $3,k.route_uuid,
+				COALESCE(r.workout_uuid::text,''),
+				EXISTS(SELECT 1 FROM entity_tombstones t
+					WHERE t.dataset_id=$1 AND t.sample_type=$3 AND t.sample_uuid=k.route_uuid::uuid)
+			FROM unnest($2::text[]) AS k(route_uuid)
+			LEFT JOIN workout_routes r ON r.dataset_id=$1 AND r.route_uuid=k.route_uuid::uuid`,
+			b.RouteDeletions, syncing.RouteType)
+		if err != nil {
+			return false, err
+		}
+		for _, id := range b.RouteDeletions {
+			if parent := parents[sampleKey{sampleType: syncing.RouteType, sampleUUID: id}]; parent != "" && parent != b.WorkoutID {
+				return false, syncing.Fail(409, "child_workout_mismatch")
+			}
+			changed = changed || !tombstones[sampleKey{sampleType: syncing.RouteType, sampleUUID: id}]
+		}
 	}
 	return changed, nil
 }
-func applyBundleDeletions(ctx context.Context, tx pgx.Tx, dataset string, b syncing.WorkoutBundle, rev int64) (samples, associations, routes int, err error) {
-	for _, d := range b.SampleDeletions {
-		var start, end any
-		// Preserve the actual old range; unknown deletions have no invented range.
-		err = tx.QueryRow(ctx, `SELECT event_start,event_end FROM health_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3`, dataset, d.SampleType, d.SampleUUID).Scan(&start, &end)
-		if errors.Is(err, pgx.ErrNoRows) {
-			start = nil
-			end = nil
-		} else if err != nil {
-			return
+
+// childDeleteState runs one parent/tombstone statement and indexes the result
+// by child key. The key is always (sample_type,sample_uuid).
+func childDeleteState(ctx context.Context, tx pgx.Tx, dataset, query string, args ...any) (map[sampleKey]string, map[sampleKey]bool, error) {
+	rows, err := tx.Query(ctx, query, append([]any{dataset}, args...)...)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	parents := make(map[sampleKey]string)
+	tombstones := make(map[sampleKey]bool)
+	for rows.Next() {
+		var key sampleKey
+		var parent string
+		var tombstone bool
+		if err = rows.Scan(&key.sampleType, &key.sampleUUID, &parent, &tombstone); err != nil {
+			return nil, nil, err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO entity_tombstones(dataset_id,sample_type,sample_uuid,deleted_rev,previous_start,previous_end,reason) VALUES($1,$2,$3,$4,$5,$6,'healthkit_deleted_object') ON CONFLICT DO NOTHING`, dataset, d.SampleType, d.SampleUUID, rev, start, end)
-		if err != nil {
-			return
+		parents[key] = parent
+		tombstones[key] = tombstone
+	}
+	if err = rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	return parents, tombstones, nil
+}
+
+// applyBundleDeletions records barriers and removes child facts with one
+// statement per bounded batch. Repeated keys are collapsed: the scalar loop's
+// second pass over the same key counted nothing and deleted nothing, so the
+// totals stay identical while the statements stop growing with the bundle.
+func applyBundleDeletions(ctx context.Context, tx pgx.Tx, dataset string, b syncing.WorkoutBundle, rev int64) (samples, associations, routes int, err error) {
+	deletions := uniqueSampleDeletions(b.SampleDeletions)
+	for _, batch := range batchIndexes(len(deletions), func(i int) int {
+		return len(deletions[i].SampleType) + len(deletions[i].SampleUUID) + 32
+	}) {
+		types := make([]string, len(batch))
+		uuids := make([]string, len(batch))
+		for position, index := range batch {
+			types[position], uuids[position] = deletions[index].SampleType, deletions[index].SampleUUID
+		}
+		// Preserve the actual old range; unknown deletions have no invented range.
+		if _, err = tx.Exec(ctx, `INSERT INTO entity_tombstones(dataset_id,sample_type,sample_uuid,deleted_rev,previous_start,previous_end,reason)
+			SELECT $1,k.sample_type,k.sample_uuid::uuid,$4,h.event_start,h.event_end,'healthkit_deleted_object'
+			FROM unnest($2::text[],$3::text[]) AS k(sample_type,sample_uuid)
+			LEFT JOIN health_samples h
+				ON h.dataset_id=$1 AND h.sample_type=k.sample_type AND h.sample_uuid=k.sample_uuid::uuid
+			ON CONFLICT DO NOTHING`, dataset, types, uuids, rev); err != nil {
+			return 0, 0, 0, err
 		}
 		var n int
-		err = tx.QueryRow(ctx, `SELECT count(*) FROM workout_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3`, dataset, d.SampleType, d.SampleUUID).Scan(&n)
-		if err != nil {
-			return
+		if err = tx.QueryRow(ctx, `SELECT count(*) FROM workout_samples w
+			JOIN unnest($2::text[],$3::text[]) AS k(sample_type,sample_uuid)
+				ON w.sample_type=k.sample_type AND w.sample_uuid=k.sample_uuid::uuid
+			WHERE w.dataset_id=$1`, dataset, types, uuids).Scan(&n); err != nil {
+			return 0, 0, 0, err
 		}
 		associations += n
-		tag, e := tx.Exec(ctx, `DELETE FROM health_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3`, dataset, d.SampleType, d.SampleUUID)
-		if e != nil {
-			err = e
-			return
+		var tag pgconn.CommandTag
+		tag, err = tx.Exec(ctx, `DELETE FROM health_samples h
+			USING unnest($2::text[],$3::text[]) AS k(sample_type,sample_uuid)
+			WHERE h.dataset_id=$1 AND h.sample_type=k.sample_type AND h.sample_uuid=k.sample_uuid::uuid`,
+			dataset, types, uuids)
+		if err != nil {
+			return 0, 0, 0, err
 		}
 		samples += int(tag.RowsAffected())
 	}
@@ -75,13 +143,28 @@ func applyBundleDeletions(ctx context.Context, tx pgx.Tx, dataset string, b sync
 		err = tx.QueryRow(ctx, `SELECT route_existed FROM rai_route_delete($1,$2,$3,'healthkit_deleted_object')`, dataset, id, rev).Scan(&existed)
 		if err != nil {
 			err = routeDBError(err)
-			return
+			return 0, 0, 0, err
 		}
 		if existed {
 			routes++
 		}
 	}
-	return
+	return samples, associations, routes, nil
+}
+
+// uniqueSampleDeletions keeps the first occurrence of each child key.
+func uniqueSampleDeletions(deletions []syncing.SampleDeletion) []syncing.SampleDeletion {
+	seen := make(map[sampleKey]bool, len(deletions))
+	unique := make([]syncing.SampleDeletion, 0, len(deletions))
+	for _, deletion := range deletions {
+		key := sampleKey{sampleType: deletion.SampleType, sampleUUID: deletion.SampleUUID}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		unique = append(unique, deletion)
+	}
+	return unique
 }
 
 // Only RAI observation time is ignored. Child metadata is included so late

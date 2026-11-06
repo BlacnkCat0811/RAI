@@ -125,7 +125,13 @@ func TestPhase4PerformanceMatrix(t *testing.T) {
 			if os.Getenv("RAI_PHASE4_PERF") == "after" {
 				code, gzipACK := phase4Upload(t, httpapi.New(f.s, logger), f.enrollment.Token, raw, true)
 				if code != 200 || !bytes.Equal(ack, gzipACK) {
-					t.Fatalf("gzip identity/ACK mismatch: %d", code)
+					// The body carries the server's code/stage, which is what
+					// distinguishes a guard rejection from a real mismatch.
+					body := string(gzipACK)
+					if len(body) > 400 {
+						body = body[:400]
+					}
+					t.Fatalf("gzip identity/ACK mismatch: %d body=%s", code, body)
 				}
 			}
 

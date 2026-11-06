@@ -1,0 +1,71 @@
+# T_server_ack measurement (P06 S60 / P07 S240)
+
+Command: `RAI_SYNC_SPEED_PERF=1 RAI_SYNC_SPEED_ITERATIONS=30 RAI_SYNC_SPEED_WARMUPS=3 scripts/local/test.sh integration -v -run '^TestWorkoutSyncSpeedServerAckMatrix$' ./integration`
+Result: `--- PASS: TestWorkoutSyncSpeedServerAckMatrix (966.61s)`; `ok rai/server/integration 967.682s`
+Environment: PostgreSQL 18.6 (Postgres.app), fsync=on, full_page_writes=on, synchronous_commit=on, data_checksums=on; loopback HTTP to the real handler; disposable cluster, 0 leftover databases.
+
+Method: every iteration builds a brand-new Workout/sample/route identity and performs a genuine first import (a replay is not a new import). 3 warmups per profile are excluded from the sample. `ack_total_ms` starts at the import handler entry (after auth middleware) and stops after the response is written, so it is `T_server_ack` without auth cost. `client_roundtrip_ms` is measured by the test client around the same call. Percentiles use nearest-rank `ceil(p*n)`.
+
+## Profile S60 (n=30, warmups=3, failures=0, json_bytes_p50=4134363)
+
+| metric | p50 | p95 | min | max |
+| --- | --- | --- | --- | --- |
+| ack_total_ms | 4901.3 | 5645.9 | 4406.6 | 5765.2 |
+| client_roundtrip_ms | 4936.0 | 5667.2 | 0.0 | 0.0 |
+| json_decode_ms | 1649.6 | 1802.8 | 0.0 | 0.0 |
+| validation_ms | 159.6 | 201.8 | 0.0 | 0.0 |
+| import_ms | 3151.3 | 3873.3 | 0.0 | 0.0 |
+| ack_write_ms | 0.1 | 0.1 | 0.0 | 0.0 |
+
+| import phase | p50 | p95 | n |
+| --- | --- | --- | --- |
+| import_total | 3151.2 | 3873.2 | 30 |
+| import_transaction | 2979.8 | 3669.1 | 30 |
+| sample_writes | 1068.1 | 1335.1 | 30 |
+| association_writes | 1038.8 | 1379.8 | 30 |
+| routes | 171.1 | 381.7 | 30 |
+| semantic_validation | 159.6 | 201.8 | 30 |
+| dirty_job | 133.4 | 149.5 | 30 |
+| receipt | 122.2 | 138.5 | 30 |
+| identity_checks | 116.4 | 1036.1 | 30 |
+| commit | 9.8 | 74.1 | 30 |
+| dataset_lock | 0.4 | 0.5 | 30 |
+| deletions | 0.4 | 1.0 | 30 |
+| series | 0.0 | 0.0 | 30 |
+
+## Profile S240 (n=30, warmups=3, failures=0, json_bytes_p50=16537010)
+
+| metric | p50 | p95 | min | max |
+| --- | --- | --- | --- | --- |
+| ack_total_ms | 21080.2 | 31036.3 | 19182.8 | 31887.5 |
+| client_roundtrip_ms | 21133.6 | 31097.1 | 0.0 | 0.0 |
+| json_decode_ms | 6571.7 | 7039.0 | 0.0 | 0.0 |
+| validation_ms | 656.4 | 756.8 | 0.0 | 0.0 |
+| import_ms | 14130.5 | 24141.9 | 0.0 | 0.0 |
+| ack_write_ms | 0.1 | 0.2 | 0.0 | 0.0 |
+
+| import phase | p50 | p95 | n |
+| --- | --- | --- | --- |
+| import_total | 14130.5 | 24141.9 | 30 |
+| import_transaction | 13445.9 | 23430.7 | 30 |
+| sample_writes | 5412.7 | 13888.7 | 30 |
+| association_writes | 4824.9 | 8392.0 | 30 |
+| routes | 777.7 | 1009.1 | 30 |
+| semantic_validation | 656.4 | 756.8 | 30 |
+| receipt | 562.4 | 951.2 | 30 |
+| dirty_job | 546.8 | 666.1 | 30 |
+| identity_checks | 533.8 | 2324.1 | 30 |
+| commit | 32.2 | 96.3 | 30 |
+| dataset_lock | 0.5 | 0.7 | 30 |
+| deletions | 0.5 | 0.8 | 30 |
+| series | 0.0 | 0.0 | 30 |
+
+## Reading
+
+- **P06 FAIL**: S60 `ack_total_ms` p50 4901 ms / p95 5646 ms against a target of p95 <= 1000 ms (about 5.6x).
+- **P07 FAIL**: S240 `ack_total_ms` p50 21080 ms / p95 31036 ms against a target of p95 <= 4000 ms (about 7.8x).
+- Both profiles: 0 failures, so the 26k-sample tier now completes reliably; the earlier 503 was the generic-plan problem described in the result document.
+- Dominant phases at S60: `json_decode` 1650 ms, `sample_writes` 1068 ms, `association_writes` 1039 ms, `routes` 171 ms, `semantic_validation` 160 ms, `dirty_job` 133 ms, `receipt` 122 ms, `identity_checks` 116 ms, `commit` 10 ms, `dataset_lock` 0.4 ms.
+- Dominant phases at S240: `json_decode` 6572 ms, `sample_writes` 5413 ms, `association_writes` 4825 ms, `routes` 778 ms, `semantic_validation` 656 ms, `receipt` 562 ms, `dirty_job` 547 ms, `identity_checks` 534 ms, `commit` 32 ms, `dataset_lock` 0.5 ms.
+- Strict JSON decoding is the single largest cost at both tiers; the two multi-row write phases together are comparable at S60 and larger at S240. Both are outside this round's scope to rewrite, so the numbers stand as measured.
+- `identity_checks` p95 (1036 ms at S60, 2324 ms at S240) is far above its p50 (116 ms / 534 ms): the cold-start/plan variance documented in the result document is still present after the generic-plan fix.

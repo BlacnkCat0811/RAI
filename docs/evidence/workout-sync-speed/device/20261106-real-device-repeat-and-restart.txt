@@ -1,0 +1,29 @@
+# Real device no-change repeat sync and restart recovery
+
+After one fresh import of the 58-minute record (1 workout, 10,824 samples, 1 import row), the same
+Workout was synced again nine times. Every repeat launches a **new app process** (`--terminate-existing`),
+so each line is also a restart-recovery observation.
+
+| repeat | end-to-end wall ms | skipped flag | new HK reads | new POST |
+| --- | --- | --- | --- | --- |
+| 1 | 422.4 | 1 | 0 | 0 |
+| 2 | 418.0 | 1 | 0 | 0 |
+| 3 | 413.7 | 1 | 0 | 0 |
+| 4 | 404.3 | 1 | 0 | 0 |
+| 5 | 425.2 | 1 | 0 | 0 |
+| 6 | 419.6 | 1 | 0 | 0 |
+| 7 | 425.5 | 1 | 0 | 0 |
+| 8 | 426.9 | 1 | 0 | 0 |
+| 9 | 421.5 | 1 | 0 | 0 |
+| 10 | 424.1 | 1 | 0 | 0 |
+
+- P50 422.0 ms / min 404.3 / max 426.9 (n=10).
+- `workout_sync_skipped_unchanged` is set on every repeat; the retained `timings` in the task record are
+  the ones from the original import, so `wallMs` is the honest end-to-end figure here.
+- Server state after all repeats: `workouts=1`, `health_samples=10824`, `workout_imports=1`, `jobs=2`,
+  `change_events=1` — no second import, job, revision or change event.
+
+## Verdict
+
+- P04 (no-change repeat sync P50 <= 2 s, P95 <= 4 s, 0 new POST/import/job): **PASS** — P50 420 ms.
+- Restart recovery: **PASS** — nine fresh processes each skipped the upload and kept the original receipt.

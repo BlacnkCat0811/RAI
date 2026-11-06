@@ -33,7 +33,12 @@ NAS 连接见 [fnOS 访问说明](docs/FNOS-ACCESS.md)。远端现有库不作�
 ```bash
 # 本机原生环境（Go/PostgreSQL 已由 scripts/local/bootstrap.sh 安装）
 scripts/local/verify.sh   # 空库迁移、API/Worker、健康检查、备份恢复
-scripts/local/test.sh     # 单元、vet、race 及一次性隔离 PostgreSQL 集成测试
+scripts/local/test.sh quick  # 日常快速检查，复用 Go 缓存
+scripts/local/test.sh gate   # Go 完成门禁：race/vet/边界；事务变更另加定向 PG 测试
+scripts/local/test.sh full   # 需要全量回归时：uncached race/vet/sqlc/真实隔离 PG18
+scripts/local/test.sh swift  # 本机 Swift package 回归
+scripts/local/test.sh e2e    # 模拟器 → 本机 HTTP → 本机隔离 PG18
+scripts/local/test.sh perf   # 1/10/100/500 条轻量合成 Workout 的本机吞吐
 
 cd apps/server
 go test ./...
@@ -49,13 +54,15 @@ cd ../..
 python3 scripts/check-boundaries.py
 ```
 
-本机负载较高时，可把同一套测试放到 fnOS/N100 上执行（需要免密 SSH 和远端 Docker）：
+开发、回归和性能测试统一在本机 Mac 执行；`test-remote.sh` 与 `remote-test.sh` 已禁用，不再调用 fnOS/N100。日常用定向测试，避免每次修改重跑整个真机历史：
 
 ```bash
-scripts/test-remote.sh
+scripts/local/test.sh unit -run 'TestWorkout' ./internal/syncing
+scripts/local/test.sh integration -run 'TestWorkoutCompleteness' ./integration
+scripts/local/test.sh swift --filter HealthDiscoveryTests
 ```
 
-每次运行使用远端一次性 PostgreSQL 18 容器；优先用远端 Go 1.27.3 原生执行，缺少 Go/gcc 时回退 Go 容器。脚本不连接现有 `rai` 库；参数、镜像和资源限额见 [fnOS 访问说明](docs/FNOS-ACCESS.md#在-fnosn100-上跑测试)。
+`quick` 不运行数据库、模拟器或真机门禁，不能替代 Go 完成门禁（`gate`）及所需的数据库/真机验收。本机原生脚本不需要 Docker；历史 Compose 场景仍需本机 Docker，缺少时明确记未执行，不回退远端。真机验收也有独立本机后端，见 [本机开发说明](deploy/local/README.md#usb-iphone--mac-独立验收)。
 
 不带 `integration` tag 只运行单元测试。带 tag 时，缺少测试 URL 或根库名不是 `rai_test` 会失败，不会静默跳过。不要配置真实健康数据库。
 
@@ -87,14 +94,13 @@ docker build --platform linux/amd64 -t rai:dev apps/server
 见 [Operations](docs/P7_OPERATIONS.md)、[Backup/Restore](docs/P7_BACKUP_RESTORE.md)、[Security](docs/P7_SECURITY.md)、[Capacity](docs/P7_CAPACITY.md) 与 [Release Gate](docs/P7_RELEASE_CHECKLIST.md)。`rai ops snapshot`为受限聚合运维，不新增公开metrics；`ops retention-dry-run`不删除事实、回执或屏障；`ops verify`为显式管理核验，不在同步路径运行。正式任务、证书续期和通知渠道尚需现场批准配置。
 
 ```bash
-scripts/test-remote.sh bash ../../scripts/check-p7.sh
-scripts/test-remote.sh env RAI_SOURCE_COMMIT=<verified-head> bash ../../scripts/test-p7-compose.sh
+scripts/local/test.sh full
 python3 scripts/test-p7-alerts.py
 python3 scripts/test-p7-gc.py
 python3 scripts/p7-secret-audit.py
 ```
 
-这些脚本使用新建合成实例、唯一项目/credentials/volume；故障测试只清理本次资源。生产DSN和既有数据库不作为测试输入，禁止prune、覆盖真实卷或自动部署。容量/规模命令及统计口径见Capacity文档。
+原有 Compose 故障场景保留供本机具备 Docker 时单独执行；`full` 不冒充其结果。生产DSN和既有数据库不作为测试输入，禁止prune、覆盖真实卷或自动部署。容量/规模命令及统计口径见Capacity文档。
 
 ## 分析管理
 

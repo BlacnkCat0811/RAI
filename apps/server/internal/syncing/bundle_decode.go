@@ -12,8 +12,11 @@ import (
 	"unicode/utf8"
 )
 
-// DecodeWorkoutBundle checks wire presence before Go zero values can hide it.
-// It does not change DTO/canonical encodings or the exact-byte receipt identity.
+// DecodeWorkoutBundle runs both the wire check and the semantic check. It is a
+// caller-side convenience for tests and clients; the server write path must not
+// use it, because semantic validation happens exactly once, inside the Store
+// import entry point (syncing.ValidateWorkoutBundle). Using this wrapper on the
+// server would restore the duplicate semantic pass that P4 removes.
 func DecodeWorkoutBundle(raw []byte, bundle *WorkoutBundle) error {
 	if err := DecodeWorkoutBundleJSON(raw, bundle); err != nil {
 		return err

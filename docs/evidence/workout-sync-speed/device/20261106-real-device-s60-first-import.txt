@@ -1,0 +1,61 @@
+# Real device first import — S60 (58 min Apple Watch run), Release build
+
+Device: iPhone 12 Pro Max (iPhone13,4), iOS 27.2, wired to the Mac for control, WiFi for sync.
+Backend: local Mac (API + Worker + PostgreSQL 18.6), loopback-only database, disposable dataset.
+Build: Release (-O) with the DEBUG-gated acceptance instrumentation compiled in.
+Method: each sample resets only the local disposable dataset, then the iPhone performs a genuine
+first capture and first import of the same real, read-only Workout. n=20, no warmup discarded.
+
+| sample | workout_sync_ms | healthkit_read_ms | bundle_build_ms | upload_ms | bundle_bytes | peak_rss_MiB | max_stall_ms |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 18371.0 | 12054.7 | 12797.6 | 5489.0 | 8565743 | 300.0 | 1.0 |
+| 1 | 18623.8 | 12474.0 | 13210.0 | 5332.6 | 8565743 | 296.4 | 1.0 |
+| 2 | 18857.2 | 12372.2 | 13136.2 | 5630.1 | 8565743 | 289.5 | 1.2 |
+| 3 | 18850.2 | 12439.8 | 13171.2 | 5589.7 | 8565743 | 287.3 | 1.0 |
+| 4 | 19145.5 | 12464.4 | 13195.2 | 5872.9 | 8565743 | 291.9 | 1.0 |
+| 5 | 18892.3 | 12686.6 | 13441.7 | 5367.9 | 8565743 | 291.2 | 1.1 |
+| 6 | 19342.5 | 12674.3 | 13463.7 | 5790.8 | 8565743 | 300.2 | 1.2 |
+| 7 | 19126.7 | 12624.3 | 13376.5 | 5663.3 | 8565743 | 286.2 | 1.1 |
+| 8 | 19144.0 | 12648.4 | 13399.2 | 5667.8 | 8565743 | 294.5 | 1.0 |
+| 9 | 19419.5 | 12828.0 | 13596.2 | 5739.5 | 8565743 | 278.6 | 1.0 |
+| 10 | 18905.1 | 12811.0 | 13544.6 | 5282.7 | 8565743 | 296.5 | 1.1 |
+| 11 | 19250.7 | 12909.5 | 13690.8 | 5476.1 | 8565743 | 285.2 | 1.2 |
+| 12 | 19003.8 | 12781.3 | 13520.4 | 5403.8 | 8565743 | 276.2 | 1.1 |
+| 13 | 19461.6 | 12843.4 | 13591.3 | 5779.0 | 8565743 | 292.8 | 1.2 |
+| 14 | 19760.7 | 13378.2 | 14189.1 | 5484.9 | 8565743 | 299.3 | 1.1 |
+| 15 | 19197.2 | 12932.6 | 13692.7 | 5424.4 | 8565743 | 277.7 | 1.4 |
+| 16 | 19434.1 | 12930.4 | 13700.7 | 5658.0 | 8565743 | 294.7 | 1.0 |
+| 17 | 19652.6 | 12967.2 | 13735.4 | 5837.2 | 8565743 | 284.4 | 1.8 |
+| 18 | 19564.0 | 12784.9 | 13582.4 | 5893.4 | 8565743 | 287.9 | 1.0 |
+| 19 | 19093.9 | 12862.3 | 13610.5 | 5393.5 | 8565743 | 305.4 | 1.2 |
+
+## Aggregates (nearest-rank P95, n=20)
+
+- `workout_sync_ms`: P50 19144.8 / P95 19652.6 / min 18371.0 / max 19760.7 (n=20)
+- `healthkit_read_ms`: P50 12783.1 / P95 12967.2 / min 12054.7 / max 13378.2 (n=20)
+- `bundle_build_ms`: P50 13532.5 / P95 13735.4 / min 12797.6 / max 14189.1 (n=20)
+- `upload_ms`: P50 5609.9 / P95 5872.9 / min 5282.7 / max 5893.4 (n=20)
+- `bundle_encode_ms`: P50 136.6 / P95 149.6 / min 130.4 / max 155.2 (n=20)
+- `gzip_ms`: P50 78.4 / P95 82.8 / min 71.9 / max 83.1 (n=20)
+- `sample_archive_ms`: P50 9402.6 / P95 9566.6 / min 8776.3 / max 9745.6 (n=20)
+- `series_read_ms`: P50 2400.7 / P95 2445.2 / min 2328.8 / max 2583.9 (n=20)
+- `route_read_ms`: P50 411.7 / P95 429.3 / min 395.1 / max 432.8 (n=20)
+- `processPeakRssBytes`: median 291.6 MiB / max 305.4 MiB
+- `mainThreadMaxStallMs`: max 1.8; samples with any stall >250 ms: 0
+- acknowledged 20/20; `workoutReceiptVerified` true in 20/20
+
+## Where the 19.1 s goes (median of sample 0 shape; identical structure in every sample)
+
+- HealthKit read + capture 12055 ms, of which per-sample `NSKeyedArchiver` `sample_archive_ms` 8776 ms,
+  batched series read 2334 ms, route read 399 ms, root workout query 19 ms.
+- Canonical JSON encode 138 ms, gzip 77 ms, persist 100 ms.
+- Upload + server import + ACK 5489 ms for 8565743 bytes of canonical JSON.
+- Series capture flushed 26 times for 10824 points; route flushed 7 times for 3491 points.
+
+## Verdict against the plan
+
+- P01 (`T_user_ack` P50 <= 5 s, P95 <= 8 s): **FAIL** — P50 19.14 s, P95 19.65 s (~3.8x / ~2.5x over).
+- P10 (UI P95 <= 100 ms, no main-thread stall > 250 ms): **PASS** — max stall 1.8 ms, zero samples over 250 ms.
+- P12 (peak RSS <= 256 MiB for S60): **FAIL** — median 291.6 MiB, max 305.4 MiB.
+
+Nothing here is extrapolated: the numbers are the 20 archived per-sample reports.

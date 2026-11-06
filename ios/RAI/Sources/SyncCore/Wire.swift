@@ -37,18 +37,62 @@ public indirect enum JSON: Codable, Equatable, Sendable {
     public var fields: [String: JSON] { if case .object(let o) = self { return o }; return [:] }
     public static func decode(_ data: Data) throws -> JSON { try JSONDecoder().decode(JSON.self, from: data) }
     public func data() throws -> Data {
+        if AcceptanceSwitches.legacyEncoder { return try legacyData() }
+        var buffer: [UInt8] = []
+        buffer.reserveCapacity(256)
+        try write(into: &buffer)
+        return Data(buffer)
+    }
+    /// The previous encoder, kept only so an acceptance run can measure the
+    /// same workload without the P3 optimisation. Bytes are identical to
+    /// `write(into:)`; `WireEncodingTests` proves that.
+    public func legacyData() throws -> Data {
         switch self {
-        case .object(let o): return try Wire.object(o.keys.sorted().map { ($0, o[$0]!) })
-        case .array(let a): return try Data(("[" + a.map { String(decoding: try $0.data(), as: UTF8.self) }.joined(separator: ",") + "]").utf8)
+        case .object(let o): return try Wire.object(o.keys.sorted().map { ($0, o[$0]!) }, legacy: true)
+        case .array(let a): return try Data(("[" + a.map { String(decoding: try $0.legacyData(), as: UTF8.self) }.joined(separator: ",") + "]").utf8)
         case .string(let s):
             let encoder = JSONEncoder(); encoder.outputFormatting = .withoutEscapingSlashes
             let encoded = String(decoding: try encoder.encode(s), as: UTF8.self)
             return Data(encoded.replacingOccurrences(of: "<", with: "\\u003c").replacingOccurrences(of: ">", with: "\\u003e")
-                .replacingOccurrences(of: "&", with: "\\u0026").replacingOccurrences(of: "\u{2028}", with: "\\u2028").replacingOccurrences(of: "\u{2029}", with: "\\u2029").utf8)
+                .replacingOccurrences(of: "&", with: "\\u0026").replacingOccurrences(of: "\u{2028}", with: "\\u2028")
+                .replacingOccurrences(of: "\u{2029}", with: "\\u2029").utf8)
         case .int(let v): return Data(String(v).utf8)
         case .number(let v): return Data(try Wire.goNumber(v).utf8)
         case .bool(let b): return Data((b ? "true" : "false").utf8)
         case .null: return Data("null".utf8)
+        }
+    }
+    /// Canonical byte writer. One bounded buffer, no per-node `Data`, `String`
+    /// or `JSONEncoder` allocation. The bytes are identical to the previous
+    /// implementation (sorted object keys, Go float formatting, the same string
+    /// escaping); `WireEncodingTests` proves that against the reference encoder.
+    public func write(into buffer: inout [UInt8]) throws {
+        switch self {
+        case .object(let o):
+            buffer.append(0x7B) // {
+            var separator = false
+            for key in o.keys.sorted() {
+                if separator { buffer.append(0x2C) }
+                separator = true
+                Wire.appendString(key, to: &buffer)
+                buffer.append(0x3A)
+                try o[key]!.write(into: &buffer)
+            }
+            buffer.append(0x7D) // }
+        case .array(let a):
+            buffer.append(0x5B) // [
+            var separator = false
+            for value in a {
+                if separator { buffer.append(0x2C) }
+                separator = true
+                try value.write(into: &buffer)
+            }
+            buffer.append(0x5D) // ]
+        case .string(let s): Wire.appendString(s, to: &buffer)
+        case .int(let v): buffer.append(contentsOf: String(v).utf8)
+        case .number(let v): buffer.append(contentsOf: try Wire.goNumber(v).utf8)
+        case .bool(let b): buffer.append(contentsOf: b ? Wire.trueBytes : Wire.falseBytes)
+        case .null: buffer.append(contentsOf: Wire.nullBytes)
         }
     }
 }
@@ -59,10 +103,83 @@ public enum Wire {
     public static func hex(_ data: Data) -> String { data.map { String(format: "%02x", $0) }.joined() }
     public static func hash(_ data: Data) -> String { hex(digest(data)) }
     public static func chain(_ previous: Data, _ digest: Data) -> Data { self.digest(previous + digest) }
-    public static func object(_ fields: [(String, JSON)]) throws -> Data {
-        try Data(("{" + fields.map { key, value in
-            String(decoding: try JSON.string(key).data(), as: UTF8.self) + ":" + String(decoding: try value.data(), as: UTF8.self)
-        }.joined(separator: ",") + "}").utf8)
+    public static func object(_ fields: [(String, JSON)], legacy: Bool = false) throws -> Data {
+        if legacy {
+            return try Data(("{" + fields.map { key, value in
+                String(decoding: try JSON.string(key).legacyData(), as: UTF8.self) + ":" + String(decoding: try value.legacyData(), as: UTF8.self)
+            }.joined(separator: ",") + "}").utf8)
+        }
+        var buffer: [UInt8] = []
+        buffer.reserveCapacity(256)
+        buffer.append(0x7B) // {
+        var separator = false
+        for (key, value) in fields {
+            if separator { buffer.append(0x2C) }
+            separator = true
+            appendString(key, to: &buffer)
+            buffer.append(0x3A)
+            try value.write(into: &buffer)
+        }
+        buffer.append(0x7D) // }
+        return Data(buffer)
+    }
+    static let trueBytes: [UInt8] = [0x74, 0x72, 0x75, 0x65]
+    static let falseBytes: [UInt8] = [0x66, 0x61, 0x6C, 0x73, 0x65]
+    static let nullBytes: [UInt8] = [0x6E, 0x75, 0x6C, 0x6C]
+    private static let quote: UInt8 = 0x22
+    private static let hexLower: [UInt8] = Array("0123456789abcdef".utf8)
+    private static let escapeQuote: [UInt8] = [0x5C, 0x22]
+    private static let escapeBackslash: [UInt8] = [0x5C, 0x5C]
+    private static let escapeNewline: [UInt8] = [0x5C, 0x6E]
+    private static let escapeReturn: [UInt8] = [0x5C, 0x72]
+    private static let escapeTab: [UInt8] = [0x5C, 0x74]
+    private static let escapeBackspace: [UInt8] = [0x5C, 0x62]
+    private static let escapeFormFeed: [UInt8] = [0x5C, 0x66]
+    private static let escapeLess: [UInt8] = Array("\\u003c".utf8)
+    private static let escapeGreater: [UInt8] = Array("\\u003e".utf8)
+    private static let escapeAmp: [UInt8] = Array("\\u0026".utf8)
+    private static let escape2028: [UInt8] = Array("\\u2028".utf8)
+    private static let escape2029: [UInt8] = Array("\\u2029".utf8)
+    /// JSON string bytes identical to `JSONEncoder` with `.withoutEscapingSlashes`
+    /// plus the `<`, `>`, `&`, U+2028 and U+2029 hardening the wire contract
+    /// requires. Writes from the UTF-8 view: no intermediate `String` or
+    /// `JSONEncoder` is created per value.
+    public static func appendString(_ value: String, to buffer: inout [UInt8]) {
+        buffer.append(quote)
+        let utf8 = value.utf8
+        var index = utf8.startIndex
+        let end = utf8.endIndex
+        while index < end {
+            let byte = utf8[index]
+            switch byte {
+            case 0x22: buffer.append(contentsOf: escapeQuote)
+            case 0x5C: buffer.append(contentsOf: escapeBackslash)
+            case 0x0A: buffer.append(contentsOf: escapeNewline)
+            case 0x0D: buffer.append(contentsOf: escapeReturn)
+            case 0x09: buffer.append(contentsOf: escapeTab)
+            case 0x08: buffer.append(contentsOf: escapeBackspace)
+            case 0x0C: buffer.append(contentsOf: escapeFormFeed)
+            case 0x3C: buffer.append(contentsOf: escapeLess)
+            case 0x3E: buffer.append(contentsOf: escapeGreater)
+            case 0x26: buffer.append(contentsOf: escapeAmp)
+            case 0xE2:
+                // U+2028 and U+2029 arrive as E2 80 A8 and E2 80 A9.
+                let next = utf8.index(after: index)
+                if next < end, utf8[next] == 0x80 {
+                    let third = utf8.index(after: next)
+                    if third < end, utf8[third] == 0xA8 { buffer.append(contentsOf: escape2028); index = third }
+                    else if third < end, utf8[third] == 0xA9 { buffer.append(contentsOf: escape2029); index = third }
+                    else { buffer.append(byte) }
+                } else { buffer.append(byte) }
+            default:
+                if byte < 0x20 {
+                    buffer.append(0x5C); buffer.append(0x75); buffer.append(0x30); buffer.append(0x30)
+                    buffer.append(hexLower[Int(byte >> 4)]); buffer.append(hexLower[Int(byte & 0x0F)])
+                } else { buffer.append(byte) }
+            }
+            index = utf8.index(after: index)
+        }
+        buffer.append(quote)
     }
     // Match Go encoding/json float64 formatting: shortest roundtrip, decimal
     // for [1e-6,1e21), otherwise exponent without a leading zero. No rounding.

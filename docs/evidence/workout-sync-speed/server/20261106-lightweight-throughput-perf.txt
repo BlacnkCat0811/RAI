@@ -1,0 +1,22 @@
+# Lightweight throughput benchmark (scripts/local/test.sh perf)
+
+Command: `scripts/local/test.sh perf` → `ok rai/server/integration 27.089s`, `LOCAL CHECKS: PASS profile=perf elapsed_seconds=34`.
+Environment: local Mac, synthetic bundles, loopback HTTP, durable PostgreSQL 18.
+
+**This is the benchmark budget, not the default budget.** `benchmarkUploadBurst=1024`, `benchmarkUploadPerMinute=60000`. The default device/dataset budgets (30/min burst 2, 60/min burst 4) are not applied here, so these numbers cannot be read as P08/P09 results and must never be quoted as the default-configuration batch time.
+
+Each workout is deliberately lightweight: 60 scalar samples, 3 series points, 3 route points — not an S60 run (6,594 samples). `healthKitMeasured=false` and `workerMeasured=false`: no HealthKit read and no analysis worker is timed.
+
+| workouts | elapsed_ms | workouts/s | http p50 ms | http p95 ms |
+| --- | --- | --- | --- | --- |
+| 1 | 47.4 | 21.08 | 46.8 | 46.8 |
+| 10 | 420.6 | 23.78 | 39.7 | 69.2 |
+| 100 | 4099.9 | 24.39 | 32.9 | 55.7 |
+| 500 | 19180.4 | 26.07 | 35.3 | 46.8 |
+
+Every row reports `immutableReplay=true` and `rowCountsVerified=true`: the replay returned the original receipt and the persisted row counts matched the payload.
+
+## Reading
+
+- Extensibility only: 500 lightweight bundles commit in 19.18 s under the benchmark budget, i.e. throughput stays flat (21.1 → 26.1 workouts/s) from 1 to 500.
+- It says nothing about P08/P09, which require the default budgets plus S60 payloads and therefore include rate-limit waiting; those remain NOT MEASURED.

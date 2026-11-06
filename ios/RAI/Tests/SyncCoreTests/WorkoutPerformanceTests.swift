@@ -2,7 +2,71 @@ import Foundation
 import XCTest
 @testable import SyncCore
 
+#if canImport(Darwin)
+import Darwin
+#endif
+
 final class WorkoutPerformanceTests: XCTestCase {
+    /// Peak resident set of this process so far, in bytes.
+    ///
+    /// `ru_maxrss` is a high-water mark for the whole process, so on macOS it
+    /// covers every tier already executed by the same test run. It is a real
+    /// measurement, but it is a *process* peak, not the peak of one tier, and
+    /// it is not the RSS of an iPhone sync session.
+    private func peakResidentBytes() -> Int {
+        #if canImport(Darwin)
+        var usage = rusage()
+        guard getrusage(RUSAGE_SELF, &usage) == 0 else { return -1 }
+        #if os(macOS)
+        return Int(usage.ru_maxrss)  // macOS reports bytes
+        #else
+        return Int(usage.ru_maxrss) * 1024  // Linux reports kilobytes
+        #endif
+        #else
+        return -1
+        #endif
+    }
+
+    /// Resident set right now, in bytes, so one tier's own footprint can be
+    /// separated from the process high-water mark above.
+    private func currentResidentBytes() -> Int {
+        #if canImport(Darwin)
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
+        let status = withUnsafeMutablePointer(to: &info) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { rebound in
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), rebound, &count)
+            }
+        }
+        return status == KERN_SUCCESS ? Int(info.resident_size) : -1
+        #else
+        return -1
+        #endif
+    }
+
+    func testDiscoveryAssociationScaling() async throws {
+        guard ProcessInfo.processInfo.environment["RAI_LOCAL_ASSOCIATION_PERF"] == "1" else { throw XCTSkip("explicit local synthetic association performance run") }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-association-perf-" + Wire.id())
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var discovery = DiscoveryState()
+        var keys: [String] = []
+        for i in 0..<10_000 {
+            let event = DiscoveryEvent(type: "synthetic-sample", uuid: Wire.id(), deleted: true)
+            discovery.events[event.id] = event
+            if i < 1_000 { keys.append(event.factKey) }
+        }
+        var state = LocalState(); state.discovery = discovery
+        try OutboxStore.write(JSONEncoder().encode(state), to: directory.appendingPathComponent("state.json"))
+        let store = try OutboxStore(directory: directory), parent = Wire.id(), started = Date()
+        try await store.associateDiscoveredFacts(workoutID: parent, keys: keys)
+        let elapsed = Date().timeIntervalSince(started) * 1000
+        let after = await store.discoverySnapshot()
+        XCTAssertEqual(after.events.values.filter { $0.workoutID == parent }.count, keys.count)
+        XCTAssertEqual(after.work[parent]?.generation, Int64(keys.count))
+        print("LOCAL_ASSOCIATION_PERF events=10000 keys=1000 elapsed_ms=\(elapsed) environment=macOS_Swift_Debug_synthetic")
+    }
+
     func testDurationMatrix() throws {
         guard let phase = ProcessInfo.processInfo.environment["RAI_PHASE4_PERF"] else { throw XCTSkip("explicit synthetic performance run") }
         for minutes in [20, 40, 60, 120, 240] {
@@ -37,7 +101,14 @@ final class WorkoutPerformanceTests: XCTestCase {
             let multipart = phase == "after" ? gzipMultipart : plainMultipart
             let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             try multipart.write(to: file, options: .atomic); let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize!; try FileManager.default.removeItem(at: file)
-            let result: [String: Any] = ["phase": phase, "minutes": minutes, "samples": samples.count, "gps": n, "json_bytes": raw.count, "gzip_bytes": zipped.count, "multipart_bytes": multipart.count, "plain_multipart_bytes": plainMultipart.count, "gzip_multipart_bytes": gzipMultipart.count, "temp_file_bytes": size, "build_ms": built.timeIntervalSince(begin)*1000, "encode_ms": encoded.timeIntervalSince(built)*1000, "gzip_ms": compressed.timeIntervalSince(encoded)*1000, "peak_rss": "NOT MEASURED", "environment": "macOS Swift package Debug; synthetic; not iPhone"]
+            let result: [String: Any] = ["phase": phase, "minutes": minutes, "samples": samples.count, "gps": n, "json_bytes": raw.count, "gzip_bytes": zipped.count, "multipart_bytes": multipart.count, "plain_multipart_bytes": plainMultipart.count, "gzip_multipart_bytes": gzipMultipart.count, "temp_file_bytes": size, "build_ms": built.timeIntervalSince(begin)*1000, "encode_ms": encoded.timeIntervalSince(built)*1000, "gzip_ms": compressed.timeIntervalSince(encoded)*1000,
+                // Real measurements, but scoped: ru_maxrss is a process-wide
+                // high-water mark that includes earlier tiers, and neither value
+                // is the RSS of an iPhone sync session (P12 is device-scoped).
+                "process_peak_rss_bytes": peakResidentBytes(),
+                "resident_after_encode_bytes": currentResidentBytes(),
+                "rss_scope": "macOS test process; process peak includes earlier tiers; not iPhone",
+                "environment": "macOS Swift package Debug; synthetic; not iPhone"]
             print("PHASE4_SWIFT=" + String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
         }
     }

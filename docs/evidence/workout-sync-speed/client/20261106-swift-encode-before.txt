@@ -1,0 +1,21 @@
+# Swift bundle encode baseline (before the buffered encoder)
+
+Command: `RAI_PHASE4_PERF=before scripts/local/test.sh swift --filter WorkoutPerformanceTests.testDurationMatrix`
+Environment: macOS Swift package, Debug, synthetic load, not an iPhone. Same machine as the "after" run.
+
+Provenance note: these values were captured from the command's `PHASE4_SWIFT={json}`
+output lines during this session, before `Wire.swift` switched to the buffered
+encoder. The raw output lines were not archived to a file at that moment, so this
+table is the record; `client/20261106-swift-encode-after.txt` holds the raw
+"after" lines. `peak_rss` was hardcoded to `"NOT MEASURED"` in the test at that
+time, which is why the baseline has no memory column.
+
+| minutes | encode_ms | json_bytes | samples | gps | gzip_ms | gzip_bytes | build_ms |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 20 | 1145.84 | 1378707 | 2197 | 1141 | 13.02 | 144899 | 14.96 |
+| 40 | 2347.74 | 2757810 | 4397 | 2283 | 26.77 | — | — |
+| 60 (S60) | 3526.48 | 4135099 | 6594 | 3424 | 39.23 | 426661 | — |
+| 120 | 7073.38 | 8270561 | 13191 | 6849 | — | — | — |
+| 240 | 14118.39 | 16539690 | 26382 | 13698 | — | — | — |
+
+P11 target for S60: encode P50 at least 50% below baseline, i.e. <= 1763 ms.

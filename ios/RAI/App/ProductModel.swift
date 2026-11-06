@@ -37,6 +37,7 @@ enum UserFacingText {
       "http_requires_configured_debug_host": "调试环境服务地址未配置",
       "https_required": "服务地址必须使用加密连接",
       "source_policy_pending": "来源尚未确认是 Apple Watch 原始采集，原记录待处理",
+      "source_policy_excluded": "这条记录不是 Apple Watch 原生跑步，已按来源策略排除，不会上传",
       "metadata_requires_review": "记录包含未审核的元数据，原始数据已留在本机待处理",
       "unsupported_integrity_contract": "服务尚未支持数据完整性协议",
       "workout_core_change_requires_review": "运动原始主体发生变化，需要核对",

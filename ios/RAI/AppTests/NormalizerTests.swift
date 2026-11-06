@@ -379,6 +379,14 @@ private actor SyntheticAnchoredHealth: HealthKitReading {
         value = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60), duration: 60,
                           totalEnergyBurned: nil, totalDistance: nil, metadata: [HKMetadataKeyIndoorWorkout: true])
         quantity = HKQuantitySample(type: HKObjectType.quantityType(forIdentifier: .heartRate)!, quantity: HKQuantity(unit: HKUnit.count().unitDivided(by: .minute()), doubleValue: 1), start: start, end: start)
+        // These discovery tests describe a visible native running Workout. The
+        // frozen source policy now runs before any child read, so the synthetic
+        // record carries a real Apple Watch descriptor instead of an unresolved
+        // one: an undecidable source would correctly skip detailed collection.
+        let source = class_createInstance(HKSource.self, 0) as! HKSource
+        source.setValue("com.apple.health", forKey: "bundleIdentifier"); source.setValue("Synthetic", forKey: "name")
+        let revision = HKSourceRevision(source: source, version: "synthetic", productType: "Watch7,1", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
+        value.setValue(revision, forKey: "sourceRevision"); quantity.setValue(revision, forKey: "sourceRevision")
     }
     func authorize() async throws { }
     func workout(_ id: String) async throws -> HKWorkout? { value }

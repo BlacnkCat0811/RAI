@@ -12,14 +12,31 @@ import (
 	"rai/server/internal/syncing"
 )
 
-// ImportWorkoutBundle is the one-request Workout write path. Validation has
-// already happened at the HTTP boundary; this transaction rechecks identity
+// sampleRow carries one bundle sample with its canonical bytes and content
+// digest, computed once and reused by the identity and write phases.
+type sampleRow struct {
+	event     syncing.Event
+	canonical []byte
+	hash      []byte
+}
+
+// ImportWorkoutBundle is the one-request Workout write path and the single
+// semantic validation point: the HTTP boundary only proves the wire contract,
+// so every caller (including a direct Store caller) runs exactly one
+// ValidateWorkoutBundle pass here. This transaction then rechecks identity
 // against committed facts, writes the complete normalized projection, and
 // publishes exactly one Workout analysis generation.
 func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bundle syncing.WorkoutBundle, raw []byte) (json.RawMessage, error) {
 	defer syncing.PhaseTimer(ctx, "import_total")()
-	if err := bundle.Validate(); err != nil {
+	validationStart := time.Now()
+	validationDone := syncing.PhaseTimer(ctx, syncing.PhaseSemanticValidation)
+	err := syncing.ValidateWorkoutBundle(bundle)
+	validationDone()
+	if err != nil {
 		return nil, err
+	}
+	if budget, declared := syncing.PhaseBudget(ctx, syncing.PhaseSemanticValidation); declared && time.Since(validationStart) > budget {
+		return nil, syncing.Fail(503, "validation_timeout")
 	}
 	if len(raw) == 0 || len(raw) > syncing.MaxWorkoutBundleBytes {
 		return nil, syncing.Fail(413, "bundle_too_large")
@@ -35,13 +52,34 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	if _, err = tx.Exec(ctx, `SET LOCAL transaction_timeout='45s'`); err != nil {
+	// Three transaction-scoped settings, none of which changes a global default:
+	//
+	// statement_timeout: the connection default is 2s, which bounds one small
+	// request statement. A single batch statement here carries up to a thousand
+	// facts, so the bound is raised inside this transaction only and kept below
+	// the 45s transaction budget.
+	//
+	// transaction_timeout: the outer bound for the whole import.
+	//
+	// plan_cache_mode: a pooled connection reuses one prepared statement, and
+	// PostgreSQL switches to a generic plan after a few executions. For the
+	// set-based identity query the generic plan cannot see the cardinality of
+	// unnest($2::text[],$3::text[]) and plans a per-key nested loop: 3.4s per
+	// thousand keys against a populated dataset, versus 31ms for a custom plan
+	// (measured). Every import on a warm pool would pay that on replay, so the
+	// transaction asks for custom plans explicitly. Planning costs ~1.5ms per
+	// statement here.
+	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout='30s'; SET LOCAL transaction_timeout='45s'; SET LOCAL plan_cache_mode='force_custom_plan'`); err != nil {
 		return nil, err
 	}
+	// Lock wait and fencing are their own phase so a slow commit path can be
+	// attributed to lock contention rather than to fact writes.
+	lockDone := syncing.PhaseTimer(ctx, "dataset_lock")
 	rev, err := lockDataset(ctx, tx, p, bundle.DatasetID, bundle.DatasetEpoch, bundle.CollectorEpoch)
 	if err != nil {
 		return nil, err
 	}
+	lockDone()
 	var priorReceipt []byte
 	err = tx.QueryRow(ctx, `SELECT receipt FROM workout_imports
 		WHERE dataset_id=$1 AND workout_uuid=$2 AND bundle_sha256=$3`,
@@ -80,93 +118,52 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 		}
 	}
 
-	type sampleRow struct {
-		event      syncing.Event
-		canonical  []byte
-		hash       []byte
-		assocFound bool
-	}
 	rows := make([]sampleRow, 0, len(bundle.Samples))
 	for _, sample := range bundle.Samples {
 		canonical, hash := sample.Canonical()
 		rows = append(rows, sampleRow{event: sample, canonical: canonical, hash: hash})
 	}
-	checks := &pgx.Batch{}
-	for _, row := range rows {
-		var value *float64
-		var unit *string
-		if row.event.Quantity != nil {
-			value = &row.event.Quantity.Value
-			unit = &row.event.Quantity.Unit
-		}
-		checks.Queue(`SELECT EXISTS(SELECT 1 FROM entity_tombstones WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3),
-            (SELECT content_sha256 FROM health_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3),
-            COALESCE((SELECT workout_uuid::text FROM workout_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3),''),
-            COALESCE((SELECT event_start=$4 AND event_end=$5 AND unit IS NOT DISTINCT FROM $6::text
-                AND float8send(value_numeric) IS NOT DISTINCT FROM float8send($7::float8)
-                AND value_category IS NOT DISTINCT FROM $8::integer AND source_bundle_id=$9
-                FROM health_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3),false)`,
-			p.DatasetID, row.event.Type, row.event.UUID, time.UnixMicro(*row.event.StartUs).UTC(), time.UnixMicro(*row.event.EndUs).UTC(), unit, value, row.event.Category, row.event.Source.BundleID)
+	// Every identity fact for the whole bundle is read by bounded set query: one
+	// statement per batch of keys instead of one statement per sample. The
+	// per-key decisions below keep the original ordering and codes.
+	identityDone := syncing.PhaseTimer(ctx, "identity_checks")
+	stored, err := loadSampleIdentities(ctx, tx, p.DatasetID, rows)
+	if err != nil {
+		return nil, err
 	}
-	results := tx.SendBatch(ctx, checks)
 	newSamples := make([]sampleRow, 0)
 	missingAssociations := make([]sampleRow, 0)
 	for index := range rows {
-		var tombstone bool
-		var oldHash []byte
-		var associatedWorkout string
-		var sameCore bool
-		if err = results.QueryRow().Scan(&tombstone, &oldHash, &associatedWorkout, &sameCore); err != nil {
-			_ = results.Close()
-			return nil, err
-		}
-		if tombstone {
-			_ = results.Close()
+		state := stored[sampleKey{sampleType: rows[index].event.Type, sampleUUID: rows[index].event.UUID}]
+		if state.tombstone {
 			return nil, syncing.Fail(409, "sample_deleted")
 		}
 		// New source metadata is an append-only observation. The original
 		// sample hash/metadata row is never rewritten, even for older clients.
-		if len(oldHash) > 0 && !bytes.Equal(oldHash, rows[index].hash) && (bundle.Observation == nil || !sameCore) {
-			_ = results.Close()
+		if state.exists && !bytes.Equal(state.hash, rows[index].hash) && (bundle.Observation == nil || !sameSampleCore(state, rows[index].event)) {
 			return nil, syncing.Fail(409, "sample_identity_conflict")
 		}
-		if associatedWorkout != "" && associatedWorkout != bundle.WorkoutID {
-			_ = results.Close()
+		if state.workout != "" && state.workout != bundle.WorkoutID {
 			return nil, syncing.Fail(409, "sample_association_conflict")
 		}
-		if len(oldHash) == 0 {
+		if !state.exists {
 			newSamples = append(newSamples, rows[index])
 		}
-		if associatedWorkout == "" {
+		if state.workout == "" {
 			missingAssociations = append(missingAssociations, rows[index])
 		}
 	}
-	if err = results.Close(); err != nil {
+
+	seriesWrite, err := seriesIdentity(ctx, tx, p.DatasetID, bundle.Series)
+	if err != nil {
 		return nil, err
 	}
-
-	seriesChanged := false
-	for _, series := range bundle.Series {
-		changed, err := bundleSeriesChanged(ctx, tx, p.DatasetID, series)
-		if err != nil {
-			return nil, err
-		}
-		if changed {
-			seriesChanged = true
-		}
+	seriesChanged := anyTrue(seriesWrite)
+	routeWrite, err := routeIdentity(ctx, tx, p.DatasetID, bundle.WorkoutID, bundle.Routes)
+	if err != nil {
+		return nil, err
 	}
-
-	routeChanged := false
-	for _, route := range bundle.Routes {
-		changed, err := bundleRouteChanged(ctx, tx, p.DatasetID, bundle.WorkoutID, route)
-		if err != nil {
-			return nil, err
-		}
-		if changed {
-			routeChanged = true
-		}
-	}
-
+	routeChanged := anyTrue(routeWrite)
 	deletionsChanged, err := checkBundleDeletions(ctx, tx, p.DatasetID, bundle)
 	if err != nil {
 		return nil, err
@@ -175,6 +172,7 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 	if err != nil {
 		return nil, err
 	}
+	identityDone()
 
 	// An exact retry may return its original receipt only after the sample and
 	// route tombstone checks above. This prevents a deleted child from being
@@ -191,6 +189,7 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 	if changed {
 		nextRev = rev + 1
 	}
+	deletionsDone := syncing.PhaseTimer(ctx, "deletions")
 	samplesDeleted, associationsDeleted, routesDeleted, err := applyBundleDeletions(ctx, tx, p.DatasetID, bundle, nextRev)
 	if err != nil {
 		return nil, err
@@ -200,85 +199,48 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 			return nil, err
 		}
 	}
+	deletionsDone()
 
-	samplesDone := syncing.PhaseTimer(ctx, "samples_and_associations")
+	samplesDone := syncing.PhaseTimer(ctx, "sample_writes")
 	if len(newSamples) > 0 {
-		writes := &pgx.Batch{}
-		for _, row := range newSamples {
-			e := row.event
-			var value *float64
-			var unit *string
-			if e.Quantity != nil {
-				value, unit = &e.Quantity.Value, &e.Quantity.Unit
-			}
-			metadata := e.Metadata
-			if metadata == nil {
-				metadata = map[string]any{}
-			}
-			meta, err := json.Marshal(metadata)
-			if err != nil {
-				return nil, err
-			}
-			writes.Queue(`INSERT INTO health_samples(dataset_id,sample_type,sample_uuid,event_start,event_end,value_numeric,value_category,unit,source_bundle_id,content_sha256,entity_revision,metadata)
-				VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, p.DatasetID, e.Type, e.UUID,
-				time.UnixMicro(*e.StartUs).UTC(), time.UnixMicro(*e.EndUs).UTC(), value, e.Category, unit,
-				e.Source.BundleID, row.hash, nextRev, meta)
-		}
-		results = tx.SendBatch(ctx, writes)
-		for range newSamples {
-			if _, err = results.Exec(); err != nil {
-				_ = results.Close()
-				return nil, err
-			}
-		}
-		if err = results.Close(); err != nil {
+		if err = insertSampleRows(ctx, tx, p.DatasetID, newSamples, nextRev); err != nil {
 			return nil, err
 		}
 	}
-
-	if len(missingAssociations) > 0 {
-		writes := &pgx.Batch{}
-		for _, row := range missingAssociations {
-			writes.Queue(`INSERT INTO workout_samples(dataset_id,sample_type,sample_uuid,workout_uuid,association_id,source_bundle_id,commit_rev)
-				VALUES($1,$2,$3,$4,$5,$6,$7)`, p.DatasetID, row.event.Type, row.event.UUID, bundle.WorkoutID,
-				syncing.NewID(), row.event.Source.BundleID, nextRev)
-		}
-		results = tx.SendBatch(ctx, writes)
-		for range missingAssociations {
-			if _, err = results.Exec(); err != nil {
-				_ = results.Close()
-				return nil, err
-			}
-		}
-		if err = results.Close(); err != nil {
-			return nil, err
-		}
-	}
-
 	samplesDone()
+
+	associationsDone := syncing.PhaseTimer(ctx, "association_writes")
+	if len(missingAssociations) > 0 {
+		if err = insertAssociationRows(ctx, tx, p.DatasetID, bundle.WorkoutID, missingAssociations, nextRev); err != nil {
+			return nil, err
+		}
+	}
+	associationsDone()
+
+	seriesDone := syncing.PhaseTimer(ctx, "series")
 	seriesInserted := 0
-	for _, series := range bundle.Series {
-		inserted, err := insertBundleSeries(ctx, tx, p.DatasetID, bundle, series, nextRev)
-		if err != nil {
+	for index, series := range bundle.Series {
+		if !seriesWrite[index] {
+			continue
+		}
+		if err = insertBundleSeries(ctx, tx, p.DatasetID, bundle, series, nextRev); err != nil {
 			return nil, err
 		}
-		if inserted {
-			seriesInserted++
-		}
+		seriesInserted++
 	}
+	seriesDone()
 
-	routesDone := syncing.PhaseTimer(ctx, "route_projection")
+	routesDone := syncing.PhaseTimer(ctx, "routes")
 	routesInserted := 0
-	for _, route := range bundle.Routes {
-		inserted, err := insertBundleRoute(ctx, tx, p.DatasetID, bundle, route, nextRev)
-		if err != nil {
+	for index, route := range bundle.Routes {
+		if !routeWrite[index] {
+			continue
+		}
+		if err = insertBundleRoute(ctx, tx, p.DatasetID, bundle, route, nextRev); err != nil {
 			return nil, err
 		}
-		if inserted {
-			routesInserted++
-		}
+		routesInserted++
 	}
-
 	routesDone()
 	dirtyDone := syncing.PhaseTimer(ctx, "dirty_job")
 	receipt := syncing.WorkoutImportReceipt{
@@ -341,7 +303,7 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 		}
 	}
 	dirtyDone()
-	persistDone := syncing.PhaseTimer(ctx, "snapshot_receipt_commit")
+	receiptDone := syncing.PhaseTimer(ctx, "receipt")
 	body, err := json.Marshal(receipt)
 	if err != nil {
 		return nil, err
@@ -352,10 +314,12 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 		p.DatasetID, bundle.WorkoutID, digest, string(raw), body); err != nil {
 		return nil, err
 	}
+	receiptDone()
+	commitDone := syncing.PhaseTimer(ctx, "commit")
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	persistDone()
+	commitDone()
 	return json.RawMessage(body), nil
 }
 
@@ -541,56 +505,6 @@ func (s *Store) DeleteWorkoutBundle(ctx context.Context, p syncing.Principal, re
 	return json.RawMessage(body), nil
 }
 
-func bundleSeriesChanged(ctx context.Context, tx pgx.Tx, dataset string, series syncing.WorkoutBundleSeries) (bool, error) {
-	var state string
-	var totalPoints int64
-	var chunkCount int
-	err := tx.QueryRow(ctx, `SELECT state,total_points,COALESCE(chunk_count,0) FROM series_uploads
-		WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3`, dataset, series.SampleType, series.SampleUUID).
-		Scan(&state, &totalPoints, &chunkCount)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if state != "sealed" || totalPoints != int64(len(series.Points)) || chunkCount != bundleSeriesChunkCount(series.Points) {
-		return false, syncing.Fail(409, "series_identity_conflict")
-	}
-	var seriesID string
-	if err = tx.QueryRow(ctx, `SELECT series_id::text FROM series_uploads WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3`,
-		dataset, series.SampleType, series.SampleUUID).Scan(&seriesID); err != nil {
-		return false, err
-	}
-	rows, err := tx.Query(ctx, `SELECT points_sha256 FROM series_chunks WHERE dataset_id=$1 AND series_id=$2 ORDER BY chunk_index`, dataset, seriesID)
-	if err != nil {
-		return false, err
-	}
-	defer rows.Close()
-	var hashes [][]byte
-	for rows.Next() {
-		var hash []byte
-		if err = rows.Scan(&hash); err != nil {
-			return false, err
-		}
-		hashes = append(hashes, hash)
-	}
-	if err = rows.Err(); err != nil {
-		return false, err
-	}
-	chunks := bundleSeriesChunks(series.Points)
-	if len(hashes) != len(chunks) {
-		return false, syncing.Fail(409, "series_identity_conflict")
-	}
-	for index, chunk := range chunks {
-		_, digest := syncing.SeriesPointsCanonical(chunk)
-		if !bytes.Equal(hashes[index], digest) {
-			return false, syncing.Fail(409, "series_identity_conflict")
-		}
-	}
-	return false, nil
-}
-
 func bundleSeriesChunkCount(points []syncing.SeriesPoint) int {
 	return (len(points) + 4999) / 5000
 }
@@ -607,16 +521,15 @@ func bundleSeriesChunks(points []syncing.SeriesPoint) [][]syncing.SeriesPoint {
 	return chunks
 }
 
-func insertBundleSeries(ctx context.Context, tx pgx.Tx, dataset string, bundle syncing.WorkoutBundle, series syncing.WorkoutBundleSeries, rev int64) (bool, error) {
-	changed, err := bundleSeriesChanged(ctx, tx, dataset, series)
-	if err != nil || !changed {
-		return false, err
-	}
+// insertBundleSeries writes one series whose identity was already resolved by
+// seriesIdentity in the same transaction. The identity pass is not repeated
+// here: that would restore one query set per series.
+func insertBundleSeries(ctx context.Context, tx pgx.Tx, dataset string, bundle syncing.WorkoutBundle, series syncing.WorkoutBundleSeries, rev int64) error {
 	var parentStartTime, parentEndTime time.Time
-	if err = tx.QueryRow(ctx, `SELECT event_start,event_end
+	if err := tx.QueryRow(ctx, `SELECT event_start,event_end
 		FROM health_samples WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3`,
 		dataset, series.SampleType, series.SampleUUID).Scan(&parentStartTime, &parentEndTime); err != nil {
-		return false, err
+		return err
 	}
 	parentStart, parentEnd := parentStartTime.UnixMicro(), parentEndTime.UnixMicro()
 	chunks := bundleSeriesChunks(series.Points)
@@ -630,7 +543,7 @@ func insertBundleSeries(ctx context.Context, tx pgx.Tx, dataset string, bundle s
 		SampleUUID: series.SampleUUID, ChunkCount: len(chunks), TotalPoints: int64(len(series.Points)),
 		ManifestSHA256: hex.EncodeToString(manifest), CommitRevision: rev, AnalysisStatus: "queued", AnalysisJobIDs: []string{}})
 	if err != nil {
-		return false, err
+		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO series_uploads(
 		dataset_id,series_id,sample_type,sample_uuid,parent_start_us,parent_end_us,dataset_epoch,collector_epoch,
@@ -639,9 +552,9 @@ func insertBundleSeries(ctx context.Context, tx pgx.Tx, dataset string, bundle s
 		dataset, seriesID, series.SampleType, series.SampleUUID, parentStart, parentEnd, bundle.DatasetEpoch,
 		bundle.CollectorEpoch, len(chunks), len(series.Points), manifest, body); err != nil {
 		if uniqueViolation(err) {
-			return false, syncing.Fail(409, "series_identity_conflict")
+			return syncing.Fail(409, "series_identity_conflict")
 		}
-		return false, err
+		return err
 	}
 	for index, chunk := range chunks {
 		canonical, digest := syncing.SeriesPointsCanonical(chunk)
@@ -661,62 +574,10 @@ func insertBundleSeries(ctx context.Context, tx pgx.Tx, dataset string, bundle s
 			dataset_id,series_id,chunk_index,point_count,min_start_us,max_end_us,wire_sha256,points_sha256,points,receipt)
 			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)`, dataset, seriesID, index, len(chunk),
 			minStart, maxEnd, digest, digest, string(canonical), chunkReceipt); err != nil {
-			return false, err
+			return err
 		}
 	}
-	return true, nil
-}
-
-func bundleRouteChanged(ctx context.Context, tx pgx.Tx, dataset, workoutID string, route syncing.WorkoutBundleRoute) (bool, error) {
-	var tombstone bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM entity_tombstones WHERE dataset_id=$1 AND sample_type=$2 AND sample_uuid=$3)`,
-		dataset, syncing.RouteType, route.RouteID).Scan(&tombstone); err != nil {
-		return false, err
-	}
-	if tombstone {
-		return false, syncing.Fail(409, "route_deleted")
-	}
-	var existingWorkout, source, state string
-	var totalPoints int64
-	err := tx.QueryRow(ctx, `SELECT workout_uuid::text,source_bundle_id,state,COALESCE(total_points,0)
-		FROM workout_routes WHERE dataset_id=$1 AND route_uuid=$2`, dataset, route.RouteID).
-		Scan(&existingWorkout, &source, &state, &totalPoints)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if existingWorkout != workoutID || source != route.Source.BundleID || state != "sealed" || totalPoints != int64(len(route.Points)) {
-		return false, syncing.Fail(409, "route_identity_conflict")
-	}
-	rows, err := tx.Query(ctx, `SELECT content_sha256 FROM route_chunks WHERE dataset_id=$1 AND route_uuid=$2 ORDER BY chunk_index`, dataset, route.RouteID)
-	if err != nil {
-		return false, err
-	}
-	defer rows.Close()
-	var hashes [][]byte
-	for rows.Next() {
-		var h []byte
-		if err = rows.Scan(&h); err != nil {
-			return false, err
-		}
-		hashes = append(hashes, h)
-	}
-	if err = rows.Err(); err != nil {
-		return false, err
-	}
-	chunks := bundleRouteChunks(route)
-	if len(hashes) != len(chunks) {
-		return false, syncing.Fail(409, "route_identity_conflict")
-	}
-	for index, chunk := range chunks {
-		_, digest := syncing.RoutePointsCanonical(chunk)
-		if !bytes.Equal(hashes[index], digest) {
-			return false, syncing.Fail(409, "route_identity_conflict")
-		}
-	}
-	return false, nil
+	return nil
 }
 
 func bundleRouteChunks(route syncing.WorkoutBundleRoute) [][]syncing.RoutePoint {
@@ -735,15 +596,14 @@ func bundleRouteChunks(route syncing.WorkoutBundleRoute) [][]syncing.RoutePoint 
 	return chunks
 }
 
-func insertBundleRoute(ctx context.Context, tx pgx.Tx, dataset string, bundle syncing.WorkoutBundle, route syncing.WorkoutBundleRoute, rev int64) (bool, error) {
-	changed, err := bundleRouteChanged(ctx, tx, dataset, bundle.WorkoutID, route)
-	if err != nil || !changed {
-		return false, err
-	}
+// insertBundleRoute writes one route whose identity was already resolved by
+// routeIdentity in the same transaction; the check is not repeated per route.
+func insertBundleRoute(ctx context.Context, tx pgx.Tx, dataset string, bundle syncing.WorkoutBundle, route syncing.WorkoutBundleRoute, rev int64) error {
 	chunks := bundleRouteChunks(route)
 	if len(chunks) == 0 {
-		return false, syncing.Fail(422, "unsupported_payload")
+		return syncing.Fail(422, "unsupported_payload")
 	}
+	var err error
 	// The manifest is the true time envelope, not array endpoints. Sequence
 	// preserves source order even across timestamp regressions and chunks.
 	first, last := route.Points[0].RecordedAtUs, route.Points[0].RecordedAtUs
@@ -751,45 +611,45 @@ func insertBundleRoute(ctx context.Context, tx pgx.Tx, dataset string, bundle sy
 		first = min(first, point.RecordedAtUs)
 		last = max(last, point.RecordedAtUs)
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO workout_routes(
+	if _, err := tx.Exec(ctx, `INSERT INTO workout_routes(
 		dataset_id,route_uuid,workout_uuid,source_bundle_id,dataset_epoch,collector_epoch,
 		expected_chunk_count,expected_point_count,first_recorded_at,last_recorded_at)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, dataset, route.RouteID, bundle.WorkoutID, route.Source.BundleID,
 		bundle.DatasetEpoch, bundle.CollectorEpoch, len(chunks), len(route.Points),
 		time.UnixMicro(first).UTC(), time.UnixMicro(last).UTC()); err != nil {
 		if uniqueViolation(err) {
-			return false, syncing.Fail(409, "route_identity_conflict")
+			return syncing.Fail(409, "route_identity_conflict")
 		}
-		return false, err
+		return err
 	}
 	for index, chunk := range chunks {
 		canonical, digest := syncing.RoutePointsCanonical(chunk)
 		var ignored []byte
 		if err = tx.QueryRow(ctx, `SELECT rai_route_append_chunk($1,$2,$3,$4,$5,$6,$7::jsonb)`,
 			dataset, route.RouteID, index, len(chunk), digest, digest, string(canonical)).Scan(&ignored); err != nil {
-			return false, routeDBError(err)
+			return routeDBError(err)
 		}
 	}
 	var manifest, payloadManifest []byte
 	if err = tx.QueryRow(ctx, `SELECT manifest_sha256,payload_manifest_sha256 FROM workout_routes WHERE dataset_id=$1 AND route_uuid=$2`,
 		dataset, route.RouteID).Scan(&manifest, &payloadManifest); err != nil {
-		return false, err
+		return err
 	}
 	receipt := syncing.RouteReceipt{RouteID: route.RouteID, WorkoutID: bundle.WorkoutID, IngestStatus: "sealed",
 		ChunkCount: len(chunks), TotalPoints: int64(len(route.Points)), ManifestSHA256: hex.EncodeToString(manifest),
 		PayloadManifestSHA256: hex.EncodeToString(payloadManifest), CommitRevision: rev, AnalysisStatus: "queued"}
 	body, err := json.Marshal(receipt)
 	if err != nil {
-		return false, err
+		return err
 	}
 	var applied bool
 	var sealed []byte
 	if err = tx.QueryRow(ctx, `SELECT applied,receipt FROM rai_route_seal($1,$2,$3,$4,$5,$6,$7,$8)`,
 		dataset, route.RouteID, len(chunks), len(route.Points), manifest, payloadManifest, body, rev).Scan(&applied, &sealed); err != nil {
-		return false, routeDBError(err)
+		return routeDBError(err)
 	}
 	if !applied {
-		return false, syncing.Fail(409, "route_identity_conflict")
+		return syncing.Fail(409, "route_identity_conflict")
 	}
-	return true, nil
+	return nil
 }

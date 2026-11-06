@@ -6,8 +6,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 : "${DEVELOPER_DIR:?Set the full Xcode Developer directory}"
 : "${RAI_UA1_R_SIMULATOR:?Select a synthetic iOS Simulator}"
 mkdir -p "$root/.local/ua1-r"
-derived="$root/.local/ua1-r/simulator-derived"
-result_root="$(mktemp -d "$root/.local/ua1-r/simulator.XXXXXX")"
+derived="${RAI_UA1_R_DERIVED:-$root/.local/ua1-r/simulator-derived}"
 xcodebuild build-for-testing -project "$root/ios/RAI/RAI.xcodeproj" -scheme RAI \
   -destination "platform=iOS Simulator,id=$RAI_UA1_R_SIMULATOR" -derivedDataPath "$derived" \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -quiet
@@ -27,6 +26,11 @@ for target in targets:
 assert matched, 'RAITests target not found'
 (root/'Build/Products/ua1-r.xctestrun').write_bytes(plistlib.dumps(value))
 PY
+if [[ "${RAI_UA1_R_BUILD_ONLY:-0}" == 1 ]]; then
+  echo 'UA1_R_SIMULATOR_BUILD_READY=1'
+  exit 0
+fi
+result_root="$(mktemp -d "$root/.local/ua1-r/simulator.XXXXXX")"
 xcodebuild test-without-building -xctestrun "$derived/Build/Products/ua1-r.xctestrun" \
   -destination "platform=iOS Simulator,id=$RAI_UA1_R_SIMULATOR" \
   -parallel-testing-enabled NO -only-testing:RAITests \

@@ -1,0 +1,25 @@
+[0/1] Planning build
+Building for debugging...
+[0/12] Write swift-version-1CC3DFB9598CC82.txt
+Build complete! (0.35s)
+Test Suite 'Selected tests' started at 2026-11-06 14:42:43.366.
+Test Suite 'RAIClientPackageTests.xctest' started at 2026-11-06 14:42:43.368.
+Test Suite 'WorkoutPerformanceTests' started at 2026-11-06 14:42:43.368.
+Test Case '-[SyncCoreTests.WorkoutPerformanceTests testDurationMatrix]' started.
+Test Case '-[SyncCoreTests.WorkoutPerformanceTests testDurationMatrix]' passed (4.147 seconds).
+Test Suite 'WorkoutPerformanceTests' passed at 2026-11-06 14:42:47.515.
+	 Executed 1 test, with 0 failures (0 unexpected) in 4.147 (4.147) seconds
+Test Suite 'RAIClientPackageTests.xctest' passed at 2026-11-06 14:42:47.515.
+	 Executed 1 test, with 0 failures (0 unexpected) in 4.147 (4.147) seconds
+Test Suite 'Selected tests' passed at 2026-11-06 14:42:47.515.
+	 Executed 1 test, with 0 failures (0 unexpected) in 4.147 (4.148) seconds
+PHASE4_SWIFT={"build_ms":14.186978340148926,"encode_ms":126.68704986572266,"environment":"macOS Swift package Debug; synthetic; not iPhone","gps":1141,"gzip_bytes":144868,"gzip_ms":12.843966484069824,"gzip_multipart_bytes":145027,"json_bytes":1378707,"minutes":20,"multipart_bytes":145027,"phase":"after","plain_multipart_bytes":1378863,"process_peak_rss_bytes":22650880,"resident_after_encode_bytes":22659072,"rss_scope":"macOS test process; process peak includes earlier tiers; not iPhone","samples":2197,"temp_file_bytes":145027}
+PHASE4_SWIFT={"build_ms":28.06401252746582,"encode_ms":267.62807369232178,"environment":"macOS Swift package Debug; synthetic; not iPhone","gps":2283,"gzip_bytes":286370,"gzip_ms":26.230931282043457,"gzip_multipart_bytes":286529,"json_bytes":2757810,"minutes":40,"multipart_bytes":286529,"phase":"after","plain_multipart_bytes":2757966,"process_peak_rss_bytes":37937152,"resident_after_encode_bytes":37937152,"rss_scope":"macOS test process; process peak includes earlier tiers; not iPhone","samples":4397,"temp_file_bytes":286529}
+PHASE4_SWIFT={"build_ms":41.888952255249023,"encode_ms":384.76800918579102,"environment":"macOS Swift package Debug; synthetic; not iPhone","gps":3424,"gzip_bytes":426713,"gzip_ms":37.952065467834473,"gzip_multipart_bytes":426872,"json_bytes":4135099,"minutes":60,"multipart_bytes":426872,"phase":"after","plain_multipart_bytes":4135255,"process_peak_rss_bytes":54439936,"resident_after_encode_bytes":54439936,"rss_scope":"macOS test process; process peak includes earlier tiers; not iPhone","samples":6594,"temp_file_bytes":426872}
+PHASE4_SWIFT={"build_ms":80.663084983825684,"encode_ms":765.78998565673828,"environment":"macOS Swift package Debug; synthetic; not iPhone","gps":6849,"gzip_bytes":850990,"gzip_ms":76.655983924865723,"gzip_multipart_bytes":851149,"json_bytes":8270561,"minutes":120,"multipart_bytes":851149,"phase":"after","plain_multipart_bytes":8270717,"process_peak_rss_bytes":93609984,"resident_after_encode_bytes":93609984,"rss_scope":"macOS test process; process peak includes earlier tiers; not iPhone","samples":13191,"temp_file_bytes":851149}
+PHASE4_SWIFT={"build_ms":164.59190845489502,"encode_ms":1623.4480142593384,"environment":"macOS Swift package Debug; synthetic; not iPhone","gps":13698,"gzip_bytes":1695549,"gzip_ms":154.34110164642334,"gzip_multipart_bytes":1695708,"json_bytes":16539690,"minutes":240,"multipart_bytes":1695708,"phase":"after","plain_multipart_bytes":16539846,"process_peak_rss_bytes":172224512,"resident_after_encode_bytes":172224512,"rss_scope":"macOS test process; process peak includes earlier tiers; not iPhone","samples":26382,"temp_file_bytes":1695708}
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: x86_64-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+LOCAL CHECKS: PASS profile=swift elapsed_seconds=5

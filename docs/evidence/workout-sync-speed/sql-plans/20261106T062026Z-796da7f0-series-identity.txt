@@ -1,0 +1,15 @@
+-- statement: series-identity
+Nested Loop Left Join  (cost=0.15..8.25 rows=2 width=140) (actual time=0.026..0.029 rows=2.00 loops=1)
+  Join Filter: ((s.sample_type = k.sample_type) AND (s.sample_uuid = (k.sample_uuid)::uuid))
+  Rows Removed by Join Filter: 1
+  Buffers: shared hit=2
+  ->  Function Scan on k  (cost=0.01..0.03 rows=2 width=64) (actual time=0.004..0.005 rows=2.00 loops=1)
+  ->  Materialize  (cost=0.15..8.17 rows=1 width=108) (actual time=0.009..0.009 rows=1.00 loops=2)
+        Storage: Memory  Maximum Storage: 17kB
+        Buffers: shared hit=2
+        ->  Index Scan using series_uploads_dataset_id_sample_type_sample_uuid_key on series_uploads s  (cost=0.15..8.17 rows=1 width=108) (actual time=0.013..0.013 rows=1.00 loops=1)
+              Index Cond: (dataset_id = '7a096f31-fcf6-42d5-8454-aac85f80d5bb'::uuid)
+              Index Searches: 1
+              Buffers: shared hit=2
+Planning Time: 0.107 ms
+Execution Time: 0.046 ms

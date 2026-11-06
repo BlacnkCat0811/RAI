@@ -1,0 +1,17 @@
+# Real device completeness v2 attempt (NOT COMPLETED)
+
+The `completeness` acceptance command was launched once against the real library (100 visible running
+Workouts, 51 eligible). It ran for more than 15 minutes and the app process was no longer running when
+the next poll arrived; the report file still held the `RUNNING` sentinel and no receipt was written.
+
+Observed effects, from the local database only:
+
+- `workouts = 10`, `workout_imports = 10` — the run had imported ten visible Workouts before it stopped.
+- `workout_sync_completeness = 0` — **no completeness receipt exists**; the client did not fabricate one.
+
+## Verdict
+
+- Device-side completeness v2 over the full real inventory: **NOT COMPLETED**. No completeness claim is made.
+- The absence of a receipt after a partial inventory is the behaviour the contract requires; a partial
+  inventory must never produce a completeness receipt.
+- Re-running it needs an unlocked phone kept in the foreground for a longer window than this session used.

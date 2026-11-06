@@ -20,12 +20,23 @@ public struct DiscoveryEvent: Codable, Sendable, Equatable {
     public var generation: Int64?
     public var workoutID: String?
     public var status: String
-    public init(type: String, uuid: String, deleted: Bool, archiveFile: String? = nil, archiveHash: String = "", workoutID: String? = nil, identityHash: String? = nil) {
+    // P2 batch capture. A fact's archive lives either in its own file
+    // (`archiveFile`, legacy) or inside a sealed segment at an offset. All three
+    // fields are optional with defaults, so a `state.json` written before P2
+    // still decodes and a legacy event keeps its original verification path.
+    public var segmentFile: String? = nil
+    public var segmentOffset: Int64? = nil
+    public var segmentLength: Int64? = nil
+    public init(type: String, uuid: String, deleted: Bool, archiveFile: String? = nil, archiveHash: String = "", workoutID: String? = nil, identityHash: String? = nil,
+                segmentFile: String? = nil, segmentOffset: Int64? = nil, segmentLength: Int64? = nil) {
         self.type = type; self.uuid = uuid; self.deleted = deleted; self.archiveFile = archiveFile; self.archiveSHA256 = archiveHash.isEmpty ? nil : archiveHash; self.workoutID = workoutID
+        self.segmentFile = segmentFile; self.segmentOffset = segmentOffset; self.segmentLength = segmentLength
         id = Wire.hash(Data((type + ":" + uuid + ":" + (deleted ? "delete" : "upsert:" + (identityHash ?? archiveHash))).utf8))
         status = workoutID == nil ? "unresolved" : "pending"
     }
     public var factKey: String { type + ":" + uuid }
+    /// True when the archive bytes live inside a sealed segment.
+    public var hasSegmentReference: Bool { segmentFile != nil }
 }
 public struct DiscoveryBatch: Codable, Sendable {
     public let id: String
@@ -77,11 +88,17 @@ public struct DiscoveryState: Codable, Sendable {
 }
 
 extension OutboxStore {
-    private func verifyDiscoveryArchive(_ event: DiscoveryEvent) throws {
+    /// A fact's archive must exist before its journal entry can be committed.
+    /// A segment reference (P2) is verified by `verifyCaptureSegmentRecord`;
+    /// a legacy `archiveFile` keeps exactly its original logic, so old and new
+    /// events can coexist in one state and one batch.
+    func verifyDiscoveryArchive(_ event: DiscoveryEvent) throws {
         if let file = event.archiveFile {
             let url = try fileURL(file)
             guard FileManager.default.fileExists(atPath: url.path) else { throw SyncFailure.localState("missing_discovery_archive") }
             if let digest = event.archiveSHA256 { guard Wire.hash(try Data(contentsOf: url)) == digest else { throw SyncFailure.localState("corrupt_discovery_archive") } }
+        } else if event.hasSegmentReference {
+            try verifyCaptureSegmentRecord(event)
         } else if !event.deleted { throw SyncFailure.localState("missing_discovery_archive") }
     }
     public func discoverySnapshot() -> DiscoveryState { state.discovery ?? DiscoveryState() }
@@ -180,10 +197,19 @@ extension OutboxStore {
     }
     public func associateDiscoveredFacts(workoutID: String, keys: [String]) throws {
         var next = state; var discovery = next.discovery ?? DiscoveryState()
+        // Index unresolved events once. Scanning the entire historical journal
+        // for every sample made a K-sample Workout cost K * E comparisons.
+        // Preserve the input-key order and the existing generation semantics.
+        let requested = Set(keys)
+        var unresolved: [String: [String]] = [:]
+        for (id, event) in discovery.events where event.workoutID == nil && requested.contains(event.factKey) {
+            unresolved[event.factKey, default: []].append(id)
+        }
         for key in keys {
             if let known = discovery.parents[key], known != workoutID { throw SyncFailure.localState("discovery_association_conflict") }
             discovery.parents[key] = workoutID
-            for (id, var event) in discovery.events where event.factKey == key && event.workoutID == nil {
+            for id in unresolved[key] ?? [] {
+                guard var event = discovery.events[id], event.workoutID == nil else { continue }
                 event.workoutID = workoutID; event.status = "pending"; discovery.events[id] = event
                 var work = discovery.work[workoutID] ?? DiscoveryWork(); work.generation += 1
                 work.error = nil; work.nextAttemptAt = nil; work.attempt = 0
