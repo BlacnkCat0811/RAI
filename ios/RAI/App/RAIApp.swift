@@ -20,6 +20,8 @@ final class SyncModel {
     var lastACK: Date?
     var lastSync: Date?
     var error: String?
+    var completenessState: String?
+    var completenessBlocked = 0
     private var operationBusy = false
     private let syncScheduler: ForegroundSyncScheduler
     var busy: Bool {
@@ -70,7 +72,7 @@ final class SyncModel {
             guard config["environment"].text == "local-mac-device/v1",
                   let namespace = config["outboxNamespace"].text.flatMap(UUID.init(uuidString:)),
                   let expected = config["datasetSHA256"].text,
-                  let command = config["command"].text, ["probe", "single", "completeness", "list"].contains(command) else {
+                  let command = config["command"].text, ["probe", "single", "completeness", "list", "structure"].contains(command) else {
                 throw SyncFailure.invalid("local_acceptance_config_invalid")
             }
             let secret = try ClientConfiguration.validatedSecret(baseURL: config["baseURL"].text ?? "",
@@ -108,6 +110,16 @@ final class SyncModel {
             let coordinator = SyncCoordinator(store: store, health: health, captureConcurrency: captureStreams)
             try checkpoint("read_authorization")
             try await health.authorize()
+            if command == "structure" {
+                try checkpoint("inspect_structure")
+                let path: URL
+                if let id = config["workoutID"].text { path = try await health.inspectWorkout(id: id) }
+                else { path = try await health.inspectLatestRunningWorkout() }
+                let data = try Data(contentsOf: path)
+                try OutboxStore.write(data, to: documents.appendingPathComponent("workout-structure.json"))
+                report["result"] = .string("STRUCTURE_INSPECTED")
+                return
+            }
             let watchdog = MainThreadWatchdog()
             if command == "list" {
                 try checkpoint("list_workouts")
@@ -919,13 +931,25 @@ final class SyncModel {
         legacyPending = snapshot.pages.count
         parkedAssociations = snapshot.pages.filter { $0.error?.code == "association_unavailable" }.count
         lastACK = snapshot.lastACK; lastSync = snapshot.lastSync
+        completenessBlocked = Int(snapshot.workoutCompleteness?.lastBlockedSummary?["count"].integer ?? 0)
         tasks = snapshot.tasks ?? [:]
     }
     /// Automatic catch-up is preemptible by an explicit Workout sync. Journal
     /// discovered deletions before resuming uploads and delivering changes.
     private var recoveryWake: Task<Void, Never>?
-    func syncDailyNow() {
-        #if DEBUG
+    /// Explicit user retry for the completeness lane. It zeroes only the
+    /// per-Workout backoff; completed proofs and the cycle stay untouched.
+    func retryCompleteness() {
+        guard canStartWorkoutSync, let store else { return }
+        Task {
+            do {
+                let cleared = try await store.retryWorkoutCompletenessBlocked()
+                status = cleared > 0 ? "已请求重新核验 \(cleared) 条记录的训练历史完整性" : "将重新核验训练历史完整性"
+                recoverPending()
+            } catch { self.error = "无法重试完整性核验；本地进度已保留。" }
+        }
+    }
+    func syncDailyNow() {        #if DEBUG
         if DailyDeviceDiagnostics.enabled, !dailyRDIsolated { status = "请先完成独立验收会话连接"; return }
         #endif
         guard canStartWorkoutSync else { return }
@@ -1026,6 +1050,24 @@ final class SyncModel {
             } else {
                 status = "没有待恢复的上传"
             }
+            // Deliver pending facts and expose their ACK before starting
+            // the lower-priority proof. A manual sync can cancel this lane.
+            if !Task.isCancelled,
+               UserDefaults.standard.bool(forKey: "healthAuthorizationRequested"),
+               pending == 0, pendingChanges == 0 {
+                completenessState = "正在核验训练历史完整性"
+                do {
+                    try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: transfers)
+                    completenessState = "本轮训练历史完整性已确认"
+                } catch is CancellationError {
+                    completenessState = "完整性核验已暂停，下次继续"
+                    throw CancellationError()
+                } catch {
+                    completenessState = "训练历史尚未核验完整，分析可能仍在等待数据"
+                }
+            } else {
+                completenessState = nil
+            }
         } catch let failure as SyncFailure {
             error = UserFacingText.syncFailure(failure); status = "恢复失败；本地状态已保留"
         } catch let failure as UploadError {
@@ -1068,7 +1110,10 @@ final class SyncModel {
             self?.recoverPending()
         }
     }
-    func suspendForegroundWork() { task?.cancel(); syncScheduler.cancel(); recoveryWake?.cancel() }
+    func suspendForegroundWork() {
+        task?.cancel(); syncScheduler.cancel(); recoveryWake?.cancel()
+        if let coordinator { Task { await coordinator.stopAnalysisFollowups() } }
+    }
 }
 
 @MainActor
@@ -1164,6 +1209,11 @@ struct SyncView: View {
             }
             Section("同步") {
                 LabeledContent("状态", value: model.status)
+                if let proof = model.completenessState { LabeledContent("历史完整性", value: proof) }
+                if model.completenessBlocked > 0 {
+                    LabeledContent("待重新核验记录", value: String(model.completenessBlocked))
+                    Button("重试历史完整性核验") { model.retryCompleteness() }.disabled(!model.canStartWorkoutSync)
+                }
                 Button("同步日常健康") { model.syncDailyNow() }.disabled(!model.canStartWorkoutSync)
                 Text("同步 Apple 健康中的心率变异性、静息心率与睡眠记录；读取可见性由系统管理。").font(.caption)
                 LabeledContent("待恢复上传任务", value: String(model.pending))

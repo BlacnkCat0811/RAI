@@ -3,11 +3,15 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"rai/server/internal/modelmanifest"
+	"rai/server/internal/readiness"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
+	tl "rai/server/internal/trainingload"
 )
 
 // Only current, clean publications supply features; raw rows filter identity and
@@ -82,6 +86,37 @@ func loadTrainingWorkouts(ctx context.Context, q trainingDB, dataset, zone, day,
 	}
 	return out, rows.Err()
 }
+func loadTrainingReadinessSignal(ctx context.Context, q trainingDB, dataset, stack, tz, day string, at time.Time) (training.Signal, bool, error) {
+	var sig training.Signal
+	var payload []byte
+	var hash, algorithm, version, runID string
+	var generation int64
+	scope, family := readiness.ScopeV2For(stack), "model_product_v2"
+	if stack == modelmanifest.StackID() {
+		scope, family = modelmanifest.DayScope(stack, day), "model_product_v2/training_readiness"
+	}
+	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text
+FROM analysis_publications p JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.status='SUCCEEDED'
+JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key='training_readiness'
+JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
+WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$3 AND p.day=$4::date`, dataset, scope, family, day).Scan(&payload, &hash, &algorithm, &version, &generation, &runID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sig, false, nil
+	}
+	if err != nil {
+		return sig, false, err
+	}
+	var r readiness.Result
+	if json.Unmarshal(payload, &r) != nil || readiness.Hash(r) != hash || r.Dataset != dataset || r.Date != day || r.Schema != readiness.SchemaV2 || r.ModelVersion != readiness.ModelV2 || r.Generation != generation || r.ConfigHash != readiness.DefaultV2Config(tz).Hash() {
+		return sig, false, syncing.Fail(503, "training_readiness_invalid")
+	}
+	sig = training.Signal{RunID: runID, Generation: generation, Day: r.Date, Name: "readiness", Algorithm: algorithm, Version: version, Quality: r.Quality}
+	if r.Score != nil && r.Status == "available" && r.Quality == "complete" && r.AsOf <= at.UnixMicro() && at.UnixMicro() < r.ValidBefore {
+		sig.Value = r.Score
+	}
+	return sig, true, nil
+}
+
 func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (training.Input, error) {
 	var out training.Input
 	tx, e := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -136,6 +171,32 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 	if e != nil {
 		return out, e
 	}
+	binding, e := loadTrainingModelBinding(ctx, tx, l.DatasetID)
+	if e != nil {
+		return out, e
+	}
+	c.ObservedModelBinding = &binding
+	if binding.Adapter == "schema2-v2" {
+		kept := c.Signals[:0]
+		for _, old := range c.Signals {
+			if old.Name != "readiness" && old.Name != "fitness" && old.Name != "fatigue" {
+				kept = append(kept, old)
+			}
+		}
+		c.Signals = kept
+		sig, ok, err := loadTrainingReadinessSignal(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
+		if err != nil {
+			return out, err
+		}
+		if ok {
+			c.Signals = append(c.Signals, sig)
+		}
+		signals, err := loadTrainingLoadSignals(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf)
+		if err != nil {
+			return out, err
+		}
+		c.Signals = append(c.Signals, signals...)
+	}
 	rows, e = tx.Query(ctx, `SELECT id::text FROM training_executions WHERE dataset_id=$1 AND plan_id=$2 AND status IN ('completed','skipped') ORDER BY id LIMIT 4097`, l.DatasetID, p.ID)
 	if e != nil {
 		return out, e
@@ -188,4 +249,37 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 	}
 	out.Context = c
 	return out, tx.Commit(ctx)
+}
+
+func loadTrainingLoadSignals(ctx context.Context, q trainingDB, dataset, stack, tz, day string) ([]training.Signal, error) {
+	scope := tl.ScopeStateV2For(stack)
+	if stack == modelmanifest.StackID() {
+		scope = modelmanifest.DayScope(stack, day)
+	}
+	var a publishedModelArtifact
+	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text
+ FROM analysis_publications p
+ JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
+ JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key='load_state'
+ JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day=$3::date`, dataset, scope, day).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var state tl.StateResult
+	if !validHistoryArtifact("trainingLoad", dataset, tz, a) || json.Unmarshal(a.Payload, &state) != nil {
+		return nil, syncing.Fail(503, "training_load_invalid")
+	}
+	for _, x := range state.Days {
+		if x.Day == day && x.Quality == "complete" && x.Acute.Value != nil && x.Chronic.Value != nil {
+			acute := training.Signal{RunID: a.RunID, Generation: a.Generation, Day: day, Algorithm: a.Algorithm, Version: a.Version, Quality: x.Quality, Name: "acute", Value: x.Acute.Value}
+			chronic := acute
+			chronic.Name, chronic.Value = "chronic", x.Chronic.Value
+			return []training.Signal{acute, chronic}, nil
+		}
+	}
+	return nil, nil
 }

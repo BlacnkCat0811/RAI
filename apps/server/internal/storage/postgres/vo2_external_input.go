@@ -16,11 +16,7 @@ func (s *Store) loadVO2ExternalInput(ctx context.Context, tx pgx.Tx, l Lease, in
 	if l.ScopeKey != ve.Scope {
 		return analysis.Invalid()
 	}
-	a := &ve.ExternalVO2Snapshot{Dataset: l.DatasetID, Generation: in.Generation, AsOf: asOf.UnixMicro(), KnownThroughRevision: in.Revision, Config: ve.DefaultConfig(), View: "revised", Facts: []ve.Fact{}, Tombstones: []ve.Tombstone{}, Selections: []ve.Selection{}}
-	in.ExternalInput = a
-	in.InputVersion = ve.InputSchema
-	in.From = asOf.Add(-90 * 24 * time.Hour)
-	in.Through = asOf
+	a := &ve.ExternalVO2Snapshot{Config: ve.DefaultConfig()}
 	var entry []byte
 	var capture time.Time
 	var invalidSession bool
@@ -40,7 +36,16 @@ func (s *Store) loadVO2ExternalInput(ctx context.Context, tx pgx.Tx, l Lease, in
 	if json.Unmarshal(entry, &assignment) != nil || assignment.Hash != a.Config.Hash() || !syncing.ValidID(assignment.ID) {
 		return analysis.Invalid()
 	}
-	a.Assignment = assignment.ID
+	return loadExternalFacts(ctx, tx, l, in, asOf, capture, a.DatasetEpoch, a.Collector, assignment.ID)
+}
+
+func loadExternalFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf, capture time.Time, epoch, collector, assignment string) error {
+	a := &ve.ExternalVO2Snapshot{Dataset: l.DatasetID, Generation: in.Generation, AsOf: asOf.UnixMicro(), KnownThroughRevision: in.Revision, Config: ve.DefaultConfig(), View: "revised", Facts: []ve.Fact{}, Tombstones: []ve.Tombstone{}, Selections: []ve.Selection{}}
+	in.ExternalInput = a
+	in.InputVersion = ve.InputSchema
+	in.From = asOf.Add(-90 * 24 * time.Hour)
+	in.Through = asOf
+	a.DatasetEpoch, a.Collector, a.Assignment, a.CapturedAt = epoch, collector, assignment, capture.UnixMicro()
 	// Stream and observation are captured in this same repeatable-read transaction.
 	// Multiple current streams are ambiguous rather than silently newest-wins.
 	rows, err := tx.Query(ctx, `SELECT s.id::text,s.query_fingerprint,s.last_client_seq,c.bootstrap_start_us,c.query_completed_at_us,
@@ -111,9 +116,9 @@ func (s *Store) loadVO2ExternalInput(ctx context.Context, tx pgx.Tx, l Lease, in
 		return &analysis.Failure{Code: "analysis_input_limit"}
 	}
 	sel, _ := ve.SelectionAt(*a)
-	epoch := ""
+	selectedEpoch := ""
 	if sel != nil {
-		epoch = sel.Epoch
+		selectedEpoch = sel.Epoch
 	}
 	lower := time.UnixMicro(a.AsOf - a.Config.ExpireUs)
 	// Window uses a partial end-time index. The extra latest old tie is a bounded
@@ -125,11 +130,11 @@ func (s *Store) loadVO2ExternalInput(ctx context.Context, tx pgx.Tx, l Lease, in
 	}{
 		{`SELECT ` + columns + ` FROM health_samples WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND event_end>$2 ORDER BY event_end DESC,sample_uuid LIMIT 1025`, []any{l.DatasetID, lower}},
 	}
-	if epoch != "" {
+	if selectedEpoch != "" {
 		queries = append(queries, struct {
 			sql  string
 			args []any
-		}{`SELECT ` + columns + ` FROM health_samples WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND metadata->'RAI:vo2maxFactV1'->>'sourceEpochID'=$2 AND event_end=(SELECT event_end FROM health_samples WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND metadata->'RAI:vo2maxFactV1'->>'sourceEpochID'=$2 AND event_end<=$3 ORDER BY event_end DESC LIMIT 1) LIMIT 1025`, []any{l.DatasetID, epoch, lower}})
+		}{`SELECT ` + columns + ` FROM health_samples WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND metadata->'RAI:vo2maxFactV1'->>'sourceEpochID'=$2 AND event_end=(SELECT event_end FROM health_samples WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND metadata->'RAI:vo2maxFactV1'->>'sourceEpochID'=$2 AND event_end<=$3 ORDER BY event_end DESC LIMIT 1) LIMIT 1025`, []any{l.DatasetID, selectedEpoch, lower}})
 	}
 	seenFacts := map[string]bool{}
 	baseQueries := len(queries)
@@ -223,7 +228,7 @@ func (s *Store) loadVO2ExternalInput(ctx context.Context, tx pgx.Tx, l Lease, in
  AND metadata->'RAI:vo2maxFactV1'->'typedMetadata'->'HKMetadataKeySyncIdentifier' IS NOT NULL) k
  CROSS JOIN LATERAL (SELECT * FROM health_samples y WHERE y.dataset_id=$1 AND y.sample_type='HKQuantityTypeIdentifierVO2Max'
  AND y.source_bundle_id=k.source_bundle_id AND y.metadata->'RAI:vo2maxFactV1'->'typedMetadata'->'HKMetadataKeySyncIdentifier'=k.sid
- AND y.event_end<=$3 AND y.event_end<=$4 LIMIT 1025) y LIMIT 1025`, []any{l.DatasetID, factIDs(a.Facts), lower, asOf, epoch}})
+ AND y.event_end<=$3 AND y.event_end<=$4 LIMIT 1025) y LIMIT 1025`, []any{l.DatasetID, factIDs(a.Facts), lower, asOf, selectedEpoch}})
 		}
 	}
 	rows, err = tx.Query(ctx, `SELECT sample_uuid::text,deleted_rev,previous_end,provenance_snapshot FROM entity_tombstones WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND previous_end>$2 ORDER BY previous_end DESC LIMIT 1025`, l.DatasetID, lower)
@@ -233,8 +238,8 @@ func (s *Store) loadVO2ExternalInput(ctx context.Context, tx pgx.Tx, l Lease, in
 	if err = loadExternalTombstones(rows, a); err != nil {
 		return err
 	}
-	if epoch != "" {
-		rows, err = tx.Query(ctx, `SELECT sample_uuid::text,deleted_rev,previous_end,provenance_snapshot FROM entity_tombstones WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND provenance_snapshot->>'sourceEpochID'=$2 AND previous_end=(SELECT previous_end FROM entity_tombstones WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND provenance_snapshot->>'sourceEpochID'=$2 AND previous_end<=$3 ORDER BY previous_end DESC LIMIT 1) LIMIT 1025`, l.DatasetID, epoch, lower)
+	if selectedEpoch != "" {
+		rows, err = tx.Query(ctx, `SELECT sample_uuid::text,deleted_rev,previous_end,provenance_snapshot FROM entity_tombstones WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND provenance_snapshot->>'sourceEpochID'=$2 AND previous_end=(SELECT previous_end FROM entity_tombstones WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND provenance_snapshot->>'sourceEpochID'=$2 AND previous_end<=$3 ORDER BY previous_end DESC LIMIT 1) LIMIT 1025`, l.DatasetID, selectedEpoch, lower)
 		if err != nil {
 			return err
 		}

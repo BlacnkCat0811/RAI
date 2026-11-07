@@ -1,0 +1,15 @@
+# workout bundle import phase timings (synthetic, single run)
+samples=5000 routes=1 series=1 total_ms=1073.400
+phase=semantic_validation duration_ms=62.639
+phase=dataset_lock duration_ms=0.434
+phase=identity_checks duration_ms=40.380
+phase=deletions duration_ms=0.980
+phase=sample_writes duration_ms=427.915
+phase=association_writes duration_ms=413.745
+phase=series duration_ms=1.800
+phase=routes duration_ms=4.914
+phase=dirty_job duration_ms=3.891
+phase=receipt duration_ms=36.976
+phase=commit duration_ms=2.105
+phase=import_transaction duration_ms=1010.157
+phase=import_total duration_ms=1073.395

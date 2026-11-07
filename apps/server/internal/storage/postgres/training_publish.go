@@ -58,6 +58,19 @@ func (s *Store) PublishTraining(ctx context.Context, l Lease, id string, in trai
 	if !p.Active || p.Generation != l.TargetGeneration || in.Generation != l.TargetGeneration || p.ConfigRevision != in.Plan.ConfigRevision {
 		status = "SUPERSEDED"
 	}
+	if status == "SUCCEEDED" && in.Context.ObservedModelBinding != nil {
+		binding, err := loadTrainingModelBinding(ctx, tx, l.DatasetID)
+		if err != nil {
+			return "", err
+		}
+		snapshot := in.Context.ObservedModelBinding
+		if binding.Assignment != snapshot.Assignment || binding.AssignmentVersion != snapshot.AssignmentVersion || binding.ManifestSHA != snapshot.ManifestSHA {
+			status = "SUPERSEDED"
+			if _, err := tx.Exec(ctx, `SELECT rai_training_dirty($1,$2)`, l.DatasetID, p.ID); err != nil {
+				return "", err
+			}
+		}
+	}
 	// Bind the published result to the immutable run's exact context and lease.
 	hash, e := training.Hash(in.Context)
 	if e != nil {

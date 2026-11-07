@@ -1,0 +1,12 @@
+-- statement: sample-writes
+Insert on health_samples  (cost=0.00..17.50 rows=0 width=0) (actual time=13.666..13.666 rows=0.00 loops=1)
+  Buffers: shared hit=9589 dirtied=114 written=114
+  WAL: records=4083 bytes=1107994
+  ->  Values Scan on "*VALUES*"  (cost=0.00..17.50 rows=1000 width=260) (actual time=0.007..0.893 rows=1000.00 loops=1)
+Planning Time: 1.123 ms
+Trigger for constraint health_samples_dataset_id_fkey: time=3.831 calls=1000
+Trigger for constraint health_samples_ingest_device_fk: time=3.748 calls=1000
+Trigger health_sample_ingest_device: time=3.867 calls=1000
+Trigger recovery_fact: time=1.853 calls=1000
+Trigger vo2_external_fact: time=1.337 calls=1000
+Execution Time: 24.684 ms

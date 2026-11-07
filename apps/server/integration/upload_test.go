@@ -52,7 +52,7 @@ func businessSnapshot(t *testing.T, f *fixture) map[string][]byte {
 		// remains in the snapshot and every existing fact/receipt assertion stays.
 		projection := "to_jsonb(x)"
 		if table == "datasets" {
-			projection = "jsonb_strip_nulls(to_jsonb(x))"
+			projection = "jsonb_strip_nulls(to_jsonb(x)) - 'synthetic_test'"
 		}
 		if err := f.s.Pool.QueryRow(context.Background(), `SELECT coalesce(jsonb_agg(`+projection+` ORDER BY to_jsonb(x)::text),'[]') FROM `+pgx.Identifier{table}.Sanitize()+` x`).Scan(&raw); err != nil {
 			t.Fatal(err)

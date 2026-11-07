@@ -96,9 +96,10 @@ public struct RAIAPIClient: Sendable {
     }
 
     public func call(_ method: String, _ path: String, body: Data? = nil, file: URL? = nil,
-                     mediaType: String = "application/json", gzip: Bool = false, identity: String = "", query: [String: String] = [:]) async throws -> JSON {
+                     mediaType: String = "application/json", gzip: Bool = false, identity: String = "", query: [String: String] = [:],
+                     headers: [String: String] = [:]) async throws -> JSON {
         do {
-            return try await performCall(method, path, body: body, file: file, mediaType: mediaType, gzip: gzip, identity: identity, query: query)
+            return try await performCall(method, path, body: body, file: file, mediaType: mediaType, gzip: gzip, identity: identity, query: query, headers: headers)
         } catch let error as UploadError where error.status == 401 {
             // Device bearer tokens have no refresh endpoint. Integrators with a
             // credential refresher can retry once; otherwise retain the Outbox
@@ -106,7 +107,7 @@ public struct RAIAPIClient: Sendable {
             guard let refreshToken else { throw error }
             let refreshed = try await refreshToken()
             let client = RAIAPIClient(baseURL: baseURL, token: refreshed, session: session, uploader: uploader, metrics: metrics, capabilities: capabilities)
-            return try await client.call(method, path, body: body, file: file, mediaType: mediaType, gzip: gzip, identity: identity, query: query)
+            return try await client.call(method, path, body: body, file: file, mediaType: mediaType, gzip: gzip, identity: identity, query: query, headers: headers)
         }
     }
     public func cachedUploadResultFilename(_ identity: String) -> String? { uploader?.cachedResultFilename(identity) }
@@ -119,7 +120,8 @@ public struct RAIAPIClient: Sendable {
         return formatter.date(from: value).map { max(0, $0.timeIntervalSince(now)) }
     }
     private func performCall(_ method: String, _ path: String, body: Data?, file: URL?,
-                             mediaType: String, gzip: Bool, identity: String, query: [String: String]) async throws -> JSON {
+                             mediaType: String, gzip: Bool, identity: String, query: [String: String],
+                             headers: [String: String] = [:]) async throws -> JSON {
         let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path == "/v2/sync/workout-completeness" || path == "/v2/sync/daily-facts" || path == "/v2/sync/vo2max-facts"
         let networkStart = Date()
         defer {
@@ -136,6 +138,7 @@ public struct RAIAPIClient: Sendable {
         request.setValue(mediaType, forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(Wire.id(), forHTTPHeaderField: "X-Request-ID")
+        for (name, value) in headers.sorted(by: { $0.key < $1.key }) { request.setValue(value, forHTTPHeaderField: name) }
         if gzip { request.setValue("gzip", forHTTPHeaderField: "Content-Encoding") }
         do {
             let data: Data, status: Int, retryAfter: TimeInterval?, contentType: String?

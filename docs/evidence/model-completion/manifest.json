@@ -1,0 +1,1372 @@
+{
+  "schemaVersion": "rai.model_completion.evidence/1",
+  "createdAt": "2026-11-07T17:06:00+08:00",
+  "gitBaseline": "18eab55",
+  "platform": "macOS; Go 1.27.3; PostgreSQL 18.6; Swift 6.3.3; Xcode 26.6",
+  "syntheticOnly": true,
+  "artifacts": [
+    {
+      "path": ".local/logs/model-completion/boundaries.log",
+      "sha256": "908e453973fb1c03d1b027ab9253221956ff9e9f54d3cc6db9434847a1a5eda2",
+      "bytes": 773
+    },
+    {
+      "path": ".local/logs/model-completion/e2e-round26.log",
+      "sha256": "40a9641ab71504a032ed201e9a30e97621d2f90bd2a78129ce8f27e30b44f9ed",
+      "bytes": 12809
+    },
+    {
+      "path": ".local/logs/model-completion/full-0200-first-fail-summary.txt",
+      "sha256": "7cc43ec672a3e0c1d115077c115ed0dd5b0cf175fff42fe2fa8e553af4130282",
+      "bytes": 840
+    },
+    {
+      "path": ".local/logs/model-completion/full-pre-0200.log",
+      "sha256": "c9159ba56f96b19df4809e869bd9f25702c31b48996d09414fb9db951c8ce444",
+      "bytes": 40916
+    },
+    {
+      "path": ".local/logs/model-completion/full-round14.log",
+      "sha256": "da94378e741da61aac5026d33f3e36f44ed2c0fe914c45146fe88707e3ccbba9",
+      "bytes": 3802
+    },
+    {
+      "path": ".local/logs/model-completion/full-round15.log",
+      "sha256": "4b9322cd7bcb3a4feca1094f33bdba43bf7e67b21a22aa79bccb41d4ec54c17d",
+      "bytes": 3802
+    },
+    {
+      "path": ".local/logs/model-completion/full-round16.log",
+      "sha256": "278c274eb1ab5f29a64ead297036651a7e46b5c14443c02374b1889a425fb60b",
+      "bytes": 3882
+    },
+    {
+      "path": ".local/logs/model-completion/full-round17.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "bytes": 2
+    },
+    {
+      "path": ".local/logs/model-completion/full-round17.log",
+      "sha256": "564e68ff8d08b190707408fa8c4f6b288f7ec7591a838e83af5cf8babcc2caba",
+      "bytes": 4053
+    },
+    {
+      "path": ".local/logs/model-completion/full-round18e.log",
+      "sha256": "96c1e6574fe661059975aa184aa45d8a286640d4b5df85e06640128cdfb13897",
+      "bytes": 4054
+    },
+    {
+      "path": ".local/logs/model-completion/full-round19.log",
+      "sha256": "820ffba92f5ef151be63d87c3aef44153275b36496708a737a995dc327c98039",
+      "bytes": 4053
+    },
+    {
+      "path": ".local/logs/model-completion/full-round20.log",
+      "sha256": "efef1728792cb7792ac34050363b29fb6e6eff966c1dc7021f2e22fd28654c1d",
+      "bytes": 4175
+    },
+    {
+      "path": ".local/logs/model-completion/full-round26.log",
+      "sha256": "605f7a776e420f91bf8914dcf89ed314f6dc6505573f47181585fa4fea83ea6e",
+      "bytes": 4174
+    },
+    {
+      "path": ".local/logs/model-completion/full-round27.log",
+      "sha256": "07c89c49ea9455b26831cbc36bc8387a9611a8ef8f0a695a0da4f6d25729bf36",
+      "bytes": 4175
+    },
+    {
+      "path": ".local/logs/model-completion/full-round28.log",
+      "sha256": "59da4503730d05d17b110df4f4690445518b367f561b3927b5ab0bd951119c36",
+      "bytes": 4174
+    },
+    {
+      "path": ".local/logs/model-completion/full-round29.log",
+      "sha256": "943d0d87c982bbe131b09204628203f0626a2eebd8f767b0c2aa58189a07ece5",
+      "bytes": 4175
+    },
+    {
+      "path": ".local/logs/model-completion/full-utc.log",
+      "sha256": "c9159ba56f96b19df4809e869bd9f25702c31b48996d09414fb9db951c8ce444",
+      "bytes": 40916
+    },
+    {
+      "path": ".local/logs/model-completion/full.log",
+      "sha256": "8c902796d1bff0e706e72fa59a2a69ab163fdc7917c3777649848e32d6e52436",
+      "bytes": 3801
+    },
+    {
+      "path": ".local/logs/model-completion/go-test-shadow.log",
+      "sha256": "8f2ffaf5aad074010fbbf50db2767fa28dd1d9a5924c041c56b515d54671613b",
+      "bytes": 1400
+    },
+    {
+      "path": ".local/logs/model-completion/go-test.log",
+      "sha256": "cf78eff722784d6f96b7db2b94642cea6d789b68c9a86c3fa9ecfcdcb9e540e8",
+      "bytes": 1226
+    },
+    {
+      "path": ".local/logs/model-completion/history-projection.log",
+      "sha256": "9aaaec6b3a837392ee5c0358f4744b5f353d2d104b7e8aa98a7163c598c5839f",
+      "bytes": 49
+    },
+    {
+      "path": ".local/logs/model-completion/integration-ack-s60-round17.log",
+      "sha256": "f923559609d4efb6b3a6b9c2795d4fbaaace0f919f07c5c65c4e15dc1d18bfa1",
+      "bytes": 6072
+    },
+    {
+      "path": ".local/logs/model-completion/integration-admin-migrations.log",
+      "sha256": "1c3d25ed622ad465831dbcce7e77a12d011d199b82ec326c69b12dd821c43110",
+      "bytes": 452
+    },
+    {
+      "path": ".local/logs/model-completion/integration-admin.log",
+      "sha256": "d346a60320ae9336ae05709f2933a9511ca7ab4e9d574f95a1f9b444c5f57cd9",
+      "bytes": 452
+    },
+    {
+      "path": ".local/logs/model-completion/integration-all-six-metadata.log",
+      "sha256": "5e927ae65263a8cf37cae87f6388d06a5d282fcc8380aae04f7fd36e8604f1d4",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-athlete-fail.log",
+      "sha256": "31e231835a87b6983db060c2fb3c6617db0bc399eaef065d2bbd883da07168d7",
+      "bytes": 1310
+    },
+    {
+      "path": ".local/logs/model-completion/integration-b4-vo2.log",
+      "sha256": "f8b8da4a912175308a2723e34c2ab43baa68745b199cd4dfa34976a0edc85389",
+      "bytes": 451
+    },
+    {
+      "path": ".local/logs/model-completion/integration-detail-feature.log",
+      "sha256": "583eeb67c1d01d9ffb64e56d542f4a20cf47a778b6ef612dfa24bc1d63f07d6e",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-feature-guard.log",
+      "sha256": "d69d211b4286b1d3d80071aba87b69c49985a5fb182c1331cc00efe384f8a8a9",
+      "bytes": 450
+    },
+    {
+      "path": ".local/logs/model-completion/integration-history-cursor.log",
+      "sha256": "5b2f13c482a70580e44708960ec7862903dd91275fa12e37fad32d14af2ab67d",
+      "bytes": 450
+    },
+    {
+      "path": ".local/logs/model-completion/integration-http.log",
+      "sha256": "e2a9b9ed8fcde6b86799529fff5bf908efa46515aee679553452a6aabf4f35e8",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-legacy-kind.log",
+      "sha256": "42593894f46fec7466cfba24ceda196efe19486f2efa40dbf65617548ed1dfe9",
+      "bytes": 450
+    },
+    {
+      "path": ".local/logs/model-completion/integration-model-completion-paths.log",
+      "sha256": "7e620bd35eef30390b8f937727467ce7be896a48ec2f74610175ca247023adcb",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-model.log",
+      "sha256": "ab4997893fb6cc27364b35e7ea25545ccd24d832759d5af12beb529d26d8493d",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-p05-b4.log",
+      "sha256": "251d3d3dc23bf6f124e35a263066959f0b21fe41e78fe9e6fdccdeb938bf500a",
+      "bytes": 450
+    },
+    {
+      "path": ".local/logs/model-completion/integration-p11-binding.log",
+      "sha256": "458449902af3467507fb79b46fa62e14efb40cd7eb7e13e5860f0b9fc970b99e",
+      "bytes": 450
+    },
+    {
+      "path": ".local/logs/model-completion/integration-promotion.log",
+      "sha256": "2dbdd3515363c4553ec6ece76ef7cc2d736c19702c9c0ed47189c16e773b2aa3",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-reader-guard.log",
+      "sha256": "4371fe80296ae47dacb1e7df33e793f57996b526c3dac944fe44d2393ef33f42",
+      "bytes": 895
+    },
+    {
+      "path": ".local/logs/model-completion/integration-revocation.log",
+      "sha256": "8414e1200674b0591e1dc747571adf0f9c495fe4819126b34dda28d474f173b5",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-rollback-latency.log",
+      "sha256": "000d99d09a2292077e6452ac8e8cf3dc88e7a0736527c7468b45cf7dd863324a",
+      "bytes": 701
+    },
+    {
+      "path": ".local/logs/model-completion/integration-schema-upgrades.log",
+      "sha256": "a767572a365cb66e3bd4181508173088058ac5891808f01c7b2aa6ef0ca7ff62",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t02-atomicity.log",
+      "sha256": "bae2281d7ef5dc3cb7f138413d00204d52a48dd85708e9813a00dafb43b2754b",
+      "bytes": 451
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t03-cross-dataset.log",
+      "sha256": "c7d9bb2b87cbee35f64a278ed9f930c1af881567f60557dffad45057db8e0baa",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t03-input-fault.log",
+      "sha256": "2015014ad0876357cba9efd5c1142a5ab0ebc40852b56a739481e1c9a473b6d6",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t04-crash.log",
+      "sha256": "4ef31536013fb03daaf1b38cafd843aee83926e962a32396187ecb9b5e0f3329",
+      "bytes": 451
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t05-fencing.log",
+      "sha256": "074943f1425be0724b2ec26f5d3eece28351b62a5c890188be9d2421e6fbb9a9",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t06-delete.log",
+      "sha256": "f16731702fb43a7fdab6f5717c92654a9a1cfa743bf1cb4a3bb399d6dccd633d",
+      "bytes": 451
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t07-roles.log",
+      "sha256": "7202395de0306b956b794acdde0fe23b08bdbc4d2dec791cb0e97adff999cb5f",
+      "bytes": 451
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t08-view.log",
+      "sha256": "855d6f8a0538a80c6ab32ba20608403b9a41f81af61fc62e179402ed8328d7a1",
+      "bytes": 451
+    },
+    {
+      "path": ".local/logs/model-completion/integration-t10-plans.log",
+      "sha256": "2daf1602863aa74c28e1b49bf53a01402a97268588847acae2ce24c9dc19271b",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion/performance-diagnostics.log",
+      "sha256": "d1e33975826c8914df234f028973da1722257bf002c13eabb7e7da977748b9d6",
+      "bytes": 8985
+    },
+    {
+      "path": ".local/logs/model-completion/performance-feature.log",
+      "sha256": "fcc24482f70d23a97235f8e48f425a73388249701d950f5ab6829eb7ba74e980",
+      "bytes": 1895
+    },
+    {
+      "path": ".local/logs/model-completion/performance-http.log",
+      "sha256": "c20cf076d834829d46260bf948dca730c89690dbfc6adc3cb11b26c72e1e2489",
+      "bytes": 973
+    },
+    {
+      "path": ".local/logs/model-completion/performance-models.log",
+      "sha256": "82336bf7785ca73ecabbeccce2eb7e2703a4d8c1755e73578b5f63a5a8bc80aa",
+      "bytes": 598
+    },
+    {
+      "path": ".local/logs/model-completion/pure-domains.log",
+      "sha256": "cd2f2f0c61cd1b09181be7160edc4a398411adc294e24ee52db816d585866714",
+      "bytes": 216
+    },
+    {
+      "path": ".local/logs/model-completion/quick-c02.log",
+      "sha256": "cfd548017b023819fb207ad127c0f4a5e98cf2c1ded378e1f7827de14966639e",
+      "bytes": 2545
+    },
+    {
+      "path": ".local/logs/model-completion/quick-c04.log",
+      "sha256": "50a592c100049e4c2e86ca78a3cd7876b498b3eeee3bdb5f2c519a85d2e75459",
+      "bytes": 2545
+    },
+    {
+      "path": ".local/logs/model-completion/quick-round13.log",
+      "sha256": "457ee8ac0aaf58c7edb10fb0cfb5f192cd67cbc6ead1a9bb44eb0bcaf49031da",
+      "bytes": 2290
+    },
+    {
+      "path": ".local/logs/model-completion/quick-round17.log",
+      "sha256": "a33ef3c42c2b95c82b491b14779a97864ebb4a77bd5d6c13adb9d15e4be336a7",
+      "bytes": 2424
+    },
+    {
+      "path": ".local/logs/model-completion/quick-round19.log",
+      "sha256": "e59e0d032f0ab3575fc7b130ace83940937959c22abd0e9f8c7e7487843add81",
+      "bytes": 2420
+    },
+    {
+      "path": ".local/logs/model-completion/quick-round20.log",
+      "sha256": "83436c74c44984de3d9cbee7e4d57f55a44cbaf457d1b25effaeabd1c19a13e4",
+      "bytes": 2545
+    },
+    {
+      "path": ".local/logs/model-completion/quick-round26.log",
+      "sha256": "50a592c100049e4c2e86ca78a3cd7876b498b3eeee3bdb5f2c519a85d2e75459",
+      "bytes": 2545
+    },
+    {
+      "path": ".local/logs/model-completion/quick.log",
+      "sha256": "4084087ffb5952110361623aefc6fe00ded64b8079d745373269d895348494e4",
+      "bytes": 2280
+    },
+    {
+      "path": ".local/logs/model-completion/race-all.log",
+      "sha256": "3d87d8dfc51a179969f339908038b59ec294a50cd5152e9df601392e3e97ddb3",
+      "bytes": 1230
+    },
+    {
+      "path": ".local/logs/model-completion/race-domains.log",
+      "sha256": "6e469abcd7dda537b8f94d41ae5b2bcf714fdd17ae24af416b1f461b478fe786",
+      "bytes": 126
+    },
+    {
+      "path": ".local/logs/model-completion/research-cli-overlap.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".local/logs/model-completion/research-cli-pseudonym.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".local/logs/model-completion/research-cli-withdraw.log",
+      "sha256": "0b88122813755b97b6863b696d0f090fdf42c17d45f6a3fdf995b3524f039994",
+      "bytes": 176
+    },
+    {
+      "path": ".local/logs/model-completion/research-cli.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".local/logs/model-completion/research-report-overlap.json",
+      "sha256": "d13ef73614a792ff2024f25c71b8493d7e85be503ae96c1339446f480a52b97d",
+      "bytes": 589
+    },
+    {
+      "path": ".local/logs/model-completion/research-report-pseudonym.json",
+      "sha256": "4e2d001601af084f8a79cda71df6da033a28f3d795246559576627099aa70012",
+      "bytes": 745
+    },
+    {
+      "path": ".local/logs/model-completion/research-report-withdraw.json",
+      "sha256": "4e2d001601af084f8a79cda71df6da033a28f3d795246559576627099aa70012",
+      "bytes": 745
+    },
+    {
+      "path": ".local/logs/model-completion/research-report.json",
+      "sha256": "93ce60ff81c6aff260315ef1d7a202e974a163171e4c899e8c1bbd5d581073a5",
+      "bytes": 885
+    },
+    {
+      "path": ".local/logs/model-completion/research-study-overlap-v2addendum-report.json",
+      "sha256": "d13ef73614a792ff2024f25c71b8493d7e85be503ae96c1339446f480a52b97d",
+      "bytes": 589
+    },
+    {
+      "path": ".local/logs/model-completion/research-study-v2addendum-report.json",
+      "sha256": "38862e8fcf6dfdb3b9f4dafdd928185a36eaf4ec92a6ef6e0f0081d3735bf222",
+      "bytes": 936
+    },
+    {
+      "path": ".local/logs/model-completion/research-study-v2addendum.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".local/logs/model-completion/research-study-withdraw-v2addendum-report.json",
+      "sha256": "176b7f7a096b961818af747c38c0def2acb955f4a2932b23fdd57c5005ab471f",
+      "bytes": 769
+    },
+    {
+      "path": ".local/logs/model-completion/research-study-withdraw.json",
+      "sha256": "d2fd40ed006934ec1b03a736ae6e1a0ac056abedc09cc7183813be675fef65d8",
+      "bytes": 2759
+    },
+    {
+      "path": ".local/logs/model-completion/research-study.json",
+      "sha256": "e196f154c9688e70d24414a12a95e813c46f51a005b9fd876a002daeff3b093e",
+      "bytes": 2680
+    },
+    {
+      "path": ".local/logs/model-completion/shadow-cli.log",
+      "sha256": "a78f88880d305101aba39aae0b21d995e78ab67b70299becd3714c8d3e746ae5",
+      "bytes": 316
+    },
+    {
+      "path": ".local/logs/model-completion/shadow-real-refused.json",
+      "sha256": "0d413e89344c2ff061f8f33cc9c46d26c225246fa964b5a885c0f83c61ad5254",
+      "bytes": 985
+    },
+    {
+      "path": ".local/logs/model-completion/shadow-report.json",
+      "sha256": "6b365c21df4a7cef9ee5b8ef6b5e7bb5b1f2df6ee3375eca59f929dc11db6dd9",
+      "bytes": 624
+    },
+    {
+      "path": ".local/logs/model-completion/shadow-synthetic.json",
+      "sha256": "63206dc19ffe66cfe9b71274eee4753ab3fdfdf62e97bf79b7f2669e4573b1aa",
+      "bytes": 984
+    },
+    {
+      "path": ".local/logs/model-completion/simulator-round26.log",
+      "sha256": "6b2c15e1461f8f590e12b457e071b8c158d7e1c1616065ad648ada40a568d678",
+      "bytes": 2437
+    },
+    {
+      "path": ".local/logs/model-completion/simulator-round26b.log",
+      "sha256": "745be8ff85aee021971239842a2d50c359410599b69b3068e23594588286aed8",
+      "bytes": 2436
+    },
+    {
+      "path": ".local/logs/model-completion/swift-test-round19.log",
+      "sha256": "7400680afc06f887349a6ca8737713c8d09d6c9d1caea28ce38504be7fd6edc7",
+      "bytes": 47223
+    },
+    {
+      "path": ".local/logs/model-completion/swift-test-round25.log",
+      "sha256": "b5f065b271b8295a721ab9fa27c52abc49e5fc5b1c8c116ae16a3bb9f2d37502",
+      "bytes": 47376
+    },
+    {
+      "path": ".local/logs/model-completion/swift-test-round26.log",
+      "sha256": "c9a0c4f5b135cbd2827d6c3dae24b1dcae3ae7d998f6800146c503062256f32a",
+      "bytes": 1353
+    },
+    {
+      "path": ".local/logs/model-completion/swift-test.log",
+      "sha256": "c53267bb2d9df661403595df3182dfee4e0ba2a21d975a54c7d93e864e4819fb",
+      "bytes": 47759
+    },
+    {
+      "path": ".local/logs/model-completion/vet.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".local/logs/model-completion/xcodebuild-round25.log",
+      "sha256": "f2b4c909fc4685107c55c2346d8364f305c58863a19c9649ceb1ac1e7cd6c748",
+      "bytes": 72718
+    },
+    {
+      "path": ".local/logs/model-completion/xcodebuild-round26.log",
+      "sha256": "c4ebdf6bb294b1a214108c225c80b5ad2ae40217fe323eb21b316b8a5ace3f2b",
+      "bytes": 39817
+    },
+    {
+      "path": ".local/logs/model-completion/xcodebuild.log",
+      "sha256": "a4b829b4b19fa86e76fdf294beaafa0c08fca6b4232d15e3d7c3e2a6f606b4a2",
+      "bytes": 69142
+    },
+    {
+      "path": "apps/server/cmd/rai-research/main.go",
+      "sha256": "1271a75a50451be42931c1503d1b0551f3e3d2ff53348c398b6d064fbd25f6a3",
+      "bytes": 7172
+    },
+    {
+      "path": "apps/server/cmd/rai-research/main_test.go",
+      "sha256": "3cfbadf15c4692db8be243ae3f2c51adbfe6aa2eee373ceba5857ac2a2114e91",
+      "bytes": 4432
+    },
+    {
+      "path": "apps/server/cmd/rai-shadow/main.go",
+      "sha256": "0277b7f80916a5c364b095e3decff4130edbfdac4f007396f56165ba5efa2057",
+      "bytes": 1124
+    },
+    {
+      "path": "apps/server/integration/model_artifact_v2_test.go",
+      "sha256": "bf52a0089a0b78fb62864b5041ed11d6100ee61065d8166f54e2278e19ee84c1",
+      "bytes": 3073
+    },
+    {
+      "path": "apps/server/integration/model_backfill_test.go",
+      "sha256": "e5f3185dbef9070515e663ec416d522b256b6f00979a35679b012c2ab7c4e48d",
+      "bytes": 3762
+    },
+    {
+      "path": "apps/server/integration/model_completion_http_test.go",
+      "sha256": "601b3f34bd188030282e77ec495457e147b83756b46cc6dfe95b0e54d14a7783",
+      "bytes": 3529
+    },
+    {
+      "path": "apps/server/integration/model_product_active_test.go",
+      "sha256": "12c589fddd7c80e3d1c40c48b7dfc2e9a4f69ea0c4b06d0d78e7b460e667dba4",
+      "bytes": 7718
+    },
+    {
+      "path": "apps/server/integration/model_product_all_test.go",
+      "sha256": "506f6a786df8a4e06a2e095370ebf0da70029980a6322d1365390b914a3a5638",
+      "bytes": 18195
+    },
+    {
+      "path": "apps/server/integration/model_product_performance_test.go",
+      "sha256": "cad833c69e4568b782b4abd6c683782567ef5c2a347375494f882470c95a4ab2",
+      "bytes": 11283
+    },
+    {
+      "path": "apps/server/integration/model_promotion_test.go",
+      "sha256": "84c9c2f5664b4cbfeceee93949fa12c9a98d4a3fff04e5511ebb2675f1332306",
+      "bytes": 7486
+    },
+    {
+      "path": "apps/server/integration/training_model_binding_test.go",
+      "sha256": "89667807d9fe5de3360de160299e39b06d7b650f7bfa53adbe8ef9d399a440af",
+      "bytes": 7277
+    },
+    {
+      "path": "apps/server/integration/workout_detail_test.go",
+      "sha256": "af5827342808ac664ba3c18cca8f65145578cc1687737d65cbb5186f471a9d2b",
+      "bytes": 14900
+    },
+    {
+      "path": "apps/server/internal/athletemodel/contract.go",
+      "sha256": "3cab02c1e6016bcc44da2eaa7ec4b0ad8ad50c838dd670b4be80252a5ff43fe6",
+      "bytes": 12739
+    },
+    {
+      "path": "apps/server/internal/athletemodel/schema2.go",
+      "sha256": "51faec4fd835ec4032566a90afc22fb70c4c4c373d2d4bbfe11f16457653249c",
+      "bytes": 4876
+    },
+    {
+      "path": "apps/server/internal/backfill/request.go",
+      "sha256": "12c6e17554dc474cacfd6835a80f26be6d7c0c4d408b1a7f54db39279a543cb8",
+      "bytes": 10895
+    },
+    {
+      "path": "apps/server/internal/diagnostics/durability.go",
+      "sha256": "73b71a0157be669c5e80ee0c9b17d86274af2833ce8a0b504820bc4f8f5bea65",
+      "bytes": 21956
+    },
+    {
+      "path": "apps/server/internal/hrref/model.go",
+      "sha256": "5bc1024d5a5ce3eed232b4ee80bdb6855c6983ec55eb892e21d85168456018d0",
+      "bytes": 9882
+    },
+    {
+      "path": "apps/server/internal/hrref/overlap.go",
+      "sha256": "b68611421dd387edde996ff74be2a5cfbbdfdf7c246506264ad75cfbd368363c",
+      "bytes": 5882
+    },
+    {
+      "path": "apps/server/internal/hrref/source.go",
+      "sha256": "d3cf657ac46ee63d088b8df5f376e235fa152e2f84c851abbadfb5e280a63ef1",
+      "bytes": 3124
+    },
+    {
+      "path": "apps/server/internal/httpapi/athlete.go",
+      "sha256": "1598158a735b0bed19ed9c58f062cfab8a48de802d72990060ee277db98eec3e",
+      "bytes": 2987
+    },
+    {
+      "path": "apps/server/internal/httpapi/modelinput.go",
+      "sha256": "a6e88a8fa3d72a75e8d34a948bc242f6ff1cf354e89d3ebb3ff72372be187ed9",
+      "bytes": 3231
+    },
+    {
+      "path": "apps/server/internal/modelmanifest/manifest.go",
+      "sha256": "7514a08a51dcc1405bb95bf0be0f9dffe65c902ceb1996ccc8c4e9b733473ab0",
+      "bytes": 9008
+    },
+    {
+      "path": "apps/server/internal/performance/model.go",
+      "sha256": "1795c3cecb5ffc1631b8e921c478a8558d25140db75b494974748c87088d166e",
+      "bytes": 11471
+    },
+    {
+      "path": "apps/server/internal/performance/v2.go",
+      "sha256": "62638d197ac8f336f19c190e80d25e1d4d57d0fb16a607dc5ac0101de14a2d66",
+      "bytes": 5485
+    },
+    {
+      "path": "apps/server/internal/performance/v2_test.go",
+      "sha256": "19e764fa6698c28294ec0c647cbef6dd368b9a4fbe702295eb6a1db6e4713d73",
+      "bytes": 2400
+    },
+    {
+      "path": "apps/server/internal/readiness/performance_test.go",
+      "sha256": "265a669a8e1485c42237a3f3929c6fc649dcfa9ec7097a5ebb227f1408007452",
+      "bytes": 868
+    },
+    {
+      "path": "apps/server/internal/readiness/v2.go",
+      "sha256": "dcb7802df5ea6e4f085b8d5ae8673be7d1767cccfd34507b16af1acae378e6ec",
+      "bytes": 7775
+    },
+    {
+      "path": "apps/server/internal/recovery/performance_test.go",
+      "sha256": "0216317466b096ecf294151e4e3e4d0f7a3062d0da5642519254642d08739d30",
+      "bytes": 909
+    },
+    {
+      "path": "apps/server/internal/recovery/v2.go",
+      "sha256": "80c0c698866a4115a30f6e74495be254c9045fb2482c00028ea0b4284ab87fda",
+      "bytes": 15696
+    },
+    {
+      "path": "apps/server/internal/research/addendum.go",
+      "sha256": "1a9af17ec6e65e58c7a5cba3939192e4740fd94f2feebd6b901035feb3ee05fb",
+      "bytes": 3175
+    },
+    {
+      "path": "apps/server/internal/research/analysis.go",
+      "sha256": "b1f76f8e61752ebb79ceda6b4e4776ca2a38745567aefd755655cb9329ceacc5",
+      "bytes": 8067
+    },
+    {
+      "path": "apps/server/internal/research/analysis_test.go",
+      "sha256": "6ff73bdeaa03ddc5729212a5b46fe8e206e83f91ded42733d659e0bcffe4666e",
+      "bytes": 2513
+    },
+    {
+      "path": "apps/server/internal/research/pseudonym.go",
+      "sha256": "48a360d27b9f0857bcbadccb9e7d144e6d521aa0f5055473951900d896dc9849",
+      "bytes": 1893
+    },
+    {
+      "path": "apps/server/internal/research/pseudonym_test.go",
+      "sha256": "6b8f1c1e194623a4b9fa901ad2d66b8279e2fdcff25fa8c607afcff0c7d2cbbd",
+      "bytes": 1555
+    },
+    {
+      "path": "apps/server/internal/research/research_test.go",
+      "sha256": "e62dfb4d596168ffec95bd5f1605cb4d0c871f6fca7b34fdf356f5f0f10f8fac",
+      "bytes": 17059
+    },
+    {
+      "path": "apps/server/internal/research/types.go",
+      "sha256": "85d092309ac905dbb7b0a59f9e9f9a638d23419ba39346a3fbc315e871fadaf9",
+      "bytes": 3677
+    },
+    {
+      "path": "apps/server/internal/shadow/shadow.go",
+      "sha256": "7be9bda8b8525a671148f2db2b7030549399dad5c067d6d1b24e66ee074add68",
+      "bytes": 4384
+    },
+    {
+      "path": "apps/server/internal/shadow/shadow_test.go",
+      "sha256": "8f50f759abfa6f0eb5f1c866677520da9a0d1030dbc66f3a13310f08e9630658",
+      "bytes": 2180
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/athlete_product_v2.go",
+      "sha256": "be2d4bf4cb32a542696012ea49f32cd1d9c09df37f11d6fc30ef71615fdf3ad1",
+      "bytes": 20374
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/backfill.go",
+      "sha256": "f9e4b90adef68e497f87138be775d9c3559664270d9672517eb85304510d00fd",
+      "bytes": 11996
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/model_input.go",
+      "sha256": "95500f3aec7f8498a90e3e8714ce7834a35be9a053c8521b1d42a8a65e8c5065",
+      "bytes": 2271
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/model_promotion.go",
+      "sha256": "fb085244606955ab4885a30fab826a604b326ba56529775a89a4eac5cc64abf7",
+      "bytes": 12540
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/store.go",
+      "sha256": "36b7c9760978dc71960461054b9fd1cd52679fc002119fad94bbaa75dafc6089",
+      "bytes": 23746
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/training_input.go",
+      "sha256": "066c4a29f963b73a99cd4b2e630ac6183ac036afce294f7eca559da45740c9af",
+      "bytes": 12147
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/training_store.go",
+      "sha256": "15624c953993678b06333af69a2be2b83bb11da0f977a8ea67c968841e143ffc",
+      "bytes": 18891
+    },
+    {
+      "path": "apps/server/internal/storage/postgres/workout_detail.go",
+      "sha256": "567c17a2150f39e072d988d5224b93c08aae73da9193718dacacb3edfc607c2a",
+      "bytes": 38148
+    },
+    {
+      "path": "apps/server/internal/training/generator.go",
+      "sha256": "8a7c884fa5087f03df467142ffbb9a8e09829328618152a9a76956a4daf0deed",
+      "bytes": 7212
+    },
+    {
+      "path": "apps/server/internal/training/model.go",
+      "sha256": "ce58bd486492e582ea37bb521ba7d08ea35b78268aba316c735853f1aa4a74cb",
+      "bytes": 15048
+    },
+    {
+      "path": "apps/server/internal/training/training_test.go",
+      "sha256": "01f3d88b6efe45f996e2819b9768ac5d96b63fd394c422586f0569376a6124fc",
+      "bytes": 14482
+    },
+    {
+      "path": "apps/server/internal/trainingload/v2.go",
+      "sha256": "0ffd3591593fac034dabde784c38d248b5e7db54bb780103a405067958f76801",
+      "bytes": 5218
+    },
+    {
+      "path": "apps/server/internal/trainingload/v2_test.go",
+      "sha256": "defe24327c3dfba4ca3420f5c29eb50b6e953ec951e5aaf560084469faf90d3e",
+      "bytes": 2283
+    },
+    {
+      "path": "apps/server/internal/vo2max/calculate.go",
+      "sha256": "f92fafa14bbe2b9244c365e4de44012c9d9b0613fa2b0fa0f3b98bd626a051bf",
+      "bytes": 23954
+    },
+    {
+      "path": "apps/server/internal/vo2max/calculate_test.go",
+      "sha256": "146cffdb7a2113b02d11e49a16d1de1dbd844b480520c1e76f284604f1a9aa96",
+      "bytes": 6724
+    },
+    {
+      "path": "apps/server/internal/vo2max/model.go",
+      "sha256": "75049d26d99424e3318283cdd37ebebfa888c447e8e081fca760531f5c66e49e",
+      "bytes": 8022
+    },
+    {
+      "path": "apps/server/internal/vo2max/performance_test.go",
+      "sha256": "67260febbeacd02ba25998dc112ac7a2bbb13f0114a4b8b1d6afa24496de3d61",
+      "bytes": 1569
+    },
+    {
+      "path": "apps/server/internal/workoutdetail/model.go",
+      "sha256": "b2085f0f9cb66e88663a4c25ad71fc0908d2e28c5fea77bf0778921fdc2cbaf9",
+      "bytes": 13222
+    },
+    {
+      "path": "apps/server/migrations/00030_model_completion.sql",
+      "sha256": "51b7b6812f5ced87887d01dbabc40599f5160b94a830d1bada5352a27fe64938",
+      "bytes": 6835
+    },
+    {
+      "path": "apps/server/migrations/00031_model_completion_assignment.sql",
+      "sha256": "864bf3d8aa50f2ece0e58c65e7c64ce8ae162e58e762e4acddbffdf3416ffb5c",
+      "bytes": 993
+    },
+    {
+      "path": "apps/server/migrations/00032_model_input_kind_schema.sql",
+      "sha256": "65fa25bae93904ea3b77435b5bfc677b69b1780dc7dce9464ba1d26de9404780",
+      "bytes": 1320
+    },
+    {
+      "path": "apps/server/migrations/00033_model_channel_guard.sql",
+      "sha256": "8418e8647d5eb539a5a2c1c89f3d4317ff2afc748f0886b82c26c8f3f255c301",
+      "bytes": 912
+    },
+    {
+      "path": "apps/server/migrations/00034_model_input_legacy_kind.sql",
+      "sha256": "50a0e0f96d894f5d76d83127e5a5aba0fb7f949f2b7d6fa4607ae00d9a037232",
+      "bytes": 3282
+    },
+    {
+      "path": "apps/server/migrations/00035_dataset_synthetic_marker.sql",
+      "sha256": "b90b5513ebf06cff0b13b838d326b46a24d5870b03f615d2d344d6b951c57573",
+      "bytes": 330
+    },
+    {
+      "path": "apps/server/migrations/00037_model_artifact_v2.sql",
+      "sha256": "68b83b5cd2a9ad4fb1a0c9cbbcf4865d4573124c50d3d050c7c8586b98d1d4c3",
+      "bytes": 7077
+    },
+    {
+      "path": "apps/server/migrations/00038_published_artifacts_view.sql",
+      "sha256": "9f226e2683a74b797758103951677bbb9fae8301a67ac72b7a19f8898ca41098",
+      "bytes": 897
+    },
+    {
+      "path": "docs/IMPLEMENTATION.md",
+      "sha256": "b148ae1378712e972c82107c1b7fe531cf2948040cda0a2fb5989babbd2b2de5",
+      "bytes": 267816
+    },
+    {
+      "path": "docs/RAI_MODEL_COMPLETION_DECISIONS.md",
+      "sha256": "1e5937674ad7c1c439f9950a8728ba2d29e1fc04744d2e1c315824dacd755f35",
+      "bytes": 8845
+    },
+    {
+      "path": "docs/RAI_MODEL_COMPLETION_RESULT.md",
+      "sha256": "f08a4334667e9d1fa294e197a874e02103bd3d0631e50af55bd883636ce58744",
+      "bytes": 8961
+    },
+    {
+      "path": "docs/evidence/model-completion/acceptance.json",
+      "sha256": "bb8d9674da067cf6e5d4faf5c784a17807d9758724c187a952e5b2bf090dd0b3",
+      "bytes": 109551
+    },
+    {
+      "path": "docs/evidence/model-completion/api-app.md",
+      "sha256": "e1c964d6be8efb1205cee31180c3a3ccce62a25a02219eb084925d440f1871c8",
+      "bytes": 3533
+    },
+    {
+      "path": "docs/evidence/model-completion/oracle.md",
+      "sha256": "5e3260650c1a6eb065ad0c3e7eb6b94652ddec0174c870227ceef0fe9dbcf938",
+      "bytes": 3103
+    },
+    {
+      "path": "docs/evidence/model-completion/performance.md",
+      "sha256": "9c59925210d0ddeaf81e02db62243c4bab5bbab3046c56e7e1179607c105d676",
+      "bytes": 4393
+    },
+    {
+      "path": "docs/evidence/model-completion/pg-faults.md",
+      "sha256": "3fb5f485baabf4abdfd3b7dbf0c445c865c63fde0d3b49354b6eb933e88b226f",
+      "bytes": 1382
+    },
+    {
+      "path": "docs/evidence/model-completion/rollback.md",
+      "sha256": "80606b8f63897077d9c3ebfa1a243ebe1defcd39de0d706c7c55a7ab546d8958",
+      "bytes": 1427
+    },
+    {
+      "path": "ios/RAI/App/ProductViews.swift",
+      "sha256": "76717ab0261b0ded8efedd517e868b868fd7a7c63accd2085245c6ca26e79a31",
+      "bytes": 47099
+    },
+    {
+      "path": "ios/RAI/Sources/ProductCore/ProductText.swift",
+      "sha256": "145f52677f328a54792e9d6ff74efe8761beab9f63b807d8467dc052d8fb402c",
+      "bytes": 1392
+    },
+    {
+      "path": "ios/RAI/Tests/ProductCoreTests/AthleteModelTests.swift",
+      "sha256": "914c793ebb566c527bfb6d3138aa1d171a4fcdcb2c73d63da5bacf961dd8425e",
+      "bytes": 6928
+    },
+    {
+      "path": "ios/RAI/Tests/ProductCoreTests/ProductTests.swift",
+      "sha256": "07278be0809c8b983406027d95ab818fac56dae8e635ffb1b326eea496e60bc6",
+      "bytes": 12607
+    },
+    {
+      "path": "ios/RAI/UITests/ProductUITests.swift",
+      "sha256": "13652948b3fcaa37ffce3cb0bddb2d85b7a5f44fa210584d6d654f034729f1ff",
+      "bytes": 22865
+    },
+    {
+      "path": "scripts/check-product-boundaries.py",
+      "sha256": "4ea67ef70e8b2a93f68603dae480eb5ca7f568bafcc79f84490f633d1edfabb7",
+      "bytes": 1460
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/full-after-research.log",
+      "sha256": "da925fe83180b120557774f21e46ab95142cd9bd755d25c401b40bfc91305810",
+      "bytes": 462597
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/e2e-race.log",
+      "sha256": "4932130bd93e899c4b74d676f95270cb922a7054bf6156bfac5f00dda86c46d5",
+      "bytes": 2935
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/swift-after-research.log",
+      "sha256": "588d150fc094da0650ab6709ae13c6f38856a4e971bcdb0081180cd5275e316c",
+      "bytes": 47966
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/integration-promotion.log",
+      "sha256": "247132bb2418927855abd441da04615fd2d6ef3862e3e735cca65d6d3b13c492",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/integration-backfill.log",
+      "sha256": "021e968abe2ffebf26868526912d3ad7d4a2b57bd51d73650e4143f6fbb7a08b",
+      "bytes": 449
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/perf-model-norace-v.log",
+      "sha256": "82a41b4f9e5590739e4a728f1896ff8b3326906fdd5458102cbfe940eb4a85d0",
+      "bytes": 903
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/device/completeness-report.json",
+      "sha256": "c4803781137fa36a9874771e0b529b2b1987bf8274b8afe270058a6302124fe0",
+      "bytes": 344
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/device/client-task-state.json",
+      "sha256": "940dc18de6573e47c64f40071023e50b242ce009417f1b325a3455b64dcffd4c",
+      "bytes": 102689029
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/device/workout-list-report.json",
+      "sha256": "8ed67d61d7e5675670a605882e81c1232ac36939e91e7fbd991e7adeed932051",
+      "bytes": 7316
+    },
+    {
+      "path": ".local/device-acceptance/install-result.json",
+      "sha256": "2906f124252b0f8444fabe45472248880c25f191643ccf93ceea0847d12565ae",
+      "bytes": 1037
+    },
+    {
+      "path": ".local/testing/e2e.YSA5zl/model-e2e-summary.json",
+      "sha256": "ea1a5b88767bb9a02fb188f982325437f2c9139578aab2dc44f8ffcfc9144943",
+      "bytes": 965
+    },
+    {
+      "path": ".local/logs/model-completion-fixes/device/health-sample-types.txt",
+      "sha256": "04cefdae543794e40c96da4049bb83e026e28d1c7f1689b7e3c372197a1b2695",
+      "bytes": 474
+    }
+  ],
+  "commands": [
+    {
+      "id": "active-load",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestActiveSchema2ProjectsV2LoadArtifact'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-active-load.log"
+    },
+    {
+      "id": "active-product",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestActiveSchema2ProductWithoutArtifacts'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-active-product.log"
+    },
+    {
+      "id": "all-six",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestActiveSchema2ProjectsAllSixTypedMetrics'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-all-six.log"
+    },
+    {
+      "id": "boundaries",
+      "command": "source scripts/local/lib.sh && rai_go_env && python3 scripts/check-boundaries.py",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/boundaries.log"
+    },
+    {
+      "id": "e2e",
+      "command": "bash scripts/local/test.sh e2e",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/e2e-round26.log",
+      "durationSeconds": 105
+    },
+    {
+      "id": "e2e-round26",
+      "command": "bash scripts/local/test.sh e2e",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/e2e-round26.log",
+      "durationSeconds": 105
+    },
+    {
+      "command": "cd apps/server && source ../scripts/local/lib.sh && rai_go_env && go test -count=1 -v ./internal/performance ./internal/diagnostics",
+      "exitCode": 0,
+      "durationSeconds": 3,
+      "log": ".local/logs/model-completion/performance-diagnostics.log",
+      "id": "f06-performance-diagnostics"
+    },
+    {
+      "id": "f09-s60-ack",
+      "command": "RAI_SYNC_SPEED_PERF=1 RAI_SYNC_SPEED_ITERATIONS=30 RAI_SYNC_SPEED_WARMUPS=3 bash scripts/local/test.sh integration -v -run '^TestWorkoutSyncSpeedServerAckMatrix/S60$' ./integration",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-ack-s60-round17.log"
+    },
+    {
+      "id": "featureperf",
+      "command": "RAI_M1_PERF=1 ./scripts/test-postgres.sh go test -count=1 -tags=integration -p 1 -timeout=20m ./integration -run '^TestFeatureSnapshotPerformanceMatrix$' -v",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/performance-feature.log"
+    },
+    {
+      "id": "full",
+      "command": "bash scripts/local/test.sh full",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/full-round29.log",
+      "durationSeconds": 961
+    },
+    {
+      "id": "full-round14",
+      "command": "bash scripts/local/test.sh full",
+      "exitCode": 0,
+      "durationSeconds": 952,
+      "log": ".local/logs/model-completion/full-round14.log"
+    },
+    {
+      "id": "full-round15",
+      "command": "bash scripts/local/test.sh full",
+      "exitCode": 0,
+      "durationSeconds": 960,
+      "log": ".local/logs/model-completion/full-round15.log"
+    },
+    {
+      "id": "full-round16",
+      "command": "bash scripts/local/test.sh full",
+      "exitCode": 0,
+      "durationSeconds": 839,
+      "log": ".local/logs/model-completion/full-round16.log"
+    },
+    {
+      "id": "full-round17",
+      "command": "bash scripts/local/test.sh full",
+      "exitCode": 0,
+      "durationSeconds": 842,
+      "log": ".local/logs/model-completion/full-round17.log"
+    },
+    {
+      "id": "full-round26",
+      "command": "bash scripts/local/test.sh full",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/full-round26.log",
+      "durationSeconds": 915
+    },
+    {
+      "id": "history-cursor",
+      "command": "bash scripts/local/test.sh integration ./integration -run TestHistoryCursorBindsMetricAndReturnsRealV2Values",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-history-cursor.log"
+    },
+    {
+      "id": "history-projection",
+      "command": "cd apps/server && source ../scripts/local/lib.sh && rai_go_env && go test -count=1 ./internal/storage/postgres -run TestHistory",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/history-projection.log"
+    },
+    {
+      "id": "http",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestModelInputHTTPIdempotencyAndLegacyProduct'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-http.log"
+    },
+    {
+      "id": "integration-rollback-latency",
+      "command": "bash scripts/local/test.sh integration ./integration -run TestSyntheticPromotionAndRollbackAudits -v",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-rollback-latency.log"
+    },
+    {
+      "id": "model-paths",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestBackfillOperationLifecycleAndStagedCandidate|TestWorkoutCompletenessRealCoverageConsumptionAndCollectorFencing|TestSyntheticPromotionAndRollbackAudits'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-model-completion-paths.log"
+    },
+    {
+      "id": "modelperf",
+      "command": "RAI_MODEL_PERF=1 ./scripts/test-postgres.sh go test -count=1 -tags='integration modelperf' -p 1 -timeout=10m ./integration -run '^TestAthleteProductHTTPPerformance$' -v",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/performance-http.log"
+    },
+    {
+      "id": "modelperf-pure",
+      "command": "go test -count=1 -v ./internal/vo2max ./internal/recovery ./internal/readiness -run 'PerformanceP95'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/performance-models.log"
+    },
+    {
+      "id": "p02-six-metadata",
+      "command": "bash scripts/local/test.sh integration ./integration -run '^TestActiveSchema2ProjectsAllSixTypedMetrics$'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-all-six-metadata.log"
+    },
+    {
+      "id": "p05-b4-api-role",
+      "command": "bash scripts/local/test.sh integration ./integration -run '^(TestWorkoutDetailReadsPublishedFeatureArtifact|TestB4ProductHTTPAndGenericReadIsolation)$'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-p05-b4.log"
+    },
+    {
+      "id": "p05-detail-feature",
+      "command": "bash scripts/local/test.sh integration ./integration -run '^TestWorkoutDetailReadsPublishedFeatureArtifact$'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-detail-feature.log"
+    },
+    {
+      "id": "p11-training-binding",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestTrainingPlanRecordsModelBindingAndRollbackAdapter|TestTrainingContextUsesV2ReadinessSignal|TestTrainingContextIgnoresV2ReadinessOnLegacyAdapter|TestTrainingContextDoesNotUseExpiredV2Readiness'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-p11-binding.log"
+    },
+    {
+      "id": "product-boundaries",
+      "command": "python3 scripts/check-product-boundaries.py",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/quick-round20.log"
+    },
+    {
+      "id": "quick",
+      "command": "bash scripts/local/test.sh quick",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/quick.log"
+    },
+    {
+      "id": "quick-c02",
+      "command": "bash scripts/local/test.sh quick",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/quick-c02.log",
+      "durationSeconds": 3
+    },
+    {
+      "id": "quick-c04",
+      "command": "bash scripts/local/test.sh quick",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/quick-c04.log",
+      "durationSeconds": 2
+    },
+    {
+      "id": "quick-round17",
+      "command": "bash scripts/local/test.sh quick",
+      "exitCode": 0,
+      "durationSeconds": 2,
+      "log": ".local/logs/model-completion/quick-round17.log"
+    },
+    {
+      "id": "quick-round26",
+      "command": "bash scripts/local/test.sh quick",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/quick-round26.log",
+      "durationSeconds": 5
+    },
+    {
+      "id": "reader-guard",
+      "command": "./scripts/test-postgres.sh go test -count=1 -tags=integration -p 1 -timeout=5m ./integration -run '^TestSchema2ReaderRejectsTamperedArtifactAndDirtyScope$' -v",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-reader-guard.log"
+    },
+    {
+      "id": "research-addendum",
+      "command": "cd apps/server && go run ./cmd/rai-research -input ../../.local/logs/model-completion/research-study.json -out ../../.local/logs/model-completion/research-study-v2addendum-report.json",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/research-study-v2addendum.log"
+    },
+    {
+      "id": "research-cli",
+      "command": "cd apps/server && go run ./cmd/rai-research -input ../../.local/logs/model-completion/research-study-withdraw.json -out ../../.local/logs/model-completion/research-report-withdraw.json",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/research-cli-withdraw.log"
+    },
+    {
+      "id": "research-cli-test",
+      "command": "cd apps/server && go test -count=1 ./cmd/rai-research",
+      "exitCode": 0,
+      "log": null
+    },
+    {
+      "id": "research-overlap",
+      "command": "cd apps/server && go run ./cmd/rai-research -input ../../.local/logs/model-completion/research-study-overlap.json -out ../../.local/logs/model-completion/research-report-overlap.json",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/research-cli-overlap.log"
+    },
+    {
+      "id": "research-pseudonym",
+      "command": "cd apps/server && go run ./cmd/rai-research -input ../../.local/logs/model-completion/research-study-withdraw.json -out ../../.local/logs/model-completion/research-report-pseudonym.json -pseudonym-secret-file ../../.local/logs/model-completion/research-pseudonym-secret.txt -pseudonym-map ../../.local/logs/model-completion/research-pseudonym-map.json",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/research-cli-pseudonym.log"
+    },
+    {
+      "id": "revocation",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestModelInputRevocationIsAppendOnlyAndIdempotent|TestModelInputHTTPIdempotencyAndLegacyProduct'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-revocation.log"
+    },
+    {
+      "id": "schema-upgrades",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestSchema10UpgradePreservesP2AndEnablesP3|TestSchema7UpgradeAddsSeriesWithoutRewritingFacts|TestTrainingSchema12UpgradeAndReadiness|TestSchema5UpgradePreservesReceiptsAndBudgets|TestSchema6UpgradePreservesV1IdentityAndRuntimeState|TestSchema8UpgradeAddsWorkoutPackagesWithoutRewritingFacts'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-schema-upgrades.log"
+    },
+    {
+      "id": "shadow-refuses-real",
+      "command": "cd apps/server && go run ./cmd/rai-shadow -input ../../.local/logs/model-completion/shadow-real-refused.json",
+      "exitCode": 1,
+      "log": ".local/logs/model-completion/shadow-cli.log"
+    },
+    {
+      "id": "shadow-synthetic",
+      "command": "cd apps/server && go run ./cmd/rai-shadow -input ../../.local/logs/model-completion/shadow-synthetic.json -out ../../.local/logs/model-completion/shadow-report.json",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/shadow-cli.log"
+    },
+    {
+      "id": "shadow-tests",
+      "command": "cd apps/server && go test -count=1 ./internal/shadow ./cmd/rai-shadow",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/go-test-shadow.log"
+    },
+    {
+      "id": "simulator",
+      "command": "bash scripts/local/test.sh simulator",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/simulator-round26b.log"
+    },
+    {
+      "id": "simulator-round26",
+      "command": "bash scripts/local/test.sh simulator",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/simulator-round26b.log",
+      "durationSeconds": 90
+    },
+    {
+      "id": "swift",
+      "command": "cd ios/RAI && swift test",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/swift-test.log"
+    },
+    {
+      "id": "swift-round25",
+      "command": "cd ios/RAI && swift test",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/swift-test-round25.log"
+    },
+    {
+      "id": "swift-round26",
+      "command": "cd ios/RAI && swift test",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/swift-test-round26.log"
+    },
+    {
+      "id": "t02-atomicity",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestWorkoutDeleteRollbackIncludingCommitFailure|TestCommitRetryAndDeletionBarrier|TestRouteDeleteReceiptFailureRollsBackBarrier|TestDailyRollbackAndBackendCrash|TestAnalysisPublishFaultAtomicity|TestWorkoutCompletenessAtomicFaultsAndBackendCrash'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t02-atomicity.log"
+    },
+    {
+      "id": "t03-cross-dataset",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestModelInputCannotCrossDataset'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t03-cross-dataset.log"
+    },
+    {
+      "id": "t03-input-fault",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestModelInputReceiptFailureRollsBackInputAndDirty'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t03-input-fault.log"
+    },
+    {
+      "id": "t04-crash",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestFeatureBackendCrashAtomicity|TestVO2ExternalBackendCrashAtomicity|TestReadinessBackendCrashAtomicity|TestWorkoutCompletenessAtomicFaultsAndBackendCrash|TestB4ClientSIGKILLThroughCandidatePublication|TestRecoveryModelBackendCrashAtomicity|TestLoadBackendCrashAtomicity|TestPerformanceBackendCrashAtomicity|TestConcurrentJobClaimAndCrashRecovery'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t04-crash.log"
+    },
+    {
+      "id": "t05-fencing",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestAnalysisGenerationCASAndLostFence|TestAnalysisLeaseExpiryDuringPublishAndRecomputeDryRun|TestAnalysisOldGenerationCannotReplaceNewPublication|TestAnalysisPublishFaultAtomicity'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t05-fencing.log"
+    },
+    {
+      "id": "t06-delete",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestWorkoutDeleteAndImportBothLockOrders|TestWorkoutDeleteFencesLateRouteAndAssociation|TestWorkoutBundleExplicitChildDeletionBoundary|TestWorkoutDeleteInvalidatesPublishedP4AndKeepsHistory|TestDailyRHRReplacementAndSleepOverlap|TestDailyLifecycle|TestReadinessDeleteRevisionAndRebuild|TestReadinessPersistedDependencyAlwaysQueuesCurrent|TestLoadGenerationRaceAndWorkoutDelete'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t06-delete.log"
+    },
+    {
+      "id": "t07-roles",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'Role|Roles'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t07-roles.log"
+    },
+    {
+      "id": "t08-view",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestAthleteModelFullAndLeakage|TestAthleteModelMissingAndCorruption|TestAthleteModelStableAssignmentRevisionAndPointerRace|TestAthleteModelRuntimeRoles'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t08-view.log"
+    },
+    {
+      "id": "t10-plans",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestCoreIndexAvailability|TestModelCompletionIndexAvailability'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-t10-plans.log"
+    },
+    {
+      "id": "training-binding",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestTrainingPlanRecordsModelBindingAndRollbackAdapter|TestTrainingContextUsesV2ReadinessSignal|TestTrainingContextIgnoresV2ReadinessOnLegacyAdapter|TestTrainingContextDoesNotUseExpiredV2Readiness'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-p11-binding.log"
+    },
+    {
+      "id": "v2-artifact",
+      "command": "bash scripts/local/test.sh integration ./integration -run 'TestV2ArtifactSchemaAndRunIdentityAreTransactional'",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/integration-v2-artifact.log"
+    },
+    {
+      "id": "vet",
+      "command": "cd apps/server && go vet ./...",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/vet.log"
+    },
+    {
+      "id": "xcodebuild",
+      "command": "cd ios/RAI && xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -sdk iphonesimulator -destination 'id=D44B6925-BB19-4556-B8AE-94B758B3B532' build",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/xcodebuild.log"
+    },
+    {
+      "id": "xcodebuild-round25",
+      "command": "cd ios/RAI && xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -sdk iphonesimulator -destination id=D44B6925-BB19-4556-B8AE-94B758B3B532 build",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/xcodebuild-round25.log"
+    },
+    {
+      "id": "xcodebuild-round26",
+      "command": "cd ios/RAI && xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -sdk iphonesimulator -destination 'id=D44B6925-BB19-4556-B8AE-94B758B3B532' build",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion/xcodebuild-round26.log"
+    },
+    {
+      "id": "round29-full",
+      "command": "bash scripts/local/test.sh full",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion-fixes/full-after-research.log"
+    },
+    {
+      "id": "round29-e2e",
+      "command": "bash scripts/local/test.sh e2e",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion-fixes/e2e-race.log"
+    },
+    {
+      "id": "round29-swift",
+      "command": "bash scripts/local/test.sh swift",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion-fixes/swift-after-research.log"
+    },
+    {
+      "id": "round29-promotion",
+      "command": "bash scripts/local/test.sh integration -run TestSyntheticPromotionAndRollbackAudits|TestManagedModelStackPublishesWorkoutDetailAndWithdrawsOnDelete ./integration",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion-fixes/integration-promotion.log"
+    },
+    {
+      "id": "round29-backfill",
+      "command": "bash scripts/local/test.sh integration -run ^TestBackfillOperationLifecycleAndStagedCandidate$ ./integration",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion-fixes/integration-backfill.log"
+    },
+    {
+      "id": "round29-perf",
+      "command": "go test -tags=integration,modelperf -run TestModelBackfill180DayPerformance|TestDenseFeatureSnapshotPerformance ./integration",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion-fixes/perf-model-norace-v.log"
+    },
+    {
+      "id": "device-D01",
+      "command": "RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py prepare/install/probe/list",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion-fixes/device/workout-list-report.json"
+    },
+    {
+      "id": "device-D02",
+      "command": "RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py completeness",
+      "exitCode": 0,
+      "log": ".local/logs/model-completion-fixes/device/completeness-report.json"
+    }
+  ],
+  "notes": "Round 29: research artifacts/maximal, daily RHR fallback, schema2 E2E, full/swift/perf and authorized real-device D01/D02. Real device D02 blocked by metadata_requires_review; real calibration/activation remain not run."
+}

@@ -203,6 +203,9 @@ func AnalysisCommand(ctx context.Context, url string, args []string, out io.Writ
 	if len(args) > 0 && args[0] == "model-stack" {
 		return ModelStackCommand(ctx, url, args[1:], out)
 	}
+	if len(args) > 0 && args[0] == "backfill" {
+		return BackfillCommand(ctx, url, args[1:], out)
+	}
 	if len(args) > 0 && args[0] == "readiness" {
 		return ReadinessCandidateCommand(ctx, url, args[1:], out)
 	}

@@ -74,6 +74,78 @@ struct WorkoutTaskTests {
         #expect(await store.pages(taskID: workoutB).count == 1)
     }
 
+    @Test func unsupportedAndEmptyStreamsAreSatisfiedButFailureIsNot() async throws {
+        let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory)
+        try await store.beginTask(workoutA)
+        let unsupported = WorkoutCoverage(state: .unsupported)
+        let empty = WorkoutCoverage.result(count: 0)
+        let partial = WorkoutCoverage.result(count: 1, completed: false)
+        let failed = WorkoutCoverage(state: .failed, errorCode: "read_failed")
+        #expect(unsupported.isSatisfied); #expect(!unsupported.needsRetry)
+        #expect(empty.isSatisfied); #expect(!empty.needsRetry)
+        #expect(!partial.isSatisfied); #expect(partial.needsRetry)
+        #expect(!failed.isSatisfied); #expect(failed.needsRetry)
+        try await store.updateTask(workoutA) {
+            $0.coverage = ["cadence": unsupported, "elevation_sample": unsupported,
+                           "HKQuantityTypeIdentifierHeartRate": partial, "distance": empty, "route": failed]
+        }
+        let task = try #require(await store.task(workoutA))
+        #expect(task.missing == ["HKQuantityTypeIdentifierHeartRate", "route"])
+        #expect(task.coverage["distance"]?.isSatisfied == true)
+        #expect(task.coverage["cadence"]?.isSatisfied == true)
+    }
+
+    @Test func acknowledgementReleasesCaptureScaffoldingAndKeepsReceiptIdentity() async throws {
+        let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory)
+        try await store.beginTask(workoutA)
+        let file = try await store.savePayload(Data("multipart".utf8))
+        let hash = String(repeating: "a", count: 64)
+        let covered = (0..<200).map { _ in Wire.id() }
+        let manifest = CaptureManifest(workoutID: workoutA, generation: 9, cursors: ["heart": 200],
+                                       coveredEventIDs: covered, deletionEventIDs: [Wire.id()],
+                                       completeTypes: ["heart"], coveredFacts: 200)
+        try await store.setBundle(workoutA, file: file, sha256: hash, boundary: "test", sampleDeletions: 0,
+                                  routeDeletions: 0, discoveryGeneration: 9, deletionEventIDs: [Wire.id()],
+                                  pendingReadKeys: [], manifest: manifest)
+        let before = try JSONEncoder().encode(try #require(await store.task(workoutA))).count
+        let receipt: JSON = .object(["workoutID": .string(workoutA), "bundleSHA256": .string(hash),
+            "ingestStatus": .string("committed"), "commitRevision": .int(1),
+            "counts": .object(["workoutInserted": .bool(true), "samplesInserted": .int(0),
+                "samplesUnchanged": .int(0), "samplesDeleted": .int(0), "associationsInserted": .int(0),
+                "associationsUnchanged": .int(0), "associationsDeleted": .int(0), "seriesInserted": .int(0),
+                "seriesUnchanged": .int(0), "routesInserted": .int(0), "routesUnchanged": .int(0),
+                "routesDeleted": .int(0)]),
+            "analysisStatus": .string("not_required"), "analysisJobIDs": .array([])])
+        try await store.acknowledgeBundle(workoutA, receipt: receipt)
+        let acknowledged = try #require(await store.task(workoutA))
+        #expect(acknowledged.uploadReceipt == receipt)
+        #expect(acknowledged.captureManifest == nil)
+        #expect(acknowledged.bundleDeletionEventIDs == nil)
+        #expect(acknowledged.pendingReadKeys == nil)
+        #expect(acknowledged.bundleSHA256 == hash)
+        #expect(acknowledged.phase == .acknowledged)
+        let after = try JSONEncoder().encode(acknowledged).count
+        #expect(after < before, "ACK kept capture scaffolding instead of releasing it")
+        // A retried upload must reconcile to the exact original receipt, not a
+        // rebuilt identity.
+        try await store.acknowledgeBundle(workoutA, receipt: receipt)
+        #expect(await store.task(workoutA)?.uploadReceipt == receipt)
+    }
+
+    @Test func analysisFollowupIsBoundedAndStopsOnFinalPhase() {
+        #expect(AnalysisFollowup.delays == [2, 5, 15, 30, 60, 120, 300])
+        #expect(AnalysisFollowup.totalBudget <= 600)
+        #expect(AnalysisFollowup.delay(forAttempt: 0) == 2)
+        #expect(AnalysisFollowup.delay(forAttempt: AnalysisFollowup.delays.count) == nil)
+        #expect(AnalysisFollowup.shouldContinue(.acknowledged))
+        #expect(AnalysisFollowup.shouldContinue(.analyzing))
+        for phase in [WorkoutSyncPhase.published, .partial, .deleted, .failed] {
+            #expect(!AnalysisFollowup.shouldContinue(phase))
+        }
+    }
+
     @Test func taskStateProjectionAndRestart() async throws {
         let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
         let store = try OutboxStore(directory: directory)

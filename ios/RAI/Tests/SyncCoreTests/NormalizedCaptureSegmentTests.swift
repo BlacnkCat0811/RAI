@@ -24,6 +24,17 @@ import Testing
                        identityHash: Wire.hash(Data((type + uuid).utf8)))
     }
 
+    @Test func onlyDescribedFactsAreBundleUsable() {
+        let described = fact("0f8fad5b-d9cb-469f-a165-70867728950e")
+        #expect(described.isBundleUsable)
+        let undiscribed = NormalizedFact(type: described.type, uuid: described.uuid,
+                                         source: described.source, event: nil)
+        #expect(!undiscribed.isBundleUsable, "a captured fact without an event must force a fresh read")
+        let tombstone = NormalizedFact(type: described.type, uuid: described.uuid, deleted: true,
+                                       source: described.source, event: described.event)
+        #expect(!tombstone.isBundleUsable, "a deletion tombstone is not bundle content")
+    }
+
     /// The record that goes into a segment is the record that comes back out,
     /// field for field, without any archiving in between.
     @Test func normalizedFactRoundTripsThroughASegment() async throws {

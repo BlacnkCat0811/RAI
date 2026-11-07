@@ -99,11 +99,11 @@ for dependency in projection.get('Imports', []):
 for source in (root/'internal/athletemodel').glob('*.go'):
     if not source.name.endswith('_test.go') and any(x in source.read_text() for x in ('time.Now(', '.Calculate(', 'time.LoadLocation(')):
         raise SystemExit('FAIL: M7 projection computes a model or reads ambient state')
-for domain in ('httpapi','training','jobs','analysis'):
+for domain in ('training','jobs','analysis'):
     package=json.loads(subprocess.check_output(['go','list','-json','./internal/'+domain],cwd=root,text=True))
     if 'rai/server/internal/athletemodel' in package.get('Imports',[]):
         raise SystemExit('FAIL: existing consumer acquired candidate product dependency: '+domain)
 reader=(root/'internal/storage/postgres/athlete_model.go').read_text()
 if any(x in reader for x in ('.Calculate(', 'loadRecoveryInput(', 'loadReadinessInput(', 'loadPerformanceInput(')):
     raise SystemExit('FAIL: unified reader recalculates/loads raw model inputs')
-print('PASS: M7 typed projection is pure; reader only validates/Freshens/maps; legacy consumers unchanged')
+print('PASS: M7 typed projection is pure; reader only validates/Freshens/maps; httpapi is the only candidate-product transport and legacy analysis consumers are unchanged')

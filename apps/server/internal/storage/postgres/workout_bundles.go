@@ -358,6 +358,11 @@ func (s *Store) WorkoutImport(ctx context.Context, p syncing.Principal, workoutI
 			SELECT 1 FROM jsonb_array_elements(COALESCE(($1::jsonb)->'samples','[]'::jsonb)) s
 			JOIN entity_tombstones t ON t.dataset_id=$2
 				AND t.sample_type=s->>'type' AND t.sample_uuid=(s->>'uuid')::uuid
+		) OR EXISTS (
+			SELECT 1 FROM jsonb_array_elements(COALESCE(($1::jsonb)->'streams','[]'::jsonb)) st
+			CROSS JOIN LATERAL jsonb_array_elements_text(COALESCE(st->'uuids','[]'::jsonb)) u
+			JOIN entity_tombstones t ON t.dataset_id=$2
+				AND t.sample_type=st->>'type' AND t.sample_uuid=u::uuid
 		),
 		EXISTS (
 			SELECT 1 FROM jsonb_array_elements(COALESCE(($1::jsonb)->'routes','[]'::jsonb)) r

@@ -30,7 +30,7 @@ func TestPerformanceMigration22ToLatestRepeat(t *testing.T) {
 		t.Fatal(err)
 	}
 	var before, after string
-	if err = db.QueryRowContext(ctx, `SELECT to_jsonb(d)::text FROM datasets d`).Scan(&before); err != nil {
+	if err = db.QueryRowContext(ctx, `SELECT (to_jsonb(d) - 'synthetic_test')::text FROM datasets d`).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
@@ -38,11 +38,11 @@ func TestPerformanceMigration22ToLatestRepeat(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err = db.QueryRowContext(ctx, `SELECT to_jsonb(d)::text FROM datasets d`).Scan(&after); err != nil || before != after {
+	if err = db.QueryRowContext(ctx, `SELECT (to_jsonb(d) - 'synthetic_test')::text FROM datasets d`).Scan(&after); err != nil || before != after {
 		t.Fatal("migration changed facts", err)
 	}
 	var version, tables int
-	if err = db.QueryRowContext(ctx, `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied),(SELECT count(*) FROM information_schema.tables WHERE table_schema='public')`).Scan(&version, &tables); err != nil || int64(version) != migrations.LatestVersion() || tables != 54 {
+	if err = db.QueryRowContext(ctx, `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied),(SELECT count(*) FROM information_schema.tables WHERE table_schema='public')`).Scan(&version, &tables); err != nil || int64(version) != migrations.LatestVersion() || tables != 58 {
 		t.Fatal("schema", version, tables, err)
 	}
 	if err = MigrateDown(ctx, dsn); !errors.Is(err, ErrMigrationIrreversible) {

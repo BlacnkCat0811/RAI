@@ -1,0 +1,11 @@
+-- statement: route-identity
+Nested Loop Left Join  (cost=0.15..8.20 rows=1 width=136) (actual time=0.018..0.019 rows=1.00 loops=1)
+  Join Filter: (r.route_uuid = (k.route_uuid)::uuid)
+  Buffers: shared hit=2
+  ->  Function Scan on unnest k  (cost=0.00..0.01 rows=1 width=32) (actual time=0.003..0.004 rows=1.00 loops=1)
+  ->  Index Scan using workout_routes_pkey on workout_routes r  (cost=0.14..8.16 rows=1 width=104) (actual time=0.011..0.012 rows=1.00 loops=1)
+        Index Cond: (dataset_id = 'b5d53f5d-7115-4778-b8a1-c103d4112fe3'::uuid)
+        Index Searches: 1
+        Buffers: shared hit=2
+Planning Time: 0.086 ms
+Execution Time: 0.034 ms

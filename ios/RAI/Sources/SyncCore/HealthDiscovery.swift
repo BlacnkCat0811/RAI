@@ -217,18 +217,26 @@ extension OutboxStore {
         for (id, event) in discovery.events where event.workoutID == nil && requested.contains(event.factKey) {
             unresolved[event.factKey, default: []].append(id)
         }
+        var changed = false
         for key in keys {
-            if let known = discovery.parents[key], known != workoutID { throw SyncFailure.localState("discovery_association_conflict") }
-            discovery.parents[key] = workoutID
+            if let known = discovery.parents[key] {
+                if known != workoutID { throw SyncFailure.localState("discovery_association_conflict") }
+            } else {
+                discovery.parents[key] = workoutID; changed = true
+            }
             for id in unresolved[key] ?? [] {
                 guard var event = discovery.events[id], event.workoutID == nil else { continue }
                 event.workoutID = workoutID; event.status = "pending"; discovery.events[id] = event
                 var work = discovery.work[workoutID] ?? DiscoveryWork(); work.generation += 1
                 work.error = nil; work.nextAttemptAt = nil; work.attempt = 0
                 event.generation = work.generation; event.ordinal = discovery.nextOrdinal()
-                discovery.events[id] = event; discovery.work[workoutID] = work
+                discovery.events[id] = event; discovery.work[workoutID] = work; changed = true
             }
         }
+        // A repeated association call with no new parent and no unresolved
+        // event is a no-op. It must not re-encode the whole state or move
+        // `updatedAt` on every producer pass.
+        guard changed else { commitSkippedNoop += 1; return }
         next.discovery = discovery; try commit(next)
     }
     public func discoveryPrepared(_ id: String, generation: Int64) throws {

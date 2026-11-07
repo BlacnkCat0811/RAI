@@ -25,7 +25,7 @@ public struct SyncSessionDescriptor: Codable, Equatable, Sendable, Identifiable 
               hello["datasetEpoch"].text == datasetEpoch, hello["serviceID"].text == serviceID,
               hello["deviceID"].text == deviceID, hello["collectorEpoch"].text == collectorEpoch,
               hello["datasetStatus"].text == "active", hello["capabilities"]["workoutBundles"] == .bool(true),
-              hello["capabilities"]["bundleProtocolVersion"].integer == 3 else { throw SyncFailure.invalid("session_handshake_mismatch") }
+              [3, 4].contains(hello["capabilities"]["bundleProtocolVersion"].integer ?? 0) else { throw SyncFailure.invalid("session_handshake_mismatch") }
     }
 }
 public protocol SessionCredentialStore: Sendable {

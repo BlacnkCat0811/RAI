@@ -155,14 +155,28 @@ type Override struct {
 	Source                  string   `json:"source"`
 }
 
+type FeatureAnalysis struct {
+	Schema            string   `json:"schemaVersion"`
+	Algorithm         string   `json:"algorithm"`
+	Version           string   `json:"algorithmVersion"`
+	StackID           string   `json:"stackID"`
+	PublishedAtUs     int64    `json:"publishedAtUs"`
+	ActiveSeconds     *float64 `json:"activeSeconds"`
+	HeartRateCoverage float64  `json:"heartRateCoverage"`
+	SpeedCoverage     float64  `json:"speedCoverage"`
+	RouteCoverage     float64  `json:"routeCoverage"`
+	Reasons           []string `json:"reasonCodes"`
+}
+
 type Detail struct {
-	Workout      Workout       `json:"workout"`
-	Environment  *Environment  `json:"environment"`
-	Summary      Summary       `json:"summary"`
-	TrainingLoad *TrainingLoad `json:"trainingLoad"`
-	ZoneSummary  *ZoneSummary  `json:"zoneSummary"`
-	Route        Route         `json:"route"`
-	Override     *Override     `json:"override"`
+	Workout      Workout          `json:"workout"`
+	Analysis     *FeatureAnalysis `json:"analysis,omitempty"`
+	Environment  *Environment     `json:"environment"`
+	Summary      Summary          `json:"summary"`
+	TrainingLoad *TrainingLoad    `json:"trainingLoad"`
+	ZoneSummary  *ZoneSummary     `json:"zoneSummary"`
+	Route        Route            `json:"route"`
+	Override     *Override        `json:"override"`
 }
 
 type MetricPoint struct {

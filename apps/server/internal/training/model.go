@@ -41,14 +41,25 @@ type Goal struct {
 	DistanceM   float64  `json:"distanceM"`
 	TargetTimeS *float64 `json:"targetTimeS,omitempty"`
 }
+type ModelBinding struct {
+	Assignment        string   `json:"assignment"`
+	AssignmentVersion int64    `json:"assignmentVersion,omitempty"`
+	ManifestSHA       string   `json:"manifestSHA,omitempty"`
+	Model             string   `json:"model"`
+	AsOf              string   `json:"asOf,omitempty"`
+	Adapter           string   `json:"adapter"`
+	Missing           []string `json:"missing,omitempty"`
+}
+
 type Config struct {
-	StartDate       string   `json:"startDate"`
-	Weeks           int      `json:"weeks"`
-	Goal            Goal     `json:"goal"`
-	AvailableDays   []int    `json:"availableDays"` // ISO Monday=1 ... Sunday=7
-	LongRunDay      int      `json:"longRunDay"`
-	BaselineWeeklyM *float64 `json:"baselineWeeklyM,omitempty"`
-	PreviousLongM   *float64 `json:"previousLongM,omitempty"`
+	StartDate       string        `json:"startDate"`
+	Weeks           int           `json:"weeks"`
+	Goal            Goal          `json:"goal"`
+	AvailableDays   []int         `json:"availableDays"` // ISO Monday=1 ... Sunday=7
+	LongRunDay      int           `json:"longRunDay"`
+	BaselineWeeklyM *float64      `json:"baselineWeeklyM,omitempty"`
+	PreviousLongM   *float64      `json:"previousLongM,omitempty"`
+	ModelBinding    *ModelBinding `json:"modelBinding,omitempty"`
 }
 type Step struct {
 	Kind      string `json:"kind"`
@@ -96,15 +107,16 @@ type Workout struct {
 	Load       *float64 `json:"load"`
 }
 type Context struct {
-	PlanID         string     `json:"planID"`
-	Timezone       string     `json:"timezone"`
-	AsOf           string     `json:"asOf"`
-	ConfigRevision int64      `json:"configRevision"`
-	Config         Config     `json:"config"`
-	Parameters     Parameters `json:"parameters"`
-	Workouts       []Workout  `json:"workouts"`
-	Signals        []Signal   `json:"signals"`
-	Feedback       []Feedback `json:"feedback"`
+	PlanID               string        `json:"planID"`
+	Timezone             string        `json:"timezone"`
+	AsOf                 string        `json:"asOf"`
+	ConfigRevision       int64         `json:"configRevision"`
+	Config               Config        `json:"config"`
+	Parameters           Parameters    `json:"parameters"`
+	Workouts             []Workout     `json:"workouts"`
+	ObservedModelBinding *ModelBinding `json:"observedModelBinding,omitempty"`
+	Signals              []Signal      `json:"signals"`
+	Feedback             []Feedback    `json:"feedback"`
 }
 type Base struct {
 	Sessions        []Session `json:"sessions"`

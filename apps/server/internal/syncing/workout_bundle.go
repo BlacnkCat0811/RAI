@@ -86,7 +86,7 @@ func (p WorkoutBundlePoint) ToRoutePoint(sequence int64) RoutePoint {
 
 func (b WorkoutBundle) Validate() error {
 	bad := func() error { return Fail(422, "unsupported_payload") }
-	if b.ProtocolVersion != 3 || !ValidID(b.DatasetID) || !ValidID(b.DatasetEpoch) ||
+	if (b.ProtocolVersion != 3 && b.ProtocolVersion != 4) || !ValidID(b.DatasetID) || !ValidID(b.DatasetEpoch) ||
 		!ValidID(b.CollectorEpoch) || !ValidID(b.WorkoutID) || !ValidID(b.Workout.UUID) ||
 		b.Workout.UUID != b.WorkoutID || len(b.Samples) > MaxWorkoutBundleEvents ||
 		len(b.Routes) > MaxBundleRoutes {
@@ -178,7 +178,11 @@ func (b WorkoutBundle) Validate() error {
 			}
 		}
 	}
-	if len(b.SampleDeletions) > MaxWorkoutBundleEvents || len(b.RouteDeletions) > MaxBundleRoutes {
+	maxRouteDeletions := MaxBundleRoutes
+	if b.ProtocolVersion == 4 {
+		maxRouteDeletions = MaxV4RouteDeletions
+	}
+	if len(b.SampleDeletions) > MaxWorkoutBundleEvents || len(b.RouteDeletions) > maxRouteDeletions {
 		return bad()
 	}
 	for _, d := range b.SampleDeletions {

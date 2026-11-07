@@ -5,7 +5,7 @@ final class ProductUITests: XCTestCase {
   private let privateRoot = "/tmp/rai-p6-native-acceptance"
   private var app: XCUIApplication!
   private var timings: [String: Double] = [:]
-  private func launchApp(expectHomeHero: Bool = true) throws {
+  private func launchApp(expectHomeHero: Bool = true, accessibility: Bool = false) throws {
     continueAfterFailure = false
     XCTAssertTrue(
       FileManager.default.fileExists(atPath: privateRoot + "/config-app.json"),
@@ -14,6 +14,9 @@ final class ProductUITests: XCTestCase {
     app.launchEnvironment["RAI_SYNTHETIC_ACCEPTANCE"] = "1"
     app.launchEnvironment["RAI_ACCEPTANCE_CONFIG"] = privateRoot + "/config-app.json"
     app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    if accessibility {
+      app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL", "-AppleInterfaceStyle", "Dark"]
+    }
     let launchStart = Date()
     app.launch()
     let ready = expectHomeHero ? "home.hero" : "screen.home"
@@ -173,7 +176,7 @@ final class ProductUITests: XCTestCase {
     }
   }
   func test04AccessibilityLayout() throws {
-    try launchApp()
+    try launchApp(accessibility: true)
     tab("我的")
     let flags = element("profile.a11y")
     if !flags.isHittable { app.swipeUp() }
@@ -464,5 +467,51 @@ final class WorkoutSyncScreenUITests: XCTestCase {
     XCTAssertTrue(screen.waitForExistence(timeout: 10))
     XCTAssertTrue(app.staticTexts["一条跑步 = 一个独立上传任务"].exists)
     XCTAssertTrue(app.buttons["请求读取权限"].exists)
+  }
+}
+
+@MainActor
+final class ModelStackLiveUITests: XCTestCase {
+  func testActiveModelProductAndRollback() async throws {
+    let env = ProcessInfo.processInfo.environment
+    guard let configPath = env["RAI_MODEL_E2E_CONFIG"],
+      let control = env["RAI_MODEL_E2E_CONTROL"].flatMap(URL.init(string:)),
+      control.host == "127.0.0.1" else { throw XCTSkip("Requires isolated model-stack harness") }
+    // The test runner reads the host file; the app only receives the JSON
+    // string because its sandbox cannot read the harness temporary directory.
+    let config = try String(contentsOfFile: configPath, encoding: .utf8)
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchEnvironment["RAI_SYNTHETIC_ACCEPTANCE"] = "1"
+    app.launchEnvironment["RAI_ACCEPTANCE_CONFIG"] = config
+    app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    app.launch()
+    let model = app.descendants(matching: .any).matching(identifier: "model.home.active").firstMatch
+    XCTAssertTrue(model.waitForExistence(timeout: 35))
+    let tab = app.tabBars.buttons["分析"]
+    XCTAssertTrue(tab.waitForExistence(timeout: 10))
+    tab.tap()
+    let history = app.descendants(matching: .any).matching(identifier: "model.history.link").firstMatch
+    for _ in 0..<4 where !history.isHittable { app.swipeUp() }
+    XCTAssertTrue(history.waitForExistence(timeout: 10))
+    history.tap()
+    XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "model.history.point").firstMatch.waitForExistence(timeout: 15))
+
+    app.tabBars.buttons["运动"].tap()
+    let workout = app.descendants(matching: .any).matching(identifier: "workout.row").firstMatch
+    XCTAssertTrue(workout.waitForExistence(timeout: 12))
+    workout.tap()
+    let feature = app.descendants(matching: .any).matching(identifier: "model.workout.active").firstMatch
+    for _ in 0..<3 where !feature.exists { app.swipeUp() }
+    XCTAssertTrue(feature.waitForExistence(timeout: 12))
+
+    app.tabBars.buttons["首页"].tap()
+    XCTAssertTrue(model.waitForExistence(timeout: 10))
+    var request = URLRequest(url: control.appendingPathComponent("rollback"))
+    request.httpMethod = "POST"
+    let (_, response) = try await URLSession.shared.data(for: request)
+    XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
+    let switched = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: model)
+    XCTAssertEqual(XCTWaiter.wait(for: [switched], timeout: 10), .completed)
   }
 }

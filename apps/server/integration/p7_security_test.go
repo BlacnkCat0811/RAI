@@ -129,7 +129,7 @@ func TestP7OperationsInvariantInventoryAndSanitization(t *testing.T) {
 		}
 		if mode == "verify" {
 			var value admin.Inventory
-			if e := json.Unmarshal(out.Bytes(), &value); e != nil || value.SchemaVersion != postgres.RequiredSchemaVersion || len(value.Tables) != 54 || value.InvariantViolations != 0 {
+			if e := json.Unmarshal(out.Bytes(), &value); e != nil || value.SchemaVersion != postgres.RequiredSchemaVersion || len(value.Tables) != 57 || value.InvariantViolations != 0 {
 				t.Fatal("incomplete verification", e, len(value.Tables))
 			}
 		}

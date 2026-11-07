@@ -36,6 +36,90 @@ public indirect enum JSON: Codable, Equatable, Sendable {
     public var list: [JSON] { if case .array(let a) = self { return a }; return [] }
     public var fields: [String: JSON] { if case .object(let o) = self { return o }; return [:] }
     public static func decode(_ data: Data) throws -> JSON { try JSONDecoder().decode(JSON.self, from: data) }
+    /// Returns the exact bytes of one top-level object member without decoding
+    /// the rest of the document. A prepared bundle is up to 32 MiB and only a
+    /// small header is needed for coverage/scope checks; decoding every
+    /// sample, series and route again would repeat the cost the immutable file
+    /// was meant to avoid. Nested keys and escaped string bytes are skipped
+    /// structurally, so this is a real parser, not a byte search.
+    public static func topLevelValue(_ key: String, in data: Data) -> Data? {
+        data.withUnsafeBytes { raw -> Data? in
+            let bytes = raw.bindMemory(to: UInt8.self), count = bytes.count
+            var i = 0
+            func skipWhitespace() {
+                while i < count, bytes[i] == 0x20 || bytes[i] == 0x09 || bytes[i] == 0x0A || bytes[i] == 0x0D { i += 1 }
+            }
+            func scanString() -> Bool {
+                guard i < count, bytes[i] == 0x22 else { return false }
+                i += 1
+                while i < count {
+                    if bytes[i] == 0x5C { i += 2; continue }
+                    if bytes[i] == 0x22 { i += 1; return true }
+                    i += 1
+                }
+                return false
+            }
+            func skipValue() -> Bool {
+                skipWhitespace()
+                guard i < count else { return false }
+                switch bytes[i] {
+                case 0x22:
+                    return scanString()
+                case 0x7B, 0x5B:
+                    var depth = 0
+                    while i < count {
+                        let byte = bytes[i]
+                        if byte == 0x22 {
+                            guard scanString() else { return false }
+                            continue
+                        }
+                        if byte == 0x7B || byte == 0x5B { depth += 1 }
+                        else if byte == 0x7D || byte == 0x5D {
+                            depth -= 1
+                            if depth == 0 { i += 1; return true }
+                        }
+                        i += 1
+                    }
+                    return false
+                default:
+                    while i < count, bytes[i] != 0x2C, bytes[i] != 0x7D, bytes[i] != 0x20,
+                          bytes[i] != 0x09, bytes[i] != 0x0A, bytes[i] != 0x0D { i += 1 }
+                    return true
+                }
+            }
+            skipWhitespace()
+            guard i < count, bytes[i] == 0x7B else { return nil }
+            i += 1
+            while i < count {
+                skipWhitespace()
+                guard i < count else { return nil }
+                if bytes[i] == 0x7D { return nil }
+                guard bytes[i] == 0x22 else { return nil }
+                let keyStart = i + 1
+                guard scanString() else { return nil }
+                let keyEnd = i - 1
+                skipWhitespace()
+                guard i < count, bytes[i] == 0x3A else { return nil }
+                i += 1
+                skipWhitespace()
+                let valueStart = i
+                guard skipValue() else { return nil }
+                if keyEnd - keyStart == key.utf8.count,
+                   bytes[keyStart..<keyEnd].elementsEqual(key.utf8) {
+                    let lower = data.startIndex + valueStart
+                    return data.subdata(in: lower..<(lower + (i - valueStart)))
+                }
+                skipWhitespace()
+                guard i < count else { return nil }
+                if bytes[i] == 0x2C { i += 1; continue }
+                return nil
+            }
+            return nil
+        }
+    }
+    public static func topLevelString(_ key: String, in data: Data) -> String? {
+        topLevelValue(key, in: data).flatMap { try? decode($0).text }
+    }
     public func data() throws -> Data {
         if AcceptanceSwitches.legacyEncoder { return try legacyData() }
         var buffer: [UInt8] = []

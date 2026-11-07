@@ -88,7 +88,14 @@ func (s HealthKitSource) Classification(parent *HealthKitSource) string {
 		}
 		return "third_party"
 	}
+	parentMatches := parent != nil && parent.Classification(nil) == "apple_watch" && s.BundleID == parent.BundleID && s.Version != "" && s.Version == parent.Version
 	if s.ProductType != "" && !watchProduct.MatchString(s.ProductType) {
+		// A paired iPhone can carry the child samples of a Watch workout. The
+		// parent association and the device-scoped bundle identity are stronger
+		// evidence than the productType label on the child.
+		if parentMatches {
+			return "associated_apple_watch"
+		}
 		return "source_unknown"
 	}
 	if s.Device != nil {
@@ -102,7 +109,7 @@ func (s HealthKitSource) Classification(parent *HealthKitSource) string {
 	if s.ProductType != "" && (!scoped || s.Device != nil && s.Device.Manufacturer != "" && s.Device.Model != "") {
 		return "apple_watch"
 	}
-	if parent != nil && parent.Classification(nil) == "apple_watch" && s.BundleID == parent.BundleID && s.Version != "" && s.Version == parent.Version {
+	if parentMatches {
 		return "associated_apple_watch"
 	}
 	return "source_unknown"
@@ -254,12 +261,36 @@ func (b WorkoutBundle) validateMetadata() error {
 }
 
 func (b WorkoutBundle) validateObservation() error {
+	return b.validateObservationBody(b.ProtocolVersion != 4)
+}
+
+// validateObservationBody owns coverage/provenance validation shared by v3 and
+// v4. v4 moves per-sample source attribution into stream indices, so its
+// provenance sample/route arrays must be empty; v3 repeats every source.
+func (b WorkoutBundle) validateObservationBody(requireProvenance bool) error {
 	o := b.Observation
 	if o == nil {
 		return nil
 	}
 	if o.Version != 1 || o.ObservedAtUs < -62135596800000000 || o.ObservedAtUs > 253402300799999999 || len(o.Metadata) > 64 || len(o.Coverage) > 128 {
 		return Fail(422, "unsupported_payload")
+	}
+	if b.ProtocolVersion == 4 {
+		for key := range o.Coverage {
+			if key == "workout" || key == "route" {
+				continue
+			}
+			sampleType := key
+			if strings.HasPrefix(key, "series:") {
+				sampleType = strings.TrimPrefix(key, "series:")
+			}
+			if sampleType == key && strings.HasPrefix(key, "route:") {
+				return Fail(422, "unsupported_payload")
+			}
+			if _, ok := Units[sampleType]; !ok || sampleType == WorkoutType {
+				return Fail(422, "unsupported_payload")
+			}
+		}
 	}
 	if err := b.validateMetadata(); err != nil {
 		return err
@@ -278,6 +309,13 @@ func (b WorkoutBundle) validateObservation() error {
 	for _, route := range b.Routes {
 		counts["route"] += len(route.Points)
 		counts["route:"+route.RouteID] = len(route.Points)
+	}
+	if b.ProtocolVersion == 4 {
+		for key, c := range o.Coverage {
+			if c.State != "complete" && c.State != "no_records_observed" && c.SampleCount > counts[key] {
+				return Fail(422, "unsupported_payload")
+			}
+		}
 	}
 	for key, c := range o.Coverage {
 		if len(key) > 255 || !coverageStates[c.State] || c.SampleCount < 0 || c.SampleCount > MaxBundleRoutePoints || len(c.ErrorCode) > 128 || len(c.Diagnostics) > 16 || (c.ExpectedCount != nil && *c.ExpectedCount < 0) {
@@ -309,6 +347,12 @@ func (b WorkoutBundle) validateObservation() error {
 	}
 	if p.Workout.BundleID != b.Workout.Source.BundleID || p.Workout.Classification(nil) != "apple_watch" {
 		return Fail(409, "source_policy_pending")
+	}
+	if !requireProvenance {
+		if len(p.Samples) != 0 || len(p.Routes) != 0 {
+			return Fail(422, "unsupported_payload")
+		}
+		return nil
 	}
 	if len(p.Samples) != len(b.Samples) || len(p.Routes) != len(b.Routes) {
 		return Fail(422, "unsupported_payload")
@@ -437,6 +481,17 @@ func validateSampleMetadata(metadata map[string]any) error {
 				return Fail(422, "unsupported_payload")
 			}
 			if math.IsNaN(number) || math.IsInf(number, 0) || number != math.Trunc(number) || number < 0 || number > 10 {
+				return Fail(422, "unsupported_payload")
+			}
+		case "HKMetadataKeySyncIdentifier":
+			// HealthKit sync bookkeeping, preserved exactly. It never replaces
+			// the sample UUID and is not a download watermark.
+			text, ok := value.(string)
+			if !ok || len(text) == 0 || len(text) > 255 || !utf8.ValidString(text) {
+				return Fail(422, "unsupported_payload")
+			}
+		case "HKMetadataKeySyncVersion":
+			if _, ok := metadataInteger(value); !ok {
 				return Fail(422, "unsupported_payload")
 			}
 		default:

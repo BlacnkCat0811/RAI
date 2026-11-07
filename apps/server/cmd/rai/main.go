@@ -42,7 +42,7 @@ func run(log *slog.Logger) error {
 		return config.ContainerResources(os.Stdout)
 	}
 	if mode == "version" {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": migrations.LatestVersion(), "sync_protocol": 3, "openapi": "1.6.0", "analysis": []string{"workout.bundle/v2", "training_state.bundle/v2", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": migrations.LatestVersion(), "sync_protocol": 3, "openapi": "1.7.0", "analysis": []string{"workout.bundle/v2", "training_state.bundle/v2", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
 	}
 	if mode == "probe" {
 		if len(os.Args) == 2 {
@@ -142,7 +142,7 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	server := httpapi.NewHTTPServer(addr, httpapi.New(store, log))
+	server := httpapi.NewHTTPServer(addr, httpapi.NewWithOptions(store, log, httpapi.Options{SyncV4: os.Getenv("SYNC_V4_ENABLED") == "1"}))
 	server.TLSConfig, err = config.TLS()
 	if err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"rai/server/internal/analysis"
+	"rai/server/internal/modelmanifest"
 	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
@@ -28,7 +29,7 @@ type Queue interface {
 	AdvanceAnalysisDay(context.Context, time.Time) error
 }
 
-var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "analysis.training_state", "training.plan", wf.JobKind, tl.JobKind, tl.StateJobKind, pf.JobKind, ve.JobKind, rc.JobKind, rd.JobKind}
+var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "analysis.training_state", "training.plan", wf.JobKind, tl.JobKind, tl.StateJobKind, pf.JobKind, ve.JobKind, rc.JobKind, rd.JobKind, modelmanifest.StackJobKind}
 
 // Run uses one processing slot. The short poll waits on cancellation and the
 // independent renewal loop cancels calculation immediately after lease loss.
@@ -96,6 +97,28 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 			}
 		}
 	}()
+	if l.Kind == modelmanifest.StackJobKind {
+		status := "FAILED"
+		var err error
+		if processor, ok := q.(interface {
+			ProcessModelStack(context.Context, analysis.Lease, time.Time) (string, error)
+		}); ok {
+			status, err = processor.ProcessModelStack(runCtx, l, time.Now())
+		} else {
+			err = &analysis.Failure{Code: "analysis_unsupported_algorithm"}
+		}
+		cancel()
+		<-renewalDone
+		if err != nil && ctx.Err() == nil {
+			status = "FAILED"
+			code, retryable := analysis.ErrorCode(err)
+			failCtx, stop := context.WithTimeout(ctx, 5*time.Second)
+			_ = q.FailAnalysis(failCtx, l, "", code, retryable)
+			stop()
+		}
+		log.Info("model_stack_execution", "component", "worker", "status", status, "duration_ms", time.Since(start).Milliseconds())
+		return
+	}
 	if l.Kind == "training.plan" {
 		status := "FAILED"
 		var in training.Input

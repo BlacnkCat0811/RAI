@@ -99,6 +99,11 @@ public struct NormalizedFact: Sendable, Equatable {
     public let identityHash: String?
 
     public var factKey: String { type + ":" + uuid }
+    /// A fact is usable in an uploaded bundle only when both its source and
+    /// its integrity event were described. Discovery may retain a captured
+    /// fact with no event for later diagnosis; that record is an anchor, not
+    /// bundle content, and the bundle path must re-read the native object.
+    public var isBundleUsable: Bool { !deleted && source != nil && event != nil }
 
     public init(type: String, uuid: String, deleted: Bool = false, workoutID: String? = nil,
                 startUs: Int64? = nil, endUs: Int64? = nil, source: JSON? = nil, event: JSON? = nil,

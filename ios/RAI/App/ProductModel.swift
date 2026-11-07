@@ -115,6 +115,7 @@ final class ProductModel {
   var error: String?
   var conflict = false
   var pending: ProductCommand?
+  var pendingModelInput: ProductCommand?
   var execution: JSON = .null
   var executionIDs: [String] = []
   var audit: JSON = .null
@@ -134,13 +135,28 @@ final class ProductModel {
         // A private test configuration points at a real isolated API. No
         // fixture values or token appear in the app binary or launch args.
         if ProcessInfo.processInfo.environment["RAI_SYNTHETIC_ACCEPTANCE"] == "1",
-          let path = ProcessInfo.processInfo.environment["RAI_ACCEPTANCE_CONFIG"]
+          let value = ProcessInfo.processInfo.environment["RAI_ACCEPTANCE_CONFIG"]
         {
-          let secret = try JSONDecoder().decode(
-            ClientConfiguration.Secret.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
-          try await SyncModel.shared.bindNewSession(
-            baseURL: secret.configuration.baseURL.absoluteString,
-            collectorEpoch: secret.configuration.collectorEpoch, token: secret.token)
+          // Simulator test bundles cannot read arbitrary host paths from the
+          // app sandbox. Accept inline JSON and retain file-path support for
+          // local debugging.
+          let data: Data
+          if value.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") {
+            data = Data(value.utf8)
+          } else {
+            data = try Data(contentsOf: URL(fileURLWithPath: value))
+          }
+          // The root view starts foreground recovery at the same time as the
+          // first product refresh. A session switch must not race that work.
+          for _ in 0..<200 where SyncModel.shared.busy {
+            try? await Task.sleep(for: .milliseconds(50))
+          }
+          let secret = try JSONDecoder().decode(ClientConfiguration.Secret.self, from: data)
+          if try ClientConfiguration.load()?.token != secret.token {
+            try await SyncModel.shared.bindNewSession(
+              baseURL: secret.configuration.baseURL.absoluteString,
+              collectorEpoch: secret.configuration.collectorEpoch, token: secret.token)
+          }
         }
       #endif
       guard let secret = try ClientConfiguration.load() else {
@@ -161,6 +177,7 @@ final class ProductModel {
       journal = store
       configured = true
       pending = await store.pending()
+      pendingModelInput = await store.pendingModelInput()
       executionIDs = await store.executionIDs()
       if let id = executionIDs.last {
         execution = (try? await productAPI.get("/v2/training/executions/" + id)) ?? .null
@@ -203,6 +220,72 @@ final class ProductModel {
         !["analysis_not_ready", "training_not_found"].contains($0)
       }) ? "部分数据暂不可用，可下拉重试。" : nil
     log.info("home_load_ms=\(Date().timeIntervalSince(start)*1000,privacy:.public)")
+  }
+  /// Submits one user-entered model input. The server assigns receipt time and
+  /// known-at; the app never edits or deletes an accepted input locally.
+  func submitModelInput(kind: String, payload: [String: JSON], effectiveFrom: Date) async -> String? {
+    guard let journal else { return "请先在「我的 → 同步与诊断」配置私有服务。" }
+    let formatter = ISO8601DateFormatter()
+    let body = JSON.object([
+      "id": .string(UUID().uuidString.lowercased()),
+      "kind": .string(kind),
+      "subjectKey": .string("athlete"),
+      "effectiveFrom": .string(formatter.string(from: effectiveFrom)),
+      "provenance": .string("ios_user_entered"),
+      "payload": .object(payload),
+    ])
+    let path: String
+    switch kind {
+    case "hr_reference": path = "/v2/model-inputs/hr-references"
+    case "sleep_target": path = "/v2/model-inputs/sleep-targets"
+    default: return "暂不支持此输入类型。"
+    }
+    do {
+      let command = try await journal.stageModelInput(ProductCommand(path: path, body: body))
+      pendingModelInput = command
+      return await retryModelInput()
+    } catch let failure as SyncFailure {
+      return UserFacingText.syncFailure(failure)
+    } catch {
+      return "保存前无法记录提交身份，请稍后重试。"
+    }
+  }
+  func retryModelInput() async -> String? {
+    guard let api, let journal, let command = pendingModelInput else { return "没有待确认的个人输入。" }
+    do {
+      let receipt = try await api.sendModelInput(path: command.path, body: command.body)
+      guard receipt.string("inputID") == command.body.string("id"),
+        !receipt.string("contentSHA256").isEmpty else { throw SyncFailure.receiptMismatch }
+      try await journal.finishModelInput(command)
+      pendingModelInput = nil
+      await refresh()
+      return nil
+    } catch let failure as UploadError {
+      if [404, 409, 413, 422].contains(failure.status) {
+        if (try? await journal.finishModelInput(command)) != nil { pendingModelInput = nil }
+      }
+      return "保存失败：" + UserFacingText.error(failure.code)
+    } catch {
+      return "提交结果待确认，重试会使用原提交身份。"
+    }
+  }
+  func refreshAthleteAssignment() async {
+    guard !loading, let api else { return }
+    loading = true
+    defer { loading = false }
+    do {
+      let json = try await api.get("/v2/analysis/athlete")
+      let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: json.data())
+      if !Task.isCancelled { data.athlete = snapshot }
+    } catch let failure as UploadError where failure.code == "not_product_activated" {
+      if !Task.isCancelled { data.athlete = nil }
+    } catch {
+      if !Task.isCancelled { data.athlete = nil }
+    }
+  }
+  func loadAthleteHistory(metric: String) async throws -> AthleteHistoryPage {
+    guard let api else { throw SyncFailure.invalid("configure_development_api_first") }
+    return try await api.athleteHistory(metric: metric)
   }
   func loadMore() async {
     guard let api, !data.next.isEmpty else { return }

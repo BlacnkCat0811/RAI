@@ -14,7 +14,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"rai/server/internal/admin"
+	am "rai/server/internal/athletemodel"
 	"rai/server/internal/httpapi"
+	"rai/server/internal/modelmanifest"
 	"rai/server/internal/syncing"
 	"strings"
 	"sync"
@@ -162,6 +164,9 @@ plistlib.dump(p,open(sys.argv[2],'wb'));os.chmod(sys.argv[2],0o600)`
 		}
 	}
 	if err := runErr; err != nil {
+		if diagnostics := os.Getenv("RAI_UA1_R_DIAGNOSTICS_DIR"); diagnostics != "" {
+			_ = exec.Command("cp", "-R", result, filepath.Join(diagnostics, "r3-e2e-result.xcresult")).Run()
+		}
 		for _, line := range strings.Split(output.String(), "\n") {
 			if strings.Contains(line, "UA1_R_SYNTHETIC") {
 				t.Log(line)
@@ -182,4 +187,117 @@ plistlib.dump(p,open(sys.argv[2],'wb'));os.chmod(sys.argv[2],0o600)`
 		t.Fatal("M6 did not preserve real completeness and unknown load separately")
 	}
 	t.Logf("UA1_R_SIMULATOR_HTTP_PG=PASS contract=v2 manifests=2 streams=12 imports=1 lost_ack=true m6_synthetic=false unknown_loads=1")
+}
+
+// Uses the production App/HTTP/PG reader with Worker-created v2 artifacts.
+// The separate loopback control server is only the synthetic harness operator.
+func TestModelStackSimulatorHTTPPostgres(t *testing.T) {
+	source, sim := os.Getenv("RAI_UA1_R_XCTESTRUN"), os.Getenv("RAI_UA1_R_SIMULATOR")
+	if source == "" || sim == "" {
+		t.Fatal("explicit synthetic Simulator runner required")
+	}
+	ctx := context.Background()
+	f := setup(t)
+	api, worker := b4Roles(t, f)
+	handler := httpapi.New(api, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v2/handshake", "/v2/analysis/athlete", "/v2/analysis/athlete/history", "/v2/workouts":
+			t.Logf("MODEL_E2E_REQUEST %s", r.URL.Path)
+		}
+		handler.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	bundle := featureBundle(t, f, 35*60)
+	raw, err := json.Marshal(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, content := multipartBundleBytes(t, raw)
+	if status, _ := postBundle(t, server, f.enrollment.Token, "", body, content); status != 200 {
+		t.Fatalf("bundle status=%d", status)
+	}
+	runOne(t, f, "analysis.workout")
+	runOne(t, f, "analysis.training_state")
+	if _, err = f.s.Pool.Exec(ctx, `UPDATE datasets SET synthetic_test=true WHERE id=$1`, f.p.DatasetID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.s.PrepareModelStack(ctx, f.p.DatasetID); err != nil {
+		t.Fatal(err)
+	}
+	l, err := worker.Claim(ctx, []string{modelmanifest.StackJobKind})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status, err := worker.ProcessModelStack(ctx, l, time.Now()); status != "SUCCEEDED" || err != nil {
+		t.Fatal("model worker", status, err)
+	}
+	m := modelmanifest.Current()
+	hash, _ := modelmanifest.CurrentHash()
+	report := strings.Repeat("c", 64)
+	gate := am.PromotionGate{Model: m.VO2Max.ModelID, Version: m.VO2Max.Version, ManifestSHA: hash, ConfigSHA: hash, FeatureSchema: m.Features.Schema, SourcePolicy: m.VO2Max.SourcePolicy, InputRegistry: m.InputRegistry,
+		MappingVersion: am.MappingVersion2, ConsumerSchema: am.Schema2, DatasetID: f.p.DatasetID, SyntheticDataset: true, EngineeringReport: report, DeviceDataReport: report,
+		ApplicabilityReport: report, UXPrivacyReport: report, RollbackReport: report, Authorization: report, Reviewer: "synthetic", ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339)}
+	if _, err = f.s.PromoteModelStack(ctx, f.p.DatasetID, "synthetic-ui", modelmanifest.StackID(), gate, hash); err != nil {
+		t.Fatal(err)
+	}
+	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rollback" || r.Method != http.MethodPost {
+			w.WriteHeader(404)
+			return
+		}
+		if _, err := f.s.RollbackModelStack(r.Context(), f.p.DatasetID, "synthetic-ui", hash); err != nil {
+			t.Error("synthetic rollback failed")
+			w.WriteHeader(500)
+			return
+		}
+		w.WriteHeader(204)
+	}))
+	defer control.Close()
+	dir := t.TempDir()
+	if diagnostics := os.Getenv("RAI_UA1_R_DIAGNOSTICS_DIR"); diagnostics != "" {
+		dir, err = os.MkdirTemp(diagnostics, "private-model-e2e-")
+		if err != nil {
+			t.Fatal("create private Simulator configuration directory", err)
+		}
+		defer os.RemoveAll(dir)
+	}
+	config := filepath.Join(dir, "model-config.json")
+	appJSON, _ := json.Marshal(map[string]any{"configuration": map[string]string{"baseURL": server.URL, "collectorEpoch": f.enrollment.CollectorEpoch}, "token": f.enrollment.Token})
+	if err := os.WriteFile(config, appJSON, 0600); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(filepath.Dir(source), "rai-model-e2e-"+syncing.NewID()+".xctestrun")
+	defer os.Remove(file)
+	prepare := exec.Command("python3", "-c", `import os,plistlib,sys
+p=plistlib.load(open(sys.argv[1],'rb'))
+def visit(v):
+ if isinstance(v,dict):
+  if v.get('BlueprintName')=='RAIUITests':
+   v.setdefault('EnvironmentVariables',{}).update({'RAI_MODEL_E2E_CONFIG':sys.argv[3],'RAI_MODEL_E2E_CONTROL':sys.argv[4]})
+  for x in v.values(): visit(x)
+ elif isinstance(v,list):
+  for x in v: visit(x)
+visit(p)
+plistlib.dump(p,open(sys.argv[2],'wb'));os.chmod(sys.argv[2],0o600)`, source, file, config, control.URL)
+	if err := prepare.Run(); err != nil {
+		t.Fatal("prepare model Simulator config", err)
+	}
+	runCtx, stop := context.WithTimeout(ctx, 5*time.Minute)
+	defer stop()
+	resultPath := filepath.Join(dir, "result.xcresult")
+	cmd := exec.CommandContext(runCtx, "xcodebuild", "test-without-building", "-xctestrun", file, "-destination", "platform=iOS Simulator,id="+sim, "-parallel-testing-enabled", "NO",
+		"-only-testing:RAIUITests/ModelStackLiveUITests/testActiveModelProductAndRollback", "-resultBundlePath", resultPath)
+	out, err := cmd.CombinedOutput()
+	if diagnostics := os.Getenv("RAI_UA1_R_DIAGNOSTICS_DIR"); diagnostics != "" {
+		_ = os.WriteFile(filepath.Join(diagnostics, "model-e2e-xcode-output.log"), out, 0600)
+		summary, summaryErr := exec.Command("xcrun", "xcresulttool", "get", "test-results", "summary", "--path", resultPath).Output()
+		if summaryErr == nil {
+			_ = os.WriteFile(filepath.Join(diagnostics, "model-e2e-summary.json"), summary, 0600)
+		}
+	}
+	if err != nil {
+		t.Fatal("schema2 App/HTTP/PG Simulator failed", err)
+	}
+	t.Log("MODEL_STACK_SIMULATOR_HTTP_PG=PASS active_home=true workout_detail=true history=true rollback=true")
 }

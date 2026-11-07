@@ -65,9 +65,28 @@ func Generate(in Context) (Base, error) {
 	}
 	p := in.Parameters
 	fitness, fatigue, readiness := (*float64)(nil), (*float64)(nil), (*float64)(nil)
+	var v2Readiness, acute, chronic *float64
+	v2 := in.ObservedModelBinding != nil && in.ObservedModelBinding.Adapter == "schema2-v2"
 	for _, s := range in.Signals {
+		if s.Value == nil || !Finite(*s.Value) {
+			continue
+		}
+		if v2 {
+			if s.Quality != "complete" || s.Version != "v2" {
+				continue
+			}
+			switch {
+			case s.Name == "readiness" && s.Algorithm == "rai.readiness.training":
+				v2Readiness = s.Value
+			case s.Name == "acute" && s.Algorithm == "rai.load_state.exp_finite":
+				acute = s.Value
+			case s.Name == "chronic" && s.Algorithm == "rai.load_state.exp_finite":
+				chronic = s.Value
+			}
+			continue
+		}
 		supported := s.Version == "v1" || (s.Algorithm == "fitness_fatigue" && s.Version == "v2")
-		if !supported || s.Value == nil || (s.Quality != "available" && s.Quality != "partial") || !Finite(*s.Value) {
+		if !supported || (s.Quality != "available" && s.Quality != "partial") {
 			continue
 		}
 		switch s.Name {
@@ -86,10 +105,11 @@ func Generate(in Context) (Base, error) {
 		}
 	}
 	low := (readiness != nil && *readiness < p.LowReadiness) || (fitness != nil && fatigue != nil && *fitness > 0 && *fatigue > *fitness*1.5)
-	if low {
+	advisory := v2 && ((v2Readiness != nil && *v2Readiness < p.LowReadiness) || (acute != nil && chronic != nil && *chronic > 0 && *acute > *chronic*1.5))
+	if low || advisory {
 		out.Recommendations = append(out.Recommendations, "load_only_advisory")
 	}
-	if readiness == nil {
+	if readiness == nil && v2Readiness == nil {
 		out.Recommendations = append(out.Recommendations, "readiness_unavailable")
 	}
 	goalDay, _ := time.ParseInLocation("2006-01-02", in.Config.Goal.Date, loc)

@@ -123,6 +123,9 @@ public actor OutboxStore {
     private var activeBundleAttempts: Set<String> = []
     var activeCompletenessManifest: String?
     var vo2OrphansReconciled = false
+    /// Observable no-op guard for state writes that a producer may repeat.
+    var commitSkippedNoop = 0
+    public func noopCommitSkipCount() -> Int { commitSkippedNoop }
     /// Segment ids this process is still appending to. A file with a live writer
     /// is never an orphan, so GC can prove "no in-flight writer" (§6.3).
     var activeCaptureSegments: Set<String> = []
@@ -332,6 +335,23 @@ public actor OutboxStore {
             $0.attemptCount = nil; $0.nextAttemptAt = nil; $0.lastUploadError = nil; $0.errorCode = nil; $0.pendingReadKeys = []
         }
     }
+    /// Drops a prepared bundle whose own observation block cannot be read. It
+    /// was never a legal upload authority: keeping it would either upload
+    /// coverage that disagrees with the bytes or wedge recovery forever. The
+    /// caller rebuilds from discovery facts under a new immutable identity.
+    public func discardUnreadableBundle(_ id: String) throws {
+        var next = state
+        var tasks = next.tasks ?? [:]
+        guard var task = tasks[id], task.uploadReceipt == nil, task.bundleFile != nil else {
+            throw SyncFailure.localState("bundle_not_prepared")
+        }
+        releaseBundleFile(&task, in: &next)
+        task.captureManifest = nil; task.pendingReadKeys = nil; task.bundleDeletionEventIDs = nil
+        task.phase = .preparing; task.errorCode = nil; task.lastUploadError = nil
+        task.attemptCount = nil; task.nextAttemptAt = nil; task.stagedAll = false
+        tasks[id] = task; next.tasks = tasks
+        try commit(next)
+    }
     public func releaseBundle(_ id: String) throws {
         var next = state
         var tasks = next.tasks ?? [:]
@@ -445,6 +465,14 @@ public actor OutboxStore {
             next.discovery?.work[id] = work
         }
         for key in acknowledged.coverage.keys { acknowledged.coverage[key]?.serverCommitted = true }
+        // The receipt is the durable proof now. The manifest, deletion ids and
+        // an empty pending-read list are capture-time scaffolding; keeping the
+        // manifest's coveredEventIDs alone retained a large per-Workout array
+        // after every ACK. Non-empty pending reads stay so the next pass knows
+        // exactly which types are still owed.
+        acknowledged.captureManifest = nil
+        acknowledged.bundleDeletionEventIDs = nil
+        if (acknowledged.pendingReadKeys ?? []).isEmpty { acknowledged.pendingReadKeys = nil }
         next.tasks?[id] = acknowledged; next.lastACK = Date()
         try commit(next)
     }
@@ -515,7 +543,7 @@ public actor OutboxStore {
         var tasks = next.tasks ?? [:]
         guard var task = tasks[id] else { throw SyncFailure.localState("unknown_workout_task") }
         mutate(&task); task.updatedAt = Date()
-        task.missing = task.coverage.filter { !$0.value.isAvailable }.map(\.key).sorted()
+        task.missing = task.coverage.filter { $0.value.needsRetry }.map(\.key).sorted()
         tasks[id] = task
         next.tasks = tasks; try commit(next)
     }

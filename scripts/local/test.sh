@@ -85,7 +85,7 @@ case "$rai_profile" in
       export RAI_UA1_R_XCTESTRUN="$RAI_UA1_R_DERIVED/Build/Products/ua1-r.xctestrun"
       export RAI_UA1_R_DIAGNOSTICS_DIR="$(mktemp -d "$rai_local/testing/e2e.XXXXXX")"
       "$rai_root/scripts/test-postgres.sh" go test -race -count=1 -tags=integration,ua1rsim -timeout=20m \
-        -run '^TestWorkoutCompletenessSimulatorHTTPPostgres$' -v ./integration
+        -run '^(TestWorkoutCompletenessSimulatorHTTPPostgres|TestModelStackSimulatorHTTPPostgres)$' -v ./integration
     fi
     ;;
   unit)
@@ -199,12 +199,12 @@ case "$rai_profile" in
       go vet -tags=integration ./...
       go build ./...
       rai_require_sqlc
-      "$rai_sqlc" generate
-      git -C "$rai_root" diff --exit-code -- apps/server/internal/storage/postgres/dbgen
-      pg_tests
+      "$rai_sqlc" diff --no-remote
+      pg_tests -v ./...
     fi
     go vet ./...
     python3 "$rai_root/scripts/check-boundaries.py"
+    python3 "$rai_root/scripts/check-product-boundaries.py"
     python3 "$rai_root/scripts/local/test_device.py"
     ;;
   *) usage >&2; exit 2 ;;

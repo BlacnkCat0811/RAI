@@ -1,0 +1,42 @@
+-- statement: sample-identity
+Hash Left Join  (cost=122.35..8323.35 rows=1000 width=222) (actual time=4.330..5.704 rows=1000.00 loops=1)
+  Hash Cond: ((k.sample_type = w.sample_type) AND ((k.sample_uuid)::uuid = w.sample_uuid))
+  Buffers: shared hit=487
+  ->  Hash Left Join  (cost=63.26..78.76 rows=1000 width=204) (actual time=2.610..3.380 rows=1000.00 loops=1)
+        Hash Cond: ((k.sample_type = h.sample_type) AND ((k.sample_uuid)::uuid = h.sample_uuid))
+        Buffers: shared hit=296
+        ->  Function Scan on k  (cost=0.01..10.01 rows=1000 width=64) (actual time=0.144..0.227 rows=1000.00 loops=1)
+        ->  Hash  (cost=62.94..62.94 rows=21 width=172) (actual time=2.457..2.457 rows=5000.00 loops=1)
+              Buckets: 8192 (originally 1024)  Batches: 1 (originally 1)  Memory Usage: 968kB
+              Buffers: shared hit=296
+              ->  Bitmap Heap Scan on health_samples h  (cost=4.45..62.94 rows=21 width=172) (actual time=0.301..1.137 rows=5000.00 loops=1)
+                    Recheck Cond: (dataset_id = '5a303073-a93f-40bb-8dce-999528b73263'::uuid)
+                    Heap Blocks: exact=152
+                    Buffers: shared hit=296
+                    ->  Bitmap Index Scan on health_samples_analysis_identity  (cost=0.00..4.44 rows=21 width=0) (actual time=0.278..0.278 rows=5000.00 loops=1)
+                          Index Cond: (dataset_id = '5a303073-a93f-40bb-8dce-999528b73263'::uuid)
+                          Index Searches: 1
+                          Buffers: shared hit=144
+  ->  Hash  (cost=58.77..58.77 rows=21 width=64) (actual time=1.701..1.702 rows=5000.00 loops=1)
+        Buckets: 8192 (originally 1024)  Batches: 1 (originally 1)  Memory Usage: 543kB
+        Buffers: shared hit=189
+        ->  Bitmap Heap Scan on workout_samples w  (cost=4.45..58.77 rows=21 width=64) (actual time=0.209..0.793 rows=5000.00 loops=1)
+              Recheck Cond: (dataset_id = '5a303073-a93f-40bb-8dce-999528b73263'::uuid)
+              Heap Blocks: exact=107
+              Buffers: shared hit=189
+              ->  Bitmap Index Scan on workout_samples_pkey  (cost=0.00..4.44 rows=21 width=0) (actual time=0.194..0.195 rows=5000.00 loops=1)
+                    Index Cond: (dataset_id = '5a303073-a93f-40bb-8dce-999528b73263'::uuid)
+                    Index Searches: 1
+                    Buffers: shared hit=82
+  SubPlan 2
+    ->  Bitmap Heap Scan on entity_tombstones t  (cost=4.16..9.50 rows=2 width=48) (actual time=0.005..0.005 rows=0.00 loops=1)
+          Recheck Cond: (dataset_id = '5a303073-a93f-40bb-8dce-999528b73263'::uuid)
+          Buffers: shared hit=2
+          ->  Bitmap Index Scan on entity_tombstones_pkey  (cost=0.00..4.16 rows=2 width=0) (actual time=0.001..0.001 rows=0.00 loops=1)
+                Index Cond: (dataset_id = '5a303073-a93f-40bb-8dce-999528b73263'::uuid)
+                Index Searches: 1
+                Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=14
+Planning Time: 0.272 ms
+Execution Time: 5.783 ms

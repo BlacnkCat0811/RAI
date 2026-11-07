@@ -46,6 +46,7 @@ public struct ProductWorkout: Identifiable, Hashable, Sendable {
 }
 public struct ProductSnapshot: Sendable {
   public var plan: JSON = .null, state: JSON = .null, overview: JSON = .null, history: JSON = .null
+  public var athlete: AthleteModelSnapshot?
   public var workouts: [ProductWorkout] = []
   public var next = ""
   public var failures: [String: String] = [:]
@@ -81,11 +82,13 @@ public actor ProductAPI {
     for (key, path) in [
       ("plan", "/v2/training/plans/current"), ("state", "/v2/analysis/state"),
       ("overview", "/v2/product/overview"), ("workouts", "/v2/workouts"),
-      ("history", "/v2/analysis/history"),
+      ("history", "/v2/analysis/history"), ("athlete", "/v2/analysis/athlete"),
     ] {
       do {
         let value = try await get(path)
         switch key {
+        case "athlete":
+          out.athlete = try? JSONDecoder().decode(AthleteModelSnapshot.self, from: value.data())
         case "plan": out.plan = value
         case "state": out.state = value
         case "overview": out.overview = value
@@ -103,10 +106,21 @@ public actor ProductAPI {
   public func get(_ path: String, query: [String: String] = [:]) async throws -> JSON {
     try await request("GET", path, query: query)
   }
+  public func athleteHistory(metric: String, cursor: String? = nil) async throws -> AthleteHistoryPage {
+    var query = ["metric": metric, "limit": "30", "view": "revised"]
+    if let cursor { query["cursor"] = cursor }
+    let raw = try await get("/v2/analysis/athlete/history", query: query)
+    return try JSONDecoder().decode(AthleteHistoryPage.self, from: raw.data())
+  }
   public func send(_ command: ProductCommand) async throws -> JSON {
     let result = try await request("POST", command.path, body: command.body.data())
     try command.validate(result)
     return result
+  }
+  /// Sends a typed model input. Unlike training commands, the response is an
+  /// append-only input receipt; callers render the server reason on failure.
+  public func sendModelInput(path: String, body: JSON) async throws -> JSON {
+    try await request("POST", path, body: body.data())
   }
   private func request(
     _ method: String, _ path: String, body: Data? = nil, query: [String: String] = [:]
@@ -185,6 +199,7 @@ public actor ProductJournal {
   struct State: Codable {
     var binding = ""
     var command: ProductCommand?
+    var modelInput: ProductCommand?
     var executions: [String] = []
   }
   private let file: URL
@@ -234,6 +249,29 @@ public actor ProductJournal {
   public func discardRejected() throws {
     var next = state
     next.command = nil
+    try persist(next)
+  }
+  public func pendingModelInput() -> ProductCommand? { state.modelInput }
+  public func stageModelInput(_ command: ProductCommand) throws -> ProductCommand {
+    if let existing = state.modelInput {
+      let current = existing.body.fields.filter { $0.key != "id" }
+      let proposed = command.body.fields.filter { $0.key != "id" }
+      guard existing.path == command.path, current == proposed else {
+        throw SyncFailure.localState("resolve_pending_command_first")
+      }
+      return existing
+    }
+    var next = state
+    next.modelInput = command
+    try persist(next)
+    return command
+  }
+  public func finishModelInput(_ command: ProductCommand) throws {
+    guard state.modelInput == command else {
+      throw SyncFailure.localState("command_identity_mismatch")
+    }
+    var next = state
+    next.modelInput = nil
     try persist(next)
   }
   public func executionIDs() -> [String] { state.executions }

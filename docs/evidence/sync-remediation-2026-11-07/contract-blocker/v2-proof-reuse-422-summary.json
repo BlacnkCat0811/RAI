@@ -1,0 +1,49 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "x86_64",
+        "deviceId" : "90D0F6B2-E036-4AFD-9AE1-046703F475B1",
+        "deviceName" : "RAI Local Tests",
+        "modelName" : "iPhone 12 Pro Max",
+        "osBuildNumber" : "23F77",
+        "osVersion" : "26.5",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 1,
+      "passedTests" : 0,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "RAI · Built with macOS 26.7.2",
+  "expectedFailures" : 0,
+  "failedTests" : 1,
+  "finishTime" : 1794055336.684,
+  "passedTests" : 0,
+  "result" : "Failed",
+  "skippedTests" : 0,
+  "startTime" : 1794055300.537,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "failed: caught error: \"UploadError(code: \"invalid_completeness\", status: 422, retryAfter: nil, field: nil, reason: nil)\"",
+      "targetName" : "RAITests",
+      "testIdentifier" : 1,
+      "testIdentifierString" : "WorkoutCompletenessNativeTests/testR3SimulatorHTTPPostgres()",
+      "testIdentifierURL" : "test://com.apple.xcode/RAI/RAITests/WorkoutCompletenessNativeTests/testR3SimulatorHTTPPostgres",
+      "testName" : "testR3SimulatorHTTPPostgres()"
+    }
+  ],
+  "title" : "Test - RAI",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 1
+}

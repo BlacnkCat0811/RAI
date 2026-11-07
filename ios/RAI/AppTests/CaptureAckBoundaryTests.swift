@@ -264,10 +264,11 @@ final class CaptureAckBoundaryTests: XCTestCase {
         XCTAssertEqual(lateStatus, "pending")
         XCTAssertGreaterThan(work.generation, work.deliveredGeneration,
                              "the delivered watermark covered an undelivered fact")
-        let manifest = try XCTUnwrap(task?.captureManifest)
-        XCTAssertEqual(manifest.coveredFacts, 2)
-        XCTAssertEqual(manifest.coveredEventIDs.count, 2,
+        // P0-4: the large capture manifest is scaffolding, not a receipt. Its
+        // facts are recorded as metrics before ACK and the manifest is released.
+        XCTAssertEqual(task?.metrics["capture_manifest_facts"], 2,
                        "the manifest must list the exact facts the bundle carried")
+        XCTAssertNil(task?.captureManifest)
 
         // The next pass must actually deliver it rather than skip as unchanged.
         let resumed = BarrierHealth(workout: workout,
@@ -313,8 +314,9 @@ final class CaptureAckBoundaryTests: XCTestCase {
         XCTAssertNotEqual(deletionStatus, "delivered",
                           "ACK confirmed a deletion the bundle never carried")
         XCTAssertEqual(deletionStatus, "pending")
-        XCTAssertEqual(task?.captureManifest?.deletionEventIDs.count, 0,
+        XCTAssertEqual(task?.metrics["capture_manifest_deletions"], 0,
                        "the manifest must only list deletions the bundle really encoded")
+        XCTAssertNil(task?.captureManifest)
         let deletionSnapshotWork = await store.discoverySnapshot().work[id]
         let work = try XCTUnwrap(deletionSnapshotWork)
         XCTAssertGreaterThan(work.generation, work.deliveredGeneration)

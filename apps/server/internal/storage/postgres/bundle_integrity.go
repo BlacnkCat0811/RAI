@@ -247,7 +247,7 @@ func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout
 	if len(needed) == 0 {
 		return nil
 	}
-	rows, err = tx.Query(ctx, `SELECT payload->'observation'->'provenance' FROM workout_imports
+	rows, err = tx.Query(ctx, `SELECT payload->'observation'->'provenance', payload FROM workout_imports
         WHERE dataset_id=$1 AND workout_uuid=$2 AND payload ? 'observation'
         ORDER BY (payload->'observation'->>'observedAtUs')::bigint DESC,bundle_sha256 DESC`, dataset, workout)
 	if err != nil {
@@ -258,28 +258,80 @@ func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout
 		value := source.Classification(parent)
 		return value == "apple_watch" || value == "associated_apple_watch"
 	}
+	type v4Stream struct {
+		Type   string   `json:"type"`
+		UUIDs  []string `json:"uuids"`
+		Source int      `json:"source"`
+		Src    []int    `json:"src"`
+	}
+	type v4Route struct {
+		RouteID string `json:"routeID"`
+		Source  int    `json:"source"`
+	}
+	type v4Payload struct {
+		ProtocolVersion int                       `json:"protocolVersion"`
+		Sources         []syncing.HealthKitSource `json:"sources"`
+		Streams         []v4Stream                `json:"streams"`
+		Routes          []v4Route                 `json:"routes"`
+	}
 	for rows.Next() {
-		var raw []byte
-		if err = rows.Scan(&raw); err != nil {
+		var provenanceRaw, payloadRaw []byte
+		if err = rows.Scan(&provenanceRaw, &payloadRaw); err != nil {
 			return err
 		}
 		var provenance syncing.BundleProvenance
-		if json.Unmarshal(raw, &provenance) != nil {
+		if json.Unmarshal(provenanceRaw, &provenance) != nil {
 			return analysis.Invalid()
 		}
 		if provenance.Workout.Classification(nil) != "apple_watch" {
 			continue
 		}
-		for _, sample := range provenance.Samples {
-			key := "sample:" + sample.SampleType + ":" + sample.SampleUUID
-			if source, ok := needed[key]; ok && source == sample.Source.BundleID && eligible(sample.Source, &provenance.Workout) {
-				delete(needed, key)
-			}
+		var v4 v4Payload
+		if json.Unmarshal(payloadRaw, &v4) != nil {
+			return analysis.Invalid()
 		}
-		for _, route := range provenance.Routes {
-			key := "route:" + route.RouteID
-			if source, ok := needed[key]; ok && source == route.Source.BundleID && eligible(route.Source, &provenance.Workout) {
-				delete(needed, key)
+		if v4.ProtocolVersion == 4 {
+			// v4 keeps provenance once per stream/sample index rather than
+			// repeating a source object for every fact. Reconstruct the same
+			// facts here without changing the stored payload.
+			for _, stream := range v4.Streams {
+				for index, uuid := range stream.UUIDs {
+					sourceIndex := stream.Source
+					if index < len(stream.Src) {
+						sourceIndex = stream.Src[index]
+					}
+					if sourceIndex < 0 || sourceIndex >= len(v4.Sources) {
+						continue
+					}
+					source := v4.Sources[sourceIndex]
+					key := "sample:" + stream.Type + ":" + uuid
+					if expected, ok := needed[key]; ok && expected == source.BundleID && eligible(source, &provenance.Workout) {
+						delete(needed, key)
+					}
+				}
+			}
+			for _, route := range v4.Routes {
+				if route.Source < 0 || route.Source >= len(v4.Sources) {
+					continue
+				}
+				source := v4.Sources[route.Source]
+				key := "route:" + route.RouteID
+				if expected, ok := needed[key]; ok && expected == source.BundleID && eligible(source, &provenance.Workout) {
+					delete(needed, key)
+				}
+			}
+		} else {
+			for _, sample := range provenance.Samples {
+				key := "sample:" + sample.SampleType + ":" + sample.SampleUUID
+				if source, ok := needed[key]; ok && source == sample.Source.BundleID && eligible(sample.Source, &provenance.Workout) {
+					delete(needed, key)
+				}
+			}
+			for _, route := range provenance.Routes {
+				key := "route:" + route.RouteID
+				if source, ok := needed[key]; ok && source == route.Source.BundleID && eligible(route.Source, &provenance.Workout) {
+					delete(needed, key)
+				}
 			}
 		}
 		if len(needed) == 0 {

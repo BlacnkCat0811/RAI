@@ -357,3 +357,52 @@ func TestFieldEditsAndAnchorPurity(t *testing.T) {
 	}
 	t.Fatal("fixture has no interval")
 }
+
+func TestGeneratorConsumesV2ReadinessSignal(t *testing.T) {
+	in := syntheticContext()
+	in.Config.BaselineWeeklyM = Ptr(30000)
+	in.Config.PreviousLongM = Ptr(12000)
+	asOf, _ := time.Parse("2006-01-02", in.AsOf)
+	for j := 0; j < 8; j++ {
+		in.Workouts = append(in.Workouts, Workout{ID: StableID(in.PlanID, j), RunID: StableID(in.PlanID, j+1000), Generation: 1, Date: asOf.AddDate(0, 0, -j).Format("2006-01-02"), DurationS: Ptr(1800), DistanceM: Ptr(6000), Load: Ptr(45.0)})
+	}
+	base, e := Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	in.ObservedModelBinding = &ModelBinding{Adapter: "schema2-v2"}
+	in.Signals = []Signal{{Name: "readiness", Algorithm: "rai.readiness.training", Version: "v2", Quality: "complete", Value: Ptr(40)}}
+	low, e := Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if containsString(base.Recommendations, "readiness_unavailable") == false {
+		t.Fatal("base fixture did not exercise missing readiness")
+	}
+	if containsString(low.Recommendations, "readiness_unavailable") {
+		t.Fatal("v2 readiness signal was ignored")
+	}
+	if !containsString(low.Recommendations, "load_only_advisory") {
+		t.Fatal("v2 advice missing")
+	}
+	for i, s := range low.Sessions {
+		if s.Type != base.Sessions[i].Type || containsString(s.Reasons, "readiness_adjustment") {
+			t.Fatal("v2 readiness changed the schedule")
+		}
+	}
+	in.Signals[0].Quality = "partial"
+	missing, e := Generate(in)
+	if e != nil || !containsString(missing.Recommendations, "readiness_unavailable") {
+		t.Fatal("partial v2 readiness was consumed", e)
+	}
+
+}
+
+func containsString(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
+			return true
+		}
+	}
+	return false
+}

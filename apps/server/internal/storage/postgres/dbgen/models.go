@@ -30,6 +30,18 @@ type AnalysisArtifact struct {
 	Payload       []byte
 }
 
+type AnalysisAssignmentAudit struct {
+	DatasetID      string
+	Revision       int64
+	Action         string
+	FromStack      pgtype.Text
+	ToStack        string
+	ManifestSha256 []byte
+	GateSummary    []byte
+	Actor          string
+	CreatedAt      pgtype.Timestamptz
+}
+
 type AnalysisLoadLedger struct {
 	DatasetID            string
 	RunID                string
@@ -81,6 +93,15 @@ type AnalysisPublication struct {
 	PublishedAt    pgtype.Timestamptz
 }
 
+type AnalysisPublishedArtifact struct {
+	DatasetID     string
+	RunID         string
+	ArtifactKey   string
+	SchemaVersion string
+	ContentSha256 []byte
+	Payload       []byte
+}
+
 type AnalysisResult struct {
 	DatasetID        string
 	RunID            string
@@ -129,6 +150,8 @@ type AthleteModelInput struct {
 	Payload          []byte
 	Provenance       string
 	CreatedAt        pgtype.Timestamptz
+	RevokesID        *string
+	InputSchema      pgtype.Text
 }
 
 type ChangeEvent struct {
@@ -169,13 +192,14 @@ type DailyHealthCoverage struct {
 }
 
 type Dataset struct {
-	ID        string
-	Epoch     string
-	ServiceID string
-	Timezone  string
-	CommitRev int64
-	CreatedAt pgtype.Timestamptz
-	RetiredAt pgtype.Timestamptz
+	ID            string
+	Epoch         string
+	ServiceID     string
+	Timezone      string
+	CommitRev     int64
+	CreatedAt     pgtype.Timestamptz
+	RetiredAt     pgtype.Timestamptz
+	SyntheticTest bool
 }
 
 type Device struct {
@@ -259,6 +283,34 @@ type JobAttempt struct {
 	StartedAt    pgtype.Timestamptz
 	FinishedAt   pgtype.Timestamptz
 	ResultCode   pgtype.Text
+}
+
+type ModelBackfillOperation struct {
+	DatasetID       string
+	ID              string
+	Operation       string
+	View            string
+	StackID         string
+	ManifestSha256  []byte
+	FromDate        pgtype.Date
+	ThroughDate     pgtype.Date
+	AsOf            pgtype.Timestamptz
+	Status          string
+	TotalBlocks     int32
+	CompletedBlocks int32
+	Checkpoint      []byte
+	Actor           string
+	ErrorCode       pgtype.Text
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}
+
+type ModelInputReceipt struct {
+	DatasetID     string
+	InputID       string
+	ContentSha256 []byte
+	Receipt       []byte
+	CreatedAt     pgtype.Timestamptz
 }
 
 type RouteChunk struct {

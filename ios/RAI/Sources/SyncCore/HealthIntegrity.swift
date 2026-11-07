@@ -50,7 +50,16 @@ public enum HealthSourcePolicy {
             return bundle.hasPrefix("com.apple.") ? "source_unknown" : "third_party"
         }
         let product = descriptor(source["productType"])
-        if let product, product.range(of: #"^Watch[0-9]+,[0-9]+$"#, options: .regularExpression) == nil { return "source_unknown" }
+        let parentMatches = associatedWorkout.map { parent in
+            classification(parent) == "apple_watch" && parent["bundleID"] == source["bundleID"]
+                && descriptor(source["version"]) != nil && descriptor(source["version"]) == descriptor(parent["version"])
+        } ?? false
+        if let product, product.range(of: #"^Watch[0-9]+,[0-9]+$"#, options: .regularExpression) == nil {
+            // A paired iPhone can carry the child samples of a Watch workout.
+            // The parent association and the device-scoped bundle identity are
+            // stronger evidence than the productType label on the child.
+            return parentMatches ? "associated_apple_watch" : "source_unknown"
+        }
         let manufacturer = descriptor(source["device"]["manufacturer"]), model = descriptor(source["device"]["model"])
         if let manufacturer, !["Apple", "Apple Inc."].contains(manufacturer) { return "source_unknown" }
         if let model, !model.lowercased().contains("watch") { return "source_unknown" }

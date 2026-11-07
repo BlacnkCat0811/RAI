@@ -83,6 +83,8 @@ extension HealthIntegrityTests {
         #expect(HealthSourcePolicy.classification(.object(child)) == "source_unknown")
         #expect(HealthSourcePolicy.classification(.object(child), associatedWorkout: native) == "associated_apple_watch")
         child["productType"] = .string("iPhone13,4")
-        #expect(HealthSourcePolicy.classification(.object(child), associatedWorkout: native) == "source_unknown")
+        #expect(HealthSourcePolicy.classification(.object(child), associatedWorkout: native) == "associated_apple_watch")
+        var unrelated = child; unrelated["version"] = .string("2")
+        #expect(HealthSourcePolicy.classification(.object(unrelated), associatedWorkout: native) == "source_unknown")
     }
 }

@@ -77,6 +77,24 @@ import Testing
         #expect(await store.discoverySnapshot().work[parent]?.pendingDelete == false)
         await #expect(throws: (any Error).self) { try await store.associateDiscoveredFacts(workoutID: Wire.id(), keys: [event.factKey]) }
     }
+    @Test func repeatedAssociationWithoutNewFactsDoesNotCommit() async throws {
+        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try OutboxStore(directory: dir), parent = Wire.id(), key = "HKQuantityTypeIdentifierHeartRate:" + Wire.id()
+        try await store.associateDiscoveredFacts(workoutID: parent, keys: [key])
+        #expect(await store.discoverySnapshot().parents[key] == parent)
+        #expect(await store.noopCommitSkipCount() == 0)
+        let before = await store.snapshot()
+        try await store.associateDiscoveredFacts(workoutID: parent, keys: [key])
+        let after = await store.snapshot()
+        #expect(await store.noopCommitSkipCount() == 1)
+        #expect(before.discovery?.parents[key] == after.discovery?.parents[key])
+        #expect(before.discovery?.events == after.discovery?.events)
+        // A conflict still fails rather than being reported as a no-op.
+        await #expect(throws: (any Error).self) {
+            try await store.associateDiscoveredFacts(workoutID: Wire.id(), keys: [key])
+        }
+    }
+
     @Test func invalidAnchorAndContractStayQuarantined() async throws {
         let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
         let store = try OutboxStore(directory: dir), query = DiscoveryQuery(type: "sample")

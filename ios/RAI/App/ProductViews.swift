@@ -25,16 +25,16 @@ struct ProductTabs: View {
       NavigationStack { ProfileView(model: model, sync: sync) }.tabItem {
         Label("我的", systemImage: "person.crop.circle")
       }.tag(4)
-    }.tint(RAITheme.orange).preferredColorScheme(.dark)
+    }.tint(RAITheme.orange)
       .task { await model.refresh() }
       .onChange(of: sync.activeSessionID) { _, _ in model = ProductModel(); Task { await model.refresh() } }
       .onChange(of: phase) { _, value in if value == .active { Task { await model.refresh() } } }
       .task(id: phase) {
         guard phase == .active else { return }
         while !Task.isCancelled {
-          try? await Task.sleep(for: .seconds(20))
+          try? await Task.sleep(for: .seconds(8))
           guard !Task.isCancelled else { return }
-          await model.refresh()
+          await model.refreshAthleteAssignment()
         }
       }
   }
@@ -65,8 +65,13 @@ struct HomeView: View {
         Button {
           tab = 3
         } label: {
-          BodyStatusCard(data: model.data)
-        }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("home.status")
+          if let athlete = model.data.athlete, athlete.supportsPresentation {
+            AthleteModelCard(snapshot: athlete, summary: true)
+          } else {
+            BodyStatusCard(data: model.data)
+          }
+        }.buttonStyle(RAIPressStyle())
+          .accessibilityIdentifier(model.data.athlete?.supportsPresentation == true ? "model.home.active" : "home.status")
         WeeklyCard(overview: model.data.overview)
         VStack(alignment: .leading, spacing: 14) {
           HStack {
@@ -401,10 +406,24 @@ struct ActivitiesView: View {
 }
 struct AnalysisView: View {
   @Bindable var model: ProductModel
+  @State private var showingModelInput = false
   var body: some View {
     ScrollView {
       VStack(spacing: 16) {
         BodyStatusCard(data: model.data)
+        if let athlete = model.data.athlete, athlete.supportsPresentation {
+          AthleteModelCard(snapshot: athlete)
+          NavigationLink("运动模型历史") { AthleteHistoryView(model: model) }.accessibilityIdentifier("model.history.link")
+        }
+        Button {
+          showingModelInput = true
+        } label: {
+          Label("填写个人参考与目标", systemImage: "square.and.pencil")
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(RAIPressStyle())
+        .disabled(!model.configured)
+        .accessibilityHint("填写静息心率、最大心率或睡眠目标；保存为服务器上的追加式个人输入")
         ForEach(["daily_load", "fitness", "fatigue", "recovery", "readiness"], id: \.self) { name in
           NavigationLink {
             MetricDetail(model: model, name: name)
@@ -415,11 +434,109 @@ struct AnalysisView: View {
             }.padding(20).raiGlass()
           }.buttonStyle(RAIPressStyle())
         }
-        Text("恢复与准备度是仅基于训练负荷的训练状态估算。仅使用近期已发布训练负荷，未纳入睡眠、心率变异性或静息心率趋势。历史缺失保持空白。").font(.footnote)
+        Text("模型结果来自已发布的分析快照；缺失、过期或同步未完成保持空白，不补零。RAI VO₂ 为实验性次最大强度估计，Apple 外部估计独立展示，二者不相加或互相校准。").font(.footnote)
           .foregroundStyle(RAITheme.secondary)
       }.padding(18)
     }.navigationTitle("分析").raiScreen().refreshable { await model.refresh() }
       .accessibilityIdentifier("screen.analysis")
+      .sheet(isPresented: $showingModelInput) { ModelInputSheet(model: model) }
+  }
+}
+
+private struct ModelInputSheet: View {
+  @Bindable var model: ProductModel
+  @Environment(\.dismiss) private var dismiss
+  @State private var kind = "hr_reference"
+  @State private var maxHR = ""
+  @State private var restingHR = ""
+  @State private var sleepHours = "8"
+  @State private var effectiveDate = Date()
+  @State private var busy = false
+  @State private var message: String?
+
+  var body: some View {
+    NavigationStack {
+      Form {
+        Section("输入类型") {
+          Picker("类型", selection: $kind) {
+            Text("心率参考").tag("hr_reference")
+            Text("睡眠目标").tag("sleep_target")
+          }.pickerStyle(.segmented)
+        }
+        Section("生效日期") { DatePicker("日期", selection: $effectiveDate, displayedComponents: .date) }
+        if kind == "hr_reference" {
+          Section("心率参考（bpm）") {
+            TextField("最大心率", text: $maxHR)
+            TextField("静息心率（可选）", text: $restingHR)
+            Text("只接受 30–219 bpm；最大心率必须高于静息心率。不会按年龄推断。")
+              .font(.caption).foregroundStyle(RAITheme.secondary)
+          }
+        } else {
+          Section("睡眠目标（小时）") {
+            TextField("目标睡眠时长", text: $sleepHours)
+            Text("必须在 0–24 小时之间；用于恢复模型的睡眠目标组件。")
+              .font(.caption).foregroundStyle(RAITheme.secondary)
+          }
+        }
+        if model.pendingModelInput != nil {
+          Button("重试待确认的提交") {
+            busy = true
+            Task {
+              if let failure = await model.retryModelInput() { message = failure } else { dismiss() }
+              busy = false
+            }
+          }.disabled(busy)
+        }
+        if let message { Text(message).foregroundStyle(.red).font(.footnote) }
+        Section {
+          Button(busy ? "保存中…" : "保存为个人输入") { submit() }
+            .disabled(busy || !valid)
+        }
+      }
+      .navigationTitle("个人参考与目标")
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } } }
+    }
+  }
+
+  private var valid: Bool {
+    if kind == "hr_reference" {
+      guard let max = Double(maxHR), max >= 30, max < 220 else { return false }
+      if !restingHR.isEmpty {
+        guard let rest = Double(restingHR), rest >= 30, rest < max else { return false }
+      }
+      return true
+    }
+    guard let hours = Double(sleepHours) else { return false }
+    return hours > 0 && hours <= 24
+  }
+
+  private func submit() {
+    busy = true
+    message = nil
+    Task {
+      let payload: [String: JSON]
+      if kind == "hr_reference" {
+        var fields: [String: JSON] = [
+          "maxHR": .number(Double(maxHR) ?? 0),
+          "method": .string("user_entered"),
+          "measuredAt": .string(ISO8601DateFormatter().string(from: effectiveDate)),
+          "unit": .string("bpm"),
+        ]
+        if let rest = Double(restingHR), rest > 0 {
+          fields["restingHR"] = .number(rest)
+          fields["restingMeasuredAt"] = .string(ISO8601DateFormatter().string(from: effectiveDate))
+        }
+        payload = fields
+      } else {
+        payload = ["hours": .number(Double(sleepHours) ?? 0)]
+      }
+      let failure = await model.submitModelInput(
+        kind: kind, payload: payload, effectiveFrom: effectiveDate)
+      await MainActor.run {
+        busy = false
+        if let failure { message = failure } else { dismiss() }
+      }
+    }
   }
 }
 func metricTitle(_ name: String) -> String {
@@ -451,6 +568,103 @@ struct TrendChart: View {
     }
   }
 }
+struct AthleteModelCard: View {
+  let snapshot: AthleteModelSnapshot
+  var summary = false
+  @Environment(\.dynamicTypeSize) private var typeSize
+  var body: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "运动能力模型", icon: "figure.run.circle")
+      row("训练准备度", value: snapshot.trainingReadiness.value?.score, unit: "分", metric: snapshot.trainingReadiness.envelope, digits: 0)
+      if snapshot.trainingReadiness.envelope.presentationValueAvailable,
+         let notice = ProductReasonText.lowReadinessNotice(score: snapshot.trainingReadiness.value?.score) {
+        Text(notice).font(.caption).foregroundStyle(RAITheme.secondary).accessibilityIdentifier("model.readiness.lowHint")
+      }
+      row("跑力", value: snapshot.runningAbility.value?.score, unit: "分", metric: snapshot.runningAbility.envelope, digits: 0)
+      if !summary {
+      row("生理恢复", value: snapshot.physiologicalRecovery.value?.score, unit: "分", metric: snapshot.physiologicalRecovery.envelope, digits: 0)
+      row("急性负荷", value: snapshot.trainingLoad.value?.acute, unit: "AU", metric: snapshot.trainingLoad.envelope, digits: 0)
+      if let rai = snapshot.raiVO2Max {
+        row(rai.value?.experimental == true ? "RAI VO₂（" + ProductReasonText.experimentalLabel + "）" : "RAI VO₂", value: rai.value?.value, unit: "mL/kg/min", metric: rai.envelope, digits: 1)
+      }
+      row("Apple 外部 VO₂", value: snapshot.externalVO2Max.value?.value, unit: "mL/kg/min", metric: snapshot.externalVO2Max.envelope, digits: 1)
+      Text(ProductReasonText.independenceNotice).font(.caption2).foregroundStyle(RAITheme.secondary)
+      }
+    }.padding(18).raiGlass()
+  }
+  @ViewBuilder private func row(_ title: String, value: Double?, unit: String, metric: MetricEnvelope, digits: Int) -> some View {
+    let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout())
+    layout {
+      Text(title).font(.subheadline)
+      if !typeSize.isAccessibilitySize { Spacer(minLength: 8) }
+      if metric.presentationValueAvailable, let value, value.isFinite {
+        Text(ProductFormat.decimal(value, digits: digits) + " " + unit).monospacedDigit()
+      } else {
+        Text(AthleteModelCard.reason(metric)).font(.caption).foregroundStyle(RAITheme.secondary)
+      }
+    }.accessibilityElement(children: .combine)
+  }
+  static func reason(_ metric: MetricEnvelope) -> String {
+    ProductReasonText.text(for: metric.productReasonCodes.first?.rawValue,
+                           state: metric.presentationState.rawValue)
+  }
+}
+
+struct AthleteHistoryView: View {
+  @Bindable var model: ProductModel
+  @State private var metric = "trainingLoad"
+  @State private var page: AthleteHistoryPage?
+  @State private var failed = false
+
+  var body: some View {
+    List {
+      Picker("指标", selection: $metric) {
+        Text("急性负荷").tag("trainingLoad")
+        Text("跑力").tag("runningAbility")
+        Text("生理恢复").tag("physiologicalRecovery")
+        Text("训练准备度").tag("trainingReadiness")
+        Text("RAI VO₂（实验）").tag("raiVO2Max")
+        Text("Apple 外部 VO₂").tag("externalVO2Max")
+      }
+      if let page, page.metric == metric, page.assignment == model.data.athlete?.assignment {
+        if page.points.isEmpty { Text("此时段没有已发布的历史结果") }
+        ForEach(page.points) { point in
+          LabeledContent(point.date, value: display(point)).accessibilityIdentifier("model.history.point")
+        }
+      } else if failed {
+        Text("历史暂不可用")
+      } else {
+        ProgressView("正在读取历史")
+      }
+    }
+    .navigationTitle("运动模型历史")
+    .task(id: metric + ":" + String(model.data.athlete?.assignment.version ?? 0)) {
+      failed = false
+      page = nil
+      let requested = metric
+      do {
+        let response = try await model.loadAthleteHistory(metric: requested)
+        if !Task.isCancelled, requested == metric, response.assignment == model.data.athlete?.assignment {
+          page = response
+        }
+      } catch {
+        if !Task.isCancelled { failed = true }
+      }
+    }
+  }
+
+  private func display(_ p: AthleteHistoryPoint) -> String {
+    guard ["available", "partial", "preliminary", "established"].contains(p.state),
+      let value = p.value, value.isFinite else { return "暂无数值" }
+    switch p.unit {
+    case "score_0_100": return ProductFormat.decimal(value) + " 分"
+    case "AU/day": return ProductFormat.decimal(value, digits: 1) + " AU/日"
+    case "mL/kg/min": return ProductFormat.decimal(value, digits: 1) + " mL/kg/min"
+    default: return "暂不支持此单位"
+    }
+  }
+}
+
 struct MetricDetail: View {
   @Bindable var model: ProductModel
   let name: String

@@ -24,6 +24,13 @@ type Store struct {
 }
 
 func Open(ctx context.Context, url string, maxConnections int32) (*Store, error) {
+	return OpenWithTracer(ctx, url, maxConnections, nil)
+}
+
+// OpenWithTracer is the same production pool contract with an optional pgx
+// query tracer. It exists for reproducible SQL-count evidence; callers cannot
+// use it to change durability, timeouts or pool sizing.
+func OpenWithTracer(ctx context.Context, url string, maxConnections int32, tracer pgx.QueryTracer) (*Store, error) {
 	c, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, errors.New("invalid database configuration")
@@ -44,6 +51,9 @@ func Open(ctx context.Context, url string, maxConnections int32) (*Store, error)
 	c.ConnConfig.RuntimeParams["statement_timeout"] = "2000"
 	c.ConnConfig.RuntimeParams["lock_timeout"] = "500"
 	c.ConnConfig.RuntimeParams["idle_in_transaction_session_timeout"] = "5000"
+	if tracer != nil {
+		c.ConnConfig.Tracer = tracer
+	}
 	p, err := pgxpool.NewWithConfig(ctx, c)
 	if err != nil {
 		return nil, err

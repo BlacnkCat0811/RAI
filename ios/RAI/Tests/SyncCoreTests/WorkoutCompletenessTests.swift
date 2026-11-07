@@ -197,6 +197,46 @@ private func syntheticProof(_ id: String) -> JSON {
         #expect(flow.proofs.keys.sorted() == [eligible])
         #expect(flow.anchors.count == 12)
     }
+    @Test func newCycleRequiresEveryChildStreamBeforeStage() async throws {
+        let (store, directory, date) = try await v2CompletenessStore(); defer { try? FileManager.default.removeItem(at: directory) }
+        let eligible = UUID().uuidString.lowercased()
+        try await store.captureCompletenessPage(completenessRoot, previousAnchor: nil, candidateAnchor: Data([1]),
+            additions: [eligible], deletions: [], hasMore: false, startedAt: date, completedAt: date, archive: Data("roots".utf8))
+        try await store.completenessClassify(eligible, classification: "apple_watch",
+            evidence: syntheticEvidence("com.apple.health", product: "Watch7,3"))
+        for type in WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType] {
+            try await store.captureCompletenessPage(WorkoutCompletenessQuery(type: type, workoutID: eligible), previousAnchor: nil,
+                candidateAnchor: Data([2]), additions: [], deletions: [], hasMore: false, startedAt: date, completedAt: date, archive: Data("child".utf8))
+        }
+        try await store.completenessProof(eligible, proof: syntheticProof(eligible))
+        try await store.stageWorkoutCompleteness(now: date.addingTimeInterval(1))
+        let firstFile = try #require(await store.snapshot().workoutCompleteness?.cycle?.pendingFile)
+        try await store.acknowledgeWorkoutCompleteness(try completenessACKv2(try Data(contentsOf: await store.fileURL(firstFile))))
+
+        // v2 requires every stream and series observation after the new cutoff,
+        // so a new cycle keeps only the classification and re-reads the proof.
+        let nextDate = date.addingTimeInterval(100)
+        let next = try await store.beginWorkoutCompleteness(now: nextDate, contract: WorkoutCompleteness.v2Contract)
+        #expect(next.cycle?.proofs.isEmpty == true && next.cycle?.captures.isEmpty == true)
+        #expect(next.cycle?.classification?[eligible] == "apple_watch")
+        let cursor = try await store.completenessCursor(completenessRoot)
+        try await store.captureCompletenessPage(completenessRoot, previousAnchor: cursor.anchor, candidateAnchor: Data([3]),
+            additions: [], deletions: [], hasMore: false, startedAt: nextDate, completedAt: nextDate, archive: Data("roots2".utf8))
+        do { try await store.stageWorkoutCompleteness(now: nextDate.addingTimeInterval(1)); Issue.record("Missing child streams staged") } catch {}
+        #expect(await store.snapshot().workoutCompleteness?.cycle?.pendingFile == nil)
+        for type in WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType] {
+            let query = WorkoutCompletenessQuery(type: type, workoutID: eligible)
+            let anchor = try await store.completenessCursor(query).anchor
+            try await store.captureCompletenessPage(query, previousAnchor: anchor, candidateAnchor: Data([4]),
+                additions: [], deletions: [], hasMore: false, startedAt: nextDate, completedAt: nextDate, archive: Data("child2".utf8))
+        }
+        try await store.completenessProof(eligible, proof: syntheticProof(eligible))
+        try await store.stageWorkoutCompleteness(now: nextDate.addingTimeInterval(1))
+        let raw = try Data(contentsOf: await store.fileURL(try #require(await store.snapshot().workoutCompleteness?.cycle?.pendingFile)))
+        #expect(try JSON.decode(raw)["streams"].list.count == 12)
+        try await store.acknowledgeWorkoutCompleteness(try completenessACKv2(raw))
+        #expect(await store.snapshot().workoutCompleteness?.anchors.count == 12)
+    }
     @Test func v2UnclassifiedInventoryBlocksAndBadReceiptIsRejected() async throws {
         let (store, directory, date) = try await v2CompletenessStore(); defer { try? FileManager.default.removeItem(at: directory) }
         let unknown = UUID().uuidString.lowercased()
@@ -246,5 +286,47 @@ private func syntheticProof(_ id: String) -> JSON {
         #expect(cycle.contract == WorkoutCompleteness.v2Contract)
         #expect(cycle.captures.isEmpty && cycle.proofs.isEmpty && cycle.inventory.isEmpty)
         #expect(upgraded.anchors.isEmpty && upgraded.generation == 0)
+    }
+    @Test func blockedWorkoutKeepsCompletedProofsAndExplicitRetryClearsBackoff() async throws {
+        let (store, directory, date) = try await completenessStore(); defer { try? FileManager.default.removeItem(at: directory) }
+        let good = UUID().uuidString.lowercased(), bad = UUID().uuidString.lowercased()
+        try await store.captureCompletenessPage(completenessRoot, previousAnchor: nil, candidateAnchor: Data([1]),
+            additions: [bad, good], deletions: [], hasMore: false, startedAt: date, completedAt: date, archive: Data("synthetic roots".utf8))
+        try await store.completenessProof(good, proof: syntheticProof(good))
+        try await store.blockWorkoutCompleteness(bad, code: "metadata_requires_review",
+            failedType: "HKQuantityTypeIdentifierHeartRate", now: date)
+        let blockedAt = try VO2Max.microseconds(date)
+        var flow = try #require(await store.snapshot().workoutCompleteness)
+        #expect(flow.blocked?[bad]?.attempt == 1)
+        #expect(flow.blocked?[bad]?.failedType == "HKQuantityTypeIdentifierHeartRate")
+        #expect(flow.blocked?[bad]?.nextAttemptAtUs ?? 0 > blockedAt)
+        #expect(flow.cycle?.proofs.keys.sorted() == [good])
+        #expect(flow.cycle?.completedWorkouts == [good])
+        #expect(flow.generation == 0 && flow.cycle?.pendingFile == nil)
+        let summary = try await store.recordWorkoutCompletenessBlockedSummary(now: date)
+        #expect(summary?["count"].integer == 1)
+        #expect(summary?["workouts"].list.first?["code"].text == "metadata_requires_review")
+        flow = try #require(await store.snapshot().workoutCompleteness)
+        #expect(flow.errorCode == "completeness_blocked" && flow.lastBlockedSummary?["count"].integer == 1)
+        // A blocked round never stages a manifest or receipt.
+        do { try await store.stageWorkoutCompleteness(now: date); Issue.record("Blocked round staged") } catch {}
+        #expect(await store.snapshot().workoutCompleteness?.cycle?.pendingFile == nil)
+        #expect(await store.snapshot().workoutCompleteness?.generation == 0)
+        // Explicit retry zeroes only the backoff; the completed proof survives.
+        let cleared = try await store.retryWorkoutCompletenessBlocked()
+        #expect(cleared == 1)
+        flow = try #require(await store.snapshot().workoutCompleteness)
+        #expect(flow.blocked?[bad]?.nextAttemptAtUs == 0)
+        #expect(flow.cycle?.proofs.keys.sorted() == [good])
+        try await store.blockWorkoutCompleteness(bad, code: "completeness_stream_pending", now: date.addingTimeInterval(2))
+        flow = try #require(await store.snapshot().workoutCompleteness)
+        #expect(flow.blocked?[bad]?.attempt == 2)
+        #expect(flow.blocked?[bad]?.nextAttemptAtUs ?? 0 > blockedAt)
+        // Deleting the Workout removes the block without touching the proof.
+        try await store.completenessExcludeDeletedWorkout(bad)
+        flow = try #require(await store.snapshot().workoutCompleteness)
+        #expect(flow.blocked == nil && flow.lastBlockedSummary == nil)
+        #expect(flow.cycle?.proofs.keys.sorted() == [good])
+        #expect(flow.cycle?.inventory == [good])
     }
 }

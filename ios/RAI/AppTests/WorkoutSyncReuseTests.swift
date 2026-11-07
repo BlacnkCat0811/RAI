@@ -206,6 +206,33 @@ final class WorkoutSyncReuseTests: XCTestCase {
         XCTAssertGreaterThan(discoveryReads, 0)
     }
 
+
+    /// A task that still names a type in `pendingReadKeys` must re-read that
+    /// type even when the old discovery stream looks exhausted. The discovery
+    /// stream can be empty after a rejected normalization; treating that empty
+    /// stream as a complete snapshot would silently keep the Workout partial.
+    func testPendingReadForcesFreshReadDespiteExhaustedDiscovery() async throws {
+        let dir = directory("pending"), only = entry()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try OutboxStore(directory: dir)
+        let health = ReuseHealth([only])
+        let coordinator = coordinator(store, health)
+        let id = only.workout.uuid.uuidString.lowercased()
+        try await coordinator.discoverChanges()
+
+        let type = HKObjectType.quantityType(forIdentifier: .heartRate)!
+        try await store.beginTask(id)
+        try await store.updateTask(id) { $0.pendingReadKeys = [type.identifier] }
+        let uploader = ReuseUploader()
+        try await coordinator.syncWorkout(id: id, secret: try secret(), transfers: uploader, forceNewBundle: true)
+
+        let reads = await health.bundleSampleReads
+        XCTAssertTrue(reads.contains(type.identifier), "a pending type was answered from an empty discovery stream")
+        let task = try await store.task(id)
+        XCTAssertEqual(task?.pendingReadKeys ?? [], [])
+        XCTAssertNotNil(task?.uploadReceipt)
+    }
+
     /// A new discovery generation re-opens the ordinary path, so the skip can
     /// never hide late samples (F18).
     func testNewDiscoveryGenerationReopensTheSync() async throws {
@@ -280,5 +307,49 @@ final class WorkoutSyncReuseTests: XCTestCase {
         let delivered = try await store.task(id)
         XCTAssertEqual(delivered?.bundleSHA256, hashBefore, "the retry replaced the prepared bundle")
         XCTAssertNotNil(delivered?.uploadReceipt)
+    }
+
+    /// P0-1: the durable bundle is multipart. Reading its coverage through the
+    /// exact framing is the only accepted source; a wrong boundary, a
+    /// truncated body or bare JSON must return nil instead of silently
+    /// reusing a stale task projection.
+    func testCoverageIsReadFromMultipartFramingOrNotAtAll() throws {
+        let dir = directory("coverage")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let coverage: [String: WorkoutCoverage] = [
+            "HKQuantityTypeIdentifierHeartRate": WorkoutCoverage.result(count: 3),
+            "HKQuantityTypeIdentifierRunningPower": WorkoutCoverage(state: .unsupported),
+            "route": WorkoutCoverage(state: .failed, errorCode: "route_read_failed"),
+        ]
+        let observation: JSON = .object(["version": .int(1), "observedAtUs": .int(1_793_059_200_000_000),
+            "coverage": .object(coverage.mapValues(\.wire))])
+        let bundle = try WorkoutBundleAssembler.data(scope: ReuseReplies.identity, workoutID: "workout",
+            workout: .object([:]), samples: [], series: [], routes: [],
+            completeSampleTypes: [], completeRoutes: false, observation: observation)
+        let boundary = "rai.boundary.test"
+        let body = WorkoutBundleAssembler.multipart(bundle: bundle, boundary: boundary)
+        let url = dir.appendingPathComponent("bundle.multipart.json")
+        try body.write(to: url)
+
+        let parsed = try XCTUnwrap(SyncCoordinator.coverageFromBundle(url, boundary: boundary))
+        XCTAssertEqual(parsed["HKQuantityTypeIdentifierHeartRate"]?.state, .complete)
+        XCTAssertEqual(parsed["HKQuantityTypeIdentifierHeartRate"]?.sampleCount, 3)
+        XCTAssertEqual(parsed["HKQuantityTypeIdentifierRunningPower"]?.state, .unsupported)
+        XCTAssertEqual(parsed["HKQuantityTypeIdentifierRunningPower"]?.needsRetry, false)
+        XCTAssertEqual(parsed["route"]?.state, .failed)
+        XCTAssertEqual(parsed["route"]?.errorCode, "route_read_failed")
+
+        XCTAssertNil(SyncCoordinator.coverageFromBundle(url, boundary: "rai.boundary.wrong"),
+                     "a wrong boundary was silently accepted")
+        let truncated = dir.appendingPathComponent("truncated.multipart.json")
+        try body.dropLast(8).write(to: truncated)
+        XCTAssertNil(SyncCoordinator.coverageFromBundle(truncated, boundary: boundary),
+                     "a truncated multipart body was silently accepted")
+        let bare = dir.appendingPathComponent("bare.json")
+        try bundle.write(to: bare)
+        XCTAssertNil(SyncCoordinator.coverageFromBundle(bare, boundary: boundary),
+                     "bare JSON bypassed the multipart authority")
     }
 }

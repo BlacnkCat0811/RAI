@@ -32,6 +32,8 @@ const (
 	MaxArtifactBytes       = 131072
 )
 
+func ScopeFor(stack string) string { return "model/" + stack + "/athlete/external_vo2/v1" }
+
 var ErrLimit = errors.New("analysis_input_limit")
 var ErrInvalid = errors.New("analysis_invalid_input")
 var ErrHistorical = errors.New("historical_snapshot_unavailable")

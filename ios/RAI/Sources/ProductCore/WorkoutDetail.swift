@@ -6,12 +6,22 @@ import SyncCore
 // "not computed yet" from a measured zero.
 public struct WorkoutDetailResponse: Codable, Sendable {
   public let workout: WorkoutFacts
+  public let analysis: WorkoutFeatureAnalysis?
   public let environment: WorkoutEnvironment?
   public let summary: WorkoutSummary
   public let trainingLoad: WorkoutLoad?
   public let zoneSummary: WorkoutZoneSummary?
   public let route: WorkoutRoute
   public let override: WorkoutOverride?
+}
+
+public struct WorkoutFeatureAnalysis: Codable, Sendable {
+  public let schemaVersion: String
+  public let activeSeconds: Double?
+  public let heartRateCoverage: Double
+  public let speedCoverage: Double
+  public let routeCoverage: Double
+  public let reasonCodes: [String]
 }
 
 public struct WorkoutFacts: Codable, Sendable {

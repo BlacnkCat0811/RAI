@@ -1,0 +1,16 @@
+-- statement: dirty-scope-upsert
+Insert on dirty_scopes  (cost=0.00..0.01 rows=1 width=80) (actual time=0.038..0.039 rows=1.00 loops=1)
+  Conflict Resolution: UPDATE
+  Conflict Arbiter Indexes: dirty_scopes_pkey
+  Tuples Inserted: 0
+  Conflicting Tuples: 1
+  Buffers: shared hit=5
+  WAL: records=2 bytes=125
+  ->  Result  (cost=0.00..0.01 rows=1 width=80) (actual time=0.001..0.001 rows=1.00 loops=1)
+Planning Time: 0.016 ms
+Trigger analysis_workout_dependency: time=0.069 calls=1
+Trigger feature_dependency: time=0.073 calls=1
+Trigger load_dependency: time=0.021 calls=1
+Trigger readiness_load_revision: time=0.011 calls=1
+Trigger vo2_external_observation: time=0.008 calls=1
+Execution Time: 0.233 ms

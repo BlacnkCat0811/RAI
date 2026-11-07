@@ -36,14 +36,22 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
   public var lineageSummary: MetricLineageSummary
   public var technicalError: ProductCode?
   public var supportsPresentation: Bool {
-    let versions = ["trainingLoad": "rai.training_load.hrr_integral/v1", "runningAbility": "rai.running_ability/v1",
-      "externalVO2Max": "rai.vo2max.external_projection/v1", "physiologicalRecovery": "rai.recovery.physiological/v1",
-      "trainingReadiness": "rai.readiness.training/v1"]
-    return versions[metric] == modelVersion && state.isKnown && mappingVersion == "rai.product_metric_mapping/1"
-      && ["fresh", "aging", "stale", "expired", "unknown"].contains(freshness.rawValue)
+    let versions = ["trainingLoad": ["rai.training_load.hrr_integral/v1", "rai.training_load.hrr_integral/v2"],
+      "runningAbility": ["rai.running_ability/v1", "rai.running_ability/v2"],
+      "externalVO2Max": ["rai.vo2max.external_projection/v1"],
+      "physiologicalRecovery": ["rai.recovery.physiological/v1", "rai.recovery.physiological/v2"],
+      "trainingReadiness": ["rai.readiness.training/v1", "rai.readiness.training/v2"],
+      "raiVO2Max": ["rai.vo2max.submax/v1"]]
+    return versions[metric]?.contains(modelVersion) == true && state.isKnown
+      && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2"].contains(mappingVersion)
+      && ["fresh", "current", "aging", "stale", "expired", "unknown"].contains(freshness.rawValue)
+  }
+  public var presentationValueAvailable: Bool {
+    supportsPresentation && ["available", "limited"].contains(state.rawValue)
+      && !["stale", "expired"].contains(freshness.rawValue) && technicalError == nil
   }
   public var presentationState: ProductMetricState {
-    if modelVersion.isEmpty && state.isKnown && mappingVersion == "rai.product_metric_mapping/1" { return state }
+    if modelVersion.isEmpty && state.isKnown && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2"].contains(mappingVersion) { return state }
     return supportsPresentation ? state : ProductMetricState(rawValue: "limited")
   }
   public var stateLocalizationKey: String { "athlete_model.state." + presentationState.rawValue }
@@ -107,6 +115,18 @@ public struct RunningAbilityValue: Codable, Equatable, Sendable {
   public var stability: ProductCode
   public var evidenceMode: ProductCode, evidenceCount: Int, speedUnit: ProductUnit, scoreUnit: ProductUnit
 }
+public struct RAIVO2Value: Codable, Equatable, Sendable {
+  public var value: Double?
+  public var unit: ProductUnit
+  public var experimental: Bool
+  public var evidenceMode: ProductCode
+  public var stability: ProductCode
+  public var independentWorkoutCount: Int
+  public var sensitivityLow: Double?
+  public var sensitivityHigh: Double?
+  public var sensitivityRelativeWidth: Double?
+  public var source: ProductCode
+}
 public struct ExternalVO2Value: Codable, Equatable, Sendable {
   public var value: Double?
   public var unit: ProductUnit
@@ -127,6 +147,7 @@ public struct ReadinessValue: Codable, Equatable, Sendable {
 public typealias TrainingLoadMetric = AthleteMetric<TrainingLoadValue>
 public typealias RunningAbilityMetric = AthleteMetric<RunningAbilityValue>
 public typealias ExternalVO2Metric = AthleteMetric<ExternalVO2Value>
+public typealias RAIVO2Metric = AthleteMetric<RAIVO2Value>
 public typealias RecoveryMetric = AthleteMetric<RecoveryValue>
 public typealias ReadinessMetric = AthleteMetric<ReadinessValue>
 public struct AthleteProductAssignment: Codable, Equatable, Sendable { public var channel: ProductCode, stackID: String, version: Int64 }
@@ -136,6 +157,21 @@ public struct AthleteModelSnapshot: Codable, Equatable, Sendable {
   public var presentationOrder: [ProductCode], notices: [ProductCode]
   public var trainingLoad: TrainingLoadMetric, runningAbility: RunningAbilityMetric, externalVO2Max: ExternalVO2Metric
   public var physiologicalRecovery: RecoveryMetric, trainingReadiness: ReadinessMetric
-  public var supportsPresentation: Bool { schemaVersion == "rai.athlete_model/1" }
+  public var raiVO2Max: RAIVO2Metric?
+  public var supportsPresentation: Bool { ["rai.athlete_model/1", "rai.athlete_model/2"].contains(schemaVersion) }
 }
 public struct AthleteModelCandidateSnapshot: Codable, Equatable, Sendable { public var candidateOnly: Bool; public var snapshot: AthleteModelSnapshot }
+
+
+public struct AthleteHistoryPoint: Codable, Equatable, Sendable, Identifiable {
+  public var date: String, metric: String, state: String, unit: String, modelVersion: String, payloadVersion: String
+  public var value: Double?
+  public var reasonCodes: [String]
+  public var id: String { date }
+}
+public struct AthleteHistoryPage: Codable, Equatable, Sendable {
+  public var metric: String, view: String
+  public var points: [AthleteHistoryPoint]
+  public var nextCursor: String?
+  public var assignment: AthleteProductAssignment
+}

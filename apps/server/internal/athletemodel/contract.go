@@ -104,7 +104,11 @@ type Envelope struct {
 	Confidence         *float64            `json:"confidence"`
 	EvidenceSupport    string              `json:"evidenceSupport"`
 	AsOf               *int64              `json:"asOf"`
+	EvidenceAt         *int64              `json:"evidenceAt,omitempty"`
 	EvaluationAt       int64               `json:"evaluationAt"`
+	ComputedAt         *int64              `json:"computedAt,omitempty"`
+	PublishedAt        *int64              `json:"publishedAt,omitempty"`
+	ValidationStatus   string              `json:"validationStatus,omitempty"`
 	Freshness          string              `json:"freshness"`
 	UpdatedAt          *int64              `json:"updatedAt"`
 	ReasonCodes        []string            `json:"reasonCodes"`
@@ -205,6 +209,7 @@ type AthleteModelSnapshot struct {
 	ExternalVO2Max        Metric[ExternalVO2Value]    `json:"externalVO2Max"`
 	PhysiologicalRecovery Metric[RecoveryValue]       `json:"physiologicalRecovery"`
 	TrainingReadiness     Metric[ReadinessValue]      `json:"trainingReadiness"`
+	RAIVO2Max             *Metric[RAIVO2Value]        `json:"raiVO2Max,omitempty"`
 }
 
 // A distinct transport type prevents confusing an administrative preview with
@@ -259,4 +264,20 @@ func NewEnvelope(metric, model, payload, status, quality, freshness string, conf
 		}
 	}
 	return e
+}
+
+// StampPublication binds a projected metric envelope to the exact published
+// run/artifact observed by the product reader. It never changes the value or
+// freshness; callers set validation to "validated" only after schema, model,
+// generation and artifact checks succeed.
+func StampPublication[T any](m *Metric[T], publishedAt, computedAt int64, validation string) {
+	if publishedAt > 0 {
+		m.Envelope.PublishedAt = &publishedAt
+	}
+	if computedAt > 0 {
+		m.Envelope.ComputedAt = &computedAt
+	}
+	if validation != "" {
+		m.Envelope.ValidationStatus = validation
+	}
 }

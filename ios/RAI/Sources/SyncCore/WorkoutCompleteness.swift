@@ -71,6 +71,22 @@ public struct WorkoutCompletenessCycle: Codable, Sendable {
     public var classification: [String: String]?
     public var exclusions: [String: JSON]?
 }
+/// One Workout that cannot currently produce a proof. It never enters a
+/// manifest; the rest of the inventory keeps progressing. `nextAttemptAtUs`
+/// bounds automatic retries so a permanently bad object is not re-read on
+/// every foreground wake; an explicit user retry zeroes it.
+public struct WorkoutCompletenessBlocked: Codable, Sendable, Equatable {
+    public var code: String
+    public var failedType: String?
+    public var attempt: Int
+    public var nextAttemptAtUs: Int64
+    public var lastSeenAtUs: Int64
+    public init(code: String, failedType: String? = nil, attempt: Int = 1, nextAttemptAtUs: Int64, lastSeenAtUs: Int64) {
+        self.code = code; self.failedType = failedType; self.attempt = attempt
+        self.nextAttemptAtUs = nextAttemptAtUs; self.lastSeenAtUs = lastSeenAtUs
+    }
+    public func isDue(nowUs: Int64) -> Bool { nextAttemptAtUs <= nowUs }
+}
 public struct WorkoutCompletenessState: Codable, Sendable {
     public let windowFromUs: Int64
     public var generation: Int64 = 0
@@ -83,6 +99,17 @@ public struct WorkoutCompletenessState: Codable, Sendable {
     public var lastReceipt: JSON?
     public var lastQueryCounts: [String: Int]?
     public var errorCode: String?
+    /// Optional so a state written before per-Workout isolation still decodes.
+    public var blocked: [String: WorkoutCompletenessBlocked]?
+    /// Count, short Workout hashes and reason codes of the last blocked round.
+    /// Diagnostic only: it is never used to fabricate a manifest or receipt.
+    public var lastBlockedSummary: JSON?
+    /// Committed source-policy classification of the last visible inventory.
+    /// Persisted so an unchanged Workout does not need a per-Workout HealthKit
+    /// lookup to be re-classified on every completeness cycle.
+    public var classification: [String: String]?
+    /// Committed exclusion evidence for the same inventory.
+    public var exclusions: [String: JSON]?
 }
 public struct WorkoutCompletenessQuery: Sendable {
     public let type: String
@@ -117,8 +144,15 @@ extension OutboxStore {
         }
         var flow = state.workoutCompleteness ?? WorkoutCompletenessState(windowFromUs: us - 200 * 86_400_000_000)
         if flow.cycle == nil {
+            // A new cycle keeps the committed source classification so an
+            // excluded Workout is not looked up again. Proofs are re-read: v2
+            // requires every stream and series observation after this cutoff.
+            let visible = Set(flow.inventory)
             flow.cycle = WorkoutCompletenessCycle(manifestID: Wire.id(), generation: flow.generation + 1,
-                cutoffUs: us, inventory: flow.inventory, contract: contract)
+                cutoffUs: us, inventory: flow.inventory,
+                contract: contract,
+                classification: flow.classification?.filter { visible.contains($0.key) },
+                exclusions: flow.exclusions?.filter { visible.contains($0.key) })
             flow.errorCode = nil
             var next = state; next.workoutCompleteness = flow; try commit(next)
         } else if var cycle = flow.cycle, cycle.pendingFile == nil,
@@ -131,6 +165,7 @@ extension OutboxStore {
             cycle.classification = [:]; cycle.exclusions = [:]
             cycle.inventory = flow.inventory; cycle.deletedRoots = []
             cycle.committedAnchorQueries = 0; cycle.stagedCursorQueries = 0; cycle.bootstrapQueries = 0
+            flow.blocked = nil; flow.lastBlockedSummary = nil
             flow.cycle = cycle
             flow.errorCode = nil
             var next = state; next.workoutCompleteness = flow; try commit(next)
@@ -179,13 +214,42 @@ extension OutboxStore {
     public func completenessExcludeDeletedWorkout(_ id: String) throws {
         guard var flow = state.workoutCompleteness, var cycle = flow.cycle, cycle.pendingFile == nil else { throw SyncFailure.localState("completeness_state_conflict") }
         cycle.inventory.removeAll { $0 == id }; cycle.proofs.removeValue(forKey: id)
+        cycle.completedWorkouts.removeAll { $0 == id }
+        flow.blocked?.removeValue(forKey: id)
+        if flow.blocked?.isEmpty == true { flow.blocked = nil; flow.lastBlockedSummary = nil }
         flow.cycle = cycle; var next = state; next.workoutCompleteness = flow; try commit(next)
     }
     public func completenessProof(_ id: String, proof: JSON) throws {
         guard var flow = state.workoutCompleteness, var cycle = flow.cycle, cycle.pendingFile == nil,
               cycle.inventory.contains(id), proof["workoutID"].text == id else { throw SyncFailure.localState("completeness_state_conflict") }
         cycle.proofs[id] = proof; cycle.completedWorkouts = Array(Set(cycle.completedWorkouts + [id])).sorted()
+        flow.blocked?.removeValue(forKey: id)
+        if flow.blocked?.isEmpty == true { flow.blocked = nil; flow.lastBlockedSummary = nil }
         flow.cycle = cycle; var next = state; next.workoutCompleteness = flow; try commit(next)
+    }
+    /// Records a retryable per-Workout failure without touching other proofs.
+    /// The backoff is exponential and capped so a permanent bad object is not
+    /// re-read on every wake; an explicit retry zeroes it.
+    public func blockWorkoutCompleteness(_ id: String, code: String, failedType: String? = nil, now: Date = Date()) throws {
+        guard var flow = state.workoutCompleteness, let cycle = flow.cycle, cycle.pendingFile == nil,
+              cycle.inventory.contains(id) else { throw SyncFailure.localState("completeness_state_conflict") }
+        let nowUs = try VO2Max.microseconds(now)
+        let attempt = (flow.blocked?[id]?.attempt ?? 0) + 1
+        let delaySeconds = min(900, pow(2, Double(min(attempt - 1, 9))))
+        var blocked = flow.blocked ?? [:]
+        blocked[id] = WorkoutCompletenessBlocked(code: code, failedType: failedType, attempt: attempt,
+            nextAttemptAtUs: nowUs + Int64(delaySeconds * 1_000_000), lastSeenAtUs: nowUs)
+        flow.blocked = blocked; flow.errorCode = nil
+        var next = state; next.workoutCompleteness = flow; try commit(next)
+    }
+    /// The user's explicit retry clears only the backoff. Already completed
+    /// proofs stay untouched, and the next pass retries just the blocked ones.
+    @discardableResult public func retryWorkoutCompletenessBlocked() throws -> Int {
+        guard var flow = state.workoutCompleteness, var blocked = flow.blocked, !blocked.isEmpty else { return 0 }
+        for id in blocked.keys { blocked[id]?.nextAttemptAtUs = 0 }
+        flow.blocked = blocked; flow.errorCode = nil
+        var next = state; next.workoutCompleteness = flow; try commit(next)
+        return blocked.count
     }
     public func persistCompletenessSeries(_ data: Data) throws {
         guard var flow = state.workoutCompleteness, var cycle = flow.cycle, cycle.pendingFile == nil else { throw SyncFailure.localState("completeness_state_conflict") }
@@ -205,11 +269,43 @@ extension OutboxStore {
         if WorkoutSourcePolicy.outcome(classification) == WorkoutSourcePolicy.excluded {
             entries[id] = try WorkoutSourcePolicy.exclusion(workoutID: id, classification: classification, evidence: evidence)
             cycle.proofs.removeValue(forKey: id)
+            cycle.completedWorkouts.removeAll { $0 == id }
+            flow.blocked?.removeValue(forKey: id)
+            if flow.blocked?.isEmpty == true { flow.blocked = nil; flow.lastBlockedSummary = nil }
         } else {
             entries.removeValue(forKey: id)
         }
         cycle.classification = known; cycle.exclusions = entries
         flow.cycle = cycle; var next = state; next.workoutCompleteness = flow; try commit(next)
+    }
+    /// A round with at least one unresolved Workout cannot satisfy the v2
+    /// contract. It records a diagnosable summary and never stages a manifest
+    /// or a receipt; all completed proofs remain in the cycle.
+    @discardableResult public func recordWorkoutCompletenessBlockedSummary(now: Date = Date()) throws -> JSON? {
+        guard var flow = state.workoutCompleteness, let cycle = flow.cycle else { return nil }
+        let contract = cycle.contract ?? WorkoutCompleteness.contract
+        var relevant: [(id: String, record: WorkoutCompletenessBlocked)] = []
+        for (id, record) in flow.blocked ?? [:] where cycle.inventory.contains(id) {
+            if contract == WorkoutCompleteness.v2Contract,
+               WorkoutSourcePolicy.outcome(cycle.classification?[id] ?? "") == WorkoutSourcePolicy.excluded { continue }
+            relevant.append((id, record))
+        }
+        guard !relevant.isEmpty else { return nil }
+        relevant.sort { $0.id < $1.id }
+        let summary: JSON = .object([
+            "count": .int(Int64(relevant.count)),
+            "observedAtUs": .int(try VO2Max.microseconds(now)),
+            "workouts": .array(relevant.map { item in
+                var fields: [String: JSON] = ["workoutIDShort": .string(String(Wire.hash(Data(item.id.utf8)).prefix(12))),
+                    "code": .string(item.record.code), "attempt": .int(Int64(item.record.attempt)),
+                    "nextAttemptAtUs": .int(item.record.nextAttemptAtUs)]
+                if let failedType = item.record.failedType { fields["failedType"] = .string(failedType) }
+                return .object(fields)
+            }),
+        ])
+        flow.errorCode = "completeness_blocked"; flow.lastBlockedSummary = summary
+        var next = state; next.workoutCompleteness = flow; try commit(next)
+        return summary
     }
     public func stageWorkoutCompleteness(now: Date = Date()) throws {
         guard var flow = state.workoutCompleteness, var cycle = flow.cycle, let scope = state.scope else { throw SyncFailure.localState("completeness_cycle_missing") }
@@ -245,10 +341,21 @@ extension OutboxStore {
                 "eligibleSHA256": .string(WorkoutSourcePolicy.inventorySHA256(eligible)),
                 "excludedSHA256": .string(WorkoutSourcePolicy.inventorySHA256(excluded))])
         }
-        guard eligible.allSatisfy({ cycle.proofs[$0] != nil }) else { throw SyncFailure.localState("completeness_stream_pending") }
+        let missingProofs = eligible.filter { cycle.proofs[$0] == nil }
+        guard missingProofs.isEmpty else {
+            let blocked = missingProofs.contains { flow.blocked?[$0] != nil }
+            throw SyncFailure.localState(blocked ? "completeness_blocked" : "completeness_stream_pending")
+        }
         var streams: [JSON] = []
-        let queries = [WorkoutCompletenessQuery(type: WorkoutCompleteness.workoutType)] + eligible.flatMap { id in
-            (WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType]).map { WorkoutCompletenessQuery(type: $0, workoutID: id) }
+        // Every visible Workout must prove its streams in this cycle: v2
+        // validates page and series freshness against the cycle cutoff.
+        var queries = [WorkoutCompletenessQuery(type: WorkoutCompleteness.workoutType)]
+        for id in eligible {
+            let child = (WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType]).map {
+                WorkoutCompletenessQuery(type: $0, workoutID: id)
+            }
+            guard child.allSatisfy({ cycle.captures[$0.key] != nil }) else { throw SyncFailure.localState("completeness_stream_pending") }
+            queries += child
         }
         for query in queries.sorted(by: { $0.key < $1.key }) {
             guard let captures = cycle.captures[query.key], captures.last?.page["hasMore"] == .bool(false) else { throw SyncFailure.localState("completeness_stream_pending") }
@@ -319,15 +426,21 @@ extension OutboxStore {
             anchors[key] = WorkoutCompletenessAnchor(anchor: capture.candidateAnchor, sequence: sequence,
                 pageSHA256: Wire.hash(try capture.page.data()), queryFingerprint: fingerprint)
         }
-        flow.anchors = anchors
+        let visible = Set(cycle.inventory)
+        flow.anchors = anchors.filter { key, _ in
+            guard key.hasPrefix("workout:") else { return true }
+            let parts = key.split(separator: ":", maxSplits: 2)
+            return parts.count == 3 && visible.contains(String(parts[1]))
+        }
         // v2 keeps the whole visible inventory (eligible + excluded) so the next
         // cycle's page-chain inventory seeds from the same membership.
         flow.inventory = v2 ? cycle.inventory.sorted() : eligible
         flow.proofs = Dictionary(uniqueKeysWithValues: body["workouts"].list.map { ($0["workoutID"].text!, $0) })
+        flow.classification = cycle.classification; flow.exclusions = cycle.exclusions
         flow.generation = cycle.generation; flow.lastManifestSHA256 = hash; flow.lastReceipt = receipt
         flow.lastCutoffUs = cycle.cutoffUs
         flow.lastQueryCounts = ["committedAnchor": cycle.committedAnchorQueries, "stagedCursor": cycle.stagedCursorQueries, "bootstrap": cycle.bootstrapQueries]
-        flow.cycle = nil; flow.errorCode = nil
+        flow.cycle = nil; flow.errorCode = nil; flow.blocked = nil; flow.lastBlockedSummary = nil
         var next = state; next.workoutCompleteness = flow
         next.reclaimFiles = Array(Set((next.reclaimFiles ?? []) + [file] + cycle.captures.values.flatMap { $0.map(\.archiveFile) } + Array(cycle.seriesFiles.keys) + [transferCacheFile].compactMap { $0 })).sorted()
         try commit(next)

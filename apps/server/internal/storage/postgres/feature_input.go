@@ -50,15 +50,19 @@ func (s *Store) loadFeatureInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 	if !syncing.ValidID(id) || l.ScopeKey != wf.Scope(id) {
 		return analysis.Invalid()
 	}
-	n := wf.RawWorkoutSnapshot{DatasetID: l.DatasetID, WorkoutID: id, Generation: in.Generation, Revision: in.Revision, AsOf: asOf.UTC().UnixMicro(), Policy: wf.DefaultPolicy(), AlgorithmVersion: wf.Algorithm + "/" + wf.Version, Fact: wf.FactRef{Kind: "workout", ID: id, State: wf.Present}, Availability: map[string]wf.State{}}
-	in.FeatureInput = &n
 	var enabled bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM analysis_model_channels WHERE dataset_id=$1 AND channel='candidate' AND stack_id=$2 AND config_sha256=decode($3,'hex'))`, l.DatasetID, wf.StackID(), n.Policy.Hash()).Scan(&enabled); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM analysis_model_channels WHERE dataset_id=$1 AND channel='candidate' AND stack_id=$2 AND config_sha256=decode($3,'hex'))`, l.DatasetID, wf.StackID(), wf.DefaultPolicy().Hash()).Scan(&enabled); err != nil {
 		return err
 	}
 	if !enabled {
 		return &analysis.Failure{Code: "analysis_unsupported_algorithm"}
 	}
+	return loadWorkoutFeatureFacts(ctx, tx, l, in, asOf, id, true)
+}
+
+func loadWorkoutFeatureFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf time.Time, id string, legacyParameters bool) error {
+	n := wf.RawWorkoutSnapshot{DatasetID: l.DatasetID, WorkoutID: id, Generation: in.Generation, Revision: in.Revision, AsOf: asOf.UTC().UnixMicro(), Policy: wf.DefaultPolicy(), AlgorithmVersion: wf.Algorithm + "/" + wf.Version, Fact: wf.FactRef{Kind: "workout", ID: id, State: wf.Present}, Availability: map[string]wf.State{}}
+	in.FeatureInput = &n
 	var body []byte
 	var start, end time.Time
 	err := tx.QueryRow(ctx, `SELECT payload,event_start,event_end,duration_us,encode(content_sha256,'hex'),activity_type FROM workouts WHERE dataset_id=$1 AND workout_uuid=$2`, l.DatasetID, id).Scan(&body, &start, &end, &n.DurationUs, &n.Fact.Hash, &n.ActivityType)
@@ -470,45 +474,47 @@ func (s *Store) loadFeatureInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 		return err
 	}
 
-	rows, err = tx.Query(ctx, `SELECT id::text,encode(content_sha256,'hex'),effective_from,effective_through,supersedes_id::text,payload,provenance,created_at FROM athlete_model_inputs WHERE dataset_id=$1 AND kind='hr_reference' AND effective_from<=$2 AND (effective_through IS NULL OR effective_through>$2) AND created_at<=$3 ORDER BY effective_from,id LIMIT 257`, l.DatasetID, start, asOf)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		if len(n.Parameters) >= 256 {
-			rows.Close()
-			return &analysis.Failure{Code: "analysis_input_limit"}
-		}
-		var x wf.Parameter
-		var from, created time.Time
-		var through *time.Time
-		var supersedes *string
-		var b []byte
-		var provenance string
-		if err = rows.Scan(&x.ID, &x.Hash, &from, &through, &supersedes, &b, &provenance, &created); err != nil {
-			rows.Close()
+	if legacyParameters {
+		rows, err = tx.Query(ctx, `SELECT id::text,encode(content_sha256,'hex'),effective_from,effective_through,supersedes_id::text,payload,provenance,created_at FROM athlete_model_inputs WHERE dataset_id=$1 AND kind='hr_reference' AND schema_version='rai.hr_reference/1' AND effective_from<=$2 AND (effective_through IS NULL OR effective_through>$2) AND created_at<=$3 ORDER BY effective_from,id LIMIT 257`, l.DatasetID, start, asOf)
+		if err != nil {
 			return err
 		}
-		if json.Unmarshal(b, &x) != nil {
-			rows.Close()
-			return analysis.Invalid()
-		} // restore authoritative indexed lineage after payload decoding
-		x.EffectiveFrom = from.UnixMicro()
-		x.RecordedAt = created.UnixMicro()
-		x.Provenance = provenance
-		if through != nil {
-			v := through.UnixMicro()
-			x.EffectiveThrough = &v
+		for rows.Next() {
+			if len(n.Parameters) >= 256 {
+				rows.Close()
+				return &analysis.Failure{Code: "analysis_input_limit"}
+			}
+			var x wf.Parameter
+			var from, created time.Time
+			var through *time.Time
+			var supersedes *string
+			var b []byte
+			var provenance string
+			if err = rows.Scan(&x.ID, &x.Hash, &from, &through, &supersedes, &b, &provenance, &created); err != nil {
+				rows.Close()
+				return err
+			}
+			if json.Unmarshal(b, &x) != nil {
+				rows.Close()
+				return analysis.Invalid()
+			} // restore authoritative indexed lineage after payload decoding
+			x.EffectiveFrom = from.UnixMicro()
+			x.RecordedAt = created.UnixMicro()
+			x.Provenance = provenance
+			if through != nil {
+				v := through.UnixMicro()
+				x.EffectiveThrough = &v
+			}
+			if supersedes != nil {
+				x.Supersedes = *supersedes
+			}
+			n.Parameters = append(n.Parameters, x)
 		}
-		if supersedes != nil {
-			x.Supersedes = *supersedes
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return err
 		}
-		n.Parameters = append(n.Parameters, x)
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return err
 	}
 	for _, src := range allSources {
 		n.Provenance = append(n.Provenance, src)

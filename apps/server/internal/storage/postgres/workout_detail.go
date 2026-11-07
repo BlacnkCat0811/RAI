@@ -14,6 +14,7 @@ import (
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
 	"rai/server/internal/workoutdetail"
+	wf "rai/server/internal/workoutfeatures"
 )
 
 // Detail and series reads are deliberately one bounded snapshot: a page that
@@ -43,6 +44,7 @@ type workoutDetailData struct {
 	RouteCount  int
 	RouteSealed []time.Time
 
+	FeatureArtifact   *workoutdetail.FeatureAnalysis
 	Published         []analysis.Metric
 	AnalysisStatus    string
 	AnalysisJobID     string
@@ -308,6 +310,10 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		if t := time.UnixMicro(e.ObservedAtUs).UTC(); t.After(d.LastFactAt) {
 			d.LastFactAt = t
 		}
+	}
+
+	if err = loadFeatureAnalysis(ctx, tx, p, id, d); err != nil {
+		return nil, err
 	}
 
 	rows, err = tx.Query(ctx, `SELECT a.job_id::text,p.published_at,a.algorithm_name,a.algorithm_version,r.metric,r.algorithm_name,r.algorithm_version,r.value,r.unit,r.quality,r.details
@@ -628,6 +634,40 @@ func (d *workoutDetailData) average(kind string, stats []workoutdetail.Statistic
 	return nil
 }
 
+func loadFeatureAnalysis(ctx context.Context, tx pgx.Tx, p syncing.Principal, id string, d *workoutDetailData) error {
+	var publishedAt time.Time
+	var schema, hash, stack string
+	var generation int64
+	var payload []byte
+	err := tx.QueryRow(ctx, `SELECT p.published_at,a.schema_version,a.payload,encode(a.content_sha256,'hex'),m.stack_id,p.generation
+		FROM analysis_publications p
+			JOIN analysis_model_channels m ON m.dataset_id=p.dataset_id AND m.channel='active'
+		JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.status='SUCCEEDED' AND r.target_generation=p.generation
+		JOIN analysis_published_artifacts a ON a.dataset_id=p.dataset_id AND a.run_id=p.published_run_id AND a.artifact_key=$3
+		JOIN dirty_scopes x ON x.dataset_id=p.dataset_id AND x.scope_key=p.scope_key AND x.generation=p.generation AND x.clean_generation=p.generation
+		WHERE p.dataset_id=$1 AND p.scope_key='model/'||m.stack_id||'/workout/'||$2 AND p.metric_family IN ('workout_model','model_product_v2/workout_features')
+		ORDER BY p.published_at DESC LIMIT 1`, p.DatasetID, id, wf.ArtifactKey).Scan(&publishedAt, &schema, &payload, &hash, &stack, &generation)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var f wf.WorkoutFeatures
+	if err = json.Unmarshal(payload, &f); err != nil || f.Schema != schema || f.DatasetID != p.DatasetID || f.WorkoutID != id || (f.StackID != stack && f.StackID != wf.StackID()) || f.Generation != generation {
+		return syncing.Fail(500, "workout_feature_invalid")
+	}
+	if _, canonicalHash, err := f.MarshalArtifact(); err != nil || canonicalHash != hash {
+		return syncing.Fail(500, "workout_feature_invalid")
+	}
+	reasons := make([]string, 0, len(f.Reasons))
+	for _, r := range f.Reasons {
+		reasons = append(reasons, string(r))
+	}
+	d.FeatureArtifact = &workoutdetail.FeatureAnalysis{Schema: f.Schema, Algorithm: f.Algorithm, Version: f.Version, StackID: stack, PublishedAtUs: publishedAt.UnixMicro(), ActiveSeconds: f.Timing.Active, HeartRateCoverage: f.HeartRate.ObservedCoverage, SpeedCoverage: f.Speed.ObservedCoverage, RouteCoverage: f.Route.Coverage, Reasons: reasons}
+	return nil
+}
+
 func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	durationS := float64(d.DurationUs) / 1e6
 	elapsed := d.End.Sub(d.Start).Seconds()
@@ -644,6 +684,7 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 		MissingReasons:   d.missingReasons(),
 		ExplanationCodes: []string{"detail_series_sampled_600", "route_points_sampled_500", "quality_is_feature_coverage"},
 	}}
+	out.Analysis = d.FeatureArtifact
 	if durationS > 0 && distance != nil && *distance > 0 {
 		out.Workout.AveragePaceSPerKm = workoutdetail.Ptr(round1(durationS / (*distance / 1000)))
 	}

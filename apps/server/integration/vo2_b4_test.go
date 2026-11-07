@@ -289,7 +289,7 @@ func TestB4ProductHTTPAndGenericReadIsolation(t *testing.T) {
 		body, e := io.ReadAll(res.Body)
 		res.Body.Close()
 		if e != nil || (res.StatusCode != 200 && res.StatusCode != 404) {
-			t.Fatal("product read failed", res.StatusCode)
+			t.Fatalf("product read failed path=%s status=%d body=%s", path, res.StatusCode, body)
 		}
 		for _, key := range []string{ve.Model, ve.Metric, ve.Family, ve.ArtifactKey} {
 			if bytes.Contains(body, []byte(key)) {

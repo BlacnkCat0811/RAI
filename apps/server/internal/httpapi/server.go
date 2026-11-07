@@ -25,6 +25,10 @@ type API struct {
 	uploads  chan struct{}
 	uploadMu sync.Mutex
 	devices  map[uploadDevice]bool
+	// syncV4 enables the protocolVersion 4 compact bundle decoder and
+	// advertises it in the handshake. It is off by default so old clients keep
+	// receiving bundleProtocolVersion 3 until the rollout flag is set.
+	syncV4 bool
 }
 
 type uploadDevice struct{ datasetID, deviceID string }
@@ -34,8 +38,18 @@ type uploadDevice struct{ datasetID, deviceID string }
 // channel; performance entries must not raise it.
 const ProcessUploadSlots = 2
 
+// Options selects rollout-compatible server behavior. The zero value keeps
+// exactly the pre-v4 wire contract.
+type Options struct {
+	SyncV4 bool
+}
+
 func New(store syncing.Store, log *slog.Logger) http.Handler {
-	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool)}
+	return NewWithOptions(store, log, Options{})
+}
+
+func NewWithOptions(store syncing.Store, log *slog.Logger, options Options) http.Handler {
+	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool), syncV4: options.SyncV4}
 	m := http.NewServeMux()
 	live := func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) }
 	ready := func(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +76,8 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	m.Handle("POST /v2/sync/workout-bundles", a.auth(syncing.UploadLane, a.importWorkoutBundle))
 	m.Handle("GET /v2/sync/workout-bundles/{id}", a.auth(syncing.ReadLane, a.workoutBundle))
 	m.Handle("DELETE /v2/sync/workout-bundles/{id}", a.auth(syncing.UploadLane, a.deleteWorkoutBundle))
+	m.Handle("POST /v2/model-inputs/{kind}", a.auth(syncing.UploadLane, a.modelInput))
+	m.Handle("POST /v2/model-inputs/{id}/revocations", a.auth(syncing.UploadLane, a.modelInputRevocation))
 	m.Handle("GET /v2/analysis/workouts/{id}", a.auth(syncing.ReadLane, a.workoutAnalysis))
 	m.Handle("GET /v2/workouts", a.auth(syncing.ReadLane, a.product))
 	m.Handle("GET /v2/workouts/{id}", a.auth(syncing.ReadLane, a.product))
@@ -69,6 +85,8 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	m.Handle("GET /v2/workouts/{id}/series", a.auth(syncing.ReadLane, a.workoutSeries))
 	m.Handle("GET /v2/workouts/{id}/freshness", a.auth(syncing.ReadLane, a.workoutFreshness))
 	m.Handle("GET /v2/product/overview", a.auth(syncing.ReadLane, a.product))
+	m.Handle("GET /v2/analysis/athlete", a.auth(syncing.ReadLane, a.athleteProduct))
+	m.Handle("GET /v2/analysis/athlete/history", a.auth(syncing.ReadLane, a.athleteHistory))
 	m.Handle("GET /v2/analysis/history", a.auth(syncing.ReadLane, a.product))
 	m.Handle("GET /v2/analysis/state", a.auth(syncing.ReadLane, a.trainingState))
 	m.Handle("GET /v2/training/plans/current", a.auth(syncing.ReadLane, a.training))
@@ -308,9 +326,18 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 		types = append(types, k)
 	}
 	sort.Strings(types)
+	payloadVersion := 3
+	bundleCompact := false
+	// v4 is opt-in per client. A v3 client that does not send the negotiation
+	// header keeps receiving the exact v3 capability set even when the server
+	// feature flag is on.
+	if a.syncV4 && r.Header.Get("X-RAI-Sync-Protocol") == "4" {
+		payloadVersion = 4
+		bundleCompact = true
+	}
 	respond(w, 200, map[string]any{"protocolVersion": 3, "deviceID": m.DeviceID, "collectorEpoch": m.CollectorEpoch, "datasetStatus": m.DatasetStatus, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
 		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": ProcessUploadSlots, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
-		"capabilities": map[string]any{"workoutSyncCompletenessVersion": 1, "workoutSyncCompletenessV2Version": 2, "workoutStreamSetVersion": 1, "workoutSourcePolicyVersion": syncing.WorkoutSourcePolicyVersion, "vo2maxFactsVersion": 1, "vo2maxMetadataRegistryVersion": 1, "vo2maxMaxChanges": syncing.MaxVO2Changes, "vo2maxMaxBytes": syncing.MaxVO2Bytes, "dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 3, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": 3, "bundleObservationVersion": 1, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
+		"capabilities": map[string]any{"workoutSyncCompletenessVersion": 1, "workoutSyncCompletenessV2Version": 2, "workoutStreamSetVersion": 1, "workoutSourcePolicyVersion": syncing.WorkoutSourcePolicyVersion, "vo2maxFactsVersion": 1, "vo2maxMetadataRegistryVersion": 1, "vo2maxMaxChanges": syncing.MaxVO2Changes, "vo2maxMaxBytes": syncing.MaxVO2Bytes, "dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": payloadVersion, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": payloadVersion, "bundleObservationVersion": 1, "bundleCompact": bundleCompact, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
 	return nil
 }
 func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
@@ -344,7 +371,20 @@ func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p sync
 	var bundle syncing.WorkoutBundle
 	stage = "json_decode"
 	s := time.Now()
-	err = syncing.DecodeWorkoutBundleJSON(raw, &bundle)
+	var version struct {
+		ProtocolVersion int `json:"protocolVersion"`
+	}
+	if err := json.Unmarshal(raw, &version); err != nil {
+		return syncing.Fail(422, "unsupported_payload")
+	}
+	if version.ProtocolVersion == 4 {
+		if !a.syncV4 {
+			return syncing.Fail(422, "unsupported_protocol")
+		}
+		bundle, err = syncing.DecodeWorkoutBundleV4JSON(raw)
+	} else {
+		err = syncing.DecodeWorkoutBundleJSON(raw, &bundle)
+	}
 	decodeTime = time.Since(s)
 	if err != nil {
 		return err

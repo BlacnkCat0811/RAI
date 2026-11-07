@@ -30,6 +30,7 @@ actor SyncCoordinator {
     /// for a Workout's durable acknowledgement.
     private var analysisRefreshes: [String: Task<Void, Never>] = [:]
     private var supportsIntegrity = false
+    private var syncProtocolV4 = false
     private var dailyRunning = false
     private var supportsDaily = false
     private var vo2Running = false
@@ -404,19 +405,27 @@ actor SyncCoordinator {
 
     private func context(secret: ClientConfiguration.Secret, transfers: any FileUploader, metrics: SyncMetrics) async throws -> (RAIAPIClient, Scope) {
         let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, session: session, uploader: transfers, metrics: metrics)
-        let hello = try await api.call("GET", "/v2/handshake")
+        // v4 is requested explicitly. A server with the capability disabled
+        // ignores the header and keeps returning 3, which is a safe fallback.
+        let wantsV4 = secret.configuration.v4Enabled
+        let hello = try await api.call("GET", "/v2/handshake",
+                                       headers: wantsV4 ? ["X-RAI-Sync-Protocol": "4"] : [:])
         if let sessionStore, let sessionID {
             try await sessionStore.validateActiveHandshake(sessionID, handshake: hello)
         }
         let supported = Set(hello["capabilities"]["sampleTypes"].list.compactMap(\.text))
+        let bundleProtocol = hello["capabilities"]["bundleProtocolVersion"].integer
         guard hello["protocolVersion"].integer == 3, let service = hello["serviceID"].text,
               let dataset = hello["datasetID"].text, let epoch = hello["datasetEpoch"].text,
               hello["capabilities"]["workoutBundles"] == .bool(true),
-              hello["capabilities"]["bundleProtocolVersion"].integer == 3,
+              [3, 4].contains(bundleProtocol),
               !supported.isEmpty,
               HealthKitClient.quantityTypes.allSatisfy({ supported.contains($0.identifier) }) else {
             throw SyncFailure.invalid("unsupported_handshake")
         }
+        syncProtocolV4 = wantsV4 && bundleProtocol == 4
+            && hello["capabilities"]["bundleCompact"] == .bool(true)
+            && hello["capabilities"]["bundleObservationVersion"].integer == 1
         supportsIntegrity = hello["capabilities"]["bundleObservationVersion"].integer == 1 && hello["capabilities"]["explicitChildDeletions"] == .bool(true)
         supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
         vo2Capabilities = hello["capabilities"]
@@ -459,6 +468,9 @@ actor SyncCoordinator {
                 catch is CancellationError { throw CancellationError() }
                 catch { /* analysis failures do not invalidate a durable ACK */ }
                 try? await store.releaseBundle(task.workoutID)
+                if await store.task(task.workoutID)?.phase == .analyzing {
+                    scheduleAnalysisRefresh(id: task.workoutID, api: api)
+                }
             case .published, .partial, .deleted:
                 try? await store.releaseBundle(task.workoutID)
             case .failed where task.errorCode == "interrupted":
@@ -490,6 +502,12 @@ actor SyncCoordinator {
             // re-read HealthKit or re-upload an identical bundle.
             try await store.setTaskMetrics(id, metrics: ["workout_sync_skipped_unchanged": 1])
             Metrics.value("workout_sync_skipped_unchanged", 1)
+            // An old ACK can still be waiting for publication. Reuse the same
+            // bounded follow-up rather than leaving it to the next recovery.
+            if let task = await store.task(id), task.phase == .analyzing,
+               (task.analysisCheckedAt ?? .distantPast) < Date().addingTimeInterval(-AnalysisFollowup.staleRefreshInterval) {
+                scheduleAnalysisRefresh(id: id, api: api)
+            }
             return
         }
         try await store.beginTask(id, resetBundle: forceNewBundle)
@@ -533,8 +551,11 @@ actor SyncCoordinator {
     /// needs an unarchive, and that call is counted. Reused facts are ordered the
     /// way the complete read orders them (`startUs`, then uuid) so the bundle
     /// bytes stay stable.
-    private nonisolated func factsForBundle(id: String, type: HKQuantityType, workout: HKWorkout) async throws
+    private nonisolated func factsForBundle(id: String, type: HKQuantityType, workout: HKWorkout, forceFresh: Bool = false) async throws
         -> (facts: [NormalizedFact], reused: Bool) {
+        guard !forceFresh else {
+            return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
+        }
         guard let stored = await store.exhaustedDiscoveryFacts(workoutID: id, type: type.identifier) else {
             return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
         }
@@ -559,6 +580,14 @@ actor SyncCoordinator {
         facts.sort { lhs, rhs in
             let left = lhs.startUs ?? 0, right = rhs.startUs ?? 0
             return left == right ? lhs.uuid < rhs.uuid : left < right
+        }
+        // A discovery record written by an older build may decode to a fact
+        // without an event (the sample was captured but not describable at the
+        // time). Such a record can anchor discovery, but it must never be
+        // uploaded as if it were a complete bundle stream; re-read the exact
+        // HealthKit objects instead.
+        guard facts.allSatisfy(\.isBundleUsable) else {
+            return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
         }
         return (facts, true)
     }
@@ -605,12 +634,12 @@ actor SyncCoordinator {
     /// producer; only distinct types overlap.
     private nonisolated func captureQuantityStream(
         id: String, type: HKQuantityType, workout: HKWorkout, source: JSON,
-        deletedKeys: Set<String>, gate: CaptureGate, writer: CaptureWriter
+        deletedKeys: Set<String>, gate: CaptureGate, writer: CaptureWriter, forceFresh: Bool
     ) async throws -> QuantityStreamOutcome {
         try await gate.enter()
         do {
             let outcome = try await captureQuantityBody(id: id, type: type, workout: workout, source: source,
-                                                        deletedKeys: deletedKeys, writer: writer)
+                                                        deletedKeys: deletedKeys, writer: writer, forceFresh: forceFresh)
             await gate.exit()
             return outcome
         } catch {
@@ -621,12 +650,12 @@ actor SyncCoordinator {
 
     private nonisolated func captureQuantityBody(
         id: String, type: HKQuantityType, workout: HKWorkout, source: JSON,
-        deletedKeys: Set<String>, writer: CaptureWriter
+        deletedKeys: Set<String>, writer: CaptureWriter, forceFresh: Bool
     ) async throws -> QuantityStreamOutcome {
         var outcome = QuantityStreamOutcome(type: type.identifier)
         do {
             try Task.checkCancellation()
-            let (facts, reused) = try await factsForBundle(id: id, type: type, workout: workout)
+            let (facts, reused) = try await factsForBundle(id: id, type: type, workout: workout, forceFresh: forceFresh)
             var events: [JSON] = []
             if reused {
                 outcome.reused = true
@@ -788,20 +817,78 @@ actor SyncCoordinator {
         return outcome
     }
 
+    /// Reads the exact coverage block that will be validated with the bundle.
+    /// The task projection can be stale after a failed attempt; the payload is
+    /// immutable and therefore authoritative for the upload about to happen.
+    static func coverageFromBundle(_ url: URL, boundary: String) -> [String: WorkoutCoverage]? {
+        // The durable bundle is multipart. Decoding it as bare JSON (or
+        // decoding all samples just to read the header) is exactly the silent
+        // fallback this path must never take again.
+        guard let body = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let raw = WorkoutBundleAssembler.multipartPayload(body, boundary: boundary),
+              let observationData = JSON.topLevelValue("observation", in: raw),
+              let observation = try? JSON.decode(observationData) else { return nil }
+        let fields = observation["coverage"].fields
+        guard !fields.isEmpty else { return nil }
+        var result: [String: WorkoutCoverage] = [:]
+        for (key, value) in fields {
+            guard let state = value["state"].text.flatMap(WorkoutCoverage.State.init(rawValue:)) else { return nil }
+            var coverage = WorkoutCoverage(state: state, sampleCount: Int(value["sampleCount"].integer ?? 0))
+            if case .bool(let completed) = value["queryCompleted"] { coverage.queryCompleted = completed }
+            if case .bool(let persisted) = value["localPersisted"] { coverage.localPersisted = persisted }
+            coverage.expectedCount = value["expectedCount"].integer.map(Int.init)
+            coverage.errorCode = value["errorCode"].text
+            let diagnostics = value["diagnostics"].list.compactMap(\.text)
+            coverage.diagnostics = diagnostics.isEmpty ? nil : diagnostics
+            result[key] = coverage
+        }
+        return result
+    }
+
     private func performSync(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
                              metrics: SyncMetrics, forceNewBundle: Bool, recovery: Bool) async throws {
         let started = Date()
         var coverage: [String: WorkoutCoverage] = [:]
         var timings: [String: Double] = [:]
         do {
-            let existing = await store.task(id)
-            if let existing,
-               let file = existing.bundleFile, let hash = existing.bundleSHA256, let boundary = existing.bundleBoundary,
+            var existing = await store.task(id)
+            let forceFreshTypes = Set(existing?.pendingReadKeys ?? [])
+            if let task = existing,
+               let file = task.bundleFile, let hash = task.bundleSHA256, let boundary = task.bundleBoundary,
                let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
-                try await uploadAndAcknowledge(id: id, file: url, bundleHash: hash, boundary: boundary,
-                                                coverage: existing.coverage, timings: existing.metrics,
-                                                started: started, api: api, transfers: transfers)
-                return
+                // A prepared bundle is the durable source of truth for what was
+                // actually read. Earlier failed attempts may have left the
+                // task's live coverage at a stale failed/partial snapshot; the
+                // bundle's observation block is the exact payload the server
+                // will validate. Never upload a complete bundle while telling
+                // the local task it has no samples.
+                if let durableCoverage = Self.coverageFromBundle(url, boundary: boundary) {
+                    try await store.updateTask(id) { task in
+                        task.coverage = durableCoverage
+                        task.pendingReadKeys = durableCoverage.filter { $0.value.needsRetry }
+                            .map(\.key).filter { $0 != "metadata" }
+                    }
+                    try await uploadAndAcknowledge(id: id, file: url, bundleHash: hash, boundary: boundary,
+                                                    coverage: durableCoverage, timings: task.metrics,
+                                                    started: started, api: api, transfers: transfers)
+                    if syncProtocolV4, await store.task(id)?.uploadReceipt != nil {
+                        _ = try? await V4Outbox(directory: store.directory).promotePending(
+                            bundleSHA256: hash, id: id, scope: scope)
+                    }
+                    return
+                }
+                Metrics.value("bundle_coverage_parse_failures", 1)
+                // Recovery never reads HealthKit and never rewrites an
+                // unacknowledged identity behind the user's back.
+                guard !recovery, task.uploadReceipt == nil else {
+                    try await store.updateTask(id) { $0.errorCode = "bundle_observation_corrupt" }
+                    throw SyncFailure.localState("bundle_observation_corrupt")
+                }
+                // The prepared bytes are not a legal upload authority. Drop
+                // them and rebuild from the same discovery facts; the old
+                // attempt's stale coverage is never used.
+                try await store.discardUnreadableBundle(id)
+                existing = await store.task(id)
             }
             if recovery {
                 throw SyncFailure.localState("bundle_not_prepared")
@@ -809,6 +896,11 @@ actor SyncCoordinator {
             if let existing, existing.bundleFile != nil { throw SyncFailure.localState("missing_payload") }
 
             guard supportsIntegrity else { throw SyncFailure.invalid("unsupported_integrity_contract") }
+            if syncProtocolV4 {
+                try await syncV4(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics,
+                                 existing: existing, started: started)
+                return
+            }
             try await updateTask(id, phase: .preparing, coverage: coverage)
 
             // A Workout deletion is never inferred from an absent sample or a
@@ -892,7 +984,8 @@ actor SyncCoordinator {
                 for type in HealthKitClient.quantityTypes {
                     group.addTask {
                         try await self.captureQuantityStream(id: id, type: type, workout: workout, source: source,
-                                                             deletedKeys: deletedKeys, gate: gate, writer: writer)
+                                                             deletedKeys: deletedKeys, gate: gate, writer: writer,
+                                                             forceFresh: forceFreshTypes.contains(type.identifier))
                     }
                 }
                 for try await outcome in group { outcomes[outcome.type] = outcome }
@@ -1009,7 +1102,8 @@ actor SyncCoordinator {
                                            completeTypes: completeSampleTypes, coveredFacts: coveredFacts)
             timings["capture_manifest_facts"] = Double(manifest.coveredFacts)
             timings["capture_manifest_types"] = Double(manifest.cursors.count)
-            try await store.setBundle(id, file: fileName, sha256: bundleHash, boundary: boundary, sampleDeletions: sampleDeletions.count, routeDeletions: routeDeletions.count, discoveryGeneration: manifestGeneration, deletionEventIDs: deletions.map(\.id), pendingReadKeys: coverage.filter { $0.value.state == .failed || $0.value.state == .partial }.map(\.key).filter { $0 != "metadata" }, manifest: manifest)
+            timings["capture_manifest_deletions"] = Double(manifest.deletionEventIDs.count)
+            try await store.setBundle(id, file: fileName, sha256: bundleHash, boundary: boundary, sampleDeletions: sampleDeletions.count, routeDeletions: routeDeletions.count, discoveryGeneration: manifestGeneration, deletionEventIDs: deletions.map(\.id), pendingReadKeys: coverage.filter { $0.value.needsRetry }.map(\.key).filter { $0 != "metadata" }, manifest: manifest)
             timings["bundle_bytes"] = Double(bundle.count)
             timings["bundle_persist_ms"] = Date().timeIntervalSince(persistStart) * 1000
             timings["bundle_build_ms"] = Date().timeIntervalSince(started) * 1000
@@ -1020,6 +1114,54 @@ actor SyncCoordinator {
             if let nextWorkoutAnchor { try? await store.setWorkoutAnchor(id, anchor: nextWorkoutAnchor) }
         } catch {
             // Delivery owns durable retry state; analysis cannot downgrade ACK.
+            if let task = await store.task(id), task.uploadReceipt == nil, task.lastUploadError == nil {
+                let value = (error as? UploadError)?.code ?? (error as? SyncFailure).map(code) ?? "sync_failed"
+                try? await store.updateTask(id) { $0.phase = .failed; $0.errorCode = value }
+            }
+            throw error
+        }
+    }
+
+    /// Protocol v4 path: one complete HealthKit read per stream, one columnar
+    /// bundle, one immutable file. It shares the delivery/ACK machinery with v3
+    /// but never touches capture pages, anchors from the page protocol or the
+    /// completeness proof.
+    private func syncV4(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
+                        metrics: SyncMetrics, existing: WorkoutSyncTask?, started: Date) async throws {
+        let buildStart = Date()
+        do {
+            try await updateTask(id, phase: .preparing, coverage: [:])
+            let engine = V4SyncEngine(store: store, health: health, scope: scope,
+                                      outbox: V4Outbox(directory: store.directory))
+            switch try await engine.build(id: id, anchor: existing?.workoutAnchor) {
+            case .deleted:
+                try await deleteWorkout(id: id, api: api, scope: scope)
+            case .prepared(let bundle):
+                let boundary = "rai.boundary." + Wire.id()
+                let body = WorkoutBundleAssembler.multipart(bundle: bundle.raw, boundary: boundary)
+                let file = try await store.savePayload(body, suffix: "multipart.json")
+                let hash = Wire.hash(bundle.raw)
+                let outbox = V4Outbox(directory: store.directory)
+                try await outbox.savePending(bundle.index, bundleSHA256: hash)
+                try await store.setBundle(id, file: file, sha256: hash, boundary: boundary,
+                                          sampleDeletions: bundle.sampleDeletions, routeDeletions: bundle.routeDeletions,
+                                          pendingReadKeys: bundle.coverage.filter { $0.value.needsRetry }.map { $0.key })
+                try await store.setTaskCoverage(id, coverage: bundle.coverage)
+                try await updateTask(id, phase: .uploading, coverage: bundle.coverage)
+                let timings = ["v4_build_ms": Date().timeIntervalSince(buildStart) * 1_000]
+                try await uploadAndAcknowledge(id: id, file: try await store.fileURL(file), bundleHash: hash,
+                                               boundary: boundary, coverage: bundle.coverage, timings: timings,
+                                               started: started, api: api, transfers: transfers)
+                // D2 deletion authority comes only from a committed read. A
+                // failed upload must not advance the local sidecar, otherwise
+                // a later short read could delete samples the server never
+                // received. The receipt is set by the durable ACK.
+                if await store.task(id)?.uploadReceipt != nil {
+                    _ = try? await outbox.promotePending(bundleSHA256: hash, id: id, scope: scope)
+                }
+                if let nextAnchor = bundle.nextAnchor { try? await store.setWorkoutAnchor(id, anchor: nextAnchor) }
+            }
+        } catch {
             if let task = await store.task(id), task.uploadReceipt == nil, task.lastUploadError == nil {
                 let value = (error as? UploadError)?.code ?? (error as? SyncFailure).map(code) ?? "sync_failed"
                 try? await store.updateTask(id) { $0.phase = .failed; $0.errorCode = value }
@@ -1049,11 +1191,33 @@ actor SyncCoordinator {
     /// Refreshes the analysis state of one Workout without extending the
     /// user's wait. A newer refresh for the same Workout replaces the pending
     /// one; failures stay recorded on the task and never touch the ACK.
+    ///
+    /// A single refresh was too short for a slow publication and left the task
+    /// at `analyzing` until the next recovery. This loop is bounded by
+    /// `AnalysisFollowup`: it stops at the first final phase, on cancellation
+    /// (background/user switch) and after the documented budget, then records
+    /// `analysis_followup_exhausted` for the changefeed or the next recovery.
     private func scheduleAnalysisRefresh(id: String, api: RAIAPIClient) {
         analysisRefreshes[id]?.cancel()
-        analysisRefreshes[id] = Task { [api] in
-            try? await refreshAnalysis(id: id, api: api)
+        analysisRefreshes[id] = Task { [api, store] in
+            for attempt in 0...AnalysisFollowup.delays.count {
+                if Task.isCancelled { return }
+                if attempt > 0 {
+                    guard let delay = AnalysisFollowup.delay(forAttempt: attempt - 1) else { break }
+                    do { try await Task.sleep(for: .seconds(delay)) } catch { return }
+                }
+                try? await refreshAnalysis(id: id, api: api)
+                guard let task = await store.task(id), AnalysisFollowup.shouldContinue(task.phase) else { return }
+            }
+            if Task.isCancelled { return }
+            Metrics.value("analysis_followup_exhausted", 1)
         }
+    }
+    /// Backgrounding cancels publication follow-ups. The durable ACK and the
+    /// last observed analysis state stay untouched.
+    func stopAnalysisFollowups() {
+        for task in analysisRefreshes.values { task.cancel() }
+        analysisRefreshes.removeAll()
     }
 
     private func deleteWorkout(id: String, api: RAIAPIClient, scope: Scope) async throws {
@@ -1114,7 +1278,7 @@ actor SyncCoordinator {
             task.errorCode = error
             if !metrics.isEmpty { task.metrics.merge(metrics) { _, new in new } }
             if [.acknowledged, .analyzing, .published, .partial].contains(phase), task.acknowledgedAt == nil { task.acknowledgedAt = Date() }
-            task.missing = task.coverage.filter { !$0.value.isAvailable }.keys.sorted()
+            task.missing = task.coverage.filter { $0.value.needsRetry }.keys.sorted()
         }
     }
 
@@ -1147,72 +1311,129 @@ extension SyncCoordinator {
             let roots = await store.snapshot().workoutCompleteness?.cycle?.deletedRoots ?? []
             for id in roots { try Task.checkCancellation(); try await deleteWorkout(id: id, api: api, scope: scope) }
             let inventory = await store.snapshot().workoutCompleteness?.cycle?.inventory ?? []
+            // P0-3: one Workout's metadata/capture failure is recorded against
+            // that Workout and never aborts the rest of the inventory. Only a
+            // round in which every eligible Workout has a proof may stage a
+            // manifest; completed proofs are never discarded.
             for id in inventory {
                 try Task.checkCancellation()
-                guard let workout = try await health.workout(id) else { throw SyncFailure.localState("completeness_workout_not_visible") }
-                if reviewed {
-                    // Classification is evidence, not a filter: an excluded
-                    // Workout leaves a durable exclusion entry and no receipt.
-                    let source = Normalizer.source(workout)
-                    let classification = HealthSourcePolicy.classification(source)
-                    let outcome = WorkoutSourcePolicy.outcome(classification)
-                    try await store.completenessClassify(id, classification: classification,
-                        evidence: WorkoutSourcePolicy.evidence(source))
-                    if outcome == WorkoutSourcePolicy.excluded { continue }
-                    guard outcome == WorkoutSourcePolicy.eligible else { throw SyncFailure.invalid("inventory_unclassified") }
+                let snapshot = await store.snapshot()
+                guard let flow = snapshot.workoutCompleteness, let cycle = flow.cycle else {
+                    throw SyncFailure.localState("completeness_cycle_missing")
                 }
-                if await store.snapshot().workoutCompleteness?.cycle?.completedWorkouts.contains(id) == true { continue }
-                for type in HealthKitClient.quantityTypes + [HKSeriesType.workoutRoute()] {
-                    try await captureCompletenessStream(type: type, workout: workout)
+                if cycle.completedWorkouts.contains(id) { continue }
+                let nowUs = try VO2Max.microseconds(Date())
+                if let blocked = flow.blocked?[id], !blocked.isDue(nowUs: nowUs) {
+                    metrics.value("completeness_blocked_deferred", 1)
+                    continue
                 }
-                let snapshot = await store.snapshot(), flow = snapshot.workoutCompleteness!
-                let cycle = flow.cycle!
-                let rootChanged = (cycle.captures["workouts"] ?? []).contains { $0.page["additions"].list.contains(.string(id)) }
-                let childrenChanged = (WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType]).contains { type in
-                    (cycle.captures[WorkoutCompleteness.key(type: type, workoutID: id)] ?? []).contains {
-                        !$0.page["additions"].list.isEmpty || !$0.page["deletions"].list.isEmpty
+                if reusableCompletenessExclusion(id: id, cycle: cycle, reviewed: reviewed) { continue }
+                let previousProof = flow.proofs[id]
+                var failedType: String?
+                do {
+                    failedType = "workout"
+                    guard let workout = try await health.workout(id) else { throw SyncFailure.localState("completeness_workout_not_visible") }
+                    if reviewed {
+                        // Classification is evidence, not a filter: an excluded
+                        // Workout leaves a durable exclusion entry and no receipt.
+                        failedType = "classification"
+                        let source = Normalizer.source(workout)
+                        let classification = HealthSourcePolicy.classification(source)
+                        let outcome = WorkoutSourcePolicy.outcome(classification)
+                        try await store.completenessClassify(id, classification: classification,
+                            evidence: WorkoutSourcePolicy.evidence(source))
+                        if outcome == WorkoutSourcePolicy.excluded { continue }
+                        guard outcome == WorkoutSourcePolicy.eligible else { throw SyncFailure.invalid("inventory_unclassified") }
                     }
-                }
-                var series = try await completenessSeries(workout)
-                let previousSeries = flow.proofs[id]?["series"].list ?? []
-                let seriesChanged = series.contains { current in
-                    !previousSeries.contains { $0["sampleType"] == current["sampleType"] && $0["sha256"] == current["sha256"] && $0["pointCount"] == current["pointCount"] }
-                }
-                let task = snapshot.tasks?[id]
-                let needsRefresh = rootChanged || childrenChanged || seriesChanged || task?.uploadReceipt == nil || !(task?.pendingReadKeys ?? []).isEmpty
-                if needsRefresh {
-                    // Existing discovery owns explicit child deletion facts;
-                    // drain its bounded pages before using the unchanged v3 path.
-                    var drained = false
-                    for _ in 0..<64 {
-                        try await discoverChanges(workoutIDs: [id])
-                        let discovery = await store.discoverySnapshot()
-                        let flows = discovery.flows.values.filter { $0.query.workoutID == id }
-                        if flows.contains(where: { $0.error != nil }) { throw SyncFailure.localState("completeness_discovery_pending") }
-                        if flows.allSatisfy({ !$0.hasMore }) { drained = true; break }
-                        try Task.checkCancellation()
+                    for type in HealthKitClient.quantityTypes + [HKSeriesType.workoutRoute()] {
+                        failedType = type.identifier
+                        try await captureCompletenessStream(type: type, workout: workout)
                     }
-                    guard drained else { throw SyncFailure.localState("completeness_discovery_pending") }
-                    do { try await syncWorkout(id: id, secret: secret, transfers: transfers, forceNewBundle: true) }
-                    catch let failure as UploadError where failure.code == "workout_deleted" {
-                        try await store.completenessExcludeDeletedWorkout(id); continue
+                    let captured = await store.snapshot()
+                    guard let capturedFlow = captured.workoutCompleteness, let capturedCycle = capturedFlow.cycle else {
+                        throw SyncFailure.localState("completeness_cycle_missing")
                     }
-                    series = try await completenessSeries(workout)
-                }
-                guard let committed = await store.task(id), committed.uploadReceipt != nil, let hash = committed.bundleSHA256 else { throw SyncFailure.localState("completeness_fact_not_durable") }
-                for type in WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType] {
-                    let key = type == WorkoutCompleteness.routeType ? "route" : type
-                    guard let coverage = committed.coverage[key], coverage.queryCompleted == true,
-                          coverage.serverCommitted == true, [.complete, .noRecordsObserved].contains(coverage.state) else { throw SyncFailure.localState("completeness_stream_pending") }
-                    if type != WorkoutCompleteness.routeType {
-                        guard let coverage = committed.coverage["series:" + type], coverage.queryCompleted == true,
-                              coverage.serverCommitted == true, [.complete, .noRecordsObserved].contains(coverage.state) else { throw SyncFailure.localState("completeness_series_pending") }
+                    let rootChanged = (capturedCycle.captures["workouts"] ?? []).contains {
+                        $0.page["additions"].list.contains(.string(id))
                     }
+                    let childrenChanged = (WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType]).contains { type in
+                        (capturedCycle.captures[WorkoutCompleteness.key(type: type, workoutID: id)] ?? []).contains {
+                            !$0.page["additions"].list.isEmpty || !$0.page["deletions"].list.isEmpty
+                        }
+                    }
+                    let task = captured.tasks?[id]
+                    let work = captured.discovery?.work[id]
+                    let undelivered = (work?.generation ?? 0) > (work?.deliveredGeneration ?? 0)
+                    let structuralChange = rootChanged || childrenChanged || undelivered ||
+                        task?.uploadReceipt == nil || !(task?.pendingReadKeys ?? []).isEmpty
+                    let previousSeries = previousProof?["series"].list ?? []
+                    failedType = "series"
+                    var series: [JSON] = []
+                    var rebuild = structuralChange
+                    var needsRefresh = structuralChange
+                    if !structuralChange {
+                        // No structural change: one series read decides whether
+                        // the stored proof still describes the same data.
+                        series = try await completenessSeries(workout)
+                        needsRefresh = series.contains { current in
+                            !previousSeries.contains {
+                                $0["sampleType"] == current["sampleType"] && $0["sha256"] == current["sha256"] &&
+                                    $0["pointCount"] == current["pointCount"]
+                            }
+                        }
+                        rebuild = needsRefresh
+                    }
+                    if needsRefresh {
+                        // Existing discovery owns explicit child deletion facts;
+                        // drain its bounded pages before using the unchanged v3 path.
+                        failedType = "discovery"
+                        var drained = false
+                        for _ in 0..<64 {
+                            try await discoverChanges(workoutIDs: [id])
+                            let discovery = await store.discoverySnapshot()
+                            let flows = discovery.flows.values.filter { $0.query.workoutID == id }
+                            if flows.contains(where: { $0.error != nil }) { throw SyncFailure.localState("completeness_discovery_pending") }
+                            if flows.allSatisfy({ !$0.hasMore }) { drained = true; break }
+                            try Task.checkCancellation()
+                        }
+                        guard drained else { throw SyncFailure.localState("completeness_discovery_pending") }
+                        failedType = "bundle"
+                        do { try await syncWorkout(id: id, secret: secret, transfers: transfers, forceNewBundle: rebuild) }
+                        catch let failure as UploadError where failure.code == "workout_deleted" {
+                            try await store.completenessExcludeDeletedWorkout(id); continue
+                        }
+                        failedType = "series"
+                        series = try await completenessSeries(workout)
+                    }
+                    failedType = "proof"
+                    guard let committed = await store.task(id), committed.uploadReceipt != nil, let hash = committed.bundleSHA256 else { throw SyncFailure.localState("completeness_fact_not_durable") }
+                    for type in WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType] {
+                        let key = type == WorkoutCompleteness.routeType ? "route" : type
+                        guard let coverage = committed.coverage[key], coverage.queryCompleted == true,
+                              coverage.serverCommitted == true, [.complete, .noRecordsObserved].contains(coverage.state) else { throw SyncFailure.localState("completeness_stream_pending") }
+                        if type != WorkoutCompleteness.routeType {
+                            guard let coverage = committed.coverage["series:" + type], coverage.queryCompleted == true,
+                                  coverage.serverCommitted == true, [.complete, .noRecordsObserved].contains(coverage.state) else { throw SyncFailure.localState("completeness_series_pending") }
+                        }
+                    }
+                    let route = committed.coverage["route"]!
+                    let proof: JSON = .object(["workoutID": .string(id), "bundleSHA256": .string(hash),
+                        "routeState": .string(route.sampleCount == 0 ? "absent" : "present"), "series": .array(series)])
+                    try await store.completenessProof(id, proof: proof)
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch let failure as UploadError where failure.code == "workout_deleted" {
+                    try await store.completenessExcludeDeletedWorkout(id)
+                } catch {
+                    let code = (error as? UploadError)?.code ?? (error as? SyncFailure).map(self.code) ?? "completeness_failed"
+                    try await store.blockWorkoutCompleteness(id, code: code, failedType: failedType)
+                    metrics.value("completeness_blocked", 1)
                 }
-                let route = committed.coverage["route"]!
-                let proof: JSON = .object(["workoutID": .string(id), "bundleSHA256": .string(hash),
-                    "routeState": .string(route.sampleCount == 0 ? "absent" : "present"), "series": .array(series)])
-                try await store.completenessProof(id, proof: proof)
+            }
+            let blocked = try await store.recordWorkoutCompletenessBlockedSummary()
+            if let blocked {
+                metrics.value("completeness_blocked_count", Double(blocked["count"].integer ?? 0))
+                throw SyncFailure.localState("completeness_blocked")
             }
             try await store.stageWorkoutCompleteness()
             try await WorkoutCompletenessDelivery(store: store, api: api).deliver()
@@ -1220,6 +1441,17 @@ extension SyncCoordinator {
             if error is CancellationError || Task.isCancelled { throw CancellationError() }
             try? await store.workoutCompletenessFailure(error); throw error
         }
+    }
+    private func completenessRootAdditions(_ cycle: WorkoutCompletenessCycle) -> Set<String> {
+        Set((cycle.captures["workouts"] ?? []).flatMap { $0.page["additions"].list.compactMap(\.text) })
+    }
+    /// An excluded Workout keeps its committed evidence and needs no HealthKit
+    /// lookup or child query while the root stream does not re-add it.
+    private func reusableCompletenessExclusion(id: String, cycle: WorkoutCompletenessCycle, reviewed: Bool) -> Bool {
+        guard reviewed, let classification = cycle.classification?[id],
+              WorkoutSourcePolicy.outcome(classification) == WorkoutSourcePolicy.excluded,
+              cycle.exclusions?[id] != nil else { return false }
+        return !completenessRootAdditions(cycle).contains(id) && !cycle.deletedRoots.contains(id)
     }
     private func captureCompletenessStream(type: HKSampleType, workout: HKWorkout?) async throws {
         let query = WorkoutCompletenessQuery(type: type.identifier, workoutID: workout?.uuid.uuidString.lowercased())

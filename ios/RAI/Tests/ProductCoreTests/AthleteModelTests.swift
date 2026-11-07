@@ -55,3 +55,53 @@ import Testing
     #expect(snapshot == (try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONEncoder().encode(snapshot))))
   }
 }
+
+@Suite struct AthleteModelV2Tests {
+  @Test func schema2KeepsRAIAndExternalVO2Independent() throws {
+    let root = try #require(Bundle.module.resourceURL?.appendingPathComponent("Fixtures/AthleteModel"))
+    var object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent("full.json"))) as? [String: Any])
+    object["schemaVersion"] = "rai.athlete_model/2"
+    let envelope: [String: Any] = ["id": "raiVO2Max", "metric": "raiVO2Max", "modelVersion": "rai.vo2max.submax/v1",
+      "payloadVersion": "rai.vo2max.submax/1", "mappingVersion": "rai.product_metric_mapping/2", "state": "available",
+      "modelStatus": "available", "quality": "available", "evidenceSupport": "experimental_candidate", "evaluationAt": 1,
+      "freshness": "current", "reasonCodes": [], "productReasonCodes": [], "lineageSummary": ["dataSources": ["recorded_running"]]]
+    let value: [String: Any] = ["value": 52.0, "unit": "mL/kg/min", "experimental": true, "evidenceMode": "submax",
+      "stability": "preliminary", "independentWorkoutCount": 3, "source": "rai_owned_submax"]
+    object["raiVO2Max"] = ["envelope": envelope, "value": value, "trend": ["kind": "none", "unit": "", "reasonCodes": ["insufficient_serial_history"]],
+      "explanation": ["headline": "raiVO2Max.state", "supportingFacts": [], "limitations": ["experimental_submax_estimate"]]]
+    let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONSerialization.data(withJSONObject: object))
+    #expect(snapshot.schemaVersion == "rai.athlete_model/2")
+    #expect(snapshot.raiVO2Max?.presentationValue?.value == 52)
+    #expect(snapshot.raiVO2Max?.presentationValue?.experimental == true)
+    #expect(snapshot.externalVO2Max.value?.value != nil)
+    #expect(snapshot.raiVO2Max?.presentationValue?.source.rawValue == "rai_owned_submax")
+  }
+}
+
+@Suite struct AthleteModelPresentationStateTests {
+  private func base() throws -> AthleteModelSnapshot {
+    let root = try #require(Bundle.module.resourceURL?.appendingPathComponent("Fixtures/AthleteModel/full.json"))
+    return try JSONDecoder().decode(AthleteModelSnapshot.self, from: Data(contentsOf: root))
+  }
+  @Test func allNonAvailableStatesKeepNullAndLocalizeReason() throws {
+    let cases: [(String, String, String?)] = [
+      ("collecting", "current", nil), ("unavailable", "current", nil),
+      ("stale", "stale", nil), ("conflict", "current", nil),
+      ("sync_incomplete", "unknown", nil), ("technical_error", "current", "schema_mismatch"),
+      ("limited", "current", nil),
+    ]
+    for (state, freshness, technical) in cases {
+      var snapshot = try base()
+      var envelope = snapshot.trainingReadiness.envelope
+      envelope.state = ProductMetricState(rawValue: state)
+      envelope.freshness = ProductCode(rawValue: freshness)
+      envelope.modelVersion = "rai.readiness.training/v2"
+      envelope.mappingVersion = "rai.product_metric_mapping/2"
+      envelope.technicalError = technical.map(ProductCode.init(rawValue:))
+      snapshot.trainingReadiness.envelope = envelope
+      #expect(snapshot.trainingReadiness.envelope.presentationValueAvailable == (state == "limited"))
+      let reason = ProductReasonText.text(for: envelope.productReasonCodes.first?.rawValue, state: envelope.presentationState.rawValue)
+      #expect(!reason.isEmpty)
+    }
+  }
+}

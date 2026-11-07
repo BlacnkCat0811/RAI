@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"rai/server/internal/httpapi"
 	"rai/server/internal/syncing"
+	wf "rai/server/internal/workoutfeatures"
 )
 
 func TestWorkoutDetailFactsPendingAndFreshness(t *testing.T) {
@@ -238,5 +240,86 @@ func TestRouteClockSkewAnalysisPreservesRawFacts(t *testing.T) {
 		if err == nil {
 			t.Fatal("out-of-tolerance route accepted")
 		}
+	}
+}
+
+func TestWorkoutDetailReadsPublishedFeatureArtifact(t *testing.T) {
+	f, w := analysisFixture(t)
+	ctx := context.Background()
+	id := w.UUID
+	now := time.Now().UTC()
+	payload, err := json.Marshal(wf.WorkoutFeatures{
+		Schema: wf.Schema, Algorithm: wf.Algorithm, Version: wf.Version,
+		StackID: wf.StackID(), DatasetID: f.p.DatasetID, WorkoutID: id, Generation: 1,
+		Timing:    wf.Timing{Active: func() *float64 { v := 600.0; return &v }()},
+		HeartRate: wf.SignalSummary{ObservedCoverage: 0.9},
+		Speed:     wf.SignalSummary{ObservedCoverage: 0.8},
+		Route:     wf.RouteSummary{Coverage: 0.7},
+		Reasons:   []wf.Reason{wf.MissingHR},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runID, jobID := syncing.NewID(), syncing.NewID()
+	tx, err := f.s.Pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,state) VALUES($1,$2,$3,$4,1,'queued')`, jobID, f.p.DatasetID, wf.JobKind, wf.Scope(id)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO analysis_runs(dataset_id,id,job_id,fencing_token,scope_key,target_generation,algorithm_name,algorithm_version,input_version,input_hash,input_from,input_through,lineage,status)
+		VALUES($1,$2,$3,1,$4,1,$5,$6,'feature-v1',decode(repeat('01',32),'hex'),$7,$8,'{}'::jsonb,'RUNNING')`, f.p.DatasetID, runID, jobID, wf.Scope(id), wf.Algorithm, wf.Version, now.Add(-time.Hour), now); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(payload)
+	if _, err = tx.Exec(ctx, `INSERT INTO analysis_artifacts(dataset_id,run_id,artifact_key,schema_version,content_sha256,payload) VALUES($1,$2,$3,$4,$5,$6::jsonb)`, f.p.DatasetID, runID, wf.ArtifactKey, wf.Schema, sum[:], payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(ctx, `UPDATE analysis_runs SET status='SUCCEEDED',finished_at=now() WHERE dataset_id=$1 AND id=$2`, f.p.DatasetID, runID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,clean_generation,dirty_from,dirty_through) VALUES($1,$2,1,1,$3,$3) ON CONFLICT(dataset_id,scope_key) DO UPDATE SET generation=1,clean_generation=1`, f.p.DatasetID, wf.Scope(id), now.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO analysis_publications(dataset_id,scope_key,metric_family,day,published_run_id,generation) VALUES($1,$2,'workout_model',$3::date,$4,1)`, f.p.DatasetID, wf.Scope(id), now.Format("2006-01-02"), runID); err != nil {
+		t.Fatal(err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	hidden, err := f.s.WorkoutDetail(ctx, f.p, id)
+	if err != nil || hidden.Analysis != nil {
+		t.Fatalf("inactive feature leaked: analysis=%v err=%v", hidden.Analysis, err)
+	}
+	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO analysis_model_channels(dataset_id,channel,stack_id,config_sha256,assignment_version)
+		VALUES($1,'active',$2,decode(repeat('ab',32),'hex'),1)`, f.p.DatasetID, wf.StackID()); err != nil {
+		t.Fatal(err)
+	}
+	detail, err := f.s.WorkoutDetail(ctx, f.p, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.Analysis == nil || detail.Analysis.Schema != wf.Schema || detail.Analysis.HeartRateCoverage != 0.9 || detail.Analysis.SpeedCoverage != 0.8 || detail.Analysis.RouteCoverage != 0.7 || detail.Analysis.ActiveSeconds == nil || *detail.Analysis.ActiveSeconds != 600 || len(detail.Analysis.Reasons) != 1 || detail.Analysis.Reasons[0] != string(wf.MissingHR) {
+		t.Fatalf("published feature analysis %+v", detail.Analysis)
+	}
+	handler := httpapi.New(f.s, analysisLog)
+	r := httptest.NewRequest("GET", "/v2/workouts/"+id+"/detail", nil)
+	r.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
+	out := httptest.NewRecorder()
+	handler.ServeHTTP(out, r)
+	if out.Code != 200 {
+		t.Fatalf("detail http %d %s", out.Code, out.Body.String())
+	}
+	if _, err = f.s.Pool.Exec(ctx, `UPDATE dirty_scopes SET generation=2 WHERE dataset_id=$1 AND scope_key=$2`, f.p.DatasetID, wf.Scope(id)); err != nil {
+		t.Fatal(err)
+	}
+	detail, err = f.s.WorkoutDetail(ctx, f.p, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if detail.Analysis != nil {
+		t.Fatalf("dirty feature leaked: %+v", detail.Analysis)
 	}
 }

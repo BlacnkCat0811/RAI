@@ -38,6 +38,14 @@ struct WorkoutDetail: View {
           routePanel(detail)
           summaryPanel(detail)
           effectPanel(detail)
+          if let feature = detail.analysis, feature.schemaVersion == "rai.workout_features/1" {
+            VStack(alignment: .leading, spacing: 8) {
+              CardHeading(title: "已发布运动分析", icon: "waveform.path")
+              LabeledContent("有效运动时长", value: ProductFormat.duration(feature.activeSeconds)).accessibilityIdentifier("model.workout.active")
+              LabeledContent("心率时间覆盖", value: feature.heartRateCoverage.formatted(.percent.precision(.fractionLength(0))))
+              LabeledContent("速度时间覆盖", value: feature.speedCoverage.formatted(.percent.precision(.fractionLength(0))))
+            }.padding(16).raiGlass()
+          }
           ForEach(WorkoutMetricKind.allCases) { metric in
             VStack(alignment: .leading, spacing: 8) {
               WorkoutSeriesChart(

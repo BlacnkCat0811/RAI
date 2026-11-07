@@ -50,12 +50,18 @@ func (s *Store) loadRecoveryInput(ctx context.Context, tx pgx.Tx, l Lease, in *a
 	if err != nil || day.After(asOf) {
 		return analysis.Invalid()
 	}
+	return loadRecoveryFacts(ctx, tx, l, in, asOf, capture, day, epoch, collector, a.ID)
+}
+
+func loadRecoveryFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf, capture, day time.Time, epoch, collector, assignment string) error {
+	loc := day.Location()
+	tz := loc.String()
 	through := day.AddDate(0, 0, 1)
 	evaluation := asOf
 	if !evaluation.Before(through) {
 		evaluation = through.Add(-time.Microsecond)
 	}
-	input := &rc.Input{Dataset: l.DatasetID, DatasetEpoch: epoch, Collector: collector, Assignment: a.ID, Generation: in.Generation, KnownThroughRevision: in.Revision, CapturedAt: capture.UnixMicro(), AsOf: evaluation.UnixMicro(), View: "revised", Config: rc.DefaultConfig(tz), Days: []rc.Day{}, Facts: []rc.Fact{}, Tombstones: []rc.Tombstone{}, Coverage: []rc.Coverage{}}
+	input := &rc.Input{Dataset: l.DatasetID, DatasetEpoch: epoch, Collector: collector, Assignment: assignment, Generation: in.Generation, KnownThroughRevision: in.Revision, CapturedAt: capture.UnixMicro(), AsOf: evaluation.UnixMicro(), View: "revised", Config: rc.DefaultConfig(tz), Days: []rc.Day{}, Facts: []rc.Fact{}, Tombstones: []rc.Tombstone{}, Coverage: []rc.Coverage{}}
 	for d := day.AddDate(0, 0, -input.Config.Window); !d.After(day); d = d.AddDate(0, 0, 1) {
 		input.Days = append(input.Days, rc.Day{Date: d.Format("2006-01-02"), Start: d.UnixMicro(), End: d.AddDate(0, 0, 1).UnixMicro(), ClockBuckets: [4]int64{d.UnixMicro(), time.Date(d.Year(), d.Month(), d.Day(), 6, 0, 0, 0, loc).UnixMicro(), time.Date(d.Year(), d.Month(), d.Day(), 12, 0, 0, 0, loc).UnixMicro(), time.Date(d.Year(), d.Month(), d.Day(), 18, 0, 0, 0, loc).UnixMicro()}})
 	}

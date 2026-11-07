@@ -83,6 +83,33 @@ func TestPhase3HeartRateSampleMetadataAllowlist(t *testing.T) {
 	if DecodeWorkoutBundle(raw, &decoded) == nil {
 		t.Fatal("out-of-range heart-rate metadata accepted")
 	}
+	// HealthKit sync bookkeeping is preserved exactly. The native archive uses
+	// a floating NSNumber carrier for a semantic integer, so an integral float
+	// is accepted; fractional or boolean values are rejected.
+	b.Samples[0].Metadata = map[string]any{"HKMetadataKeySyncIdentifier": "synthetic-sync-id", "HKMetadataKeySyncVersion": float64(3)}
+	raw, _ = json.Marshal(b)
+	var synced WorkoutBundle
+	if err := DecodeWorkoutBundle(raw, &synced); err != nil {
+		t.Fatalf("allowlisted sync metadata rejected: %v", err)
+	}
+	b.Samples[0].Metadata = map[string]any{"HKMetadataKeySyncVersion": float64(1.5)}
+	raw, _ = json.Marshal(b)
+	var fractional WorkoutBundle
+	if DecodeWorkoutBundle(raw, &fractional) == nil {
+		t.Fatal("fractional sync version accepted")
+	}
+	b.Samples[0].Metadata = map[string]any{"HKMetadataKeySyncVersion": true}
+	raw, _ = json.Marshal(b)
+	var boolean WorkoutBundle
+	if DecodeWorkoutBundle(raw, &boolean) == nil {
+		t.Fatal("boolean sync version accepted")
+	}
+	b.Samples[0].Metadata = map[string]any{"HKMetadataKeySyncIdentifier": ""}
+	raw, _ = json.Marshal(b)
+	var emptyIdentifier WorkoutBundle
+	if DecodeWorkoutBundle(raw, &emptyIdentifier) == nil {
+		t.Fatal("empty sync identifier accepted")
+	}
 }
 func TestPhase3DuplicateProvenanceCannotHideAnUnattributedMember(t *testing.T) {
 	b := validBundle()
@@ -161,8 +188,14 @@ func TestPhase3DeviceScopedAppleHealthSourceRequiresRealWatchEvidence(t *testing
 	}
 	child = source
 	child.ProductType = "iPhone13,4"
+	if child.Classification(&source) != "associated_apple_watch" {
+		t.Fatal("paired iPhone child not associated with Watch parent")
+	}
+	child = source
+	child.ProductType = "iPhone13,4"
+	child.Version = "2"
 	if child.Classification(&source) != "source_unknown" {
-		t.Fatal("contradictory product hidden by parent")
+		t.Fatal("version mismatch hidden by parent")
 	}
 	child = source
 	child.BundleID = "com.apple.health.not-a-device-uuid"

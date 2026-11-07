@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
+	"rai/server/internal/modelmanifest"
 	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
@@ -422,6 +423,14 @@ func (s *Store) FailAnalysis(ctx context.Context, l Lease, id string, code strin
 	if r.RowsAffected() != 1 {
 		return errors.New("attempt missing")
 	}
+	if l.Kind == modelmanifest.StackJobKind {
+		backfillID := modelStackBackfillID(l)
+		if backfillID != "" {
+			if _, err := tx.Exec(ctx, `SELECT rai_backfill_progress($1,$2,false)`, l.DatasetID, backfillID); err != nil {
+				return err
+			}
+		}
+	}
 	return tx.Commit(ctx)
 }
 
@@ -478,5 +487,8 @@ func (s *Store) AdvanceAnalysisDay(ctx context.Context, at time.Time) error {
 	if err := s.advanceReadinessDay(ctx, at); err != nil {
 		return err
 	}
-	return s.advanceCandidateLoadDay(ctx, at)
+	if err := s.advanceCandidateLoadDay(ctx, at); err != nil {
+		return err
+	}
+	return s.advanceModelStackDay(ctx, at)
 }

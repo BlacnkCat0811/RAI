@@ -37,6 +37,25 @@ func trainingLock(ctx context.Context, tx pgx.Tx, dataset string) error {
 	_, err := lockActiveDataset(ctx, tx, dataset)
 	return err
 }
+func loadTrainingModelBinding(ctx context.Context, q trainingDB, dataset string) (training.ModelBinding, error) {
+	var stack, manifest string
+	var version int64
+	var assigned time.Time
+	err := q.QueryRow(ctx, `SELECT stack_id,assignment_version,encode(config_sha256,'hex'),assigned_at FROM analysis_model_channels WHERE dataset_id=$1 AND channel='active'`, dataset).Scan(&stack, &version, &manifest, &assigned)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return training.ModelBinding{Model: "rai.athlete_model/1", Adapter: "legacy-v1", Missing: []string{"active_assignment"}}, nil
+	}
+	if err != nil {
+		return training.ModelBinding{}, err
+	}
+	b := training.ModelBinding{Assignment: stack, AssignmentVersion: version, ManifestSHA: manifest, Model: "rai.athlete_model/2", AsOf: assigned.UTC().Format(time.RFC3339), Adapter: "schema2-v2"}
+	if stack == "legacy" {
+		b.Model = "rai.athlete_model/1"
+		b.Adapter = "legacy-v1"
+	}
+	return b, nil
+}
+
 func loadPlan(ctx context.Context, q trainingDB, dataset, id string) (training.Plan, error) {
 	var p training.Plan
 	var c, e []byte
@@ -167,6 +186,11 @@ func (s *Store) CreateTrainingPlan(ctx context.Context, p syncing.Principal, r t
 		if e := tx.QueryRow(ctx, `SELECT timezone FROM datasets WHERE id=$1`, p.DatasetID).Scan(&zone); e != nil {
 			return nil, "", e
 		}
+		binding, e := loadTrainingModelBinding(ctx, tx, p.DatasetID)
+		if e != nil {
+			return nil, "", e
+		}
+		r.Config.ModelBinding = &binding
 		if r.Config.Validate(zone) != nil {
 			return nil, "", syncing.Fail(422, "invalid_training_config")
 		}
@@ -211,6 +235,9 @@ func (s *Store) ChangeTrainingPlan(ctx context.Context, p syncing.Principal, id 
 			return nil, "", syncing.Fail(409, "training_revision_conflict")
 		}
 		if r.Operation == "update_config" {
+			if r.Config != nil {
+				r.Config.ModelBinding = v.Config.ModelBinding
+			}
 			if r.Config == nil || r.Config.Validate(v.Timezone) != nil || r.Config.StartDate != v.Config.StartDate || r.Config.Weeks != v.Config.Weeks {
 				return nil, "", syncing.Fail(422, "invalid_training_config")
 			}

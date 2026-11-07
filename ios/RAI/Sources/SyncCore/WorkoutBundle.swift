@@ -58,4 +58,14 @@ public enum WorkoutBundleAssembler {
         body.append(Data(("\r\n--" + boundary + "--\r\n").utf8))
         return body
     }
+    /// Removes exactly the framing this assembler wrote. Returns nil for a
+    /// truncated body, a wrong boundary or any extra framing; callers must
+    /// report that instead of falling back to a different payload.
+    public static func multipartPayload(_ body: Data, boundary: String) -> Data? {
+        let prefix = Data(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"workout.json\"\r\nContent-Type: application/json\r\n\r\n").utf8)
+        let suffix = Data(("\r\n--" + boundary + "--\r\n").utf8)
+        guard body.count >= prefix.count + suffix.count,
+              body.starts(with: prefix), body.suffix(suffix.count) == suffix else { return nil }
+        return body.subdata(in: prefix.count..<(body.count - suffix.count))
+    }
 }

@@ -1,0 +1,46 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "x86_64",
+        "deviceId" : "90D0F6B2-E036-4AFD-9AE1-046703F475B1",
+        "deviceName" : "RAI Local Tests",
+        "modelName" : "iPhone 12 Pro Max",
+        "osBuildNumber" : "23F77",
+        "osVersion" : "26.5",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 89,
+      "skippedTests" : 3,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "RAI · Built with macOS 26.7.2",
+  "expectedFailures" : 0,
+  "failedTests" : 0,
+  "finishTime" : 1794055940.806,
+  "passedTests" : 89,
+  "result" : "Passed",
+  "skippedTests" : 3,
+  "startTime" : 1794055851.477,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - RAI",
+  "topInsights" : [
+    {
+      "category" : "Longest Test Runs",
+      "impact" : "68% of duration",
+      "text" : "2 longest test runs with outlier durations exceeding 11.61s (three standard deviations)"
+    }
+  ],
+  "totalTestCount" : 92
+}

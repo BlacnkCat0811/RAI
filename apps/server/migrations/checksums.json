@@ -27,5 +27,20 @@
   "00026_recovery_foundation.sql": "7147c6400ebd0625a99bcb0d52af5e6878c0e7479a691c34ac1efff1d169679c",
   "00027_training_readiness.sql": "53944ca13b75c65cb368a7aa6320870644d020861f157f3ed6335cf8ef689c73",
   "00028_workout_sync_completeness.sql": "4ac5492d23fdbfa1d1a17cd6d528035b11105d33fd7cbd8d3c8ea4ea08e43b87",
-  "00029_workout_completeness_v2.sql": "6f18c85df2cf8131f4173aefbcec17612a18cc959dae20fbe2466f08d13c6ab2"
+  "00029_workout_completeness_v2.sql": "6f18c85df2cf8131f4173aefbcec17612a18cc959dae20fbe2466f08d13c6ab2",
+  "00030_model_completion.sql": "51b7b6812f5ced87887d01dbabc40599f5160b94a830d1bada5352a27fe64938",
+  "00031_model_completion_assignment.sql": "864bf3d8aa50f2ece0e58c65e7c64ce8ae162e58e762e4acddbffdf3416ffb5c",
+  "00032_model_input_kind_schema.sql": "65fa25bae93904ea3b77435b5bfc677b69b1780dc7dce9464ba1d26de9404780",
+  "00033_model_channel_guard.sql": "8418e8647d5eb539a5a2c1c89f3d4317ff2afc748f0886b82c26c8f3f255c301",
+  "00034_model_input_legacy_kind.sql": "50a0e0f96d894f5d76d83127e5a5aba0fb7f949f2b7d6fa4607ae00d9a037232",
+  "00035_dataset_synthetic_marker.sql": "b90b5513ebf06cff0b13b838d326b46a24d5870b03f615d2d344d6b951c57573",
+  "00036_model_input_revocation_trigger.sql": "275b93d6a0520dc9cedb165569d73f169063c27d3ecc9c26ad860a3404e7c6ef",
+  "00037_model_artifact_v2.sql": "68b83b5cd2a9ad4fb1a0c9cbbcf4865d4573124c50d3d050c7c8586b98d1d4c3",
+  "00038_published_artifacts_view.sql": "9f226e2683a74b797758103951677bbb9fae8301a67ac72b7a19f8898ca41098",
+  "00039_model_runtime_boundary.sql": "b572d292880c8c381222ff67eeeec280aa7056537c706d73c4c56ce3428c3652",
+  "00040_model_input_runtime.sql": "dc7be7b74f3f49df6c6120e92df4d20c021fdfbab61d888a87d8ec22fecc44fb",
+  "00041_model_stack_jobs.sql": "ffb7a29414f63b1d7549590985f007f2923e5b5d8b61b9ff583ffcc0d0082518",
+  "00042_model_backfill_execution.sql": "d2735c729ddf8ec02454aa0ead438d3c320a6b6e2bbafe8a55636a05f1656302",
+  "00043_model_research_artifacts.sql": "7fa66b51ae3ffe73a12923a4bf1caf049417ab3b072b28555d6c76f16222c400",
+  "00044_backfill_product_family_count.sql": "dd18d4b41aea8df283b4863db2766e6b49283d38e374bb036327a3cc7389d5f0"
 }

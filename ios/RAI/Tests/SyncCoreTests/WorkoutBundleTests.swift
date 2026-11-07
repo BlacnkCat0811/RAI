@@ -29,5 +29,19 @@ final class WorkoutBundleTests: XCTestCase {
         XCTAssertTrue(text.contains("name=\"file\""))
         XCTAssertTrue(text.contains("filename=\"workout.json\""))
         XCTAssertTrue(text.hasSuffix("--rai.boundary.test--\r\n"))
+        XCTAssertEqual(WorkoutBundleAssembler.multipartPayload(body, boundary: "rai.boundary.test"), Data("{}".utf8))
+        XCTAssertNil(WorkoutBundleAssembler.multipartPayload(body, boundary: "wrong"))
+        XCTAssertNil(WorkoutBundleAssembler.multipartPayload(body.dropLast(1), boundary: "rai.boundary.test"))
+    }
+
+    func testTopLevelValueIsStructuralNotAByteSearch() throws {
+        let raw = Data(#"{"samples":[{"observation":{"coverage":{"nested":{"state":"complete"}}}}],"observation":{"coverage":{"heart":{"state":"partial","sampleCount":2}}},"tail":{"a":[1,2,3]}}"#.utf8)
+        let value = try XCTUnwrap(JSON.topLevelValue("observation", in: raw))
+        let observation = try JSON.decode(value)
+        XCTAssertEqual(observation["coverage"]["heart"]["state"].text, "partial")
+        XCTAssertEqual(observation["coverage"]["heart"]["sampleCount"].integer, 2)
+        XCTAssertEqual(observation["coverage"]["nested"], .null)
+        XCTAssertEqual(JSON.topLevelString("tail", in: raw), nil)
+        XCTAssertNil(JSON.topLevelValue("observation", in: Data(#"{"observation":{"coverage":{}}"#.utf8).dropLast(1)))
     }
 }

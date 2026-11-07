@@ -36,7 +36,10 @@ const (
 	MaxArtifactBytes = 2 << 20
 )
 
-func Scope() string { return "model/" + wf.StackID() + "/athlete/performance" }
+func Scope() string { return ScopeFor(wf.StackID()) }
+func ScopeFor(stack string) string {
+	return "model/" + stack + "/athlete/performance"
+}
 func Hash(v any) string {
 	b, _ := json.Marshal(v)
 	h := sha256.Sum256(b)

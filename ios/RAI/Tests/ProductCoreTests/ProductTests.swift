@@ -255,3 +255,24 @@ struct ProductTests {
   }
 
 }
+
+@Test func productFormattingAndReasonTextAreDeterministic() {
+  #expect(ProductFormat.decimal(72.6, digits: 0) == "73")
+  #expect(ProductFormat.decimal(51.46, digits: 1) == "51.5")
+  #expect(ProductFormat.decimal(Double.infinity, digits: 1) == "--")
+  #expect(ProductReasonText.text(for: "data_stale") == "数据已过期")
+  #expect(ProductReasonText.text(for: "sensitivity_unbounded") == "敏感性范围不可定义")
+  #expect(ProductReasonText.text(for: nil, state: "collecting") == "积累中")
+  #expect(ProductReasonText.independenceNotice.contains("独立来源"))
+  #expect(!ProductReasonText.independenceNotice.contains("最大能力"))
+  #expect(ProductReasonText.experimentalLabel == "实验")
+}
+
+@Suite struct ReadinessLowNoticeTests {
+  @Test func lowNoticeRequiresFiniteKnownLowValue() {
+    #expect(ProductReasonText.lowReadinessNotice(score: nil) == nil)
+    #expect(ProductReasonText.lowReadinessNotice(score: .nan) == nil)
+    #expect(ProductReasonText.lowReadinessNotice(score: 50) == nil)
+    #expect(ProductReasonText.lowReadinessNotice(score: 40)?.contains("不会自动改写") == true)
+  }
+}

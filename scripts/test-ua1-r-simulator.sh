@@ -9,7 +9,7 @@ mkdir -p "$root/.local/ua1-r"
 derived="${RAI_UA1_R_DERIVED:-$root/.local/ua1-r/simulator-derived}"
 xcodebuild build-for-testing -project "$root/ios/RAI/RAI.xcodeproj" -scheme RAI \
   -destination "platform=iOS Simulator,id=$RAI_UA1_R_SIMULATOR" -derivedDataPath "$derived" \
-  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- -quiet
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- RAI_DEV_HTTP_HOST=127.0.0.1 -quiet
 python3 - "$derived" "$root/contracts/fixtures/athlete-model" <<'PY'
 import pathlib, plistlib, sys
 root = pathlib.Path(sys.argv[1])

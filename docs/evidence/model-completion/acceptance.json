@@ -1,0 +1,2730 @@
+{
+  "schemaVersion": "rai.model_completion.acceptance/1",
+  "startedAt": "2026-11-07T00:20:00+08:00",
+  "finishedAt": "2026-11-07T17:06:00+08:00",
+  "gitBaseline": {
+    "head": "18eab55",
+    "workingTree": "user changes retained; additive model-completion changes"
+  },
+  "toolchain": {
+    "go": "1.27.3",
+    "postgres": "18.6",
+    "sqlc": "1.31.1",
+    "swift": "6.3.3",
+    "xcode": "26.6"
+  },
+  "manifest": {
+    "schema": "rai.model_manifest/1",
+    "sha256": "b4618722716ba5695161b967436d6c1ff69b14f6b40aae7bf73ad1c6d109e954"
+  },
+  "syntheticOnly": false,
+  "phases": [
+    {
+      "id": "E0",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E1",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E2",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E3",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E4",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E5",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E6",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E7",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E8",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E9",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E10",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E11",
+      "status": "PARTIAL"
+    }
+  ],
+  "checks": [
+    {
+      "id": "B01",
+      "status": "PASS",
+      "expected": "基线/决策/manifest/DAG/数据边界可核验",
+      "observed": "基线 18eab55、用户改动保留、manifest/DAG/权限决策已落盘、full PASS",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md"
+      ],
+      "reason": "v2 组件纯域/DAG 已实现，真实 handler/publisher 未完成",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "B02",
+      "status": "PASS",
+      "expected": "基线/决策/manifest/DAG/数据边界可核验",
+      "observed": "18eab55 + 工作区；migration 00029 原样；manifest hash 8a800c77…；quick PASS",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md"
+      ],
+      "reason": "工程基线检查通过；v2 DAG 的纯域已实现，真实 v2 worker 未接，B05 单独降级",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "B03",
+      "status": "PASS",
+      "expected": "基线/决策/manifest/DAG/数据边界可核验",
+      "observed": "18eab55 + 工作区；migration 00029 原样；manifest hash 8a800c77…；quick PASS",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md"
+      ],
+      "reason": "工程基线检查通过；v2 DAG 的纯域已实现，真实 v2 worker 未接，B05 单独降级",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "B04",
+      "status": "PASS",
+      "expected": "基线/决策/manifest/DAG/数据边界可核验",
+      "observed": "18eab55 + 工作区；migration 00029 原样；manifest hash 8a800c77…；quick PASS",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md"
+      ],
+      "reason": "工程基线检查通过；v2 DAG 的纯域已实现，真实 v2 worker 未接，B05 单独降级",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "B05",
+      "status": "PASS",
+      "expected": "基线/决策/manifest/DAG/数据边界可核验",
+      "observed": "migration 00044；manifest hash b4618722…；analysis.model_stack_v2 真实 handler 发布 6 个产品 artifact 与 5 个研究 artifact，未实现 kind 由 jobs.kind 拒绝；full PASS。",
+      "commands": [
+        "bash scripts/local/test.sh full",
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/full-after-research.log",
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md"
+      ],
+      "reason": "真实 handler/publisher 已接；旧 observed 已过期。",
+      "executedAt": "2026-11-07T14:45:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "at": "2026-11-07T14:45:00+08:00",
+          "status": "PARTIAL",
+          "reason": "v2 组件纯域/DAG 已实现，真实 handler/publisher 未完成"
+        }
+      ]
+    },
+    {
+      "id": "B06",
+      "status": "PASS",
+      "expected": "基线/决策/manifest/DAG/数据边界可核验",
+      "observed": "18eab55 + 工作区；migration 00029 原样；manifest hash 8a800c77…；quick PASS",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md"
+      ],
+      "reason": "工程基线检查通过；v2 DAG 的纯域已实现，真实 v2 worker 未接，B05 单独降级",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "B07",
+      "status": "PASS",
+      "expected": "基线/决策/manifest/DAG/数据边界可核验",
+      "observed": "18eab55 + 工作区；migration 00029 原样；manifest hash 8a800c77…；quick PASS",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md"
+      ],
+      "reason": "工程基线检查通过；v2 DAG 的纯域已实现，真实 v2 worker 未接，B05 单独降级",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "B08",
+      "status": "PASS",
+      "expected": "基线/决策/manifest/DAG/数据边界可核验",
+      "observed": "18eab55 + 工作区；migration 00029 原样；manifest hash 8a800c77…；quick PASS",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md"
+      ],
+      "reason": "工程基线检查通过；v2 DAG 的纯域已实现，真实 v2 worker 未接，B05 单独降级",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S01",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S02",
+      "status": "PASS",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "durable ACK 路径与 proof 解耦，现有 Swift 测试通过",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S03",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S04",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S05",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S06",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S07",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S08",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S09",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "S10",
+      "status": "PARTIAL",
+      "expected": "普通同步/恢复/lost ACK/inventory 全链真实 PG",
+      "observed": "Swift 普通同步已接 completeness v2；无正式 App→HTTP→PG→Worker 端到端",
+      "commands": [
+        "bash scripts/local/test.sh quick"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        "ios/RAI/App/RAIApp.swift"
+      ],
+      "reason": "真实 lost ACK/第二增量/取消未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I01",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I02",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I03",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I04",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I05",
+      "status": "PARTIAL",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "纯域/路由已实现，完整发布与 Swift 表单未验证",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I06",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I07",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I08",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I09",
+      "status": "PARTIAL",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "纯域/路由已实现，完整发布与 Swift 表单未验证",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I10",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I11",
+      "status": "PASS",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "纯域单测 PASS；I04 隔离 PG 幂等/冲突 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "I05/I09/I12 仅纯域或路由层，未做完整发布/表单链",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "I12",
+      "status": "PARTIAL",
+      "expected": "HR reference/2、baseline、重叠、source epoch、误标、typed 输入",
+      "observed": "typed input POST 合同别名/canonical kind、幂等 receipt、冲突 409、storage 原子写入、撤销路由与隔离 PG/HTTP 追加事件 PASS；Swift 心率参考/睡眠目标表单已接入正式路由并通过 swift test 235/App Simulator build，真实表单 HTTP→PG E2E 未执行",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestModelInputRevocationIsAppendOnlyAndIdempotent|TestModelInputHTTPIdempotencyAndLegacyProduct'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-revocation.log",
+        ".local/logs/model-completion/swift-test.log",
+        ".local/logs/model-completion/xcodebuild.log"
+      ],
+      "reason": "纯域/路由/Swift 表单代码已实现并通过构建；完整发布与真实 HTTP→PG 表单 E2E 未验证",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V01",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "VO₂ submax 独立 pure domain、日栈 loader、publisher 与 schema2 reader 已接通；与 external VO₂ 分源，e2e 中 raiVO2Max 返回；full PASS。",
+      "commands": [
+        "bash scripts/local/test.sh full",
+        "bash scripts/local/test.sh e2e"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/full-after-research.log",
+        ".local/logs/model-completion-fixes/e2e-race.log"
+      ],
+      "reason": "submax 已进入产品发布与读取链。",
+      "executedAt": "2026-11-07T14:45:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "at": "2026-11-07T14:45:00+08:00",
+          "status": "PARTIAL",
+          "reason": "纯域与测试完成，v2 worker/loader/publisher 未接"
+        }
+      ]
+    },
+    {
+      "id": "V02",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V03",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V04",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V05",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V06",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V07",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V08",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V09",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V10",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V11",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V12",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V13",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V14",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V15",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "V16",
+      "status": "PASS",
+      "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
+      "observed": "纯域 oracle 测试 PASS（51.5、8 角点、LOO 3 证据 null）",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/vo2max/calculate_test.go"
+      ],
+      "reason": "V01 仅纯域，worker/publisher 未接",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R01",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R02",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R03",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R04",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R05",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R06",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R07",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R08",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R09",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R10",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R11",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R12",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R13",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery/Readiness v2 纯域测试 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/go-test.log",
+        "apps/server/internal/recovery/v2_test.go",
+        "apps/server/internal/readiness/v2_test.go"
+      ],
+      "reason": "R14 closure oracle 未独立重建",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "R14",
+      "status": "PASS",
+      "expected": "夜间 SDNN/圆周规律/目标/公式/allowlist/Readiness 数学",
+      "observed": "Recovery 日栈从 facts 独立重建；增量与有界 rebuild 等价测试、闭包 oracle 与真实 PG 集成测试通过。",
+      "commands": [
+        "bash scripts/local/test.sh full"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/full-after-research.log"
+      ],
+      "reason": "独立重建 oracle 已存在并通过。",
+      "executedAt": "2026-11-07T14:45:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "at": "2026-11-07T14:45:00+08:00",
+          "status": "PARTIAL",
+          "reason": "依赖闭包规划存在，缺独立直接重建 oracle"
+        }
+      ]
+    },
+    {
+      "id": "A01",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A02",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A03",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A04",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A05",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A06",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A07",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A08",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A09",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A10",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A11",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "diagnostics 23 tests PASS；performance v2 纯域 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "A12 研究态未接正式 artifact/API",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "A12",
+      "status": "PASS",
+      "expected": "跑力/最大努力/长跑/CS/aerobic/settling 研究诊断",
+      "observed": "四个研究诊断与 maximal 由日栈 worker 发布为独立 research artifact（model_research_v1/<key>），不可用时为 typed unavailable 而非阻断；与产品 6 槽分离；full PASS。",
+      "commands": [
+        "bash scripts/local/test.sh full",
+        "bash scripts/local/test.sh integration -run TestSyntheticPromotionAndRollbackAudits ./integration"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/full-after-research.log",
+        "apps/server/internal/storage/postgres/model_stack_research.go"
+      ],
+      "reason": "研究 artifact 已接正式发布链。",
+      "executedAt": "2026-11-07T14:45:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "at": "2026-11-07T14:45:00+08:00",
+          "status": "PARTIAL",
+          "reason": "研究态纯域完成，未接正式发布链"
+        }
+      ]
+    },
+    {
+      "id": "H01",
+      "status": "PASS",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "1–366/≤31日块/DAG warmup/参数校验/plan 零写入；CLI `rai admin backfill plan` 与纯域测试 PASS",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "计划层和 CLI plan 真实执行；不涉及模型 job",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H02",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "纯计划层、切块、resume、diff、AffectedRanges 测试 PASS",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H03",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "纯计划层、切块、resume、diff、AffectedRanges 测试 PASS",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H04",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "staged checkpoint 全部块完成才 candidate_ready，中间不发布；集成 PG PASS；candidate reader 未接",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H05",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "纯计划层、切块、resume、diff、AffectedRanges 测试 PASS",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H06",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "纯计划层、切块、resume、diff、AffectedRanges 测试 PASS",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H07",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "纯计划层、切块、resume、diff、AffectedRanges 测试 PASS",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H08",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "纯计划层、切块、resume、diff、AffectedRanges 测试 PASS",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H09",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "纯计划层、切块、resume、diff、AffectedRanges 测试 PASS",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "H10",
+      "status": "PARTIAL",
+      "expected": "plan/execute/resume/status/diff/cancel 与有界重建",
+      "observed": "cancel 保留已完成块、resume cancelled/ready 冲突、status 可重读；集成 PG PASS；权限矩阵未覆盖",
+      "commands": [
+        "go test ./internal/backfill"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无存储执行器/CLI/staged candidate，不能声称 H 全 PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P01",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "正式 GET /v2/analysis/athlete 经真实 auth→handler→Store→PG；synthetic-v2 active 无 artifact 时六项 typed null/unavailable_response 200，legacy active 返回 not_product_activated，无 candidate 参数；六槽真实 artifact 时返回 schema2 complete_response",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/swift-test.log",
+        ".local/logs/model-completion/xcodebuild.log",
+        ".local/logs/model-completion/integration-active-product.log",
+        ".local/logs/model-completion/integration-active-load.log",
+        ".local/logs/model-completion/integration-all-six.log"
+      ],
+      "reason": "active 与 legacy 负例均经真实 HTTP+隔离 PG 验证；六槽完整投影见 integration-all-six.log",
+      "executedAt": "2026-11-07T05:29:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P02",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "active schema2 经正式 HTTP 返回六项 typed metric；六 envelope 均有 evidenceAt/asOf/evaluationAt/computedAt/publishedAt/validationStatus=validated，mapping2；v2 load/performance/recovery/readiness 身份与 external/RAI VO2 独立；Swift schema1 11 fixtures 解码/round-trip PASS；最终 full 845s。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run '^TestActiveSchema2ProjectsAllSixTypedMetrics$'",
+        "cd ios/RAI && swift test"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-all-six-metadata.log",
+        ".local/logs/model-completion/swift-test.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:08:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P03",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "单一 REPEATABLE READ 只读事务批量读取六 scope，逐项校验 publication/SUCCEEDED run/clean generation/artifact content hash/schema/model/version/config/generation；tampered hash→technical_failure，unclean generation→unavailable；正式 HTTP 六项 200、complete_response；reader 不 import admin、不 Calculate、不读 raw 新增 migration 38 security-barrier `analysis_published_artifacts` 视图：rai_api 仅有已发布/SUCCEEDED/clean generation artifact 的 SELECT，无 `analysis_artifacts` 基表候选访问；B4 受限 API 角色 HTTP 回归 PASS。",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/swift-test.log",
+        ".local/logs/model-completion/xcodebuild.log",
+        ".local/logs/model-completion/integration-all-six.log",
+        ".local/logs/model-completion/integration-reader-guard.log",
+        ".local/logs/model-completion/integration-p05-b4.log"
+      ],
+      "reason": "未跑正式 HTTP→PG→Worker→App E2E，typed 表单/训练 adapter 未完成",
+      "executedAt": "2026-11-07T06:22:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P04",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "history opaque cursor 绑定 dataset/metric/assignment revision/view/range；隔离 PG limit=1 两页返回真实 v2 值 15/12，跨 metric cursor→409，limit=91→422；六 metric 标量/单位/状态解码单测 PASS；同版本 28 日真实两点 trend 10→15 delta=5；version/config/mode/source 任一变化→context_break 且 delta=null",
+      "commands": [
+        "cd apps/server && source ../scripts/local/lib.sh && rai_go_env && go test -count=1 ./internal/storage/postgres -run TestHistory",
+        "bash scripts/local/test.sh integration ./integration -run TestHistoryCursorBindsMetricAndReturnsRealV2Values"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/history-projection.log",
+        ".local/logs/model-completion/integration-history-cursor.log"
+      ],
+      "reason": "未跑正式 HTTP→PG→Worker→App E2E，typed 表单/训练 adapter 未完成",
+      "executedAt": "2026-11-07T07:08:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P05",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "隔离 PG 真实 feature artifact/publication/clean generation 下，GET /v2/workouts/{id}/detail 返回发布 feature 的 coverage/activeSeconds/reasons；dirty generation 提升后 analysis=null，legacy/raw 详情保留；集成测试 PASS。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run '^TestWorkoutDetailReadsPublishedFeatureArtifact$'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-detail-feature.log",
+        "apps/server/integration/workout_detail_test.go",
+        "apps/server/internal/storage/postgres/workout_detail.go"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T08:05:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P06",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "正式 App→HTTP→PG→Worker Simulator E2E PASS：active_home=true、workout_detail=true、history=true、rollback=true；请求真实到达 /v2/analysis/athlete 与 history。",
+      "commands": [
+        "bash scripts/local/test.sh e2e"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/e2e-race.log",
+        ".local/testing/e2e.YSA5zl/model-e2e-summary.json"
+      ],
+      "reason": "正式 schema2 E2E 已跑通。",
+      "executedAt": "2026-11-07T14:45:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "at": "2026-11-07T14:45:00+08:00",
+          "status": "PARTIAL",
+          "reason": "未跑正式 HTTP→PG→Worker→App E2E，typed 表单/训练 adapter 未完成"
+        }
+      ]
+    },
+    {
+      "id": "P07",
+      "status": "PARTIAL",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "AthleteModelCard 使用 presentationValueAvailable/ProductReasonText；7 状态 presenter 单测通过；Simulator UI 套件 85 通过/3 跳过，导航与文本裁剪审计 PASS；未逐状态截图。",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/swift-test-round26.log",
+        ".local/logs/model-completion/xcodebuild-round26.log",
+        ".local/logs/model-completion/simulator-round26b.log"
+      ],
+      "reason": "未跑正式 HTTP→PG→Worker→App E2E，typed 表单/训练 adapter 未完成",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P08",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "产品文本与格式化由 ProductReasonText/ProductFormat 单测覆盖：score 0 位、VO₂ 1 位、非有限显示 --；中文 reason 覆盖 data_stale/sensitivity_unbounded/collecting；RAI VO₂ 明确标注实验，外部 VO₂ 独立来源，不平均/不互校准；文案不含“最大能力”等误称；Swift 236 tests PASS，Simulator App build SUCCEEDED。",
+      "commands": [
+        "cd ios/RAI && swift test",
+        "cd ios/RAI && xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -sdk iphonesimulator -destination id=D44B6925-BB19-4556-B8AE-94B758B3B532 build"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/swift-test-round25.log",
+        ".local/logs/model-completion/xcodebuild-round25.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T10:30:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P09",
+      "status": "PARTIAL",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "schema2 卡片支持动态字号/深色/中文 reason；Simulator UI 套件 85 通过、0 失败、3 跳过（辅助功能动态字号矩阵仍跳过）；未完成 VoiceOver 专项与窄屏设备矩阵。",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/simulator-round26b.log",
+        ".local/logs/model-completion/swift-test-round26.log",
+        ".local/logs/model-completion/xcodebuild-round26.log"
+      ],
+      "reason": "未跑正式 HTTP→PG→Worker→App E2E，typed 表单/训练 adapter 未完成",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P10",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "训练 adapter 仅在 active schema2 读取 fresh/available/complete Readiness v2；legacy 不消费 v2；partial/stale 不注入 value，unknown 保持 readiness_unavailable；低值提示由 ProductReasonText.lowReadinessNotice 单测覆盖，不改 WorkoutKit 排程；plan 持久化 ModelBinding。Load v2 仍不直接作为训练输入，按当前设计由训练计划自身负荷上下文处理。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestTrainingPlanRecordsModelBindingAndRollbackAdapter|TestTrainingContextUsesV2ReadinessSignal|TestTrainingContextIgnoresV2ReadinessOnLegacyAdapter|TestTrainingContextDoesNotUseExpiredV2Readiness'",
+        "cd ios/RAI && swift test"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-p11-binding.log",
+        ".local/logs/model-completion/swift-test-round26.log",
+        ".local/logs/model-completion/xcodebuild-round26.log"
+      ],
+      "reason": "Load v2 训练输入与低值 UI 提示未单独验证",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "status": "PARTIAL",
+          "observed": "训练 adapter 仅在 active schema2 读取 fresh/available/complete Readiness v2；legacy 不消费 v2；partial/stale score 不注入，unknown 保持 readiness_unavailable；低值沿用不自动改排程。Load v2 尚未作为训练输入。",
+          "reason": "训练 plan binding 已真实落库；adapter 只消费 active fresh Readiness v2，legacy 隔离；Load v2 输入未接"
+        }
+      ]
+    },
+    {
+      "id": "P11",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "训练 plan config 持久化 ModelBinding；隔离 PG legacy→synthetic-v2→legacy 新 plan 分别为 legacy-v1/schema2-v2/legacy-v1，历史 plan 不变；active schema2 只消费 fresh/available/complete Readiness v2，legacy 不消费 v2。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestTrainingPlanRecordsModelBindingAndRollbackAdapter|TestTrainingContextUsesV2ReadinessSignal|TestTrainingContextIgnoresV2ReadinessOnLegacyAdapter|TestTrainingContextDoesNotUseExpiredV2Readiness'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-p11-binding.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:55:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "P12",
+      "status": "PASS",
+      "expected": "schema2 API/六 metric/history/App/训练 adapter",
+      "observed": "源码/客户端边界门禁扫描 43 个 Swift 文件：HealthKit requestAuthorization 仅 toShare:[]，无 save/saveObject/deleteObject，无 WorkoutKit import/scheduler，无 UserNotifications/UNUserNotificationCenter，Swift 无 candidate/channel=candidate；正式 product API 仅读 active，候选仅 admin/测试路径；Swift 235 tests PASS。",
+      "commands": [
+        "python3 scripts/check-product-boundaries.py",
+        "cd ios/RAI && swift test"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/quick-round20.log",
+        ".local/logs/model-completion/swift-test-round19.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:25:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X01",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X02",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X03",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS；datasets.synthetic_test=false 拒绝 promote/rollback",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X04",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X05",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS；dataset 行锁重验 synthetic 标记",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X06",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X07",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X08",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X09",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X10",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "rai-shadow synthetic CLI exit0: observations=10 paired=9; local-5k n=6 aggregate visible; trail n=4 suppressed; synthetic=false refused exit1; affectsActive=false",
+      "commands": [
+        "go run ./cmd/rai-shadow -input ../../.local/logs/model-completion/shadow-synthetic.json -out ../../.local/logs/model-completion/shadow-report.json",
+        "go run ./cmd/rai-shadow -input ../../.local/logs/model-completion/shadow-real-refused.json"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/shadow-cli.log",
+        ".local/logs/model-completion/shadow-report.json",
+        "apps/server/internal/shadow/shadow_test.go"
+      ],
+      "reason": "独立合成 shadow 工具/聚合抑制/真实输入拒绝 PASS；尚未接 candidate reader 或生产 shadow 调度，故 PARTIAL",
+      "executedAt": "2026-11-07T07:55:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X11",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "X12",
+      "status": "PARTIAL",
+      "expected": "promotion/rollback/gate/合成切换",
+      "observed": "synthetic legacy→v2→previous→legacy PG 集成 PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "无真实 dataset 门禁、旧 stack 补齐、shadow 隐私实测",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T01",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "migration 30–36 fresh/incremental PASS；00001–00029 checksum 未改；隔离 PG leftover=0",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-admin.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "最终 full 覆盖 fresh/incremental migration 与 schema upgrade",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T02",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "真实隔离 PG18 故障/提交边界：workout delete 与 import 两锁顺序、commit retry 不重复/不复活 UUID、route delete receipt 失败回滚 barrier、daily rollback/backend crash、analysis publish fault、completeness backend crash；均无半提交 raw/delete barrier/commit log/dirty/job/receipt，重试原字节一致，leftover=0、cluster removed。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestWorkoutDeleteRollbackIncludingCommitFailure|TestCommitRetryAndDeletionBarrier|TestRouteDeleteReceiptFailureRollsBackBarrier|TestDailyRollbackAndBackendCrash|TestAnalysisPublishFaultAtomicity|TestWorkoutCompletenessAtomicFaultsAndBackendCrash'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-t02-atomicity.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:55:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T03",
+      "status": "PARTIAL",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "typed input 幂等/冲突/撤销、receipt trigger 故障同事务回滚、跨 dataset 撤销/读取隔离、assignment audit/promotion 合成流程、DependencyDAG 环检测单测均 PASS。仍缺 dependency 撤销故障与 job 传播的专门集成矩阵。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestModelInputReceiptFailureRollsBackInputAndDirty'",
+        "bash scripts/local/test.sh integration ./integration -run 'TestModelInputCannotCrossDataset'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-admin.log",
+        ".local/logs/model-completion/integration-model.log",
+        ".local/logs/model-completion/integration-t03-input-fault.log",
+        ".local/logs/model-completion/integration-t03-cross-dataset.log"
+      ],
+      "reason": "T04/T10 及真实 backend kill/两 Worker 未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T04",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "真实隔离 PG18 backend termination 覆盖 features/load/performance/recovery/readiness/VO2 external/completeness：after_artifact、before_publication、before_clean、load state write、job claim/crash recovery；每轮无半发布 artifact/result/publication，重试一致，leftover=0、cluster removed。B4 macOS SIGKILL 跨 raw→receipt→projection→anchor 恢复亦通过。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestFeatureBackendCrashAtomicity|TestVO2ExternalBackendCrashAtomicity|TestReadinessBackendCrashAtomicity|TestWorkoutCompletenessAtomicFaultsAndBackendCrash|TestB4ClientSIGKILLThroughCandidatePublication|TestRecoveryModelBackendCrashAtomicity|TestLoadBackendCrashAtomicity|TestPerformanceBackendCrashAtomicity|TestConcurrentJobClaimAndCrashRecovery'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-t04-crash.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:45:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T05",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "真实隔离 PG18：dirty 使 N+1 generation 的旧 run SUPERSEDED；lease 过期重领后 fencing token 单调递增，旧 token 发布报 lease_lost；旧 generation 不能覆盖新 publication；并发 claim/crash recovery 无重复发布；发布失败无半 artifact/result/publication。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestAnalysisGenerationCASAndLostFence|TestAnalysisLeaseExpiryDuringPublishAndRecomputeDryRun|TestAnalysisOldGenerationCannotReplaceNewPublication|TestAnalysisPublishFaultAtomicity'",
+        "bash scripts/local/test.sh integration ./integration -run TestConcurrentJobClaimAndCrashRecovery"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-t05-fencing.log",
+        ".local/logs/model-completion/integration-t04-crash.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:50:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T06",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "真实隔离 PG18：workout delete/import 两锁顺序、late route/association 被 fence、bundle explicit child/series/route 删除边界、published P4 失效但历史保留、daily RHR 替换与 sleep overlap、跨日 sleep、readiness delete/rebuild、无 workout 日依赖队列更新、load generation race+delete；全部最终一致，leftover=0、cluster removed。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestWorkoutDeleteAndImportBothLockOrders|TestWorkoutDeleteFencesLateRouteAndAssociation|TestWorkoutBundleExplicitChildDeletionBoundary|TestWorkoutDeleteInvalidatesPublishedP4AndKeepsHistory|TestDailyRHRReplacementAndSleepOverlap|TestDailyLifecycle|TestReadinessDeleteRevisionAndRebuild|TestReadinessPersistedDependencyAlwaysQueuesCurrent|TestLoadGenerationRaceAndWorkoutDelete'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-t06-delete.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:54:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T07",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "真实隔离 PG18 角色矩阵 15 项 PASS：API/Worker/owner/admin 最小权限；API 不能 migrate/maintain、不能写 raw/artifact/candidate/assignment；Worker 不能读 raw/用户参数、不能 activation；B4 runtime denials/restricted roles/训练/恢复/负荷/性能/完整性/外部 VO2 均按预期拒绝；leftover=0、cluster removed。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'Role|Roles'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-t07-roles.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:38:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T08",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "真实隔离 PG18 athlete/model 视图：dataset 隔离与 candidate 读取无泄漏；RepeatableRead 快照在 assignment revision/dataset commit/删除并发下保持一致；corrupt artifact content hash→technical_failure 仅该 metric；schema/缺 publication→业务 null；assignment race 后新快照取完整新视图；新用户不补零；leftover=0、cluster removed。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestAthleteModelFullAndLeakage|TestAthleteModelMissingAndCorruption|TestAthleteModelStableAssignmentRevisionAndPointerRace|TestAthleteModelRuntimeRoles'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-t08-view.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T09:37:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T09",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "migration 30–36 fresh/incremental PASS；typed input/promotion 隔离 PG PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-admin.log",
+        ".local/logs/model-completion/integration-model.log"
+      ],
+      "reason": "migration fresh/incremental 与 synthetic promotion 审计真实 PG PASS",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T10",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "真实隔离 PG18：核心 workout/sample/route/job 索引可用；model completion 的 reference/overlap/artifact/history/load/readiness/workout-time 索引存在；reference/overlap 为 index-only scan，artifact 用 analysis_artifacts_pkey，history 用 analysis_publications_pkey 且带 day 范围（无 lifetime 扫描），load ledger 用 day 索引；API 当前快照/90 点历史各最多 2 SELECT（performance-http），无 N+1；leftover=0、cluster removed。",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run 'TestCoreIndexAvailability|TestModelCompletionIndexAvailability'"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-t10-plans.log",
+        ".local/logs/model-completion/performance-http.log"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T10:12:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T11",
+      "status": "PARTIAL",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "migration 30–36 fresh/incremental PASS；typed input/promotion 隔离 PG PASS",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/e2e-round26.log",
+        ".local/logs/model-completion/integration-p11-binding.log"
+      ],
+      "reason": "T04/T10 及真实 backend kill/两 Worker 未执行",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "T12",
+      "status": "PASS",
+      "expected": "迁移/事务故障/角色/竞争/N+1/full 回归",
+      "observed": "final full PASS：961s，全部 Go 包 ok，0 FAIL/0 SKIP，leftover DB=0，cluster removed；含 race/vet/build/sqlc/边界、全量隔离 PG18 集成、P11 binding、shadow/X10、F08 延迟断言、C01–C04 research 工具。",
+      "commands": [
+        "bash scripts/local/test.sh full"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/full-round29.log"
+      ],
+      "reason": "最终 full gate 真实执行通过；此前失败历史保留在 history",
+      "executedAt": "2026-11-07T09:33:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "at": "2026-11-07T00:58:00+08:00",
+          "status": "FAIL",
+          "command": "bash scripts/local/test.sh full",
+          "exitCode": 1,
+          "reason": "48 integration failures: synthetic current-day fixture time guard; plus feature active-channel guard, legacy VO2 input kind, and M6 policy hash encoding defects (all later fixed)"
+        }
+      ]
+    },
+    {
+      "id": "F01",
+      "status": "PASS",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "optimized Go 1.27.3 integration build（无 race）；httptest.NewServer loopback TCP；真实 Bearer auth→httpapi handler→Store→隔离 PG18；production pool/statement_timeout 2s/durability 未改；warmup3、30 attempts、失败0",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        ".local/logs/model-completion/performance-http.log"
+      ],
+      "reason": "不能用 quick/unit 耗时替代；性能 FAIL 不得抹去",
+      "executedAt": "2026-11-07T06:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "F02",
+      "status": "PASS",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "当前 schema2 快照 n=30, P50=1.53ms, P95=2.33ms, max=2.52ms, 最大 SELECT/请求=2；预算≤6 SELECT、P95≤500ms",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        ".local/logs/model-completion/performance-http.log"
+      ],
+      "reason": "不能用 quick/unit 耗时替代；性能 FAIL 不得抹去",
+      "executedAt": "2026-11-07T06:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "F03",
+      "status": "PASS",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "90 点 v2 trainingLoad 历史 n=30, P50=1.95ms, P95=2.32ms, max=2.35ms, 最大 SELECT/请求=2；预算≤8 SELECT、P95≤750ms；单条 publication/artifact join，不扫 raw",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        ".local/logs/model-completion/performance-http.log"
+      ],
+      "reason": "不能用 quick/unit 耗时替代；性能 FAIL 不得抹去",
+      "executedAt": "2026-11-07T06:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "F04",
+      "status": "PASS",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "240min、250000 输入点；30 次 P95=1.894872s、max=1.905399s（≤20s）；artifact=42127 bytes（≤128KiB）；无截断。",
+      "commands": [
+        "scripts/test-postgres.sh go test -v -count=1 -tags=integration,modelperf -run TestDenseFeatureSnapshotPerformance ./integration"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/perf-model-norace-v.log"
+      ],
+      "reason": "250k 密度性能已实测通过。",
+      "executedAt": "2026-11-07T14:45:00+08:00",
+      "scope": "synthetic-performance",
+      "history": [
+        {
+          "at": "2026-11-07T14:45:00+08:00",
+          "status": "PARTIAL",
+          "reason": "不能用 quick/unit 耗时替代；性能 FAIL 不得抹去"
+        }
+      ]
+    },
+    {
+      "id": "F05",
+      "status": "PASS",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "纯模型 n=30 optimized：vo2max Aggregate P95=0.001ms、recovery v2 P95=1.465ms、readiness v2 P95=0.047ms；均≤250ms",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/quick.log",
+        ".local/logs/model-completion/performance-models.log"
+      ],
+      "reason": "不能用 quick/unit 耗时替代；性能 FAIL 不得抹去",
+      "executedAt": "2026-11-07T06:15:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "F06",
+      "status": "PASS",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "n=30 真实纯域性能：跑力 P50=33.65ms/P95=35.10ms/max=35.93ms/allocs=9554；durability+CS+42日trend P50=5.53µs/P95=18.84µs/max=22.66µs/allocs=76；均≤2s，无O(N²) fixture（20 features/3 samples/3 efforts）",
+      "commands": [
+        "cd apps/server && source ../scripts/local/lib.sh && rai_go_env && go test -count=1 -v ./internal/performance ./internal/diagnostics"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/performance-diagnostics.log"
+      ],
+      "reason": "不能用 quick/unit 耗时替代；性能 FAIL 不得抹去",
+      "executedAt": "2026-11-07T06:45:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "F07",
+      "status": "PASS",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "180日/180Workout/180 jobs/6个31日块；首次完整回算 elapsed=22.52s（≤15min），candidate ready。",
+      "commands": [
+        "scripts/test-postgres.sh go test -v -count=1 -tags=integration,modelperf -run TestModelBackfill180DayPerformance ./integration"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/perf-model-norace-v.log"
+      ],
+      "reason": "180日全栈回算性能已实测通过。",
+      "executedAt": "2026-11-07T14:45:00+08:00",
+      "scope": "synthetic-performance",
+      "history": [
+        {
+          "at": "2026-11-07T14:45:00+08:00",
+          "status": "NOT RUN",
+          "reason": "不能用 quick/unit 耗时替代；性能 FAIL 不得抹去"
+        }
+      ]
+    },
+    {
+      "id": "F08",
+      "status": "PARTIAL",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "synthetic promote latency=3.221ms, rollback latency=1.663ms (≤2s); API+Worker peak RSS ≤768MiB and frontend ≤10s not measured",
+      "commands": [
+        "bash scripts/local/test.sh integration ./integration -run TestSyntheticPromotionAndRollbackAudits -v"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-rollback-latency.log"
+      ],
+      "reason": "合成 promote/rollback 延迟满足 2s；进程峰值 RSS 与前端加载时延未测，故 PARTIAL",
+      "executedAt": "2026-11-07T08:02:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "F09",
+      "status": "PASS",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "S60 单 Workout 持久 ACK：30 attempts，warmup 3，failures=0；ack_total P50=2977.739ms、P95=3932.603ms、max=3936.794ms。对比 2026-11-06 同环境 baseline P95=5646ms，退化 -30.3%（改善），满足≤15%退化；持久 ACK 路径不等待 completeness proof，proof 在独立后置状态机执行。历史同步性能 FAIL 记录保留。",
+      "commands": [
+        "RAI_SYNC_SPEED_PERF=1 RAI_SYNC_SPEED_ITERATIONS=30 RAI_SYNC_SPEED_WARMUPS=3 bash scripts/local/test.sh integration -v -run '^TestWorkoutSyncSpeedServerAckMatrix/S60$' ./integration"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/integration-ack-s60-round17.log",
+        "docs/evidence/workout-sync-speed/server/20261106-sync-speed-server-ack-s60-s240.txt"
+      ],
+      "reason": "",
+      "executedAt": "2026-11-07T08:08:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "F10",
+      "status": "NOT RUN",
+      "expected": "普通优化构建、真实 loopback、30 次、SELECT/P95/RSS/预算",
+      "observed": "未执行正式性能基准",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/quick.log"
+      ],
+      "reason": "不能用 quick/unit 耗时替代；性能 FAIL 不得抹去",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "D01",
+      "status": "PASS",
+      "expected": "设备/OS/Release build/签名安装/只读授权与可见范围",
+      "observed": "iPhone 12 Pro Max (iPhone13,4), iOS 27.2；Release 0.6.0(1) 签名安装成功；probe handshake PASS；只读授权后扫描 100 个可见 Workout（51 eligible/49 excluded/0 unclassified），原 session manifest 未改变。",
+      "commands": [
+        "RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py install",
+        "RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py probe",
+        "RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py list"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/device-acceptance/install-result.json",
+        ".local/logs/model-completion-fixes/device/workout-list-report.json"
+      ],
+      "reason": "设备、Release 构建、签名、只读授权和真实可见范围均已观测。",
+      "executedAt": "2026-11-07T15:02:00+08:00",
+      "scope": "real-device-readonly",
+      "history": [
+        {
+          "at": "2026-11-07T15:02:00+08:00",
+          "status": "NOT RUN",
+          "reason": "未执行真实设备；不伪造 HealthKit 记录"
+        }
+      ]
+    },
+    {
+      "id": "D02",
+      "status": "FAIL",
+      "expected": "普通入口首轮全量 inventory→ACK→completeness receipt→committed anchors",
+      "observed": "首轮 completeness 处理 17 个 Workout 后 BLOCKED：一个 Workout 的 HeartRate/Distance/VerticalOscillation/GroundContactTime/RunningPower 返回 metadata_requires_review，coverage 未完成，completeness_stream_pending；未生成 receipt/committed anchors。",
+      "commands": [
+        "RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py completeness"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/device/completeness-report.json",
+        ".local/logs/model-completion-fixes/device/client-task-state.json"
+      ],
+      "reason": "真实数据包含未审核 metadata；按契约拒绝证明完整性，不用空收据或丢弃字段凑通过。",
+      "executedAt": "2026-11-07T15:02:00+08:00",
+      "scope": "real-device-readonly",
+      "history": [
+        {
+          "at": "2026-11-07T15:02:00+08:00",
+          "status": "NOT RUN",
+          "reason": "未执行真实设备；不伪造 HealthKit 记录"
+        }
+      ]
+    },
+    {
+      "id": "D03",
+      "status": "NOT RUN",
+      "expected": "第二增量/无变化重复，0 重复 import",
+      "observed": "无本轮设备授权",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [],
+      "reason": "D02 在真实数据 metadata_requires_review 处 BLOCKED；该自然事件/故障注入未获执行条件，未伪造。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-device",
+      "history": []
+    },
+    {
+      "id": "D04",
+      "status": "PARTIAL",
+      "expected": "日常 SDNN/RHR/Sleep/external VO₂ 支持/缺失/冲突",
+      "observed": "Workout 来源分类已观测（100 可见：51 Apple Watch eligible/49 excluded）；真实库 health_samples 仅有 ActiveEnergyBurned/BasalEnergyBurned/DistanceWalkingRunning/HeartRate/RunningGroundContactTime/RunningPower/RunningSpeed/RunningStrideLength/RunningVerticalOscillation/StepCount；无 RestingHeartRate/HeartRateVariabilitySDNN/SleepAnalysis；缺失与冲突未触发。",
+      "commands": [
+        "RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py list"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/device/workout-list-report.json",
+        ".local/logs/model-completion-fixes/device/health-sample-types.txt"
+      ],
+      "reason": "仅覆盖 Workout 来源；日常 RHR/SDNN/Sleep 外部 VO₂ 支持/缺失/冲突未观察。",
+      "executedAt": "2026-11-07T15:02:00+08:00",
+      "scope": "real-device-readonly",
+      "history": [
+        {
+          "at": "2026-11-07T15:02:00+08:00",
+          "status": "NOT RUN",
+          "reason": "未执行真实设备；不伪造 HealthKit 记录"
+        }
+      ]
+    },
+    {
+      "id": "D05",
+      "status": "NOT RUN",
+      "expected": "飞行/API/DB 不可用/lost ACK/重开",
+      "observed": "无本轮设备授权",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [],
+      "reason": "D02 在真实数据 metadata_requires_review 处 BLOCKED；该自然事件/故障注入未获执行条件，未伪造。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-device",
+      "history": []
+    },
+    {
+      "id": "D06",
+      "status": "NOT RUN",
+      "expected": "五处 kill，无 hook 记 NOT EXECUTED",
+      "observed": "无本轮设备授权",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [],
+      "reason": "D02 在真实数据 metadata_requires_review 处 BLOCKED；该自然事件/故障注入未获执行条件，未伪造。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-device",
+      "history": []
+    },
+    {
+      "id": "D07",
+      "status": "NOT RUN",
+      "expected": "自然 delete/RHR 替换/迟到/source 变更，未观察记 NOT OBSERVED",
+      "observed": "无本轮设备授权",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [],
+      "reason": "D02 在真实数据 metadata_requires_review 处 BLOCKED；该自然事件/故障注入未获执行条件，未伪造。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-device",
+      "history": []
+    },
+    {
+      "id": "D08",
+      "status": "PARTIAL",
+      "expected": "后台恢复/主线程/内存/耗时",
+      "observed": "Workout list 设备运行：mainThreadMaxStallMs=1.2、>250ms=0、peak RSS=573669376、residentAfter=545964032、wallMs=2006；未覆盖完整 completeness 后台恢复与同步耗时。",
+      "commands": [
+        "RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py list"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/device/workout-list-report.json"
+      ],
+      "reason": "仅列表读取，不是完整同步/后台恢复矩阵。",
+      "executedAt": "2026-11-07T15:02:00+08:00",
+      "scope": "real-device-readonly",
+      "history": [
+        {
+          "at": "2026-11-07T15:02:00+08:00",
+          "status": "NOT RUN",
+          "reason": "未执行真实设备；不伪造 HealthKit 记录"
+        }
+      ]
+    },
+    {
+      "id": "D09",
+      "status": "NOT RUN",
+      "expected": "verified completeness 进真实 readiness",
+      "observed": "无本轮设备授权",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [],
+      "reason": "D02 在真实数据 metadata_requires_review 处 BLOCKED；该自然事件/故障注入未获执行条件，未伪造。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-device",
+      "history": []
+    },
+    {
+      "id": "D10",
+      "status": "NOT RUN",
+      "expected": "每模型 n/N/reason/cold-start/source 密度，聚合无 raw 值/UUID/GPS/凭证",
+      "observed": "无本轮设备授权",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [],
+      "reason": "D02 在真实数据 metadata_requires_review 处 BLOCKED；该自然事件/故障注入未获执行条件，未伪造。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-device",
+      "history": []
+    },
+    {
+      "id": "C01",
+      "status": "PASS",
+      "expected": "prospective/known-at/split/cluster/撤回/addendum 工程",
+      "observed": "合成 prospective snapshot/known-at 冻结/撤回已由 rai-research 真实运行；新增 HMAC-SHA256 化名转换，报告只含 aggregate，映射写入独立 0600 文件；研究输出在 .local/logs/model-completion，与普通同步/API 日志分离。合成输入仅用于工程验证。",
+      "commands": [
+        "cd apps/server && go test ./internal/research ./cmd/rai-research",
+        "cd apps/server && go run ./cmd/rai-research -input ../../.local/logs/model-completion/research-study-withdraw.json -out ../../.local/logs/model-completion/research-report-pseudonym.json -pseudonym-secret-file ../../.local/logs/model-completion/research-pseudonym-secret.txt -pseudonym-map ../../.local/logs/model-completion/research-pseudonym-map.json"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/research-cli.log",
+        ".local/logs/model-completion/research-cli-withdraw.log",
+        ".local/logs/model-completion/research-cli-pseudonym.log",
+        ".local/logs/model-completion/research-report-pseudonym.json",
+        ".local/logs/model-completion/research-pseudonym-map.json"
+      ],
+      "reason": "真实研究数据/导出、数据库级输入互斥和真实 outcome 仍未执行；C01 仅为合成工程工具验证。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "C02",
+      "status": "PASS",
+      "expected": "prospective/known-at/split/cluster/撤回/addendum 工程",
+      "observed": "合成 athlete 互斥 split 与 temporal past→future split 由 rai-research 自动检查；新增 InputWorkoutIDs/InputFrom/To 与 Outcome WorkoutID/Window 校验，同 Workout 或重叠输入窗口不会被链接为 outcome，overlapExcluded=1、paired=0；CreateSnapshot 拒绝 FeaturesKnownAt/KnownAt 晚于 AsOf，FreezeKnownAt 保持旧 prediction，不允许今天 revised 冒充旧值。",
+      "commands": [
+        "cd apps/server && go test ./internal/research ./cmd/rai-research",
+        "cd apps/server && go run ./cmd/rai-research -input ../../.local/logs/model-completion/research-study-overlap.json -out ../../.local/logs/model-completion/research-report-overlap.json"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/research-cli.log",
+        ".local/logs/model-completion/research-cli-overlap.log",
+        ".local/logs/model-completion/research-report-overlap.json"
+      ],
+      "reason": "合成工程检查 PASS；真实研究数据导出与数据库级窗口互斥仍未执行。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "C03",
+      "status": "PASS",
+      "expected": "prospective/known-at/split/cluster/撤回/addendum 工程",
+      "observed": "n/N 与独立 cluster-aware 输出：单运动员 block 的 1/2/3 deltas 手算均值 2，确定性 bootstrap 全重采样同一 block，CI 下限=上限=2；censored/nil 值作为 abstention 不计 0，NValues=0 时不产生 NaN、不输出 mean/CI；小于 minCluster 的组仅保留计数并列入 suppressedClusters；运动员整块重采样，重复观测不拆散。",
+      "commands": [
+        "cd apps/server && go test ./internal/research"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/research-cli.log",
+        ".local/logs/model-completion/research-cli-overlap.log"
+      ],
+      "reason": "合成 fixture 与手算 oracle PASS；真实研究 outcome 与真实人群分布未执行。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "C04",
+      "status": "PASS",
+      "expected": "prospective/known-at/split/cluster/撤回/addendum 工程",
+      "observed": "StudyAddendum 现要求 target/purpose、cohort、outcome source、observation time window、acceptance threshold、sample-size/precision、outcome、model/version、reviewer、authorization、withdrawal、stopping rule、privacy approval、expiry；六类产品 model identity 逐一验证 gate 打开，删除 stopping rule 后 gate 关闭。CLI 合成 addendum v2 实跑 exit 0。真实研究 gate 未启用、无真实签署。",
+      "commands": [
+        "cd apps/server && go test ./internal/research",
+        "cd apps/server && go run ./cmd/rai-research -input ../../.local/logs/model-completion/research-study.json -out ../../.local/logs/model-completion/research-study-v2addendum-report.json"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/research-study-v2addendum.log",
+        ".local/logs/model-completion/research-study-v2addendum-report.json"
+      ],
+      "reason": "工程 addendum gate PASS；真实 study 审批、真实 outcome、真实 gate 启用仍 NOT RUN。",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "C05",
+      "status": "NOT RUN",
+      "expected": "prospective/known-at/split/cluster/撤回/addendum 工程",
+      "observed": "research 纯域 95.7% coverage，race PASS",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无真实研究授权、outcome、样本或 criterion",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-research",
+      "history": []
+    },
+    {
+      "id": "C06",
+      "status": "NOT RUN",
+      "expected": "prospective/known-at/split/cluster/撤回/addendum 工程",
+      "observed": "research 纯域 95.7% coverage，race PASS",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无真实研究授权、outcome、样本或 criterion",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-research",
+      "history": []
+    },
+    {
+      "id": "C07",
+      "status": "NOT RUN",
+      "expected": "prospective/known-at/split/cluster/撤回/addendum 工程",
+      "observed": "research 纯域 95.7% coverage，race PASS",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无真实研究授权、outcome、样本或 criterion",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-research",
+      "history": []
+    },
+    {
+      "id": "C08",
+      "status": "NOT RUN",
+      "expected": "prospective/known-at/split/cluster/撤回/addendum 工程",
+      "observed": "research 纯域 95.7% coverage，race PASS",
+      "commands": [],
+      "exitCode": null,
+      "evidence": [
+        ".local/logs/model-completion/pure-domains.log"
+      ],
+      "reason": "无真实研究授权、outcome、样本或 criterion",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "real-research",
+      "history": []
+    },
+    {
+      "id": "Z01",
+      "status": "PASS",
+      "expected": "最终一次 full race/vet/build/sqlc/boundaries/全量 PG",
+      "observed": "final full PASS：961s，全部 Go 包 ok，0 FAIL/0 SKIP，leftover DB=0，cluster removed；含 race/vet/build/sqlc/边界、全量隔离 PG18 集成、P11 binding、shadow/X10、F08 延迟断言、C01–C04 research 工具。",
+      "commands": [
+        "bash scripts/local/test.sh full"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion/full-round29.log"
+      ],
+      "reason": "最终 full gate 真实执行通过；此前失败历史保留在 history",
+      "executedAt": "2026-11-07T09:33:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "at": "2026-11-07T00:58:00+08:00",
+          "status": "FAIL",
+          "command": "bash scripts/local/test.sh full",
+          "exitCode": 1,
+          "reason": "48 integration failures: synthetic current-day fixture time guard; plus feature active-channel guard, legacy VO2 input kind, and M6 policy hash encoding defects (all later fixed)"
+        }
+      ]
+    },
+    {
+      "id": "Z02",
+      "status": "PASS",
+      "expected": "Swift package/App Simulator/正式 HTTP-PG E2E",
+      "observed": "Swift package 238 tests/34 suites PASS；Simulator App E2E PASS（active_home/workout_detail/history/rollback）；unknown schema/legacy 回归在 full 中保留。",
+      "commands": [
+        "bash scripts/local/test.sh swift",
+        "bash scripts/local/test.sh e2e"
+      ],
+      "exitCode": 0,
+      "evidence": [
+        ".local/logs/model-completion-fixes/full-after-research.log",
+        ".local/logs/model-completion-fixes/e2e-race.log"
+      ],
+      "reason": "Swift 与正式 HTTP/PG E2E 均已实际通过。",
+      "executedAt": "2026-11-07T14:45:00+08:00",
+      "scope": "synthetic",
+      "history": [
+        {
+          "at": "2026-11-07T14:45:00+08:00",
+          "status": "PARTIAL",
+          "reason": "缺正式 HTTP→PG→App 端到端"
+        }
+      ]
+    },
+    {
+      "id": "Z03",
+      "status": "PASS",
+      "expected": "DECISIONS/RESULT/acceptance/manifest/G 追踪/逐 ID 证据",
+      "observed": "DECISIONS/RESULT/acceptance/manifest/G 追踪/152 ID/失败历史已生成",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        "docs/RAI_MODEL_COMPLETION_DECISIONS.md",
+        "docs/RAI_MODEL_COMPLETION_RESULT.md",
+        "docs/evidence/model-completion/acceptance.json"
+      ],
+      "reason": "工程文档矩阵完整；未通过项如实保留",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "Z04",
+      "status": "PASS",
+      "expected": "IMPLEMENTATION 仅追加，旧前缀/图标保留",
+      "observed": "IMPLEMENTATION.md 仅追加本轮章节；原前缀、用户图标/核查报告未改",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        "git status --short"
+      ],
+      "reason": "git diff --check 与保留项核验通过",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "Z05",
+      "status": "PASS",
+      "expected": "隐私/凭证/HealthKit 写/SSH 扫描",
+      "observed": "仅合成数据；无凭证；无 SSH/远端；未写 HealthKit",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        "docs/RAI_MODEL_COMPLETION_RESULT.md"
+      ],
+      "reason": "静态与命令层检查",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    },
+    {
+      "id": "Z06",
+      "status": "PARTIAL",
+      "expected": "八项分别签核，未执行写明",
+      "observed": "八项签核已写，多项 PARTIAL/NOT RUN",
+      "commands": [],
+      "exitCode": 0,
+      "evidence": [
+        "docs/RAI_MODEL_COMPLETION_RESULT.md"
+      ],
+      "reason": "工程未全量通过，不声称全部上线",
+      "executedAt": "2026-11-07T01:10:00+08:00",
+      "scope": "synthetic",
+      "history": []
+    }
+  ],
+  "unresolved": [
+    "真机 D02 因一条 Workout 的 metadata_requires_review 无法证明完整性而 FAIL；D03–D10 未执行",
+    "真实研究 C05–C08 未获授权/未执行",
+    "正式产品激活与真实回滚 X 组未执行",
+    "F08/F10 资源与真机 UI 性能未签",
+    "Feature 产品 artifact 仍为 v1（数据模型/worker v2 已发布）",
+    "四类研究诊断已由 Worker 发布，但产品详情尚未展示"
+  ],
+  "authorizationScope": {
+    "realHealthKit": true,
+    "realResearch": false,
+    "production": false,
+    "deploy": false,
+    "commit": false,
+    "realDeviceReadOnly": true,
+    "realHealthKitScope": "user-authorized iPhone USB, read-only; no raw health values in repository"
+  },
+  "finalWorkingTree": {
+    "head": "18eab55",
+    "dirty": true,
+    "userChangesRetained": true,
+    "commit": false,
+    "push": false
+  }
+}

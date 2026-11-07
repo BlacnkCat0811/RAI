@@ -302,6 +302,28 @@ def copy(state, direction, source, destination):
              '--source', source, '--destination', destination, '--json-output', RUN / 'copy-result.json'], timeout=40)
 
 
+def structure(workout=None):
+    state = load()
+    launch('structure', workout)
+    for _ in range(90):
+        time.sleep(2)
+        result = report(state)
+        if result.get('result') == 'RUNNING':
+            continue
+        if result.get('result') != 'STRUCTURE_INSPECTED':
+            raise RuntimeError('structure inspection failed: ' + str(result.get('reason') or result.get('result')))
+        copy(state, 'from', 'Library/Caches/RAIWorkoutStructure.json', RUN / 'workout-structure.json')
+        raw = json.loads((RUN / 'workout-structure.json').read_text())
+        keys = 0
+        for row in raw.get('associatedSamples', []):
+            if isinstance(row, dict):
+                keys += len(row.get('metadataKeys', []))
+        print(json.dumps({'result': 'STRUCTURE_INSPECTED', 'sampleTypeRows': len(raw.get('associatedSamples', [])),
+                          'metadataKeyRows': keys, 'healthValuesExported': False}, ensure_ascii=False))
+        return
+    raise RuntimeError('structure inspection still pending')
+
+
 def report(state):
     copy(state, 'from', 'Documents/local-device-report.json', RUN / 'device-report.json')
     raw = json.loads((RUN / 'device-report.json').read_text())
@@ -861,7 +883,7 @@ def stop():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['prepare', 'reset', 'install', 'probe', 'list', 'single', 'completeness',
-                                            'workouts', 'failbundle', 'capturebundle', 'taskstate', 'lostack', 'clientstate', 'report', 'status', 'stop'])
+                                            'workouts', 'failbundle', 'capturebundle', 'taskstate', 'lostack', 'clientstate', 'structure', 'report', 'status', 'stop'])
     parser.add_argument('--workout', help='private Workout selector for the single command')
     parser.add_argument('--streams', type=int, choices=(1, 2, 4),
                         help='acceptance-only capture concurrency for the single command')
@@ -884,6 +906,8 @@ def main():
         install()
     elif args.command in ('probe', 'list', 'single', 'completeness'):
         launch(args.command, getattr(args, 'workout', None), getattr(args, 'streams', None))
+    elif args.command == 'structure':
+        structure(getattr(args, 'workout', None))
     elif args.command == 'failbundle':
         failbundle(getattr(args, 'workout', None))
     elif args.command == 'capturebundle':

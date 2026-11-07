@@ -46,6 +46,17 @@ public struct WorkoutCoverage: Codable, Sendable, Equatable {
         }
     }
     public var isAvailable: Bool { state == .available || state == .complete }
+    /// A stream is satisfied when another retry cannot add data. `.unsupported`
+    /// is a final answer from this SDK, not an incomplete read; treating it as
+    /// missing made `cadence`/`elevation_sample` keep every Workout `.partial`
+    /// forever. `.noRecordsObserved` is likewise a completed empty read.
+    public var isSatisfied: Bool {
+        switch state {
+        case .available, .complete, .noRecordsObserved, .unsupported: return true
+        case .unavailable, .error, .notQueried, .observed, .partial, .failed, .unknown: return false
+        }
+    }
+    public var needsRetry: Bool { !isSatisfied }
     public var wire: JSON {
         var fields: [String: JSON] = ["state": .string(state.rawValue), "sampleCount": .int(Int64(sampleCount)),
             "queryCompleted": .bool(queryCompleted ?? false), "localPersisted": .bool(localPersisted ?? false)]
@@ -59,6 +70,25 @@ public struct WorkoutCoverage: Codable, Sendable, Equatable {
         value.queryCompleted = completed; value.expectedCount = expected; value.localPersisted = false
         return value
     }
+}
+
+/// Bounded follow-up for an acknowledged Workout whose analysis is still
+/// asynchronous. The first refresh is immediate; later attempts use the
+/// server-visible backoff. The total budget stays below ten minutes and the
+/// closed phase set stops the loop as soon as publication is final.
+public enum AnalysisFollowup {
+    public static let delays: [TimeInterval] = [2, 5, 15, 30, 60, 120, 300]
+    /// A repeated unchanged sync may schedule one refresh when the last check
+    /// is older than this; it never starts an unbounded poll.
+    public static let staleRefreshInterval: TimeInterval = 30
+    public static func shouldContinue(_ phase: WorkoutSyncPhase) -> Bool {
+        phase == .acknowledged || phase == .analyzing
+    }
+    public static func delay(forAttempt attempt: Int) -> TimeInterval? {
+        guard attempt >= 0, attempt < delays.count else { return nil }
+        return delays[attempt]
+    }
+    public static var totalBudget: TimeInterval { delays.reduce(0, +) }
 }
 
 /// A local aggregate for one HKWorkout import task. Protocol 3 sends the

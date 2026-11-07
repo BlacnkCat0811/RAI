@@ -18,7 +18,7 @@ type fit struct {
 	ok                 bool
 }
 
-func quantileFit(ps []point, sorted []residual, skip string, gamma float64) fit {
+func quantileFit(ps []point, sorted []residual, skip string, gamma, quantile, lower float64) fit {
 	total := 0.0
 	for _, p := range ps {
 		if p.workout != skip {
@@ -36,7 +36,7 @@ func quantileFit(ps []point, sorted []residual, skip string, gamma float64) fit 
 		}
 		cum += p.w
 		alpha = r.z
-		if cum >= .8*total {
+		if cum >= quantile*total {
 			break
 		}
 	}
@@ -47,9 +47,9 @@ func quantileFit(ps []point, sorted []residual, skip string, gamma float64) fit 
 		}
 		u := p.y - alpha - gamma*p.x
 		if u < 0 {
-			loss += p.w * u * (-.2)
+			loss += p.w * u * -lower
 		} else {
-			loss += p.w * u * .8
+			loss += p.w * u * quantile
 		}
 	}
 	return fit{alpha, gamma, loss, true}
@@ -68,6 +68,10 @@ func better(a, b fit) bool {
 // fitCurve evaluates all 301 grid points. The same sorted residuals are reused
 // for LOO fits, avoiding a general optimizer and repeated sorting per workout.
 func fitCurve(es []WeightedEvidence, loo bool) (*Curve, string) {
+	return fitCurveQuantile(es, loo, .8, .2)
+}
+
+func fitCurveQuantile(es []WeightedEvidence, loo bool, quantile, lower float64) (*Curve, string) {
 	ps := []point{}
 	ids := []string{}
 	seen := map[string]bool{}
@@ -98,13 +102,13 @@ func fitCurve(es []WeightedEvidence, loo bool) (*Curve, string) {
 			}
 			return sorted[i].index < sorted[j].index
 		})
-		f := quantileFit(ps, sorted, "", gamma)
+		f := quantileFit(ps, sorted, "", gamma, quantile, lower)
 		if better(f, best) {
 			best = f
 		}
 		if loo {
 			for i, id := range ids {
-				f = quantileFit(ps, sorted, id, gamma)
+				f = quantileFit(ps, sorted, id, gamma, quantile, lower)
 				if better(f, removed[i]) {
 					removed[i] = f
 				}

@@ -153,3 +153,15 @@ func RecoveryDailyTrend(a, b rc.Result) *float64 {
 	}
 	return number(*a.Score - *b.Score)
 }
+
+// ProjectLoadV2 projects a v2 load state with v2 identity. The v1 ProjectLoad
+// function stays frozen for legacy callers and its output is never relabeled.
+func ProjectLoadV2(state *tl.DailyState, anchor, updated, at int64) Metric[TrainingLoadValue] {
+	m := ProjectLoad(nil, state, nil, anchor, updated, at)
+	m.Envelope.ModelVersion = tl.AlgorithmV2 + "/" + tl.VersionV2
+	m.Envelope.PayloadVersion = tl.SchemaV2
+	if m.Value != nil {
+		m.Value.StateModelVersion = tl.StateAlgorithmV2 + "/" + tl.VersionV2
+	}
+	return m
+}

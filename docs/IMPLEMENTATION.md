@@ -294,6 +294,8 @@ P3/P6 REAL DEVICE ACCEPTANCE继续DEFERRED / NOT VERIFIED；DISASTER RECOVERY RE
 
 真机主屏裁切/遮罩效果及深色、染色替代图标未验证；本轮未安装到设备、未运行业务测试，也未修改后端、HealthKit或服务端状态。
 
+2026-11-06 按用户提供的新图（浅色液态玻璃机器人 + RAI 字样）替换 `AppIcon.appiconset/AppIcon.png`：源图 1254×1254 RGB PNG，按图标主体边界裁切后重采样为 1024×1024 sRGB PNG，无 alpha、内嵌 sRGB profile，SHA-256 `8e2e88461a252a8363ffca0724229ee1e5e28996f6e28b6bce8c9e87ef397907`。`xcrun actool` 编译 asset catalog exit 0（生成 `AppIcon60x60@2x.png`、`Assets.car`，partial Info.plist 中 `CFBundleIconName=AppIcon`）；`xcodebuild -project RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/rai-icon-build CODE_SIGNING_ALLOWED=NO build` 返回 **BUILD SUCCEEDED**。真机主屏裁切/遮罩及深色、染色图标仍未验证，本次未安装到设备。
+
 ## iPhone 12 Pro Max 模拟器验收（2026-10-30）
 
 用户要求启动 12 Pro Max 模拟器并执行可在模拟器完成的验收。已创建并启动 `RAI iPhone 12 Pro Max`（iPhone13,4，iOS 26.5/23F77），Xcode 26.6；使用 fnOS 一次性隔离 PostgreSQL 18.6、真实 API/Worker 和合成数据。
@@ -701,7 +703,7 @@ lint 的边界：它证明 OpenAPI 文档合法、自洽，**不证明** Go 处�
 
 本阶段必要改动限于受控 **DEBUG diagnostics**、私有构建的精确 Debug HTTP host/ATS 配置，以及手动重试旧错误提示清理。初期诊断导航遗漏 ProductTabs 的 dark scheme，白字落白底；修复后用户确认显示正常并实际点击按钮。Debug 控制使用显式 launch flag、消耗式私有配置和身份校验；报告只有计数、分类、耗时、不可逆指纹，没有值/原始 UUID/睡眠时间/详细 metadata。Release 构建成功，四个诊断标记在二进制中均不存在。收尾发现 Xcode 不替换 ATS 字典键，已撤回源模板变量键实验；仓库 Debug 模板保持默认，私有生成 plist 以字面量精确主机通过 INFOPLIST_FILE 供本轮签名构建，实际 domain/host 匹配且无全局 arbitrary loads。同一测试 PG/API 另实跑停机重启，不迁移/reset/restore，不换身份，手机仍增量且事实数不变。设备/App 枚举原始 JSON 临时处理后删除，API 输出禁存、代理无 body/header 日志，PG 日志参数/健康失败行检查均 0；未复制手机 state/payload 或 PG dump 入仓库。
 
-验证：Swift **119 tests / 15 suites** 通过（另 XCTest 2 pass、3 既有 opt-in skip）；最终隔离 iOS 26.5 Simulator **34/34 SDK/App tests** 通过且自建模拟器删除；Debug 真机签名安装运行、Release unsigned 编译通过。`go test`、`go test -race`、`go vet`、249 包边界、sqlc 1.31.1 生成一致性、OpenAPI **0 errors / 31 既有 warnings** 通过。完整 PG race 首轮默认 10 分钟进程时限超时（残留测试 DB 随集群整体移除），以 `-p 1 -timeout=30m` 重跑 integration **419.787s PASS**，残留 DB=0/cluster removed=1；真机结束后的 Daily/coverage/fencing/rollback/HTTP/受限角色/migration 定向 PG 另复验，最终 integration 12.992s / admin 1.816s PASS，残留 DB=0/cluster removed=1，精确命令见机器证据。原失败保留，不调整生产语句或事务超时。
+验证：Swift **119 tests / 15 suites** 通过（另 XCTest 2 pass、3 既有 opt-in skip）；最终隔离 iOS 26.5 Simulator **34/34 SDK/App tests** 通过且自建模拟器删除；Debug 真机签名安装运行、Release unsigned 编译通过。`go test`、`go test -race`、`go vet`、249 包边界、sqlc 1.31.1 生成一致性、OpenAPI **0 errors / 31 既有 warnings** 通过。完整 PG race 首轮默认 10 分钟进程时限超时（残留测试 DB 随集群整体移除），以 `-p 1 -timeout=30m` 重跑 integration **419.787s PASS**，残留 DB=0/cluster removed=1；真机结束后的 Daily/coverage/fencing/rollback/HTTP/受限角色/migration 定向 PG 另复验，最终 integration 12.992s / admin 1.822s PASS，残留 DB=0/cluster removed=1，精确命令见机器证据。原失败保留，不调整生产语句或事务超时。
 
 保留 P2/P3 未验证项：自然 HK 删除、RHR/Sleep revision、unknown category、真正 background callback、received-ACK/rename 内精确 kill、DST/travel、长离线 deletion retention、物理断电、自然 hot delta、iPhone memory high-water/功耗、TLS/WAN/生产部署。删除、修订、unknown/DST 等继续由既有 synthetic/PG/SDK 证据补充；没有制造或修改 HealthKit 数据。本次 query/normalization/batch/delivery 工程计时见结果，不宣称生产 SLO（ACK 丢失时后台会话恢复一次约 90.4s）。
 
@@ -1025,3 +1027,209 @@ NOT RUN / NOT VERIFIED：iPhone 真机口径的 P01–P03/P10/P12、P08/P09 批�
 真机验收（2026-11-06，iPhone 12 Pro Max，iOS 27.2，Release+仅验收仪器，USB→本机 API/Worker/PG18，真实只读 Workout，每组前 reset 新 dataset，n=20 nearest-rank）：R2-P03 S60（32 分钟 W32-A，4,330,151 B）**P50 8,182.27 / P95 11,260.71 ms → FAIL**；R2-P04 S60H（58 分钟 W58-A，8,565,743 B）**P50 18,274.23 / P95 24,637.76 ms → FAIL**；R2-P05 S120/S240 **NOT RUN**（库无 120/240 分钟记录）；R2-P06 无变化重复 n=9 **PASS**（wallMs P50 368.3 / P95 426.7 ms，0 bundle POST/import/job）；R2-P07 已备原包恢复 **PASS**（首次 503 拒绝，恢复 2,907.97 ms，wire 483,260 B / bundle 4,330,151 B=11.2% gzip，前后 SHA256 一致，DB 仅 1 import/5,464 samples/1,768 routes，未重读 HK）；R2-P11 gzip P50 S60 39.81 ms / S60H 94.5 ms **PASS**；R2-P12 **S60 max 206.5 MiB PASS、S60H max 302.34 MiB FAIL**、S240 NOT RUN；R2-P13 **PARTIAL**（单槽 API peak 104.8 MiB≤512、主线程 max stall 1.1–6.6/4 ms、>250 ms 0 次；双槽并发因单设备槽限制未形成，1×200+1×429）；R2-P14 10×S60 前 10 次合计 **80,219.01 ms >60 s → FAIL**，100× NOT RUN。并发 1/2/4：P50 17,638.31 / 18,274.23 / 20,194.13 ms，2 流无收益、4 流更差。上述为同机同 LAN 顺序测量，后段热漂移明显，但 P03/P04 中位数超门槛幅度无法由热漂移解释。
 
 NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-P14 100×S60（仅 51 条 eligible，无法凑 100 条不重复首导入）、R2-P13 真正双上传槽并发（单设备只占一槽，重放 1×200+1×429）、R2-P12 S240 RSS；R2-F03/F04 服务端/F29 已补测 PASS，但室内跑/无功率的真实记录覆盖仍缺失。写阶段 Go CPU profile、导入后统计刷新（ANALYZE/autovacuum 阈值）、50k 用例在 `-race` 下未跑；S240 历史 6 次 503 的确切错误码 NOT VERIFIED（现二进制实测为 `503 {"code":"database_statement_timeout_or_cancel"}` @30,049 ms 且整包回滚）。真机只读记录未导出健康值/GPS/UUID/设备标识；本机 Debug/macOS 数字不替代真机；服务端时延未达标不因客户端改善而抵消。
+
+
+## 运动能力模型原设计实现差距核查（2026-11-06）
+
+按用户要求，将所附《RAI V2 — 运动能力模型架构与实施设计》与当前 `main` / `18eab55` 加工作区逐项对照；附件与 `docs/RAI_MODEL_ARCHITECTURE.md` SHA-256 相同，原文不改。完整阶段矩阵、14 项主缺口／细项、可选未来能力、规格差异与源码证据见 [核查报告](audits/RAI_MODEL_DESIGN_GAP_AUDIT_2026-11-06.md)。
+
+结论：M1 特征、M2 HRR 负荷、M3 demonstrated 跑力、M5A 日常事实、M5B Recovery 和 M6 Readiness 已有真实候选实现，不能沿用 11 月 2 日“下一步开始 M1”的旧结论。原设计 M4 自有条件式 RAI VO₂max 仍未实现；后续 M4 是 external projection，不能替代它。后续 M7 是产品合同工程集成，也不等于原设计 M7 现实校准完成。正式新指标 HTTP／UI、训练消费者、历史趋势、统一六个月回算／差异预览、candidate 激活及回滚执行器仍未闭环。夜间 HRV、睡眠规律性／自报目标／持续偏离、baseline 自动供 RHR reference、完整长跑诊断仍缺；跨 UUID 重叠负荷隔离和设备偏移专项未见源码实现，未在本轮数据库或真机复现。Readiness 的 180 日窗及滚动 B、全天 SDNN、保守 HR 支持域等与原文不同，按后续合同记录，未擅改公式。
+
+本机实际执行 `scripts/local/test.sh gate` PASS（elapsed 2s；Go race 使用正常缓存、vet、258 包依赖边界、控制器安全检查）；非缓存定向 `unit -count=1` 对 workoutfeatures／trainingload／performance／vo2maxexternal／recovery／readiness／athletemodel／analysis 八包全部 PASS（elapsed 6s）。日志 `.local/logs/model-design-audit-20261106/{gate,model-tests}.log`。本轮仅增加审计文档和实施记录，无事务／协议／可执行代码变更，未重跑 PG／Swift／Simulator／真机；既有 PG 与设备报告仅作历史证据，不冒充本轮验收。
+
+真实 completeness v2 transport 已有代码及隔离验证，但普通用户同步接入、全量真机证明及 M6 复验仍未闭环；近期实际真机同步测试不等于全部模型验收。现实资格研究、纵向留出校准、生理效度、shadow、产品激活及回滚演练仍未完成。未读取数据库或个人健康记录，未改原设计／原方案／旧 running，未执行 migration／部署／激活／真实数据迁移／commit／push；保留入口既有 IMPLEMENTATION 与图标改动。
+
+
+## 运动能力模型补全实施方案、验收矩阵与Codex提示词（2026-11-07，仅文档）
+
+按用户要求，在11月6日实现差距核查的基础上新增三份可交给后续Codex实施的文件：[完整实施方案](RAI_MODEL_COMPLETION_PLAN.md)、[验收标准与152项矩阵](RAI_MODEL_COMPLETION_ACCEPTANCE.md)、[完整执行提示词](RAI_MODEL_COMPLETION_CODEX_PROMPT.md)。覆盖G01–G14、E0–E11共12阶段，以及已有定义的maximal_supported／CS-D′／效率／负荷消退研究模块；Economy／CP／无独立证据阈值等future项不伪造实现。
+
+方案明确保留已冻结v1和后续Readiness的180日／36h／滚动42日B等数学；夜间HRV／睡眠规律性／目标／持续偏离进入新版本。补全可信HR reference、独立RHR baseline、重叠Workout未知处理、来源epoch与误标、完整RAI VO₂敏感性／LOO、普通completeness接入、六个月有界回算、active API／历史／共享详情、原生UI／计划adapter、门禁证据与实际synthetic切换回滚。新公式／阈值为拟议工程规格，不表示已校准或已有运行结果。真实健康读取／研究／部署／启用未因交付文档获授权，默认真实active仍legacy。
+
+本轮实际验证：本机 `scripts/local/test.sh gate` PASS（elapsed 2s；Go race正常缓存、vet、258包依赖边界及控制器安全检查）；文档检查PASS：3文件、12实施阶段、G01–G14全覆盖、152个唯一且连续分组的验收ID、15个链接、244个表格行、跨文档MC引用与围栏；原设计／原架构方案SHA未变。证据 `.local/logs/model-completion-plan-20261107/{gate.log,document-review.json}`。本轮只写文档，未实现模型／API／migration／UI，未运行PG／Swift／Simulator／真机或现实校准，未读取数据库或健康记录、部署、迁移真实数据、切入口／激活、commit／push。既有IMPLEMENTATION前缀和用户图标／核查报告改动保留，后续实际实施须重新核对HEAD／状态，不把本计划当PASS报告。
+
+## 运动能力模型补全工程 — 本轮实施结果（2026-11-07）
+
+按 [补全方案](RAI_MODEL_COMPLETION_PLAN.md)、[152 项验收矩阵](RAI_MODEL_COMPLETION_ACCEPTANCE.md) 与用户本轮直接要求，在 `main / 18eab55` 加工作区上完成 E0–E11 的可执行工程部分；未 checkout、未 reset/clean/stash、未修改 `../running`、未 commit/push、未部署、未读取个人健康库或生产 DSN。详细决策与证据见 [DECISIONS](RAI_MODEL_COMPLETION_DECISIONS.md)、[RESULT](RAI_MODEL_COMPLETION_RESULT.md) 和 `docs/evidence/model-completion/`。
+
+本轮新增/接入：
+- 纯域：`internal/hrref`（hr_reference/2、跨 UUID 重叠、source epoch、误标）、`internal/vo2max`（`rai.vo2max.submax/v1` 全估计器）、`internal/recovery/v2.go`、`internal/readiness/v2.go`、`internal/trainingload/v2.go`、`internal/performance/v2.go`、`internal/diagnostics`、`internal/backfill`、`internal/research`、`internal/modelmanifest`、`internal/modelinput`。
+- 产品/API：`rai.athlete_model/2` 与 `rai.product_metric_mapping/2`，六 typed metric（RAI 自有 VO₂ 与 external 独立）；`GET /v2/analysis/athlete`、`GET /v2/analysis/athlete/history`（opaque cursor 绑定 dataset/metric/assignment revision/view/range，真续页）；`POST /v2/model-inputs/{kind}` 与 `POST /v2/model-inputs/{id}/revocations`；Swift「分析 → 填写个人参考与目标」表单提交心率参考/睡眠目标（服务器追加式 receipt，不本地改写）；active/previous/candidate 通道与 assignment audit；migration 37 允许版本化 v2 artifact 但强制匹配 v2 RUNNING run/schema/generation，`ProjectLoadV2` 保留 v2 身份，v2 scope 改为按 active stack 生成并由 product reader 使用；新增六槽真实 artifact active 投影测试，正式 HTTP 路由返回完整 schema2 六项与 v2 load history 点；schema2 响应状态按可用槽位 truthful 标注（unavailable/partial/complete）；隔离 PG 测试验证显式 synthetic-v2 active 且无 artifact 时 product schema2 返回 typed null、history 空页而不是 candidate/legacy 或假值。
+- 执行器：`PromotionGate` 绑定 manifest/config/feature/source/input/mapping2/consumer/synthetic 标记；`PromoteModelStack`/`RollbackModelStack` 在 dataset 行锁内重验，append-only audit；`rai admin backfill plan|execute|resume|status|cancel|diff` 使用通用 `model_backfill_operations` checkpoint，只有全部块完成才 candidate_ready。
+- 迁移仅追加 `00030`–`00036`：typed input/receipt/backfill/audit/previous、旧 VO₂ input kind 兼容、active 通道写保护、`datasets.synthetic_test`。migration `00029` 及更早原文/checksum 未改。
+- Swift：普通 `performRecovery()`/`runWorkouts()` 复用 completeness v2 状态机；schema1/2 解码、六 metric 卡片、中文缺失原因、RAI VO₂ 实验标签、外部 VO₂ 独立。
+
+真实执行证据：
+- `bash scripts/local/test.sh full` **PASS**：822s，exit 0，20 个 Go 包 `ok`，0 FAIL、0 SKIP，`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`；含 race/vet/build/sqlc diff、9 项依赖边界、全量隔离 PG18 集成。
+- `bash scripts/local/test.sh quick` PASS；`go vet ./...`、`python3 scripts/check-boundaries.py` PASS。
+- 定向隔离 PG PASS：B4/external VO₂ 75.7s 0 FAIL；M6 completeness→readiness；backfill staged 生命周期；typed input 撤销 append-only/幂等；synthetic promotion/rollback（含未标记 dataset 拒绝）；migration 33–36 targeted；typed input 撤销 append-only/幂等隔离 PG 与 httptest PASS。
+- `swift test` 235 tests/32 suites PASS；`xcodebuild ... -destination 'id=D44B6925...' build` **BUILD SUCCEEDED**。
+- 真实失败历史保留：`.local/logs/model-completion/full-pre-0200.log`（02:00 前 19 个失败测试，主要为 fixture 时间保护、active 通道 guard、legacy VO₂ kind、M6 policy hash 编码）；修复后 full 重跑 PASS，未修改门槛或伪造 fresh 证据。
+
+未验证/未授权边界：未执行 30 次正式性能基准（F01–F10 NOT RUN）、真实设备 D01–D10（NOT RUN）、真实研究 C05–C08（NOT RUN）、正式 App→HTTP→PG→Worker Simulator E2E、真实 dataset 激活/回滚、v2 worker 全链与 backfill 实际模型执行；这些在 RESULT/acceptance 中保留 PARTIAL/NOT RUN，不因 full PASS 或合成切换 PASS 被改写成真实产品/生理验证通过。工程门禁通过不等于模型校准、产品启用或真实数据可用性通过。
+
+### 2026-11-07 追加：正式 API/模型性能与 reader 防护（round 11）
+
+- migration 37 `00037_model_artifact_v2.sql` 仅追加允许版本化 v2 artifact（load v2、state v2、ability/performance v2、vo2max submax、recovery/readiness v2），并重写 artifact insert 触发器校验 RUNNING run、schema/algorithm/version、payload dataset/generation；`RequiredSchemaVersion=37`。v1 migration/checksum 未改。
+- `trainingload.ScopeV2For`/`ScopeStateV2For`、`performance.ScopeFor`、`vo2max.ScopeFor` 统一 active stack scope；`athletemodel.ProjectLoadV2` 保留 v2 identity；正式 `GET /v2/analysis/athlete` 在隔离 PG 六槽 artifact 下返回六项 typed metric 与 `complete_response`，`/v2/analysis/athlete/history?metric=trainingLoad` 返回 v2 负载点；reader 对 tampered content hash 返回 `technical_failure`，对 unclean generation 不服务旧 artifact。
+- 正式优化构建 loopback TCP 性能（30 attempts，warmup 3）：当前快照 P95=2.33ms、最大 2 SELECT；90 点 v2 load 历史 P95=2.32ms、最大 2 SELECT；预算 500ms/6 SELECT 与 750ms/8 SELECT，均 PASS。纯模型 P95：VO₂ 0.001ms、Recovery 1.465ms、Readiness 0.047ms。240min feature fixture 110.1ms、42,064B，因未达 250k 点密度仅 PARTIAL。日志 `.local/logs/model-completion/{performance-http,performance-models,performance-feature,integration-reader-guard}.log`。
+- `bash scripts/local/test.sh full` 最终 **PASS**：916s，exit 0，0 FAIL/0 SKIP，leftover DB=0、cluster removed。此前 full 821s/827s PASS 以及 02:00 前失败快照均保留，不覆盖。
+- 未验证边界不变：F06–F10、F04 250k 密度、正式 App→HTTP→PG→Worker Simulator E2E、D01–D10、C05–C08、真实 dataset 激活/rollback 未完成；不能把本段性能子集或合成 active 六槽说成全部性能/真实产品/生理验证通过。
+
+- 注：后续 round 11 已追加 migration `00037_model_artifact_v2.sql`；迁移范围以 `DECISIONS`/`RESULT` 的 `00030`–`00037` 为准。
+
+### 2026-11-07 追加：F06 跑力/诊断 30 次性能（round 13）
+
+- 新增 `apps/server/internal/performance/performance_p95_test.go` 与 `apps/server/internal/diagnostics/performance_p95_test.go`，固定合成 fixture，n=30：跑力 demonstrated P50=33.65ms、P95=35.10ms、max=35.93ms、allocs/op=9554；durability+critical-speed+42 日 trend P50=5.53µs、P95=18.84µs、max=22.66µs、allocs/op=76，均低于 2s 门槛，未放宽 fixture、计时范围或门槛。
+- 证据：`.local/logs/model-completion/performance-diagnostics.log`；`acceptance.json` F06 更新为 PASS，矩阵 71 PASS/62 PARTIAL/19 NOT RUN；manifest 80 artifacts/19 commands 且无 stale。
+- 仍未执行 F07–F10、F04 250k 点密度、正式 App→HTTP→PG→Worker Simulator E2E、D01–D10、C05–C08、真实 activation/rollback；F06 PASS 不外推为全性能或真实产品验收。
+
+### 2026-11-07 追加：v2 历史标量投影与 cursor 合同（round 14）
+
+- `internal/storage/postgres/athlete_product_v2.go` 的 `ReadAthleteHistory` 不再用统一 `{asOfUs,value}` 猜测所有 payload：新增 `historyPoint` 按六 metric 分别解码 `trainingLoad`（匹配 day 的 acute）、`runningAbility`（ability.score）、`physiologicalRecovery`/`trainingReadiness`（score）、`raiVO2Max`/`externalVO2Max`（value），保留真实单位/状态；合格 `complete` 映射为产品态 `available`，缺值仍为 unavailable，不填 0。
+- 新增 `internal/storage/postgres/athlete_history_projection_test.go`（六 metric 标量/单位/状态）与隔离 PG `TestHistoryCursorBindsMetricAndReturnsRealV2Values`：两页 limit=1 返回真实 v2 值 15/12；跨 metric 复用 cursor→409 `history_cursor_mismatch`；limit=91→422。
+- 日志：`.local/logs/model-completion/{history-projection,integration-history-cursor}.log`。P04 仍为 PARTIAL：28 日两点 trend 尚未实现；不把 cursor/标量修复外推为完整历史趋势验收。
+
+### 2026-11-07 追加：round 14 全量与历史端到端
+
+- `bash scripts/local/test.sh full` 在新增 history 投影和 F06 测试后 **PASS**：952s，exit 0，0 FAIL/0 SKIP，leftover DB=0，cluster removed；日志 `.local/logs/model-completion/full-round14.log`。
+- 这是当前最终门禁证据；此前 822s/916s PASS 与失败历史保留。P04 仍 PARTIAL（28 日两点 trend 未实现），其余验收计数以 `acceptance.json` 为准。
+
+### 2026-11-07 追加：P04 28 日真实趋势（round 15）
+
+- `athletemodel.HistoryPage` 新增 `HistoryTrend`（`kind/fromDate/toDate/days/fromValue/toValue/delta/unit/reasonCodes`），由 `ReadAthleteHistory` 从真实已发布点计算；不复用预测、不插值。
+- `historyTrend` 选择距最新点 28 天最近的真实点；要求至少 28 天跨度、两点值非 nil 且 ModelVersion/PayloadVersion/ConfigHash/Mode/Source 完全一致；任一变化返回 `history_trend_context_break` 且 delta=null。`HistoryPoint` 增补 configHash/mode/source 字段。
+- 单测 `TestHistoryTrendUsesRealTwentyEightDayPair` 覆盖 10→15 delta=5 及 version/config/mode/source 四种断线；隔离 PG `TestHistoryCursorBindsMetricAndReturnsRealV2Values` 断言两页真实值 15/12、跨 metric 409、limit=91 422、28 日 trend delta=5。
+- acceptance P04 更新为 PASS；152 IDs 当前 72 PASS/61 PARTIAL/19 NOT RUN。
+- 日志：`.local/logs/model-completion/{history-projection,integration-history-cursor}.log`。
+- `bash scripts/local/test.sh full` 在 P04 trend 后 **PASS**：960s，exit 0，0 FAIL/0 SKIP，leftover DB=0、cluster removed；日志 `.local/logs/model-completion/full-round15.log`。此前 952s PASS 保留。
+
+### 2026-11-07 追加：E10 合成研究运行工具（round 16）
+
+- 新增 `apps/server/cmd/rai-research`：读取合成 study JSON，执行 `CreateSnapshot`/future-leak 校验、可选 `FreezeKnownAt`、`TemporalSplit`、`AthleteSplit`、先撤回后 `LinkOutcomes`、`ClusterSummary`、`ValidateAddendum`；输出仅 aggregate counts/CI/抑制组，无 athlete key、prediction 或 outcome 值。
+- `main_test.go` 覆盖 3 条合成预测的 2/1 temporal、1/2 athlete split、3 对配对、c2 N=1 抑制与 addendum gate。
+- 实际运行 `go run ./cmd/rai-research -input .local/logs/model-completion/research-study-withdraw.json -out ...` exit 0：freeze 后 2 条、撤回 a 后 1 条配对、withdrawn=1；日志 `.local/logs/model-completion/research-cli-withdraw.log`。
+- C01–C04 仍 PARTIAL：缺真实导出、化名映射分离、审计落库与数据库级同 Workout 窗口互斥；不把合成工具说成真实研究验证。
+
+### 2026-11-07 追加：E10 合成研究运行工具（round 16）
+
+- 新增 `apps/server/cmd/rai-research`：读取合成 study JSON，执行 `CreateSnapshot`/future-leak 校验、可选 `FreezeKnownAt`、`TemporalSplit`、`AthleteSplit`、先撤回后 `LinkOutcomes`、`ClusterSummary`、`ValidateAddendum`；输出仅 aggregate counts/CI/抑制组，无 athlete key、prediction 或 outcome 值。
+- `main_test.go` 覆盖 3 条合成预测的 2/1 temporal、1/2 athlete split、3 对配对、c2 N=1 抑制与 addendum gate。
+- 实际运行 `go run ./cmd/rai-research -input .local/logs/model-completion/research-study-withdraw.json -out ...` exit 0：freeze 后 2 条、撤回 a 后 1 条配对、withdrawn=1；日志 `.local/logs/model-completion/research-cli-withdraw.log`。
+- C01–C04 仍 PARTIAL：缺真实导出、化名映射分离、审计落库与数据库级同 Workout 窗口互斥；不把合成工具说成真实研究验证。
+- research CLI 增加后最终 `bash scripts/local/test.sh full` **PASS**：839s，exit 0，0 FAIL/0 SKIP，leftover DB=0、cluster removed；日志 `.local/logs/model-completion/full-round16.log`。
+
+### 2026-11-07 追加：E9 合成 shadow 聚合工具（round 17）
+
+- 新增 `apps/server/internal/shadow` 与 `apps/server/cmd/rai-shadow`：仅接受 `synthetic=true`；按 cohort 聚合候选/legacy 差异，输出 n、配对 n、meanAbsDiff、bias；低于 `minCohort` 的组只保留 n 并列入 suppressed，不输出个体 row。
+- `shadow_test.go` 覆盖小组抑制、`synthetic=false` 拒绝、全组被抑制时失败、输出不含 athlete key；`go test ./internal/shadow` PASS。
+- 实际运行合成 10 条（`local-5k` 6 条、`trail` 4 条，其中 1 条 candidate null）：exit 0，paired=9，`local-5k` 可见，`trail` 因 nPaired=3 < 5 被抑制；`synthetic=false` 输入 exit 1 `shadow_requires_synthetic_dataset`。日志 `.local/logs/model-completion/shadow-cli.log`，报告 `shadow-report.json`。
+- X10 由 NOT RUN 更新为 PARTIAL：合成/仅 aggregate/组大小抑制/不影响 active 已有真实命令证据；尚未接 candidate reader 或生产 shadow 调度，不能称为真实 shadow 上线。
+
+### 2026-11-07 追加：F08 合成切换延迟（round 17）
+
+- `integration/model_promotion_test.go` 对真实隔离 PG 的 `PromoteModelStack`/`RollbackModelStack` 计时并加 ≤2s 断言：promote 3.221ms，rollback 1.663ms，测试 PASS，leftover=0、cluster removed。
+- 日志：`.local/logs/model-completion/integration-rollback-latency.log`。
+- F08 更新为 PARTIAL：合成切换延迟满足预算；API+Worker 峰值 RSS ≤768MiB 与前端 ≤10s 尚未测量，不能据此签核整项性能。
+
+
+### 2026-11-07 追加：P05 新分析详情读取发布 feature（round 18）
+
+- `workoutdetail.Detail` 新增可选 `analysis` 投影：schema/algorithm/version/stackID/publishedAtUs/activeSeconds/HR/speed/route coverage/reasonCodes；legacy 详情字段与行为保持不变。
+- `storage/postgres.loadFeatureAnalysis` 只在 publication + SUCCEEDED run + `workout_features` artifact + `dirty_scopes.generation=clean_generation` 全部匹配时读取最新 `metric_family='workout_model'`；校验 feature schema/dataset/workout、按 canonical JSON 复核 content SHA-256；dirty/pending 时不返回分析投影。
+- 新增隔离 PG 集成测试 `TestWorkoutDetailReadsPublishedFeatureArtifact`：真实写入 feature artifact/publication/clean generation 后，详情返回 HR 0.9/speed 0.8/route 0.7、activeSeconds 600、missing_hr；HTTP 详情 200；把 dirty generation 提高后分析投影变为 null，raw/legacy 详情仍可用。日志 `.local/logs/model-completion/integration-detail-feature.log`，leftover=0、cluster removed。
+- acceptance P05 与 F09 更新为 PASS；152 IDs 当前 74 PASS/62 PARTIAL/16 NOT RUN。
+
+- F09：S60 持久 ACK 以优化构建、真实 loopback TCP/auth/handler/PG、30 attempts+warmup 3 实测：P50=2977.739ms、P95=3932.603ms、failures=0；对比 2026-11-06 baseline P95=5646ms 改善 30.3%，满足≤15%退化预算；历史同步 FAIL 记录保留。日志 `.local/logs/model-completion/integration-ack-s60-round17.log`。
+
+- 追加 migration `00038_published_artifacts_view.sql`：`analysis_published_artifacts` 为 security-barrier 视图，只暴露 SUCCEEDED run + 已发布 + generation=clean_generation 的 artifact；`rai_api` 只获该视图 SELECT，不获 `analysis_artifacts` 基表权限。product/detail reader 改用视图。B4 受限 API 角色真实回归 `TestB4ProductHTTPAndGenericReadIsolation` PASS，日志 `.local/logs/model-completion/integration-p05-b4.log`。
+
+- P02：schema2 envelope 增补 `evidenceAt/computedAt/publishedAt/validationStatus`，只在 v2 projection/reader 输出，v1 golden 不变；`StampPublication` 由 product reader 在 schema/model/generation/artifact 校验成功后写入，ability 等缺少 evidenceAt 时从真实 asOf 复制，不伪造时间。六 metric HTTP 测试断言全部时间和验证字段，mappingVersion 全部为 2。P02 更新为 PASS；152 IDs 当前 75 PASS/61 PARTIAL/16 NOT RUN。swift 235 PASS；最终 full 845s，0 FAIL/0 SKIP，leftover=0，cluster removed（`full-round19.log`）。
+
+- P12/客户端边界：新增 `scripts/check-product-boundaries.py` 并接入 quick/gate 公共边界步骤。扫描 43 个 Swift 文件，强制 HealthKit `toShare:[]`、禁止 save/delete、WorkoutKit 调度、通知 API 与 Swift candidate 入口；输出 `PRODUCT BOUNDARY PASS`。P12 更新为 PASS；152 IDs 当前 76 PASS/60 PARTIAL/16 NOT RUN。最终 full 936s，0 FAIL/0 SKIP，leftover=0，cluster removed（`full-round20.log`）。
+
+- T04：重跑真实隔离 PG18 的 backend termination/崩溃恢复矩阵（features、load、performance、recovery、readiness、VO2 external、completeness、job claim，另含 B4 macOS SIGKILL）：无半发布 artifact/result/publication，重试一致，leftover=0、cluster removed；日志 `integration-t04-crash.log`。T04 更新为 PASS；152 IDs 当前 77 PASS/59 PARTIAL/16 NOT RUN。
+
+- T05：真实隔离 PG18 验证 N+1 generation、lease 过期重领、fencing token 单调、旧 token `lease_lost`、旧 generation 不得覆盖新 publication、并发 claim/crash 无重复发布；日志 `integration-t05-fencing.log`。T05 更新为 PASS；152 IDs 当前 78 PASS/58 PARTIAL/16 NOT RUN。
+
+- T07/T08：真实隔离 PG18 运行全部 15 个角色边界测试（API/Worker/owner/admin、B4、训练、恢复、负荷、性能、完整性、外部 VO2），全部按最小权限拒绝；athlete/model 视图验证 dataset 隔离、RepeatableRead 稳定快照、corrupt hash/schema/missing publication 的技术失败与业务 null 区分、assignment/delete 竞争后完整新视图、新用户不补零。T07、T08 更新为 PASS；152 IDs 当前 80 PASS/56 PARTIAL/16 NOT RUN。
+
+- T02/T06：真实隔离 PG18 重跑删除/上传双锁顺序、commit retry、route delete receipt 回滚、daily rollback/backend crash、analysis publish fault 与 completeness backend crash；另跑 workout delete、late child/series/route、published P4 历史保留、RHR 替换/sleep 跨日、readiness delete/rebuild、无 workout 日依赖、load generation race/delete。全部 PASS，leftover=0、cluster removed。T02、T06 更新为 PASS；152 IDs 当前 82 PASS/54 PARTIAL/16 NOT RUN。
+
+- T03（仍 PARTIAL）：新增 `TestModelInputReceiptFailureRollsBackInputAndDirty`，真实 PG 中在 `model_input_receipts` 注入 trigger 故障，验证 input/receipt/dirty 同事务回滚、无残留；移除故障后同字节重试落一行。日志 `integration-t03-input-fault.log`。dependency 环与跨 subject dataset 故障矩阵仍未单独覆盖。
+
+- T03（仍 PARTIAL）：新增 `TestModelInputCannotCrossDataset`，真实 PG 两 dataset 中跨 dataset 撤销返回 not found，目标 dataset 输入不变；结合 receipt 故障回滚、幂等/撤销、audit/promotion、DependencyDAG 环检测单测。日志 `integration-t03-cross-dataset.log`。
+- T10：新增 `TestModelCompletionIndexAvailability` 并重跑 `TestCoreIndexAvailability`：reference/overlap index-only scan、artifact/history 主键、history 带 day 范围、load ledger day 索引、workout/sample/route/job 索引可用；结合性能测试 2 SELECT/请求，无 N+1。T10 更新为 PASS；152 IDs 当前 83 PASS/53 PARTIAL/16 NOT RUN。
+
+- P08：新增 `ProductReasonText` 与格式化单测（score 0 位、VO₂ 1 位、非有限 `--`、中文 reason、实验/独立来源文案），`AthleteModelCard` 改用统一文本；Swift 236 tests PASS，Simulator App build SUCCEEDED。P08 更新为 PASS；152 IDs 当前 84 PASS/52 PARTIAL/16 NOT RUN。
+
+### 运动能力模型补全 — Round 26 训练模型绑定
+
+- `training.Config.ModelBinding` 追加 assignment/version/manifest/model/asOf/adapter/missing lineage；`CreateTrainingPlan` 在隔离事务中读取 active channel 并写入，`ChangeTrainingPlan` 不允许客户端改写。
+- 隔离 PG18 测试 `TestTrainingPlanRecordsModelBindingAndRollbackAdapter`：legacy→synthetic-v2→legacy 三次新 plan 的 adapter 分别为 `legacy-v1`、`schema2-v2`、`legacy-v1`，历史 plan 保持 `schema2-v2`。日志 `.local/logs/model-completion/integration-p11-binding.log`。
+- `LoadTraining` 仅当 active stack 非 legacy 时读取已发布、clean、fresh/available/complete 的 Readiness v2；Legacy adapter 不消费 v2，partial/stale/unknown 不填 100。`TestTrainingContextUsesV2ReadinessSignal` 与 `TestTrainingContextIgnoresV2ReadinessOnLegacyAdapter` 真实 PG PASS。
+- 训练生成器接受 Readiness v2 signal 版本，`TestGeneratorConsumesV2ReadinessSignal` PASS。
+- Round 26 最终 `bash scripts/local/test.sh full` **PASS**：915s，exit 0，0 FAIL/0 SKIP，leftover DB=0、cluster removed；日志 `.local/logs/model-completion/full-round26.log`。包含 P11 训练 binding、Readiness v2 adapter、legacy 隔离三组真实 PG 测试。
+- Round 26 Simulator E2E：`bash scripts/local/test.sh e2e` **PASS**，105s，`TestWorkoutCompletenessSimulatorHTTPPostgres` 67.03s，contract=v2、manifests=2、streams=12、lost_ack=true、unknown_loads=1，leftover=0、cluster removed；日志 `.local/logs/model-completion/e2e-round26.log`。该证据只覆盖完整性流程，不代表 schema2 首页/详情/历史已 E2E。
+- Round 26 Swift：`swift test` 236 tests/32 suites PASS；`xcodebuild` Simulator BUILD SUCCEEDED；P11 binding 四组真实 PG 测试 PASS；证据日志 `swift-test-round26.log`、`xcodebuild-round26.log`、`integration-p11-binding.log`。
+- Round 26 Simulator UI：`bash scripts/local/test.sh simulator` **PASS**（90s）；xcresult 汇总 85 passed / 0 failed / 3 skipped；导航视觉基线、文本裁剪 accessibility audit、首页滚动性能用例均通过。3 个 skip 保留（辅助功能动态字号专用矩阵未执行），不冒充 P09 全通过。日志 `.local/logs/model-completion/simulator-round26b.log`、`.local/logs/model-completion/simulator-round26.log`。
+- Round 26 P10：低值提示抽为 `ProductReasonText.lowReadinessNotice` 并有单测；训练 adapter stale/partial/unknown 保守测试 PASS；P10/P11 更新 PASS（Load v2 仍未直接作为训练输入，保持文档说明）。
+
+### 运动能力模型补全 Round 27 — E10 化名与输入/outcome 互斥
+
+- `apps/server/internal/research/pseudonym.go`：新增 keyed HMAC-SHA256 athlete pseudonymization，映射与 aggregate 报告分离；secret 至少 16 bytes，短 secret 拒绝。`cmd/rai-research` 增加 `-pseudonym-secret-file` 与 `-pseudonym-map`，映射文件 0600。
+- 实际合成运行：`research-study-withdraw.json` → `research-report-pseudonym.json`，报告无 athlete 原键；映射单独写 `research-pseudonym-map.json`；日志 `research-cli-pseudonym.log`，exit 0。
+- `research.Prediction` 增加 optional `InputWorkoutIDs/InputFrom/InputTo`，`Outcome` 增加 optional `WorkoutID/WindowFrom/WindowTo`；`LinkOutcomes` 遇到同 Workout 或重叠输入窗口时拒绝链接并计入 `OverlapExcluded`，不把输入窗口当独立 outcome。
+- 实际合成运行：`research-study-overlap.json` → `research-report-overlap.json`，`paired=0`、`overlapExcluded=1`、unpaired prediction/outcome 各 1；日志 `research-cli-overlap.log`，exit 0。
+- `go test ./internal/research ./cmd/rai-research`、`bash scripts/local/test.sh quick` PASS。C01/C02 工程工具状态更新 PASS；C03/C04 仍 PARTIAL，C05–C08 无真实授权/outcome 保持 NOT RUN。
+- Round 27 续：`research.Prediction` 增加输入 Workout/时间窗，`research.Outcome` 增加 outcome Workout/时间窗；`LinkOutcomes` 对同 Workout 或重叠窗口拒绝链接并计数 `OverlapExcluded`。合成 `research-study-overlap.json` 实跑 `paired=0`、`overlapExcluded=1`，日志 `research-cli-overlap.log`，exit 0。C02 工程工具更新 PASS。
+
+### 运动能力模型补全 Round 28 — E10 cluster oracle 与 study addendum gate
+
+- `internal/research/analysis_test.go` 增加 cluster-aware 独立 oracle：单一运动员 block 的 1/2/3 deltas 手算均值 2，bootstrap 全重采样同一 block，CI 下限=上限=2；censored/nil 值作为 abstention，零分母不输出 mean/CI，小组抑制保持计数。
+- `internal/research/types.go` 的 `StudyAddendum` 增加 outcome source、observation window、acceptance threshold、authorization basis、withdrawal procedure、stopping rule；`addendum.go` 对缺项/非法时窗/非正阈值关闭 gate。
+- `research_test.go` 对六类产品 model identity 逐一验证 gate，并验证删除 stopping rule 后关闭。
+- 合成 `rai-research` addendum v2 输入 `research-study.json` 实跑 exit 0，`addendumValid=true`；日志 `research-study-v2addendum.log`。C03/C04 更新 PASS；真实研究/真实 gate 仍未执行。
+
+### 运动能力模型补全 Round 29 — 研究 artifact、RHR 回退、schema2 E2E 与真机验收
+
+- 新增 `apps/server/internal/storage/postgres/model_stack_research.go`：日栈在同一次 REPEATABLE READ 计算中发布 5 个研究 artifact：`running_ability_maximal_v2`、`workout_durability`、`aerobic_efficiency`、`critical_speed`、`load_settling`。四诊断 schema 为 `rai.*/1`，maximal 复用 `rai.running_ability/2`；family 统一为 `model_research_v1/<key>`，不占用 6 个产品槽。
+- `model_stack_inputs.go` 增加 `dailyRHRFacts`：缺显式 RHR 时按训练日前 28 日、同 epoch、至少 14 个日常值且前 7 日至少 3 个值取中位数，交给 `hrref.Resolve`；来源 epoch 由现有 recovery fact 映射到 Workout source epoch，限制已记录。
+- 迁移 00043 注册 5 个研究 artifact 的 key/schema/algorithm；00044 把 `rai_backfill_progress` 的 6 槽判断限定为 `model_product_v2/%`，避免研究 family 影响产品完成判定。`RequiredSchemaVersion=44`，`migrations/checksums.json` 已更新。
+- `TestBackfillOperationLifecycleAndStagedCandidate` 真实隔离 PG PASS：initial + 3 个回算日、candidate_ready、历史 as-known 拒绝；此前研究 family 被计入 6 槽导致 `claim no rows`，00044 修复。日志 `.local/logs/model-completion-fixes/integration-backfill.log`。
+- 修复 DEBUG-only 验收配置：`ProductModel.configure()` 仅在 Simulator 且 `#if DEBUG` 下读取 `RAI_ACCEPTANCE_CONFIG`，支持 inline JSON；Simulator 同时等待 `SyncModel.shared.busy` 避免与 `recoverPending()` 的会话切换竞争。`ProductUITests` 通过 test runner 把 `RAI_MODEL_E2E_CONFIG` 文件内容作为 inline JSON 传入 App。App Debug target 补 `SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG`。`scripts/local/test.sh e2e` PASS（90 s）：真实 App→HTTP→PG→Worker→promote/rollback，active_home/workout_detail/history/rollback 均 true，日志 `.local/logs/model-completion-fixes/e2e-race.log`。
+- `scripts/local/test.sh full` PASS：873 s，exit 0，648 个顶层 PASS，0 FAIL，22 个 opt-in skip，leftover DB=0、cluster removed；日志 `.local/logs/model-completion-fixes/full-after-research.log`。`scripts/local/test.sh swift` PASS：238 tests / 34 suites，日志 `swift-after-research.log`。
+- 性能（非 race，`-tags=integration,modelperf`）PASS：F04 240 min/250,000 点/30 次，P95 1.894872438 s、max 1.905399276 s、artifact 42,127 B；F07 180 日/180 Workout/180 jobs/6 个 31 日块，22.522589121 s；日志 `perf-model-norace-v.log`。F08/F10 未执行，F09 仍为旧 S60 1,000 ms 目标超限。
+- 真机（授权只读）：`RAI_LOCAL_DEVICE_CONFIGURATION=Release python3 scripts/local/device.py prepare/install/probe/list`。iPhone 12 Pro Max（iPhone13,4）、iOS 27.2、Release 0.6.0(1)、Apple Development 签名安装成功；probe handshake 70 ms，原 session manifest 未改变；`list` 观测 100 个可见 Workout（51 eligible/49 excluded/0 unclassified），mainThreadMaxStallMs=1.2、peak RSS=573,669,376。证据 `.local/device-acceptance/install-result.json`、`.local/logs/model-completion-fixes/device/workout-list-report.json`。D01 记 PASS。
+- 真机 `completeness` 在 17 个 Workout 后 BLOCKED（`completeness_stream_pending`）：一条 Workout 的 HeartRate、DistanceWalkingRunning、RunningVerticalOscillation、RunningGroundContactTime、RunningPower 返回 `metadata_requires_review`，coverage 未完成，客户端按契约不生成 receipt/committed anchors。D02 记 FAIL，未删除字段或伪造空收据；证据 `.local/logs/model-completion-fixes/device/completeness-report.json`、`client-task-state.json`。D04/D08 仅 PARTIAL，D03/D05/D06/D07/D09/D10 未运行。
+- 验收矩阵 `docs/evidence/model-completion/acceptance.json` 当前 152 项：99 PASS / 41 PARTIAL / 11 NOT RUN / 1 FAIL；`docs/RAI_MODEL_COMPLETION_RESULT.md` 已按真实证据重写，`docs/RAI_MODEL_COMPLETION_DECISIONS.md` 已补 00043/00044 与研究 artifact/RHR 决策。
+- 未完成项保持未通过：Feature `rai.workout_features/v2` 合同未实现（Feature 仍 v1）；研究诊断未在产品详情展示；真实设备 RHR/SDNN/Sleep 来源未出现；完整无障碍矩阵、F08/F10 与 D03/D05/D06/D07/D09/D10 未执行；真实模型校准与真实产品激活仍未授权。
+
+### 同步链修复 — P0 完成、P2 客户端复用被 v2 合同阻塞（2026-11-07）
+
+本轮按 `docs/SYNC_CHAIN_REMEDIATION_PLAN.md` 实施 P0 正确性修复，并尝试 P2 客户端 proof 跨周期复用。真实 App→HTTP→PG18 e2e 证明该复用与冻结的 v2 合同冲突（服务端要求每个 stream 分页和 proof series 都晚于本周期 `knownCutoffUs`），因此复用路径已撤回，不声称 P2 完成；P1、P2 服务端缓存、P3、P4 未实施。
+
+- P0-1：`SyncCoordinator.coverageFromBundle` 改为只解析匹配 boundary 的 multipart，并从 `observation.coverage` 读取；错误 boundary、截断 body、裸 JSON 显式失败，不再静默回退 `task.coverage`。`WorkoutSyncReuseTests.testCoverageIsReadFromMultipartFramingOrNotAtAll` 覆盖成功与三类负例；恢复路径合成 bundle 补齐 observation。
+- P0-2：`WorkoutCoverage.isSatisfied/needsRetry` 将 `.unsupported`、`.noRecordsObserved` 与 `.complete` 等同视为完成，`task.missing` 和 `pendingReadKeys` 使用 `needsRetry`。`WorkoutTaskTests.unsupportedAndEmptyStreamsAreSatisfiedButFailureIsNot` PASS。
+- P0-3：完整性 inventory 循环按 Workout 隔离失败，写入 `blocked`（原因、类型、次数、退避），保留已完成 proof；存在 blocked 时整轮不 stage manifest。`NormalizerTests.testBlockedWorkoutKeepsOtherProofsAndRetriesAlone` 覆盖 3 个 Workout、1 个 `metadata_requires_review`、2 个 proof 保留、退避期内零 HealthKit 查询。200-Workout fixture 未执行。
+- P0-4：`acknowledgeBundle` 在计算发现水位后释放 `captureManifest`、`bundleDeletionEventIDs` 和空 `pendingReadKeys`，保留 `uploadReceipt`、`bundleSHA256`、`coverage`。单元测试断言 ACK 后编码字节下降、重复 ACK 返回原回执；未断言固定 2 KiB 上限。
+- P0-5：`associateDiscoveredFacts` 无新变化时不编码、不写文件，`noopCommitSkipCount()` 可观测。`HealthDiscoveryTests.repeatedAssociationWithoutNewFactsDoesNotCommit` PASS。
+- P0-6：新增 `AnalysisFollowup` 有界退避 `[2,5,15,30,60,120,300]`（总预算 ≤ 600 s），完成/失败/删除、取消、后台切换停止，耗尽记录 `analysis_followup_exhausted`；`isAlreadyDelivered` 的 analyzing 任务超过 stale 窗口也会刷新。单元测试 PASS；未运行合成服务端自动转 published 的模拟器时序用例。
+- 保留的安全优化（不属于 P2 复用）：新 cycle 沿用已提交的 `classification/exclusions`，被排除 Workout 不再做 HealthKit 查询或子流读取；无结构变化时只读一次 series 判断是否需要重建 bundle，series 未变化则不强制新 bundle；不再在 `syncWorkout` 后重复读 series。
+- P2 尝试与撤回：曾实现“新 cycle 复用旧 proof、仅查询根流、子流用 no-op 分页补齐、ACK 合并 anchor”。真实 e2e 在第二轮完整性提交返回 `invalid_completeness` / 422；`workout_completeness_v2.go` 要求 12 个 stream 全部存在、每个 proof series 的 `queryCompletedAtUs >= knownCutoffUs`、每个分页 `queryStartedAtUs >= knownCutoffUs`，而 `knownCutoffUs` 又必须严格前进。携带上一周期时间戳的 proof 无法同时满足这些条件。复用代码、`clearCompletenessProof`、carried-stream 测试与相应测试期望已撤回；新 cycle 重新观察全部 12 个流。失败证据见 `docs/evidence/sync-remediation-2026-11-07/contract-blocker/`。
+- 证据：`docs/evidence/sync-remediation-2026-11-07/README.md`。`scripts/local/test.sh swift` PASS（245 tests / 34 suites）；`scripts/local/test.sh simulator` PASS（89 passed / 0 failed / 3 skipped，97 s）；`scripts/local/test.sh e2e` PASS（真实 App→本地 Go HTTP→一次性 PG18，`contract=v2 manifests=2 streams=12 imports=1 lost_ack=true`，93 s）；`scripts/local/test.sh gate` PASS（Go tests/vet/边界，2 s 热缓存，不含 PG/iOS/真机）。
+- 未实现/未验证：P1 SQLite 持久化、写放大与迁移；P2 服务端 proof 验证缓存、锁外准备、raw payload 热路径；P3 锁预算/上传准入/Worker 分道；P4 changefeed/ETag/cache.sqlite/首页详情收敛；Phase 0 计数器与 200-Workout 固定负载。A-06..A-09、A-11、A-12 与 B-01..B-17 未执行或未测量，不能推断通过；本轮未运行真机、未运行 `go test -race -tags=integration` 全量 PG 回归，也未部署。
+
+### Workout Sync v4 — 单 Workout 列式 Bundle（2026-11-08）
+
+本轮按 `docs/WORKOUT_SYNC_V4_SIMPLE_PLAN.md` 落地 v4；用户已确认 **D1：接受每 Workout coverage、删除 200 天完整性证明**，**D2：保留 sample 级显式删除**。合同见 `contracts/sync-v4.md`，结果与未验证项见 `docs/WORKOUT_SYNC_V4_RESULT.md`。
+
+- 服务端新增 `apps/server/internal/syncing/workout_bundle_v4.go`：`DecodeWorkoutBundleV4JSON` 严格解码 v4 envelope（严格 UTF-8、重复 key 拒绝、未知字段/缺失/null 拒绝、三元组/八元组定长数组），再转换为现有 `WorkoutBundle` 并走原有 `Validate()`/`ImportWorkoutBundle` 单事务写路径；表结构、receipt、幂等 digest、analysis job 未改。
+- v4 wire：`sources[]`（≤16，去 device）、`streams[]`（≤32，`samples` 为 `[startUs,endUs,value]`、等长 `uuids[]`、`source`/`src[]`、可选 `metadata[]`）、`series[]`（`[stream,sample]`，总点≤1M）、`routes[]`（8 元组，后 6 项可 null，总点≤1M）、`deletions[]`（≤10k）、`routeDeletions[]`（≤256）、`observation`（provenance.workout + 每 Workout coverage；provenance.samples/routes 必须空数组）。
+- `workout_bundle.go`、`bundle_decode.go`、`workout_delete.go` 接受 protocol 3/4；`bundle_observation.go` 增加 v4 coverage key 白名单（workout/route/Units 类型/series:<type>）、计数一致性和空 provenance 校验。
+- `httpapi/server.go` 新增 `Options{SyncV4}`/`NewWithOptions`；只有 `SYNC_V4_ENABLED=1` 且请求头 `X-RAI-Sync-Protocol: 4` 时 handshake 返回 `workoutPayloadVersion=4`、`bundleProtocolVersion=4`、`bundleCompact=true`；导入按 `protocolVersion` 分派，关闭时 v4 返回 422 `unsupported_protocol`。`cmd/rai/main.go` 读取 `SYNC_V4_ENABLED`。
+- v4 不依赖 200 天完整性问题：`storage/postgres/workout_completeness.go` 对 v4 回执明确返回 `409 completeness_not_supported_v4`，不让旧 proof 扫描误判。旧 v3 completeness/discovery 代码保留给 v3 客户端排空，S6 净删除未执行，不能视为已完成。
+- 存储兼容：`storage/postgres/workout_bundles.go` 的 GET tombstone 检查覆盖 v4 `streams[].uuids`；`storage/postgres/bundle_integrity.go` 的 analysis provenance 从 v4 `sources/streams/routes` 下标还原逐样本来源，避免 v4 空 provenance 数组被误报 `analysis_source_unclassified`。
+- 客户端新增 `ios/RAI/Sources/SyncCore/WorkoutBundleV4.swift`（v4 编码器、source 表、route 八元组）、`V4Outbox.swift`（按 dataset/collector scope 隔离的 sample/route identity sidecar）、`ios/RAI/App/V4SyncEngine.swift`（HealthKit 样本/series/route 读取、coverage、D2 diff）。`SyncCoordinator.syncV4` 复用共享上传/ACK 路径，仅在 ACK 成功后推进 sidecar；`ClientConfiguration` 增加 `syncProtocolV4`/`RAI_SYNC_V4`，`SyncSession` 允许 handshake 3/4，`RAIAPIClient` 支持自定义 header。
+- 测试证据：`go test ./...` PASS；`swift test` 250 tests / 35 suites PASS（含 `WorkoutBundleV4Tests` 5 tests）；`xcodebuild` v4 AppTests `V4SyncEngineTests` 2 tests PASS；真实隔离 PG `TestWorkoutBundleV4ImportAndIdempotency` PASS（receipt committed、samples/associations=1、重复字节幂等）；`swift build --target SyncCore` 与 Simulator build SUCCEEDED。
+- 门禁：`go test -race ./...` PASS；`go vet ./...` PASS；`scripts/check-boundaries.py` 全部 PASS；Swift 250 tests / 35 suites、v4 App tests 2 tests PASS。未验证：真机 HealthKit 读取/上传、P1–P8 性能门槛、完整 Simulator E2E/UI；v4 只在本机合成数据验证，不能替代真机/部署验收。

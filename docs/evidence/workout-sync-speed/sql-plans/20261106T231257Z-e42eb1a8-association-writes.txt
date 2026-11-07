@@ -1,0 +1,9 @@
+-- statement: association-writes
+Insert on workout_samples  (cost=0.00..15.00 rows=0 width=0) (actual time=11.309..11.309 rows=0.00 loops=1)
+  Buffers: shared hit=8143 dirtied=68 written=68
+  WAL: records=4047 bytes=754512 buffers full=45
+  ->  Values Scan on "*VALUES*"  (cost=0.00..15.00 rows=1000 width=176) (actual time=0.005..0.685 rows=1000.00 loops=1)
+Planning Time: 0.802 ms
+Trigger for constraint workout_samples_dataset_id_sample_type_sample_uuid_fkey: time=6.454 calls=1000
+Trigger for constraint workout_samples_dataset_id_workout_uuid_fkey: time=4.122 calls=1000
+Execution Time: 22.064 ms

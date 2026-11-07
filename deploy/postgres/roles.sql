@@ -85,6 +85,7 @@ GRANT SELECT, INSERT, UPDATE ON daily_health_coverage TO rai_api;
 -- A narrowly scoped SECURITY DEFINER dirty trigger owns immediate invalidation.
 GRANT SELECT ON analysis_model_channels, analysis_model_dependencies TO rai_api,rai_worker;
 GRANT SELECT ON analysis_artifacts, athlete_model_inputs, entity_tombstones TO rai_worker;
+GRANT SELECT ON analysis_published_artifacts TO rai_api,rai_worker;
 GRANT INSERT ON analysis_artifacts TO rai_worker;
 GRANT EXECUTE ON FUNCTION rai_feature_downstream_dirty(uuid,text,timestamptz,timestamptz) TO rai_worker;
 
@@ -109,3 +110,7 @@ GRANT EXECUTE ON FUNCTION rai_readiness_dirty(uuid) TO rai_worker;
 -- UA1-R: append-only verified coverage; no runtime mutation of history.
 GRANT SELECT, INSERT ON workout_sync_completeness TO rai_api;
 GRANT SELECT ON workout_sync_completeness TO rai_worker;
+
+GRANT EXECUTE ON FUNCTION rai_commit_typed_model_input(uuid,uuid,uuid,text,timestamptz,timestamptz,uuid,uuid,text,bytea,jsonb,text) TO rai_api;
+GRANT EXECUTE ON FUNCTION rai_model_stack_tick(uuid,timestamptz) TO rai_worker;
+GRANT EXECUTE ON FUNCTION rai_backfill_progress(uuid,uuid,boolean),rai_backfill_job_allowed(uuid,uuid) TO rai_worker;

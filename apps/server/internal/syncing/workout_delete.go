@@ -22,7 +22,7 @@ type WorkoutDeleteReceipt struct {
 }
 
 func (r WorkoutDeleteRequest) Validate() error {
-	if r.ProtocolVersion != 3 || !ValidID(r.DatasetID) || !ValidID(r.DatasetEpoch) ||
+	if (r.ProtocolVersion != 3 && r.ProtocolVersion != 4) || !ValidID(r.DatasetID) || !ValidID(r.DatasetEpoch) ||
 		!ValidID(r.CollectorEpoch) || !ValidID(r.WorkoutID) || len(r.Reason) > 128 {
 		return Fail(422, "unsupported_payload")
 	}

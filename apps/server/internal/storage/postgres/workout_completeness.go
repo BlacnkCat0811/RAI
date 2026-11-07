@@ -246,6 +246,18 @@ func verifyCompletenessWorkout(ctx context.Context, tx pgx.Tx, p syncing.Princip
 	if err != nil {
 		return err
 	}
+	var header struct {
+		ProtocolVersion int `json:"protocolVersion"`
+	}
+	if json.Unmarshal(raw, &header) != nil {
+		return errors.New("invalid persisted workout receipt")
+	}
+	// v4 deliberately has no 200-day completeness proof. Its per-Workout
+	// coverage is complete in itself, so a v4 receipt can never be a member of
+	// a legacy completeness manifest.
+	if header.ProtocolVersion == 4 {
+		return syncing.Fail(409, "completeness_not_supported_v4")
+	}
 	var b syncing.WorkoutBundle
 	var receipt syncing.WorkoutImportReceipt
 	if json.Unmarshal(raw, &b) != nil || json.Unmarshal(receiptRaw, &receipt) != nil {
