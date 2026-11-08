@@ -21,7 +21,7 @@
 | E0 基线 | 追加迁移 00039–00044，当前 schema 为 44。合成栈为 `rai-v2-b4618722716ba569`，manifest SHA-256 为 `b4618722716ba5695161b967436d6c1ff69b14f6b40aae7bf73ad1c6d109e954`。 | 实际 Feature artifact 仍为 `rai.workout_features/1`，计划中的独立 Feature v2 合同尚未实现。 |
 | E1 同步 | 普通 iOS 同步先发送事实并持久化 ACK，完整性证明随后独立续跑；Simulator 覆盖首轮/重复及 lost ACK 原回执重试。 | 普通入口第二增量和真机后台恢复/取消未完成。 |
 | E2 输入与来源 | 受限 API 提交类型化输入；日栈使用显式 HR reference、重叠解析及来源筛选；缺显式 RHR 时已接入训练日前 28 日同 epoch 日常 RHR median（≥14 日、前 7 日≥3 日）。 | 同源日常 RHR 的独立来源证据仍受现有 recovery fact 合成映射限制；全部表单和来源变化矩阵未齐。 |
-| E3 RAI VO₂ | 独立证据、日截止、稳健估计、敏感性和真实 solver 状态投影；Worker 发布独立 RAI 通道，外部 VO₂ 路径保留。 | 缺少带足够合格 Workout 和参考数据的真实 PG 数值发布 oracle，真实校准未执行。 |
+| E3 RAI VO₂ | 独立证据、日截止、稳健估计、敏感性和真实 solver 状态投影；Worker 发布独立 RAI 通道，外部 VO₂ 路径保留。2026-11-08 新增真实隔离 PG18 数值发布 oracle：7 个合格合成 Workout 经日栈发布 `established` 值 35.22244897959183，敏感性 8 角点、LOO 7 折，promotion 后产品/历史/HTTP 均显示 `rai_owned_submax`，外部 VO₂ 槽位独立。 | 真实校准仍未执行；合成 oracle 不等于 criterion 效度。 |
 | E4 恢复与准备度 | 日栈读取原始日常事实，计算 Recovery v2，并用同代际 Recovery、Load v2 和 verified proof 计算 Readiness v2；缺失数据保持 null。 | 真实设备 SDNN/Sleep 来源未出现，独立重建等价与全部依赖闭包未齐。 |
 | E5 跑力与诊断 | 日栈发布 demonstrated 跑力；maximal 作为 `running_ability_maximal_v2` 研究 artifact 发布；durability/aerobic_efficiency/critical_speed/load_settling 四诊断以 `model_research_v1/<key>` 独立发布。 | 研究诊断尚未在产品详情中展示；真实校准和更多真实样本未验证。 |
 | E6 回算 | `rai admin backfill` 执行真实 Worker 日任务，以最多 31 日成块校验 generation、checkpoint、恢复和取消；180 日/180 Workout 已实测（22.52 s）。 | 每个阶段 kill/replay、事实竞争和独立重建 oracle 仍未全部覆盖。 |
@@ -48,7 +48,7 @@
 
 | 项 | 当前证据 |
 | --- | --- |
-| G01 自有 VO₂ | 日栈发布独立实验槽位；纯域最大容量已测，数值发布 oracle 未齐。 |
+| G01 自有 VO₂ | 日栈发布独立实验槽位；纯域最大容量已测。2026-11-08 真实隔离 PG18 数值发布 oracle 通过（合成值 35.22244897959183，8 角点宽度 <30%，LOO 7 折），管理端 managed candidate 预览可见 `raiVO2Max` 信封。 |
 | G02 正式 API | active 与 clean 隔离、当前值、历史和回滚有 PG 与受限角色证据。 |
 | G03 iOS | schema2 Home、分析历史和 Workout 详情已接线；schema2 E2E 通过；完整无障碍矩阵未齐。 |
 | G04 切换与回滚 | 合成 PG 的 gate、修订审计和切回通过，完整竞态见 X01–X12。 |

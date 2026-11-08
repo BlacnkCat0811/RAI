@@ -124,8 +124,13 @@ func ModelStackCommand(ctx context.Context, url string, args []string, out io.Wr
 		Reasons        []string              `json:"reasonCodes"`
 		TechnicalError *string               `json:"technicalError"`
 	}
+	envelopes := []am.Envelope{r.Snapshot.TrainingReadiness.Envelope, r.Snapshot.PhysiologicalRecovery.Envelope, r.Snapshot.TrainingLoad.Envelope, r.Snapshot.RunningAbility.Envelope}
+	if r.Snapshot.RAIVO2Max != nil {
+		envelopes = append(envelopes, r.Snapshot.RAIVO2Max.Envelope)
+	}
+	envelopes = append(envelopes, r.Snapshot.ExternalVO2Max.Envelope)
 	metrics := []summary{}
-	for _, v := range []am.Envelope{r.Snapshot.TrainingReadiness.Envelope, r.Snapshot.PhysiologicalRecovery.Envelope, r.Snapshot.TrainingLoad.Envelope, r.Snapshot.RunningAbility.Envelope, r.Snapshot.ExternalVO2Max.Envelope} {
+	for _, v := range envelopes {
 		metrics = append(metrics, summary{v.Metric, v.ModelVersion, v.State, v.ModelStatus, v.Quality, v.Freshness, v.ReasonCodes, v.TechnicalError})
 	}
 	return json.NewEncoder(out).Encode(struct {

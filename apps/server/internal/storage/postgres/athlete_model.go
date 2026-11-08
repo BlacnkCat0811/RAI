@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	am "rai/server/internal/athletemodel"
+	"rai/server/internal/modelmanifest"
 	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
@@ -130,6 +131,23 @@ func (s *Store) ReadAthleteModelCandidateSnapshot(ctx context.Context, dataset s
 	stats.DBReads++
 	if e != nil {
 		return am.AthleteModelCandidateSnapshot{}, stats, e
+	}
+	if c.assignment.StackID == modelmanifest.StackID() {
+		manifest, err := modelmanifest.CurrentHash()
+		if err != nil || c.configHash != manifest {
+			return am.AthleteModelCandidateSnapshot{}, stats, ErrModelProjection
+		}
+		out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+		out, err = readPublishedModelStack(ctx, tx, dataset, "candidate", c.assignment.StackID, out, c, at)
+		stats.DBReads++
+		if err != nil {
+			return am.AthleteModelCandidateSnapshot{}, stats, err
+		}
+		stats.ReadNS = time.Since(start).Nanoseconds()
+		if err = tx.Commit(ctx); err != nil {
+			return am.AthleteModelCandidateSnapshot{}, stats, err
+		}
+		return am.AthleteModelCandidateSnapshot{CandidateOnly: true, Snapshot: out}, stats, nil
 	}
 	slots := []modelSlot{{"loadWorkout", tl.ArtifactKey, "model/" + wf.StackID() + "/workout_load/", "workout_load_candidate"}, {"loadState", tl.StateKey, tl.StateScope(), "load_state_candidate"}, {"ability", pf.ArtifactKey, pf.Scope(), "performance_candidate"}, {"vo2", ve.ArtifactKey, ve.Scope, ve.Family}, {"recovery", "physiological_recovery", rc.Scope(c.timezone, out.CalendarDate), rc.Family}, {"readiness", rd.Key, rd.Scope(c.timezone), rd.Family}}
 	b, _ := json.Marshal(slots)

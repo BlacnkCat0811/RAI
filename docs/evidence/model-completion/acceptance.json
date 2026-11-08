@@ -599,24 +599,32 @@
       "id": "V01",
       "status": "PASS",
       "expected": "VO2 资格/公式/权重/异常/平滑/敏感性/LOO/aging/独立性",
-      "observed": "VO₂ submax 独立 pure domain、日栈 loader、publisher 与 schema2 reader 已接通；与 external VO₂ 分源，e2e 中 raiVO2Max 返回；full PASS。",
+      "observed": "VO₂ submax 独立 pure domain、日栈 loader、publisher 与 schema2 reader 已接通；与 external VO₂ 分源，e2e 中 raiVO2Max 返回；full PASS。2026-11-08 新增真实隔离 PG18 数值发布 oracle：7 个合格合成 Workout 经 sealed import→/2 HR reference→日栈→vo2max_submax→promotion，产品/历史/HTTP 显示 established 35.22244897959183 mL/kg/min、8 角点相对宽度≤0.30、LOO 7 折；externalVO2Max 同时保持独立 unavailable，admin managed candidate 预览为 candidateOnly 且无值。",
       "commands": [
         "bash scripts/local/test.sh full",
-        "bash scripts/local/test.sh e2e"
+        "bash scripts/local/test.sh e2e",
+        "bash scripts/local/test.sh integration -run '^TestNativeRAIVO2PublishesNumericSyntheticValue$' -v ./integration"
       ],
       "exitCode": 0,
       "evidence": [
         ".local/logs/model-completion-fixes/full-after-research.log",
-        ".local/logs/model-completion-fixes/e2e-race.log"
+        ".local/logs/model-completion-fixes/e2e-race.log",
+        ".local/logs/model-product-activation-2026-11-08/rai-vo2-m4-integration.log",
+        "apps/server/integration/vo2max_native_test.go"
       ],
-      "reason": "submax 已进入产品发布与读取链。",
-      "executedAt": "2026-11-07T14:45:00+08:00",
+      "reason": "submax 已进入产品发布与读取链；数值发布 oracle 已由真实 PG18 合成 fixture 覆盖，真实校准仍 NOT VERIFIED。",
+      "executedAt": "2026-11-08T22:53:49+08:00",
       "scope": "synthetic",
       "history": [
         {
           "at": "2026-11-07T14:45:00+08:00",
           "status": "PARTIAL",
           "reason": "纯域与测试完成，v2 worker/loader/publisher 未接"
+        },
+        {
+          "at": "2026-11-08T22:53:49+08:00",
+          "status": "PASS",
+          "reason": "新增真实隔离 PG18 数值发布 oracle 与 external/admin 独立性断言；未执行真实校准"
         }
       ]
     },

@@ -142,6 +142,31 @@ func TestAggregateEstablishedSensitivityAndLOO(t *testing.T) {
 	}
 }
 
+func TestAggregatePublishesValueWhenSensitivityNarrow(t *testing.T) {
+	// r=(182-35)/(209-35)=.8448; V=3.5+.2*134/r=35.222. All eight corners
+	// stay inside the 30% relative-width gate, unlike the abstention fixture
+	// above where the same evidence center is much lower.
+	var es []Evidence
+	for i := 0; i < 5; i++ {
+		e := ev(string(rune('a'+i)), "d", int64(i*4)*DayUs+1, 35.22244897959183, 182, 134.0/60, 1)
+		e.MaxHR, e.RestHR = 209, 35
+		es = append(es, e)
+	}
+	r, err := Aggregate(AggregateInput{DatasetID: "ds", Generation: 1, AsOf: 21 * DayUs, ReferenceHash: "h", SourceEpoch: "e1", Evidence: es})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Status != "established" || r.Value == nil || math.Abs(*r.Value-35.22244897959183) > 1e-9 || r.CandidateOnly {
+		t.Fatalf("publishable value: %+v", r)
+	}
+	if r.Sensitivity.Unbounded || r.Sensitivity.Corners != 8 || r.Sensitivity.Width == nil || *r.Sensitivity.Width > .30 {
+		t.Fatalf("sensitivity: %+v", r.Sensitivity)
+	}
+	if !r.LOO.SupportOK || r.LOO.Folds != 5 || r.LOO.Range == nil {
+		t.Fatalf("loo: %+v", r.LOO)
+	}
+}
+
 func TestAggregateOutlierIsolationAndConfirmation(t *testing.T) {
 	var es []Evidence
 	for i := 0; i < 4; i++ {

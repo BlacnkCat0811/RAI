@@ -64,12 +64,21 @@ func (s *Store) ReadAthleteProduct(ctx context.Context, p syncing.Principal, at 
 		return out, am.ErrNotActivated
 	}
 	out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+	out, err = readPublishedModelStack(ctx, tx, p.DatasetID, "active", c.assignment.StackID, out, c, at)
+	if err != nil {
+		return am.AthleteModelSnapshot{}, err
+	}
+	return out, tx.Commit(ctx)
+}
+
+// readPublishedModelStack projects the newest clean day-stack publication of
+// every product slot. The caller owns the transaction and assignment channel.
+func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, stack string, out am.AthleteModelSnapshot, c modelReadContext, at time.Time) (am.AthleteModelSnapshot, error) {
 	loc, err := time.LoadLocation(c.timezone)
 	if err != nil {
 		return am.AthleteModelSnapshot{}, ErrModelProjection
 	}
 	day := at.In(loc).Format("2006-01-02")
-	stack := c.assignment.StackID
 	scopes := map[string]string{
 		"loadState": tl.ScopeStateV2For(stack),
 		"ability":   pf.ScopeFor(stack),
@@ -98,14 +107,31 @@ func (s *Store) ReadAthleteProduct(ctx context.Context, p syncing.Principal, at 
 		scopeNames = append(scopeNames, scope)
 	}
 	rows := map[string]publishedModelArtifact{}
-	qrows, err := tx.Query(ctx, `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at
+	query := `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at
 FROM unnest($2::text[], $4::text[]) expected(scope, key)
 JOIN analysis_publications p ON p.scope_key=expected.scope
 JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
 JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=expected.key
 JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
 WHERE p.dataset_id=$1 AND r.status='SUCCEEDED' AND p.day<=$3::date
-ORDER BY a.artifact_key,p.day DESC,p.published_run_id`, p.DatasetID, scopeNames, day, keys)
+ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
+	args := []any{dataset, scopeNames, day, keys}
+	if channel != "active" {
+		// The product view deliberately hides candidate/previous channels. An
+		// administrative preview reads the same clean publications from the base
+		// tables with an explicit channel binding.
+		query = `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at
+FROM unnest($2::text[], $4::text[]) expected(scope, key)
+JOIN analysis_publications p ON p.scope_key=expected.scope AND p.dataset_id=$1
+JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
+JOIN analysis_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=expected.key
+JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
+JOIN analysis_model_channels m ON m.dataset_id=$1 AND m.channel=$5 AND m.stack_id=$6
+WHERE r.status='SUCCEEDED' AND p.day<=$3::date
+ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
+		args = append(args, channel, stack)
+	}
+	qrows, err := tx.Query(ctx, query, args...)
 	if err != nil {
 		return am.AthleteModelSnapshot{}, err
 	}
@@ -127,7 +153,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`, p.DatasetID, scopeNames,
 	qrows.Close()
 	if a, ok := rows["loadState"]; ok {
 		var r tl.StateResult
-		if !validHistoryArtifact("trainingLoad", p.DatasetID, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifact("trainingLoad", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
 			out.TrainingLoad = am.Missing[am.TrainingLoadValue]("trainingLoad", at.UnixMicro(), "technical_failure")
 		} else {
 			var daily *tl.DailyState
@@ -147,7 +173,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`, p.DatasetID, scopeNames,
 	}
 	if a, ok := rows["ability"]; ok {
 		var r pf.Result
-		if !validHistoryArtifact("runningAbility", p.DatasetID, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifact("runningAbility", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
 			out.RunningAbility = am.Missing[am.RunningAbilityValue]("runningAbility", at.UnixMicro(), "technical_failure")
 		} else {
 			v := pf.Freshen(r, at.UnixMicro())
@@ -157,7 +183,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`, p.DatasetID, scopeNames,
 	}
 	if a, ok := rows["vo2"]; ok {
 		var r ve.Result
-		if !validHistoryArtifact("externalVO2Max", p.DatasetID, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifact("externalVO2Max", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
 			out.ExternalVO2Max = am.Missing[am.ExternalVO2Value]("externalVO2Max", at.UnixMicro(), "technical_failure")
 		} else {
 			v, e := ve.Freshen(r, at.UnixMicro())
@@ -171,7 +197,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`, p.DatasetID, scopeNames,
 	}
 	if a, ok := rows["raiVO2"]; ok {
 		var r vo2.Result
-		if !validHistoryArtifact("raiVO2Max", p.DatasetID, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifact("raiVO2Max", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
 			m := am.Missing[am.RAIVO2Value]("raiVO2Max", at.UnixMicro(), "technical_failure")
 			out.RAIVO2Max = &m
 		} else {
@@ -182,7 +208,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`, p.DatasetID, scopeNames,
 	}
 	if a, ok := rows["recovery"]; ok {
 		var r rc.V2Result
-		if !validHistoryArtifact("physiologicalRecovery", p.DatasetID, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifact("physiologicalRecovery", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
 			out.PhysiologicalRecovery = am.Missing[am.RecoveryValue]("physiologicalRecovery", at.UnixMicro(), "technical_failure")
 		} else {
 			v, e := rc.Freshen(r.Result, at.UnixMicro())
@@ -196,7 +222,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`, p.DatasetID, scopeNames,
 	}
 	if a, ok := rows["readiness"]; ok {
 		var r rd.Result
-		if !validHistoryArtifact("trainingReadiness", p.DatasetID, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifact("trainingReadiness", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
 			out.TrainingReadiness = am.Missing[am.ReadinessValue]("trainingReadiness", at.UnixMicro(), "technical_failure")
 		} else {
 			v, e := rd.FreshenV2(r, at.UnixMicro())
@@ -209,7 +235,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`, p.DatasetID, scopeNames,
 		}
 	}
 	am.SetProjectedResponseState(&out)
-	return out, tx.Commit(ctx)
+	return out, nil
 }
 
 func (s *Store) ReadAthleteHistory(ctx context.Context, p syncing.Principal, metric, from, to string, limit int, cursor, view string) (am.HistoryPage, error) {
