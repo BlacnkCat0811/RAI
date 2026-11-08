@@ -1153,6 +1153,7 @@ struct RAIApp: App {
                 #endif
             }
                 .environment(\.locale, Locale(identifier: "zh-Hans-CN"))
+                .preferredColorScheme(.dark)
                 .task {
                     #if DEBUG
                     if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" { await model.runLocalDeviceAcceptance(); return }

@@ -411,6 +411,17 @@ struct AnalysisView: View {
     ScrollView {
       VStack(spacing: 16) {
         BodyStatusCard(data: model.data)
+        NavigationLink {
+          TrainingLoadDetailView(model: model)
+        } label: {
+          TrainingLoadEntryCard(
+            data: model.data, points: TrainingLoadSeries.points(from: model.data.history))
+        }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("trainingLoad.entry")
+        NavigationLink {
+          RunningAbilityDetailView(model: model)
+        } label: {
+          RunningAbilityEntryCard(snapshot: model.data.athlete)
+        }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("runningAbility.entry")
         if let athlete = model.data.athlete, athlete.supportsPresentation {
           AthleteModelCard(snapshot: athlete)
           NavigationLink("运动模型历史") { AthleteHistoryView(model: model) }.accessibilityIdentifier("model.history.link")
@@ -612,9 +623,14 @@ struct AthleteModelCard: View {
 
 struct AthleteHistoryView: View {
   @Bindable var model: ProductModel
-  @State private var metric = "trainingLoad"
+  @State private var metric: String
   @State private var page: AthleteHistoryPage?
   @State private var failed = false
+
+  init(model: ProductModel, initialMetric: String = "trainingLoad") {
+    self.model = model
+    _metric = State(initialValue: initialMetric)
+  }
 
   var body: some View {
     List {
@@ -1053,4 +1069,497 @@ struct WorkoutSyncDetail: View {
     .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("关闭") { dismiss() } } }
     .scrollContentBackground(.hidden).raiScreen()
   }
+}
+
+// MARK: - 跑力
+
+struct RunningAbilityEntryCard: View {
+  let snapshot: AthleteModelSnapshot?
+
+  var body: some View {
+    let metric = snapshot?.runningAbility
+    HStack(spacing: 16) {
+      ZStack {
+        Circle().stroke(.white.opacity(0.14), lineWidth: 7)
+        if let score = metric?.presentationValue?.score {
+          Circle()
+            .trim(from: 0, to: max(0, min(score / 100, 1)))
+            .stroke(RAITheme.orange.gradient, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+            .rotationEffect(.degrees(-90))
+        }
+        Text(ProductFormat.decimal(metric?.presentationValue?.score))
+          .font(.system(.title2, design: .rounded, weight: .bold)).monospacedDigit()
+      }.frame(width: 64, height: 64)
+      VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: 6) {
+          Text("跑力").font(.headline)
+          Text(runningAbilityStateText(metric?.envelope))
+            .font(.caption2)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .background(.white.opacity(0.10), in: Capsule())
+            .foregroundStyle(RAITheme.secondary)
+        }
+        Text(runningAbilitySubtitle(metric))
+          .font(.caption).foregroundStyle(RAITheme.secondary).lineLimit(2)
+      }
+      Spacer(minLength: 0)
+      Image(systemName: "chevron.right").font(.caption).foregroundStyle(RAITheme.secondary)
+    }.padding(16).raiGlass()
+  }
+
+  private func runningAbilitySubtitle(_ metric: RunningAbilityMetric?) -> String {
+    guard let metric else { return "配速区间、成绩预测与能力分解" }
+    guard let value = metric.presentationValue else {
+      return ProductReasonText.text(
+        for: metric.envelope.productReasonCodes.first?.rawValue,
+        state: metric.envelope.presentationState.rawValue)
+    }
+    guard value.speedUnit.rawValue == "m/s",
+      let pace = RunningAbilityMath.paceSecondsPerKm(v60: value.v60)
+    else { return "查看跑力详情" }
+    return "V60 配速 \(runningPaceText(pace))/km · 配速区间与成绩预测"
+  }
+}
+
+struct RunningAbilityDetailView: View {
+  @Bindable var model: ProductModel
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 16) {
+        if let snapshot = model.data.athlete, snapshot.supportsPresentation {
+          let metric = snapshot.runningAbility
+          hero(metric)
+          if let value = metric.presentationValue {
+            abilityGrid(value)
+            paceZones(value)
+            racePredictions(value)
+            evidence(metric)
+          } else {
+            EmptyCard(
+              title: "跑力暂不可用",
+              detail: ProductReasonText.text(
+                for: metric.envelope.productReasonCodes.first?.rawValue,
+                state: metric.envelope.presentationState.rawValue))
+          }
+          NavigationLink("跑力历史") {
+            AthleteHistoryView(model: model, initialMetric: "runningAbility")
+          }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("runningAbility.history")
+        } else {
+          EmptyCard(
+            title: "跑力尚未启用",
+            detail: model.configured
+              ? "当前服务已连接，但运动模型尚未激活。完成产品激活门禁后，跑力会自动出现在这里。"
+              : "请先在「我的 → 同步与诊断」连接私有服务。")
+        }
+        Text("跑力由 60 分钟临界速度与耐力保持能力构成；配速区间与成绩预测为训练参考，不是比赛保证。")
+          .font(.footnote).foregroundStyle(RAITheme.secondary)
+      }.padding(18)
+    }.navigationTitle("跑力").raiScreen().refreshable { await model.refresh() }
+      .accessibilityIdentifier("screen.runningAbility")
+  }
+
+  private func hero(_ metric: RunningAbilityMetric) -> some View {
+    VStack(alignment: .leading, spacing: 14) {
+      HStack(alignment: .top) {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("跑力").font(.subheadline).foregroundStyle(RAITheme.secondary)
+          HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(ProductFormat.decimal(metric.presentationValue?.score))
+              .font(.system(size: 64, weight: .bold, design: .rounded)).monospacedDigit()
+            Text("分").font(.title3).foregroundStyle(RAITheme.secondary)
+          }
+        }
+        Spacer(minLength: 8)
+        VStack(alignment: .trailing, spacing: 6) {
+          Text(runningAbilityStateText(metric.envelope))
+            .font(.caption).padding(.horizontal, 8).padding(.vertical, 4)
+            .background(.white.opacity(0.10), in: Capsule())
+          if let confidence = metric.envelope.confidence {
+            Text("证据置信 \(Int((confidence * 100).rounded()))%")
+              .font(.caption2).foregroundStyle(RAITheme.secondary)
+          }
+        }
+      }
+      if let value = metric.presentationValue {
+        HStack(alignment: .top, spacing: 18) {
+          heroFact("V60 配速", heroV60Pace(value))
+          heroFact("耐力保持", runningRetentionText(value.enduranceRetention))
+          heroFact("稳定性", runningStabilityText(value.stability.rawValue))
+        }
+      }
+    }.padding(20).raiGlass()
+  }
+
+  private func heroV60Pace(_ value: RunningAbilityValue) -> String {
+    guard value.speedUnit.rawValue == "m/s",
+      let pace = RunningAbilityMath.paceSecondsPerKm(v60: value.v60)
+    else { return "--" }
+    return runningPaceText(pace) + "/km"
+  }
+
+  private func heroFact(_ title: String, _ value: String) -> some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Text(title).font(.caption2).foregroundStyle(RAITheme.secondary)
+      Text(value).font(.subheadline.weight(.semibold)).monospacedDigit()
+        .lineLimit(1).minimumScaleFactor(0.7)
+    }.frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  private func abilityGrid(_ value: RunningAbilityValue) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "能力分解", icon: "chart.bar.doc.horizontal")
+      LazyVGrid(
+        columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+        spacing: 12
+      ) {
+        abilityTile(
+          "V60 临界速度",
+          value: value.v60.map {
+            ProductFormat.decimal($0, digits: 2) + " "
+              + (value.speedUnit.rawValue.isEmpty ? "m/s" : value.speedUnit.rawValue)
+          },
+          detail: heroV60Pace(value))
+        abilityTile(
+          "耐力指数 γ", value: value.gamma.map { ProductFormat.decimal($0, digits: 3) },
+          detail: "越高越能维持速度")
+        abilityTile(
+          "耐力保持", value: runningRetentionText(value.enduranceRetention),
+          detail: "长距离后的速度保留")
+        abilityTile(
+          "稳定性", value: runningStabilityText(value.stability.rawValue),
+          detail: "近期表现波动")
+      }
+    }.padding(18).raiGlass()
+  }
+
+  private func abilityTile(_ title: String, value: String?, detail: String) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(title).font(.caption).foregroundStyle(RAITheme.secondary)
+      Text(value ?? "--").font(.title3.weight(.semibold)).monospacedDigit()
+        .lineLimit(1).minimumScaleFactor(0.7)
+      Text(detail).font(.caption2).foregroundStyle(RAITheme.secondary).lineLimit(1)
+    }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
+      .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+  }
+
+  private func paceZones(_ value: RunningAbilityValue) -> some View {
+    let zones = value.speedUnit.rawValue == "m/s"
+      ? RunningAbilityMath.paceZones(v60: value.v60) : []
+    return VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "配速区间", icon: "speedometer")
+      if zones.isEmpty {
+        Text("服务未提供可用的 V60 速度，暂不推导配速区间。")
+          .font(.caption).foregroundStyle(RAITheme.secondary)
+      } else {
+        ForEach(zones) { zone in
+          HStack(spacing: 12) {
+            Text(zone.code).font(.caption.bold())
+              .frame(width: 26, height: 26)
+              .background(runningZoneColor(zone.code).opacity(0.22), in: Circle())
+              .foregroundStyle(runningZoneColor(zone.code))
+            VStack(alignment: .leading, spacing: 2) {
+              Text(zone.name).font(.subheadline.weight(.semibold))
+              Text(zone.purpose).font(.caption2).foregroundStyle(RAITheme.secondary)
+            }
+            Spacer(minLength: 4)
+            Text("\(runningPaceText(zone.fastSecondsPerKm))–\(runningPaceText(zone.slowSecondsPerKm))")
+              .font(.subheadline.monospacedDigit()).foregroundStyle(.white.opacity(0.90))
+            Text("/km").font(.caption2).foregroundStyle(RAITheme.secondary)
+          }.padding(.vertical, 2)
+        }
+      }
+    }.padding(18).raiGlass()
+  }
+
+  private func racePredictions(_ value: RunningAbilityValue) -> some View {
+    let items = value.speedUnit.rawValue == "m/s"
+      ? RunningAbilityMath.racePredictions(v60: value.v60) : []
+    return VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "成绩预测", icon: "flag.checkered")
+      if items.isEmpty {
+        Text("服务未提供可用的 V60 速度，暂不推导成绩预测。")
+          .font(.caption).foregroundStyle(RAITheme.secondary)
+      } else {
+        ForEach(items) { item in
+          HStack(alignment: .firstTextBaseline) {
+            Text(item.name).font(.subheadline)
+            Spacer(minLength: 8)
+            Text(runningRaceTimeText(item.seconds)).font(.headline.monospacedDigit())
+            Text(runningPaceText(item.seconds / (item.distanceM / 1000)) + "/km")
+              .font(.caption).foregroundStyle(RAITheme.secondary)
+          }
+        }
+      }
+      Text("按 Riegel 耐力模型由 V60 外推；距离越远，误差越大。")
+        .font(.caption2).foregroundStyle(RAITheme.secondary)
+    }.padding(18).raiGlass()
+  }
+
+  private func evidence(_ metric: RunningAbilityMetric) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      CardHeading(title: "证据与限制", icon: "checkmark.seal")
+      evidenceRow("证据模式", runningEvidenceModeText(metric.value?.evidenceMode.rawValue))
+      evidenceRow("有效跑步", "\(metric.value?.evidenceCount ?? 0) 次")
+      evidenceRow("数据质量", runningQualityText(metric.envelope.quality.rawValue))
+      evidenceRow("新鲜度", runningFreshnessText(metric.envelope.freshness.rawValue))
+      ForEach(metric.envelope.productReasonCodes, id: \.rawValue) { code in
+        Text(ProductReasonText.text(
+          for: code.rawValue, state: metric.envelope.presentationState.rawValue))
+          .font(.caption).foregroundStyle(RAITheme.amber)
+      }
+    }.padding(18).raiGlass()
+  }
+
+  private func evidenceRow(_ title: String, _ value: String) -> some View {
+    HStack {
+      Text(title).font(.caption).foregroundStyle(RAITheme.secondary)
+      Spacer()
+      Text(value).font(.caption).monospacedDigit()
+    }
+  }
+}
+
+private func runningPaceText(_ secondsPerKm: Double) -> String {
+  guard secondsPerKm.isFinite, secondsPerKm > 0 else { return "--" }
+  let total = Int(secondsPerKm.rounded())
+  return String(format: "%d′%02d″", total / 60, total % 60)
+}
+
+private func runningRaceTimeText(_ seconds: Double) -> String {
+  guard seconds.isFinite, seconds >= 0 else { return "--" }
+  let total = Int(seconds.rounded())
+  if total >= 3600 {
+    return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
+  }
+  return String(format: "%d:%02d", total / 60, total % 60)
+}
+
+private func runningRetentionText(_ value: Double?) -> String {
+  guard let percent = RunningAbilityMath.retentionPercent(value) else { return "--" }
+  return ProductFormat.decimal(percent, digits: 1) + "%"
+}
+
+private func runningAbilityStateText(_ envelope: MetricEnvelope?) -> String {
+  guard let envelope else { return "待激活" }
+  switch envelope.presentationState.rawValue {
+  case "available": return "可用"
+  case "limited": return "有限"
+  case "collecting": return "积累中"
+  case "unavailable": return "暂不可用"
+  case "stale": return "已过期"
+  default: return "未知"
+  }
+}
+
+private func runningStabilityText(_ raw: String) -> String {
+  switch raw {
+  case "stable": return "稳定"
+  case "moderate": return "中等"
+  case "unstable": return "波动"
+  case "insufficient_evidence", "insufficient": return "证据不足"
+  default: return raw.isEmpty ? "未知" : raw
+  }
+}
+
+private func runningEvidenceModeText(_ raw: String?) -> String {
+  guard let raw, !raw.isEmpty else { return "未知" }
+  switch raw {
+  case "workout_derived": return "跑步记录推导"
+  case "estimated": return "估计"
+  case "mixed": return "混合"
+  default: return raw
+  }
+}
+
+private func runningQualityText(_ raw: String) -> String {
+  switch raw {
+  case "good": return "良好"
+  case "fair": return "一般"
+  case "limited": return "有限"
+  case "poor": return "较差"
+  case "unknown": return "未知"
+  default: return raw.isEmpty ? "未知" : raw
+  }
+}
+
+private func runningFreshnessText(_ raw: String) -> String {
+  switch raw {
+  case "fresh": return "最新"
+  case "current": return "当前"
+  case "aging": return "渐旧"
+  case "stale": return "已过期"
+  case "expired": return "已失效"
+  case "unknown": return "未知"
+  default: return raw.isEmpty ? "未知" : raw
+  }
+}
+
+private func runningZoneColor(_ code: String) -> Color {
+  switch code {
+  case "E": return RAITheme.blue
+  case "M": return RAITheme.green
+  case "T": return RAITheme.orange
+  case "I": return RAITheme.amber
+  case "R": return RAITheme.purple
+  default: return RAITheme.secondary
+  }
+}
+
+// MARK: - 训练负荷
+
+struct TrainingLoadEntryCard: View {
+  let data: ProductSnapshot
+  let points: [TrainingLoadPoint]
+
+  var body: some View {
+    let latest = TrainingLoadSeries.latest(points)
+    HStack(spacing: 14) {
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 6) {
+          Text("训练负荷").font(.headline)
+          Text("legacy v2").font(.caption2).foregroundStyle(RAITheme.secondary)
+        }
+        if let latest {
+          HStack(spacing: 16) {
+            loadFact("体能", latest.fitness, RAITheme.orange)
+            loadFact("疲劳", latest.fatigue, RAITheme.purple)
+            loadFact("平衡", latest.balance, balanceColor(latest.balance))
+          }
+        } else {
+          Text("暂无可用的负荷历史").font(.caption).foregroundStyle(RAITheme.secondary)
+        }
+      }
+      Spacer(minLength: 0)
+      Image(systemName: "chevron.right").font(.caption).foregroundStyle(RAITheme.secondary)
+    }.padding(16).raiGlass()
+  }
+
+  private func loadFact(_ title: String, _ value: Double?, _ color: Color) -> some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text(title).font(.caption2).foregroundStyle(RAITheme.secondary)
+      Text(ProductFormat.decimal(value)).font(.subheadline.weight(.semibold)).monospacedDigit()
+        .foregroundStyle(color)
+    }
+  }
+}
+
+struct TrainingLoadDetailView: View {
+  @Bindable var model: ProductModel
+
+  private var points: [TrainingLoadPoint] {
+    TrainingLoadSeries.points(from: model.data.history)
+  }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 16) {
+        if let latest = TrainingLoadSeries.latest(points) {
+          summary(latest)
+          trend
+        } else {
+          EmptyCard(
+            title: "暂无训练负荷",
+            detail: "同步跑步后，服务端会按 7/42 天指数核生成体能与疲劳。")
+        }
+        weekly
+        Text(
+          "体能（CTL）为 42 天指数核，疲劳（ATL）为 7 天指数核，平衡=体能−疲劳；负荷缺失日不补零。数据来自现行 training_state.bundle/v2，不代表新模型的候选结果。"
+        ).font(.caption2).foregroundStyle(RAITheme.secondary)
+      }.padding(18)
+    }.navigationTitle("训练负荷").raiScreen().refreshable { await model.refresh() }
+      .accessibilityIdentifier("screen.trainingLoad")
+  }
+
+  private func summary(_ latest: TrainingLoadPoint) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "当前负荷", icon: "chart.line.uptrend.xyaxis")
+      HStack(spacing: 10) {
+        summaryTile("体能", latest.fitness, "42 天", RAITheme.orange)
+        summaryTile("疲劳", latest.fatigue, "7 天", RAITheme.purple)
+        summaryTile("平衡", latest.balance, "TSB", balanceColor(latest.balance))
+      }
+    }.padding(18).raiGlass()
+  }
+
+  private func summaryTile(
+    _ title: String, _ value: Double?, _ caption: String, _ color: Color
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(title).font(.caption).foregroundStyle(RAITheme.secondary)
+      Text(ProductFormat.decimal(value)).font(.title2.bold()).monospacedDigit()
+        .foregroundStyle(color)
+      Text(caption).font(.caption2).foregroundStyle(RAITheme.secondary)
+    }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
+      .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+  }
+
+  private var trend: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "体能与疲劳趋势", icon: "waveform.path.ecg")
+      Chart(points) { point in
+        if let value = point.fitness {
+          LineMark(x: .value("日期", point.day), y: .value("体能", value))
+            .foregroundStyle(RAITheme.orange)
+            .interpolationMethod(.catmullRom)
+        }
+        if let value = point.fatigue {
+          LineMark(x: .value("日期", point.day), y: .value("疲劳", value))
+            .foregroundStyle(RAITheme.purple)
+            .interpolationMethod(.catmullRom)
+        }
+      }.chartXAxis {
+        AxisMarks(values: .automatic(desiredCount: 4)) { value in
+          AxisValueLabel {
+            Text(shortDay(value.as(String.self) ?? "")).font(.caption2)
+          }
+        }
+      }.chartYAxis { AxisMarks(position: .leading) }
+        .frame(height: 210)
+      HStack(spacing: 16) {
+        legend("体能", RAITheme.orange)
+        legend("疲劳", RAITheme.purple)
+      }
+    }.padding(18).raiGlass()
+  }
+
+  private var weekly: some View {
+    let days = Array(model.data.overview["days"].list.suffix(7))
+    return VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "近 7 天负荷", icon: "chart.bar")
+      if days.isEmpty {
+        Text("暂无周负荷数据").font(.caption).foregroundStyle(RAITheme.secondary)
+      } else {
+        Chart(Array(days.enumerated()), id: \.offset) { index, day in
+          if let load = day.number("load") {
+            BarMark(x: .value("日", index), y: .value("负荷", load), width: .ratio(0.55))
+              .foregroundStyle(RAITheme.orange.gradient).cornerRadius(3)
+          }
+        }.chartXAxis {
+          AxisMarks(values: Array(0..<days.count)) { value in
+            AxisValueLabel {
+              Text(shortDay(days[value.as(Int.self) ?? 0].string("date"))).font(.caption2)
+            }
+          }
+        }.chartYAxis(.hidden).frame(height: 130)
+      }
+    }.padding(18).raiGlass()
+  }
+
+  private func legend(_ title: String, _ color: Color) -> some View {
+    HStack(spacing: 5) {
+      Circle().fill(color).frame(width: 7, height: 7)
+      Text(title).font(.caption2).foregroundStyle(RAITheme.secondary)
+    }
+  }
+}
+
+private func shortDay(_ day: String) -> String {
+  guard day.count >= 10 else { return day }
+  return String(day.suffix(5))
+}
+
+private func balanceColor(_ value: Double?) -> Color {
+  guard let value else { return RAITheme.secondary }
+  return value >= 0 ? RAITheme.green : RAITheme.amber
 }

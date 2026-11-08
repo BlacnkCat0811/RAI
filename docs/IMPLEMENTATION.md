@@ -1245,3 +1245,20 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - MODEL-001/002/003/004/007：HR<Rest 负强度 invalid；Recovery v2 补 coverage/tombstone 门；backfill affected 闭包补 readiness/VO2/ability；backfill 研究 artifact 不再占用产品槽；验收文字改为 `validationStatus=unvalidated`（RAIVO2Max=experimental）。
 - 验证：`go test -race -count=1 ./...` PASS；`go vet ./...` PASS；`scripts/check-boundaries.py` PASS；`scripts/local/test.sh gate` PASS（22 s）；`scripts/local/test.sh integration ./integration`（`-race`，797 s）PASS；`scripts/local/test.sh full` PASS（947 s，exit 0，666 PASS/22 SKIP/0 FAIL，leftover DB=0、cluster removed，日志 `/tmp/rai-full-fix3.log`）；`swift test` 250 tests / 35 suites PASS；Simulator build SUCCEEDED；v4 App tests 2 tests PASS（含空读取不删除回归）。
 - 未验证：真机 HealthKit 权限撤销/上传、真实设备验收、P2/P3 余项（如 DB-005 channel guard、DB-008 down 链、部分模型边界/展示）仍按原报告保留。
+
+### 跑力 UI（RQrun 风格）— 2026-11-08
+
+- 新增 `ios/RAI/Sources/ProductCore/RunningAbilityDerived.swift`：由 `RunningAbilityValue.v60` 推导 E/M/T/I/R 五区配速、Riegel 5K/10K/半马/全马预测、耐力保持百分比归一；纯函数，无 I/O。
+- 新增 `ios/RAI/Tests/ProductCoreTests/RunningAbilityDerivedTests.swift`：5 个 Swift Testing 用例（V60 配速、区间边界、Riegel 单调性、retention 0–1/百分数归一）。
+- `ios/RAI/App/ProductViews.swift`：分析页新增「跑力」入口卡；`RunningAbilityDetailView` 展示跑力 hero、能力分解、配速区间、成绩预测、证据与限制；未连接/未激活分别显示空态；`AthleteHistoryView` 支持初始 metric。
+- `ios/RAI/App/RAIApp.swift`：根视图固定 `.preferredColorScheme(.dark)`，修正导航标题/卡片在浅色系统下的对比度。
+- 验证：`swift test` 255 tests / 36 suites PASS；`xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS Simulator' ... build` BUILD SUCCEEDED；模拟器签名构建 + 本地 `rai_dev` API 连接成功，分析页入口与详情页可导航（截图 `/tmp/rai-analysis-uitest.png`、`/tmp/rai-running-detail.png`）。
+- 限制：`GET /v2/analysis/athlete` 在当前数据集返回 409 `not_product_activated`（active=legacy；M7 产品激活仍为 NOT AUTHORIZED），跑力数值/区间/预测暂无真实数据，页面显示「待激活」。本轮未修改后端合同、未激活 candidate、未执行真机验收。
+
+### 训练负荷页（legacy v2）— 2026-11-08
+
+- 新增 `ios/RAI/Sources/ProductCore/TrainingLoadSeries.swift`：把 `/v2/analysis/history` 的 `fitness`、`fatigue`、`balance`、`daily_load` 行按日合并为 `TrainingLoadPoint`，缺失日不补零，未知 metric 忽略。
+- `ios/RAI/App/ProductViews.swift`：分析页新增「训练负荷」入口卡；`TrainingLoadDetailView` 展示当前体能/疲劳/平衡、体能-疲劳趋势、近 7 天负荷柱状图与解释；数据来自现行 legacy `training_state.bundle/v2`，不依赖 candidate artifact。
+- 新增 `ios/RAI/Tests/ProductCoreTests/TrainingLoadSeriesTests.swift`：3 个 Swift Testing 用例（按日合并/排序、跳过空行、拒绝畸形行）。
+- 验证：`swift test` 258 tests / 37 suites PASS；`xcodebuild ... build` BUILD SUCCEEDED。当前本地数据 `/v2/analysis/history` 可返回 2026-10-30 的 10 km 跑步和 2026-11-08 的 fitness/fatigue/balance 行。
+- 训练计划页已有创建/编辑/执行流程；当前数据集 `/v2/training/plans/current` 返回 `training_not_found`，因此显示创建计划空态。

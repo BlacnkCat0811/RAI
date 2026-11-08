@@ -71,7 +71,9 @@ extension View {
   }
   func raiScreen() -> some View {
     frame(maxWidth: .infinity, maxHeight: .infinity).background { AmbientBackground() }
-      .toolbarBackground(.hidden, for: .navigationBar).foregroundStyle(.white)
+      .toolbarBackground(.hidden, for: .navigationBar)
+      .toolbarColorScheme(.dark, for: .navigationBar)
+      .foregroundStyle(.white)
       .modifier(RAITabMaterialFallback())
   }
 }
