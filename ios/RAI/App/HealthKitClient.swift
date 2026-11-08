@@ -991,11 +991,10 @@ enum Normalizer {
                                 scope: WorkoutMetadataRegistry.Scope = .workout) throws -> JSON? {
         let values = metadata ?? [:]
         var output: [String: JSON] = [:]
-        for key in values.keys.sorted() {
+        for (key, value) in values.sorted(by: { $0.key < $1.key }) {
             guard let entry = WorkoutMetadataRegistry.entry(key, scope: scope) else {
                 throw SyncFailure.invalid("metadata_requires_review")
             }
-            let value = values[key]
             switch entry.kind {
             case let .text(maxBytes):
                 guard let text = value as? String else { throw SyncFailure.invalid("unsupported_workout_metadata_type") }

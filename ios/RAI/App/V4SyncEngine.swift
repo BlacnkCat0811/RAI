@@ -126,11 +126,9 @@ struct V4SyncEngine: Sendable {
 
         var routesJSON: [JSON] = []
         var routePointCount = 0
-        var routeReadSucceeded = false
         var routeDeletionComplete = false
         do {
             let routes = try await health.bundleRoutes(workout: workout)
-            routeReadSucceeded = true
             // A route list is deletion authority only when every route has a
             // complete, query-completed coverage record. bundleRoutes returns
             // partial results instead of throwing when one route query fails;
