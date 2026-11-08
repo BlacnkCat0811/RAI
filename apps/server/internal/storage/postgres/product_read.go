@@ -20,7 +20,7 @@ const productWorkoutFrom = ` FROM workouts w
  LEFT JOIN LATERAL (SELECT jsonb_agg(jsonb_build_object('metric',r.metric,'value',r.value,'unit',r.unit,'quality',r.quality,'algorithm',r.algorithm_name,'algorithmVersion',r.algorithm_version,'details',r.details) ORDER BY r.metric) metrics,
  max(r.value) FILTER(WHERE r.metric='workout_load') load
  FROM analysis_publications p JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
- JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day
+ JOIN analysis_published_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day
  JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation AND d.generation=p.generation
  WHERE p.dataset_id=w.dataset_id AND p.scope_key='workout:HKWorkoutTypeIdentifier:'||w.workout_uuid::text AND p.metric_family='workout'
  AND COALESCE((a.lineage->>'parameterVersion')::bigint,0)=COALESCE((SELECT max(version) FROM analysis_parameter_sets WHERE dataset_id=w.dataset_id),0)) m ON true `
@@ -116,7 +116,7 @@ func (s *Store) ProductHistory(ctx context.Context, p syncing.Principal, days in
 	if days < 1 || days > 90 {
 		return out, syncing.Fail(422, "invalid_analysis_query")
 	}
-	rows, e := s.Pool.Query(ctx, `SELECT r.day::text,r.metric,r.algorithm_name,r.algorithm_version,r.value,r.unit,r.quality,r.details FROM analysis_publications p JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED' JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation JOIN datasets x ON x.id=p.dataset_id WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family='state' AND p.day BETWEEN (clock_timestamp() AT TIME ZONE x.timezone)::date-($3::int-1) AND (clock_timestamp() AT TIME ZONE x.timezone)::date ORDER BY r.day,r.metric`, p.DatasetID, analysis.StateScope, days)
+	rows, e := s.Pool.Query(ctx, `SELECT r.day::text,r.metric,r.algorithm_name,r.algorithm_version,r.value,r.unit,r.quality,r.details FROM analysis_publications p JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED' JOIN analysis_published_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation JOIN datasets x ON x.id=p.dataset_id WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family='state' AND p.day BETWEEN (clock_timestamp() AT TIME ZONE x.timezone)::date-($3::int-1) AND (clock_timestamp() AT TIME ZONE x.timezone)::date ORDER BY r.day,r.metric`, p.DatasetID, analysis.StateScope, days)
 	if e != nil {
 		return out, e
 	}

@@ -164,6 +164,9 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 		return nil, err
 	}
 	routeChanged := anyTrue(routeWrite)
+	if err = validateBundleDeletionEvidence(ctx, tx, p.DatasetID, bundle); err != nil {
+		return nil, err
+	}
 	deletionsChanged, err := checkBundleDeletions(ctx, tx, p.DatasetID, bundle)
 	if err != nil {
 		return nil, err

@@ -102,6 +102,22 @@ type AnalysisPublishedArtifact struct {
 	Payload       []byte
 }
 
+type AnalysisPublishedResult struct {
+	DatasetID        string
+	ScopeKey         string
+	MetricFamily     string
+	Day              pgtype.Date
+	RunID            string
+	Metric           string
+	AlgorithmName    string
+	AlgorithmVersion string
+	Value            pgtype.Float8
+	Unit             string
+	Quality          string
+	Details          []byte
+	ComputedAt       pgtype.Timestamptz
+}
+
 type AnalysisResult struct {
 	DatasetID        string
 	RunID            string

@@ -283,6 +283,21 @@ func adverse(f DailyHealthFeatures, b DailyBaseline, target SleepTargetValue) (b
 
 func ScopeV2For(stack, day string) string { return "model/" + stack + "/athlete/recovery/v2/" + day }
 
+// v2CoverageComplete applies the same daily-coverage gate as v1. A missing or
+// stale complete row must not produce a full recovery score even when the
+// individual feature values happen to be present.
+func v2CoverageComplete(in Input, c Config) bool {
+	counts := map[string]int{}
+	covered := map[string]bool{}
+	for _, x := range in.Coverage {
+		counts[x.Type]++
+		covered[x.Type] = x.Complete && in.AsOf-x.Through <= c.CoverageFreshUs &&
+			x.Through <= in.CapturedAt && (in.View != "as_known" || x.Through <= in.AsOf)
+	}
+	return covered[HRV] && covered[RHR] && covered[Sleep] &&
+		counts[HRV] == 1 && counts[RHR] == 1 && counts[Sleep] == 1
+}
+
 func CalculateV2(in V2Input) (V2Result, error) {
 	cp := in.Input
 	cp.Config = DefaultConfig(cp.Config.Timezone)
@@ -295,6 +310,8 @@ func CalculateV2(in V2Input) (V2Result, error) {
 	in.Input = canonical(in.Input)
 	fs := eligible(in.Input)
 	c := in.Config
+	coverageComplete := v2CoverageComplete(in.Input, c)
+	inputDeleted := len(in.Input.Tombstones) > 0
 	calHash := Hash(in.Days)
 	features := make([]DailyHealthFeatures, 0, len(in.Days))
 	for _, d := range in.Days {
@@ -332,6 +349,12 @@ func CalculateV2(in V2Input) (V2Result, error) {
 	}
 	for _, t := range in.Tombstones {
 		r.TombstoneRefs = append(r.TombstoneRefs, Ref{t.Type, t.ID, t.Hash})
+	}
+	if !coverageComplete {
+		r.Reasons = append(r.Reasons, "daily_coverage_incomplete")
+	}
+	if inputDeleted {
+		r.Reasons = append(r.Reasons, "input_deleted")
 	}
 	r.SDNNFreshness = freshness(today.SDNN, in.AsOf, c.FreshHRVUs)
 	r.RHRFreshness = freshness(today.RHR, in.AsOf, c.FreshRHRUs)
@@ -382,7 +405,7 @@ func CalculateV2(in V2Input) (V2Result, error) {
 		r.RHRDeviation = &Deviation{Raw: zr, Clipped: clip(zr, -c.ZClip, c.ZClip), Burden: aR}
 		r.SDNNContribution, r.RHRContribution = &hc, &rc
 		r.AutonomicBurden = &aut
-		sleepReady := today.Sleep.Value != nil && r.SleepRegularity.Quality == "complete" && !r.SleepTarget.TargetUnavailable
+		sleepReady := today.Sleep.Value != nil && r.SleepRegularity.Quality == "complete" && !r.SleepTarget.TargetUnavailable && coverageComplete && !inputDeleted
 		if sleepReady {
 			aS := clip(math.Max(0, r.SleepTarget.Hours-*today.Sleep.Value)/c.SleepDeficitHours+0.25*math.Max(0, r.SleepRegularity.DeviationHours-1), 0, c.SleepClip)
 			sb := c.SleepWeight * aS

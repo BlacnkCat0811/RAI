@@ -49,7 +49,7 @@ GRANT INSERT ON job_attempts TO rai_worker;
 GRANT UPDATE(clean_generation) ON dirty_scopes TO rai_worker;
 
 -- P4: API reads published DTO inputs; cannot write derived history/pointers.
-GRANT SELECT ON analysis_runs, analysis_results, analysis_publications TO rai_api;
+GRANT SELECT ON analysis_runs, analysis_published_results, analysis_publications TO rai_api;
 GRANT SELECT ON workouts, workout_statistics, workout_events, workout_activities,
     health_samples, workout_samples, workout_enrichments, workout_routes,
     route_points, series_uploads, series_chunks, workout_imports, analysis_parameter_sets,
@@ -76,7 +76,6 @@ GRANT UPDATE ON training_plans TO rai_worker;
 GRANT UPDATE(status,completed_at,error_code) ON training_generation_runs TO rai_worker;
 GRANT EXECUTE ON FUNCTION rai_training_dirty(uuid,uuid) TO rai_api,rai_worker;
 
-GRANT UPDATE(target_generation,run_after) ON jobs TO rai_api;
 
 -- M5A reviewed daily coverage state, sharing the existing fact permissions.
 GRANT SELECT, INSERT, UPDATE ON daily_health_coverage TO rai_api;

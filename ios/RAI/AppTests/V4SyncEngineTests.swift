@@ -68,7 +68,7 @@ final class V4SyncEngineTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
-    func testBuildEmitsOneColumnarStreamAndSecondCompleteReadEmitsDeletion() async throws {
+    func testEmptyReadIsNotDeletionAndPreservesIdentity() async throws {
         let workout = v4Workout(Date(timeIntervalSince1970: 1_800_000_000))
         let sample = v4Sample(workout)
         let health = V4Health(workout: workout, samples: [sample])
@@ -91,9 +91,12 @@ final class V4SyncEngineTests: XCTestCase {
             return XCTFail("expected prepared bundle")
         }
         let secondJSON = try JSON.decode(second.raw)
-        XCTAssertEqual(second.sampleDeletions, 1)
-        XCTAssertEqual(secondJSON["deletions"].list.count, 1)
-        XCTAssertEqual(secondJSON["deletions"].list[0]["type"].text, "HKQuantityTypeIdentifierHeartRate")
+        XCTAssertEqual(second.sampleDeletions, 0)
+        XCTAssertEqual(secondJSON["deletions"].list.count, 0)
+        XCTAssertEqual(secondJSON["observation"]["coverage"]["HKQuantityTypeIdentifierHeartRate"]["state"].text, "partial")
+        XCTAssertEqual(secondJSON["observation"]["coverage"]["HKQuantityTypeIdentifierHeartRate"]["errorCode"].text,
+                       "empty_read_not_deletion")
+        XCTAssertTrue(second.index.samples.contains("HKQuantityTypeIdentifierHeartRate:\(sample.uuid.uuidString.lowercased())"))
     }
 
     func testRouteFailureIsPartialAndNeverEmitsRouteDeletion() async throws {

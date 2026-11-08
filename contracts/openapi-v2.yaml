@@ -640,11 +640,12 @@ components:
           items: {type: string, minLength: 1}
         workouts: {const: true}
         workoutType: {const: HKWorkoutTypeIdentifier}
-        workoutPayloadVersion: {const: 3, description: Highest Workout bundle payload version}
+        workoutPayloadVersion: {enum: [3, 4], description: Highest Workout bundle payload version negotiated for this request}
         bundleGzipPart: {type: boolean}
         workoutBundles: {const: true, description: "One multipart request carries one complete Workout, samples, series and routes"}
-        bundleProtocolVersion: {const: 3}
+        bundleProtocolVersion: {enum: [3, 4]}
         bundleObservationVersion: {const: 1, description: Optional Phase 3 observation contract}
+        bundleCompact: {type: boolean, description: "Protocol 4 compact bundle capability; present only when negotiated"}
         explicitChildDeletions: {const: true, description: Optional Phase 3 explicit deletion arrays in the same bundle}
         routes: {const: true, description: Routes are embedded in the bundle and published atomically}
         sampleWorkoutAssociations: {const: true, description: Bundle sample membership is the association; no per-sample call is exposed}

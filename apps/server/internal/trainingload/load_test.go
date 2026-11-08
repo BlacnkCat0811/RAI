@@ -386,3 +386,17 @@ func TestUnknownPausePlacementDoesNotInventActiveSeconds(t *testing.T) {
 		t.Fatal("unknown active placement turned into elapsed/zero active time")
 	}
 }
+func TestHRSegmentBelowRestingIsInvalid(t *testing.T) {
+	s := fixture(600, 40)
+	if _, err := CalculateTrainingLoad(input(t, s), 1); err == nil || err.Error() != "training_load_invalid_input" {
+		t.Fatalf("below-rest segment error = %v, want training_load_invalid_input", err)
+	}
+}
+func TestHRSummaryBelowRestingIsInvalid(t *testing.T) {
+	s := fixture(600, 100)
+	s.Quantities = nil
+	s.Statistics = []wf.Statistic{{Type: wf.HR, Unit: "count/min", Start: s.Start, End: s.End, Average: ptr(40)}}
+	if _, err := CalculateTrainingLoad(input(t, s), 1); err == nil || err.Error() != "training_load_invalid_input" {
+		t.Fatalf("below-rest summary error = %v, want training_load_invalid_input", err)
+	}
+}

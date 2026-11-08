@@ -132,7 +132,10 @@ func CalculateTrainingLoad(in WorkoutInput, generation int64) (Result, error) {
 			return out, nil
 		}
 		r := (*e.SummaryHR - p.RestHR) / (p.MaxHR - p.RestHR)
-		if !finite(r) || r > 1 {
+		if !finite(r) || r < 0 {
+			return out, invalid()
+		}
+		if r > 1 {
 			out.ReasonCodes = append(out.ReasonCodes, "parameter_conflict")
 			finalize()
 			return out, nil
@@ -167,6 +170,9 @@ func CalculateTrainingLoad(in WorkoutInput, generation int64) (Result, error) {
 			}
 		}
 		if !contained {
+			return out, invalid()
+		}
+		if s.HR0 < p.RestHR || s.HR1 < p.RestHR {
 			return out, invalid()
 		}
 		if s.HR0 > p.MaxHR || s.HR1 > p.MaxHR {

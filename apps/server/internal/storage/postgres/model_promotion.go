@@ -128,11 +128,12 @@ func (s *Store) RollbackModelStack(ctx context.Context, dataset, actor, manifest
 	if !synthetic {
 		return out, am.ErrGateClosed
 	}
-	var active, previous string
+	var active, previous, previousManifest string
 	if err = tx.QueryRow(ctx, `SELECT stack_id FROM analysis_model_channels WHERE dataset_id=$1 AND channel='active' FOR UPDATE`, dataset).Scan(&active); err != nil {
 		return out, err
 	}
-	if err = tx.QueryRow(ctx, `SELECT stack_id FROM analysis_model_channels WHERE dataset_id=$1 AND channel='previous' FOR UPDATE`, dataset).Scan(&previous); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT stack_id,COALESCE(encode(config_sha256,'hex'),'')
+ FROM analysis_model_channels WHERE dataset_id=$1 AND channel='previous' FOR UPDATE`, dataset).Scan(&previous, &previousManifest); err != nil {
 		return out, err
 	}
 	if previous == "legacy" {
@@ -143,7 +144,7 @@ func (s *Store) RollbackModelStack(ctx context.Context, dataset, actor, manifest
 		if dirty {
 			return out, am.ErrGateClosed
 		}
-	} else if err = ensureModelStackReady(ctx, tx, dataset, previous, manifestSHA); err != nil {
+	} else if err = ensureModelStackReady(ctx, tx, dataset, previous, previousManifest); err != nil {
 		return out, err
 	}
 	var revision int64
@@ -227,7 +228,7 @@ func (s *Store) PrepareModelStack(ctx context.Context, dataset string) (string, 
 }
 
 func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manifest string) error {
-	if stack != modelmanifest.StackID() {
+	if manifest == "" {
 		return am.ErrGateClosed
 	}
 	var day, tz string

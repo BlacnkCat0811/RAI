@@ -137,6 +137,22 @@ func TestWorkoutBundleOneRequestAtomicImport(t *testing.T) {
 	}
 }
 
+// A v3 bundle stores routes[].source as an object. The analysis provenance
+// path must not try to decode that payload as the v4 integer-index shape.
+func TestV3RouteAnalysisProvenanceRegression(t *testing.T) {
+	f := setup(t)
+	bundle, _ := testWorkoutBundle(t, f, 3)
+	phase3Observation(&bundle)
+	raw, err := json.Marshal(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.ImportWorkoutBundle(context.Background(), f.p, bundle, raw); err != nil {
+		t.Fatal(err)
+	}
+	runOne(t, f, "analysis.workout")
+}
+
 func TestWorkoutBundleLateSampleAndConflicts(t *testing.T) {
 	f := setup(t)
 	bundle, raw := testWorkoutBundle(t, f, 2)

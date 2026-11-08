@@ -373,10 +373,16 @@ actor SyncCoordinator {
                     continue
                 }
                 try await store.parkBundleForExplicitChildDeletion(id)
-                if let task = await store.task(id), task.bundleFile != nil {
+                if let task = await store.task(id), let file = task.bundleFile,
+                   let boundary = task.bundleBoundary, let url = try? await store.fileURL(file),
+                   FileManager.default.fileExists(atPath: url.path) {
                     if task.phase == .failed { continue }
-                    _ = try await WorkoutBundleDelivery(store: store, api: api).deliver(id)
-                    continue
+                    if Self.bundleProtocolVersion(url, boundary: boundary) == 4 && !syncProtocolV4 {
+                        try await store.discardUnreadableBundle(id)
+                    } else {
+                        _ = try await WorkoutBundleDelivery(store: store, api: api).deliver(id)
+                        continue
+                    }
                 }
                 try await store.beginTask(id, resetBundle: true)
                 try await performSync(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: true, recovery: false)
@@ -820,6 +826,14 @@ actor SyncCoordinator {
     /// Reads the exact coverage block that will be validated with the bundle.
     /// The task projection can be stale after a failed attempt; the payload is
     /// immutable and therefore authoritative for the upload about to happen.
+    static func bundleProtocolVersion(_ url: URL, boundary: String) -> Int? {
+        guard let body = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let raw = WorkoutBundleAssembler.multipartPayload(body, boundary: boundary),
+              let header = JSON.topLevelValue("protocolVersion", in: raw),
+              let value = try? JSON.decode(header) else { return nil }
+        return value.integer.map(Int.init)
+    }
+
     static func coverageFromBundle(_ url: URL, boundary: String) -> [String: WorkoutCoverage]? {
         // The durable bundle is multipart. Decoding it as bare JSON (or
         // decoding all samples just to read the header) is exactly the silent
@@ -856,6 +870,12 @@ actor SyncCoordinator {
             if let task = existing,
                let file = task.bundleFile, let hash = task.bundleSHA256, let boundary = task.bundleBoundary,
                let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
+                if Self.bundleProtocolVersion(url, boundary: boundary) == 4 && !syncProtocolV4 {
+                    // The server no longer advertises v4. Rebuild a v3 bundle
+                    // rather than retrying a permanent 422 forever.
+                    try await store.discardUnreadableBundle(id)
+                    existing = await store.task(id)
+                } else {
                 // A prepared bundle is the durable source of truth for what was
                 // actually read. Earlier failed attempts may have left the
                 // task's live coverage at a stale failed/partial snapshot; the
@@ -889,6 +909,7 @@ actor SyncCoordinator {
                 // attempt's stale coverage is never used.
                 try await store.discardUnreadableBundle(id)
                 existing = await store.task(id)
+                }
             }
             if recovery {
                 throw SyncFailure.localState("bundle_not_prepared")

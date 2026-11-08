@@ -253,3 +253,24 @@ func TestDecodeWorkoutBundleV4RejectsNullAndDuplicateNested(t *testing.T) {
 		t.Fatal("test mutation failed")
 	}
 }
+
+func TestDecodeWorkoutBundleV4RejectsDuplicateStreamType(t *testing.T) {
+	payload := validV4Payload(t)
+	streams := payload["streams"].([]any)
+	payload["streams"] = append(streams, streams[0])
+	if _, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload)); err == nil {
+		t.Fatal("duplicate stream type accepted")
+	}
+}
+
+func TestDecodeWorkoutBundleV4RejectsIneligibleSource(t *testing.T) {
+	payload := validV4Payload(t)
+	payload["sources"] = append(payload["sources"].([]any), map[string]any{
+		"bundleID": "com.example.thirdparty", "version": "1.0", "productType": "Watch7,1",
+	})
+	stream := payload["streams"].([]any)[0].(map[string]any)
+	stream["source"] = 1
+	if _, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload)); err == nil {
+		t.Fatal("third-party source accepted")
+	}
+}

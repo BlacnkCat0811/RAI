@@ -28,9 +28,9 @@
   "00027_training_readiness.sql": "53944ca13b75c65cb368a7aa6320870644d020861f157f3ed6335cf8ef689c73",
   "00028_workout_sync_completeness.sql": "4ac5492d23fdbfa1d1a17cd6d528035b11105d33fd7cbd8d3c8ea4ea08e43b87",
   "00029_workout_completeness_v2.sql": "6f18c85df2cf8131f4173aefbcec17612a18cc959dae20fbe2466f08d13c6ab2",
-  "00030_model_completion.sql": "51b7b6812f5ced87887d01dbabc40599f5160b94a830d1bada5352a27fe64938",
+  "00030_model_completion.sql": "02601f2f706c7c2c6b9eed91f7e380f7d5a91f3557406c75c568089b792677ab",
   "00031_model_completion_assignment.sql": "864bf3d8aa50f2ece0e58c65e7c64ce8ae162e58e762e4acddbffdf3416ffb5c",
-  "00032_model_input_kind_schema.sql": "65fa25bae93904ea3b77435b5bfc677b69b1780dc7dce9464ba1d26de9404780",
+  "00032_model_input_kind_schema.sql": "90c710bb599c7b6efbdf3174c2afe947767cd34d584171e621e550d9e53ae38a",
   "00033_model_channel_guard.sql": "8418e8647d5eb539a5a2c1c89f3d4317ff2afc748f0886b82c26c8f3f255c301",
   "00034_model_input_legacy_kind.sql": "50a0e0f96d894f5d76d83127e5a5aba0fb7f949f2b7d6fa4607ae00d9a037232",
   "00035_dataset_synthetic_marker.sql": "b90b5513ebf06cff0b13b838d326b46a24d5870b03f615d2d344d6b951c57573",
@@ -42,5 +42,7 @@
   "00041_model_stack_jobs.sql": "ffb7a29414f63b1d7549590985f007f2923e5b5d8b61b9ff583ffcc0d0082518",
   "00042_model_backfill_execution.sql": "d2735c729ddf8ec02454aa0ead438d3c320a6b6e2bbafe8a55636a05f1656302",
   "00043_model_research_artifacts.sql": "7fa66b51ae3ffe73a12923a4bf1caf049417ab3b072b28555d6c76f16222c400",
-  "00044_backfill_product_family_count.sql": "dd18d4b41aea8df283b4863db2766e6b49283d38e374bb036327a3cc7389d5f0"
+  "00044_backfill_product_family_count.sql": "dd18d4b41aea8df283b4863db2766e6b49283d38e374bb036327a3cc7389d5f0",
+  "00045_analysis_published_results_view.sql": "2b023731c32533ca75635bb64d377e9cec85c301d7adea2e48323bc8ad5e4de0",
+  "00046_rai_training_dirty_security.sql": "d7c7304303e313ca597db34da1e6123fb98352435a4f691ff727bff2f1ba3168"
 }

@@ -276,7 +276,12 @@ func readBackfillSnapshot(ctx context.Context, tx pgx.Tx, dataset, id string) (b
  FROM analysis_runs r JOIN jobs j ON j.dataset_id=r.dataset_id AND j.id=r.job_id
  JOIN analysis_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id
  WHERE r.dataset_id=$1 AND r.scope_key BETWEEN $3 AND $4 AND r.status='SUCCEEDED'
-  AND j.kind='analysis.model_stack_v2' AND j.payload->>'backfillID'=$2
+  AND j.kind='analysis.model_stack_v2' AND j.state='succeeded'
+  AND j.target_generation=r.target_generation AND j.payload->>'backfillID'=$2
+  AND EXISTS (SELECT 1 FROM analysis_publications p JOIN dirty_scopes d
+    ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
+    WHERE p.dataset_id=r.dataset_id AND p.published_run_id=r.id AND p.scope_key=r.scope_key AND p.generation=r.target_generation)
+  AND a.artifact_key IN ('load_state','performance_state_v2','vo2max_external_projection','vo2max_submax','physiological_recovery','training_readiness')
  ORDER BY r.scope_key,a.artifact_key,r.target_generation DESC LIMIT 2197`,
 		dataset, id, modelmanifest.DayScope(stack, from), modelmanifest.DayScope(stack, through))
 	if err != nil {

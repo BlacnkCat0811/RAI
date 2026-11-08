@@ -1,3 +1,10 @@
+## 2026-11-08 — Workout Sync v4 / model completion / schema 46
+
+- 新增 `contracts/sync-v4.md`：单 Workout 列式 bundle（protocolVersion=4），显式 sample/route deletions、observation coverage、32 MiB wire / 8 MiB gzip / 100:1 解压比与严格 JSON 限制。
+- 握手在 `X-RAI-Sync-Protocol: 4` 时返回 `workoutPayloadVersion=4`、`bundleProtocolVersion=4`、`bundleCompact=true`；未协商时保持 v3，服务端 `SYNC_V4_ENABLED` 可关闭。
+- OpenAPI 握手能力改为允许 3/4；v4 请求体以 `sync-v4.md` 为准（OpenAPI 的 `WorkoutBundle` schema 仍描述 v3）。
+- Schema 45 新增 `analysis_published_results` 只读视图，API 不再直接读取 `analysis_results`；Schema 46 将 `rai_training_dirty` 改为 SECURITY DEFINER，撤销 API 直接更新 jobs 的授权；00030/00032 补齐 `vo2max_source_selection` 输入 kind/schema。
+
 ## 2026-11-05 — UA1-R3B / workout-sync-completeness/v2 / source policy v1
 
 - 新增 `rai.workout.source_policy.apple_watch_only/v1` 与共享 golden vectors（Swift/Go 同源）。

@@ -1487,7 +1487,7 @@
       "id": "P02",
       "status": "PASS",
       "expected": "schema2 API/六 metric/history/App/训练 adapter",
-      "observed": "active schema2 经正式 HTTP 返回六项 typed metric；六 envelope 均有 evidenceAt/asOf/evaluationAt/computedAt/publishedAt/validationStatus=validated，mapping2；v2 load/performance/recovery/readiness 身份与 external/RAI VO2 独立；Swift schema1 11 fixtures 解码/round-trip PASS；最终 full 845s。",
+      "observed": "active schema2 经正式 HTTP 返回六项 typed metric；六 envelope 均有 evidenceAt/asOf/evaluationAt/computedAt/publishedAt/validationStatus=unvalidated（RAIVO2Max=experimental），mapping2；v2 load/performance/recovery/readiness 身份与 external/RAI VO2 独立；Swift schema1 11 fixtures 解码/round-trip PASS；最终 full 845s。",
       "commands": [
         "bash scripts/local/test.sh integration ./integration -run '^TestActiveSchema2ProjectsAllSixTypedMetrics$'",
         "cd ios/RAI && swift test"

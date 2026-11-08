@@ -136,7 +136,10 @@ struct V4SyncEngine: Sendable {
             // partial results instead of throwing when one route query fails;
             // treating those omissions as deletions would lose health data.
             let routeCoverage = routes.compactMap(\.coverage)
-            let completeRoutes = routes.isEmpty ? true : (routeCoverage.count == routes.count &&
+            // An empty result is not proof that every previously known route
+            // was deleted. Only a non-empty, fully completed route read may
+            // authorize route deletions.
+            let completeRoutes = !routes.isEmpty && (routeCoverage.count == routes.count &&
                 routeCoverage.allSatisfy { $0.state == .complete && $0.queryCompleted == true && $0.errorCode == nil })
             routeDeletionComplete = completeRoutes
             if routes.isEmpty {
@@ -172,14 +175,26 @@ struct V4SyncEngine: Sendable {
         // read. The previous index is scoped to this dataset/collector. A first
         // sync has no index and therefore never emits a deletion.
         let previous = await outbox.load(id: id, scope: scope)
-        let completeTypes = Set(streams.filter(\.readComplete).map(\.type))
+        let previousByType = Dictionary(grouping: previous?.samples ?? [], by: { key in
+            String(key[..<(key.firstIndex(of: ":") ?? key.endIndex)])
+        })
+        // A zero-row read is indistinguishable from revoked read permission in
+        // HealthKit. If the previous index had rows for this type, retain them
+        // and do not treat the empty result as deletion authority.
+        let deletionSafeTypes = Set(streams.filter { stream in
+            guard stream.readComplete else { return false }
+            return (previousByType[stream.type] ?? []).isEmpty || !stream.uuids.isEmpty
+        }.map(\.type))
         let currentKeys = Set(streams.flatMap { $0.readComplete ? $0.keys : [] })
+        for stream in streams where stream.readComplete && stream.uuids.isEmpty && !(previousByType[stream.type] ?? []).isEmpty {
+            coverage[stream.type] = WorkoutCoverage(state: .partial, sampleCount: 0, errorCode: "empty_read_not_deletion")
+        }
         var deletedSampleKeys: [String] = []
         if let previous {
             deletedSampleKeys = previous.samples.filter { key in
                 guard let colon = key.firstIndex(of: ":") else { return false }
                 let type = String(key[..<colon])
-                return completeTypes.contains(type) && !currentKeys.contains(key)
+                return deletionSafeTypes.contains(type) && !currentKeys.contains(key)
             }
         }
         var deletionsJSON: [JSON] = []
@@ -204,15 +219,25 @@ struct V4SyncEngine: Sendable {
                                            let previousByType = Dictionary(grouping: oldSamples, by: { key in
                                                String(key[..<(key.firstIndex(of: ":") ?? key.endIndex)])
                                            })
-                                           // A failed stream keeps its old identities so a later
-                                           // successful read can still prove a real deletion.
+                                           // A failed or empty read keeps its old identities so
+                                           // a later successful read can still prove a real deletion.
                                            var merged = currentKeys
-                                           for type in Set(streams.filter { !$0.readComplete }.map(\.type)) {
-                                               merged.formUnion(previousByType[type] ?? [])
+                                           for stream in streams where !stream.readComplete ||
+                                               (stream.uuids.isEmpty && !(previousByType[stream.type] ?? []).isEmpty) {
+                                               merged.formUnion(previousByType[stream.type] ?? [])
                                            }
                                            return merged.sorted()
                                        }(),
-                                       routes: routeReadSucceeded ? routesJSON.compactMap { $0["routeID"].text } : (previous?.routes ?? []))
+                                       routes: {
+                                           let current = Set(routesJSON.compactMap { $0["routeID"].text })
+                                           // A partial route read is not deletion authority. Keep
+                                           // every previous identity so a later complete read can
+                                           // distinguish a real deletion from a failed query.
+                                           if !routeDeletionComplete {
+                                               return Array(current.union(previous?.routes ?? [])).sorted()
+                                           }
+                                           return Array(current).sorted()
+                                       }())
         for key in coverage.keys { coverage[key]?.localPersisted = true }
         let observation: JSON = .object([
             "version": .int(1), "observedAtUs": .int(Normalizer.us(Date())),

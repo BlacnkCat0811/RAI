@@ -35,7 +35,7 @@
 
 | 项 | 结果 | 证据 |
 | --- | --- | --- |
-| Go 完成门禁 | `scripts/local/test.sh full` 通过：873 s，exit 0，648 个顶层 PASS，0 FAIL，22 个 opt-in skip；隔离库无残留 | [full.log](../.local/logs/model-completion-fixes/full-after-research.log) |
+| Go 完成门禁（2026-11-07 历史基线） | `scripts/local/test.sh full` 通过：873 s，exit 0，648 个顶层 PASS，0 FAIL，22 个 opt-in skip；隔离库无残留。该日志早于当前 HEAD，不是当前门禁证据 | [full.log](../.local/logs/model-completion-fixes/full-after-research.log) |
 | Swift 包 | 238 个测试、34 个 suite 通过 | [swift-after-research.log](../.local/logs/model-completion-fixes/swift-after-research.log) |
 | schema2 E2E | Simulator → 真 HTTP → PG → Worker → promote/rollback 全链 PASS（90 s）；active_home/workout_detail/history/rollback 均为 true | [e2e-race.log](../.local/logs/model-completion-fixes/e2e-race.log) |
 | F04 | 240 分钟、250,000 点，30 次 P95 1.894872 s、最大 1.905399 s，Feature 42,127 B | [perf-model-norace-v.log](../.local/logs/model-completion-fixes/perf-model-norace-v.log) |

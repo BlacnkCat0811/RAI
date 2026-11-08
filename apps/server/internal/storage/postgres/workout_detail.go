@@ -319,7 +319,7 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 	rows, err = tx.Query(ctx, `SELECT a.job_id::text,p.published_at,a.algorithm_name,a.algorithm_version,r.metric,r.algorithm_name,r.algorithm_version,r.value,r.unit,r.quality,r.details
 		FROM analysis_publications p
 		JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
-		JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day
+		JOIN analysis_published_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day
 		JOIN dirty_scopes x ON x.dataset_id=p.dataset_id AND x.scope_key=p.scope_key AND x.generation=x.clean_generation
 		WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family='workout'
 		  AND p.generation=x.generation

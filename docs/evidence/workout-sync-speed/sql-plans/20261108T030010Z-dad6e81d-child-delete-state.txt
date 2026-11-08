@@ -1,0 +1,28 @@
+-- statement: child-delete-state
+Hash Left Join  (cost=59.09..8254.59 rows=1000 width=97) (actual time=1.836..2.621 rows=1000.00 loops=1)
+  Hash Cond: ((k.sample_type = w.sample_type) AND ((k.sample_uuid)::uuid = w.sample_uuid))
+  Buffers: shared hit=184
+  ->  Function Scan on k  (cost=0.01..10.01 rows=1000 width=64) (actual time=0.102..0.179 rows=1000.00 loops=1)
+  ->  Hash  (cost=58.77..58.77 rows=21 width=64) (actual time=1.722..1.723 rows=5000.00 loops=1)
+        Buckets: 8192 (originally 1024)  Batches: 1 (originally 1)  Memory Usage: 543kB
+        Buffers: shared hit=182
+        ->  Bitmap Heap Scan on workout_samples w  (cost=4.45..58.77 rows=21 width=64) (actual time=0.226..0.829 rows=5000.00 loops=1)
+              Recheck Cond: (dataset_id = '73def2e2-6078-4518-9969-54f2763e0e2a'::uuid)
+              Heap Blocks: exact=107
+              Buffers: shared hit=182
+              ->  Bitmap Index Scan on workout_samples_pkey  (cost=0.00..4.44 rows=21 width=0) (actual time=0.211..0.211 rows=5000.00 loops=1)
+                    Index Cond: (dataset_id = '73def2e2-6078-4518-9969-54f2763e0e2a'::uuid)
+                    Index Searches: 1
+                    Buffers: shared hit=75
+  SubPlan 2
+    ->  Bitmap Heap Scan on entity_tombstones t  (cost=4.16..9.50 rows=2 width=48) (actual time=0.004..0.004 rows=0.00 loops=1)
+          Recheck Cond: (dataset_id = '73def2e2-6078-4518-9969-54f2763e0e2a'::uuid)
+          Buffers: shared hit=2
+          ->  Bitmap Index Scan on entity_tombstones_pkey  (cost=0.00..4.16 rows=2 width=0) (actual time=0.001..0.001 rows=0.00 loops=1)
+                Index Cond: (dataset_id = '73def2e2-6078-4518-9969-54f2763e0e2a'::uuid)
+                Index Searches: 1
+                Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=10
+Planning Time: 0.154 ms
+Execution Time: 2.688 ms

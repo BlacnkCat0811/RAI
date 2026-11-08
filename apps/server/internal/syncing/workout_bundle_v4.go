@@ -472,11 +472,22 @@ func (w workoutBundleV4) toBundle() (WorkoutBundle, error) {
 		return bad()
 	}
 	sources := make([]HealthKitSource, len(w.Sources))
+	workoutSourcePresent := false
 	for i := range w.Sources {
 		sources[i] = w.Sources[i].healthKitSource()
 		if err := sources[i].Validate(); err != nil {
 			return bad()
 		}
+		class := sources[i].Classification(&observation.Provenance.Workout)
+		if class != "apple_watch" && class != "associated_apple_watch" {
+			return WorkoutBundle{}, Fail(422, "source_policy_excluded")
+		}
+		if sources[i].BundleID == observation.Provenance.Workout.BundleID {
+			workoutSourcePresent = true
+		}
+	}
+	if !workoutSourcePresent {
+		return bad()
 	}
 	workoutEvent := Event{
 		Op: "upsert", Kind: "workout", Type: WorkoutType, UUID: string(w.WorkoutID),
@@ -495,9 +506,14 @@ func (w workoutBundleV4) toBundle() (WorkoutBundle, error) {
 		Observation:             &observation,
 	}
 	seenSamples := make(map[string]bool)
+	seenStreamTypes := make(map[string]bool)
 	for streamIndex := range w.Streams {
 		stream := &w.Streams[streamIndex]
 		sampleType := string(stream.Type)
+		if seenStreamTypes[sampleType] {
+			return bad()
+		}
+		seenStreamTypes[sampleType] = true
 		unit, ok := Units[sampleType]
 		if !ok || sampleType == WorkoutType {
 			return bad()
@@ -644,10 +660,10 @@ func (w workoutBundleV4) toBundle() (WorkoutBundle, error) {
 		if coverage.State != "complete" {
 			continue
 		}
-		sampleType := key
 		if strings.HasPrefix(key, "series:") {
-			sampleType = strings.TrimPrefix(key, "series:")
+			continue
 		}
+		sampleType := key
 		if _, ok := Units[sampleType]; !ok || sampleType == WorkoutType || counts[sampleType] == 0 {
 			continue
 		}

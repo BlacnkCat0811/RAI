@@ -56,7 +56,7 @@ type Range struct {
 // are model-specific; no single global 180-day window is applied.
 //
 // Covered closures:
-//   - workout_load: load d..d+179, trend d..d+186.
+//   - workout_load: load d..d+179, trend d..d+186, readiness through d+207.
 //   - rhr: reference d+1..d+28, then load through d+207, recovery baseline
 //     d..d+28, and readiness load closure through d+207. This is the
 //     rhr -> reference -> load/readiness chain, not a fixed 180-day tail.
@@ -82,6 +82,7 @@ func AffectedRanges(change FactChange) []Range {
 		out = []Range{
 			{Model: ModelLoad, From: from, Through: addDays(through, 179), Reason: "load_180d_tail"},
 			{Model: ModelTrend, From: from, Through: addDays(through, 186), Reason: "trend_7d_tail"},
+			{Model: ModelReadiness, From: from, Through: addDays(through, 207), Reason: "workout_load_readiness_closure"},
 		}
 	case FactRHR:
 		out = []Range{
@@ -116,7 +117,11 @@ func AffectedRanges(change FactChange) []Range {
 			{Model: ModelFeatures, From: addDays(from, -1), Through: addDays(through, 1), Reason: "overlap_neighborhood"},
 			{Model: ModelLoad, From: from, Through: addDays(through, 179), Reason: "overlap_load_closure"},
 			{Model: ModelTrend, From: from, Through: addDays(through, 186), Reason: "overlap_trend_closure"},
-			{Model: ModelReadiness, From: from, Through: addDays(through, 55), Reason: "overlap_readiness_closure"},
+			{Model: ModelVO2, From: from, Through: addDays(through, 47), Reason: "overlap_vo2_closure"},
+			{Model: ModelVO2, From: from, Through: addDays(through, 74), Reason: "overlap_vo2_held_reference"},
+			{Model: ModelAbility, From: from, Through: addDays(through, 102), Reason: "overlap_ability_closure"},
+			{Model: ModelAbility, From: from, Through: addDays(through, 129), Reason: "overlap_ability_held_reference"},
+			{Model: ModelReadiness, From: from, Through: addDays(through, 207), Reason: "overlap_readiness_closure"},
 		}
 	case FactSource:
 		out = []Range{
@@ -128,7 +133,7 @@ func AffectedRanges(change FactChange) []Range {
 			{Model: ModelAbility, From: from, Through: addDays(through, 102), Reason: "source_ability_closure"},
 			{Model: ModelAbility, From: from, Through: addDays(through, 129), Reason: "source_ability_held_reference"},
 			{Model: ModelRecovery, From: addDays(from, -1), Through: addDays(through, 30), Reason: "source_recovery_closure"},
-			{Model: ModelReadiness, From: addDays(from, -1), Through: addDays(through, 30), Reason: "source_readiness_closure"},
+			{Model: ModelReadiness, From: addDays(from, -1), Through: addDays(through, 207), Reason: "source_readiness_closure"},
 		}
 	case FactAnnotation:
 		out = []Range{

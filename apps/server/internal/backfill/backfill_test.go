@@ -361,6 +361,7 @@ func TestAffectedRangesExactEndpoints(t *testing.T) {
 	load := rangesOf(t, FactChange{Kind: FactWorkoutLoad, Day: day})
 	wantLoad := []Range{
 		{Model: ModelLoad, From: "2026-01-01", Through: "2026-06-29", Reason: "load_180d_tail"},
+		{Model: ModelReadiness, From: "2026-01-01", Through: "2026-07-27", Reason: "workout_load_readiness_closure"},
 		{Model: ModelTrend, From: "2026-01-01", Through: "2026-07-06", Reason: "trend_7d_tail"},
 	}
 	if !reflect.DeepEqual(load, wantLoad) {
@@ -422,12 +423,16 @@ func TestAffectedRangesExactEndpoints(t *testing.T) {
 func TestAffectedRangesOverlapSourceAnnotation(t *testing.T) {
 	day := "2026-01-01"
 	overlap := rangesOf(t, FactChange{Kind: FactOverlap, Day: day})
-	if len(overlap) != 4 {
-		t.Fatalf("overlap ranges = %d, want 4: %+v", len(overlap), overlap)
+	if len(overlap) != 8 {
+		t.Fatalf("overlap ranges = %d, want 8: %+v", len(overlap), overlap)
 	}
 	checkRange(t, overlap, ModelFeatures, "overlap_neighborhood", "2025-12-31", "2026-01-02")
 	checkRange(t, overlap, ModelLoad, "overlap_load_closure", "2026-01-01", "2026-06-29")
-	checkRange(t, overlap, ModelReadiness, "overlap_readiness_closure", "2026-01-01", "2026-02-25")
+	checkRange(t, overlap, ModelVO2, "overlap_vo2_closure", "2026-01-01", "2026-02-17")
+	checkRange(t, overlap, ModelVO2, "overlap_vo2_held_reference", "2026-01-01", "2026-03-16")
+	checkRange(t, overlap, ModelAbility, "overlap_ability_closure", "2026-01-01", "2026-04-13")
+	checkRange(t, overlap, ModelAbility, "overlap_ability_held_reference", "2026-01-01", "2026-05-10")
+	checkRange(t, overlap, ModelReadiness, "overlap_readiness_closure", "2026-01-01", "2026-07-27")
 	checkRange(t, overlap, ModelTrend, "overlap_trend_closure", "2026-01-01", "2026-07-06")
 
 	source := rangesOf(t, FactChange{Kind: FactSource, Day: day})
@@ -439,7 +444,7 @@ func TestAffectedRangesOverlapSourceAnnotation(t *testing.T) {
 	checkRange(t, source, ModelVO2, "source_vo2_closure", "2026-01-01", "2026-02-17")
 	checkRange(t, source, ModelVO2, "source_vo2_held_reference", "2026-01-01", "2026-03-16")
 	checkRange(t, source, ModelRecovery, "source_recovery_closure", "2025-12-31", "2026-01-31")
-	checkRange(t, source, ModelReadiness, "source_readiness_closure", "2025-12-31", "2026-01-31")
+	checkRange(t, source, ModelReadiness, "source_readiness_closure", "2025-12-31", "2026-07-27")
 
 	annotation := rangesOf(t, FactChange{Kind: FactAnnotation, Day: day})
 	if len(annotation) != 2 {
@@ -463,6 +468,7 @@ func TestAffectedRangesMultiDaySpan(t *testing.T) {
 	ranges := AffectedRanges(FactChange{Kind: FactWorkoutLoad, From: "2026-01-10", Through: "2026-01-12"})
 	want := []Range{
 		{Model: ModelLoad, From: "2026-01-10", Through: testAdd(t, "2026-01-12", 179), Reason: "load_180d_tail"},
+		{Model: ModelReadiness, From: "2026-01-10", Through: testAdd(t, "2026-01-12", 207), Reason: "workout_load_readiness_closure"},
 		{Model: ModelTrend, From: "2026-01-10", Through: testAdd(t, "2026-01-12", 186), Reason: "trend_7d_tail"},
 	}
 	if !reflect.DeepEqual(ranges, want) {

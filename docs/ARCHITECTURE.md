@@ -2,7 +2,7 @@
 
 2026-10-30最新设备专项已按用户要求收尾：独立持久 `rai-v2-device` 运行PG18/API/Worker，schema14保持；手机已真实提交6,000条样本并完成一条跑步结构盘点。最小修复显式跑步动态单位、Workout metadata保留及4类读取范围，没有新算法/schema/协议版本。最终设备重试、P4/P5闭环与GPU未验证，**DEVICE ACCEPTANCE: NOT COMPLETED**；见[设备结果](V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md)。下文按原阶段保留。
 
-2026-11-01 Phase 5A 当前实现：Protocol 3、schema 18、New Dataset + New Session。旧 Dataset 原地只读退役；旧事实、屏障、回执、分析及训练历史保留且不迁移。旧 reset 脚本为 `LEGACY_UNSAFE_UPGRADE_PATH / DO NOT USE FOR PRODUCTION UPGRADE`。当前状态与未验证项以 [IMPLEMENTATION](IMPLEMENTATION.md) 和 [Protocol 3 合同](../contracts/sync-v3.md) 为准。
+2026-11-08 当前实现：Protocol 3（可选 v4 灰度）、schema 46、New Dataset + New Session。旧 Dataset 原地只读退役；旧事实、屏障、回执、分析及训练历史保留且不迁移。旧 reset 脚本为 `LEGACY_UNSAFE_UPGRADE_PATH / DO NOT USE FOR PRODUCTION UPGRADE`。当前状态与未验证项以 [IMPLEMENTATION](IMPLEMENTATION.md) 和 [Protocol 3 合同](../contracts/sync-v3.md) 为准。
 
 2026-11-01 Phase 5B 在上述未提交实现上补齐正式 New Session 灾难恢复：schema 19 仅扩展 admin_operations 的恢复操作类型与可空 source；protocol 仍为3。source available 复用 new-dataset，source lost 使用 durable private credential file + operation identity 的 rai init；客户端 recovery_required→prepared→完整握手→active，恢复库仅隔离只读归档。详见 [Recovery Contract](PHASE5B_DISASTER_RECOVERY.md) 与 [Runbook](RAI_DISASTER_RECOVERY.md)。
 

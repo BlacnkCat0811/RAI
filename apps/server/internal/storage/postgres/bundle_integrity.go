@@ -13,6 +13,45 @@ import (
 	"sort"
 )
 
+// validateBundleDeletionEvidence makes explicit child deletions conditional on
+// a complete v4 read coverage record and a non-stale observation. A successful
+// but empty HealthKit query is not deletion authority.
+func validateBundleDeletionEvidence(ctx context.Context, tx pgx.Tx, dataset string, b syncing.WorkoutBundle) error {
+	if b.ProtocolVersion != 4 || len(b.SampleDeletions) == 0 && len(b.RouteDeletions) == 0 {
+		return nil
+	}
+	if b.Observation == nil {
+		return syncing.Fail(422, "deletion_coverage_incomplete")
+	}
+	complete := func(key string) bool {
+		cov, ok := b.Observation.Coverage[key]
+		return ok && cov.State == "complete" && cov.QueryCompleted && cov.LocalPersisted && cov.SampleCount > 0
+	}
+	for _, deletion := range b.SampleDeletions {
+		if !complete(deletion.SampleType) {
+			return syncing.Fail(422, "deletion_coverage_incomplete")
+		}
+	}
+	if len(b.RouteDeletions) > 0 && !complete("route") {
+		return syncing.Fail(422, "deletion_coverage_incomplete")
+	}
+	var prior int64
+	err := tx.QueryRow(ctx, `SELECT (payload->'observation'->>'observedAtUs')::bigint
+		FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND payload ? 'observation'
+		ORDER BY (payload->'observation'->>'observedAtUs')::bigint DESC,bundle_sha256 DESC LIMIT 1`,
+		dataset, b.WorkoutID).Scan(&prior)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if b.Observation.ObservedAtUs < prior {
+		return syncing.Fail(409, "stale_observation")
+	}
+	return nil
+}
+
 // Validate explicit parent membership before changing any child. Unknown IDs
 // can establish barriers, but a known child of another Workout never can.
 //
@@ -181,9 +220,15 @@ func observationBytes(b syncing.WorkoutBundle) []byte {
 		Metadata map[string]any `json:"metadata"`
 	}
 	samples := []sampleMetadata{}
-	for _, sample := range b.Samples {
-		if len(sample.Metadata) > 0 {
-			samples = append(samples, sampleMetadata{sample.Type, sample.UUID, sample.Metadata})
+	// v4 has no per-sample objects in the stored payload; its stream metadata
+	// is already part of the immutable bundle bytes. Reconstructing v3 sample
+	// metadata here makes every retry look changed, so compare only the v4
+	// observation (which is where v4's coverage/provenance lives).
+	if b.ProtocolVersion != 4 {
+		for _, sample := range b.Samples {
+			if len(sample.Metadata) > 0 {
+				samples = append(samples, sampleMetadata{sample.Type, sample.UUID, sample.Metadata})
+			}
 		}
 	}
 	sort.Slice(samples, func(i, j int) bool { return samples[i].Type+":"+samples[i].UUID < samples[j].Type+":"+samples[j].UUID })
@@ -286,11 +331,20 @@ func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout
 		if provenance.Workout.Classification(nil) != "apple_watch" {
 			continue
 		}
-		var v4 v4Payload
-		if json.Unmarshal(payloadRaw, &v4) != nil {
+		// The v3 and v4 payloads have different route/stream shapes. Decode
+		// only the version first: unmarshalling a v3 route into v4Route would
+		// fail because v3 stores a source object while v4 stores an index.
+		var version struct {
+			ProtocolVersion int `json:"protocolVersion"`
+		}
+		if json.Unmarshal(payloadRaw, &version) != nil {
 			return analysis.Invalid()
 		}
-		if v4.ProtocolVersion == 4 {
+		if version.ProtocolVersion == 4 {
+			var v4 v4Payload
+			if json.Unmarshal(payloadRaw, &v4) != nil {
+				return analysis.Invalid()
+			}
 			// v4 keeps provenance once per stream/sample index rather than
 			// repeating a source object for every fact. Reconstruct the same
 			// facts here without changing the stored payload.
