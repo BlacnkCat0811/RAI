@@ -87,6 +87,7 @@ func NewWithOptions(store syncing.Store, log *slog.Logger, options Options) http
 	m.Handle("GET /v2/product/overview", a.auth(syncing.ReadLane, a.product))
 	m.Handle("GET /v2/analysis/athlete", a.auth(syncing.ReadLane, a.athleteProduct))
 	m.Handle("GET /v2/analysis/athlete/history", a.auth(syncing.ReadLane, a.athleteHistory))
+	m.Handle("GET /v2/analysis/athlete/diagnostics", a.auth(syncing.ReadLane, a.athleteDiagnostics))
 	m.Handle("GET /v2/analysis/history", a.auth(syncing.ReadLane, a.product))
 	m.Handle("GET /v2/analysis/state", a.auth(syncing.ReadLane, a.trainingState))
 	m.Handle("GET /v2/training/plans/current", a.auth(syncing.ReadLane, a.training))

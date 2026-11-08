@@ -238,6 +238,7 @@ final class ProductModel {
     switch kind {
     case "hr_reference": path = "/v2/model-inputs/hr-references"
     case "sleep_target": path = "/v2/model-inputs/sleep-targets"
+    case "vo2max_source_selection": path = "/v2/model-inputs/vo2max-source-selections"
     default: return "暂不支持此输入类型。"
     }
     do {
@@ -287,6 +288,33 @@ final class ProductModel {
     guard let api else { throw SyncFailure.invalid("configure_development_api_first") }
     return try await api.athleteHistory(metric: metric)
   }
+  func loadAthleteDiagnostics() async {
+    guard let api, let assignment = data.athlete?.assignment else {
+      os_log("athlete diagnostics skipped: no api or athlete assignment", type: .error)
+      return
+    }
+    do {
+      let response = try await api.athleteDiagnostics()
+      guard response.assignment == assignment else {
+        os_log(
+          "athlete diagnostics assignment mismatch: %{public}@ vs %{public}@", type: .error,
+          String(describing: response.assignment), String(describing: assignment))
+        diagnostics = nil
+        diagnosticsError = "模型栈已切换，请刷新。"
+        return
+      }
+      diagnostics = response
+      diagnosticsError = nil
+    } catch let failure as UploadError where failure.status == 409 {
+      os_log("athlete diagnostics not activated: %{public}@", type: .error, failure.code)
+      diagnostics = nil
+      diagnosticsError = "研究诊断尚未激活。"
+    } catch {
+      os_log("athlete diagnostics unavailable: %{public}@", type: .error, String(describing: error))
+      diagnostics = nil
+      diagnosticsError = "研究诊断暂不可用，可下拉重试。"
+    }
+  }
   func loadMore() async {
     guard let api, !data.next.isEmpty else { return }
     do {
@@ -307,6 +335,8 @@ final class ProductModel {
   var workoutFreshness: WorkoutFreshness?
   var workoutDetailLoading = false
   var workoutDetailError: String?
+  var diagnostics: AthleteDiagnostics?
+  var diagnosticsError: String?
   func loadWorkoutDetail(_ id: String) async {
     guard let api else {
       workoutDetailError = "请先配置私有服务。"

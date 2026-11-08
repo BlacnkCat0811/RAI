@@ -1253,7 +1253,7 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - `ios/RAI/App/ProductViews.swift`：分析页新增「跑力」入口卡；`RunningAbilityDetailView` 展示跑力 hero、能力分解、配速区间、成绩预测、证据与限制；未连接/未激活分别显示空态；`AthleteHistoryView` 支持初始 metric。
 - `ios/RAI/App/RAIApp.swift`：根视图固定 `.preferredColorScheme(.dark)`，修正导航标题/卡片在浅色系统下的对比度。
 - 验证：`swift test` 255 tests / 36 suites PASS；`xcodebuild -project ios/RAI/RAI.xcodeproj -scheme RAI -configuration Debug -destination 'generic/platform=iOS Simulator' ... build` BUILD SUCCEEDED；模拟器签名构建 + 本地 `rai_dev` API 连接成功，分析页入口与详情页可导航（截图 `/tmp/rai-analysis-uitest.png`、`/tmp/rai-running-detail.png`）。
-- 限制：`GET /v2/analysis/athlete` 在当前数据集返回 409 `not_product_activated`（active=legacy；M7 产品激活仍为 NOT AUTHORIZED），跑力数值/区间/预测暂无真实数据，页面显示「待激活」。本轮未修改后端合同、未激活 candidate、未执行真机验收。
+- 限制：`GET /v2/analysis/athlete` 在当前数据集返回 409 `not_product_activated`（active=legacy；M7 产品激活仍为 NOT AUTHORIZED），跑力数值/区间/预测暂无真实数据，页面显示「待激活」。本轮未修改后端合同、未激活 candidate、未执行真机验收。（2026-11-08 更新：该限制描述的是当时本机真实数据集；独立合成数据集的模拟器验收已激活 candidate 并验证跑力/模型卡/研究诊断，见下文「V2 产品页上线」。真实数据集仍未激活。）
 
 ### 训练负荷页（legacy v2）— 2026-11-08
 
@@ -1262,3 +1262,17 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - 新增 `ios/RAI/Tests/ProductCoreTests/TrainingLoadSeriesTests.swift`：3 个 Swift Testing 用例（按日合并/排序、跳过空行、拒绝畸形行）。
 - 验证：`swift test` 258 tests / 37 suites PASS；`xcodebuild ... build` BUILD SUCCEEDED。当前本地数据 `/v2/analysis/history` 可返回 2026-10-30 的 10 km 跑步和 2026-11-08 的 fitness/fatigue/balance 行。
 - 训练计划页已有创建/编辑/执行流程；当前数据集 `/v2/training/plans/current` 返回 `training_not_found`，因此显示创建计划空态。
+
+### V2 产品页上线 — 跑力、模型卡与研究诊断（2026-11-08，合成模拟器验收）
+
+本轮把 V2 六槽模型的已实现能力接到产品页，并在独立合成数据集上完成 App→HTTP→PG18→Worker→promotion→rollback 的模拟器验收；仅合成数据，不代表真实数据集激活、部署或旧入口切换。
+
+- 跑力/模型卡：合成 candidate 激活后 `GET /v2/analysis/athlete` 返回 `rai.athlete_model/2`，跑力 `available`（7 次有效跑步，score 非空）；模拟器 UI 验证分析页入口、跑力详情（评分、E/M/T/I/R 区间、5K–全马预测）与 `model.card` 均可见，并保留历史入口。
+- 新增研究诊断只读 API `GET /v2/analysis/athlete/diagnostics`（read lane）：200 返回 `rai.athlete_diagnostics/1`，包含 5 个研究项 `running_ability_maximal_v2`、`workout_durability`、`aerobic_efficiency`、`critical_speed`、`load_settling`；active=legacy 时 409 `not_product_activated`，带查询参数时 422 `invalid_athlete_query`，其他读取失败 503 `athlete_diagnostics_unavailable`。投影只含展示标量、support/status/reasonCodes，不含 evidence、source epoch 或原始样本。
+- 读取实现 `internal/storage/postgres/athlete_diagnostics.go`：15 s 只读 REPEATABLE READ；校验 active assignment 与 manifest hash；按 day scope 前缀取 `p.day<=当天` 的最新发布，要求 SUCCEEDED run 且 clean generation；逐 key 校验 identity/schema/algorithm/version/content hash。`analysis_artifacts.payload` 是 jsonb，直接对 result 原始字节哈希会因对象 key 重排而不匹配，因此解码为 typed envelope 后重新哈希；无 result 的 unavailable/collecting envelope 正常返回空值项。maximal 复用 `rai.running_ability/2` 与 `pf.Hash`。
+- 00048 新增独立 security-barrier 视图 `analysis_published_research_artifacts`（active 非 legacy stack、SUCCEEDED run、clean generation、匹配 publication、5 个研究 key），并向 `rai_api`/`rai_worker` 授予只读权限；未放宽六槽 `analysis_published_artifacts` 的行集，现有产品视图行数测试不受影响。`RequiredSchemaVersion=48`，`migrations/checksums.json` 已更新，`deploy/postgres/roles.sql` 同步授权。
+- iOS：新增 `AthleteDiagnostics` 解码模型与 `ProductAPI.athleteDiagnostics()`；`ProductModel.loadAthleteDiagnostics()` 校验 assignment 一致，409 与普通失败分别显示未激活/暂不可用；跑力详情新增「研究诊断」区，逐项展示状态、摘要与原因，行标识为 `runningAbility.diagnostic.<key>`。模拟器验收发现 SwiftUI 卡片级 `accessibilityIdentifier` 会传播并覆盖子行标识，已将卡片标识移到标题，行标识保持独立。
+- 外部 VO₂ 来源选择公开为追加式输入：00047 扩展 `rai_commit_typed_model_input`，新增 kind `vo2max_source_selection` 与 schema `rai.vo2max.source_selection/1`，payload 仅允许 `sourceEpoch`（`^sha256:[0-9a-f]{64}$`）和 `revoked` bool，上限 128 条；写入时提升 dirty scope 并聚合同日分析 job。`POST /v2/model-inputs/vo2max-source-selections` 走既有 receipt 路径，iOS 个人输入表单新增「VO₂ 来源」类型。`TestVO2SourceSelectionPublicInput` 真实隔离 PG PASS：首次 receipt、字节重放返回原回执、非法 epoch 422、库中仅 1 条。
+- Readiness v2 消费已验证：`TestTrainingContextUsesV2ReadinessSignal`、`TestTrainingContextIgnoresV2ReadinessOnLegacyAdapter`、`TestTrainingContextDoesNotUseExpiredV2Readiness` 真实隔离 PG PASS（2.738 s）；v2 信号移除 `readiness_unavailable` 并给出 `load_only_advisory`，训练日程不变，legacy adapter 与过期信号均不消费。
+- 证据（本机 2026-11-08）：`scripts/local/test.sh e2e` PASS（110 s，exit 0；`TestWorkoutCompletenessSimulatorHTTPPostgres` 14.06 s、`TestModelStackSimulatorHTTPPostgres` 77.48 s；模型用例输出 `active_home=true workout_detail=true history=true running_ability=true diagnostics=true rollback=true`；leftover DB=0、cluster removed）。`scripts/local/test.sh gate` PASS（16 s）；`scripts/local/test.sh swift` PASS（258 tests / 37 suites）；研究诊断 jsonb 重排、无 result、content hash 不匹配、maximal typed hash 单测 PASS；定向 PG `TestVO2SourceSelectionPublicInput`、`TestAPIRoleCannotMigrateOrMaintain` PASS。日志归档 `.local/logs/model-product-activation-2026-11-08/`（e2e、模型 UI xcode 输出与 summary、readiness、VO₂ 输入、gate、swift）。
+- 未验证/未授权：真实数据集激活、回算、rollback executor 与入口切换均未执行；shadow 生产候选读取/调度、真实校准/oracle 仍未实现，RAI VO₂ 保持 experimental；本轮仅模拟器验收，未跑真机；`full` 全量集成回归未在本轮重跑。合成 `running_ability_maximal_v2` 研究项为 collecting（`no_qualified_maximal_effort`），e2e 只断言其展示与身份，不声称数值可用；真实数据集仍为 active=legacy，产品 API 仍会返回 409。

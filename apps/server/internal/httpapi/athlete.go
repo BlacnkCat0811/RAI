@@ -8,12 +8,17 @@ import (
 	"time"
 
 	am "rai/server/internal/athletemodel"
+	diag "rai/server/internal/diagnostics"
 	"rai/server/internal/syncing"
 )
 
 type athleteModelReader interface {
 	ReadAthleteProduct(context.Context, syncing.Principal, time.Time) (am.AthleteModelSnapshot, error)
 	ReadAthleteHistory(context.Context, syncing.Principal, string, string, string, int, string, string) (am.HistoryPage, error)
+}
+
+type athleteDiagnosticsReader interface {
+	ReadAthleteDiagnostics(context.Context, syncing.Principal, time.Time) (diag.ProductSnapshot, error)
 }
 
 var athleteMetrics = map[string]bool{"trainingReadiness": true, "physiologicalRecovery": true, "trainingLoad": true, "runningAbility": true, "raiVO2Max": true, "externalVO2Max": true}
@@ -32,6 +37,25 @@ func (a *API) athleteProduct(w http.ResponseWriter, r *http.Request, p syncing.P
 			return syncing.Fail(409, "not_product_activated")
 		}
 		return syncing.Fail(503, "athlete_model_unavailable")
+	}
+	respond(w, 200, snapshot)
+	return nil
+}
+
+func (a *API) athleteDiagnostics(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	rd, ok := a.store.(athleteDiagnosticsReader)
+	if !ok {
+		return syncing.Fail(503, "athlete_diagnostics_unavailable")
+	}
+	if len(r.URL.Query()) != 0 {
+		return syncing.Fail(422, "invalid_athlete_query")
+	}
+	snapshot, err := rd.ReadAthleteDiagnostics(r.Context(), p, time.Now().UTC())
+	if err != nil {
+		if err == am.ErrNotActivated {
+			return syncing.Fail(409, "not_product_activated")
+		}
+		return syncing.Fail(503, "athlete_diagnostics_unavailable")
 	}
 	respond(w, 200, snapshot)
 	return nil

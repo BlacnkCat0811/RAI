@@ -175,3 +175,57 @@ public struct AthleteHistoryPage: Codable, Equatable, Sendable {
   public var nextCursor: String?
   public var assignment: AthleteProductAssignment
 }
+
+// Read-only product projection of research diagnostics. Values are display
+// scalars only; evidence arrays and source epochs never leave the server.
+public struct AthleteDiagnosticSupport: Codable, Equatable, Sendable {
+  public var level: String, fraction: Double, count: Int
+}
+public struct AthleteDiagnosticMaximal: Codable, Equatable, Sendable {
+  public var score: Double?, v60: Double?, gamma: Double?, enduranceRetention: Double?
+  public var confidence: Double, anchorDay: String?
+}
+public struct AthleteDiagnosticDurability: Codable, Equatable, Sendable {
+  public var workoutID: String
+  public var durationSeconds: Double, analyzedSeconds: Double
+  public var ef1: Double?, ef2: Double?, decoupling: Double?, paceDecay: Double?
+}
+public struct AthleteDiagnosticEfficiency: Codable, Equatable, Sendable {
+  public var workoutID: String
+  public var efficiencyMPerBeat: Double?, speedMPerMin: Double?, heartRateBPM: Double?
+  public var validSeconds: Double
+}
+public struct AthleteDiagnosticCriticalSpeed: Codable, Equatable, Sendable {
+  public var csMPS: Double?, dPrimeMeters: Double?, r2: Double?
+  public var workoutCount: Int
+}
+public struct AthleteDiagnosticSettling: Codable, Equatable, Sendable {
+  public var hours: Double?, bucket: String?
+  public var load: Double, baseline: Double, score: Double
+}
+public struct AthleteDiagnosticItem: Codable, Equatable, Sendable, Identifiable {
+  public var key: String, model: String, version: String, schemaVersion: String
+  public var experimental: Bool
+  public var status: String
+  public var reasonCodes: [String]
+  public var support: AthleteDiagnosticSupport
+  public var asOfUs: Int64, publishedAtUs: Int64
+  public var day: String
+  public var maximal: AthleteDiagnosticMaximal?
+  public var durability: AthleteDiagnosticDurability?
+  public var efficiency: AthleteDiagnosticEfficiency?
+  public var criticalSpeed: AthleteDiagnosticCriticalSpeed?
+  public var loadSettling: AthleteDiagnosticSettling?
+  public var id: String { key }
+  public var isAvailable: Bool { ["available", "partial"].contains(status) }
+}
+public struct AthleteDiagnostics: Codable, Equatable, Sendable {
+  public var schemaVersion: String
+  public var asOfUs: Int64
+  public var calendarDate: String
+  public var assignment: AthleteProductAssignment
+  public var experimental: Bool
+  public var items: [AthleteDiagnosticItem]
+  public var supportsPresentation: Bool { schemaVersion == "rai.athlete_diagnostics/1" }
+  public func item(_ key: String) -> AthleteDiagnosticItem? { items.first { $0.key == key } }
+}

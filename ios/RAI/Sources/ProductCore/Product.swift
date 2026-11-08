@@ -112,6 +112,10 @@ public actor ProductAPI {
     let raw = try await get("/v2/analysis/athlete/history", query: query)
     return try JSONDecoder().decode(AthleteHistoryPage.self, from: raw.data())
   }
+  public func athleteDiagnostics() async throws -> AthleteDiagnostics {
+    let raw = try await get("/v2/analysis/athlete/diagnostics")
+    return try JSONDecoder().decode(AthleteDiagnostics.self, from: raw.data())
+  }
   public func send(_ command: ProductCommand) async throws -> JSON {
     let result = try await request("POST", command.path, body: command.body.data())
     try command.validate(result)

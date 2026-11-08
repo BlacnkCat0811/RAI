@@ -18,6 +18,7 @@ const (
 	SchemaOverlap         = "rai.workout_overlap_resolution/1"
 	SchemaSourceSelection = "rai.source_context_selection/1"
 	SchemaHRReference     = "rai.hr_reference/2"
+	SchemaVO2Selection    = "rai.vo2max.source_selection/1"
 )
 
 var ErrInvalid = errors.New("model_input_invalid")
@@ -30,10 +31,12 @@ var payloadFields = map[string][]string{
 	"workout_effort":             {"workoutID", "mode", "userConfirmed", "independentlyVerified"},
 	"workout_overlap_resolution": {"primaryWorkoutID", "duplicateWorkoutID"},
 	"source_context_selection":   {"sourceEpoch"},
+	"vo2max_source_selection":    {"sourceEpoch", "revoked"},
 	"revocation":                 {"targetSchema", "reason"},
 }
 
 var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
+var sourceEpochRE = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 type Payload map[string]any
 
@@ -143,6 +146,11 @@ func Validate(r Request, now time.Time) (Canonical, error) {
 			return c, err
 		}
 		schema = SchemaSourceSelection
+	case "vo2max_source_selection":
+		if err = validateVO2Selection(r.Payload); err != nil {
+			return c, err
+		}
+		schema = SchemaVO2Selection
 	case "revocation":
 		if r.RevokesID == nil || r.SupersedesID != nil {
 			return c, ErrInvalid
@@ -298,6 +306,17 @@ func validateRevocation(m map[string]any) (string, error) {
 func validateSource(m map[string]any) error {
 	v, ok := m["sourceEpoch"].(string)
 	if !ok || strings.TrimSpace(v) == "" || len(v) > 200 {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateVO2Selection(m map[string]any) error {
+	epoch, ok := m["sourceEpoch"].(string)
+	if !ok || !sourceEpochRE.MatchString(epoch) {
+		return ErrInvalid
+	}
+	if _, ok = m["revoked"].(bool); !ok {
 		return ErrInvalid
 	}
 	return nil

@@ -22,8 +22,11 @@ import (
 )
 
 func featureBundle(t *testing.T, f *fixture, seconds int) syncing.WorkoutBundle {
+	return featureBundleAt(t, f, time.Date(2026, 10, 31, 8, 0, 0, 0, time.UTC), seconds)
+}
+
+func featureBundleAt(t *testing.T, f *fixture, start time.Time, seconds int) syncing.WorkoutBundle {
 	b, _ := testWorkoutBundle(t, f, 0)
-	start := time.Date(2026, 10, 31, 8, 0, 0, 0, time.UTC)
 	b.Workout = workoutAt(start, seconds)
 	b.WorkoutID = b.Workout.UUID
 	b.Workout.Workout.TotalDistance = &syncing.Quantity{Value: float64(seconds) * 3, Unit: "m"}

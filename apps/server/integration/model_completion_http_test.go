@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -79,4 +80,56 @@ func postJSONHTTP(t *testing.T, handler http.Handler, token, path string, raw []
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	return rec.Code, rec.Body.Bytes()
+}
+
+func TestVO2SourceSelectionPublicInput(t *testing.T) {
+	f := setup(t)
+	api, _ := b4Roles(t, f)
+	handler := httpapi.New(api, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ctx := context.Background()
+	id := "0f9619ff-8b86-4d01-b42d-00cf4fc964ff"
+	epoch := "sha256:" + strings.Repeat("a", 64)
+	body := `{"id":"` + id + `","kind":"vo2max_source_selection","subjectKey":"athlete","effectiveFrom":"` +
+		time.Now().Add(-time.Hour).UTC().Truncate(time.Second).Format(time.RFC3339) +
+		`","provenance":"ios_user_entered","payload":{"sourceEpoch":"` + epoch + `","revoked":false}}`
+	code, first := postJSONHTTP(t, handler, f.enrollment.Token, "/v2/model-inputs/vo2max-source-selections", []byte(body))
+	if code != 200 {
+		t.Fatal("selection input status", code, string(first))
+	}
+	var receipt map[string]any
+	if err := json.Unmarshal(first, &receipt); err != nil {
+		t.Fatal(err)
+	}
+	if receipt["inputID"] != id || receipt["schemaVersion"] != "rai.vo2max.source_selection/1" || receipt["contentSHA256"] == "" {
+		t.Fatal("selection receipt fields", receipt)
+	}
+	var kind, schema, payload, hash string
+	if err := f.s.Pool.QueryRow(ctx, `SELECT kind,schema_version,payload::text,encode(content_sha256,'hex') FROM athlete_model_inputs WHERE dataset_id=$1 AND id=$2`, f.p.DatasetID, id).Scan(&kind, &schema, &payload, &hash); err != nil {
+		t.Fatal(err)
+	}
+	var stored map[string]any
+	if json.Unmarshal([]byte(payload), &stored) != nil || stored["sourceEpoch"] != epoch || stored["revoked"] != false {
+		t.Fatalf("stored selection payload=%s", payload)
+	}
+	if kind != "vo2max_source_selection" || schema != "rai.vo2max.source_selection/1" {
+		t.Fatalf("stored selection kind=%s schema=%s", kind, schema)
+	}
+	if hash != receipt["contentSHA256"] {
+		t.Fatalf("stored hash=%s receipt=%v", hash, receipt["contentSHA256"])
+	}
+	time.Sleep(2100 * time.Millisecond)
+	code, replay := postJSONHTTP(t, handler, f.enrollment.Token, "/v2/model-inputs/vo2max-source-selections", []byte(body))
+	if code != 200 || string(replay) != string(first) {
+		t.Fatal("selection replay mismatch", code, string(replay))
+	}
+	time.Sleep(2100 * time.Millisecond)
+	code, _ = postJSONHTTP(t, handler, f.enrollment.Token, "/v2/model-inputs/vo2max-source-selections",
+		[]byte(strings.Replace(body, epoch, "sha256:not-an-epoch", 1)))
+	if code != 422 {
+		t.Fatal("invalid source epoch status", code)
+	}
+	var count int
+	if err := f.s.Pool.QueryRow(ctx, `SELECT count(*) FROM athlete_model_inputs WHERE dataset_id=$1 AND kind='vo2max_source_selection'`, f.p.DatasetID).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("selection count=%d error=%v", count, err)
+	}
 }

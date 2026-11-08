@@ -461,6 +461,8 @@ private struct ModelInputSheet: View {
   @State private var maxHR = ""
   @State private var restingHR = ""
   @State private var sleepHours = "8"
+  @State private var sourceEpoch = ""
+  @State private var selectionRevoked = false
   @State private var effectiveDate = Date()
   @State private var busy = false
   @State private var message: String?
@@ -472,6 +474,7 @@ private struct ModelInputSheet: View {
           Picker("类型", selection: $kind) {
             Text("心率参考").tag("hr_reference")
             Text("睡眠目标").tag("sleep_target")
+            Text("VO₂ 来源").tag("vo2max_source_selection")
           }.pickerStyle(.segmented)
         }
         Section("生效日期") { DatePicker("日期", selection: $effectiveDate, displayedComponents: .date) }
@@ -482,10 +485,19 @@ private struct ModelInputSheet: View {
             Text("只接受 30–219 bpm；最大心率必须高于静息心率。不会按年龄推断。")
               .font(.caption).foregroundStyle(RAITheme.secondary)
           }
-        } else {
+        } else if kind == "sleep_target" {
           Section("睡眠目标（小时）") {
             TextField("目标睡眠时长", text: $sleepHours)
             Text("必须在 0–24 小时之间；用于恢复模型的睡眠目标组件。")
+              .font(.caption).foregroundStyle(RAITheme.secondary)
+          }
+        } else {
+          Section("Apple 外部 VO₂ 来源") {
+            TextField("来源 epoch（sha256:…）", text: $sourceEpoch)
+              .textInputAutocapitalization(.never)
+              .autocorrectionDisabled()
+            Toggle("追加撤销（不再选择该来源）", isOn: $selectionRevoked)
+            Text("只能追加显式来源选择；同一时间仅有一个有效来源，多个有效选择会保持冲突而不自动挑选。")
               .font(.caption).foregroundStyle(RAITheme.secondary)
           }
         }
@@ -517,8 +529,16 @@ private struct ModelInputSheet: View {
       }
       return true
     }
+    if kind == "vo2max_source_selection" {
+      return trimmedSourceEpoch.range(
+        of: "^sha256:[0-9a-f]{64}$", options: .regularExpression) != nil
+    }
     guard let hours = Double(sleepHours) else { return false }
     return hours > 0 && hours <= 24
+  }
+
+  private var trimmedSourceEpoch: String {
+    sourceEpoch.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
   private func submit() {
@@ -538,6 +558,11 @@ private struct ModelInputSheet: View {
           fields["restingMeasuredAt"] = .string(ISO8601DateFormatter().string(from: effectiveDate))
         }
         payload = fields
+      } else if kind == "vo2max_source_selection" {
+        payload = [
+          "sourceEpoch": .string(trimmedSourceEpoch),
+          "revoked": .bool(selectionRevoked),
+        ]
       } else {
         payload = ["hours": .number(Double(sleepHours) ?? 0)]
       }
@@ -602,6 +627,7 @@ struct AthleteModelCard: View {
       Text(ProductReasonText.independenceNotice).font(.caption2).foregroundStyle(RAITheme.secondary)
       }
     }.padding(18).raiGlass()
+      .accessibilityIdentifier("model.card")
   }
   @ViewBuilder private func row(_ title: String, value: Double?, unit: String, metric: MetricEnvelope, digits: Int) -> some View {
     let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout())
@@ -1142,6 +1168,7 @@ struct RunningAbilityDetailView: View {
                 for: metric.envelope.productReasonCodes.first?.rawValue,
                 state: metric.envelope.presentationState.rawValue))
           }
+          researchDiagnostics()
           NavigationLink("跑力历史") {
             AthleteHistoryView(model: model, initialMetric: "runningAbility")
           }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("runningAbility.history")
@@ -1156,6 +1183,7 @@ struct RunningAbilityDetailView: View {
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       }.padding(18)
     }.navigationTitle("跑力").raiScreen().refreshable { await model.refresh() }
+      .task { await model.loadAthleteDiagnostics() }
       .accessibilityIdentifier("screen.runningAbility")
   }
 
@@ -1167,6 +1195,7 @@ struct RunningAbilityDetailView: View {
           HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(ProductFormat.decimal(metric.presentationValue?.score))
               .font(.system(size: 64, weight: .bold, design: .rounded)).monospacedDigit()
+              .accessibilityIdentifier("runningAbility.score")
             Text("分").font(.title3).foregroundStyle(RAITheme.secondary)
           }
         }
@@ -1270,6 +1299,7 @@ struct RunningAbilityDetailView: View {
         }
       }
     }.padding(18).raiGlass()
+      .accessibilityIdentifier("runningAbility.zones")
   }
 
   private func racePredictions(_ value: RunningAbilityValue) -> some View {
@@ -1294,6 +1324,7 @@ struct RunningAbilityDetailView: View {
       Text("按 Riegel 耐力模型由 V60 外推；距离越远，误差越大。")
         .font(.caption2).foregroundStyle(RAITheme.secondary)
     }.padding(18).raiGlass()
+      .accessibilityIdentifier("runningAbility.predictions")
   }
 
   private func evidence(_ metric: RunningAbilityMetric) -> some View {
@@ -1317,6 +1348,160 @@ struct RunningAbilityDetailView: View {
       Spacer()
       Text(value).font(.caption).monospacedDigit()
     }
+  }
+
+  private func researchDiagnostics() -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "研究诊断", icon: "waveform.path.ecg")
+        .accessibilityIdentifier("runningAbility.diagnostics")
+      if let diagnostics = model.diagnostics, diagnostics.supportsPresentation {
+        if diagnostics.items.isEmpty {
+          Text("研究诊断尚未随当前模型日发布。")
+            .font(.caption).foregroundStyle(RAITheme.secondary)
+            .accessibilityIdentifier("runningAbility.diagnostics.empty")
+        } else {
+          ForEach(diagnostics.items) { item in researchRow(item) }
+        }
+        Text("研究诊断独立版本化，仅供趋势参考，不进入跑力或训练负荷产品指标。")
+          .font(.caption2).foregroundStyle(RAITheme.secondary)
+      } else if let error = model.diagnosticsError {
+        Text(error).font(.caption).foregroundStyle(RAITheme.secondary)
+          .accessibilityIdentifier("runningAbility.diagnostics.error")
+      } else {
+        Text("正在读取研究诊断…").font(.caption).foregroundStyle(RAITheme.secondary)
+          .accessibilityIdentifier("runningAbility.diagnostics.loading")
+      }
+    }.padding(18).raiGlass()
+  }
+
+  private func researchRow(_ item: AthleteDiagnosticItem) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Text(researchTitle(item.key)).font(.subheadline.weight(.semibold))
+        if item.experimental {
+          Text("实验").font(.caption2)
+            .padding(.horizontal, 5).padding(.vertical, 1)
+            .background(.white.opacity(0.10), in: Capsule())
+            .foregroundStyle(RAITheme.secondary)
+        }
+        Spacer(minLength: 6)
+        Text(researchStatusText(item.status))
+          .font(.caption2).padding(.horizontal, 6).padding(.vertical, 2)
+          .background(.white.opacity(0.10), in: Capsule())
+          .foregroundStyle(item.isAvailable ? RAITheme.orange : RAITheme.secondary)
+      }
+      Text(researchDetail(item)).font(.caption).foregroundStyle(RAITheme.secondary)
+      if !item.isAvailable, let code = item.reasonCodes.first {
+        Text(researchReasonText(code)).font(.caption2).foregroundStyle(RAITheme.amber)
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.vertical, 2)
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("runningAbility.diagnostic." + item.key)
+  }
+}
+
+private func researchTitle(_ key: String) -> String {
+  switch key {
+  case "running_ability_maximal_v2": return "最大能力（实验）"
+  case "workout_durability": return "长距离耐力"
+  case "aerobic_efficiency": return "有氧效率"
+  case "critical_speed": return "临界速度"
+  case "load_settling": return "负荷回落"
+  default: return key
+  }
+}
+
+private func researchDetail(_ item: AthleteDiagnosticItem) -> String {
+  switch item.key {
+  case "running_ability_maximal_v2":
+    guard let maximal = item.maximal else { return "尚未产生可用结果" }
+    var parts: [String] = []
+    if let score = maximal.score { parts.append("跑力 \(ProductFormat.decimal(score, digits: 0)) 分") }
+    if let v60 = maximal.v60, let pace = RunningAbilityMath.paceSecondsPerKm(v60: v60) {
+      parts.append("V60 \(runningPaceText(pace))/km")
+    }
+    return parts.isEmpty ? "证据不足，未生成曲线" : parts.joined(separator: " · ")
+  case "workout_durability":
+    guard let value = item.durability else { return "尚未产生可用结果" }
+    var parts: [String] = []
+    if let decoupling = value.decoupling {
+      parts.append("心率漂移 \(ProductFormat.decimal(decoupling * 100, digits: 1))%")
+    }
+    if let decay = value.paceDecay {
+      parts.append("配速衰减 \(ProductFormat.decimal(decay * 100, digits: 1))%")
+    }
+    if parts.isEmpty, let ef1 = value.ef1 {
+      parts.append("效率因子 \(ProductFormat.decimal(ef1, digits: 2))")
+    }
+    return parts.isEmpty ? "缺乏稳定的心率或配速对照" : parts.joined(separator: " · ")
+  case "aerobic_efficiency":
+    guard let value = item.efficiency else { return "尚未产生可用结果" }
+    var parts: [String] = []
+    if let efficiency = value.efficiencyMPerBeat {
+      parts.append("效率 \(ProductFormat.decimal(efficiency, digits: 2)) m/beat")
+    }
+    if let heartRate = value.heartRateBPM {
+      parts.append("心率 \(ProductFormat.decimal(heartRate, digits: 0)) bpm")
+    }
+    return parts.isEmpty ? "缺乏有效心率区间" : parts.joined(separator: " · ")
+  case "critical_speed":
+    guard let value = item.criticalSpeed else { return "尚未产生可用结果" }
+    var parts: [String] = []
+    if let cs = value.csMPS { parts.append("CS \(ProductFormat.decimal(cs, digits: 2)) m/s") }
+    if let dPrime = value.dPrimeMeters {
+      parts.append("D′ \(ProductFormat.decimal(dPrime, digits: 0)) m")
+    }
+    if parts.isEmpty { parts.append("有效跑步 \(value.workoutCount) 次") }
+    return parts.joined(separator: " · ")
+  case "load_settling":
+    guard let value = item.loadSettling else { return "尚未产生可用结果" }
+    var parts: [String] = []
+    if let hours = value.hours { parts.append("回落 \(ProductFormat.decimal(hours, digits: 1)) 小时") }
+    if let bucket = value.bucket, !bucket.isEmpty { parts.append("区间 \(bucket) 小时") }
+    return parts.isEmpty ? "等待负荷回落基线" : parts.joined(separator: " · ")
+  default:
+    return item.model
+  }
+}
+
+private func researchStatusText(_ status: String) -> String {
+  switch status {
+  case "available": return "可用"
+  case "partial": return "部分可用"
+  case "collecting": return "积累中"
+  case "unstable": return "不稳定"
+  case "stale": return "已过期"
+  case "unavailable": return "暂不可用"
+  default: return "证据不足"
+  }
+}
+
+private func researchReasonText(_ code: String) -> String {
+  switch code {
+  case "technical_failure": return "结果校验未通过，等待重新计算。"
+  case "insufficient_history": return "历史跨度不足，继续训练即可积累。"
+  case "insufficient_comparable_runs": return "可比跑步不足。"
+  case "too_few_workouts": return "有效跑步次数不足。"
+  case "too_few_durations": return "需要覆盖更多不同时长。"
+  case "too_few_heart_rate_workouts": return "带心率的跑步不足。"
+  case "missing_hr": return "本次跑步缺少有效心率。"
+  case "hr_support_low": return "心率覆盖不足。"
+  case "steady_support_too_short": return "稳定配速区间过短。"
+  case "baseline_missing": return "尚未建立基线。"
+  case "coverage_incomplete": return "数据覆盖不完整。"
+  case "score_below_threshold": return "质量分数低于阈值。"
+  case "degenerate_fit": return "拟合退化，暂不外推。"
+  case "loo_cs_unstable": return "留一验证波动过大。"
+  case "loo_rmse_high": return "留一验证误差过大。"
+  case "source_unknown": return "数据来源未确认。"
+  case "terrain_unknown": return "地形信息缺失。"
+  case "context_unknown": return "跑步场景未知。"
+  case "maximal_annotations_insufficient": return "确认的最大努力次数不足。"
+  case "maximal_duration_coverage_insufficient": return "最大努力时长覆盖不足。"
+  case "no_qualified_maximal_effort": return "暂无符合条件的最努力跑步。"
+  default: return "暂不可用（" + code + "）。"
   }
 }
 

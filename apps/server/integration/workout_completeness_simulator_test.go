@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"rai/server/internal/admin"
 	am "rai/server/internal/athletemodel"
+	diag "rai/server/internal/diagnostics"
 	"rai/server/internal/httpapi"
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/syncing"
@@ -202,27 +203,41 @@ func TestModelStackSimulatorHTTPPostgres(t *testing.T) {
 	handler := httpapi.New(api, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/v2/handshake", "/v2/analysis/athlete", "/v2/analysis/athlete/history", "/v2/workouts":
+		case "/v2/handshake", "/v2/analysis/athlete", "/v2/analysis/athlete/diagnostics", "/v2/analysis/athlete/history", "/v2/workouts":
 			t.Logf("MODEL_E2E_REQUEST %s", r.URL.Path)
 		}
 		handler.ServeHTTP(w, r)
 	}))
 	defer server.Close()
-	bundle := featureBundle(t, f, 35*60)
-	raw, err := json.Marshal(bundle)
-	if err != nil {
-		t.Fatal(err)
+	// Six workouts are required before running ability leaves collecting; seven
+	// spread over three weeks also yield at least three valid target days.
+	now := time.Now().UTC().Truncate(time.Minute)
+	schedule := []struct {
+		daysAgo, seconds int
+	}{{22, 2400}, {18, 1800}, {15, 2400}, {11, 1800}, {8, 2400}, {5, 1800}, {2, 2400}}
+	for index, item := range schedule {
+		if index >= 2 {
+			// Preserve the default upload-lane budget between bundles.
+			time.Sleep(2100 * time.Millisecond)
+		}
+		bundle := featureBundleAt(t, f, now.Add(-time.Duration(item.daysAgo)*24*time.Hour-2*time.Hour), item.seconds)
+		raw, err := json.Marshal(bundle)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, content := multipartBundleBytes(t, raw)
+		if status, detail := postBundle(t, server, f.enrollment.Token, "", body, content); status != 200 {
+			t.Fatalf("bundle %d status=%d %s", index, status, detail)
+		}
 	}
-	body, content := multipartBundleBytes(t, raw)
-	if status, _ := postBundle(t, server, f.enrollment.Token, "", body, content); status != 200 {
-		t.Fatalf("bundle status=%d", status)
+	for range schedule {
+		runOne(t, f, "analysis.workout")
 	}
-	runOne(t, f, "analysis.workout")
 	runOne(t, f, "analysis.training_state")
-	if _, err = f.s.Pool.Exec(ctx, `UPDATE datasets SET synthetic_test=true WHERE id=$1`, f.p.DatasetID); err != nil {
+	if _, err := f.s.Pool.Exec(ctx, `UPDATE datasets SET synthetic_test=true WHERE id=$1`, f.p.DatasetID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = f.s.PrepareModelStack(ctx, f.p.DatasetID); err != nil {
+	if _, err := f.s.PrepareModelStack(ctx, f.p.DatasetID); err != nil {
 		t.Fatal(err)
 	}
 	l, err := worker.Claim(ctx, []string{modelmanifest.StackJobKind})
@@ -240,6 +255,60 @@ func TestModelStackSimulatorHTTPPostgres(t *testing.T) {
 		ApplicabilityReport: report, UXPrivacyReport: report, RollbackReport: report, Authorization: report, Reviewer: "synthetic", ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339)}
 	if _, err = f.s.PromoteModelStack(ctx, f.p.DatasetID, "synthetic-ui", modelmanifest.StackID(), gate, hash); err != nil {
 		t.Fatal(err)
+	}
+	readProduct := func(path string) (int, []byte) {
+		request, err := http.NewRequest(http.MethodGet, server.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		raw, err := io.ReadAll(response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return response.StatusCode, raw
+	}
+	code, raw := readProduct("/v2/analysis/athlete")
+	if code != 200 {
+		t.Fatalf("activated athlete product status=%d %s", code, raw)
+	}
+	var snapshot am.AthleteModelSnapshot
+	if err = json.Unmarshal(raw, &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.SchemaVersion != am.Schema2 || snapshot.RunningAbility.Envelope.State != am.Available ||
+		snapshot.RunningAbility.Value == nil || snapshot.RunningAbility.Value.Score == nil {
+		t.Fatalf("running ability not available: state=%s reasons=%v", snapshot.RunningAbility.Envelope.State, snapshot.RunningAbility.Envelope.ReasonCodes)
+	}
+	code, raw = readProduct("/v2/analysis/athlete/diagnostics")
+	if code != 200 {
+		_, directErr := f.s.ReadAthleteDiagnostics(ctx, f.p, time.Now().UTC())
+		t.Fatalf("athlete diagnostics status=%d %s direct_err=%v", code, raw, directErr)
+	}
+	var diagnostics diag.ProductSnapshot
+	if err = json.Unmarshal(raw, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	maximalSeen := false
+	for _, item := range diagnostics.Items {
+		if item.Key == "running_ability_maximal_v2" {
+			maximalSeen = true
+		}
+		if item.Status == "" || item.Model == "" {
+			t.Fatalf("diagnostic %s missing identity", item.Key)
+		}
+	}
+	if diagnostics.SchemaVersion != diag.ProductSchema || !maximalSeen {
+		t.Fatalf("diagnostics schema=%s items=%d maximal=%v", diagnostics.SchemaVersion, len(diagnostics.Items), maximalSeen)
+	}
+	code, raw = readProduct("/v2/analysis/athlete/history?metric=runningAbility&limit=5")
+	if code != 200 {
+		t.Fatalf("running ability history status=%d %s", code, raw)
 	}
 	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/rollback" || r.Method != http.MethodPost {
@@ -295,9 +364,12 @@ plistlib.dump(p,open(sys.argv[2],'wb'));os.chmod(sys.argv[2],0o600)`, source, fi
 		if summaryErr == nil {
 			_ = os.WriteFile(filepath.Join(diagnostics, "model-e2e-summary.json"), summary, 0600)
 		}
+		if err != nil {
+			_ = exec.Command("cp", "-R", resultPath, filepath.Join(diagnostics, "model-e2e-result.xcresult")).Run()
+		}
 	}
 	if err != nil {
 		t.Fatal("schema2 App/HTTP/PG Simulator failed", err)
 	}
-	t.Log("MODEL_STACK_SIMULATOR_HTTP_PG=PASS active_home=true workout_detail=true history=true rollback=true")
+	t.Log("MODEL_STACK_SIMULATOR_HTTP_PG=PASS active_home=true workout_detail=true history=true running_ability=true diagnostics=true rollback=true")
 }

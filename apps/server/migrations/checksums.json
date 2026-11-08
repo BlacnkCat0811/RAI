@@ -44,5 +44,7 @@
   "00043_model_research_artifacts.sql": "7fa66b51ae3ffe73a12923a4bf1caf049417ab3b072b28555d6c76f16222c400",
   "00044_backfill_product_family_count.sql": "dd18d4b41aea8df283b4863db2766e6b49283d38e374bb036327a3cc7389d5f0",
   "00045_analysis_published_results_view.sql": "2b023731c32533ca75635bb64d377e9cec85c301d7adea2e48323bc8ad5e4de0",
-  "00046_rai_training_dirty_security.sql": "d7c7304303e313ca597db34da1e6123fb98352435a4f691ff727bff2f1ba3168"
+  "00046_rai_training_dirty_security.sql": "d7c7304303e313ca597db34da1e6123fb98352435a4f691ff727bff2f1ba3168",
+  "00047_public_vo2_selection_input.sql": "3602116afa0a4659dc4c3512851ba099fa97f0282bcd582b00ef5640b678dbd5",
+  "00048_published_research_artifacts.sql": "7a094a2f09bae9b0996d5e55f2d7fec9a8fed4d23d59bf3d28329cd6d5b41169"
 }
