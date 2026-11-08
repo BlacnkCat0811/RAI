@@ -1276,3 +1276,11 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - Readiness v2 消费已验证：`TestTrainingContextUsesV2ReadinessSignal`、`TestTrainingContextIgnoresV2ReadinessOnLegacyAdapter`、`TestTrainingContextDoesNotUseExpiredV2Readiness` 真实隔离 PG PASS（2.738 s）；v2 信号移除 `readiness_unavailable` 并给出 `load_only_advisory`，训练日程不变，legacy adapter 与过期信号均不消费。
 - 证据（本机 2026-11-08）：`scripts/local/test.sh e2e` PASS（110 s，exit 0；`TestWorkoutCompletenessSimulatorHTTPPostgres` 14.06 s、`TestModelStackSimulatorHTTPPostgres` 77.48 s；模型用例输出 `active_home=true workout_detail=true history=true running_ability=true diagnostics=true rollback=true`；leftover DB=0、cluster removed）。`scripts/local/test.sh gate` PASS（16 s）；`scripts/local/test.sh swift` PASS（258 tests / 37 suites）；研究诊断 jsonb 重排、无 result、content hash 不匹配、maximal typed hash 单测 PASS；定向 PG `TestVO2SourceSelectionPublicInput`、`TestAPIRoleCannotMigrateOrMaintain` PASS。日志归档 `.local/logs/model-product-activation-2026-11-08/`（e2e、模型 UI xcode 输出与 summary、readiness、VO₂ 输入、gate、swift）。
 - 未验证/未授权：真实数据集激活、回算、rollback executor 与入口切换均未执行；shadow 生产候选读取/调度、真实校准/oracle 仍未实现，RAI VO₂ 保持 experimental；本轮仅模拟器验收，未跑真机；`full` 全量集成回归未在本轮重跑。合成 `running_ability_maximal_v2` 研究项为 collecting（`no_qualified_maximal_effort`），e2e 只断言其展示与身份，不声称数值可用；真实数据集仍为 active=legacy，产品 API 仍会返回 409。
+
+### 云端部署 — rai-coach-20261108（2026-11-08）
+
+- 目标：`lh-gz` 的 `/opt/rai-coach-20261108`，Compose project `rai-coach-20261108`，公网入口 `https://www.tpandmr.xyz`；未改动其他云上项目或旧入口。
+- 源码 commit `9b9c7e2`；镜像 `rai-coach:20261108-9b9c7e2`（本地 Go1.27.3 交叉编译 linux/amd64 静态二进制，SHA-256 `baca047a0c7e852a863013706b5765db2568e93b97ff5ddc32c1db16095eeb7b`，`rai version` 报告 schema 48 / source_commit 9b9c7e2）。
+- 迁移：迁移前用 `pg_dump -Fc` 备份到 `/opt/rai-coach-20261108/backup-before-schema48-20261108-221605.dump`（5.5 MiB，605 个 TOC 项，容器内 `pg_restore -l` 校验通过）；`admin migrate` 显式应用 00047、00048，`migrate-status` 共 48 份且最后三份 applied；以 owner 查询确认 `analysis_published_research_artifacts` 对 `rai_api`、`rai_worker` 均为 SELECT。
+- 运行态：API/Worker 已用新镜像重建并 healthy；外部 `GET /ready` 返回 `{"status":"ready"}`；`GET /v2/analysis/athlete/diagnostics` 未带凭证返回 401，使用已配置设备令牌返回 409 `not_product_activated`（真实数据集仍为 active=legacy，符合预期）。API/Worker 启动日志无 schema 或角色错误。
+- 本轮按用户要求未运行任何 Go/Swift/集成测试；上述仅为部署与健康检查证据，不构成测试、真机或产品激活验收。真实数据集激活、candidate promotion、回算与回滚仍未执行。
