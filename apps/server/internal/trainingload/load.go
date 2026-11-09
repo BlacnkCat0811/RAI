@@ -103,8 +103,10 @@ func CalculateTrainingLoad(in WorkoutInput, generation int64) (Result, error) {
 	}
 	// Keep every more conservative M1 gate. Summary may replace only absent HR
 	// time support, never an observed but failing trace or an outlier/source gate.
+	// A resolved hr_reference/2 dose reference supersedes the feature-level
+	// parameter, so its absence is not an additional gate here.
 	for _, r := range f.Qualification.Load.Reasons {
-		if r == wf.MissingHR || r == wf.HRCoverageLow {
+		if r == wf.MissingHR || r == wf.HRCoverageLow || r == wf.ParameterMissing && e.Parameter != nil {
 			continue
 		}
 		out.ReasonCodes = append(out.ReasonCodes, string(r))

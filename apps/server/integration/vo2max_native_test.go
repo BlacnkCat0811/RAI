@@ -48,6 +48,13 @@ func m4Bundle(t *testing.T, f *fixture, end time.Time, seconds int) syncing.Work
 			b.Series[i].Points[j].Value = hr
 		}
 	}
+	// Route distance must match the recorded distance so the performance and
+	// VO2 qualifications do not reject the workout as distance_mismatch.
+	for i := range b.Routes {
+		for j := range b.Routes[i].Points {
+			b.Routes[i].Points[j].Longitude = float64(j) * speed / 6371008.8 * 180 / math.Pi
+		}
+	}
 	if err := b.Validate(); err != nil {
 		t.Fatalf("M4 synthetic bundle: %#v", err)
 	}

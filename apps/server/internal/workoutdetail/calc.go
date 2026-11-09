@@ -1086,6 +1086,13 @@ func min64(a, b int64) int64 {
 	return b
 }
 
+func abs64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 // ---------------------------------------------------------------- segments
 
 type ActivityBoundary struct {
@@ -1120,30 +1127,31 @@ type PlanContext struct {
 }
 
 // BuildSegments turns measured Watch activity boundaries (the preferred
-// producer), Watch lap/segment events (second), into measured rows. Plan labels
-// are applied only when the caller matched an execution snapshot; otherwise the
-// rows stay honest generic laps.
+// producer), lap events (second), and one unambiguous Watch segment hierarchy
+// (third) into measured rows. Plans only supply labels and targets; they never
+// invent boundaries. Overlapping segment hierarchies are rejected instead of
+// being unioned into fabricated splits.
 func BuildSegments(startUs, endUs int64, distanceM float64, speed, heart, steps []Observation, route []RouteSample, activities []ActivityBoundary, events []EventBoundary, plan *PlanContext) ([]Segment, *SegmentPlanMatch, string, bool) {
 	measured := normalizeActivities(startUs, endUs, activities)
 	hasMeasured := len(measured) >= 3
-	boundaries := measured
-	note := ""
-	if !hasMeasured {
-		boundaries = eventBoundaries(startUs, endUs, events)
-		if len(boundaries) >= 2 {
-			note = "手表未提供实测训练步骤，以下为计圈分段"
-		}
-	}
-	if len(boundaries) < 2 {
-		return nil, nil, "没有可用的手表分段或计圈事件", false
-	}
-	track := buildSpeedTrack(startUs, endUs, distanceM, speed, route)
 	descriptors := []PlannedStep(nil)
-	if hasMeasured && plan != nil && plan.HasStructure {
+	if plan != nil && plan.HasStructure {
 		descriptors = flattenPlanSteps(plan.Steps)
 	}
+	boundaries := measured
+	source := "activity"
+	note := ""
+	if !hasMeasured {
+		boundaries, source, note = eventBoundaries(startUs, endUs, events, len(descriptors))
+	}
+	if len(boundaries) < 2 {
+		if note == "" {
+			note = "没有可用的手表分段或计圈事件"
+		}
+		return nil, nil, note, false
+	}
+	track := buildSpeedTrack(startUs, endUs, distanceM, speed, route)
 	segments := make([]Segment, 0, len(boundaries)-1)
-	matched := 0
 	for i := 0; i < len(boundaries)-1; i++ {
 		a, b := boundaries[i], boundaries[i+1]
 		duration := float64(b-a) / 1e6
@@ -1154,9 +1162,10 @@ func BuildSegments(startUs, endUs int64, distanceM float64, speed, heart, steps 
 		if track != nil {
 			dist = math.Max(0, trackMetersAt(track, b)-trackMetersAt(track, a))
 		}
+		index := len(segments) + 1
 		seg := Segment{
-			Index:               i + 1,
-			Label:               fmt.Sprintf("第 %d 段", i+1),
+			Index:               index,
+			Label:               fmt.Sprintf("第 %d 段", index),
 			Purpose:             "work",
 			StartOffsetSeconds:  round(float64(a-startUs)/1e6, 1),
 			DurationSeconds:     round(duration, 1),
@@ -1167,53 +1176,73 @@ func BuildSegments(startUs, endUs int64, distanceM float64, speed, heart, steps 
 		if dist > 0 {
 			seg.AveragePaceSPerKm = Ptr(round(duration/(dist/1000), 1))
 		}
-		if descriptors != nil && i < len(descriptors) {
-			d := descriptors[i]
-			seg.Label = d.PurposeLabel()
-			if d.Label != "" {
-				seg.Label = d.Label
-			}
-			if d.Purpose != "" {
-				seg.Purpose = d.Purpose
-			}
-			if d.DurationS > 0 {
-				seg.GoalType = "time"
-				seg.GoalSeconds = Ptr(d.DurationS)
-			}
-			if d.TargetHR != nil {
-				seg.AlertKind = "heart_rate"
-				seg.AlertLower = Ptr(math.Max(0, *d.TargetHR-5))
-				seg.AlertUpper = Ptr(*d.TargetHR + 5)
-			} else if d.PaceSPerKm != nil {
-				seg.AlertKind = "pace"
-				seg.AlertLower = Ptr(math.Max(0, *d.PaceSPerKm*0.95))
-				seg.AlertUpper = Ptr(*d.PaceSPerKm * 1.05)
-			}
-			matched++
-		}
 		segments = append(segments, seg)
 	}
 	if len(segments) == 0 {
 		return nil, nil, "分段边界内没有可测量的时长", false
 	}
-	if !hasMeasured || plan == nil || !plan.HasStructure {
-		note = joinNote(note, "未匹配到结构化课表，分段只保留实测边界")
+	if track == nil {
+		note = joinNote(note, "缺少可用速度轨迹，分段距离与配速不可用")
+	}
+	labeled := false
+	if descriptors != nil && (source == "activity" || source == "segment") {
+		if len(descriptors) == len(segments) {
+			for i := range segments {
+				applyPlanStep(&segments[i], descriptors[i])
+			}
+			labeled = true
+		} else {
+			note = joinNote(note, fmt.Sprintf("计划 %d 步，实测 %d 段，未套用计划标签", len(descriptors), len(segments)))
+		}
+	} else if descriptors != nil {
+		note = joinNote(note, "计圈事件与课表步骤未建立唯一对应，分段只保留实测边界")
+	}
+	if !labeled || plan == nil {
+		if descriptors == nil {
+			note = joinNote(note, "未匹配到结构化课表，分段只保留实测边界")
+		}
 		return segments, nil, note, hasMeasured
 	}
-	explained := float64(matched) / float64(len(segments))
 	match := &SegmentPlanMatch{
 		LocalDate:         plan.LocalDate,
 		Kind:              plan.Kind,
 		Revision:          plan.Revision,
 		MatchedBy:         "execution_snapshot",
 		PlannedDistanceM:  plan.DistanceM,
-		ExplainedFraction: round(math.Min(1, explained), 3),
-		Reason:            "分段边界来自手表实测，计划只提供标签与目标",
-	}
-	if len(descriptors) != len(segments) {
-		note = joinNote(note, fmt.Sprintf("计划 %d 步，实测 %d 段；仅前 %d 段使用计划标签", len(descriptors), len(segments), matched))
+		ExplainedFraction: 1,
+		Reason:            segmentMatchReason(source),
 	}
 	return segments, match, note, hasMeasured
+}
+
+func applyPlanStep(seg *Segment, d PlannedStep) {
+	seg.Label = d.PurposeLabel()
+	if d.Label != "" {
+		seg.Label = d.Label
+	}
+	if d.Purpose != "" {
+		seg.Purpose = d.Purpose
+	}
+	if d.DurationS > 0 {
+		seg.GoalType = "time"
+		seg.GoalSeconds = Ptr(d.DurationS)
+	}
+	if d.TargetHR != nil {
+		seg.AlertKind = "heart_rate"
+		seg.AlertLower = Ptr(math.Max(0, *d.TargetHR-5))
+		seg.AlertUpper = Ptr(*d.TargetHR + 5)
+	} else if d.PaceSPerKm != nil {
+		seg.AlertKind = "pace"
+		seg.AlertLower = Ptr(math.Max(0, *d.PaceSPerKm*0.95))
+		seg.AlertUpper = Ptr(*d.PaceSPerKm * 1.05)
+	}
+}
+
+func segmentMatchReason(source string) string {
+	if source == "segment" {
+		return "分段边界来自手表事件分段，计划只提供标签与目标"
+	}
+	return "分段边界来自手表实测活动，计划只提供标签与目标"
 }
 
 func normalizeActivities(startUs, endUs int64, activities []ActivityBoundary) []int64 {
@@ -1240,19 +1269,57 @@ func normalizeActivities(startUs, endUs int64, activities []ActivityBoundary) []
 	return out
 }
 
-func eventBoundaries(startUs, endUs int64, events []EventBoundary) []int64 {
+const (
+	eventBoundaryToleranceUs = 1_000_000
+	eventBoundaryMergeUs     = 5_000_000
+	minSegmentEventUs        = 1_000_000
+)
+
+type segmentInterval struct {
+	startUs, endUs int64
+}
+
+// eventBoundaries selects at most one trustworthy event hierarchy. Laps are
+// explicit partition markers; segment events are periods of interest that may
+// overlap across independent producers. Overlapping segment sets are only used
+// when exactly one of them matches the matched plan's step count.
+func eventBoundaries(startUs, endUs int64, events []EventBoundary, planSteps int) ([]int64, string, string) {
+	if points := lapEventBoundaries(startUs, endUs, events); len(points) >= 2 {
+		return points, "lap", "手表未提供实测训练步骤，以下为计圈事件分段"
+	}
+	intervals := segmentEventIntervals(startUs, endUs, events)
+	if len(intervals) < 2 {
+		return nil, "", ""
+	}
+	if intervalsOverlap(intervals) {
+		if planSteps >= 2 {
+			if points := alignedSegmentBoundaries(startUs, endUs, intervals, planSteps); points != nil {
+				return points, "segment", "手表未提供实测训练步骤，以下为手表事件分段"
+			}
+		}
+		return nil, "", "检测到多套重叠的手表分段事件，无法确定唯一分段"
+	}
+	points := intervalBoundaries(startUs, endUs, intervals)
+	if len(points) < 2 {
+		return nil, "", ""
+	}
+	return points, "segment", "手表未提供实测训练步骤，以下为手表事件分段"
+}
+
+func lapEventBoundaries(startUs, endUs int64, events []EventBoundary) []int64 {
 	points := []int64{startUs}
 	for _, e := range events {
-		// HKWorkoutEventTypeLap=3, Segment=7. Pause/resume requests are not laps.
-		if e.Type != 3 && e.Type != 7 {
+		// HKWorkoutEventTypeLap=3. Pause/resume requests are not laps.
+		if e.Type != 3 || e.StartUs >= endUs || e.EndUs <= startUs {
 			continue
 		}
-		if e.EndUs > e.StartUs {
-			if e.StartUs > startUs {
-				points = append(points, e.StartUs)
+		a, b := max64(e.StartUs, startUs), min64(e.EndUs, endUs)
+		if b > a {
+			if a > startUs {
+				points = append(points, a)
 			}
-			if e.EndUs < endUs {
-				points = append(points, e.EndUs)
+			if b < endUs {
+				points = append(points, b)
 			}
 		} else if e.StartUs > startUs && e.StartUs < endUs {
 			points = append(points, e.StartUs)
@@ -1263,7 +1330,135 @@ func eventBoundaries(startUs, endUs int64, events []EventBoundary) []int64 {
 	}
 	points = append(points, endUs)
 	sort.Slice(points, func(i, j int) bool { return points[i] < points[j] })
-	return dedupeBoundaries(points, 5_000_000)
+	points = dedupeBoundaries(points, eventBoundaryMergeUs)
+	if len(points) < 3 {
+		return nil
+	}
+	return points
+}
+
+func segmentEventIntervals(startUs, endUs int64, events []EventBoundary) []segmentInterval {
+	out := make([]segmentInterval, 0, len(events))
+	seen := make(map[segmentInterval]bool, len(events))
+	for _, e := range events {
+		// HKWorkoutEventTypeSegment=7. Pause/resume requests are not segments.
+		if e.Type != 7 {
+			continue
+		}
+		a, b := max64(e.StartUs, startUs), min64(e.EndUs, endUs)
+		if b-a < minSegmentEventUs {
+			continue
+		}
+		iv := segmentInterval{startUs: a, endUs: b}
+		if seen[iv] {
+			continue
+		}
+		seen[iv] = true
+		out = append(out, iv)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].startUs == out[j].startUs {
+			return out[i].endUs < out[j].endUs
+		}
+		return out[i].startUs < out[j].startUs
+	})
+	return out
+}
+
+func intervalsOverlap(intervals []segmentInterval) bool {
+	lastEnd := intervals[0].endUs
+	for _, iv := range intervals[1:] {
+		if iv.startUs < lastEnd-eventBoundaryToleranceUs {
+			return true
+		}
+		if iv.endUs > lastEnd {
+			lastEnd = iv.endUs
+		}
+	}
+	return false
+}
+
+func intervalBoundaries(startUs, endUs int64, intervals []segmentInterval) []int64 {
+	points := make([]int64, 0, len(intervals)*2+2)
+	points = append(points, startUs)
+	for _, iv := range intervals {
+		if iv.startUs > startUs && iv.startUs < endUs {
+			points = append(points, iv.startUs)
+		}
+		if iv.endUs > startUs && iv.endUs < endUs {
+			points = append(points, iv.endUs)
+		}
+	}
+	points = append(points, endUs)
+	sort.Slice(points, func(i, j int) bool { return points[i] < points[j] })
+	return dedupeBoundaries(points, eventBoundaryMergeUs)
+}
+
+// alignedSegmentBoundaries finds a partition formed by exactly planSteps
+// non-overlapping intervals. A second matching partition means the source is
+// ambiguous and no rows are produced.
+func alignedSegmentBoundaries(startUs, endUs int64, intervals []segmentInterval, planSteps int) []int64 {
+	if planSteps < 2 || planSteps > len(intervals) {
+		return nil
+	}
+	var solution []int64
+	solutions, steps := 0, 0
+	var walk func(index int, chosen []segmentInterval)
+	walk = func(index int, chosen []segmentInterval) {
+		steps++
+		if solutions > 1 || steps > 100_000 {
+			return
+		}
+		last := chosen[len(chosen)-1]
+		if len(chosen) == planSteps {
+			if abs64(last.endUs-endUs) <= eventBoundaryMergeUs {
+				solutions++
+				solution = alignedBoundaries(startUs, endUs, chosen)
+			}
+			return
+		}
+		for j := index + 1; j < len(intervals); j++ {
+			if intervals[j].startUs > last.endUs+eventBoundaryToleranceUs {
+				break
+			}
+			if abs64(intervals[j].startUs-last.endUs) > eventBoundaryToleranceUs {
+				continue
+			}
+			next := append(append([]segmentInterval(nil), chosen...), intervals[j])
+			walk(j, next)
+			if solutions > 1 || steps > 100_000 {
+				return
+			}
+		}
+	}
+	for i, iv := range intervals {
+		if abs64(iv.startUs-startUs) > eventBoundaryMergeUs {
+			continue
+		}
+		walk(i, []segmentInterval{iv})
+		if solutions > 1 || steps > 100_000 {
+			break
+		}
+	}
+	if solutions != 1 || steps > 100_000 {
+		return nil
+	}
+	return solution
+}
+
+func alignedBoundaries(startUs, endUs int64, chosen []segmentInterval) []int64 {
+	points := make([]int64, 0, len(chosen)+1)
+	points = append(points, startUs)
+	for i := 0; i < len(chosen)-1; i++ {
+		points = append(points, chosen[i].endUs)
+	}
+	points = append(points, endUs)
+	for i := 1; i < len(points); i++ {
+		if points[i] <= points[i-1] {
+			return nil
+		}
+	}
+	return points
 }
 
 func dedupeBoundaries(xs []int64, minGapUs int64) []int64 {
@@ -1293,7 +1488,9 @@ func flattenPlanSteps(steps []PlannedStep) []PlannedStep {
 				step.Label = fmt.Sprintf("%s %d/%d", s.PurposeLabel(), i+1, repeats)
 			}
 			out = append(out, step)
-			if i < repeats-1 && s.RecoveryS > 0 {
+			// Training totals charge recovery after every repetition, including
+			// the last, so the segment descriptors must include it too.
+			if s.RecoveryS > 0 {
 				out = append(out, PlannedStep{Label: "恢复", Purpose: "recovery", DurationS: s.RecoveryS})
 			}
 		}

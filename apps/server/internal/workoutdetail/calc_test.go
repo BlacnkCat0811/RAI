@@ -2,6 +2,7 @@ package workoutdetail
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -163,8 +164,15 @@ func TestSegmentsPreferEventsOverSingleParentActivity(t *testing.T) {
 	for _, typ := range []int64{3, 7} {
 		events := []EventBoundary{{Type: typ, StartUs: start, EndUs: start + 300e6}, {Type: typ, StartUs: start + 300e6, EndUs: end}, {Type: 8, StartUs: start + 100e6, EndUs: start + 100e6}}
 		segments, match, _, measured := BuildSegments(start, end, 2000, nil, nil, nil, nil, []ActivityBoundary{{StartUs: start, EndUs: end}}, events, plan)
-		if len(segments) != 2 || measured || match != nil || segments[0].Label != "第 1 段" || segments[0].DurationSeconds != 300 {
-			t.Fatalf("event type %d lost or mislabeled: segments=%+v match=%+v measured=%v", typ, segments, match, measured)
+		if len(segments) != 2 || measured || segments[0].DurationSeconds != 300 {
+			t.Fatalf("event type %d lost boundaries: segments=%+v measured=%v", typ, segments, measured)
+		}
+		if typ == 3 {
+			if match != nil || segments[0].Label != "第 1 段" || segments[1].Label != "第 2 段" {
+				t.Fatalf("lap events must stay generic: segments=%+v match=%+v", segments, match)
+			}
+		} else if match == nil || segments[0].Label != "热身" || segments[1].Label != "训练" {
+			t.Fatalf("unique segment hierarchy did not align with plan: segments=%+v match=%+v", segments, match)
 		}
 	}
 	for _, activities := range [][]ActivityBoundary{nil, {{StartUs: start, EndUs: end}}, {{StartUs: start, EndUs: start + 100e6}, {StartUs: start + 200e6, EndUs: end}}} {
@@ -172,6 +180,101 @@ func TestSegmentsPreferEventsOverSingleParentActivity(t *testing.T) {
 		if len(segments) != 0 || measured {
 			t.Fatal("invented measured steps without a subdivision")
 		}
+	}
+}
+
+func TestSegmentsRejectOverlappingSegmentHierarchies(t *testing.T) {
+	start := int64(1_700_000_000_000_000)
+	end := start + 600e6
+	events := []EventBoundary{
+		{Type: 7, StartUs: start, EndUs: start + 300e6},
+		{Type: 7, StartUs: start + 300e6, EndUs: start + 500e6},
+		{Type: 7, StartUs: start + 500e6, EndUs: end},
+		{Type: 7, StartUs: start, EndUs: start + 100e6},
+		{Type: 7, StartUs: start + 100e6, EndUs: start + 250e6},
+		{Type: 7, StartUs: start + 250e6, EndUs: start + 400e6},
+		{Type: 7, StartUs: start + 400e6, EndUs: start + 500e6},
+		{Type: 7, StartUs: start + 500e6, EndUs: end},
+	}
+	segments, match, note, measured := BuildSegments(start, end, 0, nil, nil, nil, nil, nil, events, nil)
+	if len(segments) != 0 || match != nil || measured || !strings.Contains(note, "重叠") {
+		t.Fatalf("overlapping hierarchies fabricated segments: segments=%+v match=%+v note=%q measured=%v", segments, match, note, measured)
+	}
+	plan := &PlanContext{Kind: "INTERVAL", HasStructure: true, Steps: []PlannedStep{
+		{Purpose: "warmup", DurationS: 300}, {Purpose: "work", DurationS: 200}, {Purpose: "cooldown", DurationS: 100},
+	}}
+	segments, match, _, measured = BuildSegments(start, end, 0, nil, nil, nil, nil, nil, events, plan)
+	if len(segments) != 3 || match == nil || measured {
+		t.Fatalf("plan did not select the unique three-step hierarchy: segments=%+v match=%+v measured=%v", segments, match, measured)
+	}
+	for i, want := range []string{"热身", "训练", "整理放松"} {
+		if segments[i].Label != want {
+			t.Fatalf("segment %d label=%q want %q", i+1, segments[i].Label, want)
+		}
+	}
+}
+
+func TestFlattenPlanStepsIncludesTrailingRecovery(t *testing.T) {
+	start := int64(1_700_000_000_000_000)
+	end := start + 1500e6
+	steps := []PlannedStep{
+		{Purpose: "warmup", DurationS: 300},
+		{Purpose: "work", DurationS: 240, Repeats: 3, RecoveryS: 60, TargetHR: Ptr(170)},
+		{Purpose: "cooldown", DurationS: 300},
+	}
+	flat := flattenPlanSteps(steps)
+	if len(flat) != 8 || flat[6].Purpose != "recovery" || flat[7].Purpose != "cooldown" {
+		t.Fatalf("trailing recovery missing from descriptors: %+v", flat)
+	}
+	var activities []ActivityBoundary
+	offset := start
+	for _, duration := range []int64{300, 240, 60, 240, 60, 240, 60, 300} {
+		activities = append(activities, ActivityBoundary{StartUs: offset, EndUs: offset + duration*1_000_000})
+		offset += duration * 1_000_000
+	}
+	plan := &PlanContext{Kind: "INTERVAL", HasStructure: true, Steps: steps}
+	segments, match, note, measured := BuildSegments(start, end, 0, nil, nil, nil, nil, activities, nil, plan)
+	if !measured || match == nil || len(segments) != 8 || segments[6].Purpose != "recovery" || segments[7].Label != "整理放松" {
+		t.Fatalf("plan labels shifted past trailing recovery: segments=%+v match=%+v note=%q measured=%v", segments, match, note, measured)
+	}
+	if !strings.Contains(note, "缺少可用速度轨迹") {
+		t.Fatalf("missing speed track not disclosed: %q", note)
+	}
+}
+
+func TestSegmentsRequireExactPlanStepCount(t *testing.T) {
+	start := int64(1_700_000_000_000_000)
+	end := start + 900e6
+	activities := []ActivityBoundary{
+		{StartUs: start, EndUs: start + 300e6},
+		{StartUs: start + 300e6, EndUs: start + 600e6},
+		{StartUs: start + 600e6, EndUs: end},
+	}
+	plan := &PlanContext{Kind: "INTERVAL", HasStructure: true, Steps: []PlannedStep{{Purpose: "warmup", DurationS: 450}, {Purpose: "work", DurationS: 450}}}
+	segments, match, note, _ := BuildSegments(start, end, 0, nil, nil, nil, nil, activities, nil, plan)
+	if len(segments) != 3 || match != nil || !strings.Contains(note, "计划 2 步，实测 3 段") {
+		t.Fatalf("partial plan labels applied: segments=%+v match=%+v note=%q", segments, match, note)
+	}
+	for _, segment := range segments {
+		if segment.Purpose != "work" {
+			t.Fatalf("generic segment carried plan purpose: %+v", segment)
+		}
+	}
+}
+
+func TestSegmentsPreferLapOverSegmentEvents(t *testing.T) {
+	start, end := int64(1_700_000_000_000_000), int64(1_700_000_600_000_000)
+	events := []EventBoundary{
+		{Type: 3, StartUs: start + 300e6, EndUs: start + 300e6},
+		{Type: 7, StartUs: start, EndUs: start + 100e6},
+		{Type: 7, StartUs: start + 100e6, EndUs: start + 200e6},
+	}
+	segments, match, note, measured := BuildSegments(start, end, 0, nil, nil, nil, nil, nil, events, nil)
+	if len(segments) != 2 || match != nil || measured || !strings.Contains(note, "计圈事件分段") {
+		t.Fatalf("lap partition not preferred: segments=%+v match=%+v note=%q measured=%v", segments, match, note, measured)
+	}
+	if segments[0].DurationSeconds != 300 || segments[1].DurationSeconds != 300 {
+		t.Fatalf("lap boundaries wrong: %+v", segments)
 	}
 }
 

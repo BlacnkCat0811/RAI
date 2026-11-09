@@ -400,3 +400,19 @@ func TestHRSummaryBelowRestingIsInvalid(t *testing.T) {
 		t.Fatalf("below-rest summary error = %v, want training_load_invalid_input", err)
 	}
 }
+
+func TestV2ReferenceSupersedesFeatureParameterAbsence(t *testing.T) {
+	s := fixture(1800, 147.5)
+	s.Parameters = nil
+	in := input(t, s)
+	if !slices.Contains(in.Exposure.ParameterReasons, wf.ParameterMissing) || in.Exposure.Parameter != nil {
+		t.Fatalf("managed-stack premise lost: reasons=%v parameter=%+v", in.Exposure.ParameterReasons, in.Exposure.Parameter)
+	}
+	r, err := CalculateTrainingLoadV2(V2Input{WorkoutInput: in, Reference: &Reference{ID: "synthetic-reference", Hash: Hash("parameter"), RestHR: 50, MaxHR: 200, MeasuredAt: s.Start - 1e6, RecordedAt: s.Start - 1e6, Provenance: "field_max_test"}}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(r.ReasonCodes, string(wf.ParameterMissing)) || r.Load == nil || r.Quality != "complete" || r.Status != "available" {
+		t.Fatalf("resolved reference rejected by feature parameter gate: status=%s quality=%s reasons=%v", r.Status, r.Quality, r.ReasonCodes)
+	}
+}

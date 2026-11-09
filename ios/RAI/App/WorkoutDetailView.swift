@@ -301,7 +301,7 @@ struct WorkoutDetail: View {
     if let series, !series.segments.isEmpty {
       VStack(alignment: .leading, spacing: 12) {
         HStack {
-          Text(series.hasMeasuredWorkoutSteps ? "课表分段" : "实测事件分段").font(.subheadline.weight(.semibold))
+          Text(segmentHeading(series)).font(.subheadline.weight(.semibold))
           Spacer(); Text("\(series.segments.count) 段").font(.caption).foregroundStyle(RAITheme.secondary)
         }
         ForEach(series.segments) { segment in
@@ -314,7 +314,7 @@ struct WorkoutDetail: View {
             }
             if let alert = segmentAlert(segment) { Text(alert).font(.caption).foregroundStyle(segmentTint(segment.purpose)) }
             LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], alignment: .leading, spacing: 8) {
-              segmentMetric("实际距离", ProductFormat.decimal(segment.distanceMeters / 1000, digits: 2) + " 公里")
+              segmentMetric("实际距离", segment.distanceMeters > 0 ? ProductFormat.decimal(segment.distanceMeters / 1000, digits: 2) + " 公里" : "--")
               segmentMetric("平均配速", paceValue(segment.averagePaceSPerKm))
               segmentMetric("平均心率", value(segment.averageHeartRateBpm, digits: 0, unit: "bpm"))
               segmentMetric("平均步频", value(segment.averageCadenceSpm, digits: 0, unit: "spm"))
@@ -337,6 +337,11 @@ struct WorkoutDetail: View {
     }
   }
 
+  private func segmentHeading(_ series: WorkoutSeriesResponse) -> String {
+    if series.segmentPlan != nil { return "课表分段" }
+    return series.hasMeasuredWorkoutSteps ? "实测活动分段" : "手表事件分段"
+  }
+
   private func splitPanel(_ series: WorkoutSeriesResponse?) -> some View {
     let splits = series?.splits ?? []
     let maxPace = max(splits.map(\.averagePaceSPerKm).max() ?? 1, 1)
@@ -344,6 +349,9 @@ struct WorkoutDetail: View {
       HStack {
         Text("公里分段").font(.subheadline.weight(.semibold))
         Spacer(); Text("\(splits.count) 段").font(.caption).foregroundStyle(RAITheme.secondary)
+      }
+      if let note = series?.segmentNote, !note.isEmpty {
+        Text(note).font(.caption).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
       }
       if splits.isEmpty {
         Text("没有分段数据：需要可用的速度序列与官方距离；配速样本尚未到达时不会生成。）")

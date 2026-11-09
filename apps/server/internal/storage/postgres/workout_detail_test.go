@@ -30,6 +30,34 @@ func detailProjectionFixture() *workoutDetailData {
 	return d
 }
 
+func TestMeasuredMergesNestedActivityEvents(t *testing.T) {
+	start := time.Unix(1_700_000_000, 0).UTC()
+	end := start.Add(600 * time.Second)
+	typ := int64(7)
+	firstStart, firstEnd := start.UnixMicro(), start.Add(300*time.Second).UnixMicro()
+	secondStart, secondEnd := firstEnd, end.UnixMicro()
+	d := &workoutDetailData{
+		Start: start,
+		End:   end,
+		Events: []syncing.WorkoutEvent{
+			{Type: &typ, StartUs: &firstStart, EndUs: &firstEnd},
+		},
+		Activities: []syncing.WorkoutActivity{{
+			Events: []syncing.WorkoutEvent{
+				{Type: &typ, StartUs: &firstStart, EndUs: &firstEnd},
+				{Type: &typ, StartUs: &secondStart, EndUs: &secondEnd},
+			},
+		}},
+	}
+	_, events := d.measured()
+	if len(events) != 2 {
+		t.Fatalf("nested activity events not merged or deduplicated: %+v", events)
+	}
+	if events[0].StartUs != firstStart || events[1].StartUs != secondStart {
+		t.Fatalf("event order not deterministic: %+v", events)
+	}
+}
+
 func TestDetailDerivedFieldsRequirePublication(t *testing.T) {
 	d := detailProjectionFixture()
 	for _, status := range []string{"pending", "failed"} {

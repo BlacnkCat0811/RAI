@@ -491,11 +491,28 @@ func (d *workoutDetailData) measured() ([]workoutdetail.ActivityBoundary, []work
 		}
 	}
 	events := make([]workoutdetail.EventBoundary, 0, len(d.Events))
-	for _, e := range d.Events {
+	seen := make(map[[3]int64]bool, len(d.Events))
+	add := func(e syncing.WorkoutEvent) {
 		if e.Type == nil || e.StartUs == nil || e.EndUs == nil {
-			continue
+			return
 		}
+		key := [3]int64{*e.Type, *e.StartUs, *e.EndUs}
+		if seen[key] {
+			return
+		}
+		seen[key] = true
 		events = append(events, workoutdetail.EventBoundary{Type: *e.Type, StartUs: *e.StartUs, EndUs: *e.EndUs})
+	}
+	for _, e := range d.Events {
+		add(e)
+	}
+	// HealthKit also attaches the parent workout's segment events to each
+	// activity. Read them when the top-level payload is incomplete, but never
+	// count the same event twice.
+	for _, a := range d.Activities {
+		for _, e := range a.Events {
+			add(e)
+		}
 	}
 	return activities, events
 }
