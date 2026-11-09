@@ -1,6 +1,7 @@
 package syncing
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -53,15 +54,36 @@ type WorkoutIngestEnvelope struct {
 }
 
 func DecodeWorkoutIngestEnvelope(raw []byte) (WorkoutIngestEnvelope, error) {
-	wire, err := decodeV4Envelope(raw)
-	if err != nil {
+	var version struct {
+		ProtocolVersion *int `json:"protocolVersion"`
+	}
+	if json.Unmarshal(raw, &version) != nil || version.ProtocolVersion == nil {
 		return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
 	}
-	if *wire.ProtocolVersion != 4 {
-		return WorkoutIngestEnvelope{}, bundleField("protocolVersion", "unsupported_protocol")
+	switch *version.ProtocolVersion {
+	case 4:
+		wire, err := decodeV4Envelope(raw)
+		if err != nil {
+			return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
+		}
+		return WorkoutIngestEnvelope{DatasetID: *wire.DatasetID, DatasetEpoch: *wire.DatasetEpoch,
+			CollectorEpoch: *wire.CollectorEpoch, WorkoutID: *wire.WorkoutID, ProtocolVersion: 4}, nil
+	case 5:
+		wire, err := decodeV5Envelope(raw)
+		if err != nil {
+			return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
+		}
+		return WorkoutIngestEnvelope{DatasetID: *wire.DatasetID, DatasetEpoch: *wire.DatasetEpoch,
+			CollectorEpoch: *wire.CollectorEpoch, WorkoutID: *wire.WorkoutID, ProtocolVersion: 5}, nil
+	case 6:
+		wire, err := decodeV6Envelope(raw)
+		if err != nil {
+			return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
+		}
+		return WorkoutIngestEnvelope{DatasetID: *wire.DatasetID, DatasetEpoch: *wire.DatasetEpoch,
+			CollectorEpoch: *wire.CollectorEpoch, WorkoutID: *wire.WorkoutID, ProtocolVersion: 6}, nil
 	}
-	return WorkoutIngestEnvelope{DatasetID: *wire.DatasetID, DatasetEpoch: *wire.DatasetEpoch,
-		CollectorEpoch: *wire.CollectorEpoch, WorkoutID: *wire.WorkoutID, ProtocolVersion: 4}, nil
+	return WorkoutIngestEnvelope{}, bundleField("protocolVersion", "unsupported_protocol")
 }
 
 // WorkoutIngestReceipt is the acceptance-time replay. Later parse state never

@@ -147,7 +147,7 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return errors.New("invalid workout UUID ingest mode")
 	}
-	server := httpapi.NewHTTPServer(addr, httpapi.NewWithOptions(store, log, httpapi.Options{WorkoutUUIDIngestMode: ingestMode}))
+	server := httpapi.NewHTTPServer(addr, httpapi.NewWithOptions(store, log, httpapi.Options{WorkoutUUIDIngestMode: ingestMode, WorkoutPayloadV6: config.WorkoutPayloadV6()}))
 	server.TLSConfig, err = config.TLS()
 	if err != nil {
 		return err

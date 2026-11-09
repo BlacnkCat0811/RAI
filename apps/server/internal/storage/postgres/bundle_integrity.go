@@ -318,8 +318,8 @@ func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout
 		if json.Unmarshal(payloadRaw, &stored) != nil {
 			return analysis.Invalid()
 		}
-		if stored.ProtocolVersion == 4 {
-			table, err := syncing.WorkoutBundleV4SourceTable(payloadRaw)
+		if stored.ProtocolVersion >= 4 {
+			table, err := syncing.WorkoutBundlePayloadSourceTable(payloadRaw)
 			if err != nil {
 				return analysis.Invalid()
 			}

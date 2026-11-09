@@ -370,37 +370,15 @@ func projectV4Streams(bundle *WorkoutBundle, table *BundleSourceTable, raw json.
 			if !ok {
 				continue
 			}
-			key := sampleType + ":" + sample.uuid
-			if _, duplicate := table.Samples[key]; duplicate {
-				continue
-			}
 			source, ok := v4HealthSource(sample.source)
-			if !ok || !v4Eligible(source, parent) {
+			if !ok {
 				continue
 			}
-			event := Event{
-				Op: "upsert", Kind: "sample", Type: sampleType, UUID: sample.uuid,
-				StartUs: &sample.start, EndUs: &sample.end,
-				Source: &Source{BundleID: source.BundleID},
-			}
-			if unit == "" {
-				if math.IsNaN(sample.value) || math.IsInf(sample.value, 0) ||
-					sample.value != math.Trunc(sample.value) || sample.value < 0 || sample.value > 5 {
-					continue
-				}
-				category := int(sample.value)
-				event.Category = &category
-			} else {
-				event.Quantity = &Quantity{Value: sample.value, Unit: unit}
-			}
-			if metadata, ok := v4MetadataValue(sample.metadata); ok {
-				delete(metadata, VO2Reserved)
-				if len(metadata) > 0 {
-					event.Metadata = metadata
-				}
-			}
-			table.Samples[key] = source
-			bundle.Samples = append(bundle.Samples, event)
+			metadata, _ := v4MetadataValue(sample.metadata)
+			projectBundleSample(bundle, table, sampleType, unit, bundleSampleValue{
+				uuid: sample.uuid, start: sample.start, end: sample.end, value: sample.value,
+				source: source, metadata: metadata,
+			}, parent)
 		}
 	}
 	return nil
@@ -413,6 +391,60 @@ type v4SampleValue struct {
 	value    float64
 	source   json.RawMessage
 	metadata json.RawMessage
+}
+
+// bundleSampleValue is the decoded sample both protocol decoders project. The
+// wire differs (v4 inline objects, v5 columnar arrays and tables), but duplicate
+// suppression, source eligibility, value interpretation and metadata projection
+// must stay identical.
+type bundleSampleValue struct {
+	uuid     string
+	start    int64
+	end      int64
+	value    float64
+	source   HealthKitSource
+	metadata map[string]any
+}
+
+func projectBundleSample(bundle *WorkoutBundle, table *BundleSourceTable, sampleType, unit string,
+	sample bundleSampleValue, parent *HealthKitSource) bool {
+	key := sampleType + ":" + sample.uuid
+	if _, duplicate := table.Samples[key]; duplicate {
+		return false
+	}
+	if !v4Eligible(sample.source, parent) {
+		return false
+	}
+	event := Event{
+		Op: "upsert", Kind: "sample", Type: sampleType, UUID: sample.uuid,
+		StartUs: &sample.start, EndUs: &sample.end,
+		Source: &Source{BundleID: sample.source.BundleID},
+	}
+	if unit == "" {
+		if math.IsNaN(sample.value) || math.IsInf(sample.value, 0) ||
+			sample.value != math.Trunc(sample.value) || sample.value < 0 || sample.value > 5 {
+			return false
+		}
+		category := int(sample.value)
+		event.Category = &category
+	} else {
+		event.Quantity = &Quantity{Value: sample.value, Unit: unit}
+	}
+	if len(sample.metadata) > 0 {
+		// A v5 metadata table entry can be referenced by many samples. Each
+		// projected Event gets its own map so later enrichment cannot alias facts.
+		metadata := make(map[string]any, len(sample.metadata))
+		for key, value := range sample.metadata {
+			metadata[key] = value
+		}
+		delete(metadata, VO2Reserved)
+		if len(metadata) > 0 {
+			event.Metadata = metadata
+		}
+	}
+	table.Samples[key] = sample.source
+	bundle.Samples = append(bundle.Samples, event)
+	return true
 }
 
 func decodeV4Sample(raw json.RawMessage) (v4SampleValue, bool) {

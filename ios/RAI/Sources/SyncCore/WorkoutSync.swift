@@ -116,6 +116,9 @@ public struct WorkoutSyncTask: Codable, Sendable, Equatable {
     /// authoritative and the old bundle upload must never be retried for this
     /// Workout. A missing value on an old task keeps the legacy lane.
     public var ingestMode: String?
+    /// Wire version of the staged ingest payload (4 or 6). Recorded with the
+    /// immutable file so a later delivery never validates v6 bytes as v4.
+    public var payloadVersion: Int?
     /// Server acceptance of the exact payload; the file may already be gone.
     public var ingestAcceptedAt: Date?
     /// Last observed ingest status (`accepted`, `committed`, `rejected`, ...).

@@ -1,3 +1,19 @@
+## 2026-11-09 — Workout 同步协议 v6 原始序列一次打包 / OpenAPI 1.11.0
+
+- 新增 `contracts/sync-v6.md`：一个 Workout 一个 JSON、一次 multipart + gzip 上传。流只带类型、单位、诊断状态和 `[[startDeltaUs,endDeltaUs,value],...]` 三元组；series 以父样本表头加同型点子点分组；route 点改为 3..8 元素元组。v6 不发送逐样本 UUID、metadata 或 source，也不发送 v4 的 `sourceTable`/`metadataTable`、`observation`、删除数组。
+- 事实身份由服务端确定性生成：UUIDv5(SHA-1)，命名空间 `c9f3e2a1-7b64-5d8e-9a0b-1c2d3e4f5a6b`，名称 `rai/v1|<datasetID>|<workoutID>|<sampleType>|sample|series/route|<wire 序号>`；序号包含被跳过的条目，重放同一字节得到同一身份，不随机、不按时间、不按数据库序列。合同记录三组 test vectors。
+- 全包来源继承：所有投影事实使用 Workout 顶层 `source`；Workout 来源仍须通过冻结的 `rai.workout.source_policy.apple_watch_only/v1`，混合 Watch+iPhone 子样本不在逐样本层面区分。v6 不做删除同步，v3 删除能力只保留给 v3 与管理路径。
+- 限额沿用并明确：样本+series 组原始条目 50,000、series 点 1,000,000、route 16 条、route 点 1,000,000、包 32 MiB；超限 413 `bundle_too_large`，不截断。未知流类型、单位不匹配、非法样本/组/点是软跳过；身份、协议版本、时间范围、来源、Workout 核心、JSON 结构限制是硬错误。
+- 握手新增客户端请求 `X-RAI-Sync-Protocol: 6`；服务端仅在 `RAI_WORKOUT_PAYLOAD_V6=1` 时回 `workoutPayloadVersion=6`/`bundleProtocolVersion=6`，否则按 4 回退，客户端用 v4 builder 生成原字节。iOS `workoutPayloadV6` 默认关闭。UUID 接收路径接受 v4/v6，任务记录实际载荷版本，重投绝不把 v6 字节当 v4 校验。
+- `contracts/openapi-v2.yaml` 升为 1.11.0，握手能力枚举加入 6，ingest 端点说明覆盖 protocol 4/5/6。
+
+## 2026-11-09 — Workout 同步协议 v5 紧凑载荷 / OpenAPI 1.10.0
+
+- 新增 `contracts/sync-v5.md`：在 v4 原始载荷语义不变的前提下，把逐样本重复的完整 `source` 去重到顶层 `sourceTable`，非空 `metadata` 去重到 `metadataTable`，样本改为 4..6 元素列式数组，series/route/样本时间改为相对顶层 `startUs` 的微秒增量；样本 UUID 保留为 `health_samples` 事实身份。
+- 握手新增 `X-RAI-Sync-Protocol: 5`，返回 `workoutPayloadVersion=5`、`bundleProtocolVersion=5`、`bundleCompact=true`；服务端同时接受 v4，客户端未协商到 5 时回退 v4，已封存的 v4 包按原字节上传。
+- 服务端 v5 解码与 v4 共用事实投影、来源分类、series 父引用和 route 身份；`sourceTable`/`metadataTable` 只做编码去重，不产生新事实。分析/特征/完整性读取按 `protocolVersion` 选择 v4 或 v5 来源表提取器。
+- `contracts/openapi-v2.yaml` 升为 1.10.0，握手能力版本枚举加入 5。
+
 ## 2026-11-09 — Workout UUID 一次接收 / schema 50 / OpenAPI 1.9.0
 
 - 新增 `POST /v2/sync/workout-ingests/{workoutID}`：首次成功接收的 protocol-4 原始载荷按 `(dataset_id, workout_uuid)` 唯一保存，是唯一权威副本；重复 UUID 即使字节不同也重放首次 `acceptedAt`，不替换原始字节。已有 Workout 但无接收记录返回 `already_imported`，根删除屏障返回 409 `workout_deleted`。`POST /v2/sync/workout-bundles` 的 v4 路径在 `uuid` 模式返回 409 `workout_uuid_ingest_required`，`uuid_paused` 返回 503；v3 与管理删除路径不变。

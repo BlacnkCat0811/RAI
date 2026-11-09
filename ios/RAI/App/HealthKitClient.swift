@@ -28,6 +28,21 @@ struct HealthRouteRead: Sendable {
     var coverage: [String: WorkoutCoverage] = [:]
     var enumerationCompleted = false
 }
+/// One series parent read in the v6 builder. The parent UUID stays an
+/// in-memory grouping key and is never serialized; the header preserves the
+/// parent's own start, end and aggregate value so the server does not invent
+/// them.
+struct HealthSeriesPoint: Sendable {
+    let startUs: Int64
+    let endUs: Int64
+    let value: Double
+}
+struct HealthSeriesGroup: Sendable {
+    let startUs: Int64
+    let endUs: Int64
+    let value: Double
+    let points: [HealthSeriesPoint]
+}
 
 protocol HealthKitReading: Sendable {
     func authorize() async throws
@@ -39,6 +54,9 @@ protocol HealthKitReading: Sendable {
     func readWorkout(id: String, anchor: Data?) async throws -> HealthPage
     func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample]
     func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]]
+    /// One series query per type grouped by parent in memory. The parent's own
+    /// quantity is the group header for protocol 6.
+    func bundleSeriesGroups(type: HKQuantityType, workout: HKWorkout) async throws -> [HealthSeriesGroup]
     func bundleRoutes(workout: HKWorkout) async throws -> [HealthRouteBundle]
     func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]]
     func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead
@@ -76,6 +94,7 @@ extension HealthKitReading {
     func readWorkout(id: String, anchor: Data?) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] { throw SyncFailure.invalid("healthkit_unavailable") }
     func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { throw SyncFailure.invalid("healthkit_unavailable") }
+    func bundleSeriesGroups(type: HKQuantityType, workout: HKWorkout) async throws -> [HealthSeriesGroup] { throw SyncFailure.invalid("healthkit_unavailable") }
 
     func bundleRoutes(workout: HKWorkout) async throws -> [HealthRouteBundle] { throw SyncFailure.invalid("healthkit_unavailable") }
 }
@@ -384,6 +403,45 @@ actor HealthKitClient: HealthKitReading {
             ]))
         }
         return bySample
+    }
+
+    /// Protocol-6 variant of `bundleSeries`: one query still returns every
+    /// visible point, but each parent sample is kept as the group header.
+    /// HealthKit's sample UUID is only the in-memory grouping key.
+    func bundleSeriesGroups(type: HKQuantityType, workout: HKWorkout) async throws -> [HealthSeriesGroup] {
+        let query = HKQuantitySeriesSampleQueryDescriptor(predicate: .quantitySample(type: type,
+            predicate: HKQuery.predicateForObjects(from: workout)), options: [.includeSample])
+        var order: [String] = []
+        var parents: [String: HKQuantitySample] = [:]
+        var points: [String: [HealthSeriesPoint]] = [:]
+        for try await value in query.results(for: health) {
+            guard let sample = value.sample else { throw SyncFailure.localState("series_parent_missing") }
+            let key = sample.uuid.uuidString.lowercased()
+            let quantity = try Normalizer.quantity(value.quantity, type: type.identifier)
+            guard let numeric = Self.number(quantity["value"]) else {
+                throw SyncFailure.invalid("nonfinite_quantity")
+            }
+            if parents[key] == nil { parents[key] = sample; order.append(key) }
+            points[key, default: []].append(HealthSeriesPoint(
+                startUs: Normalizer.us(value.dateInterval.start),
+                endUs: Normalizer.us(value.dateInterval.end), value: numeric))
+        }
+        return try order.compactMap { key in
+            guard let parent = parents[key], let group = points[key], !group.isEmpty else { return nil }
+            let header = try Normalizer.quantity(parent.quantity, type: type.identifier)
+            guard let value = Self.number(header["value"]) else { return nil }
+            return HealthSeriesGroup(startUs: Normalizer.us(parent.startDate),
+                                     endUs: Normalizer.us(parent.endDate),
+                                     value: value, points: group)
+        }
+    }
+
+    private static func number(_ value: JSON?) -> Double? {
+        switch value {
+        case .number(let number) where number.isFinite: return number
+        case .int(let integer): return Double(integer)
+        default: return nil
+        }
     }
 
     func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]] {

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RAI native delta API
-  version: 1.9.0
+  version: 1.11.0
   description: >-
     Protocol 3 HealthKit Workout Bundle import: one multipart request carries one
     immutable Workout, all its scalar samples, multi-point quantity series and
@@ -16,6 +16,9 @@ info:
     are immutable and replayable; manual edits survive recalculation.
     Protocol 4 clients may opt into per-Workout-UUID raw ingestion, where the
     first accepted payload is authoritative and later duplicates replay it.
+    Protocol 6 clients may send RQrun-style raw scalar triples, series groups
+    and routes without per-sample UUID, metadata or source; the server owns
+    deterministic fact identity. Protocol 6 is advertised only when enabled.
   license: {name: Proprietary, identifier: LicenseRef-Proprietary}
 servers:
   - url: http://127.0.0.1:8080
@@ -334,14 +337,15 @@ paths:
         required: true
         schema: {$ref: '#/components/schemas/ID'}
     post:
-      summary: Accept one raw protocol-4 Workout payload by UUID
+      summary: Accept one raw protocol-4, 5 or 6 Workout payload by UUID
       operationId: acceptWorkoutIngest
       description: >-
         First successful reception of an HKWorkout UUID in this dataset is
-        authoritative. The multipart field is `file` with the raw protocol-4
-        JSON document (or its gzip form) exactly as specified by
-        contracts/sync-v4.md. Only the wire envelope (identity, epochs,
-        protocolVersion=4, UTF-8, duplicate keys, nesting, size) is validated
+        authoritative. The multipart field is `file` with the raw protocol-4,
+        protocol-5 or protocol-6 JSON document (or its gzip form) exactly as
+        specified by contracts/sync-v4.md, contracts/sync-v5.md or
+        contracts/sync-v6.md. Only the wire envelope (identity, epochs,
+        protocolVersion, UTF-8, duplicate keys, nesting, size) is validated
         before the acceptance transaction; samples, streams and routes are
         parsed by the Worker. The 200 response is written only after the
         acceptance row commits. A duplicate UUID replays the original
@@ -361,7 +365,7 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: Exactly one raw v4 JSON or gzip file part; wire/decoded/gzip limits match POST /v2/sync/workout-bundles.
+                  description: Exactly one raw v4/v5/v6 JSON or gzip file part; wire/decoded/gzip limits match POST /v2/sync/workout-bundles. Protocol-specific shape is defined by contracts/sync-v4.md, sync-v5.md and sync-v6.md.
       responses:
         '200':
           description: Durable acceptance receipt, or already_imported for a pre-existing Workout
@@ -719,12 +723,12 @@ components:
           items: {type: string, minLength: 1}
         workouts: {const: true}
         workoutType: {const: HKWorkoutTypeIdentifier}
-        workoutPayloadVersion: {enum: [3, 4], description: Highest Workout bundle payload version negotiated for this request}
+        workoutPayloadVersion: {enum: [3, 4, 5, 6], description: Highest Workout bundle payload version negotiated for this request}
         bundleGzipPart: {type: boolean}
         workoutBundles: {const: true, description: "One multipart request carries one complete Workout, samples, series and routes"}
-        bundleProtocolVersion: {enum: [3, 4]}
+        bundleProtocolVersion: {enum: [3, 4, 5, 6]}
         bundleObservationVersion: {const: 1, description: Optional Phase 3 observation contract}
-        bundleCompact: {type: boolean, description: "Protocol 4 compact bundle capability; present only when negotiated"}
+        bundleCompact: {type: boolean, description: "Protocol 4/5/6 compact bundle capability; present only when negotiated"}
         workoutUUIDIngestVersion: {const: 1, description: Workout UUID ingest contract version}
         workoutUUIDIngestAccepting: {type: boolean, description: True only while POST /v2/sync/workout-ingests accepts new raw payloads; status reads and replays remain available in every mode}
         explicitChildDeletions: {const: true, description: Optional Phase 3 explicit deletion arrays in the same bundle}

@@ -349,7 +349,7 @@ func (s *Store) ProcessNextWorkoutIngest(ctx context.Context) (syncing.WorkoutIn
 // fact transaction committed and the ingest row is already committed.
 func (s *Store) processWorkoutIngest(ctx context.Context, claim workoutIngestClaim) (string, bool) {
 	decodeStart := time.Now()
-	bundle, err := syncing.DecodeWorkoutBundleV4JSON(claim.raw)
+	bundle, err := syncing.DecodeWorkoutBundlePayloadJSON(claim.raw)
 	if err != nil {
 		return ingestErrorCode(err), true
 	}

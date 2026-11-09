@@ -1406,3 +1406,21 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - 运行态：api/worker 用新镜像运行且 healthy；容器内 `probe --ready`、`worker-ready` 通过（worker 启动日志 `handlers=13`）；公网 `GET /ready` 200、`GET /health` 返回 `{"status":"alive"}`；未认证 `POST /v2/sync/workout-ingests/{id}` 返回 401；切换前后 API/Worker 日志均无 WARN/ERROR。
 - 兼容性边界：API 为 `uuid` 模式时，protocol-4 旧入口 `POST /v2/sync/workout-bundles` 返回 409 `workout_uuid_ingest_required`；v3 协议、回执 GET 与管理删除路径不变。回退方式是把 `environment` 的 `export RAI_WORKOUT_UUID_INGEST_MODE` 改回 `legacy` 并重建 API，`workout_ingests` 表与既有回执保留。
 - 未验证/未授权：按用户要求未运行任何 Go/Swift/集成测试；切换后 75 s 内未再观察到设备同步，真实设备从握手到 `accepted`→`committed` 的端到端链路本轮无实测证据，需用户下次手动同步确认（此前被 `legacy` 拒绝而失败的 App 任务需重新触发）；未做带凭证的合成上传以免写入真实 dataset，未读取生产业务数据或健康值；未用真实 iPhone 验证接收后的分析刷新；未重新构建 iOS 包。部署不代表真机、模型或产品验收。
+
+### Workout Sync v6 — 原始序列一次打包（2026-11-09，未部署）
+
+本轮按 v6 任务书实现 RQrun 式“一个 Workout 一个 JSON、一次上传”的服务端与 iOS 路径。v6 不发送逐样本 UUID、metadata 或 source；事实身份由服务端按 dataset/workout/类型/wire 序号确定性生成。v3/v4 兼容路径、根删除屏障、原始字节入库和事务内提交未改变；既有未提交 v5 文件全部保留。无新 migration，schema 保持 50。
+
+- 服务端：新增 `workout_bundle_v6.go`，解码严格信封（protocol 6、dataset/collector epoch、workoutID、startUs/endUs、source、workout），流为 `[[startDeltaUs,endDeltaUs,value],...]` 三元组，series 为父表头加同型点位，route 为 3..8 元素元组；未知流/单位不匹配/非法样本或点为软跳过，身份、范围、来源策略、Workout 核心、JSON 结构与限额为硬错误。所有投影事实继承顶层 Workout 来源，仍受 `rai.workout.source_policy.apple_watch_only/v1` 约束。事实 UUID 使用 UUIDv5(SHA-1)，命名空间 `c9f3e2a1-7b64-5d8e-9a0b-1c2d3e4f5a6b`，序号取 wire 数组下标且包含被跳过条目；重放同字节得到同一身份。
+- 服务端接入：`DecodeWorkoutBundlePayloadJSON` 与 ingest 信封按 protocol 4/5/6 分派；分析/特征/完整性输入读取接受 4/5/6。握手仅在 `RAI_WORKOUT_PAYLOAD_V6=1` 时对 `X-RAI-Sync-Protocol: 6` 返回 `workoutPayloadVersion=6`/`bundleProtocolVersion=6`，否则回退 4。UUID ingest 的首次原始字节、提交、回执与删除语义不变，worker 提交 v6 事实时仍与接收状态同事务。
+- iOS：新增 `RawStreamSyncEngine`，仅在协商到 6 时替代 v4 builder。每个 Workout 只读一次 Workout、一次顶层来源和一次 routes；series 类型各执行一次 `HKQuantitySeriesSampleQueryDescriptor` 并在内存按父 UUID 分组，scalar 类型各执行一次样本查询；序列化只用 `[startDeltaUs,endDeltaUs,value]`，不生成逐样本 UUID/metadata/source，顶层也不发送 metadata，父 UUID 与 route id 只作内存排序键。单个流失败写 `status:"failed"` 与错误码且不阻断其他流，route 读取失败或任一条 route 读取不完整时整体降级为空路线，超限抛 `bundle_too_large` 不截断。`WorkoutBundleV6` 负责确定性排序、增量、限额与单次 JSON 序列化；重试复用已封存字节，不重新读取 HealthKit。
+- 协商：`SyncCoordinator.negotiate` 只有在 v4 lane 可用且服务端宣告 6 时选择载荷版本 6；请求 6 但服务端回 4 时继续用 v4 builder，已封存 v4 包按原字节上传。Outbox 任务记录实际 `payloadVersion`，投递时校验协议版本与任务记录一致，防止 v6 字节被当作 v4 校验。
+- 本机证据（2026-11-09）：
+  - `scripts/local/test.sh gate` PASS（26 s）：gofmt、`go test -race ./...`、`go vet ./...`、在线/纯域依赖边界与 controller 安全检查全部通过。
+  - `scripts/local/test.sh integration -run 'V6' -v ./integration` PASS（3.519 s，隔离 PostgreSQL 18.6，`fsync=on`、`full_page_writes=on`、`synchronous_commit=on`、`data_checksums=on`）：`TestWorkoutUUIDIngestV6CommitReplayDelete`、`TestWorkoutUUIDIngestV6RejectsBodyMismatch`、`TestWorkoutUUIDIngestV6StrictPayloadRejected`、`TestWorkoutUUIDIngestV6CannotUseCompactEntry` 全部通过；覆盖精确原始字节、确定性事实 UUID、series 父/route 投影、接收→worker 提交→分析待办、重复回执、路径体不匹配、严格载荷拒绝与 v6 不得走旧 compact 入口。`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`。
+  - 服务端合成 40 分钟用例 `TestDecodeWorkoutBundleV6FortyMinuteSynthetic`：payload 262,558 B，投影 samples=2,401、series 点=2,400、route 点=2,400（逐秒心率 + 逐秒 running power series + 逐秒 route 点）。
+  - `scripts/local/contracts.sh` PASS：OpenAPI 1.11.0，redocly 0 errors / 36 既有 warnings。
+  - iOS `scripts/local/test.sh swift` PASS：281 tests / 39 suites，含 v6 编码器、sample/series/route 排序确定性、series 父范围、route 元组、超限不截断与握手回退；40 分钟 builder 合成载荷 144,797 B（2,400 心率 + 4 个 series 流各 600 点 + 600 route 点，形状与服务端用例不同）。
+  - iOS `scripts/local/test.sh simulator` PASS：107 passed / 0 failed / 3 skipped（iPhone 12 Pro Max 模拟器 iOS 26.5，`simulator.8mGToY/result.xcresult`），含每类型只读一次、单流失败隔离、route 查询失败与单条 route 读取不完整均上传空 routes、第三方来源零读取、重试复用字节、默认不带 metadata、40 分钟计数与大小、超限抛错、握手回退到 v4。
+  - UUID test vectors 与合同、服务端测试一致：sample 0 `34635001-1772-53c6-b1be-0d0ee6697213`；series 0 `e5920676-90e1-5960-9e25-7a82deac2d69`；route 0 `c78232c5-3611-5aa0-97fd-ecc1f7ffb71c`（dataset `11111111-1111-4111-8111-111111111111`、workout `22222222-2222-4222-8222-222222222222`、类型 HeartRate）。
+- 未验证/未授权：未构建镜像、未部署、云端仍为 schema 50 / OpenAPI 1.9.0；`RAI_WORKOUT_PAYLOAD_V6` 未在任何环境启用，iOS `workoutPayloadV6` 默认关闭；未用真实 iPhone/HealthKit 验证 v6 读取、上传、后台传输或混合 Watch+iPhone 来源；未在 App UI 中查看 v6 分析结果；未跑 `full`（uncached 全量集成回归）与真机验收。服务端 integration 只证明接收、投影、提交与待办入队，不证明分析模型正确性。

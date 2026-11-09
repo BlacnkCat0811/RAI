@@ -116,6 +116,18 @@ private func ingestPayload(_ id: String, _ scope: Scope, marker: Int64 = 0) thro
     ]).data()
 }
 
+private func ingestPayloadV6(_ id: String, _ scope: Scope) throws -> Data {
+    try JSON.object([
+        "protocolVersion": .int(6), "workoutID": .string(id),
+        "datasetID": .string(scope.datasetID), "datasetEpoch": .string(scope.datasetEpoch),
+        "collectorEpoch": .string(scope.collectorEpoch),
+        "startUs": .int(1_800_000_000_000_000), "endUs": .int(1_800_000_060_000_000),
+        "source": .object(["bundleID": .string("com.apple.health")]),
+        "workout": .object(["activityType": .int(37)]),
+        "streams": .array([]), "routes": .array([]),
+    ]).data()
+}
+
 private func makeIngestFixture(marker: Int64 = 0) async throws -> IngestFixture {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-ingest-" + Wire.id())
     let store = try OutboxStore(directory: directory)
@@ -399,6 +411,53 @@ struct WorkoutIngestTests {
         #expect(calls[0].body == calls[1].body)
         #expect(recorder.values("workout_ingest_gzip_derive_ms").count == 1)
         #expect(try await fixture.store.task(fixture.id)?.phase == .accepted)
+    }
+
+    @Test func uuidLaneDeliversProtocolSixPayloadAndRecordsItsVersion() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-ingest-v6-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory)
+        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
+        let id = Wire.id()
+        try await store.beginTask(id)
+        try await store.markIngestLane(id)
+        let raw = try ingestPayloadV6(id, scope)
+        let boundary = "rai.ingest." + Wire.id()
+        _ = try await store.stageWorkoutIngestPayload(
+            id, body: WorkoutBundleAssembler.multipart(bundle: raw, boundary: boundary), payloadVersion: 6)
+        #expect(await store.task(id)?.payloadVersion == 6)
+
+        let uploader = IngestUploader()
+        uploader.answer(UploadResponse(data: try acceptedReceipt(id).data(), status: 200,
+                                       contentType: "application/json"))
+        let accepted = try await WorkoutIngestDelivery(store: store, api: ingestAPI(uploader))
+            .accept(id, scope: scope)
+        #expect(accepted)
+        #expect(uploader.recorded.count == 1)
+        #expect(await store.task(id)?.phase == .accepted)
+    }
+
+    @Test func recordedPayloadVersionRejectsADifferentWireVersion() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-ingest-v6-" + Wire.id())
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try OutboxStore(directory: directory)
+        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
+        let id = Wire.id()
+        try await store.beginTask(id)
+        try await store.markIngestLane(id)
+        let boundary = "rai.ingest." + Wire.id()
+        _ = try await store.stageWorkoutIngestPayload(
+            id, body: WorkoutBundleAssembler.multipart(bundle: try ingestPayloadV6(id, scope), boundary: boundary),
+            payloadVersion: 4)
+        let uploader = IngestUploader()
+        do {
+            _ = try await WorkoutIngestDelivery(store: store, api: ingestAPI(uploader))
+                .accept(id, scope: scope)
+            Issue.record("v6 bytes recorded as v4 must not be uploaded")
+        } catch let failure as UploadError {
+            #expect(failure.code == "bundle_session_mismatch")
+        }
+        #expect(uploader.recorded.isEmpty)
     }
 
     @Test func claimEnforcesBackoffAndServerAnswerRemovesAuthority() async throws {

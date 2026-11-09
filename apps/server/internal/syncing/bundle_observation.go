@@ -204,9 +204,9 @@ func metadataInteger(value any) (int64, bool) {
 // validateMetadataRegistryVersion enforces that a bundle may carry only the
 // keys its declared registry version supports. An absent field means version 1.
 func (b WorkoutBundle) validateMetadataRegistryVersion() error {
-	if b.ProtocolVersion == 4 {
-		// Protocol 4 has no metadata registry: every unknown key is preserved
-		// verbatim instead of being allowlisted by version.
+	if b.ProtocolVersion >= 4 {
+		// Protocol 4 and later have no metadata registry: every unknown key is
+		// preserved verbatim instead of being allowlisted by version.
 		return nil
 	}
 	version := MetadataRegistryVersionV1

@@ -420,16 +420,18 @@ public actor OutboxStore {
     /// file rename precedes the state commit, so a crash leaves a complete file
     /// that recovery can find by UUID rather than a task pointing at nothing.
     @discardableResult
-    public func stageWorkoutIngestPayload(_ id: String, body: Data) throws -> (file: String, boundary: String) {
+    public func stageWorkoutIngestPayload(_ id: String, body: Data,
+                                          payloadVersion: Int? = nil) throws -> (file: String, boundary: String) {
         guard let name = Self.ingestPayloadName(id) else { throw SyncFailure.localState("invalid_workout_id") }
         guard let boundary = Self.ingestPayloadBoundary(body) else { throw SyncFailure.localState("payload_corrupt") }
         try Self.write(body, to: directory.appendingPathComponent(name))
-        try setIngestBundle(id, file: name, boundary: boundary)
+        try setIngestBundle(id, file: name, boundary: boundary, payloadVersion: payloadVersion)
         return (name, boundary)
     }
     /// Make one exact multipart body the upload authority. A different existing
     /// file is never overwritten; adoption reuses the same bytes and boundary.
-    public func setIngestBundle(_ id: String, file: String, boundary: String) throws {
+    public func setIngestBundle(_ id: String, file: String, boundary: String,
+                                payloadVersion: Int? = nil) throws {
         var next = state
         var tasks = next.tasks ?? [:]
         guard var task = tasks[id] else { throw SyncFailure.localState("unknown_workout_task") }
@@ -451,6 +453,7 @@ public actor OutboxStore {
             task.bundleWireFile = nil; task.bundleWireSHA256 = nil
         }
         task.ingestMode = Self.ingestModeUUID
+        if let payloadVersion { task.payloadVersion = payloadVersion }
         task.bundleFile = file; task.bundleBoundary = boundary; task.bundleSHA256 = nil
         task.uploadReceipt = nil; task.acknowledgedAt = nil
         task.attemptCount = nil; task.nextAttemptAt = nil; task.lastUploadError = nil

@@ -34,6 +34,10 @@ actor SyncCoordinator {
     private var analysisRefreshes: [String: Task<Void, Never>] = [:]
     private var supportsIntegrity = false
     private var syncProtocolV4 = false
+    /// Raw payload version negotiated for this session: 4 or 6. The UUID
+    /// ingest lane uses it to choose the builder; prepared bytes stay
+    /// authoritative whatever version they were built with.
+    private var syncPayloadVersion = 4
     /// UUID ingest capabilities of the current handshake. The lane decision is
     /// made before any HealthKit discovery and never changes mid-session.
     private var workoutUUIDIngestVersion = 0
@@ -388,7 +392,8 @@ actor SyncCoordinator {
                    let boundary = task.bundleBoundary, let url = try? await store.fileURL(file),
                    FileManager.default.fileExists(atPath: url.path) {
                     if task.phase == .failed { continue }
-                    if Self.bundleProtocolVersion(url, boundary: boundary) == 4 && !syncProtocolV4 {
+                    if let version = Self.bundleProtocolVersion(url, boundary: boundary),
+                       [4, 6].contains(version), !syncProtocolV4 {
                         try await store.discardUnreadableBundle(id)
                     } else {
                         _ = try await WorkoutBundleDelivery(store: store, api: api).deliver(id)
@@ -404,11 +409,13 @@ actor SyncCoordinator {
 
     private func context(secret: ClientConfiguration.Secret, transfers: any FileUploader, metrics: SyncMetrics) async throws -> (RAIAPIClient, Scope) {
         let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, session: session, uploader: transfers, metrics: metrics)
-        // v4 is requested explicitly. A server with the capability disabled
-        // ignores the header and keeps returning 3, which is a safe fallback.
+        // v4 is requested explicitly. Protocol 6 is requested only when the
+        // client flag is on; a server with the capability disabled answers 4,
+        // and that answer is the fallback this session uses.
         let wantsV4 = secret.configuration.v4Enabled
+        let wantsV6 = wantsV4 && secret.configuration.payloadV6Enabled
         let hello = try await api.call("GET", "/v2/handshake",
-                                       headers: wantsV4 ? ["X-RAI-Sync-Protocol": "4"] : [:])
+                                       headers: wantsV4 ? ["X-RAI-Sync-Protocol": wantsV6 ? "6" : "4"] : [:])
         if let sessionStore, let sessionID {
             try await sessionStore.validateActiveHandshake(sessionID, handshake: hello)
         }
@@ -417,13 +424,14 @@ actor SyncCoordinator {
         guard hello["protocolVersion"].integer == 3, let service = hello["serviceID"].text,
               let dataset = hello["datasetID"].text, let epoch = hello["datasetEpoch"].text,
               hello["capabilities"]["workoutBundles"] == .bool(true),
-              [3, 4].contains(bundleProtocol),
+              [3, 4, 6].contains(bundleProtocol),
               !supported.isEmpty,
               HealthKitClient.quantityTypes.allSatisfy({ supported.contains($0.identifier) }) else {
             throw SyncFailure.invalid("unsupported_handshake")
         }
-        syncProtocolV4 = wantsV4 && bundleProtocol == 4
-            && hello["capabilities"]["bundleCompact"] == .bool(true)
+        let negotiated = Self.negotiate(wantsV4: wantsV4, wantsV6: wantsV6, bundleProtocol: bundleProtocol)
+        syncProtocolV4 = negotiated.rawLane && hello["capabilities"]["bundleCompact"] == .bool(true)
+        syncPayloadVersion = negotiated.payloadVersion
         workoutUUIDIngestVersion = Int(hello["capabilities"]["workoutUUIDIngestVersion"].integer ?? 0)
         workoutUUIDIngestAccepting = hello["capabilities"]["workoutUUIDIngestAccepting"] == .bool(true)
         uuidIngestEnabled = secret.configuration.uuidIngestEnabled
@@ -573,7 +581,8 @@ actor SyncCoordinator {
               ![.acknowledged, .analyzing, .published, .partial, .deleted].contains(task.phase) else { return false }
         if let file = task.bundleFile, let boundary = task.bundleBoundary,
            let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
-            return Self.bundleProtocolVersion(url, boundary: boundary) == 4
+            guard let version = Self.bundleProtocolVersion(url, boundary: boundary) else { return false }
+            return [4, 6].contains(version)
         }
         return true
     }
@@ -633,14 +642,21 @@ actor SyncCoordinator {
             }
             try await updateTask(id, phase: .preparing)
             do {
-                let engine = V4SyncEngine(store: store, health: health, scope: scope)
-                let bundle = try await engine.build(id: id, anchor: current.workoutAnchor)
+                let payloadVersion = syncPayloadVersion
+                let raw: Data
+                if payloadVersion == 6 {
+                    raw = try await RawStreamSyncEngine(store: store, health: health, scope: scope).build(id: id).raw
+                } else {
+                    let bundle = try await V4SyncEngine(store: store, health: health, scope: scope)
+                        .build(id: id, anchor: current.workoutAnchor)
+                    raw = bundle.raw
+                    if let nextAnchor = bundle.nextAnchor { try? await store.setWorkoutAnchor(id, anchor: nextAnchor) }
+                }
                 let boundary = "rai.boundary." + Wire.id()
-                let body = WorkoutBundleAssembler.multipart(bundle: bundle.raw, boundary: boundary)
-                try await store.stageWorkoutIngestPayload(id, body: body)
-                if let nextAnchor = bundle.nextAnchor { try? await store.setWorkoutAnchor(id, anchor: nextAnchor) }
+                let body = WorkoutBundleAssembler.multipart(bundle: raw, boundary: boundary)
+                try await store.stageWorkoutIngestPayload(id, body: body, payloadVersion: payloadVersion)
                 try await updateTask(id, phase: .uploading,
-                                     metrics: ["v4_build_ms": Date().timeIntervalSince(started) * 1000])
+                                     metrics: [(payloadVersion == 6 ? "v6_build_ms" : "v4_build_ms"): Date().timeIntervalSince(started) * 1000])
             } catch {
                 if error is CancellationError || Task.isCancelled { throw CancellationError() }
                 if let latest = await store.task(id), latest.ingestStatus == nil, latest.ingestAcceptedAt == nil {
@@ -998,6 +1014,14 @@ actor SyncCoordinator {
     /// Reads the exact coverage block that will be validated with the bundle.
     /// The task projection can be stale after a failed attempt; the payload is
     /// immutable and therefore authoritative for the upload about to happen.
+    /// A server that answers 4 after a 6 request is a normal fallback: the
+    /// session keeps the raw payload lane and builds v4 bytes. Only the
+    /// advertised version decides what the builder emits.
+    static func negotiate(wantsV4: Bool, wantsV6: Bool, bundleProtocol: Int64?) -> (rawLane: Bool, payloadVersion: Int) {
+        let rawLane = wantsV4 && (bundleProtocol == 4 || bundleProtocol == 6)
+        return (rawLane, rawLane && wantsV6 && bundleProtocol == 6 ? 6 : 4)
+    }
+
     static func bundleProtocolVersion(_ url: URL, boundary: String) -> Int? {
         guard let body = try? Data(contentsOf: url, options: .mappedIfSafe),
               let raw = WorkoutBundleAssembler.multipartPayload(body, boundary: boundary),
@@ -1043,7 +1067,7 @@ actor SyncCoordinator {
                let file = task.bundleFile, let hash = task.bundleSHA256, let boundary = task.bundleBoundary,
                let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
                 let protocolVersion = Self.bundleProtocolVersion(url, boundary: boundary)
-                if protocolVersion == 4 {
+                if let protocolVersion, [4, 6].contains(protocolVersion) {
                     if !syncProtocolV4 {
                         // The server no longer advertises v4. Rebuild a v3 bundle
                         // rather than retrying a permanent 422 forever.

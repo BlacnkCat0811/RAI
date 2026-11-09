@@ -45,6 +45,13 @@ func WorkoutUUIDIngestMode() (syncing.WorkoutIngestMode, error) {
 	return syncing.ParseWorkoutIngestMode(value)
 }
 
+// WorkoutPayloadV6 enables protocol-6 negotiation for UUID ingest. It stays
+// off unless the deployment explicitly opts in, so a server never advertises a
+// payload format its operator has not chosen.
+func WorkoutPayloadV6() bool {
+	return os.Getenv("RAI_WORKOUT_PAYLOAD_V6") == "1"
+}
+
 // ListenAddr validates the address before opening any network listener.
 func ListenAddr() (string, error) {
 	addr := os.Getenv("RAI_LISTEN_ADDR")

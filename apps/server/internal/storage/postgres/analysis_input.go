@@ -124,8 +124,8 @@ func (s *Store) loadWorkoutInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 			return analysis.Invalid()
 		}
 		switch {
-		case stored.ProtocolVersion == 4:
-			table, err := syncing.WorkoutBundleV4SourceTable(payloadRaw)
+		case stored.ProtocolVersion >= 4:
+			table, err := syncing.WorkoutBundlePayloadSourceTable(payloadRaw)
 			if err != nil {
 				return analysis.Invalid()
 			}

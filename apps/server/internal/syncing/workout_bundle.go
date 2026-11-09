@@ -114,7 +114,7 @@ func (p WorkoutBundlePoint) ToRoutePoint(sequence int64) RoutePoint {
 
 func (b WorkoutBundle) Validate() error {
 	bad := func() error { return Fail(422, "unsupported_payload") }
-	if (b.ProtocolVersion != 3 && b.ProtocolVersion != 4) || !ValidID(b.DatasetID) || !ValidID(b.DatasetEpoch) ||
+	if (b.ProtocolVersion != 3 && b.ProtocolVersion != 4 && b.ProtocolVersion != 5 && b.ProtocolVersion != 6) || !ValidID(b.DatasetID) || !ValidID(b.DatasetEpoch) ||
 		!ValidID(b.CollectorEpoch) || !ValidID(b.WorkoutID) || !ValidID(b.Workout.UUID) ||
 		b.Workout.UUID != b.WorkoutID || len(b.Samples) > MaxWorkoutBundleEvents ||
 		len(b.Routes) > MaxBundleRoutes {

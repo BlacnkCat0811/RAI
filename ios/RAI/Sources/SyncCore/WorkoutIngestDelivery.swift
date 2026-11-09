@@ -117,7 +117,9 @@ public struct WorkoutIngestDelivery: Sendable {
             } else {
                 let raw = try Self.payloadBody(file: file, boundary: boundary)
                 let bundle = try JSON.decode(raw)
-                guard bundle["protocolVersion"].integer == 4,
+                guard let version = bundle["protocolVersion"].integer,
+                      [4, 6].contains(Int(version)),
+                      task.payloadVersion == nil || Int64(task.payloadVersion!) == version,
                       bundle["workoutID"].text == id,
                       bundle["datasetID"].text == scope.datasetID,
                       bundle["datasetEpoch"].text == scope.datasetEpoch,

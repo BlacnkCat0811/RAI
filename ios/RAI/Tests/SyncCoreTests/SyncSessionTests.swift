@@ -18,6 +18,15 @@ private func handshake(_ d: SyncSessionDescriptor) -> JSON {
 }
 @Suite struct SyncSessionTests {
     func root() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent("rai-session-test-" + Wire.id()) }
+    @Test func handshakeAcceptsTheNegotiatedProtocolSixBundleVersion() throws {
+        let d = descriptor()
+        let hello: JSON = .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID),
+            "serviceID": .string(d.serviceID), "datasetEpoch": .string(d.datasetEpoch),
+            "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch),
+            "datasetStatus": .string("active"),
+            "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(6)])])
+        try d.validateHandshake(hello)
+    }
     @Test func newSessionUsesIndependentDirectoryKeychainAndEmptyOutbox() async throws {
         let root = root(); defer { try? FileManager.default.removeItem(at: root) }
         let credentials = SyntheticSessionCredentials(), a = descriptor(), b = descriptor()

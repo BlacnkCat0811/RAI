@@ -27,6 +27,7 @@ type API struct {
 	devices  map[uploadDevice]bool
 
 	ingestMode    syncing.WorkoutIngestMode
+	payloadV6     bool
 	statusSlots   chan struct{}
 	statusMu      sync.Mutex
 	statusBuckets map[uploadDevice]statusBudget
@@ -55,6 +56,7 @@ const (
 
 type Options struct {
 	WorkoutUUIDIngestMode syncing.WorkoutIngestMode
+	WorkoutPayloadV6      bool
 }
 
 func New(store syncing.Store, log *slog.Logger) http.Handler {
@@ -67,7 +69,7 @@ func NewWithOptions(store syncing.Store, log *slog.Logger, options Options) http
 		mode = syncing.WorkoutIngestLegacy
 	}
 	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool),
-		ingestMode: mode, statusSlots: make(chan struct{}, ProcessStatusSlots), statusBuckets: make(map[uploadDevice]statusBudget)}
+		ingestMode: mode, payloadV6: options.WorkoutPayloadV6, statusSlots: make(chan struct{}, ProcessStatusSlots), statusBuckets: make(map[uploadDevice]statusBudget)}
 	m := http.NewServeMux()
 	live := func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) }
 	ready := func(w http.ResponseWriter, r *http.Request) {
@@ -363,11 +365,23 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	sort.Strings(types)
 	payloadVersion := 3
 	bundleCompact := false
-	// v4 is negotiated per client. A v3 client that does not send the header
-	// keeps receiving the exact v3 capability set.
-	if r.Header.Get("X-RAI-Sync-Protocol") == "4" {
+	// v4/v5/v6 are negotiated per client. A v3 client that does not send the
+	// header keeps receiving the exact v3 capability set. Protocol 6 is only
+	// advertised when the deployment enables it; requesting it while disabled
+	// falls back to the v4 raw builder.
+	switch r.Header.Get("X-RAI-Sync-Protocol") {
+	case "4":
 		payloadVersion = 4
 		bundleCompact = true
+	case "5":
+		payloadVersion = 5
+		bundleCompact = true
+	case "6":
+		payloadVersion = 4
+		bundleCompact = true
+		if a.payloadV6 {
+			payloadVersion = 6
+		}
 	}
 	respond(w, 200, map[string]any{"protocolVersion": 3, "deviceID": m.DeviceID, "collectorEpoch": m.CollectorEpoch, "datasetStatus": m.DatasetStatus, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
 		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": ProcessUploadSlots, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
@@ -411,9 +425,9 @@ func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p sync
 	if err := json.Unmarshal(raw, &version); err != nil {
 		return syncing.Fail(422, "unsupported_payload")
 	}
-	// v3 remains routable for older clients; only the superseded v4 entry is
+	// v3 remains routable for older clients; the superseded compact entries are
 	// isolated once this dataset uses the UUID rule.
-	if version.ProtocolVersion == 4 {
+	if version.ProtocolVersion == 4 || version.ProtocolVersion == 5 || version.ProtocolVersion == 6 {
 		switch a.ingestMode {
 		case syncing.WorkoutIngestUUID:
 			stage = "mode"
@@ -423,8 +437,8 @@ func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p sync
 			return syncing.WorkoutUUIDIngestPaused()
 		}
 	}
-	if version.ProtocolVersion == 4 {
-		bundle, err = syncing.DecodeWorkoutBundleV4JSON(raw)
+	if version.ProtocolVersion == 4 || version.ProtocolVersion == 5 || version.ProtocolVersion == 6 {
+		bundle, err = syncing.DecodeWorkoutBundlePayloadJSON(raw)
 	} else {
 		err = syncing.DecodeWorkoutBundleJSON(raw, &bundle)
 	}

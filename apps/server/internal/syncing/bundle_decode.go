@@ -351,7 +351,7 @@ func bundleValues(b WorkoutBundle) error {
 			return err
 		}
 	}
-	if b.ProtocolVersion != 3 && b.ProtocolVersion != 4 {
+	if b.ProtocolVersion != 3 && b.ProtocolVersion != 4 && b.ProtocolVersion != 5 && b.ProtocolVersion != 6 {
 		return bundleField("protocolVersion", "unsupported_protocol")
 	}
 	events := append([]Event{b.Workout}, b.Samples...)
