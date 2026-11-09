@@ -25,10 +25,6 @@ type API struct {
 	uploads  chan struct{}
 	uploadMu sync.Mutex
 	devices  map[uploadDevice]bool
-	// syncV4 enables the protocolVersion 4 compact bundle decoder and
-	// advertises it in the handshake. It is off by default so old clients keep
-	// receiving bundleProtocolVersion 3 until the rollout flag is set.
-	syncV4 bool
 }
 
 type uploadDevice struct{ datasetID, deviceID string }
@@ -38,18 +34,8 @@ type uploadDevice struct{ datasetID, deviceID string }
 // channel; performance entries must not raise it.
 const ProcessUploadSlots = 2
 
-// Options selects rollout-compatible server behavior. The zero value keeps
-// exactly the pre-v4 wire contract.
-type Options struct {
-	SyncV4 bool
-}
-
 func New(store syncing.Store, log *slog.Logger) http.Handler {
-	return NewWithOptions(store, log, Options{})
-}
-
-func NewWithOptions(store syncing.Store, log *slog.Logger, options Options) http.Handler {
-	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool), syncV4: options.SyncV4}
+	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool)}
 	m := http.NewServeMux()
 	live := func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) }
 	ready := func(w http.ResponseWriter, r *http.Request) {
@@ -330,10 +316,9 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	sort.Strings(types)
 	payloadVersion := 3
 	bundleCompact := false
-	// v4 is opt-in per client. A v3 client that does not send the negotiation
-	// header keeps receiving the exact v3 capability set even when the server
-	// feature flag is on.
-	if a.syncV4 && r.Header.Get("X-RAI-Sync-Protocol") == "4" {
+	// v4 is negotiated per client. A v3 client that does not send the header
+	// keeps receiving the exact v3 capability set.
+	if r.Header.Get("X-RAI-Sync-Protocol") == "4" {
 		payloadVersion = 4
 		bundleCompact = true
 	}
@@ -380,9 +365,6 @@ func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p sync
 		return syncing.Fail(422, "unsupported_payload")
 	}
 	if version.ProtocolVersion == 4 {
-		if !a.syncV4 {
-			return syncing.Fail(422, "unsupported_protocol")
-		}
 		bundle, err = syncing.DecodeWorkoutBundleV4JSON(raw)
 	} else {
 		err = syncing.DecodeWorkoutBundleJSON(raw, &bundle)

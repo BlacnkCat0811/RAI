@@ -143,7 +143,7 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	server := httpapi.NewHTTPServer(addr, httpapi.NewWithOptions(store, log, httpapi.Options{SyncV4: os.Getenv("SYNC_V4_ENABLED") == "1"}))
+	server := httpapi.NewHTTPServer(addr, httpapi.New(store, log))
 	server.TLSConfig, err = config.TLS()
 	if err != nil {
 		return err

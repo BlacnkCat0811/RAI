@@ -1,82 +1,92 @@
 import Foundation
 
-/// The protocol-4 wire encoder. One Workout is one immutable bundle: the
-/// workout object, a source table and columnar sample streams. No per-sample
-/// objects, no pages, no 200-day proof block.
+/// The protocol-4 raw wire encoder. One Workout is one immutable bundle: the
+/// HealthKit workout object, its metadata, one object per sample with its own
+/// source and metadata, and the route points. The client serializes what it
+/// observed in canonical units; the server decides which fields it understands
+/// and preserves the exact bytes either way.
 public enum WorkoutBundleV4 {
     public static let maxSamples = 50_000
     public static let maxSeriesPoints = 1_000_000
     public static let maxRoutePoints = 1_000_000
     public static let maxRoutes = 16
-    public static let maxSources = 16
-    public static let maxDeletions = 10_000
-
-    /// Deduplicated source table. `sources[]` deliberately omits device detail;
-    /// the workout provenance in `observation` keeps it.
-    public struct SourceTable: Sendable {
-        public private(set) var sources: [JSON] = []
-        public init() {}
-        public mutating func index(of source: JSON) throws -> Int {
-            let normalized = Self.normalize(source)
-            if let existing = sources.firstIndex(of: normalized) { return existing }
-            guard sources.count < maxSources else { throw SyncFailure.invalid("too_many_sources") }
-            sources.append(normalized)
-            return sources.count - 1
-        }
-        private static func normalize(_ source: JSON) -> JSON {
-            var fields: [String: JSON] = [:]
-            for key in ["bundleID", "name", "version", "productType", "operatingSystemVersion"] {
-                if let text = source[key].text, !text.isEmpty { fields[key] = .string(text) }
-            }
-            return .object(fields)
-        }
-    }
 
     public static func data(
         scope: Scope,
         workoutID: String,
         startUs: Int64,
         endUs: Int64,
+        source: JSON,
+        metadata: JSON?,
         workout: JSON,
-        sources: [JSON],
         streams: [JSON],
         series: [JSON],
-        routes: [JSON],
-        deletions: [JSON],
-        routeDeletions: [String],
-        observation: JSON
+        routes: [JSON]
     ) throws -> Data {
         var fields: [String: JSON] = [
             "protocolVersion": .int(4),
-            "metadataRegistryVersion": .int(WorkoutMetadataRegistry.version),
             "datasetID": .string(scope.datasetID),
             "datasetEpoch": .string(scope.datasetEpoch),
             "collectorEpoch": .string(scope.collectorEpoch),
             "workoutID": .string(workoutID),
             "startUs": .int(startUs),
             "endUs": .int(endUs),
+            "source": source,
             "workout": workout,
-            "sources": .array(sources),
             "streams": .array(streams),
             "series": .array(series),
             "routes": .array(routes),
-            "deletions": .array(deletions),
-            "observation": observation,
         ]
-        if !routeDeletions.isEmpty { fields["routeDeletions"] = .array(routeDeletions.map(JSON.string)) }
-        let bundle = JSON.object(fields)
-        let raw = try bundle.data()
+        if let metadata, !metadata.fields.isEmpty { fields["metadata"] = metadata }
+        let raw = try JSON.object(fields).data()
         guard raw.count <= 32 * 1_024 * 1_024 else { throw SyncFailure.invalid("bundle_too_large") }
         return raw
     }
 
+    public static func sample(uuid: String, startUs: Int64, endUs: Int64, value: Double,
+                              source: JSON, metadata: JSON?) -> JSON {
+        var fields: [String: JSON] = [
+            "uuid": .string(uuid), "startUs": .int(startUs), "endUs": .int(endUs),
+            "value": .number(value), "source": source,
+        ]
+        if let metadata, !metadata.fields.isEmpty { fields["metadata"] = metadata }
+        return .object(fields)
+    }
+
+    public static func stream(type: String, unit: String, status: String, error: String?,
+                              samples: [JSON]) -> JSON {
+        .object([
+            "type": .string(type), "unit": .string(unit), "status": .string(status),
+            "error": error.map(JSON.string) ?? .null, "samples": .array(samples),
+        ])
+    }
+
+    public static func series(type: String, sampleUUID: String, unit: String,
+                              points: [(startUs: Int64, endUs: Int64, value: Double)]) -> JSON {
+        .object([
+            "type": .string(type), "sampleUUID": .string(sampleUUID), "unit": .string(unit),
+            "points": .array(points.map { .array([.int($0.startUs), .int($0.endUs), .number($0.value)]) }),
+        ])
+    }
+
+    public static func route(routeID: String, source: JSON, points: [JSON]) -> JSON {
+        .object(["routeID": .string(routeID), "source": source, "points": .array(points)])
+    }
+
     /// v4 routes are eight-element arrays with nullable quality components.
     public static func routePoint(_ point: RoutePoint) throws -> JSON {
-        func optional(_ value: Double?) -> JSON { value.map(JSON.number) ?? .null }
+        func optional(_ value: Double?) throws -> JSON {
+            guard let value else { return .null }
+            guard value.isFinite else { throw SyncFailure.invalid("nonfinite_route_measurement") }
+            return .number(value)
+        }
+        guard point.latitude.isFinite, point.longitude.isFinite else {
+            throw SyncFailure.invalid("nonfinite_route_coordinate")
+        }
         return .array([
             .int(point.recordedAtUs), .number(point.latitude), .number(point.longitude),
-            optional(point.altitude), optional(point.horizontalAccuracy), optional(point.verticalAccuracy),
-            optional(point.speed), optional(point.course),
+            try optional(point.altitude), try optional(point.horizontalAccuracy), try optional(point.verticalAccuracy),
+            try optional(point.speed), try optional(point.course),
         ])
     }
 }

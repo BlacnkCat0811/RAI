@@ -112,7 +112,7 @@ private func handshake(_ d: SyncSessionDescriptor) -> JSON {
         let replay = try await fresh.stageDiscovery(query, previousAnchor: Data([1]), anchor: Data([2]), events: [visible], hasMore: false)
         try await fresh.promoteDiscovery(query, batchID: replay)
         let next = await fresh.discoverySnapshot()
-        #expect(next.work[workout]?.generation == 1 && next.work[workout]?.pendingDelete == false)
+        #expect(next.work[workout]?.generation == 1 && next.work[workout]?.selected == false)
         #expect(next.events.count == 1 && next.workoutArchives[workout] != nil)
         #expect(await old.discoverySnapshot().flows[query.key]?.anchor == Data([99]))
         #expect(await fresh.snapshot().deletedWorkouts.isEmpty)

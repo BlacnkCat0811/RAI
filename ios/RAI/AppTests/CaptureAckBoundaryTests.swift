@@ -337,10 +337,11 @@ final class CaptureAckBoundaryTests: XCTestCase {
                        "phase=\(String(describing: task2?.phase)) upload=\(String(describing: task2?.lastUploadError))")
     }
 
-    /// R2-F19 / R1: a Workout deletion that arrives mid-capture must not be
-    /// acknowledged as sample work. The bundle is never confirmed and the
-    /// deletion outranks it on the next pass.
-    func testParentDeletionDuringCaptureRefusesTheAck() async throws {
+    /// A Workout deletion that arrives mid-capture does not block the
+    /// already-prepared sample bundle. Deletion is not part of the upload
+    /// protocol, so the captured facts are acknowledged and no delete command
+    /// is derived from client-side discovery.
+    func testParentDeletionDuringCaptureStillAcknowledgesPreparedFacts() async throws {
         let dir = directory("parentdelete"), workout = boundaryWorkout()
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = try OutboxStore(directory: dir)
@@ -352,6 +353,7 @@ final class CaptureAckBoundaryTests: XCTestCase {
         let coordinator = makeCoordinator(store, health)
         let uploader = BoundaryUploader(samplesInserted: 1)
         let secret = try secret()
+        let deletions = BoundaryReplies.deletions.withLock { $0 }
 
         let sync = Task { try await coordinator.syncWorkout(id: id, secret: secret, transfers: uploader, forceNewBundle: false) }
         await barrier.waitForArrival()
@@ -360,21 +362,11 @@ final class CaptureAckBoundaryTests: XCTestCase {
         do { try await sync.value } catch {}
 
         let task = try await store.task(id)
-        XCTAssertNil(task?.uploadReceipt, "a Workout deletion was acknowledged as sample work")
+        XCTAssertNotNil(task?.uploadReceipt, "the prepared sample bundle was not acknowledged")
+        XCTAssertEqual(BoundaryReplies.deletions.withLock { $0 }, deletions,
+                       "a client-side deletion must not issue a server delete")
         let parentSnapshotWork = await store.discoverySnapshot().work[id]
         let work = try XCTUnwrap(parentSnapshotWork)
-        XCTAssertTrue(work.pendingDelete, "the parent deletion was lost")
         XCTAssertGreaterThan(work.generation, work.deliveredGeneration)
-
-        // The next pass issues the explicit DELETE instead of re-uploading.
-        let before = BoundaryReplies.deletions.withLock { $0 }
-        try await coordinator.syncWorkout(id: id, secret: secret, transfers: uploader, forceNewBundle: false)
-        let deletedCount = BoundaryReplies.deletions.withLock { $0 }
-        XCTAssertEqual(deletedCount, before + 1, "the Workout deletion was not sent")
-        let finalTask = try await store.task(id)
-        XCTAssertEqual(finalTask?.phase, .deleted)
-        let finalSnapshotWork = await store.discoverySnapshot().work[id]
-        let finalWork = try XCTUnwrap(finalSnapshotWork)
-        XCTAssertFalse(finalWork.pendingDelete)
     }
 }

@@ -1024,6 +1024,74 @@ enum Normalizer {
         return output.isEmpty ? nil : .object(output)
     }
 
+    /// Protocol 4 keeps every metadata key. Known keys use the same typed
+    /// encoding as v3 when it succeeds; anything else is preserved in a
+    /// JSON-safe form instead of failing the upload.
+    static func rawMetadata(_ metadata: [String: Any]?,
+                            scope: WorkoutMetadataRegistry.Scope = .workout) -> JSON? {
+        guard let metadata, !metadata.isEmpty else { return nil }
+        var output: [String: JSON] = [:]
+        for (key, value) in metadata.sorted(by: { $0.key < $1.key }) {
+            if let encoded = rawKnownMetadata(key, value: value, scope: scope) {
+                output[key] = encoded
+            } else if let encoded = rawValue(value) {
+                output[key] = encoded
+            }
+        }
+        return output.isEmpty ? nil : .object(output)
+    }
+
+    private static func rawKnownMetadata(_ key: String, value: Any,
+                                         scope: WorkoutMetadataRegistry.Scope) -> JSON? {
+        if sampleMetadataKeys.contains(key) {
+            guard let encoded = try? metadata([key: value]) else { return nil }
+            return encoded.fields[key]
+        }
+        guard WorkoutMetadataRegistry.entry(key, scope: scope) != nil,
+              let encoded = try? workoutMetadata([key: value], scope: scope) else { return nil }
+        return encoded.fields[key]
+    }
+
+    /// JSON-safe carrier for a HealthKit metadata value. Kinds without a JSON
+    /// equivalent are omitted rather than coerced; an HKQuantity stays opaque
+    /// because it has no intrinsic unit.
+    private static func rawValue(_ value: Any) -> JSON? {
+        switch value {
+        case is NSNull: return .null
+        case let text as String: return .string(text)
+        case let uuid as UUID: return .string(uuid.uuidString.lowercased())
+        case let url as URL: return .string(url.absoluteString)
+        case let date as Date: return .object(["$date": .string(date.ISO8601Format())])
+        case let data as Data: return .object(["$data": .string(data.base64EncodedString())])
+        case let quantity as HKQuantity: return .string(quantity.description)
+        case let number as NSNumber:
+            if CFGetTypeID(number) == CFBooleanGetTypeID() { return .bool(number.boolValue) }
+            switch String(cString: number.objCType) {
+            case "q", "i", "l", "s", "c":
+                return .int(number.int64Value)
+            case "Q", "I", "L", "S", "C":
+                let unsigned = number.uint64Value
+                return unsigned <= UInt64(Int64.max) ? .int(Int64(unsigned)) : .number(number.doubleValue)
+            case "f", "d":
+                let double = number.doubleValue
+                return double.isFinite ? .number(double) : nil
+            default:
+                let double = number.doubleValue
+                return double.isFinite ? .number(double) : nil
+            }
+        case let array as [Any]:
+            return .array(array.compactMap(rawValue))
+        case let dictionary as [String: Any]:
+            var output: [String: JSON] = [:]
+            for (key, item) in dictionary {
+                if let encoded = rawValue(item) { output[key] = encoded }
+            }
+            return .object(output)
+        default:
+            return nil
+        }
+    }
+
     /// Client provenance is an enrichment, not part of the immutable Workout
     /// identity event. Keeping it separate preserves byte-for-byte retries of
     /// Workouts that were uploaded by earlier client builds.
@@ -1226,6 +1294,78 @@ enum Normalizer {
             return .object(activity)
         }
         if !activities.isEmpty { object["activities"] = .array(activities) }
+        return .object(object)
+    }
+
+    /// Protocol 4 workout object: the core stays exact, optional details are
+    /// dropped individually. One unknown statistic or unencodable aggregate
+    /// never discards the run.
+    static func rawWorkout(_ w: HKWorkout) -> JSON {
+        var object: [String: JSON] = ["activityType": .int(Int64(w.workoutActivityType.rawValue)),
+                                      "durationUs": .int(Int64((w.duration * 1_000_000).rounded()))]
+        if let distance = w.totalDistance,
+           let encoded = try? quantity(distance, type: HKQuantityTypeIdentifier.distanceWalkingRunning.rawValue) {
+            object["totalDistance"] = encoded
+        }
+        if let energy = w.statistics(for: HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!)?.sumQuantity(),
+           let encoded = try? quantity(energy, type: HKQuantityTypeIdentifier.activeEnergyBurned.rawValue) {
+            object["totalEnergyBurned"] = encoded
+        }
+        let stats = rawStatistics(w.allStatistics)
+        if !stats.isEmpty { object["statistics"] = .array(stats) }
+        let events = rawEvents(w.workoutEvents, scope: .workoutEvent)
+        if !events.isEmpty { object["events"] = .array(events) }
+        let activities = w.workoutActivities.map { rawActivity($0) }
+        if !activities.isEmpty { object["activities"] = .array(activities) }
+        return .object(object)
+    }
+
+    private static func rawStatistics(_ values: [HKQuantityType: HKStatistics]) -> [JSON] {
+        values.keys.sorted { $0.identifier < $1.identifier }.compactMap { type in
+            guard units[type.identifier] != nil, let stat = values[type] else { return nil }
+            var object: [String: JSON] = ["type": .string(type.identifier),
+                                          "startUs": .int(us(stat.startDate)), "endUs": .int(us(stat.endDate))]
+            for (key, quantity) in [("sum", stat.sumQuantity()), ("average", stat.averageQuantity()),
+                                    ("minimum", stat.minimumQuantity()), ("maximum", stat.maximumQuantity())] {
+                if let quantity, let encoded = try? self.quantity(quantity, type: type.identifier) {
+                    object[key] = encoded
+                }
+            }
+            guard object.count > 3 else { return nil }
+            return .object(object)
+        }
+    }
+
+    private static func rawEvents(_ events: [HKWorkoutEvent]?,
+                                  scope: WorkoutMetadataRegistry.Scope) -> [JSON] {
+        (events ?? []).map { event in
+            var object: [String: JSON] = ["type": .int(Int64(event.type.rawValue)),
+                                          "startUs": .int(us(event.dateInterval.start)),
+                                          "endUs": .int(us(event.dateInterval.end))]
+            if let metadata = rawMetadata(event.metadata, scope: scope) { object["metadata"] = metadata }
+            return .object(object)
+        }
+    }
+
+    private static func rawActivity(_ activity: HKWorkoutActivity) -> JSON {
+        let configuration = activity.workoutConfiguration
+        var config: [String: JSON] = ["activityType": .int(Int64(configuration.activityType.rawValue)),
+                                      "locationType": .int(Int64(configuration.locationType.rawValue)),
+                                      "swimmingLocationType": .int(Int64(configuration.swimmingLocationType.rawValue))]
+        if let length = configuration.lapLength,
+           let encoded = try? quantity(length, type: HKQuantityTypeIdentifier.distanceWalkingRunning.rawValue) {
+            config["lapLength"] = encoded
+        }
+        var object: [String: JSON] = ["uuid": .string(activity.uuid.uuidString.lowercased()),
+                                      "startUs": .int(us(activity.startDate)),
+                                      "durationUs": .int(Int64((activity.duration * 1_000_000).rounded())),
+                                      "configuration": .object(config)]
+        if let end = activity.endDate { object["endUs"] = .int(us(end)) }
+        if let metadata = rawMetadata(activity.metadata, scope: .activity) { object["metadata"] = metadata }
+        let stats = rawStatistics(activity.allStatistics)
+        if !stats.isEmpty { object["statistics"] = .array(stats) }
+        let events = rawEvents(activity.workoutEvents, scope: .activityEvent)
+        if !events.isEmpty { object["events"] = .array(events) }
         return .object(object)
     }
 }

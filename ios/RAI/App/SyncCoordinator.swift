@@ -26,6 +26,9 @@ actor SyncCoordinator {
     private let sessionStore: SyncSessionStore?
     private let sessionID: String?
     private var running = false
+    /// Workouts currently being prepared/uploaded. Distinct Workouts may
+    /// overlap; the same Workout never runs twice.
+    private var activeWorkouts: Set<String> = []
     /// Publication checks are asynchronous follow-ups, never part of the wait
     /// for a Workout's durable acknowledgement.
     private var analysisRefreshes: [String: Task<Void, Never>] = [:]
@@ -367,12 +370,6 @@ actor SyncCoordinator {
         for (id, work) in discovery.work.sorted(by: { $0.key < $1.key }) where work.needsDelivery() {
             try Task.checkCancellation()
             do {
-                if work.pendingDelete { try await deleteWorkout(id: id, api: api, scope: scope); continue }
-                if await store.task(id)?.phase == .deleted {
-                    try await deliverDeletedParentChildren(id: id, scope: scope, api: api)
-                    continue
-                }
-                try await store.parkBundleForExplicitChildDeletion(id)
                 if let task = await store.task(id), let file = task.bundleFile,
                    let boundary = task.bundleBoundary, let url = try? await store.fileURL(file),
                    FileManager.default.fileExists(atPath: url.path) {
@@ -389,24 +386,6 @@ actor SyncCoordinator {
             } catch is CancellationError { throw CancellationError() }
             catch { try await store.discoveryFailure(id, code: (error as? SyncFailure).map(code) ?? (error as? UploadError)?.code ?? "discovery_work_failed") }
         }
-    }
-
-    private func deliverDeletedParentChildren(id: String, scope: Scope, api: RAIAPIClient) async throws {
-        guard supportsIntegrity, let task = await store.task(id) else { throw SyncFailure.localState("unsupported_integrity_contract") }
-        if task.bundleFile != nil { _ = try await WorkoutBundleDelivery(store: store, api: api).deliver(id); return }
-        let discovery = await store.discoverySnapshot()
-        let deletions = discovery.events.values.filter { $0.workoutID == id && $0.deleted && $0.type != HKObjectType.workoutType().identifier }.sorted { $0.id < $1.id }
-        guard !deletions.isEmpty else { return }
-        var original = task.originalWorkout
-        if original == nil, let archive = discovery.workoutArchives[id], let workout = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKWorkout.self, from: Data(contentsOf: await store.fileURL(archive))) { original = try Normalizer.integrityEvent(workout) }
-        guard let original else { throw SyncFailure.localState("deleted_parent_workout_archive_missing") }
-        let samples = deletions.filter { $0.type != HKSeriesType.workoutRoute().identifier }.map { JSON.object(["sampleType": .string($0.type), "sampleUUID": .string($0.uuid)]) }
-        let routes = deletions.filter { $0.type == HKSeriesType.workoutRoute().identifier }.map(\.uuid)
-        let raw = try WorkoutBundleAssembler.data(scope: scope, workoutID: id, workout: original, samples: [], series: [], routes: [], completeSampleTypes: [], completeRoutes: false, sampleDeletions: samples, routeDeletions: routes, deletionOnly: true)
-        let boundary = "rai.boundary." + Wire.id(), hash = Wire.hash(raw)
-        let file = try await store.savePayload(WorkoutBundleAssembler.multipart(bundle: raw, boundary: boundary), suffix: "multipart.json")
-        try await store.setDeletedParentBundle(id, file: file, hash: hash, boundary: boundary, generation: discovery.work[id]?.generation ?? 0, deletionIDs: deletions.map(\.id), sampleCount: samples.count, routeCount: routes.count)
-        _ = try await WorkoutBundleDelivery(store: store, api: api).deliver(id)
     }
 
     private func context(secret: ClientConfiguration.Secret, transfers: any FileUploader, metrics: SyncMetrics) async throws -> (RAIAPIClient, Scope) {
@@ -431,7 +410,6 @@ actor SyncCoordinator {
         }
         syncProtocolV4 = wantsV4 && bundleProtocol == 4
             && hello["capabilities"]["bundleCompact"] == .bool(true)
-            && hello["capabilities"]["bundleObservationVersion"].integer == 1
         supportsIntegrity = hello["capabilities"]["bundleObservationVersion"].integer == 1 && hello["capabilities"]["explicitChildDeletions"] == .bool(true)
         supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
         vo2Capabilities = hello["capabilities"]
@@ -494,11 +472,10 @@ actor SyncCoordinator {
     }
 
     func syncWorkout(id: String, secret: ClientConfiguration.Secret, transfers: any FileUploader, forceNewBundle: Bool) async throws {
-        guard !running else { throw SyncFailure.localState("sync_already_running") }
-        running = true; defer { running = false }
+        guard !activeWorkouts.contains(id) else { throw SyncFailure.localState("sync_already_running") }
+        activeWorkouts.insert(id); defer { activeWorkouts.remove(id) }
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
         let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-        if await store.discoverySnapshot().work[id]?.pendingDelete == true { try await deleteWorkout(id: id, api: api, scope: scope); return }
         try await store.selectDiscoveredWorkout(id)
         if !forceNewBundle, await isAlreadyDelivered(id) {
             // The durable ACK already covers every fact local discovery knows
@@ -524,23 +501,14 @@ actor SyncCoordinator {
     /// state, so an unchanged repeat sync has nothing left to deliver.
     ///
     /// The test is deliberately conservative: a receipt for the current
-    /// generation, no pending deletion, no outstanding partial read and no new
-    /// discovery generation. Anything else keeps the ordinary prepare path.
+    /// discovery generation. Anything newer keeps the ordinary prepare path.
     private func isAlreadyDelivered(_ id: String) async -> Bool {
         guard let task = await store.task(id), task.uploadReceipt != nil,
               task.bundleFile == nil,
-              (task.pendingReadKeys ?? []).isEmpty,
               [.acknowledged, .analyzing, .published, .partial].contains(task.phase) else { return false }
         let snapshot = await store.discoverySnapshot()
-        guard let work = snapshot.work[id], !work.pendingDelete,
-              work.generation == work.deliveredGeneration else { return false }
-        // Any journal entry that is neither delivered nor explicitly
-        // suppressed outranks the skip, whether it is a deletion or an upsert
-        // that arrived after the last manifest pinned its cursor. The manifest
-        // keeps the watermark honest; this is the independent second guard.
-        return !snapshot.events.values.contains {
-            $0.workoutID == id && $0.status != "delivered" && $0.status != "suppressed_by_workout_delete"
-        }
+        guard let work = snapshot.work[id] else { return false }
+        return work.generation == work.deliveredGeneration
     }
 
     /// Facts the bundle needs for one type.
@@ -870,11 +838,23 @@ actor SyncCoordinator {
             if let task = existing,
                let file = task.bundleFile, let hash = task.bundleSHA256, let boundary = task.bundleBoundary,
                let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
-                if Self.bundleProtocolVersion(url, boundary: boundary) == 4 && !syncProtocolV4 {
-                    // The server no longer advertises v4. Rebuild a v3 bundle
-                    // rather than retrying a permanent 422 forever.
-                    try await store.discardUnreadableBundle(id)
-                    existing = await store.task(id)
+                let protocolVersion = Self.bundleProtocolVersion(url, boundary: boundary)
+                if protocolVersion == 4 {
+                    if !syncProtocolV4 {
+                        // The server no longer advertises v4. Rebuild a v3 bundle
+                        // rather than retrying a permanent 422 forever.
+                        try await store.discardUnreadableBundle(id)
+                        existing = await store.task(id)
+                    } else {
+                        // A v4 bundle is a raw payload with no observation or
+                        // coverage block. The prepared bytes are the upload
+                        // authority, so a resume never re-reads HealthKit.
+                        try await updateTask(id, phase: .uploading)
+                        try await uploadAndAcknowledge(id: id, file: url, bundleHash: hash, boundary: boundary,
+                                                        coverage: [:], timings: task.metrics,
+                                                        started: started, api: api, transfers: transfers)
+                        return
+                    }
                 } else {
                 // A prepared bundle is the durable source of truth for what was
                 // actually read. Earlier failed attempts may have left the
@@ -891,10 +871,6 @@ actor SyncCoordinator {
                     try await uploadAndAcknowledge(id: id, file: url, bundleHash: hash, boundary: boundary,
                                                     coverage: durableCoverage, timings: task.metrics,
                                                     started: started, api: api, transfers: transfers)
-                    if syncProtocolV4, await store.task(id)?.uploadReceipt != nil {
-                        _ = try? await V4Outbox(directory: store.directory).promotePending(
-                            bundleSHA256: hash, id: id, scope: scope)
-                    }
                     return
                 }
                 Metrics.value("bundle_coverage_parse_failures", 1)
@@ -916,12 +892,12 @@ actor SyncCoordinator {
             }
             if let existing, existing.bundleFile != nil { throw SyncFailure.localState("missing_payload") }
 
-            guard supportsIntegrity else { throw SyncFailure.invalid("unsupported_integrity_contract") }
             if syncProtocolV4 {
                 try await syncV4(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics,
                                  existing: existing, started: started)
                 return
             }
+            guard supportsIntegrity else { throw SyncFailure.invalid("unsupported_integrity_contract") }
             try await updateTask(id, phase: .preparing, coverage: coverage)
 
             // A Workout deletion is never inferred from an absent sample or a
@@ -1143,45 +1119,27 @@ actor SyncCoordinator {
         }
     }
 
-    /// Protocol v4 path: one complete HealthKit read per stream, one columnar
-    /// bundle, one immutable file. It shares the delivery/ACK machinery with v3
-    /// but never touches capture pages, anchors from the page protocol or the
-    /// completeness proof.
+    /// Protocol v4 path: one complete HealthKit read per stream, one raw
+    /// bundle, one immutable file. It shares only the delivery/ACK machinery
+    /// with v3: no capture pages, no deletion sidecar, no completeness proof.
     private func syncV4(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
                         metrics: SyncMetrics, existing: WorkoutSyncTask?, started: Date) async throws {
         let buildStart = Date()
         do {
-            try await updateTask(id, phase: .preparing, coverage: [:])
-            let engine = V4SyncEngine(store: store, health: health, scope: scope,
-                                      outbox: V4Outbox(directory: store.directory))
-            switch try await engine.build(id: id, anchor: existing?.workoutAnchor) {
-            case .deleted:
-                try await deleteWorkout(id: id, api: api, scope: scope)
-            case .prepared(let bundle):
-                let boundary = "rai.boundary." + Wire.id()
-                let body = WorkoutBundleAssembler.multipart(bundle: bundle.raw, boundary: boundary)
-                let file = try await store.savePayload(body, suffix: "multipart.json")
-                let hash = Wire.hash(bundle.raw)
-                let outbox = V4Outbox(directory: store.directory)
-                try await outbox.savePending(bundle.index, bundleSHA256: hash)
-                try await store.setBundle(id, file: file, sha256: hash, boundary: boundary,
-                                          sampleDeletions: bundle.sampleDeletions, routeDeletions: bundle.routeDeletions,
-                                          pendingReadKeys: bundle.coverage.filter { $0.value.needsRetry }.map { $0.key })
-                try await store.setTaskCoverage(id, coverage: bundle.coverage)
-                try await updateTask(id, phase: .uploading, coverage: bundle.coverage)
-                let timings = ["v4_build_ms": Date().timeIntervalSince(buildStart) * 1_000]
-                try await uploadAndAcknowledge(id: id, file: try await store.fileURL(file), bundleHash: hash,
-                                               boundary: boundary, coverage: bundle.coverage, timings: timings,
-                                               started: started, api: api, transfers: transfers)
-                // D2 deletion authority comes only from a committed read. A
-                // failed upload must not advance the local sidecar, otherwise
-                // a later short read could delete samples the server never
-                // received. The receipt is set by the durable ACK.
-                if await store.task(id)?.uploadReceipt != nil {
-                    _ = try? await outbox.promotePending(bundleSHA256: hash, id: id, scope: scope)
-                }
-                if let nextAnchor = bundle.nextAnchor { try? await store.setWorkoutAnchor(id, anchor: nextAnchor) }
-            }
+            try await updateTask(id, phase: .preparing)
+            let engine = V4SyncEngine(store: store, health: health, scope: scope)
+            let bundle = try await engine.build(id: id, anchor: existing?.workoutAnchor)
+            let boundary = "rai.boundary." + Wire.id()
+            let body = WorkoutBundleAssembler.multipart(bundle: bundle.raw, boundary: boundary)
+            let file = try await store.savePayload(body, suffix: "multipart.json")
+            let hash = Wire.hash(bundle.raw)
+            try await store.setBundle(id, file: file, sha256: hash, boundary: boundary)
+            try await updateTask(id, phase: .uploading)
+            let timings = ["v4_build_ms": Date().timeIntervalSince(buildStart) * 1_000]
+            try await uploadAndAcknowledge(id: id, file: try await store.fileURL(file), bundleHash: hash,
+                                           boundary: boundary, coverage: [:], timings: timings,
+                                           started: started, api: api, transfers: transfers)
+            if let nextAnchor = bundle.nextAnchor { try? await store.setWorkoutAnchor(id, anchor: nextAnchor) }
         } catch {
             if let task = await store.task(id), task.uploadReceipt == nil, task.lastUploadError == nil {
                 let value = (error as? UploadError)?.code ?? (error as? SyncFailure).map(code) ?? "sync_failed"

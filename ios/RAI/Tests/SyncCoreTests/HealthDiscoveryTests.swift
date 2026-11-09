@@ -74,7 +74,7 @@ import Testing
         #expect(await store.discoverySnapshot().work.isEmpty == true)
         try await store.associateDiscoveredFacts(workoutID: parent, keys: [event.factKey])
         #expect(await store.discoverySnapshot().events[event.id]?.workoutID == parent)
-        #expect(await store.discoverySnapshot().work[parent]?.pendingDelete == false)
+        #expect(await store.discoverySnapshot().work[parent]?.selected == false)
         await #expect(throws: (any Error).self) { try await store.associateDiscoveredFacts(workoutID: Wire.id(), keys: [event.factKey]) }
     }
     @Test func repeatedAssociationWithoutNewFactsDoesNotCommit() async throws {
@@ -133,34 +133,6 @@ import Testing
         }
         #expect(await reopened.discoverySnapshot().parents[unrelated.factKey] == nil)
         #expect(await reopened.discoverySnapshot().events[unrelated.id]?.workoutID == nil)
-    }
-    @Test func deletionBlocksOldUploadWithoutFalseACK() async throws {
-        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), id = Wire.id(), query = DiscoveryQuery(type: "HKWorkoutTypeIdentifier")
-        try await store.beginTask(id)
-        let file = try await store.savePayload(Data("synthetic".utf8))
-        try await store.setBundle(id, file: file, sha256: String(repeating: "a", count: 64), boundary: "test")
-        _ = try await store.discoveryFlow(query)
-        let batch = try await store.stageDiscovery(query, previousAnchor: nil, anchor: Data([1]), events: [DiscoveryEvent(type: query.type, uuid: id, deleted: true)], hasMore: false)
-        try await store.promoteDiscovery(query, batchID: batch)
-        #expect(try await store.claimBundle(id) == nil)
-        #expect(await store.task(id)?.deletionReceipt == nil)
-        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent(file).path))
-        #expect(try await OutboxStore(directory: dir).claimBundle(id) == nil)
-    }
-    @Test func childDeleteParksExactUnacknowledgedBytes() async throws {
-        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), id = Wire.id(), query = DiscoveryQuery(type: "sample", workoutID: Wire.id())
-        try await store.beginTask(id)
-        let file = try await store.savePayload(Data("synthetic-unacked".utf8)), hash = String(repeating: "a", count: 64)
-        try await store.setBundle(id, file: file, sha256: hash, boundary: "test")
-        let scoped = DiscoveryQuery(type: query.type, workoutID: id); _ = try await store.discoveryFlow(scoped)
-        let batch = try await store.stageDiscovery(scoped, previousAnchor: nil, anchor: Data([1]), events: [DiscoveryEvent(type: scoped.type, uuid: Wire.id(), deleted: true, workoutID: id)], hasMore: false)
-        try await store.promoteDiscovery(scoped, batchID: batch); try await store.parkBundleForExplicitChildDeletion(id)
-        #expect(await store.task(id)?.bundleFile == nil)
-        #expect(await store.snapshot().retainedBundles?[hash]?.bundleFile == file)
-        _ = try await store.collectGarbage(dryRun: false)
-        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent(file).path))
     }
 }
 

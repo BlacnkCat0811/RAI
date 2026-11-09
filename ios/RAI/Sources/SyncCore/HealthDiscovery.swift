@@ -64,7 +64,6 @@ public struct DiscoveryWork: Codable, Sendable {
     public var generation: Int64 = 0
     public var preparedGeneration: Int64 = 0
     public var deliveredGeneration: Int64 = 0
-    public var pendingDelete = false
     public var selected = false
     public var error: String?
     public var nextAttemptAt: Date?
@@ -74,8 +73,8 @@ public struct DiscoveryWork: Codable, Sendable {
     /// HealthKit generation always reopens work; source-policy review does not
     /// turn into an endless autonomous loop.
     public var hasAutomaticDeliveryWork: Bool {
-        pendingDelete || (selected && ((generation > deliveredGeneration && (error == nil || attempt <= 3)) ||
-            (error == "partial_read_pending" && attempt <= 3)))
+        selected && ((generation > deliveredGeneration && (error == nil || attempt <= 3)) ||
+            (error == "partial_read_pending" && attempt <= 3))
     }
     public func needsDelivery(now: Date = Date()) -> Bool {
         hasAutomaticDeliveryWork && (nextAttemptAt ?? .distantPast) <= now
@@ -152,9 +151,7 @@ extension OutboxStore {
                     if state.deletedWorkouts.contains(parent) && !event.deleted {
                         event.status = "suppressed_by_workout_delete"
                     } else { work.generation += 1; event.generation = work.generation; event.ordinal = discovery.nextOrdinal() }
-                    if state.deletedWorkouts.contains(parent) && event.deleted && event.type != "HKWorkoutTypeIdentifier" { work.selected = true }
                     work.error = nil; work.nextAttemptAt = nil
-                    if event.deleted && event.type == "HKWorkoutTypeIdentifier" { work.pendingDelete = true }
                     discovery.work[parent] = work
                 }
                 if !event.deleted && event.type == "HKWorkoutTypeIdentifier", let file = event.archiveFile,
@@ -203,7 +200,7 @@ extension OutboxStore {
     }
     public func selectDiscoveredWorkout(_ id: String) throws {
         var next = state; var discovery = next.discovery ?? DiscoveryState(); var work = discovery.work[id] ?? DiscoveryWork()
-        guard !work.pendingDelete, !next.deletedWorkouts.contains(id) else { throw SyncFailure.localState("workout_deleted") }
+        guard !next.deletedWorkouts.contains(id) else { throw SyncFailure.localState("workout_deleted") }
         work.selected = true; work.error = nil; work.nextAttemptAt = nil; work.attempt = 0
         discovery.work[id] = work; next.discovery = discovery; try commit(next)
     }
@@ -253,20 +250,6 @@ extension OutboxStore {
             next.discovery?.work[id] = work
         }
         try commit(next)
-    }
-    public func parkBundleForExplicitChildDeletion(_ id: String) throws {
-        guard let task = state.tasks?[id], let hash = task.bundleSHA256, task.bundleFile != nil, task.uploadReceipt == nil,
-              state.discovery?.events.values.contains(where: { $0.workoutID == id && $0.deleted && $0.type != "HKWorkoutTypeIdentifier" && !(task.bundleDeletionEventIDs ?? []).contains($0.id) }) == true else { return }
-        // Original unacknowledged bytes remain referenced forever until an
-        // explicit resolution. They cannot be GC'd or silently replaced.
-        var next = state
-        if next.retainedBundles == nil { next.retainedBundles = [:] }
-        next.retainedBundles?[hash] = task
-        var successor = task
-        successor.bundleFile = nil; successor.bundleSHA256 = nil; successor.bundleBoundary = nil
-        successor.bundleWireFile = nil; successor.bundleWireSHA256 = nil
-        successor.phase = .preparing; successor.nextAttemptAt = nil; successor.lastUploadError = nil; successor.errorCode = nil
-        next.tasks?[id] = successor; try commit(next)
     }
     public func discoveryAdvanceCursor(_ count: Int, total: Int) throws {
         var next = state

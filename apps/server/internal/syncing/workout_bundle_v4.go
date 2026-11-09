@@ -7,752 +7,675 @@ import (
 	"io"
 	"math"
 	"sort"
-	"strings"
 	"unicode/utf8"
 )
 
-// The v4 bundle is the compact columnar projection of one Workout. It carries
-// the same facts as a v3 bundle but never repeats field names per sample:
-// streams hold positional [startUs,endUs,value] triples with a parallel UUID
-// array and a source index. It is decoded once into the v3 in-memory shape so
-// the existing single semantic validation and PostgreSQL write path stay
-// authoritative.
-const (
-	MaxV4Sources        = 16
-	MaxV4Streams        = 32
-	MaxV4Deletions      = 10_000
-	MaxV4RouteDeletions = 256
-)
+// Protocol 4 is the raw Workout upload. The client sends the HealthKit values it
+// observed, one object per sample, with the source descriptor inline. The
+// server interprets only the fields it knows, projects usable facts into the
+// normalized tables, and keeps everything else in the exact stored bytes.
+//
+// Unlike v3, a bad optional stream, sample or point does not fail the bundle:
+// it is skipped in the projection while the original payload remains the
+// authoritative copy. Only the envelope identity and the Workout core are
+// strict, because a bundle without them cannot be placed on the timeline.
+const maxV4JSONDepth = 128
 
 var errBundleV4 = errors.New("invalid v4 bundle")
 
-// v4String, v4Int and v4Int64 reject explicit nulls; the compact format uses
-// omission for absent optional values, so a null is always a contract error.
-type v4String string
+const (
+	minBundleTimeUs = -62135596800000000
+	maxBundleTimeUs = 253402300799999999
+)
 
-func (s *v4String) UnmarshalJSON(raw []byte) error {
-	if isJSONNull(raw) {
-		return errBundleV4
-	}
-	var value string
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return errBundleV4
-	}
-	*s = v4String(value)
-	return nil
+type v4Envelope struct {
+	ProtocolVersion *int            `json:"protocolVersion"`
+	DatasetID       *string         `json:"datasetID"`
+	DatasetEpoch    *string         `json:"datasetEpoch"`
+	CollectorEpoch  *string         `json:"collectorEpoch"`
+	WorkoutID       *string         `json:"workoutID"`
+	StartUs         *int64          `json:"startUs"`
+	EndUs           *int64          `json:"endUs"`
+	Source          json.RawMessage `json:"source"`
+	Metadata        json.RawMessage `json:"metadata"`
+	Workout         json.RawMessage `json:"workout"`
+	Streams         json.RawMessage `json:"streams"`
+	Series          json.RawMessage `json:"series"`
+	Routes          json.RawMessage `json:"routes"`
 }
 
-type v4Int int
-
-func (n *v4Int) UnmarshalJSON(raw []byte) error {
-	if isJSONNull(raw) {
-		return errBundleV4
-	}
-	var value int
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return errBundleV4
-	}
-	*n = v4Int(value)
-	return nil
+type v4Stream struct {
+	Type    *string           `json:"type"`
+	Unit    *string           `json:"unit"`
+	Status  json.RawMessage   `json:"status"`
+	Error   json.RawMessage   `json:"error"`
+	Samples []json.RawMessage `json:"samples"`
 }
 
-type v4Int64 int64
-
-func (n *v4Int64) UnmarshalJSON(raw []byte) error {
-	if isJSONNull(raw) {
-		return errBundleV4
-	}
-	var value int64
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return errBundleV4
-	}
-	*n = v4Int64(value)
-	return nil
+type v4Sample struct {
+	UUID     *string         `json:"uuid"`
+	StartUs  *int64          `json:"startUs"`
+	EndUs    *int64          `json:"endUs"`
+	Value    *float64        `json:"value"`
+	Source   json.RawMessage `json:"source"`
+	Metadata json.RawMessage `json:"metadata"`
 }
 
-type v4Float float64
+type v4Series struct {
+	Type       *string           `json:"type"`
+	SampleUUID *string           `json:"sampleUUID"`
+	Unit       *string           `json:"unit"`
+	Points     []json.RawMessage `json:"points"`
+}
 
-func (n *v4Float) UnmarshalJSON(raw []byte) error {
-	if isJSONNull(raw) {
-		return errBundleV4
-	}
-	var value float64
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return errBundleV4
-	}
-	*n = v4Float(value)
-	return nil
+type v4Route struct {
+	RouteID *string           `json:"routeID"`
+	Source  json.RawMessage   `json:"source"`
+	Points  []json.RawMessage `json:"points"`
 }
 
 func isJSONNull(raw []byte) bool { return bytes.Equal(bytes.TrimSpace(raw), []byte("null")) }
 
-type workoutBundleV4 struct {
-	ProtocolVersion         int                 `json:"protocolVersion"`
-	MetadataRegistryVersion *int                `json:"metadataRegistryVersion"`
-	DatasetID               v4String            `json:"datasetID"`
-	DatasetEpoch            v4String            `json:"datasetEpoch"`
-	CollectorEpoch          v4String            `json:"collectorEpoch"`
-	WorkoutID               v4String            `json:"workoutID"`
-	StartUs                 v4Int64             `json:"startUs"`
-	EndUs                   v4Int64             `json:"endUs"`
-	Workout                 json.RawMessage     `json:"workout"`
-	Sources                 []workoutSourceV4   `json:"sources"`
-	Streams                 []workoutStreamV4   `json:"streams"`
-	Series                  []workoutSeriesV4   `json:"series"`
-	Routes                  []workoutRouteV4    `json:"routes"`
-	Deletions               []workoutDeletionV4 `json:"deletions"`
-	RouteDeletions          []v4String          `json:"routeDeletions"`
-	Observation             json.RawMessage     `json:"observation"`
-}
+func v4Bad() (WorkoutBundle, error) { return WorkoutBundle{}, Fail(422, "unsupported_payload") }
 
-type workoutSourceV4 struct {
-	BundleID               v4String `json:"bundleID"`
-	Name                   v4String `json:"name"`
-	Version                v4String `json:"version"`
-	ProductType            v4String `json:"productType"`
-	OperatingSystemVersion v4String `json:"operatingSystemVersion"`
-}
-
-func (s *workoutSourceV4) UnmarshalJSON(raw []byte) error {
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+// walkV4JSON rejects duplicate object keys and pathological nesting before the
+// typed decode. Unknown fields are intentionally legal in this protocol.
+func walkV4JSON(decoder *json.Decoder, depth int) error {
+	if depth > maxV4JSONDepth {
 		return errBundleV4
 	}
-	required := []string{"bundleID"}
-	for _, key := range required {
-		if value, ok := fields[key]; !ok || isJSONNull(value) {
-			return errBundleV4
-		}
-	}
-	for key, value := range fields {
-		switch key {
-		case "bundleID", "name", "version", "productType", "operatingSystemVersion":
-			if isJSONNull(value) {
-				return errBundleV4
-			}
-		default:
-			return errBundleV4
-		}
-	}
-	type alias workoutSourceV4
-	var out alias
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return errBundleV4
-	}
-	*s = workoutSourceV4(out)
-	return nil
-}
-
-func (s workoutSourceV4) healthKitSource() HealthKitSource {
-	return HealthKitSource{
-		BundleID:               string(s.BundleID),
-		Name:                   string(s.Name),
-		Version:                string(s.Version),
-		ProductType:            string(s.ProductType),
-		OperatingSystemVersion: string(s.OperatingSystemVersion),
-	}
-}
-
-type workoutStreamV4 struct {
-	Type     v4String          `json:"type"`
-	Kind     v4String          `json:"kind"`
-	Unit     v4String          `json:"unit"`
-	Samples  []workoutSampleV4 `json:"samples"`
-	UUIDs    []v4String        `json:"uuids"`
-	Source   v4Int             `json:"source"`
-	Src      []v4Int           `json:"src"`
-	Metadata []v4Metadata      `json:"metadata"`
-}
-
-func (s *workoutStreamV4) UnmarshalJSON(raw []byte) error {
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
-		return errBundleV4
-	}
-	for _, key := range []string{"type", "kind", "unit", "samples", "uuids", "source"} {
-		if value, ok := fields[key]; !ok || isJSONNull(value) {
-			return errBundleV4
-		}
-	}
-	for key, value := range fields {
-		switch key {
-		case "type", "kind", "unit", "samples", "uuids", "source", "src", "metadata":
-			if isJSONNull(value) {
-				return errBundleV4
-			}
-		default:
-			return errBundleV4
-		}
-	}
-	type alias workoutStreamV4
-	var out alias
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return errBundleV4
-	}
-	*s = workoutStreamV4(out)
-	return nil
-}
-
-// workoutSampleV4 is one compact sample triple. Every element is required and
-// must be a finite number; category values are integral and checked later.
-type workoutSampleV4 struct {
-	StartUs int64
-	EndUs   int64
-	Value   float64
-}
-
-func (s *workoutSampleV4) UnmarshalJSON(raw []byte) error {
-	values, err := v4FixedArray(raw, 3)
-	if err != nil {
-		return err
-	}
-	start, err := v4Int64Value(values[0])
-	if err != nil {
-		return err
-	}
-	end, err := v4Int64Value(values[1])
-	if err != nil {
-		return err
-	}
-	value, err := v4FloatValue(values[2])
-	if err != nil {
-		return err
-	}
-	s.StartUs, s.EndUs, s.Value = start, end, value
-	return nil
-}
-
-type v4Metadata map[string]any
-
-func (m *v4Metadata) UnmarshalJSON(raw []byte) error {
-	if isJSONNull(raw) {
-		return errBundleV4
-	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-		return errBundleV4
-	}
-	var value map[string]any
-	if err := decodeV4Object(raw, &value); err != nil {
-		return err
-	}
-	*m = value
-	return nil
-}
-
-type workoutSeriesV4 struct {
-	Stream v4Int            `json:"stream"`
-	Sample v4Int            `json:"sample"`
-	Points []workoutPointV4 `json:"points"`
-}
-
-type workoutPointV4 struct {
-	StartUs int64
-	EndUs   int64
-	Value   float64
-}
-
-func (p *workoutPointV4) UnmarshalJSON(raw []byte) error {
-	values, err := v4FixedArray(raw, 3)
-	if err != nil {
-		return err
-	}
-	start, err := v4Int64Value(values[0])
-	if err != nil {
-		return err
-	}
-	end, err := v4Int64Value(values[1])
-	if err != nil {
-		return err
-	}
-	value, err := v4FloatValue(values[2])
-	if err != nil {
-		return err
-	}
-	p.StartUs, p.EndUs, p.Value = start, end, value
-	return nil
-}
-
-type workoutRouteV4 struct {
-	RouteID v4String              `json:"routeID"`
-	Source  v4Int                 `json:"source"`
-	Points  []workoutRoutePointV4 `json:"points"`
-}
-
-type workoutRoutePointV4 struct {
-	RecordedAtUs       int64
-	Latitude           float64
-	Longitude          float64
-	Altitude           *float64
-	HorizontalAccuracy *float64
-	VerticalAccuracy   *float64
-	Speed              *float64
-	Course             *float64
-}
-
-func (p *workoutRoutePointV4) UnmarshalJSON(raw []byte) error {
-	values, err := v4FixedArray(raw, 8)
-	if err != nil {
-		return err
-	}
-	recordedAt, err := v4Int64Value(values[0])
-	if err != nil {
-		return err
-	}
-	latitude, err := v4FloatValue(values[1])
-	if err != nil {
-		return err
-	}
-	longitude, err := v4FloatValue(values[2])
-	if err != nil {
-		return err
-	}
-	optional := make([]*float64, 5)
-	for i := range optional {
-		if isJSONNull(values[3+i]) {
-			continue
-		}
-		value, err := v4FloatValue(values[3+i])
-		if err != nil {
-			return err
-		}
-		v := value
-		optional[i] = &v
-	}
-	*p = workoutRoutePointV4{RecordedAtUs: recordedAt, Latitude: latitude, Longitude: longitude,
-		Altitude: optional[0], HorizontalAccuracy: optional[1], VerticalAccuracy: optional[2], Speed: optional[3], Course: optional[4]}
-	return nil
-}
-
-func (p workoutRoutePointV4) bundlePoint() WorkoutBundlePoint {
-	return WorkoutBundlePoint{RecordedAtUs: p.RecordedAtUs, Latitude: p.Latitude, Longitude: p.Longitude,
-		Altitude: p.Altitude, HorizontalAccuracy: p.HorizontalAccuracy, VerticalAccuracy: p.VerticalAccuracy, Speed: p.Speed, Course: p.Course}
-}
-
-type workoutDeletionV4 struct {
-	Type v4String `json:"type"`
-	UUID v4String `json:"uuid"`
-}
-
-// v4FixedArray decodes exactly n positional elements. encoding/json arrays
-// silently tolerate shorter and longer inputs when decoding into fixed arrays,
-// so the compact contract checks the count explicitly.
-func v4FixedArray(raw []byte, n int) ([]json.RawMessage, error) {
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
 	token, err := decoder.Token()
 	if err != nil {
-		return nil, errBundleV4
+		return err
 	}
 	delim, ok := token.(json.Delim)
-	if !ok || delim != '[' {
-		return nil, errBundleV4
+	if !ok {
+		return nil
 	}
-	values := make([]json.RawMessage, 0, n)
-	for decoder.More() {
-		if len(values) >= n {
-			return nil, errBundleV4
+	switch delim {
+	case '{':
+		seen := make(map[string]bool, 8)
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok || seen[key] {
+				return errBundleV4
+			}
+			seen[key] = true
+			if err := walkV4JSON(decoder, depth+1); err != nil {
+				return err
+			}
 		}
-		var item json.RawMessage
-		if err := decoder.Decode(&item); err != nil {
-			return nil, errBundleV4
+	case '[':
+		for decoder.More() {
+			if err := walkV4JSON(decoder, depth+1); err != nil {
+				return err
+			}
 		}
-		values = append(values, item)
+	default:
+		return errBundleV4
 	}
-	if token, err = decoder.Token(); err != nil {
-		return nil, errBundleV4
-	}
-	if delim, ok = token.(json.Delim); !ok || delim != ']' || len(values) != n {
-		return nil, errBundleV4
-	}
-	if _, err := decoder.Token(); err != io.EOF {
-		return nil, errBundleV4
-	}
-	return values, nil
+	_, err = decoder.Token()
+	return err
 }
 
-func v4Int64Value(raw json.RawMessage) (int64, error) {
-	if isJSONNull(raw) {
-		return 0, errBundleV4
-	}
-	var value int64
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return 0, errBundleV4
-	}
-	return value, nil
-}
-
-func v4FloatValue(raw json.RawMessage) (float64, error) {
-	if isJSONNull(raw) {
-		return 0, errBundleV4
-	}
-	var value float64
-	if err := json.Unmarshal(raw, &value); err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
-		return 0, errBundleV4
-	}
-	return value, nil
-}
-
-// DecodeWorkoutBundleV4JSON is the one wire decoder for protocolVersion 4. It
-// rejects duplicate object keys, unknown fields, explicit nulls and malformed
-// fixed arrays before converting into the v3 in-memory bundle used by the
-// single semantic validation and import path.
-func DecodeWorkoutBundleV4JSON(raw []byte) (WorkoutBundle, error) {
-	bad := func() (WorkoutBundle, error) { return WorkoutBundle{}, Fail(422, "unsupported_payload") }
+// decodeV4Envelope performs only the lexical and identity checks. It never
+// validates facts: those are projected one by one in DecodeWorkoutBundleV4JSON.
+func decodeV4Envelope(raw []byte) (v4Envelope, error) {
+	var zero v4Envelope
 	if !utf8.Valid(raw) {
-		return bad()
+		return zero, errBundleV4
 	}
+	lexical := json.NewDecoder(bytes.NewReader(raw))
+	if err := walkV4JSON(lexical, 0); err != nil {
+		return zero, errBundleV4
+	}
+	if _, err := lexical.Token(); err != io.EOF {
+		return zero, errBundleV4
+	}
+	var wire v4Envelope
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return zero, errBundleV4
+	}
+	if wire.ProtocolVersion == nil || wire.DatasetID == nil || wire.DatasetEpoch == nil ||
+		wire.CollectorEpoch == nil || wire.WorkoutID == nil || wire.StartUs == nil || wire.EndUs == nil ||
+		len(wire.Source) == 0 || isJSONNull(wire.Source) || len(wire.Workout) == 0 || isJSONNull(wire.Workout) {
+		return zero, errBundleV4
+	}
+	if !ValidID(*wire.DatasetID) || !ValidID(*wire.DatasetEpoch) ||
+		!ValidID(*wire.CollectorEpoch) || !ValidID(*wire.WorkoutID) {
+		return zero, errBundleV4
+	}
+	if !validV4Range(*wire.StartUs, *wire.EndUs) {
+		return zero, errBundleV4
+	}
+	return wire, nil
+}
+
+func validV4Range(start, end int64) bool {
+	return start >= minBundleTimeUs && start <= maxBundleTimeUs && end >= start && end <= maxBundleTimeUs
+}
+
+func v4Object(raw json.RawMessage) (map[string]json.RawMessage, bool) {
+	if len(raw) == 0 || isJSONNull(raw) {
+		return nil, false
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
+		return nil, false
+	}
+	return fields, true
+}
+
+func v4Array(raw json.RawMessage) ([]json.RawMessage, bool) {
+	if len(raw) == 0 || isJSONNull(raw) {
+		return nil, false
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil, false
+	}
+	return items, true
+}
+
+// v4MetadataValue keeps every unknown key and number exactly as submitted. The
+// map is stored into jsonb; nothing here interprets or allowlists a key.
+func v4MetadataValue(raw json.RawMessage) (map[string]any, bool) {
+	if len(raw) == 0 || isJSONNull(raw) {
+		return nil, false
+	}
+	var object map[string]any
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
-	if err := walkJSON(decoder); err != nil {
-		return bad()
+	if err := decoder.Decode(&object); err != nil || object == nil {
+		return nil, false
 	}
 	if _, err := decoder.Token(); err != io.EOF {
-		return bad()
+		return nil, false
 	}
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &envelope); err != nil || envelope == nil {
-		return bad()
+	return object, true
+}
+
+func v4HealthSource(raw json.RawMessage) (HealthKitSource, bool) {
+	var source HealthKitSource
+	if len(raw) == 0 || isJSONNull(raw) || json.Unmarshal(raw, &source) != nil || source.Validate() != nil {
+		return HealthKitSource{}, false
 	}
-	for _, key := range []string{"protocolVersion", "metadataRegistryVersion", "datasetID", "datasetEpoch",
-		"collectorEpoch", "workoutID", "startUs", "endUs", "workout", "sources", "streams", "observation"} {
-		value, ok := envelope[key]
-		if !ok || isJSONNull(value) {
-			return bad()
-		}
+	return source, true
+}
+
+func v4Eligible(source HealthKitSource, parent *HealthKitSource) bool {
+	class := source.Classification(parent)
+	return class == "apple_watch" || class == "associated_apple_watch"
+}
+
+// DecodeWorkoutBundleV4JSON is the wire boundary for protocolVersion 4. It
+// rejects malformed JSON, duplicate keys and missing identity, then projects
+// every usable fact. Per-fact errors are skipped rather than failing the whole
+// upload.
+func DecodeWorkoutBundleV4JSON(raw []byte) (WorkoutBundle, error) {
+	wire, err := decodeV4Envelope(raw)
+	if err != nil {
+		return v4Bad()
 	}
-	for _, key := range []string{"series", "routes", "deletions", "routeDeletions"} {
-		if value, ok := envelope[key]; ok && isJSONNull(value) {
-			return bad()
-		}
-	}
-	var wire workoutBundleV4
-	strict := json.NewDecoder(bytes.NewReader(raw))
-	strict.UseNumber()
-	strict.DisallowUnknownFields()
-	if err := strict.Decode(&wire); err != nil {
-		return bad()
-	}
-	if _, err := strict.Token(); err != io.EOF {
-		return bad()
-	}
-	if wire.ProtocolVersion != 4 {
+	if *wire.ProtocolVersion != 4 {
 		return WorkoutBundle{}, bundleField("protocolVersion", "unsupported_protocol")
 	}
-	bundle, err := wire.toBundle()
+	workoutSource, ok := v4HealthSource(wire.Source)
+	if !ok {
+		return v4Bad()
+	}
+	if workoutSource.Classification(nil) != "apple_watch" {
+		return WorkoutBundle{}, Fail(422, "source_policy_excluded")
+	}
+	start, end := *wire.StartUs, *wire.EndUs
+	workout, err := decodeV4Workout(wire.Workout, start, end)
+	if err != nil {
+		return WorkoutBundle{}, bundleValidationContext(err, "workout", "invalid_workout")
+	}
+	workoutEvent := Event{
+		Op: "upsert", Kind: "workout", Type: WorkoutType, UUID: *wire.WorkoutID,
+		StartUs: &start, EndUs: &end,
+		Source:  &Source{BundleID: workoutSource.BundleID},
+		Workout: &workout,
+	}
+	if metadata, ok := v4MetadataValue(wire.Metadata); ok {
+		// The reserved VO2 key is server-written provenance, never client input.
+		// The exact bytes remain in the stored payload.
+		delete(metadata, VO2Reserved)
+		if len(metadata) > 0 {
+			workoutEvent.Metadata = metadata
+		}
+	}
+	bundle := WorkoutBundle{
+		ProtocolVersion: 4,
+		DatasetID:       *wire.DatasetID,
+		DatasetEpoch:    *wire.DatasetEpoch,
+		CollectorEpoch:  *wire.CollectorEpoch,
+		WorkoutID:       *wire.WorkoutID,
+		Workout:         workoutEvent,
+	}
+	table := &BundleSourceTable{
+		Workout: workoutSource,
+		Samples: make(map[string]HealthKitSource),
+		Routes:  make(map[string]HealthKitSource),
+	}
+	if err := projectV4Streams(&bundle, table, wire.Streams, &workoutSource); err != nil {
+		return WorkoutBundle{}, err
+	}
+	series, err := projectV4Series(&bundle.Samples, wire.Series)
 	if err != nil {
 		return WorkoutBundle{}, err
 	}
-	return bundle, nil
-}
-
-func (w workoutBundleV4) toBundle() (WorkoutBundle, error) {
-	bad := func() (WorkoutBundle, error) { return WorkoutBundle{}, Fail(422, "unsupported_payload") }
-	if len(w.Sources) == 0 || len(w.Sources) > MaxV4Sources || len(w.Streams) > MaxV4Streams ||
-		len(w.Series) > MaxBundleSeries || len(w.Routes) > MaxBundleRoutes ||
-		len(w.Deletions) > MaxV4Deletions || len(w.RouteDeletions) > MaxV4RouteDeletions {
-		if len(w.Series) > MaxBundleSeries || len(w.Routes) > MaxBundleRoutes {
-			return WorkoutBundle{}, Fail(413, "bundle_too_large")
-		}
-		return bad()
-	}
-	start, end := int64(w.StartUs), int64(w.EndUs)
-	if start < -62135596800000000 || start > 253402300799999999 || end < start || end > 253402300799999999 {
-		return bad()
-	}
-	var workout Workout
-	if err := decodeV4Object(w.Workout, &workout); err != nil {
-		return bad()
-	}
-	if err := workout.Validate(start, end); err != nil {
-		return WorkoutBundle{}, bundleValidationContext(err, "workout", "invalid_workout")
-	}
-	observation, err := decodeV4Observation(w.Observation)
+	bundle.Series = series
+	routes, err := projectV4Routes(&bundle, table, wire.Routes, &workoutSource)
 	if err != nil {
-		return bad()
+		return WorkoutBundle{}, err
 	}
-	sources := make([]HealthKitSource, len(w.Sources))
-	workoutSourcePresent := false
-	for i := range w.Sources {
-		sources[i] = w.Sources[i].healthKitSource()
-		if err := sources[i].Validate(); err != nil {
-			return bad()
-		}
-		class := sources[i].Classification(&observation.Provenance.Workout)
-		if class != "apple_watch" && class != "associated_apple_watch" {
-			return WorkoutBundle{}, Fail(422, "source_policy_excluded")
-		}
-		if sources[i].BundleID == observation.Provenance.Workout.BundleID {
-			workoutSourcePresent = true
-		}
-	}
-	if !workoutSourcePresent {
-		return bad()
-	}
-	workoutEvent := Event{
-		Op: "upsert", Kind: "workout", Type: WorkoutType, UUID: string(w.WorkoutID),
-		StartUs: &start, EndUs: &end,
-		Source:  &Source{BundleID: observation.Provenance.Workout.BundleID},
-		Workout: &workout,
-	}
-	bundle := WorkoutBundle{
-		ProtocolVersion:         4,
-		MetadataRegistryVersion: w.MetadataRegistryVersion,
-		DatasetID:               string(w.DatasetID),
-		DatasetEpoch:            string(w.DatasetEpoch),
-		CollectorEpoch:          string(w.CollectorEpoch),
-		WorkoutID:               string(w.WorkoutID),
-		Workout:                 workoutEvent,
-		Observation:             &observation,
-	}
-	seenSamples := make(map[string]bool)
-	seenStreamTypes := make(map[string]bool)
-	for streamIndex := range w.Streams {
-		stream := &w.Streams[streamIndex]
-		sampleType := string(stream.Type)
-		if seenStreamTypes[sampleType] {
-			return bad()
-		}
-		seenStreamTypes[sampleType] = true
-		unit, ok := Units[sampleType]
-		if !ok || sampleType == WorkoutType {
-			return bad()
-		}
-		kind := "quantity"
-		if unit == "" {
-			kind = "category"
-		}
-		if string(stream.Kind) != kind || string(stream.Unit) != unit ||
-			len(stream.Samples) > MaxWorkoutBundleEvents || len(stream.UUIDs) != len(stream.Samples) {
-			return bad()
-		}
-		if len(bundle.Samples)+len(stream.Samples) > MaxWorkoutBundleEvents {
-			return WorkoutBundle{}, Fail(413, "bundle_too_large")
-		}
-		streamSource := int(stream.Source)
-		if streamSource < 0 || streamSource >= len(sources) {
-			return bad()
-		}
-		if stream.Src != nil && len(stream.Src) != len(stream.Samples) {
-			return bad()
-		}
-		if stream.Metadata != nil && len(stream.Metadata) != len(stream.Samples) {
-			return bad()
-		}
-		for sampleIndex := range stream.Samples {
-			sample := stream.Samples[sampleIndex]
-			uuid := string(stream.UUIDs[sampleIndex])
-			if !ValidID(uuid) {
-				return bad()
-			}
-			key := sampleType + ":" + uuid
-			if seenSamples[key] {
-				return bad()
-			}
-			seenSamples[key] = true
-			sourceIndex := streamSource
-			if stream.Src != nil {
-				sourceIndex = int(stream.Src[sampleIndex])
-				if sourceIndex < 0 || sourceIndex >= len(sources) {
-					return bad()
-				}
-			}
-			if sample.StartUs > sample.EndUs || sample.StartUs < -62135596800000000 || sample.EndUs > 253402300799999999 {
-				return bad()
-			}
-			event := Event{Op: "upsert", Kind: "sample", Type: sampleType, UUID: uuid,
-				StartUs: &sample.StartUs, EndUs: &sample.EndUs,
-				Source: &Source{BundleID: sources[sourceIndex].BundleID}}
-			if kind == "category" {
-				if sample.Value != math.Trunc(sample.Value) || sample.Value < 0 || sample.Value > 5 {
-					return bad()
-				}
-				category := int(sample.Value)
-				event.Category = &category
-			} else {
-				event.Quantity = &Quantity{Value: sample.Value, Unit: unit}
-			}
-			if stream.Metadata != nil && len(stream.Metadata[sampleIndex]) > 0 {
-				event.Metadata = stream.Metadata[sampleIndex]
-			}
-			bundle.Samples = append(bundle.Samples, event)
-		}
-	}
-	seenSeries := make(map[[2]int]bool)
-	seriesPoints := 0
-	for _, series := range w.Series {
-		streamIndex, sampleIndex := int(series.Stream), int(series.Sample)
-		if streamIndex < 0 || streamIndex >= len(w.Streams) || sampleIndex < 0 || sampleIndex >= len(w.Streams[streamIndex].Samples) || len(series.Points) == 0 {
-			return bad()
-		}
-		key := [2]int{streamIndex, sampleIndex}
-		if seenSeries[key] {
-			return bad()
-		}
-		seenSeries[key] = true
-		sampleType := string(w.Streams[streamIndex].Type)
-		unit := Units[sampleType]
-		if unit == "" {
-			return bad()
-		}
-		parent := w.Streams[streamIndex].Samples[sampleIndex]
-		seriesPoints += len(series.Points)
-		if seriesPoints > MaxBundleSeriesPoints {
-			return WorkoutBundle{}, Fail(413, "bundle_too_large")
-		}
-		points := make([]SeriesPoint, len(series.Points))
-		for i, point := range series.Points {
-			if point.StartUs > point.EndUs || point.StartUs < parent.StartUs || point.EndUs > parent.EndUs {
-				return bad()
-			}
-			points[i] = SeriesPoint{StartUs: point.StartUs, EndUs: point.EndUs, Value: point.Value, Unit: unit}
-		}
-		bundle.Series = append(bundle.Series, WorkoutBundleSeries{
-			SampleType: sampleType, SampleUUID: string(w.Streams[streamIndex].UUIDs[sampleIndex]), Points: points,
-		})
-	}
-	routeIDs := make(map[string]bool)
-	routePoints := 0
-	for _, route := range w.Routes {
-		routeID := string(route.RouteID)
-		sourceIndex := int(route.Source)
-		if !ValidID(routeID) || routeIDs[routeID] || sourceIndex < 0 || sourceIndex >= len(sources) || len(route.Points) == 0 {
-			return bad()
-		}
-		routeIDs[routeID] = true
-		routePoints += len(route.Points)
-		if routePoints > MaxBundleRoutePoints {
-			return WorkoutBundle{}, Fail(413, "bundle_too_large")
-		}
-		points := make([]WorkoutBundlePoint, len(route.Points))
-		for i := range route.Points {
-			points[i] = route.Points[i].bundlePoint()
-			if err := points[i].ToRoutePoint(int64(i)).Validate(); err != nil {
-				return bad()
-			}
-		}
-		bundle.Routes = append(bundle.Routes, WorkoutBundleRoute{RouteID: routeID, Source: Source{BundleID: sources[sourceIndex].BundleID}, Points: points})
-	}
-	for _, deletion := range w.Deletions {
-		sampleType := string(deletion.Type)
-		uuid := string(deletion.UUID)
-		if _, ok := Units[sampleType]; !ok || sampleType == WorkoutType || !ValidID(uuid) {
-			return bad()
-		}
-		bundle.SampleDeletions = append(bundle.SampleDeletions, SampleDeletion{SampleType: sampleType, SampleUUID: uuid})
-	}
-	for _, deletion := range w.RouteDeletions {
-		routeID := string(deletion)
-		if !ValidID(routeID) {
-			return bad()
-		}
-		bundle.RouteDeletions = append(bundle.RouteDeletions, routeID)
-	}
-	// CompleteSampleTypes is derived only from explicit per-stream coverage.
-	// A successful query with zero records is coverage, never completeness for
-	// a stream that has no samples.
-	counts := map[string]int{}
-	for _, sample := range bundle.Samples {
-		counts[sample.Type]++
-	}
-	complete := make(map[string]bool)
-	for key, coverage := range observation.Coverage {
-		if coverage.State != "complete" {
-			continue
-		}
-		if strings.HasPrefix(key, "series:") {
-			continue
-		}
-		sampleType := key
-		if _, ok := Units[sampleType]; !ok || sampleType == WorkoutType || counts[sampleType] == 0 {
-			continue
-		}
-		complete[sampleType] = true
-	}
-	for sampleType := range complete {
-		bundle.CompleteSampleTypes = append(bundle.CompleteSampleTypes, sampleType)
-	}
-	sort.Strings(bundle.CompleteSampleTypes)
-	if coverage, ok := observation.Coverage["route"]; ok && coverage.State == "complete" && len(bundle.Routes) > 0 {
-		bundle.CompleteRoutes = true
-	}
+	bundle.Routes = routes
+	bundle.SourceTable = table
 	if err := bundle.Validate(); err != nil {
 		return WorkoutBundle{}, err
 	}
 	return bundle, nil
 }
 
-func decodeV4Object(raw json.RawMessage, destination any) error {
-	if len(raw) == 0 || isJSONNull(raw) {
-		return errBundleV4
+// WorkoutBundleV4SourceTable extracts the source descriptors from an already
+// stored protocol-4 payload. Analysis and feature loaders use it instead of
+// re-projecting facts they have already read from the normalized tables.
+func WorkoutBundleV4SourceTable(raw []byte) (*BundleSourceTable, error) {
+	wire, err := decodeV4Envelope(raw)
+	if err != nil {
+		return nil, Fail(422, "unsupported_payload")
 	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return errBundleV4
+	if *wire.ProtocolVersion != 4 {
+		return nil, Fail(422, "unsupported_protocol")
 	}
-	if _, err := decoder.Token(); err != io.EOF {
-		return errBundleV4
+	workoutSource, ok := v4HealthSource(wire.Source)
+	if !ok {
+		return nil, Fail(422, "unsupported_payload")
+	}
+	table := &BundleSourceTable{
+		Workout: workoutSource,
+		Samples: make(map[string]HealthKitSource),
+		Routes:  make(map[string]HealthKitSource),
+	}
+	streams, _ := v4Array(wire.Streams)
+	for _, rawStream := range streams {
+		var stream v4Stream
+		if json.Unmarshal(rawStream, &stream) != nil || stream.Type == nil {
+			continue
+		}
+		sampleType := *stream.Type
+		if _, known := Units[sampleType]; !known || sampleType == WorkoutType {
+			continue
+		}
+		for _, rawSample := range stream.Samples {
+			var sample v4Sample
+			if json.Unmarshal(rawSample, &sample) != nil || sample.UUID == nil || !ValidID(*sample.UUID) {
+				continue
+			}
+			source, ok := v4HealthSource(sample.Source)
+			if !ok {
+				continue
+			}
+			table.Samples[sampleType+":"+*sample.UUID] = source
+		}
+	}
+	routes, _ := v4Array(wire.Routes)
+	for _, rawRoute := range routes {
+		var route v4Route
+		if json.Unmarshal(rawRoute, &route) != nil || route.RouteID == nil || !ValidID(*route.RouteID) {
+			continue
+		}
+		source, ok := v4HealthSource(route.Source)
+		if !ok {
+			continue
+		}
+		table.Routes[*route.RouteID] = source
+	}
+	return table, nil
+}
+
+func projectV4Streams(bundle *WorkoutBundle, table *BundleSourceTable, raw json.RawMessage, parent *HealthKitSource) error {
+	streams, ok := v4Array(raw)
+	if !ok {
+		return nil
+	}
+	seenTypes := make(map[string]bool, len(streams))
+	rawSamples := 0
+	for _, rawStream := range streams {
+		var stream v4Stream
+		if json.Unmarshal(rawStream, &stream) != nil || stream.Type == nil {
+			continue
+		}
+		sampleType := *stream.Type
+		unit, known := Units[sampleType]
+		if !known || sampleType == WorkoutType || seenTypes[sampleType] {
+			continue
+		}
+		seenTypes[sampleType] = true
+		if stream.Unit != nil && *stream.Unit != unit {
+			continue
+		}
+		rawSamples += len(stream.Samples)
+		if rawSamples > MaxWorkoutBundleEvents {
+			return Fail(413, "bundle_too_large")
+		}
+		for _, rawSample := range stream.Samples {
+			sample, ok := decodeV4Sample(rawSample)
+			if !ok {
+				continue
+			}
+			key := sampleType + ":" + sample.uuid
+			if _, duplicate := table.Samples[key]; duplicate {
+				continue
+			}
+			source, ok := v4HealthSource(sample.source)
+			if !ok || !v4Eligible(source, parent) {
+				continue
+			}
+			event := Event{
+				Op: "upsert", Kind: "sample", Type: sampleType, UUID: sample.uuid,
+				StartUs: &sample.start, EndUs: &sample.end,
+				Source: &Source{BundleID: source.BundleID},
+			}
+			if unit == "" {
+				if math.IsNaN(sample.value) || math.IsInf(sample.value, 0) ||
+					sample.value != math.Trunc(sample.value) || sample.value < 0 || sample.value > 5 {
+					continue
+				}
+				category := int(sample.value)
+				event.Category = &category
+			} else {
+				event.Quantity = &Quantity{Value: sample.value, Unit: unit}
+			}
+			if metadata, ok := v4MetadataValue(sample.metadata); ok {
+				delete(metadata, VO2Reserved)
+				if len(metadata) > 0 {
+					event.Metadata = metadata
+				}
+			}
+			table.Samples[key] = source
+			bundle.Samples = append(bundle.Samples, event)
+		}
 	}
 	return nil
 }
 
-// decodeV4Observation keeps the observation envelope strict: provenance must
-// contain the workout descriptor plus explicitly empty sample/route arrays,
-// because v4 carries per-sample source indices in streams instead.
-func decodeV4Observation(raw json.RawMessage) (BundleObservation, error) {
-	var zero BundleObservation
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &fields); err != nil || fields == nil {
-		return zero, errBundleV4
+type v4SampleValue struct {
+	uuid     string
+	start    int64
+	end      int64
+	value    float64
+	source   json.RawMessage
+	metadata json.RawMessage
+}
+
+func decodeV4Sample(raw json.RawMessage) (v4SampleValue, bool) {
+	var wire v4Sample
+	if json.Unmarshal(raw, &wire) != nil || wire.UUID == nil || !ValidID(*wire.UUID) ||
+		wire.StartUs == nil || wire.EndUs == nil || wire.Value == nil {
+		return v4SampleValue{}, false
 	}
-	for _, key := range []string{"version", "observedAtUs", "provenance", "coverage"} {
-		value, ok := fields[key]
-		if !ok || isJSONNull(value) {
-			return zero, errBundleV4
+	if !validV4Range(*wire.StartUs, *wire.EndUs) ||
+		math.IsNaN(*wire.Value) || math.IsInf(*wire.Value, 0) {
+		return v4SampleValue{}, false
+	}
+	return v4SampleValue{uuid: *wire.UUID, start: *wire.StartUs, end: *wire.EndUs,
+		value: *wire.Value, source: wire.Source, metadata: wire.Metadata}, true
+}
+
+func projectV4Series(samples *[]Event, raw json.RawMessage) ([]WorkoutBundleSeries, error) {
+	items, ok := v4Array(raw)
+	if !ok {
+		return nil, nil
+	}
+	if len(items) > MaxBundleSeries {
+		return nil, Fail(413, "bundle_too_large")
+	}
+	parents := make(map[string]Event, len(*samples))
+	for _, sample := range *samples {
+		parents[sample.Type+":"+sample.UUID] = sample
+	}
+	seen := make(map[string]bool, len(items))
+	out := make([]WorkoutBundleSeries, 0, len(items))
+	rawPoints := 0
+	for _, rawSeries := range items {
+		var wire v4Series
+		if json.Unmarshal(rawSeries, &wire) != nil || wire.Type == nil || wire.SampleUUID == nil {
+			continue
 		}
-	}
-	if value, ok := fields["metadata"]; ok && isJSONNull(value) {
-		return zero, errBundleV4
-	}
-	var observation BundleObservation
-	if err := decodeV4Object(raw, &observation); err != nil {
-		return zero, errBundleV4
-	}
-	var provenance map[string]json.RawMessage
-	if err := json.Unmarshal(fields["provenance"], &provenance); err != nil || provenance == nil {
-		return zero, errBundleV4
-	}
-	for _, key := range []string{"workout", "samples", "routes"} {
-		value, ok := provenance[key]
-		if !ok || isJSONNull(value) {
-			return zero, errBundleV4
+		sampleType := *wire.Type
+		unit, known := Units[sampleType]
+		if !known || unit == "" || sampleType == WorkoutType || !ValidID(*wire.SampleUUID) {
+			continue
 		}
-	}
-	for _, key := range []string{"samples", "routes"} {
-		var empty []json.RawMessage
-		if err := json.Unmarshal(provenance[key], &empty); err != nil || len(empty) != 0 {
-			return zero, errBundleV4
+		if wire.Unit != nil && *wire.Unit != unit {
+			continue
 		}
-	}
-	var coverage map[string]json.RawMessage
-	if err := json.Unmarshal(fields["coverage"], &coverage); err != nil || coverage == nil {
-		return zero, errBundleV4
-	}
-	for _, value := range coverage {
-		if isJSONNull(value) {
-			return zero, errBundleV4
+		parent, ok := parents[sampleType+":"+*wire.SampleUUID]
+		if !ok {
+			continue
 		}
-		var item map[string]json.RawMessage
-		if err := json.Unmarshal(value, &item); err != nil || item == nil {
-			return zero, errBundleV4
+		key := sampleType + ":" + *wire.SampleUUID
+		if seen[key] {
+			continue
 		}
-		for _, required := range []string{"state", "sampleCount", "queryCompleted", "localPersisted"} {
-			if field, ok := item[required]; !ok || isJSONNull(field) {
-				return zero, errBundleV4
+		rawPoints += len(wire.Points)
+		if rawPoints > MaxBundleSeriesPoints {
+			return nil, Fail(413, "bundle_too_large")
+		}
+		points := make([]SeriesPoint, 0, len(wire.Points))
+		for _, rawPoint := range wire.Points {
+			start, end, value, ok := v4Triple(rawPoint)
+			if !ok || start < *parent.StartUs || end > *parent.EndUs {
+				continue
 			}
+			points = append(points, SeriesPoint{StartUs: start, EndUs: end, Value: value, Unit: unit})
 		}
+		if len(points) == 0 {
+			continue
+		}
+		seen[key] = true
+		out = append(out, WorkoutBundleSeries{SampleType: sampleType, SampleUUID: *wire.SampleUUID, Points: points})
 	}
-	return observation, nil
+	return out, nil
+}
+
+func projectV4Routes(bundle *WorkoutBundle, table *BundleSourceTable, raw json.RawMessage, parent *HealthKitSource) ([]WorkoutBundleRoute, error) {
+	items, ok := v4Array(raw)
+	if !ok {
+		return nil, nil
+	}
+	if len(items) > MaxBundleRoutes {
+		return nil, Fail(413, "bundle_too_large")
+	}
+	seen := make(map[string]bool, len(items))
+	out := make([]WorkoutBundleRoute, 0, len(items))
+	rawPoints := 0
+	for _, rawRoute := range items {
+		var wire v4Route
+		if json.Unmarshal(rawRoute, &wire) != nil || wire.RouteID == nil || !ValidID(*wire.RouteID) || seen[*wire.RouteID] {
+			continue
+		}
+		source, ok := v4HealthSource(wire.Source)
+		if !ok || !v4Eligible(source, parent) {
+			continue
+		}
+		rawPoints += len(wire.Points)
+		if rawPoints > MaxBundleRoutePoints {
+			return nil, Fail(413, "bundle_too_large")
+		}
+		points := make([]WorkoutBundlePoint, 0, len(wire.Points))
+		for _, rawPoint := range wire.Points {
+			point, ok := v4RoutePoint(rawPoint)
+			if !ok {
+				continue
+			}
+			points = append(points, point)
+		}
+		if len(points) == 0 {
+			continue
+		}
+		seen[*wire.RouteID] = true
+		table.Routes[*wire.RouteID] = source
+		out = append(out, WorkoutBundleRoute{RouteID: *wire.RouteID, Source: Source{BundleID: source.BundleID}, Points: points})
+	}
+	return out, nil
+}
+
+func v4Triple(raw json.RawMessage) (start, end int64, value float64, ok bool) {
+	items, ok := v4Array(raw)
+	if !ok || len(items) != 3 {
+		return 0, 0, 0, false
+	}
+	var startValue, endValue *int64
+	var floatValue *float64
+	if json.Unmarshal(items[0], &startValue) != nil || json.Unmarshal(items[1], &endValue) != nil ||
+		json.Unmarshal(items[2], &floatValue) != nil || startValue == nil || endValue == nil || floatValue == nil {
+		return 0, 0, 0, false
+	}
+	if *startValue > *endValue || *startValue < minBundleTimeUs || *endValue > maxBundleTimeUs ||
+		math.IsNaN(*floatValue) || math.IsInf(*floatValue, 0) {
+		return 0, 0, 0, false
+	}
+	return *startValue, *endValue, *floatValue, true
+}
+
+func v4RoutePoint(raw json.RawMessage) (WorkoutBundlePoint, bool) {
+	items, ok := v4Array(raw)
+	if !ok || len(items) < 3 || len(items) > 8 {
+		return WorkoutBundlePoint{}, false
+	}
+	var recordedAt *int64
+	var latitude, longitude *float64
+	if json.Unmarshal(items[0], &recordedAt) != nil || json.Unmarshal(items[1], &latitude) != nil ||
+		json.Unmarshal(items[2], &longitude) != nil || recordedAt == nil || latitude == nil || longitude == nil {
+		return WorkoutBundlePoint{}, false
+	}
+	point := WorkoutBundlePoint{RecordedAtUs: *recordedAt, Latitude: *latitude, Longitude: *longitude}
+	optional := []**float64{&point.Altitude, &point.HorizontalAccuracy, &point.VerticalAccuracy, &point.Speed, &point.Course}
+	for index := 0; index < len(items)-3; index++ {
+		if isJSONNull(items[3+index]) {
+			continue
+		}
+		var value *float64
+		if json.Unmarshal(items[3+index], &value) != nil || value == nil ||
+			math.IsNaN(*value) || math.IsInf(*value, 0) {
+			return WorkoutBundlePoint{}, false
+		}
+		*optional[index] = value
+	}
+	if point.ToRoutePoint(0).Validate() != nil {
+		return WorkoutBundlePoint{}, false
+	}
+	return point, true
+}
+
+// decodeV4Workout keeps the Workout core strict and drops unusable optional
+// details. One unknown statistic or malformed segment never discards the run.
+func decodeV4Workout(raw json.RawMessage, start, end int64) (Workout, error) {
+	bad := func() (Workout, error) { return Workout{}, Fail(422, "unsupported_payload") }
+	fields, ok := v4Object(raw)
+	if !ok {
+		return bad()
+	}
+	var activityType, duration *int64
+	if json.Unmarshal(fields["activityType"], &activityType) != nil || activityType == nil {
+		return bad()
+	}
+	if json.Unmarshal(fields["durationUs"], &duration) != nil || duration == nil {
+		return bad()
+	}
+	workout := Workout{ActivityType: activityType, DurationUs: duration}
+	if quantity, ok := v4Quantity(fields["totalDistance"], "m", true); ok {
+		workout.TotalDistance = quantity
+	}
+	if quantity, ok := v4Quantity(fields["totalEnergyBurned"], "kcal", true); ok {
+		workout.TotalEnergyBurned = quantity
+	}
+	workout.Statistics = v4Statistics(fields["statistics"], start, end)
+	workout.Events = v4Events(fields["events"], start, end)
+	workout.Activities = v4Activities(fields["activities"], start, end)
+	if err := workout.Validate(start, end); err != nil {
+		return Workout{}, err
+	}
+	return workout, nil
+}
+
+func v4Quantity(raw json.RawMessage, unit string, nonnegative bool) (*Quantity, bool) {
+	if len(raw) == 0 || isJSONNull(raw) {
+		return nil, false
+	}
+	var quantity Quantity
+	if json.Unmarshal(raw, &quantity) != nil || !validQuantity(&quantity, unit, nonnegative) {
+		return nil, false
+	}
+	return &quantity, true
+}
+
+func v4Statistics(raw json.RawMessage, start, end int64) []WorkoutStatistic {
+	items, ok := v4Array(raw)
+	if !ok {
+		return nil
+	}
+	seen := make(map[string]bool, len(items))
+	out := make([]WorkoutStatistic, 0, len(items))
+	for _, item := range items {
+		var statistic WorkoutStatistic
+		if json.Unmarshal(item, &statistic) != nil {
+			continue
+		}
+		if _, known := Units[statistic.Type]; !known || statistic.Type == WorkoutType || seen[statistic.Type] {
+			continue
+		}
+		if validateWorkoutStatistics([]WorkoutStatistic{statistic}, start, end) != nil {
+			continue
+		}
+		seen[statistic.Type] = true
+		out = append(out, statistic)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Type < out[j].Type })
+	return out
+}
+
+func v4Events(raw json.RawMessage, start, end int64) []WorkoutEvent {
+	items, ok := v4Array(raw)
+	if !ok {
+		return nil
+	}
+	out := make([]WorkoutEvent, 0, len(items))
+	for _, item := range items {
+		var event WorkoutEvent
+		if json.Unmarshal(item, &event) != nil {
+			continue
+		}
+		if validateWorkoutEvents([]WorkoutEvent{event}, start, end) != nil {
+			continue
+		}
+		out = append(out, event)
+	}
+	return out
+}
+
+func v4Activities(raw json.RawMessage, start, end int64) []WorkoutActivity {
+	items, ok := v4Array(raw)
+	if !ok {
+		return nil
+	}
+	seen := make(map[string]bool, len(items))
+	out := make([]WorkoutActivity, 0, len(items))
+	for _, item := range items {
+		var activity WorkoutActivity
+		if json.Unmarshal(item, &activity) != nil || seen[activity.UUID] || activity.Validate(start, end) != nil {
+			continue
+		}
+		seen[activity.UUID] = true
+		out = append(out, activity)
+	}
+	return out
 }

@@ -47,6 +47,34 @@ type WorkoutBundle struct {
 	Observation     *BundleObservation `json:"observation,omitempty"`
 	SampleDeletions []SampleDeletion   `json:"sampleDeletions,omitempty"`
 	RouteDeletions  []string           `json:"routeDeletions,omitempty"`
+	// SourceTable holds inline source descriptors from a protocol 4 payload.
+	// The wire keeps them next to each fact instead of repeating them in an
+	// observation; the import and analysis paths read them from here.
+	SourceTable *BundleSourceTable `json:"-"`
+}
+
+// BundleSourceTable is the per-fact source attribution of a protocol 4 bundle.
+// v3 carries the same descriptors in its observation provenance arrays.
+type BundleSourceTable struct {
+	Workout HealthKitSource            `json:"workout"`
+	Samples map[string]HealthKitSource `json:"samples"`
+	Routes  map[string]HealthKitSource `json:"routes"`
+}
+
+func (t *BundleSourceTable) SampleSource(sampleType, uuid string) (HealthKitSource, bool) {
+	if t == nil {
+		return HealthKitSource{}, false
+	}
+	source, ok := t.Samples[sampleType+":"+uuid]
+	return source, ok
+}
+
+func (t *BundleSourceTable) RouteSource(routeID string) (HealthKitSource, bool) {
+	if t == nil {
+		return HealthKitSource{}, false
+	}
+	source, ok := t.Routes[routeID]
+	return source, ok
 }
 
 // WorkoutBundleSeries carries the child points of a multi-point quantity
@@ -178,11 +206,7 @@ func (b WorkoutBundle) Validate() error {
 			}
 		}
 	}
-	maxRouteDeletions := MaxBundleRoutes
-	if b.ProtocolVersion == 4 {
-		maxRouteDeletions = MaxV4RouteDeletions
-	}
-	if len(b.SampleDeletions) > MaxWorkoutBundleEvents || len(b.RouteDeletions) > maxRouteDeletions {
+	if len(b.SampleDeletions) > MaxWorkoutBundleEvents || len(b.RouteDeletions) > MaxBundleRoutes {
 		return bad()
 	}
 	for _, d := range b.SampleDeletions {

@@ -204,6 +204,11 @@ func metadataInteger(value any) (int64, bool) {
 // validateMetadataRegistryVersion enforces that a bundle may carry only the
 // keys its declared registry version supports. An absent field means version 1.
 func (b WorkoutBundle) validateMetadataRegistryVersion() error {
+	if b.ProtocolVersion == 4 {
+		// Protocol 4 has no metadata registry: every unknown key is preserved
+		// verbatim instead of being allowlisted by version.
+		return nil
+	}
 	version := MetadataRegistryVersionV1
 	if b.MetadataRegistryVersion != nil {
 		version = *b.MetadataRegistryVersion
@@ -261,36 +266,12 @@ func (b WorkoutBundle) validateMetadata() error {
 }
 
 func (b WorkoutBundle) validateObservation() error {
-	return b.validateObservationBody(b.ProtocolVersion != 4)
-}
-
-// validateObservationBody owns coverage/provenance validation shared by v3 and
-// v4. v4 moves per-sample source attribution into stream indices, so its
-// provenance sample/route arrays must be empty; v3 repeats every source.
-func (b WorkoutBundle) validateObservationBody(requireProvenance bool) error {
 	o := b.Observation
 	if o == nil {
 		return nil
 	}
 	if o.Version != 1 || o.ObservedAtUs < -62135596800000000 || o.ObservedAtUs > 253402300799999999 || len(o.Metadata) > 64 || len(o.Coverage) > 128 {
 		return Fail(422, "unsupported_payload")
-	}
-	if b.ProtocolVersion == 4 {
-		for key := range o.Coverage {
-			if key == "workout" || key == "route" {
-				continue
-			}
-			sampleType := key
-			if strings.HasPrefix(key, "series:") {
-				sampleType = strings.TrimPrefix(key, "series:")
-			}
-			if sampleType == key && strings.HasPrefix(key, "route:") {
-				return Fail(422, "unsupported_payload")
-			}
-			if _, ok := Units[sampleType]; !ok || sampleType == WorkoutType {
-				return Fail(422, "unsupported_payload")
-			}
-		}
 	}
 	if err := b.validateMetadata(); err != nil {
 		return err
@@ -309,13 +290,6 @@ func (b WorkoutBundle) validateObservationBody(requireProvenance bool) error {
 	for _, route := range b.Routes {
 		counts["route"] += len(route.Points)
 		counts["route:"+route.RouteID] = len(route.Points)
-	}
-	if b.ProtocolVersion == 4 {
-		for key, c := range o.Coverage {
-			if c.State != "complete" && c.State != "no_records_observed" && c.SampleCount > counts[key] {
-				return Fail(422, "unsupported_payload")
-			}
-		}
 	}
 	for key, c := range o.Coverage {
 		if len(key) > 255 || !coverageStates[c.State] || c.SampleCount < 0 || c.SampleCount > MaxBundleRoutePoints || len(c.ErrorCode) > 128 || len(c.Diagnostics) > 16 || (c.ExpectedCount != nil && *c.ExpectedCount < 0) {
@@ -347,12 +321,6 @@ func (b WorkoutBundle) validateObservationBody(requireProvenance bool) error {
 	}
 	if p.Workout.BundleID != b.Workout.Source.BundleID || p.Workout.Classification(nil) != "apple_watch" {
 		return Fail(409, "source_policy_pending")
-	}
-	if !requireProvenance {
-		if len(p.Samples) != 0 || len(p.Routes) != 0 {
-			return Fail(422, "unsupported_payload")
-		}
-		return nil
 	}
 	if len(p.Samples) != len(b.Samples) || len(p.Routes) != len(b.Routes) {
 		return Fail(422, "unsupported_payload")

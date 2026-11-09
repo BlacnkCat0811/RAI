@@ -1,3 +1,11 @@
+## 2026-11-09 — Workout Sync v4 原始载荷重定义
+
+- 原地重写 `contracts/sync-v4.md`：v4 改为单 Workout 原始 JSON 上传（顶层 `source`/`metadata`/`workout`/`streams`/`series`/`routes`，逐样本内联 `source`/`metadata`）；移除 `sources` 表、`kind`、`uuids`/`src` 平行数组、`metadataRegistryVersion`、`observation`/`coverage`、`deletions`/`routeDeletions`。未知字段合法并保留在 `workout_imports.payload` 精确字节中；服务端只投影已知事实，坏流/样本/点跳过；样本/route/series 上限仍返回 413 `bundle_too_large`。
+- 不做删除同步：v4 客户端不再生成 sample/route 删除或 DELETE，HealthKit 删除事件不改变服务端事实；v3 删除语义不变。
+- 服务端移除 `SYNC_V4_ENABLED`：请求头 `X-RAI-Sync-Protocol: 4` 直接协商 `workoutPayloadVersion=4`、`bundleProtocolVersion=4`、`bundleCompact=true`。客户端 v4 默认开启，`syncProtocolV4=false` 可回退 v3。
+- v4 在此前从未部署，因此不保留旧列式 v4 兼容或数据迁移；同 Workout 同字节重试仍返回原回执。
+- 服务端修复：v4 Workout 核心（`activityType`/`durationUs`）缺失或非法此前返回非 `*Error`，HTTP 层会变成 500；现在统一 422 `unsupported_payload`。
+
 ## 2026-11-08 — Workout Sync v4 / model completion / schema 46
 
 - 新增 `contracts/sync-v4.md`：单 Workout 列式 bundle（protocolVersion=4），显式 sample/route deletions、observation coverage、32 MiB wire / 8 MiB gzip / 100:1 解压比与严格 JSON 限制。

@@ -374,7 +374,6 @@ public actor OutboxStore {
               task.bundleBoundary != nil, task.uploadReceipt == nil, (task.deletionReceipt == nil || task.childDeletionOnly == true),
               (task.phase != .deleted || task.childDeletionOnly == true), task.phase != .failed,
               task.childDeletionOnly != true || task.lastUploadError?.retryable != false,
-              state.discovery?.work[id]?.pendingDelete != true,
               !activeBundleAttempts.contains(id), (task.nextAttemptAt ?? .distantPast) <= now else { return nil }
         try updateTask(id) {
             $0.phase = $0.childDeletionOnly == true ? .deleted : .uploading; $0.attemptCount = min(($0.attemptCount ?? 0) + 1, 1_000_000)
@@ -491,7 +490,6 @@ public actor OutboxStore {
         releaseBundleFile(&task, in: &next)
         next.tasks?[id] = task; next.deletedWorkouts.insert(id)
         if var work = next.discovery?.work[id] {
-            work.pendingDelete = false
             let childDeletes = (next.discovery?.events ?? [:]).values.contains { $0.workoutID == id && $0.deleted && $0.type != "HKWorkoutTypeIdentifier" && $0.status != "delivered" }
             if childDeletes { work.selected = true }
             else { work.deliveredGeneration = work.generation }

@@ -113,30 +113,46 @@ func (s *Store) loadWorkoutInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 	w.Start = start.UnixMicro()
 	w.End = end.UnixMicro()
 	w.Duration = float64(duration) / 1e6
-	var observationRaw []byte
-	observationErr := tx.QueryRow(ctx, `SELECT payload FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND payload ? 'observation' ORDER BY (payload->'observation'->>'observedAtUs')::bigint DESC,bundle_sha256 DESC LIMIT 1`, l.DatasetID, id).Scan(&observationRaw)
-	if observationErr == nil {
-		var observed syncing.WorkoutBundle
-		if json.Unmarshal(observationRaw, &observed) != nil || observed.Observation == nil {
+	var payloadRaw []byte
+	importErr := tx.QueryRow(ctx, `SELECT payload FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 ORDER BY imported_at DESC,bundle_sha256 DESC LIMIT 1`, l.DatasetID, id).Scan(&payloadRaw)
+	if importErr == nil {
+		var stored struct {
+			ProtocolVersion int                        `json:"protocolVersion"`
+			Observation     *syncing.BundleObservation `json:"observation"`
+		}
+		if json.Unmarshal(payloadRaw, &stored) != nil {
 			return analysis.Invalid()
 		}
-		if observed.Observation.Provenance.Workout.Classification(nil) != "apple_watch" {
-			return analysis.Invalid()
-		}
-		if err := validateAnalysisProvenance(ctx, tx, l.DatasetID, id); err != nil {
-			return err
-		}
-		w.Lineage = append(w.Lineage, "healthkit-observation:"+syncing.BundleDigest(observationBytes(observed)))
-	} else if !errors.Is(observationErr, pgx.ErrNoRows) {
-		return observationErr
-	} else {
-		var imported bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2)`, l.DatasetID, id).Scan(&imported); err != nil {
-			return err
-		}
-		if imported {
+		switch {
+		case stored.ProtocolVersion == 4:
+			table, err := syncing.WorkoutBundleV4SourceTable(payloadRaw)
+			if err != nil {
+				return analysis.Invalid()
+			}
+			if table.Workout.Classification(nil) != "apple_watch" {
+				return analysis.Invalid()
+			}
+			if err := validateAnalysisProvenance(ctx, tx, l.DatasetID, id); err != nil {
+				return err
+			}
+			w.Lineage = append(w.Lineage, "healthkit-bundle:"+syncing.BundleDigest(payloadRaw))
+		case stored.Observation != nil:
+			var observed syncing.WorkoutBundle
+			if json.Unmarshal(payloadRaw, &observed) != nil || observed.Observation == nil {
+				return analysis.Invalid()
+			}
+			if observed.Observation.Provenance.Workout.Classification(nil) != "apple_watch" {
+				return analysis.Invalid()
+			}
+			if err := validateAnalysisProvenance(ctx, tx, l.DatasetID, id); err != nil {
+				return err
+			}
+			w.Lineage = append(w.Lineage, "healthkit-observation:"+syncing.BundleDigest(observationBytes(observed)))
+		default:
 			return &analysis.Failure{Code: "analysis_source_unclassified"}
 		}
+	} else if !errors.Is(importErr, pgx.ErrNoRows) {
+		return importErr
 	}
 	in.From = start.UTC()
 	in.Through = end.UTC()

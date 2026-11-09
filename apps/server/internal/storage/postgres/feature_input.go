@@ -169,6 +169,41 @@ func loadWorkoutFeatureFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analys
 	if err != nil {
 		return err
 	}
+	// A protocol 4 payload carries the source next to every fact instead of
+	// repeating it in an observation. The latest raw bundle is the current
+	// complete snapshot, so it supplies the same attribution v3 got from its
+	// observation history.
+	var v4Raw []byte
+	var v4Digest []byte
+	v4Err := tx.QueryRow(ctx, `SELECT bundle_sha256,payload FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND (payload->>'protocolVersion')::int=4 ORDER BY imported_at DESC,bundle_sha256 DESC LIMIT 1`, l.DatasetID, id).Scan(&v4Digest, &v4Raw)
+	if v4Err != nil && !errors.Is(v4Err, pgx.ErrNoRows) {
+		return v4Err
+	}
+	if v4Err == nil {
+		table, err := syncing.WorkoutBundleV4SourceTable(v4Raw)
+		if err != nil {
+			return analysis.Invalid()
+		}
+		if table.Workout.Classification(nil) == "apple_watch" {
+			n.References = append(n.References, wf.FactRef{Kind: "workout_import", ID: hex.EncodeToString(v4Digest), Hash: featureHash(json.RawMessage(v4Raw)), State: wf.Present})
+			addSource("workout", table.Workout, nil)
+			for key, source := range table.Samples {
+				class := source.Classification(&table.Workout)
+				if class != "apple_watch" && class != "associated_apple_watch" {
+					continue
+				}
+				addSource(key, source, &table.Workout)
+				singleObservationProven[key] = true
+			}
+			for routeID, source := range table.Routes {
+				class := source.Classification(&table.Workout)
+				if class != "apple_watch" && class != "associated_apple_watch" {
+					continue
+				}
+				addSource("route:"+routeID, source, &table.Workout)
+			}
+		}
+	}
 	sourceFor := func(key, bundle string) (string, wf.State) {
 		xs := factSources[key]
 		if len(xs) > 1 {

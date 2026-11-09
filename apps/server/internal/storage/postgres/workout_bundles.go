@@ -20,6 +20,13 @@ type sampleRow struct {
 	hash      []byte
 }
 
+// tolerantRewrites reports whether metadata-only differences may describe the
+// same fact. v3 carries a separate observation; v4 carries inline metadata and
+// no observation, but the same append-only reading applies.
+func tolerantRewrites(bundle syncing.WorkoutBundle) bool {
+	return bundle.Observation != nil || bundle.SourceTable != nil
+}
+
 // ImportWorkoutBundle is the one-request Workout write path and the single
 // semantic validation point: the HTTP boundary only proves the wire contract,
 // so every caller (including a direct Store caller) runs exactly one
@@ -113,7 +120,8 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 	}
 	if workoutExists && !bytes.Equal(oldWorkoutHash, workoutHash) {
 		var prior syncing.Event
-		if bundle.Observation == nil || json.Unmarshal(oldWorkoutPayload, &prior) != nil || !syncing.WorkoutCoreEqual(prior, bundle.Workout) {
+		tolerant := tolerantRewrites(bundle)
+		if !tolerant || json.Unmarshal(oldWorkoutPayload, &prior) != nil || !syncing.WorkoutCoreEqual(prior, bundle.Workout) {
 			return nil, syncing.Fail(409, "workout_identity_conflict")
 		}
 	}
@@ -133,6 +141,7 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 	}
 	newSamples := make([]sampleRow, 0)
 	missingAssociations := make([]sampleRow, 0)
+	tolerant := tolerantRewrites(bundle)
 	for index := range rows {
 		state := stored[sampleKey{sampleType: rows[index].event.Type, sampleUUID: rows[index].event.UUID}]
 		if state.tombstone {
@@ -140,7 +149,7 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 		}
 		// New source metadata is an append-only observation. The original
 		// sample hash/metadata row is never rewritten, even for older clients.
-		if state.exists && !bytes.Equal(state.hash, rows[index].hash) && (bundle.Observation == nil || !sameSampleCore(state, rows[index].event)) {
+		if state.exists && !bytes.Equal(state.hash, rows[index].hash) && (!tolerant || !sameSampleCore(state, rows[index].event)) {
 			return nil, syncing.Fail(409, "sample_identity_conflict")
 		}
 		if state.workout != "" && state.workout != bundle.WorkoutID {
@@ -270,6 +279,8 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 	}
 	if bundle.Observation != nil {
 		receipt.SourceClassification = bundle.Observation.Provenance.Workout.Classification(nil)
+	} else if bundle.SourceTable != nil {
+		receipt.SourceClassification = bundle.SourceTable.Workout.Classification(nil)
 	}
 	if changed {
 		jobID := syncing.NewID()

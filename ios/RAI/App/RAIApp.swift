@@ -847,10 +847,14 @@ final class SyncModel {
         recoveryWake?.cancel()
         syncScheduler.startManual { await self.runWorkouts(ids, forceNewBundle: true) }
     }
+    /// Distinct Workouts are independent uploads. Three run at a time so a
+    /// backlog drains quickly without starving HealthKit or the network; the
+    /// same Workout never runs twice, and one failure leaves the others
+    /// untouched.
     private func runWorkouts(_ ids: [String], forceNewBundle: Bool) async {
         guard !Task.isCancelled else { return }
         do { try await resumePreparedSession() } catch { self.error = "准备中的会话尚未通过握手；现有会话已保留。"; return }
-        guard let coordinator, let store, let transfers else { return }
+        guard coordinator != nil, let store, transfers != nil else { return }
         error = nil; currentWorkoutID = nil
         UIApplication.shared.isIdleTimerDisabled = true
         defer {
@@ -860,64 +864,86 @@ final class SyncModel {
         guard let secret = try? ClientConfiguration.load() else {
             self.error = UserFacingText.error("configure_development_api_first"); return
         }
+        let total = ids.count
+        var completed = 0
         var failures = 0
-        for (index, id) in ids.enumerated() {
-            if Task.isCancelled { status = "已暂停；本地状态已保留"; break }
-            currentWorkoutID = id
-            var round = 0
-            var stopped = false
-            while !Task.isCancelled && !stopped {
-                round += 1
-                status = round == 1
-                    ? "正在同步第 \(index + 1)/\(ids.count) 条跑步记录"
-                    : "正在继续第 \(index + 1)/\(ids.count) 条（第 \(round) 轮）"
-                do {
-                    // Journal scoped raw changes before building any bundle.
-                    try await coordinator.discoverChanges(workoutIDs: [id])
-                    var attempt = 0
-                    while true {
-                        do {
-                            // The first attempt of an explicit user sync rebuilds
-                            // from HealthKit; transient retries reuse the exact
-                            // bytes already persisted in the task.
-                            try await coordinator.syncWorkout(id: id, secret: secret, transfers: transfers,
-                                                              forceNewBundle: forceNewBundle && attempt == 0)
-                            break
-                        } catch let failure as UploadError where failure.retryable && attempt < 5 {
-                            attempt += 1
-                            let persisted = await store.task(id)?.nextAttemptAt
-                            let wait = max(persisted?.timeIntervalSinceNow ?? failure.retryAfter ?? UploadError.backoff(attempt), 1)
-                            status = "网络暂时不可用，\(Int(wait)) 秒后重试（第 \(attempt)/5 次）"
-                            try await Task.sleep(for: .seconds(wait))
-                        }
-                    }
-                } catch is CancellationError {
-                    status = "已暂停；本地状态已保留"; break
-                } catch let failure as UploadError {
-                    failures += 1; error = UserFacingText.error(failure.code); break
-                } catch let failure as SyncFailure {
-                    failures += 1; error = UserFacingText.syncFailure(failure); break
-                } catch {
-                    failures += 1; self.error = "该条记录同步失败，原文件与上传身份已保留。"; break
+        status = total > 1 ? "正在同步 \(total) 条跑步记录（最多 3 条并发）" : "正在同步跑步记录"
+        await withTaskGroup(of: Bool.self) { group in
+            var next = 0
+            while next < min(3, total) {
+                let id = ids[next]; next += 1
+                group.addTask { await self.syncOne(id: id, forceNewBundle: forceNewBundle, secret: secret) }
+            }
+            for await ok in group {
+                completed += 1
+                if !ok { failures += 1 }
+                if Task.isCancelled { group.cancelAll(); continue }
+                if total > 1 { status = "已完成 \(completed)/\(total) 条跑步记录" }
+                if next < total {
+                    let id = ids[next]; next += 1
+                    group.addTask { await self.syncOne(id: id, forceNewBundle: forceNewBundle, secret: secret) }
                 }
-                let snapshot = await store.snapshot()
-                apply(snapshot)
-                guard let current = snapshot.tasks?[id],
-                      current.phase == .uploading || current.phase == .preparing else { break }
-                if round >= 120 { self.error = "该记录仍未完成，请稍后重试"; break }
-                // A retryable page failure (429/503) is persisted with a
-                // nextAttempt; wait for it instead of leaving the row stuck at
-                // "上传中" with no scheduler.
-                let next = current.nextAttemptAt
-                let wait = max(next?.timeIntervalSinceNow ?? 1, 1)
-                do { try await Task.sleep(for: .seconds(wait)) }
-                catch { stopped = true }
             }
         }
-        if !Task.isCancelled { status = failures == 0 ? "所选记录已独立同步" : "部分记录需要处理，其余记录未受影响" }
+        if Task.isCancelled { status = "已暂停；本地状态已保留" }
+        else { status = failures == 0 ? "所选记录已独立同步" : "部分记录需要处理，其余记录未受影响" }
         apply(await store.snapshot())
         if !Task.isCancelled { await refreshServerStatuses() }
         if !Task.isCancelled { scheduleRecovery(await store.snapshot(), resumeDiscovery: true) }
+    }
+
+    /// Returns false only for a real failure; cancellation and pause are not
+    /// failures because the resumable task keeps its bytes and identity.
+    private func syncOne(id: String, forceNewBundle: Bool, secret: ClientConfiguration.Secret) async -> Bool {
+        guard let coordinator, let store, let transfers else { return false }
+        currentWorkoutID = id
+        var round = 0
+        var stopped = false
+        while !Task.isCancelled && !stopped {
+            round += 1
+            do {
+                // Journal scoped raw changes before building any bundle.
+                try await coordinator.discoverChanges(workoutIDs: [id])
+                var attempt = 0
+                while true {
+                    do {
+                        // The first attempt of an explicit user sync rebuilds
+                        // from HealthKit; transient retries reuse the exact
+                        // bytes already persisted in the task.
+                        try await coordinator.syncWorkout(id: id, secret: secret, transfers: transfers,
+                                                          forceNewBundle: forceNewBundle && attempt == 0)
+                        break
+                    } catch let failure as UploadError where failure.retryable && attempt < 5 {
+                        attempt += 1
+                        let persisted = await store.task(id)?.nextAttemptAt
+                        let wait = max(persisted?.timeIntervalSinceNow ?? failure.retryAfter ?? UploadError.backoff(attempt), 1)
+                        status = "网络暂时不可用，\(Int(wait)) 秒后重试（第 \(attempt)/5 次）"
+                        try await Task.sleep(for: .seconds(wait))
+                    }
+                }
+            } catch is CancellationError {
+                return true
+            } catch let failure as UploadError {
+                error = UserFacingText.error(failure.code); return false
+            } catch let failure as SyncFailure {
+                error = UserFacingText.syncFailure(failure); return false
+            } catch {
+                self.error = "该条记录同步失败，原文件与上传身份已保留。"; return false
+            }
+            let snapshot = await store.snapshot()
+            apply(snapshot)
+            guard let current = snapshot.tasks?[id],
+                  current.phase == .uploading || current.phase == .preparing else { return true }
+            if round >= 120 { self.error = "该记录仍未完成，请稍后重试"; return false }
+            // A retryable page failure (429/503) is persisted with a
+            // nextAttempt; wait for it instead of leaving the row stuck at
+            // "上传中" with no scheduler.
+            let next = current.nextAttemptAt
+            let wait = max(next?.timeIntervalSinceNow ?? 1, 1)
+            do { try await Task.sleep(for: .seconds(wait)) }
+            catch { stopped = true }
+        }
+        return true
     }
     private func apply(_ snapshot: LocalState) {
         // Bundle tasks and HealthKit discovery are independent kinds of work.
@@ -1050,24 +1076,9 @@ final class SyncModel {
             } else {
                 status = "没有待恢复的上传"
             }
-            // Deliver pending facts and expose their ACK before starting
-            // the lower-priority proof. A manual sync can cancel this lane.
-            if !Task.isCancelled,
-               UserDefaults.standard.bool(forKey: "healthAuthorizationRequested"),
-               pending == 0, pendingChanges == 0 {
-                completenessState = "正在核验训练历史完整性"
-                do {
-                    try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: transfers)
-                    completenessState = "本轮训练历史完整性已确认"
-                } catch is CancellationError {
-                    completenessState = "完整性核验已暂停，下次继续"
-                    throw CancellationError()
-                } catch {
-                    completenessState = "训练历史尚未核验完整，分析可能仍在等待数据"
-                }
-            } else {
-                completenessState = nil
-            }
+            // Protocol 4 uploads the recorded run itself; there is no separate
+            // completeness proof to schedule after delivery.
+            completenessState = nil
         } catch let failure as SyncFailure {
             error = UserFacingText.syncFailure(failure); status = "恢复失败；本地状态已保留"
         } catch let failure as UploadError {

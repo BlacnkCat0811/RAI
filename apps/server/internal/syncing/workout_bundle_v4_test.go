@@ -3,190 +3,267 @@ package syncing
 import (
 	"bytes"
 	"encoding/json"
-	"strings"
 	"testing"
 )
 
-func validV4Payload(t *testing.T) map[string]any {
-	t.Helper()
-	start, end := int64(1_790_000_000_000_000), int64(1_790_000_060_000_000)
-	sourceBundle := "com.apple.health"
-	workoutID, sampleUUID, routeID := NewID(), NewID(), NewID()
-	coverage := func(count int) map[string]any {
-		return map[string]any{"state": "complete", "sampleCount": count, "queryCompleted": true, "localPersisted": true}
-	}
-	return map[string]any{
-		"protocolVersion":         4,
-		"metadataRegistryVersion": 2,
-		"datasetID":               NewID(),
-		"datasetEpoch":            NewID(),
-		"collectorEpoch":          NewID(),
-		"workoutID":               workoutID,
-		"startUs":                 start,
-		"endUs":                   end,
-		"workout":                 map[string]any{"activityType": 37, "durationUs": 60_000_000},
-		"sources": []any{map[string]any{
-			"bundleID": sourceBundle, "version": "11.0", "productType": "Watch7,1",
-		}},
-		"streams": []any{map[string]any{
-			"type": "HKQuantityTypeIdentifierHeartRate", "kind": "quantity", "unit": "count/min",
-			"samples": []any{[]any{start, end, 120}},
-			"uuids":   []any{sampleUUID},
-			"source":  0,
-		}},
-		"series": []any{map[string]any{
-			"stream": 0, "sample": 0, "points": []any{[]any{start, end, 121}},
-		}},
-		"routes": []any{map[string]any{
-			"routeID": routeID, "source": 0,
-			"points": []any{[]any{start, 31.2, 121.4, nil, nil, nil, nil, nil}},
-		}},
-		"deletions":      []any{},
-		"routeDeletions": []any{},
-		"observation": map[string]any{
-			"version": 1, "observedAtUs": end,
-			"provenance": map[string]any{
-				"workout": map[string]any{"bundleID": sourceBundle, "version": "11.0", "productType": "Watch7,1"},
-				"samples": []any{},
-				"routes":  []any{},
-			},
-			"coverage": map[string]any{
-				"workout":                                  coverage(1),
-				"HKQuantityTypeIdentifierHeartRate":        coverage(1),
-				"series:HKQuantityTypeIdentifierHeartRate": coverage(1),
-				"route": coverage(1),
-			},
-		},
-	}
+const v4TestSourceBundle = "com.apple.health"
+
+// v4TestSource mirrors the Swift source descriptor. The server classifies it;
+// the label itself is not trusted.
+func v4TestSource() map[string]any {
+	return map[string]any{"bundleID": v4TestSourceBundle, "version": "11.0", "productType": "Watch7,1"}
 }
 
-func marshalV4(t *testing.T, payload map[string]any) []byte {
+func v4TestSample(uuid string, start, end int64, value float64, source map[string]any, metadata map[string]any) map[string]any {
+	sample := map[string]any{"uuid": uuid, "startUs": start, "endUs": end, "value": value, "source": source}
+	if metadata != nil {
+		sample["metadata"] = metadata
+	}
+	return sample
+}
+
+type v4Fixture struct {
+	payload    map[string]any
+	start, end int64
+	workoutID  string
+	sampleUUID string
+	routeID    string
+	source     map[string]any
+}
+
+// validV4Payload is one minimal raw bundle: the Workout object, one heart-rate
+// stream with an inline per-sample source, one series and one route.
+func validV4Payload(t *testing.T) v4Fixture {
 	t.Helper()
-	raw, err := json.Marshal(payload)
+	start, end := int64(1_790_000_000_000_000), int64(1_790_000_060_000_000)
+	source := v4TestSource()
+	f := v4Fixture{
+		start: start, end: end, source: source,
+		workoutID: NewID(), sampleUUID: NewID(), routeID: NewID(),
+	}
+	f.payload = map[string]any{
+		"protocolVersion": 4,
+		"datasetID":       NewID(),
+		"datasetEpoch":    NewID(),
+		"collectorEpoch":  NewID(),
+		"workoutID":       f.workoutID,
+		"startUs":         start,
+		"endUs":           end,
+		"source":          source,
+		"metadata":        map[string]any{"HKTimeZone": "Asia/Shanghai"},
+		"workout":         map[string]any{"activityType": 37, "durationUs": 60_000_000},
+		"streams": []any{map[string]any{
+			"type": "HKQuantityTypeIdentifierHeartRate", "unit": "count/min",
+			"status": "complete", "error": nil,
+			"samples": []any{v4TestSample(f.sampleUUID, start, end, 120, source, nil)},
+		}},
+		"series": []any{map[string]any{
+			"type": "HKQuantityTypeIdentifierHeartRate", "sampleUUID": f.sampleUUID,
+			"unit": "count/min", "points": []any{[]any{start, end, 121}},
+		}},
+		"routes": []any{map[string]any{
+			"routeID": f.routeID, "source": source,
+			"points": []any{[]any{start, 31.2, 121.4, nil, nil, nil, nil, nil}},
+		}},
+	}
+	return f
+}
+
+func (f v4Fixture) marshal(t *testing.T) []byte {
+	t.Helper()
+	raw, err := json.Marshal(f.payload)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return raw
 }
 
-func TestDecodeWorkoutBundleV4RoundTrip(t *testing.T) {
-	payload := validV4Payload(t)
-	raw := marshalV4(t, payload)
+func (f v4Fixture) stream() map[string]any {
+	return f.payload["streams"].([]any)[0].(map[string]any)
+}
+
+func (f v4Fixture) route() map[string]any {
+	return f.payload["routes"].([]any)[0].(map[string]any)
+}
+
+func TestDecodeWorkoutBundleV4RawRoundTrip(t *testing.T) {
+	f := validV4Payload(t)
+	raw := f.marshal(t)
 	bundle, err := DecodeWorkoutBundleV4JSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bundle.ProtocolVersion != 4 || bundle.WorkoutID == "" || len(bundle.Samples) != 1 || len(bundle.Series) != 1 || len(bundle.Routes) != 1 {
-		t.Fatalf("unexpected bundle: %+v", bundle)
+	if bundle.ProtocolVersion != 4 || bundle.WorkoutID != f.workoutID || bundle.Workout.UUID != f.workoutID {
+		t.Fatalf("envelope not projected: %+v", bundle.Workout)
 	}
-	if bundle.Samples[0].Quantity == nil || bundle.Samples[0].Quantity.Value != 120 || bundle.Samples[0].Source.BundleID == "" {
-		t.Fatalf("sample not converted: %+v", bundle.Samples[0])
+	if len(bundle.Samples) != 1 || len(bundle.Series) != 1 || len(bundle.Routes) != 1 {
+		t.Fatalf("facts not projected: samples=%d series=%d routes=%d", len(bundle.Samples), len(bundle.Series), len(bundle.Routes))
 	}
-	if len(bundle.CompleteSampleTypes) != 1 || bundle.CompleteSampleTypes[0] != "HKQuantityTypeIdentifierHeartRate" || !bundle.CompleteRoutes {
-		t.Fatalf("coverage not derived: %+v routes=%v", bundle.CompleteSampleTypes, bundle.CompleteRoutes)
+	sample := bundle.Samples[0]
+	if sample.Quantity == nil || sample.Quantity.Value != 120 || sample.Quantity.Unit != "count/min" ||
+		sample.Category != nil || sample.Source == nil || sample.Source.BundleID != v4TestSourceBundle ||
+		sample.StartUs == nil || *sample.StartUs != f.start || sample.EndUs == nil || *sample.EndUs != f.end {
+		t.Fatalf("sample not converted: %+v", sample)
 	}
-	if bundle.Observation == nil || len(bundle.Observation.Provenance.Samples) != 0 || len(bundle.Observation.Provenance.Routes) != 0 {
-		t.Fatal("v4 provenance must stay empty")
+	series := bundle.Series[0]
+	if series.SampleType != "HKQuantityTypeIdentifierHeartRate" || series.SampleUUID != f.sampleUUID ||
+		len(series.Points) != 1 || series.Points[0].Unit != "count/min" || series.Points[0].Value != 121 {
+		t.Fatalf("series not converted: %+v", series)
+	}
+	route := bundle.Routes[0]
+	if route.RouteID != f.routeID || route.Source.BundleID != v4TestSourceBundle ||
+		len(route.Points) != 1 || route.Points[0].Latitude != 31.2 || route.Points[0].Longitude != 121.4 {
+		t.Fatalf("route not converted: %+v", route)
+	}
+	// A raw bundle has no observation, coverage proof or deletion sidecar.
+	if bundle.Observation != nil || len(bundle.CompleteSampleTypes) != 0 || bundle.CompleteRoutes ||
+		len(bundle.SampleDeletions) != 0 || len(bundle.RouteDeletions) != 0 {
+		t.Fatalf("raw bundle invented sidecars: %+v", bundle)
+	}
+	if bundle.Workout.Metadata["HKTimeZone"] != "Asia/Shanghai" {
+		t.Fatalf("workout metadata lost: %+v", bundle.Workout.Metadata)
+	}
+	if bundle.SourceTable == nil || bundle.SourceTable.Workout.BundleID != v4TestSourceBundle {
+		t.Fatalf("workout source not retained: %+v", bundle.SourceTable)
+	}
+	if source, ok := bundle.SourceTable.SampleSource("HKQuantityTypeIdentifierHeartRate", f.sampleUUID); !ok || source.BundleID != v4TestSourceBundle {
+		t.Fatalf("sample source not retained: %+v", source)
+	}
+	if source, ok := bundle.SourceTable.RouteSource(f.routeID); !ok || source.BundleID != v4TestSourceBundle {
+		t.Fatalf("route source not retained: %+v", source)
+	}
+	// Analysis reads the same table back from the stored bytes.
+	table, err := WorkoutBundleV4SourceTable(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := table.SampleSource("HKQuantityTypeIdentifierHeartRate", f.sampleUUID); !ok {
+		t.Fatal("stored payload lost the sample source")
+	}
+	if _, ok := table.RouteSource(f.routeID); !ok {
+		t.Fatal("stored payload lost the route source")
 	}
 	if err := ValidateWorkoutBundle(bundle); err != nil {
 		t.Fatal(err)
 	}
-	// A v4 bundle must be byte-order independent of a later v3 projection: the
-	// converted samples are the exact facts the server stores.
-	canonical, _ := bundle.Samples[0].Canonical()
-	if len(canonical) == 0 {
+	if canonical, _ := bundle.Samples[0].Canonical(); len(canonical) == 0 {
 		t.Fatal("empty canonical")
 	}
 }
 
-func TestDecodeWorkoutBundleV4RejectsBrokenShapes(t *testing.T) {
-	cases := map[string]func([]byte) []byte{
-		"unknown field": func(raw []byte) []byte {
-			return bytes.Replace(raw, []byte(`"protocolVersion":4`), []byte(`"protocolVersion":4,"bogus":1`), 1)
-		},
-		"duplicate key": func(raw []byte) []byte {
-			return bytes.Replace(raw, []byte(`"protocolVersion":4`), []byte(`"protocolVersion":4,"protocolVersion":4`), 1)
-		},
-		"unknown workout field": func(raw []byte) []byte {
-			return bytes.Replace(raw, []byte(`"workout":{"activityType":37`), []byte(`"workout":{"activityType":37,"bogus":1`), 1)
-		},
-		"null stream value": func(raw []byte) []byte {
-			return bytes.Replace(raw, []byte(`[1790000000000000,1790000060000000,120]`), []byte(`[1790000000000000,1790000060000000,null]`), 1)
-		},
-		"null optional array": func(raw []byte) []byte {
-			return bytes.Replace(raw, []byte(`"series":[`), []byte(`"series":null,"seriesIgnored":[`), 1)
-		},
-		"short triple": func(raw []byte) []byte {
-			return bytes.Replace(raw, []byte(`[1790000000000000,1790000060000000,120]`), []byte(`[1790000000000000,1790000060000000]`), 1)
-		},
+func TestDecodeWorkoutBundleV4PreservesMetadataAndStripsReserved(t *testing.T) {
+	f := validV4Payload(t)
+	f.payload["metadata"] = map[string]any{
+		"HKTimeZone":     "Asia/Shanghai",
+		"custom:unknown": map[string]any{"nested": 1},
+		VO2Reserved:      map[string]any{"type": "string", "value": "spoof"},
 	}
-	for name, mutate := range cases {
-		t.Run(name, func(t *testing.T) {
-			raw := mutate(marshalV4(t, validV4Payload(t)))
-			if _, err := DecodeWorkoutBundleV4JSON(raw); err == nil {
-				t.Fatal("invalid payload accepted")
-			}
-		})
+	f.stream()["samples"] = []any{v4TestSample(f.sampleUUID, f.start, f.end, 120, f.source,
+		map[string]any{"HKAverageMETs": 10.5, VO2Reserved: "spoof"})}
+	bundle, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Workout.Metadata["HKTimeZone"] != "Asia/Shanghai" || bundle.Workout.Metadata["custom:unknown"] == nil {
+		t.Fatalf("unknown workout metadata was dropped: %+v", bundle.Workout.Metadata)
+	}
+	if _, spoofed := bundle.Workout.Metadata[VO2Reserved]; spoofed {
+		t.Fatal("client-written reserved workout metadata accepted")
+	}
+	if bundle.Samples[0].Metadata["HKAverageMETs"] == nil {
+		t.Fatalf("sample metadata lost: %+v", bundle.Samples[0].Metadata)
+	}
+	if _, spoofed := bundle.Samples[0].Metadata[VO2Reserved]; spoofed {
+		t.Fatal("client-written reserved sample metadata accepted")
 	}
 }
 
-func TestDecodeWorkoutBundleV4RejectsDuplicateKeys(t *testing.T) {
-	raw := marshalV4(t, validV4Payload(t))
-	// Insert a second workoutID member. walkJSON must reject it before the
-	// typed decode would silently keep the last value.
-	needle := []byte(`"workoutID":"`)
-	index := bytes.Index(raw, needle)
-	if index < 0 {
-		t.Fatal("fixture has no workoutID")
+func TestDecodeWorkoutBundleV4IgnoresUnsupportedSections(t *testing.T) {
+	f := validV4Payload(t)
+	f.payload["observation"] = map[string]any{"version": 1, "coverage": map[string]any{}}
+	f.payload["sources"] = []any{map[string]any{"bundleID": v4TestSourceBundle}}
+	f.payload["deletions"] = []any{map[string]any{"type": "HKQuantityTypeIdentifierHeartRate", "uuid": NewID()}}
+	f.payload["routeDeletions"] = []any{NewID()}
+	f.payload["metadataRegistryVersion"] = 2
+	f.payload["futureSection"] = map[string]any{"nested": []any{1, 2}}
+	bundle, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
+	if err != nil {
+		t.Fatal(err)
 	}
-	insert := append([]byte{}, `"workoutID":"`...)
-	// The duplicate value must be syntactically valid; the decoder rejects on
-	// the repeated key, not on its value.
-	value := make([]byte, 36)
-	copy(value, "00000000-0000-4000-8000-000000000001")
-	insert = append(insert, value...)
-	insert = append(insert, '"', ',')
-	dup := append(raw[:index], append(insert, raw[index:]...)...)
-	if _, err := DecodeWorkoutBundleV4JSON(dup); err == nil {
-		t.Fatal("duplicate key accepted")
+	if len(bundle.Samples) != 1 || len(bundle.Routes) != 1 {
+		t.Fatalf("unknown sections changed the projection: %+v", bundle)
 	}
-}
-
-func TestDecodeWorkoutBundleV4CoverageMismatch(t *testing.T) {
-	payload := validV4Payload(t)
-	observation := payload["observation"].(map[string]any)
-	coverage := observation["coverage"].(map[string]any)
-	coverage["route"] = map[string]any{"state": "complete", "sampleCount": 99, "queryCompleted": true, "localPersisted": true}
-	if _, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload)); err == nil {
-		t.Fatal("coverage mismatch accepted")
+	if bundle.Observation != nil || len(bundle.SampleDeletions) != 0 || len(bundle.RouteDeletions) != 0 ||
+		bundle.MetadataRegistryVersion != nil {
+		t.Fatalf("unknown sections were interpreted: %+v", bundle)
 	}
 }
 
-func TestDecodeWorkoutBundleV4ProvenanceMustBeEmpty(t *testing.T) {
-	payload := validV4Payload(t)
-	observation := payload["observation"].(map[string]any)
-	provenance := observation["provenance"].(map[string]any)
-	provenance["samples"] = []any{map[string]any{"sampleType": "HKQuantityTypeIdentifierHeartRate", "sampleUUID": NewID(), "source": map[string]any{"bundleID": "com.apple.health." + NewID()}}}
-	if _, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload)); err == nil {
-		t.Fatal("non-empty provenance accepted")
+func TestDecodeWorkoutBundleV4SkipsUnusableStreams(t *testing.T) {
+	f := validV4Payload(t)
+	f.payload["streams"] = []any{
+		map[string]any{"type": "HKQuantityTypeIdentifierBogus", "unit": "x",
+			"samples": []any{v4TestSample(NewID(), f.start, f.end, 1, f.source, nil)}},
+		map[string]any{"type": "HKQuantityTypeIdentifierHeartRate", "unit": "m",
+			"samples": []any{v4TestSample(NewID(), f.start, f.end, 1, f.source, nil)}},
+		map[string]any{"type": "HKQuantityTypeIdentifierStepCount", "unit": "count", "samples": []any{
+			map[string]any{"uuid": "not-a-uuid", "startUs": f.start, "endUs": f.end, "value": 1, "source": f.source},
+			v4TestSample(NewID(), f.end, f.start, 1, f.source, nil),
+			v4TestSample(NewID(), f.start, f.end, 1, map[string]any{"bundleID": "com.example.thirdparty"}, nil),
+			v4TestSample(f.sampleUUID, f.start, f.end, 84, f.source, nil),
+		}},
+		// A repeated stream type never overwrites the first one.
+		map[string]any{"type": "HKQuantityTypeIdentifierStepCount", "unit": "count",
+			"samples": []any{v4TestSample(NewID(), f.start, f.end, 999, f.source, nil)}},
+	}
+	f.payload["series"] = []any{}
+	f.payload["routes"] = []any{}
+	bundle, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Samples) != 1 || bundle.Samples[0].Quantity == nil || bundle.Samples[0].Quantity.Value != 84 {
+		t.Fatalf("unusable samples were not skipped: %+v", bundle.Samples)
+	}
+}
+
+func TestDecodeWorkoutBundleV4SkipsUnusableSeriesAndRoutes(t *testing.T) {
+	f := validV4Payload(t)
+	f.payload["series"] = []any{
+		map[string]any{"type": "HKQuantityTypeIdentifierHeartRate", "sampleUUID": NewID(), "unit": "count/min",
+			"points": []any{[]any{f.start, f.end, 1}}},
+		map[string]any{"type": "HKQuantityTypeIdentifierHeartRate", "sampleUUID": f.sampleUUID, "unit": "m",
+			"points": []any{[]any{f.start, f.end, 1}}},
+		map[string]any{"type": "HKQuantityTypeIdentifierHeartRate", "sampleUUID": f.sampleUUID, "unit": "count/min",
+			"points": []any{[]any{f.start - 1, f.end + 1, 1}, []any{f.start, f.end, 122}}},
+	}
+	f.payload["routes"] = []any{
+		map[string]any{"routeID": NewID(), "source": map[string]any{"bundleID": "com.example.thirdparty"},
+			"points": []any{[]any{f.start, 31.2, 121.4, nil, nil, nil, nil, nil}}},
+		map[string]any{"routeID": NewID(), "source": f.source,
+			"points": []any{[]any{f.start, 200.0, 121.4, nil, nil, nil, nil, nil}}},
+	}
+	bundle, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(bundle.Series) != 1 || len(bundle.Series[0].Points) != 1 || bundle.Series[0].Points[0].Value != 122 {
+		t.Fatalf("unusable series were not skipped: %+v", bundle.Series)
+	}
+	if len(bundle.Routes) != 0 {
+		t.Fatalf("unusable routes were not skipped: %+v", bundle.Routes)
 	}
 }
 
 func TestDecodeWorkoutBundleV4CategoryStream(t *testing.T) {
-	payload := validV4Payload(t)
-	payload["streams"] = []any{map[string]any{
-		"type": "HKCategoryTypeIdentifierSleepAnalysis", "kind": "category", "unit": "",
-		"samples": []any{[]any{1790000000000000, 1790000060000000, 2}},
-		"uuids":   []any{NewID()},
-		"source":  0, "src": []any{0},
+	f := validV4Payload(t)
+	f.payload["streams"] = []any{map[string]any{
+		"type": "HKCategoryTypeIdentifierSleepAnalysis", "unit": "", "status": "complete", "error": nil,
+		"samples": []any{v4TestSample(NewID(), f.start, f.end, 2, f.source, nil)},
 	}}
-	payload["series"] = []any{}
-	payload["routes"] = []any{}
-	observation := payload["observation"].(map[string]any)
-	observation["coverage"] = map[string]any{
-		"HKCategoryTypeIdentifierSleepAnalysis": map[string]any{"state": "complete", "sampleCount": 1, "queryCompleted": true, "localPersisted": true},
-	}
-	bundle, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload))
+	f.payload["series"] = []any{}
+	f.payload["routes"] = []any{}
+	bundle, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,81 +273,98 @@ func TestDecodeWorkoutBundleV4CategoryStream(t *testing.T) {
 }
 
 func TestDecodeWorkoutBundleV4RouteNullableComponents(t *testing.T) {
-	payload := validV4Payload(t)
-	route := payload["routes"].([]any)[0].(map[string]any)
-	route["points"] = []any{[]any{1790000000000000, 31.2, 121.4, 12.5, 3.0, 4.0, 2.5, 180.0}}
-	bundle, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload))
+	f := validV4Payload(t)
+	f.route()["points"] = []any{[]any{f.start, 31.2, 121.4, 12.5, 3.0, 4.0, 2.5, 180.0}}
+	bundle, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
 	if err != nil {
 		t.Fatal(err)
 	}
 	point := bundle.Routes[0].Points[0]
-	if point.Altitude == nil || *point.Altitude != 12.5 || point.Course == nil || *point.Course != 180 {
+	if point.Altitude == nil || *point.Altitude != 12.5 || point.HorizontalAccuracy == nil || *point.HorizontalAccuracy != 3 ||
+		point.VerticalAccuracy == nil || *point.VerticalAccuracy != 4 || point.Speed == nil || *point.Speed != 2.5 ||
+		point.Course == nil || *point.Course != 180 {
 		t.Fatalf("route components not preserved: %+v", point)
 	}
 }
 
-func TestDecodeWorkoutBundleV4Deletions(t *testing.T) {
-	payload := validV4Payload(t)
-	payload["deletions"] = []any{map[string]any{"type": "HKQuantityTypeIdentifierHeartRate", "uuid": NewID()}}
-	payload["routeDeletions"] = []any{NewID()}
-	bundle, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload))
-	if err != nil {
-		t.Fatal(err)
+func TestDecodeWorkoutBundleV4StrictEnvelope(t *testing.T) {
+	cases := map[string]func(*v4Fixture){
+		"missing protocolVersion": func(f *v4Fixture) { delete(f.payload, "protocolVersion") },
+		"wrong protocolVersion":   func(f *v4Fixture) { f.payload["protocolVersion"] = 3 },
+		"missing source":          func(f *v4Fixture) { delete(f.payload, "source") },
+		"null source":             func(f *v4Fixture) { f.payload["source"] = nil },
+		"missing workout":         func(f *v4Fixture) { delete(f.payload, "workout") },
+		"workout without activityType": func(f *v4Fixture) {
+			f.payload["workout"] = map[string]any{"durationUs": 60_000_000}
+		},
+		"workout duration beyond span": func(f *v4Fixture) {
+			f.payload["workout"].(map[string]any)["durationUs"] = 60_000_001
+		},
+		"inverted envelope range": func(f *v4Fixture) {
+			f.payload["startUs"], f.payload["endUs"] = f.end, f.start
+		},
+		"invalid workout id": func(f *v4Fixture) { f.payload["workoutID"] = "not-a-uuid" },
 	}
-	if len(bundle.SampleDeletions) != 1 || bundle.SampleDeletions[0].SampleType == "" || len(bundle.RouteDeletions) != 1 {
-		t.Fatalf("deletions not converted: %+v", bundle.SampleDeletions)
+	for name, mutate := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := validV4Payload(t)
+			mutate(&f)
+			_, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
+			requireSeriesError(t, err, 422, "unsupported_payload")
+		})
 	}
+}
+
+func TestDecodeWorkoutBundleV4RejectsThirdPartyWorkoutSource(t *testing.T) {
+	f := validV4Payload(t)
+	f.payload["source"] = map[string]any{"bundleID": "com.example.thirdparty", "version": "1.0", "productType": "Watch7,1"}
+	_, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
+	requireSeriesError(t, err, 422, "source_policy_excluded")
+}
+
+func TestDecodeWorkoutBundleV4RejectsDuplicateAndMalformedJSON(t *testing.T) {
+	f := validV4Payload(t)
+	raw := f.marshal(t)
+	duplicate := bytes.Replace(raw,
+		[]byte(`"source":{"bundleID":"com.apple.health"`),
+		[]byte(`"source":{"bundleID":"com.apple.health","bundleID":"com.apple.health"`), 1)
+	if bytes.Equal(duplicate, raw) {
+		t.Fatal("duplicate-key mutation did not apply")
+	}
+	_, err := DecodeWorkoutBundleV4JSON(duplicate)
+	requireSeriesError(t, err, 422, "unsupported_payload")
+
+	invalidUTF8 := append(append([]byte{}, raw...), 0xff)
+	_, err = DecodeWorkoutBundleV4JSON(invalidUTF8)
+	requireSeriesError(t, err, 422, "unsupported_payload")
+
+	notAnObject := append([]byte("["), append(raw, ']')...)
+	_, err = DecodeWorkoutBundleV4JSON(notAnObject)
+	requireSeriesError(t, err, 422, "unsupported_payload")
 }
 
 func TestDecodeWorkoutBundleV4SampleLimit(t *testing.T) {
-	payload := validV4Payload(t)
-	stream := payload["streams"].([]any)[0].(map[string]any)
+	f := validV4Payload(t)
 	samples := make([]any, MaxWorkoutBundleEvents+1)
-	uuids := make([]any, len(samples))
-	for i := range samples {
-		samples[i] = []any{int64(1_790_000_000_000_000), int64(1_790_000_060_000_000), 120}
-		uuids[i] = NewID()
+	sample := v4TestSample(f.sampleUUID, f.start, f.end, 120, f.source, nil)
+	for index := range samples {
+		samples[index] = sample
 	}
-	stream["samples"] = samples
-	stream["uuids"] = uuids
-	payload["series"] = []any{}
-	payload["routes"] = []any{}
-	payload["observation"].(map[string]any)["coverage"] = map[string]any{}
-	_, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload))
-	if err == nil {
-		t.Fatal("sample limit not enforced")
-	}
+	f.stream()["samples"] = samples
+	f.payload["series"] = []any{}
+	f.payload["routes"] = []any{}
+	_, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
+	requireSeriesError(t, err, 413, "bundle_too_large")
 }
 
-func TestDecodeWorkoutBundleV4RejectsNullAndDuplicateNested(t *testing.T) {
-	payload := validV4Payload(t)
-	raw := marshalV4(t, payload)
-	nullSource := bytes.Replace(raw, []byte(`"bundleID":"com.apple.health"`), []byte(`"bundleID":null,"bundleID":"com.apple.health.`), 1)
-	if _, err := DecodeWorkoutBundleV4JSON(nullSource); err == nil {
-		t.Fatal("null nested value accepted")
+func TestDecodeWorkoutBundleV4RouteLimit(t *testing.T) {
+	f := validV4Payload(t)
+	routes := make([]any, MaxBundleRoutes+1)
+	for index := range routes {
+		routes[index] = map[string]any{"routeID": NewID(), "source": f.source,
+			"points": []any{[]any{f.start, 31.2, 121.4, nil, nil, nil, nil, nil}}}
 	}
-	if strings.Count(string(nullSource), `"bundleID"`) < 2 {
-		t.Fatal("test mutation failed")
-	}
-}
-
-func TestDecodeWorkoutBundleV4RejectsDuplicateStreamType(t *testing.T) {
-	payload := validV4Payload(t)
-	streams := payload["streams"].([]any)
-	payload["streams"] = append(streams, streams[0])
-	if _, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload)); err == nil {
-		t.Fatal("duplicate stream type accepted")
-	}
-}
-
-func TestDecodeWorkoutBundleV4RejectsIneligibleSource(t *testing.T) {
-	payload := validV4Payload(t)
-	payload["sources"] = append(payload["sources"].([]any), map[string]any{
-		"bundleID": "com.example.thirdparty", "version": "1.0", "productType": "Watch7,1",
-	})
-	stream := payload["streams"].([]any)[0].(map[string]any)
-	stream["source"] = 1
-	if _, err := DecodeWorkoutBundleV4JSON(marshalV4(t, payload)); err == nil {
-		t.Fatal("third-party source accepted")
-	}
+	f.payload["routes"] = routes
+	_, err := DecodeWorkoutBundleV4JSON(f.marshal(t))
+	requireSeriesError(t, err, 413, "bundle_too_large")
 }

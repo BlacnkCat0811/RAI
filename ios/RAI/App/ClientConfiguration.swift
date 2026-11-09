@@ -5,15 +5,10 @@ import SyncCore
 struct ClientConfiguration: Codable, Sendable {
     let baseURL: URL
     let collectorEpoch: String
-    /// v4 is opt-in and only takes effect when the handshake advertises it.
-    /// Optional so every existing Keychain configuration still decodes.
+    /// v4 is the default. An explicit `syncProtocolV4 = false` keeps a
+    /// configuration on v3; the handshake still decides what the server offers.
     var syncProtocolV4: Bool? = nil
-    var v4Enabled: Bool {
-        if let syncProtocolV4 { return syncProtocolV4 }
-        // Debug/acceptance builds can opt in without rewriting the stored
-        // configuration; the handshake still decides whether v4 is usable.
-        return ProcessInfo.processInfo.environment["RAI_SYNC_V4"] == "1"
-    }
+    var v4Enabled: Bool { syncProtocolV4 ?? true }
     static let account = "RAI.V2.DevelopmentConfiguration"
     struct Secret: Codable { let configuration: ClientConfiguration; let token: String }
     static func validatedSecret(baseURL: String, collectorEpoch: String, token: String) throws -> Secret {

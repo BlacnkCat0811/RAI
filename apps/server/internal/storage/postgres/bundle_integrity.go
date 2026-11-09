@@ -11,6 +11,7 @@ import (
 	"rai/server/internal/analysis"
 	"rai/server/internal/syncing"
 	"sort"
+	"strings"
 )
 
 // validateBundleDeletionEvidence makes explicit child deletions conditional on
@@ -292,9 +293,11 @@ func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout
 	if len(needed) == 0 {
 		return nil
 	}
-	rows, err = tx.Query(ctx, `SELECT payload->'observation'->'provenance', payload FROM workout_imports
-        WHERE dataset_id=$1 AND workout_uuid=$2 AND payload ? 'observation'
-        ORDER BY (payload->'observation'->>'observedAtUs')::bigint DESC,bundle_sha256 DESC`, dataset, workout)
+	// Both protocols are immutable history: v3 carries an observation, v4 keeps
+	// the source inline next to every fact. Either can establish provenance.
+	rows, err = tx.Query(ctx, `SELECT payload FROM workout_imports
+        WHERE dataset_id=$1 AND workout_uuid=$2
+        ORDER BY imported_at DESC,bundle_sha256 DESC`, dataset, workout)
 	if err != nil {
 		return err
 	}
@@ -303,78 +306,47 @@ func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout
 		value := source.Classification(parent)
 		return value == "apple_watch" || value == "associated_apple_watch"
 	}
-	type v4Stream struct {
-		Type   string   `json:"type"`
-		UUIDs  []string `json:"uuids"`
-		Source int      `json:"source"`
-		Src    []int    `json:"src"`
-	}
-	type v4Route struct {
-		RouteID string `json:"routeID"`
-		Source  int    `json:"source"`
-	}
-	type v4Payload struct {
-		ProtocolVersion int                       `json:"protocolVersion"`
-		Sources         []syncing.HealthKitSource `json:"sources"`
-		Streams         []v4Stream                `json:"streams"`
-		Routes          []v4Route                 `json:"routes"`
-	}
 	for rows.Next() {
-		var provenanceRaw, payloadRaw []byte
-		if err = rows.Scan(&provenanceRaw, &payloadRaw); err != nil {
+		var payloadRaw []byte
+		if err = rows.Scan(&payloadRaw); err != nil {
 			return err
 		}
-		var provenance syncing.BundleProvenance
-		if json.Unmarshal(provenanceRaw, &provenance) != nil {
+		var stored struct {
+			ProtocolVersion int                        `json:"protocolVersion"`
+			Observation     *syncing.BundleObservation `json:"observation"`
+		}
+		if json.Unmarshal(payloadRaw, &stored) != nil {
 			return analysis.Invalid()
 		}
-		if provenance.Workout.Classification(nil) != "apple_watch" {
-			continue
-		}
-		// The v3 and v4 payloads have different route/stream shapes. Decode
-		// only the version first: unmarshalling a v3 route into v4Route would
-		// fail because v3 stores a source object while v4 stores an index.
-		var version struct {
-			ProtocolVersion int `json:"protocolVersion"`
-		}
-		if json.Unmarshal(payloadRaw, &version) != nil {
-			return analysis.Invalid()
-		}
-		if version.ProtocolVersion == 4 {
-			var v4 v4Payload
-			if json.Unmarshal(payloadRaw, &v4) != nil {
+		if stored.ProtocolVersion == 4 {
+			table, err := syncing.WorkoutBundleV4SourceTable(payloadRaw)
+			if err != nil {
 				return analysis.Invalid()
 			}
-			// v4 keeps provenance once per stream/sample index rather than
-			// repeating a source object for every fact. Reconstruct the same
-			// facts here without changing the stored payload.
-			for _, stream := range v4.Streams {
-				for index, uuid := range stream.UUIDs {
-					sourceIndex := stream.Source
-					if index < len(stream.Src) {
-						sourceIndex = stream.Src[index]
-					}
-					if sourceIndex < 0 || sourceIndex >= len(v4.Sources) {
-						continue
-					}
-					source := v4.Sources[sourceIndex]
-					key := "sample:" + stream.Type + ":" + uuid
-					if expected, ok := needed[key]; ok && expected == source.BundleID && eligible(source, &provenance.Workout) {
-						delete(needed, key)
-					}
-				}
+			if table.Workout.Classification(nil) != "apple_watch" {
+				continue
 			}
-			for _, route := range v4.Routes {
-				if route.Source < 0 || route.Source >= len(v4.Sources) {
-					continue
+			for key, expected := range needed {
+				var source syncing.HealthKitSource
+				var ok bool
+				switch {
+				case strings.HasPrefix(key, "sample:"):
+					sampleType, uuid, found := strings.Cut(strings.TrimPrefix(key, "sample:"), ":")
+					if found {
+						source, ok = table.SampleSource(sampleType, uuid)
+					}
+				case strings.HasPrefix(key, "route:"):
+					source, ok = table.RouteSource(strings.TrimPrefix(key, "route:"))
 				}
-				source := v4.Sources[route.Source]
-				key := "route:" + route.RouteID
-				if expected, ok := needed[key]; ok && expected == source.BundleID && eligible(source, &provenance.Workout) {
+				if ok && expected == source.BundleID && eligible(source, &table.Workout) {
 					delete(needed, key)
 				}
 			}
-		} else {
+		} else if stored.Observation != nil {
+			provenance := stored.Observation.Provenance
+			if provenance.Workout.Classification(nil) != "apple_watch" {
+				continue
+			}
 			for _, sample := range provenance.Samples {
 				key := "sample:" + sample.SampleType + ":" + sample.SampleUUID
 				if source, ok := needed[key]; ok && source == sample.Source.BundleID && eligible(sample.Source, &provenance.Workout) {

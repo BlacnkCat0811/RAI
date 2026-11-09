@@ -13,8 +13,8 @@ import (
 )
 
 // TestWorkoutBundleV4ImportAndIdempotency exercises the production store path
-// with the compact protocol-4 envelope: one Workout, one source table, one
-// columnar stream, no per-sample objects and no 200-day completeness proof.
+// with the raw protocol-4 envelope: one Workout, one stream of per-sample
+// objects with inline sources, and no observation or deletion sidecars.
 func TestWorkoutBundleV4ImportAndIdempotency(t *testing.T) {
 	f := setup(t)
 	start := time.Date(2026, 11, 1, 8, 0, 0, 0, time.UTC)
@@ -26,22 +26,18 @@ func TestWorkoutBundleV4ImportAndIdempotency(t *testing.T) {
 	sampleUUID := syncing.NewID()
 	startUs := start.UnixMicro()
 	endUs := start.Add(500 * time.Millisecond).UnixMicro()
+	source := `{"bundleID":"com.apple.health","productType":"Watch7,1"}`
 	raw := fmt.Sprintf(`{
-		"protocolVersion":4,"metadataRegistryVersion":2,
+		"protocolVersion":4,
 		"datasetID":%q,"datasetEpoch":%q,"collectorEpoch":%q,"workoutID":%q,
 		"startUs":%d,"endUs":%d,
+		"source":%s,
 		"workout":%s,
-		"sources":[{"bundleID":"com.apple.health","productType":"Watch7,1"}],
-		"streams":[{"type":%q,"kind":"quantity","unit":"count/min",
-			"samples":[[%d,%d,121]],"uuids":[%q],"source":0,"src":[0]}],
-		"series":[],"routes":[],"deletions":[],
-		"observation":{"version":1,"observedAtUs":%d,"metadata":{},
-			"provenance":{"workout":{"bundleID":"com.apple.health","productType":"Watch7,1"},"samples":[],"routes":[]},
-			"coverage":{"workout":{"state":"complete","sampleCount":1,"queryCompleted":true,"localPersisted":true},
-				%q:{"state":"complete","sampleCount":1,"queryCompleted":true,"localPersisted":true}}}
+		"streams":[{"type":%q,"unit":"count/min","status":"complete","error":null,
+			"samples":[{"uuid":%q,"startUs":%d,"endUs":%d,"value":121,"source":%s}]}],
+		"series":[],"routes":[]
 	}`, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workout.UUID,
-		startUs, start.Add(time.Minute).UnixMicro(), workoutJSON, kind, startUs, endUs, sampleUUID,
-		time.Now().UnixMicro(), kind)
+		startUs, start.Add(time.Minute).UnixMicro(), source, workoutJSON, kind, sampleUUID, startUs, endUs, source)
 	bundle, err := syncing.DecodeWorkoutBundleV4JSON([]byte(raw))
 	if err != nil {
 		t.Fatalf("decode: %v", err)
@@ -73,32 +69,5 @@ func TestWorkoutBundleV4ImportAndIdempotency(t *testing.T) {
 	}
 	if got := count(t, f, "health_samples"); got != 1 {
 		t.Fatalf("retry samples=%d", got)
-	}
-	// A deletion must carry complete read coverage for the child type. A
-	// successful query that returned zero rows is coverage, not deletion
-	// authority, even when the bundle otherwise has a valid Workout barrier.
-	rawDeletion := fmt.Sprintf(`{
-		"protocolVersion":4,"metadataRegistryVersion":2,
-		"datasetID":%q,"datasetEpoch":%q,"collectorEpoch":%q,"workoutID":%q,
-		"startUs":%d,"endUs":%d,
-		"workout":%s,
-		"sources":[{"bundleID":"com.apple.health","productType":"Watch7,1"}],
-		"streams":[],"series":[],"routes":[],
-		"deletions":[{"type":%q,"uuid":%q}],
-		"observation":{"version":1,"observedAtUs":%d,"metadata":{},
-			"provenance":{"workout":{"bundleID":"com.apple.health","productType":"Watch7,1"},"samples":[],"routes":[]},
-			"coverage":{"workout":{"state":"complete","sampleCount":1,"queryCompleted":true,"localPersisted":true},
-				%q:{"state":"no_records_observed","sampleCount":0,"queryCompleted":true,"localPersisted":true}}}
-	}`, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workout.UUID,
-		startUs, start.Add(time.Minute).UnixMicro(), workoutJSON, kind, sampleUUID, time.Now().Add(time.Second).UnixMicro(), kind)
-	bad, err := syncing.DecodeWorkoutBundleV4JSON([]byte(rawDeletion))
-	if err != nil {
-		t.Fatalf("decode deletion bundle: %v", err)
-	}
-	if _, err = f.s.ImportWorkoutBundle(context.Background(), f.p, bad, []byte(rawDeletion)); err == nil {
-		t.Fatal("deletion without complete coverage was accepted")
-	}
-	if got := count(t, f, "health_samples"); got != 1 {
-		t.Fatalf("deletion without coverage changed samples=%d", got)
 	}
 }
