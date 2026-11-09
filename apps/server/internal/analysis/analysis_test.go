@@ -181,10 +181,26 @@ func TestRouteCanonicalAndQuality(t *testing.T) {
 	if math.Abs(*find(ms, "route_distance").Value-111.19508023353292) > 1e-8 || *find(ms, "elevation_gain").Value != 2 {
 		t.Fatal("route distance/elevation mismatch")
 	}
+	if find(ms, "route_distance").Quality != "partial" {
+		t.Fatal("sparse route labelled complete")
+	}
 	w.Route[1].HorizontalAccuracy = nil
 	ms, e = WorkoutFeatures(context.Background(), w)
 	if e != nil || find(ms, "route_distance").Value != nil {
 		t.Fatal("unknown accuracy treated as reliable")
+	}
+	w = fixtureWorkout(t)
+	for at := int64(0); at <= w.End; at += 10e6 {
+		w.Route = append(w.Route, Point{Route: "A", At: at, Latitude: float64(at) / 1e12, Longitude: 0, HorizontalAccuracy: Ptr(5), VerticalAccuracy: Ptr(5), Altitude: Ptr(10 + float64(at)/3.6e9)})
+	}
+	ms, e = WorkoutFeatures(context.Background(), w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, name := range []string{"route_distance", "elevation_gain", "elevation_loss"} {
+		if m := find(ms, name); m.Quality != "available" {
+			t.Fatal("complete route not labelled available", name, m)
+		}
 	}
 }
 func TestNumericalAndCoverageProperties(t *testing.T) {
@@ -280,9 +296,68 @@ func TestRealCadencePowerAndSummaryMaximum(t *testing.T) {
 			t.Fatal("real source metric missing", name)
 		}
 	}
-	w.Observations = []Observation{{ID: "steps", Type: "HKQuantityTypeIdentifierStepCount", Start: 0, End: w.End, Value: 10000, Unit: "count"}}
+	w.Observations = []Observation{{ID: "steps", Type: StepCount, Start: 0, End: w.End, Value: 10000, Unit: "count"}}
 	ms, e = WorkoutFeatures(context.Background(), w)
-	if e != nil || find(ms, "average_cadence").Value != nil || find(ms, "average_power").Value != nil {
-		t.Fatal("steps fabricated cadence/power", e)
+	if e != nil {
+		t.Fatal(e)
+	}
+	cadence := find(ms, "average_cadence")
+	if cadence.Value == nil || math.Abs(*cadence.Value-10000.0/3600*60) > 1e-9 || cadence.Quality != "available" || cadence.Details["method"] != "step_count_proxy" {
+		t.Fatal("step cadence proxy missing or mislabelled", cadence)
+	}
+	if find(ms, "average_power").Value != nil {
+		t.Fatal("steps fabricated power")
+	}
+}
+func TestInstantaneousTraceReconstruction(t *testing.T) {
+	w := fixtureWorkout(t)
+	w.Observations = nil
+	for at := int64(0); at <= w.End; at += 5e6 {
+		w.Observations = append(w.Observations, Observation{ID: "hr", Type: HeartRate, Start: at, End: at, Value: 150, Unit: "count/min"})
+	}
+	for at := int64(0); at <= w.End; at += 2500e3 {
+		w.Observations = append(w.Observations, Observation{ID: "power", Type: Power, Start: at, End: at, Value: 250, Unit: "W"})
+	}
+	ms, e := WorkoutFeatures(context.Background(), w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, name := range []string{"average_heart_rate", "max_heart_rate", "average_power"} {
+		if m := find(ms, name); m.Value == nil || m.Quality != "available" {
+			t.Fatal("dense instant trace not reconstructed", name, m)
+		}
+	}
+	if m := find(ms, "heart_rate_coverage"); m.Value == nil || *m.Value < 0.95 {
+		t.Fatal("instant HR coverage not reconstructed", m)
+	}
+	if find(ms, "workout_load").Value == nil {
+		t.Fatal("reconstructed HR did not support TRIMP")
+	}
+	// A gap beyond the sampling policy is not extrapolated.
+	w.Observations = nil
+	for at := int64(0); at <= w.End; at += 5e6 {
+		if at >= 1200e6 && at < 1800e6 {
+			continue
+		}
+		w.Observations = append(w.Observations, Observation{ID: "hr", Type: HeartRate, Start: at, End: at, Value: 150, Unit: "count/min"})
+	}
+	ms, e = WorkoutFeatures(context.Background(), w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if m := find(ms, "heart_rate_coverage"); m.Value == nil || *m.Value >= 0.9 {
+		t.Fatal("wide gap extrapolated", m)
+	}
+	if find(ms, "workout_load").Value != nil {
+		t.Fatal("load invented across wide gap")
+	}
+	// Conflicting values at one timestamp are ambiguous, not averaged.
+	w.Observations = append(w.Observations, Observation{ID: "conflict", Type: HeartRate, Start: 0, End: 0, Value: 160, Unit: "count/min"})
+	ms, e = WorkoutFeatures(context.Background(), w)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if m := find(ms, "average_heart_rate"); m.Value != nil || m.Quality != "insufficient" {
+		t.Fatal("conflicting instant values averaged", m)
 	}
 }

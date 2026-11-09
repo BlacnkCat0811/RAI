@@ -79,6 +79,7 @@ func NewWithOptions(store syncing.Store, log *slog.Logger, options Options) http
 	m.Handle("POST /v2/model-inputs/{kind}", a.auth(syncing.UploadLane, a.modelInput))
 	m.Handle("POST /v2/model-inputs/{id}/revocations", a.auth(syncing.UploadLane, a.modelInputRevocation))
 	m.Handle("GET /v2/analysis/workouts/{id}", a.auth(syncing.ReadLane, a.workoutAnalysis))
+	m.Handle("GET /v2/analysis/parameters", a.auth(syncing.ReadLane, a.analysisParameters))
 	m.Handle("GET /v2/workouts", a.auth(syncing.ReadLane, a.product))
 	m.Handle("GET /v2/workouts/{id}", a.auth(syncing.ReadLane, a.product))
 	m.Handle("GET /v2/workouts/{id}/detail", a.auth(syncing.ReadLane, a.workoutDetail))

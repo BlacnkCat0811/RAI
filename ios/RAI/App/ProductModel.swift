@@ -239,6 +239,7 @@ final class ProductModel {
     case "hr_reference": path = "/v2/model-inputs/hr-references"
     case "sleep_target": path = "/v2/model-inputs/sleep-targets"
     case "vo2max_source_selection": path = "/v2/model-inputs/vo2max-source-selections"
+    case "trimp_parameters": path = "/v2/model-inputs/trimp-parameters"
     default: return "暂不支持此输入类型。"
     }
     do {
@@ -269,6 +270,14 @@ final class ProductModel {
     } catch {
       return "提交结果待确认，重试会使用原提交身份。"
     }
+  }
+  /// Latest append-only TRIMP parameter set, or nil when none was saved yet.
+  func loadAnalysisParameters() async -> JSON? {
+    guard let api else { return nil }
+    guard let response = try? await api.get("/v2/analysis/parameters"),
+      case .object = response["parameters"]
+    else { return nil }
+    return response["parameters"]
   }
   func refreshAthleteAssignment() async {
     guard !loading, let api else { return }

@@ -16,6 +16,7 @@ import (
 	_ "time/tzdata" // scratch image has no OS timezone database; freeze calendar support into the binary.
 
 	"rai/server/internal/admin"
+	"rai/server/internal/analysis"
 	"rai/server/internal/config"
 	"rai/server/internal/httpapi"
 	"rai/server/internal/jobs"
@@ -42,7 +43,7 @@ func run(log *slog.Logger) error {
 		return config.ContainerResources(os.Stdout)
 	}
 	if mode == "version" {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": migrations.LatestVersion(), "sync_protocol": 3, "openapi": "1.7.0", "analysis": []string{"workout.bundle/v2", "training_state.bundle/v2", "dependency.invalidate/v1"}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": migrations.LatestVersion(), "sync_protocol": 3, "openapi": "1.8.0", "analysis": []string{analysis.WorkoutAlgorithm + "/" + analysis.WorkoutVersion, analysis.StateAlgorithm + "/" + analysis.StateVersion, analysis.DependencyAlgorithm + "/" + analysis.Version}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
 	}
 	if mode == "probe" {
 		if len(os.Args) == 2 {

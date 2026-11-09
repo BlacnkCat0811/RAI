@@ -19,6 +19,7 @@ const (
 	SchemaSourceSelection = "rai.source_context_selection/1"
 	SchemaHRReference     = "rai.hr_reference/2"
 	SchemaVO2Selection    = "rai.vo2max.source_selection/1"
+	SchemaTRIMPParameters = "rai.trimp_parameters/1"
 )
 
 var ErrInvalid = errors.New("model_input_invalid")
@@ -32,6 +33,7 @@ var payloadFields = map[string][]string{
 	"workout_overlap_resolution": {"primaryWorkoutID", "duplicateWorkoutID"},
 	"source_context_selection":   {"sourceEpoch"},
 	"vo2max_source_selection":    {"sourceEpoch", "revoked"},
+	"trimp_parameters":           {"restingHR", "maxHR", "coefficientA", "coefficientB"},
 	"revocation":                 {"targetSchema", "reason"},
 }
 
@@ -73,6 +75,10 @@ type Receipt struct {
 	AcceptedAtUS   int64    `json:"acceptedAtUs"`
 	AnalysisStatus string   `json:"analysisStatus"`
 	JobIDs         []string `json:"jobIDs"`
+	// Only trimp_parameters appends a legacy analysis parameter version and
+	// re-queues recent workouts; other kinds omit both.
+	ParameterVersion *int64 `json:"parameterVersion,omitempty"`
+	WorkoutCount     *int64 `json:"workoutCount,omitempty"`
 }
 
 func Validate(r Request, now time.Time) (Canonical, error) {
@@ -151,6 +157,11 @@ func Validate(r Request, now time.Time) (Canonical, error) {
 			return c, err
 		}
 		schema = SchemaVO2Selection
+	case "trimp_parameters":
+		if err = validateTRIMP(r.Payload); err != nil {
+			return c, err
+		}
+		schema = SchemaTRIMPParameters
 	case "revocation":
 		if r.RevokesID == nil || r.SupersedesID != nil {
 			return c, ErrInvalid
@@ -169,7 +180,7 @@ func Validate(r Request, now time.Time) (Canonical, error) {
 		switch key {
 		case "workoutID", "primaryWorkoutID", "duplicateWorkoutID":
 			value = strings.ToLower(value.(string))
-		case "hours", "maxHR", "restingHR":
+		case "hours", "maxHR", "restingHR", "coefficientA", "coefficientB":
 			value, _ = number(r.Payload, key)
 		}
 		payload[key] = value
@@ -307,6 +318,24 @@ func validateSource(m map[string]any) error {
 	v, ok := m["sourceEpoch"].(string)
 	if !ok || strings.TrimSpace(v) == "" || len(v) > 200 {
 		return ErrInvalid
+	}
+	return nil
+}
+
+func validateTRIMP(m map[string]any) error {
+	rest, ok := number(m, "restingHR")
+	if !ok || rest < 30 || rest >= 220 {
+		return ErrInvalid
+	}
+	maxHR, ok := number(m, "maxHR")
+	if !ok || maxHR < 30 || maxHR >= 220 || maxHR <= rest {
+		return ErrInvalid
+	}
+	for _, key := range []string{"coefficientA", "coefficientB"} {
+		v, ok := number(m, key)
+		if !ok || v <= 0 || v > 10 {
+			return ErrInvalid
+		}
 	}
 	return nil
 }

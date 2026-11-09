@@ -23,7 +23,7 @@ const (
 	StateAlgorithm      = "training_state.bundle"
 	DependencyAlgorithm = "dependency.invalidate"
 	Version             = "v1"
-	WorkoutVersion      = "v2"
+	WorkoutVersion      = "v3"
 	StateVersion        = "v2"
 	StateScope          = "athlete/default"
 	WindowDays          = 180

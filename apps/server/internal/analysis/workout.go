@@ -8,10 +8,12 @@ import (
 )
 
 const (
-	HeartRate  = "HKQuantityTypeIdentifierHeartRate"
-	Cadence    = "HKQuantityTypeIdentifierRunningCadence"
-	Power      = "HKQuantityTypeIdentifierRunningPower"
-	WorkoutDay = "0001-01-01"
+	HeartRate         = "HKQuantityTypeIdentifierHeartRate"
+	Cadence           = "HKQuantityTypeIdentifierRunningCadence"
+	Power             = "HKQuantityTypeIdentifierRunningPower"
+	StepCount         = "HKQuantityTypeIdentifierStepCount"
+	WorkoutDay        = "0001-01-01"
+	maxInstantSupport = 15_000_000
 )
 
 type interval struct{ a, b int64 }
@@ -101,6 +103,7 @@ func summarize(w WorkoutInput, kind, unit string) (trace, error) {
 	var weighted, seconds, sum float64
 	var lastEnd int64
 	hasLast := false
+	var points []Observation
 	for _, o := range xs {
 		out.count++
 		sum += o.Value
@@ -115,6 +118,23 @@ func summarize(w WorkoutInput, kind, unit string) (trace, error) {
 			d := float64(o.End-o.Start) / 1e6
 			weighted += o.Value * d
 			seconds += d
+		} else {
+			points = append(points, o)
+		}
+	}
+	// A point states the value only at that instant. It supports time up to the
+	// next point when the gap stays within the sampling policy; wider gaps are
+	// not extrapolated. Conflicting values at one timestamp stay ambiguous.
+	for i := 0; i+1 < len(points); i++ {
+		a, b := points[i].Start, points[i+1].Start
+		if a == b {
+			if points[i].Value != points[i+1].Value {
+				out.ambiguous = true
+			}
+			continue
+		}
+		if b-a <= maxInstantSupport {
+			spans = append(spans, interval{a, b})
 		}
 	}
 	out.coverage = coverage(spans, w.Start, w.End)
@@ -148,6 +168,48 @@ func summarize(w WorkoutInput, kind, unit string) (trace, error) {
 	}
 	return out, nil
 }
+
+// stepCadence derives steps per minute from associated StepCount intervals.
+// HealthKit exposes no native running-cadence quantity, so the result stays
+// explicitly labelled as derived at the call site.
+func stepCadence(w WorkoutInput) (trace, bool) {
+	var out trace
+	var steps, seconds float64
+	var spans []interval
+	var lastEnd int64
+	hasLast := false
+	for _, o := range w.Observations {
+		if o.Type != StepCount || o.Unit != "count" {
+			continue
+		}
+		if !Finite(o.Value) || o.Value < 0 || o.End < o.Start {
+			return out, false
+		}
+		a, b := max(o.Start, w.Start), min(o.End, w.End)
+		if a >= b {
+			continue
+		}
+		d := float64(b-a) / 1e6
+		if hasLast && a < lastEnd {
+			out.ambiguous = true
+		}
+		if !hasLast || b > lastEnd {
+			lastEnd = b
+		}
+		hasLast = true
+		steps += o.Value * d / (float64(o.End-o.Start) / 1e6)
+		seconds += d
+		spans = append(spans, interval{a, b})
+		out.count++
+	}
+	if out.count == 0 || seconds <= 0 {
+		return out, false
+	}
+	out.mean = Ptr(steps / seconds * 60)
+	out.coverage = coverage(spans, w.Start, w.End)
+	return out, true
+}
+
 func WorkoutFeatures(ctx context.Context, w WorkoutInput) ([]Metric, error) {
 	if w.Deleted {
 		return nil, nil
@@ -179,11 +241,21 @@ func WorkoutFeatures(ctx context.Context, w WorkoutInput) ([]Metric, error) {
 		if spec.kind == HeartRate {
 			hr = t
 		}
+		derived := ""
+		if spec.kind == Cadence && t.count == 0 {
+			if proxy, ok := stepCadence(w); ok {
+				t, derived = proxy, StepCount
+			}
+		}
 		q := "partial"
 		if t.coverage >= 0.9 && !t.ambiguous {
 			q = "available"
 		}
 		d := map[string]any{"observations": t.count, "coverage": t.coverage, "ambiguousIntervals": t.ambiguous}
+		if derived != "" {
+			d["method"] = "step_count_proxy"
+			d["derivedFrom"] = derived
+		}
 		ms = append(ms, metric("average_"+spec.name, "workout.features", spec.unit, t.mean, q, d), metric(spec.name+"_coverage", "workout.features", "1", Ptr(t.coverage), "available", nil))
 		if spec.kind == HeartRate {
 			ms = append(ms, metric("max_heart_rate", "workout.features", spec.unit, t.max, q, d))
@@ -291,8 +363,16 @@ func routeFeatures(ctx context.Context, w WorkoutInput) ([]Metric, error) {
 		up = Ptr(gain)
 		down = Ptr(loss)
 	}
-	details := map[string]any{"method": "haversine", "earthRadiusM": 6371008.8, "validConnections": connections, "skippedNonIncreasingTimeConnections": skippedTime}
-	return []Metric{metric("route_distance", "workout.features", "m", dist, "partial", details), metric("elevation_gain", "workout.features", "m", up, "partial", nil), metric("elevation_loss", "workout.features", "m", down, "partial", nil), metric("route_coverage", "workout.features", "1", Ptr(coverage(spans, w.Start, w.End)), "available", details)}, nil
+	cov := coverage(spans, w.Start, w.End)
+	distanceQuality, elevationQuality := "partial", "partial"
+	if cov >= 0.9 {
+		distanceQuality = "available"
+		if elevations*10 >= connections*9 {
+			elevationQuality = "available"
+		}
+	}
+	details := map[string]any{"method": "haversine", "earthRadiusM": 6371008.8, "validConnections": connections, "validElevationConnections": elevations, "skippedNonIncreasingTimeConnections": skippedTime, "coverage": cov}
+	return []Metric{metric("route_distance", "workout.features", "m", dist, distanceQuality, details), metric("elevation_gain", "workout.features", "m", up, elevationQuality, details), metric("elevation_loss", "workout.features", "m", down, elevationQuality, details), metric("route_coverage", "workout.features", "1", Ptr(cov), "available", details)}, nil
 }
 func haversine(a, b Point) float64 {
 	return workoutdomain.Haversine(a.Latitude, a.Longitude, b.Latitude, b.Longitude)

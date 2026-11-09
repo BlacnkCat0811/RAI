@@ -55,7 +55,7 @@ func (s *Store) writeModelInput(ctx context.Context, p syncing.Principal, id, ki
 				return out, modelinput.ErrNotFound
 			case "RA042", "RA043", "RA081", "23505":
 				return out, modelinput.ErrConflict
-			case "RA082", "23514", "22P02":
+			case "RA082", "23514", "22P02", "22003":
 				return out, modelinput.ErrInvalid
 			}
 		}

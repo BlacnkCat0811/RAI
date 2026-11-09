@@ -55,7 +55,7 @@ import json,os,urllib.request
 url=os.environ['RAI_E2E_URL']+'/v2/analysis/workouts/'+os.environ['RAI_P4_WORKOUT_ID']
 r=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['RAI_E2E_TOKEN']})
 with urllib.request.urlopen(r,timeout=10) as f: value=json.load(f)
-assert value['algorithm']=='workout.bundle' and value['algorithmVersion']=='v2'
+assert value['algorithm']=='workout.bundle' and value['algorithmVersion']=='v3'
 assert value['generation']>0 and len(value['inputHash'])==64
 assert value['metrics'] and all(x['quality'] in ('available','partial','insufficient') for x in value['metrics'])
 assert next(x for x in value['metrics'] if x['metric']=='workout_load')['value'] is None
@@ -63,7 +63,7 @@ print('P4_CURRENT_API=PASS (nullable missing personal parameters; no invented lo
 PY
 # Administrative dry-run is concrete but must not create another job.
 before="$("${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -Atc 'SELECT count(*) FROM jobs')"
-"${compose[@]}" run --rm --no-deps api analysis recompute --dataset "$dataset_id" --scope workouts --algorithm workout.bundle/v2 --from 2020-01-01 --through 2020-01-02 --dry-run >/dev/null
+"${compose[@]}" run --rm --no-deps api analysis recompute --dataset "$dataset_id" --scope workouts --algorithm workout.bundle/v3 --from 2020-01-01 --through 2020-01-02 --dry-run >/dev/null
 after="$("${compose[@]}" exec -T postgres psql -X -U rai_dev -d rai_dev -Atc 'SELECT count(*) FROM jobs')"
 [[ "$before" == "$after" ]]
 "${compose[@]}" stop worker >/dev/null

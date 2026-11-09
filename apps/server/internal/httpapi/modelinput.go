@@ -31,6 +31,8 @@ func inputKind(raw string) string {
 		return "source_context_selection"
 	case "vo2max-source-selections":
 		return "vo2max_source_selection"
+	case "trimp-parameters":
+		return "trimp_parameters"
 	default:
 		return raw
 	}

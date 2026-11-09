@@ -28,7 +28,7 @@ const trainingWorkoutsSelect = `SELECT w.workout_uuid::text,p.published_run_id::
  jsonb_agg(jsonb_build_object('runID',p.published_run_id::text,'generation',p.generation,'day',(w.event_start AT TIME ZONE $2)::date::text,'metric',r.metric,'algorithm',r.algorithm_name,'algorithmVersion',r.algorithm_version,'quality',r.quality,'value',r.value) ORDER BY r.metric) metrics
  FROM analysis_publications p
  JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
- JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND ((r.algorithm_name='workout.features' AND r.algorithm_version IN ('v1','v2')) OR (r.algorithm_name='training_load.trimp' AND r.algorithm_version='v1')) AND r.metric IN ('duration','distance','workout_load')
+ JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND ((r.algorithm_name='workout.features' AND r.algorithm_version IN ('v1','v2','v3')) OR (r.algorithm_name='training_load.trimp' AND r.algorithm_version='v1')) AND r.metric IN ('duration','distance','workout_load')
  JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation AND d.generation=p.generation
  WHERE p.dataset_id=$1 AND p.metric_family='workout' AND p.scope_key='workout:HKWorkoutTypeIdentifier:'||w.workout_uuid::text
  AND COALESCE((a.lineage->>'parameterVersion')::bigint,0)=COALESCE((SELECT max(version) FROM analysis_parameter_sets WHERE dataset_id=$1),0)

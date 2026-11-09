@@ -161,7 +161,7 @@ func TestAnalysisPerformanceAndCapacity(t *testing.T) {
 			if _, e := f.s.Pool.Exec(ctx, `ANALYZE health_samples;ANALYZE workout_samples;ANALYZE workout_routes;ANALYZE route_points`); e != nil {
 				t.Fatal(e)
 			}
-			r := admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: "workout:" + id, Algorithm: "workout.bundle/v2", From: today.Format("2006-01-02"), Through: today.Format("2006-01-02")}
+			r := admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: "workout:" + id, Algorithm: analysis.WorkoutAlgorithm + "/" + analysis.WorkoutVersion, From: today.Format("2006-01-02"), Through: today.Format("2006-01-02")}
 			if _, e := admin.Recompute(ctx, f.s, r); e != nil {
 				t.Fatal(e)
 			}

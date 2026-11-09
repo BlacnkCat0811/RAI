@@ -120,19 +120,19 @@ Workout 查询同时检查 raw 父存在、当前 clean generation 和参数版�
 
 | algorithm/version | 实现与真实限制 |
 |---|---|
-| workout.features/v2 | duration、distance、speed/pace、HR mean/max、真实 cadence/power、coverage、sealed route haversine/有精度条件的高差；缺失 null；不从 steps/pace 猜值 |
+| workout.features/v3 | duration、distance、speed/pace、HR mean/max、真实 cadence/power、coverage、sealed route haversine/有精度条件的高差；瞬时采样按 ≤15 s 间隔重建支持区间，无原生步频时以 StepCount 显式代理（details 标注 method/derivedFrom）；路线质量由覆盖与高差有效连接比例推导；缺失 null |
 | training_load.trimp/v1 | D×r×A×exp(B×r)；参数显式、HR coverage≥0.9 且区间不歧义；没有隐式 sex、HRmax 或人口默认，缺失 unavailable |
 | fitness_fatigue/v2 | dataset calendar daily load，180日有限指数核，tau42/7；当天 daily_load 独立判断；窗口必要 load unknown 时高层结果 null；不是无限 EWMA checkpoint，也不声称生理状态已校准 |
 | recovery/v1 | load-only fitness/fatigue 比例，0..1；不是完整身体恢复 |
 | readiness/v1 | load-only 0..100；保存组成、版本、缺失 sleep/HRV/resting-HR trend 和 import coverage；不是医疗/训练处方或 Garmin 等价 |
 
-当前 bundle `workout.bundle/v2` 与 `training_state.bundle/v2` 固定组件版本（features/fitness_fatigue v2；TRIMP/recovery/readiness v1；旧 v1 历史保留），参数 provenance 进入 input hash。详细公式、精度、质量与缺失语义见 [冻结合同](P4_ALGORITHM_CONTRACT.md)。P4没有 HR zones（无配置）、splits 或ML。P5的训练计划与结构化建议见后文。
+当前 bundle `workout.bundle/v3` 与 `training_state.bundle/v2` 固定组件版本（features v3/fitness_fatigue v2；TRIMP/recovery/readiness v1；旧 v1/v2 历史保留），参数 provenance 进入 input hash。详细公式、精度、质量与缺失语义见 [冻结合同](P4_ALGORITHM_CONTRACT.md)。P4没有 HR zones（无配置）、splits 或ML。P5的训练计划与结构化建议见后文。
 
 ## 9. 重算与管理
 
 正常路径 Workout dirty → 单 Workout publish → state dirty；T 的负荷只影响 T..T+179，截断至 as-of。输入范围再向前179日；首次历史导入不自动全历史回算。Worker 对已有 clean state scope 每天最多建立一个新 generation；后台失败靠现有队列恢复。
 
-`rai analysis recompute --dataset <uuid> --scope workout:<uuid>|workouts|athlete/default --algorithm workout.bundle/v2|training_state.bundle/v2 --from YYYY-MM-DD --through YYYY-MM-DD [--dry-run]`。
+`rai analysis recompute --dataset <uuid> --scope workout:<uuid>|workouts|athlete/default --algorithm workout.bundle/v3|training_state.bundle/v2 --from YYYY-MM-DD --through YYYY-MM-DD [--dry-run]`。
 
 必须明确范围，最多366输出日、1000 Workout；更长历史由操作者明确分段。无默认全库。state 有 pending dirty 时范围必须覆盖受影响输出日，禁止范围外待办被错误 clean。`--dry-run` 只列 scope，不改变 job/generation。参数命令要求 dataset、resting/max HR、A/B 和 provenance，追加参数版本并有界重新分析当前179日内 Workout；旧历史需要显式 recompute，不悄悄覆盖旧 run。
 

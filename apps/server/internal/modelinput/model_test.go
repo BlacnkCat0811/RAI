@@ -65,6 +65,48 @@ func TestEffortRequiresExplicitConfirmation(t *testing.T) {
 		t.Fatal(p)
 	}
 }
+func TestTRIMPParametersRequireExplicitBoundedValues(t *testing.T) {
+	now := time.Date(2026, 11, 9, 0, 0, 0, 0, time.UTC)
+	r := base(now)
+	r.Kind = "trimp_parameters"
+	r.Payload = Payload{"restingHR": 52.0, "maxHR": 188.0, "coefficientA": 0.64, "coefficientB": 1.92}
+	c, err := Validate(r, now)
+	if err != nil || c.Schema != SchemaTRIMPParameters {
+		t.Fatalf("valid parameters rejected: %#v %v", c, err)
+	}
+	var stored map[string]float64
+	if err = json.Unmarshal(c.Payload, &stored); err != nil || stored["coefficientA"] != 0.64 || stored["restingHR"] != 52 {
+		t.Fatalf("canonical payload=%s error=%v", c.Payload, err)
+	}
+	for _, mutate := range []func(Payload){
+		func(p Payload) { p["maxHR"] = 52.0 },
+		func(p Payload) { p["maxHR"] = 220.0 },
+		func(p Payload) { p["restingHR"] = 29.0 },
+		func(p Payload) { p["coefficientA"] = 0.0 },
+		func(p Payload) { p["coefficientB"] = 10.1 },
+		func(p Payload) { delete(p, "restingHR") },
+		func(p Payload) { p["method"] = "user_entered" },
+	} {
+		bad := base(now)
+		bad.Kind = "trimp_parameters"
+		bad.Payload = Payload{"restingHR": 52.0, "maxHR": 188.0, "coefficientA": 0.64, "coefficientB": 1.92}
+		mutate(bad.Payload)
+		if _, err = Validate(bad, now); err == nil {
+			t.Fatalf("invalid parameters accepted: %#v", bad.Payload)
+		}
+	}
+}
+
+func TestTRIMPParametersCannotBeRevoked(t *testing.T) {
+	now := time.Date(2026, 11, 9, 0, 0, 0, 0, time.UTC)
+	id := "123e4567-e89b-12d3-a456-426614174000"
+	target := "123e4567-e89b-12d3-a456-426614174001"
+	r := Request{ID: id, Kind: "revocation", SubjectKey: "athlete", EffectiveFrom: now.Format(time.RFC3339), RevokesID: &target, Provenance: "api", Payload: Payload{"targetSchema": SchemaTRIMPParameters}}
+	if _, err := Validate(r, now); err == nil {
+		t.Fatal("revocation of an append-only parameter set accepted")
+	}
+}
+
 func TestReceiptEmptyJobsIsArray(t *testing.T) {
 	r := ReceiptFor(Canonical{ID: "x", Schema: "s", ContentHash: "h"}, time.Unix(1, 0), nil)
 	b, _ := json.Marshal(r)

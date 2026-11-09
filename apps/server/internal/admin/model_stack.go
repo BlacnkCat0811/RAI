@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -15,11 +17,33 @@ import (
 	"rai/server/internal/syncing"
 )
 
+func readOwnerAuthorization(path string) ([]byte, error) {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
+		return nil, errors.New("authorization file must be regular and mode 0600")
+	}
+	b, err := os.ReadFile(path)
+	if err != nil || len(b) == 0 || len(b) > 64*1024 {
+		return nil, errors.New("authorization file unreadable")
+	}
+	return b, nil
+}
+
 // ModelStackCommand is CLI-only. The default inspection omits all metric
 // values, confidence numbers, identifiers and internal health/model parameters.
 func ModelStackCommand(ctx context.Context, url string, args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("model-stack inspect --dataset --evaluation-at | promotion-plan")
+		return errors.New("model-stack inspect --dataset --evaluation-at | identity | promotion-plan | prepare-synthetic | prepare-real | activate-real | rollback-real")
+	}
+	if args[0] == "identity" {
+		if len(args) != 1 {
+			return errors.New("identity takes no flags")
+		}
+		hash, err := modelmanifest.CurrentHash()
+		if err != nil {
+			return errors.New("model-stack identity unavailable")
+		}
+		return json.NewEncoder(out).Encode(map[string]string{"stack": modelmanifest.StackID(), "manifestSHA256": hash})
 	}
 	if args[0] == "promotion-plan" {
 		if len(args) != 1 {
@@ -45,6 +69,76 @@ func ModelStackCommand(ctx context.Context, url string, args []string, out io.Wr
 		}
 		hash, _ := modelmanifest.CurrentHash()
 		return json.NewEncoder(out).Encode(map[string]string{"stack": modelmanifest.StackID(), "manifestSHA256": hash, "jobID": id, "status": "pending"})
+	}
+	if args[0] == "prepare-real" {
+		fs := flag.NewFlagSet("prepare-real", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		dataset := fs.String("dataset", "", "")
+		authorizationFile := fs.String("authorization-file", "", "")
+		if fs.Parse(args[1:]) != nil || fs.NArg() != 0 || !syncing.ValidID(*dataset) || *authorizationFile == "" {
+			return errors.New("prepare-real requires an explicit dataset and authorization file")
+		}
+		authorization, err := readOwnerAuthorization(*authorizationFile)
+		if err != nil {
+			return err
+		}
+		s, err := postgres.Open(ctx, url, 2)
+		if err != nil {
+			return errors.New("model-stack database configuration failed")
+		}
+		defer s.Pool.Close()
+		id, err := s.PrepareModelStackAuthorized(ctx, *dataset, authorization)
+		if err != nil {
+			if errors.Is(err, am.ErrOwnerAuthorizationInvalid) {
+				return errors.New("model-stack prepare refused: owner_authorization_invalid")
+			}
+			return errors.New("model-stack prepare refused")
+		}
+		hash, _ := modelmanifest.CurrentHash()
+		ah := sha256.Sum256(authorization)
+		return json.NewEncoder(out).Encode(map[string]string{"stack": modelmanifest.StackID(), "manifestSHA256": hash, "jobID": id, "status": "pending", "ownerAuthorized": "true", "authorizationSHA256": hex.EncodeToString(ah[:])})
+	}
+	if args[0] == "activate-real" || args[0] == "rollback-real" {
+		fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		dataset := fs.String("dataset", "", "")
+		actor := fs.String("actor", "", "")
+		stack := fs.String("stack", "", "")
+		manifest := fs.String("manifest", "", "")
+		authorizationFile := fs.String("authorization-file", "", "")
+		phrase := fs.String("confirm-phrase", "", "")
+		wantPhrase := "ACTIVATE-REAL-DATASET"
+		if args[0] == "rollback-real" {
+			wantPhrase = "ROLLBACK-REAL-DATASET"
+		}
+		if fs.Parse(args[1:]) != nil || fs.NArg() != 0 || !syncing.ValidID(*dataset) || *actor == "" || len(*manifest) != 64 || *authorizationFile == "" || *phrase != wantPhrase {
+			return errors.New("explicit dataset, actor, manifest, authorization file and confirm phrase required")
+		}
+		authorization, err := readOwnerAuthorization(*authorizationFile)
+		if err != nil {
+			return err
+		}
+		s, err := postgres.Open(ctx, url, 2)
+		if err != nil {
+			return errors.New("model-stack database configuration failed")
+		}
+		defer s.Pool.Close()
+		var result postgres.AssignmentAudit
+		if args[0] == "activate-real" {
+			if *stack == "" {
+				return errors.New("activate-real requires an explicit stack")
+			}
+			result, err = s.PromoteModelStackAuthorized(ctx, *dataset, *actor, *stack, *manifest, authorization)
+		} else {
+			result, err = s.RollbackModelStackAuthorized(ctx, *dataset, *actor, *manifest, authorization)
+		}
+		if err != nil {
+			if errors.Is(err, am.ErrOwnerAuthorizationInvalid) {
+				return errors.New("model-stack operation refused: owner_authorization_invalid")
+			}
+			return errors.New("model-stack operation refused")
+		}
+		return json.NewEncoder(out).Encode(result)
 	}
 	if args[0] == "promote" || args[0] == "rollback" {
 		fs := flag.NewFlagSet("model-stack", flag.ContinueOnError)

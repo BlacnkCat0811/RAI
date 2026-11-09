@@ -266,7 +266,7 @@ func TestAnalysisLateSamplesRouteEnrichmentAndSeries(t *testing.T) {
 		points[i].HorizontalAccuracy = analysis.Ptr(5)
 	}
 	uploadTestRouteChunk(t, f, route, 0, points)
-	plan, e := admin.Recompute(ctx, f.s, admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: "workout:" + w.UUID, Algorithm: "workout.bundle/v2", From: start.In(time.FixedZone("UTC+8", 8*3600)).Format("2006-01-02"), Through: start.In(time.FixedZone("UTC+8", 8*3600)).Format("2006-01-02")})
+	plan, e := admin.Recompute(ctx, f.s, admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: "workout:" + w.UUID, Algorithm: analysis.WorkoutAlgorithm + "/" + analysis.WorkoutVersion, From: start.In(time.FixedZone("UTC+8", 8*3600)).Format("2006-01-02"), Through: start.In(time.FixedZone("UTC+8", 8*3600)).Format("2006-01-02")})
 	if e != nil || len(plan.Scopes) != 1 {
 		t.Fatal("explicit recompute", e)
 	}
@@ -390,11 +390,11 @@ func TestAnalysisLeaseExpiryDuringPublishAndRecomputeDryRun(t *testing.T) {
 	loc, _ := time.LoadLocation("Asia/Shanghai")
 	day := time.UnixMicro(*w.StartUs).In(loc).Format("2006-01-02")
 	before := count(t, f, "jobs")
-	p, e := admin.Recompute(ctx, f.s, admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: "workouts", Algorithm: "workout.bundle/v2", From: day, Through: day, DryRun: true})
+	p, e := admin.Recompute(ctx, f.s, admin.RecomputeRequest{Dataset: f.p.DatasetID, Scope: "workouts", Algorithm: analysis.WorkoutAlgorithm + "/" + analysis.WorkoutVersion, From: day, Through: day, DryRun: true})
 	if e != nil || len(p.Scopes) != 1 || count(t, f, "jobs") != before {
 		t.Fatal("dry-run mutated queue", e)
 	}
-	for _, r := range []admin.RecomputeRequest{{Dataset: f.p.DatasetID, Scope: "workouts", Algorithm: "workout.bundle/v2"}, {Dataset: f.p.DatasetID, Scope: "workouts", Algorithm: "workout.bundle/v999", From: day, Through: day}} {
+	for _, r := range []admin.RecomputeRequest{{Dataset: f.p.DatasetID, Scope: "workouts", Algorithm: analysis.WorkoutAlgorithm + "/" + analysis.WorkoutVersion}, {Dataset: f.p.DatasetID, Scope: "workouts", Algorithm: "workout.bundle/v999", From: day, Through: day}} {
 		if _, e = admin.Recompute(ctx, f.s, r); e == nil {
 			t.Fatal("unbounded/unsupported recompute accepted")
 		}
@@ -478,7 +478,7 @@ func TestAnalysisExplicitRangeCannotCleanUncoveredDirtyDays(t *testing.T) {
 func TestAnalysisCLIExplicitDryRun(t *testing.T) {
 	f, _ := analysisFixture(t)
 	var out bytes.Buffer
-	args := []string{"recompute", "--dataset", f.p.DatasetID, "--scope", "workouts", "--algorithm", "workout.bundle/v2", "--from", "2020-01-01", "--through", "2020-01-02", "--dry-run"}
+	args := []string{"recompute", "--dataset", f.p.DatasetID, "--scope", "workouts", "--algorithm", analysis.WorkoutAlgorithm + "/" + analysis.WorkoutVersion, "--from", "2020-01-01", "--through", "2020-01-02", "--dry-run"}
 	before := count(t, f, "jobs")
 	if e := admin.AnalysisCommand(context.Background(), f.s.Pool.Config().ConnString(), args, &out); e != nil {
 		t.Fatal(e)

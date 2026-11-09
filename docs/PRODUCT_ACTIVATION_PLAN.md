@@ -1,6 +1,6 @@
 # UA4 — Shadow Read & Product Activation Acceptance Plan
 
-版本：`UA4-plan/1`；2026-11-05。**DESIGN ONLY；PRODUCT ACTIVATION: NOT AUTHORIZED**。遵循 [UA0 合同](UNIFIED_ACCEPTANCE_CONTRACT.md) 与 [M7 产品合同](ATHLETE_MODEL_PRODUCT_CONTRACT.md)。本文件不启用 shadow、不改 assignment、不部署、不接正式 UI/plan/notification。
+版本：`UA4-plan/1`；2026-11-05。**DESIGN ONLY；UA4 FORMAL ACTIVATION: NOT AUTHORIZED；单数据集 owner 例外见第 9 节（2026-11-09）**。遵循 [UA0 合同](UNIFIED_ACCEPTANCE_CONTRACT.md) 与 [M7 产品合同](ATHLETE_MODEL_PRODUCT_CONTRACT.md)。本文件不启用 shadow、不改 assignment、不部署、不接正式 UI/plan/notification。
 
 ## 1. 阶段与当前实现边界
 
@@ -100,3 +100,10 @@ PASS 要求两条实际 active 路径均真实执行、消费者恢复在预登�
 Shadow：`evidence/acceptance/shadow/<run-alias>/`；UX/gates/limited/full/rollback：`evidence/acceptance/product/<release-alias>/`。只存脱敏 manifest、aggregate、决策与经审查无健康值/标识的截图；真实屏幕和细粒度研究值留受控环境。每项明确 executed/observed/accepted/authorized，不能混写。
 
 UA4 未达任何 gate 均保持 legacy active；出现完整性、隐私或医学化误导立即停止对应试验并按获准回滚方案处置。UA0 退出时：shadow NOT STARTED、rollback NOT EXECUTED、limited/full activation NOT AUTHORIZED。后续工作等待独立启动，不自动发生。
+
+## 9. Owner-authorized real-dataset activation（2026-11-09）
+
+- 用户对 `rai-coach-20261108` 的真实数据集 `6e6775e4-f9cd-402b-a184-34a75ac74db2` 明确授权激活。实现使用独立授权文件绑定 dataset/stack/manifest，提供 `prepare-real`、`activate-real`、`rollback-real`；审计记录 `ownerAuthorized=true`、`standardGatesVerified=false`，不声称任何合成门禁通过。
+- 该操作是数据集所有者对自身数据的显式例外，不满足也不代表第 5 节任何门禁：B–F 仍未接受，shadow NOT STARTED，云端 rollback 未演练，limited/full activation 未授权。
+- 激活后产品 API 对既有设备令牌返回 200，assignment 为 active managed stack；因数据集仅 2 次 Workout，跑力为 collecting（`no_qualified_performance`），未显示分数、区间或预测。详细证据见 `IMPLEMENTATION.md` 的 2026-11-09 小节。
+- 保留回滚命令与授权文件；任何正式扩展、自动调度到其他数据集或面向其他用户启用，仍须重新通过本节之外的门禁与授权。若出现完整性、隐私或医学化误导，按获准的 owner 回滚路径切回 legacy previous。

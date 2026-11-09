@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -24,13 +25,30 @@ type AssignmentAudit struct {
 }
 
 func (s *Store) PromoteModelStack(ctx context.Context, dataset, actor, stack string, gate am.PromotionGate, manifestSHA string) (AssignmentAudit, error) {
+	return s.promoteModelStack(ctx, dataset, actor, stack, manifestSHA, &gate, nil)
+}
+
+// PromoteModelStackAuthorized activates a real dataset only with an explicit
+// owner authorization bound to the exact dataset, stack and manifest. It does
+// not claim the synthetic acceptance gates were passed.
+func (s *Store) PromoteModelStackAuthorized(ctx context.Context, dataset, actor, stack, manifestSHA string, authorization []byte) (AssignmentAudit, error) {
+	return s.promoteModelStack(ctx, dataset, actor, stack, manifestSHA, nil, authorization)
+}
+
+func (s *Store) promoteModelStack(ctx context.Context, dataset, actor, stack, manifestSHA string, gate *am.PromotionGate, authorization []byte) (AssignmentAudit, error) {
 	var out AssignmentAudit
 	expected, err := modelmanifest.CurrentHash()
 	m := modelmanifest.Current()
-	if err != nil || manifestSHA != expected || stack != modelmanifest.StackID() || gate.DatasetID != dataset ||
-		gate.ConfigSHA != expected || gate.Model != m.VO2Max.ModelID || gate.Version != m.VO2Max.Version ||
-		gate.FeatureSchema != m.Features.Schema || gate.SourcePolicy != m.VO2Max.SourcePolicy || gate.InputRegistry != m.InputRegistry {
+	if err != nil || manifestSHA != expected || stack != modelmanifest.StackID() {
 		return out, am.ErrGateClosed
+	}
+	if gate != nil {
+		if gate.DatasetID != dataset || gate.ConfigSHA != expected || gate.Model != m.VO2Max.ModelID || gate.Version != m.VO2Max.Version ||
+			gate.FeatureSchema != m.Features.Schema || gate.SourcePolicy != m.VO2Max.SourcePolicy || gate.InputRegistry != m.InputRegistry {
+			return out, am.ErrGateClosed
+		}
+	} else if len(authorization) == 0 {
+		return out, am.ErrOwnerAuthorizationInvalid
 	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -44,8 +62,28 @@ func (s *Store) PromoteModelStack(ctx context.Context, dataset, actor, stack str
 	if err = tx.QueryRow(ctx, `SELECT synthetic_test FROM datasets WHERE id=$1 FOR UPDATE`, dataset).Scan(&synthetic); err != nil {
 		return out, err
 	}
-	if err := gate.Validate(time.Now().UTC(), manifestSHA, synthetic); err != nil {
-		return out, err
+	var gateJSON json.RawMessage
+	if gate != nil {
+		if err := gate.Validate(time.Now().UTC(), manifestSHA, synthetic); err != nil {
+			return out, err
+		}
+		gateJSON, _ = json.Marshal(gate)
+	} else {
+		var auth am.OwnerAuthorization
+		if synthetic || json.Unmarshal(authorization, &auth) != nil || auth.Validate(time.Now().UTC(), dataset, stack, manifestSHA) != nil {
+			return out, am.ErrOwnerAuthorizationInvalid
+		}
+		h := sha256.Sum256(authorization)
+		gateJSON, _ = json.Marshal(map[string]any{
+			"ownerAuthorized":       true,
+			"authorizationSHA256":   hex.EncodeToString(h[:]),
+			"authorizedBy":          auth.AuthorizedBy,
+			"authorizedAt":          auth.AuthorizedAt,
+			"expiresAt":             auth.ExpiresAt,
+			"statement":             auth.Statement,
+			"syntheticDataset":      false,
+			"standardGatesVerified": false,
+		})
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO analysis_model_channels(dataset_id,channel,stack_id,config_sha256,assignment_version)
 	 VALUES($1,'active','legacy',decode(repeat('00',32),'hex'),1) ON CONFLICT(dataset_id,channel) DO NOTHING`, dataset); err != nil {
@@ -62,7 +100,7 @@ func (s *Store) PromoteModelStack(ctx context.Context, dataset, actor, stack str
 		}
 		return out, err
 	}
-	if cand != stack || config != gate.ConfigSHA || cand == from {
+	if cand != stack || config != expected || cand == from {
 		return out, am.ErrGateClosed
 	}
 	var backfillIncomplete bool
@@ -95,7 +133,6 @@ func (s *Store) PromoteModelStack(ctx context.Context, dataset, actor, stack str
 	if _, err = tx.Exec(ctx, `UPDATE analysis_model_channels SET channel='active',assignment_version=$2,assigned_at=now() WHERE dataset_id=$1 AND channel='candidate'`, dataset, revision); err != nil {
 		return out, err
 	}
-	gateJSON, _ := json.Marshal(gate)
 	hash, _ := hex.DecodeString(manifestSHA)
 	if _, err = tx.Exec(ctx, `INSERT INTO analysis_assignment_audit(dataset_id,revision,action,from_stack,to_stack,manifest_sha256,gate_summary,actor) VALUES($1,$2,'promote',$3,$4,$5,$6,$7)`, dataset, revision, from, stack, hash, gateJSON, actor); err != nil {
 		return out, err
@@ -108,10 +145,23 @@ func (s *Store) PromoteModelStack(ctx context.Context, dataset, actor, stack str
 }
 
 func (s *Store) RollbackModelStack(ctx context.Context, dataset, actor, manifestSHA string) (AssignmentAudit, error) {
+	return s.rollbackModelStack(ctx, dataset, actor, manifestSHA, true, nil)
+}
+
+// RollbackModelStackAuthorized restores the previous active stack on a real
+// dataset with the same explicit owner authorization used to activate it.
+func (s *Store) RollbackModelStackAuthorized(ctx context.Context, dataset, actor, manifestSHA string, authorization []byte) (AssignmentAudit, error) {
+	return s.rollbackModelStack(ctx, dataset, actor, manifestSHA, false, authorization)
+}
+
+func (s *Store) rollbackModelStack(ctx context.Context, dataset, actor, manifestSHA string, requireSynthetic bool, authorization []byte) (AssignmentAudit, error) {
 	var out AssignmentAudit
 	expected, err := modelmanifest.CurrentHash()
 	if err != nil || manifestSHA != expected {
 		return out, am.ErrGateClosed
+	}
+	if !requireSynthetic && len(authorization) == 0 {
+		return out, am.ErrOwnerAuthorizationInvalid
 	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -125,8 +175,28 @@ func (s *Store) RollbackModelStack(ctx context.Context, dataset, actor, manifest
 	if err = tx.QueryRow(ctx, `SELECT synthetic_test FROM datasets WHERE id=$1 FOR UPDATE`, dataset).Scan(&synthetic); err != nil {
 		return out, err
 	}
-	if !synthetic {
-		return out, am.ErrGateClosed
+	gateJSON := json.RawMessage(`{"rollback":true}`)
+	if requireSynthetic {
+		if !synthetic {
+			return out, am.ErrGateClosed
+		}
+	} else {
+		stack := modelmanifest.StackID()
+		var auth am.OwnerAuthorization
+		if synthetic || json.Unmarshal(authorization, &auth) != nil || auth.Validate(time.Now().UTC(), dataset, stack, manifestSHA) != nil {
+			return out, am.ErrOwnerAuthorizationInvalid
+		}
+		h := sha256.Sum256(authorization)
+		gateJSON, _ = json.Marshal(map[string]any{
+			"rollback":              true,
+			"ownerAuthorized":       true,
+			"authorizationSHA256":   hex.EncodeToString(h[:]),
+			"authorizedBy":          auth.AuthorizedBy,
+			"authorizedAt":          auth.AuthorizedAt,
+			"expiresAt":             auth.ExpiresAt,
+			"syntheticDataset":      false,
+			"standardGatesVerified": false,
+		})
 	}
 	var active, previous, previousManifest string
 	if err = tx.QueryRow(ctx, `SELECT stack_id FROM analysis_model_channels WHERE dataset_id=$1 AND channel='active' FOR UPDATE`, dataset).Scan(&active); err != nil {
@@ -160,7 +230,6 @@ func (s *Store) RollbackModelStack(ctx context.Context, dataset, actor, manifest
 	if _, err = tx.Exec(ctx, `UPDATE analysis_model_channels SET channel='active',assignment_version=$2,assigned_at=now() WHERE dataset_id=$1 AND channel='previous'`, dataset, revision); err != nil {
 		return out, err
 	}
-	gateJSON := json.RawMessage(`{"rollback":true}`)
 	hash, _ := hex.DecodeString(manifestSHA)
 	if _, err = tx.Exec(ctx, `INSERT INTO analysis_assignment_audit(dataset_id,revision,action,from_stack,to_stack,manifest_sha256,gate_summary,actor) VALUES($1,$2,'rollback',$3,$4,$5,$6,$7)`, dataset, revision, active, previous, hash, gateJSON, actor); err != nil {
 		return out, err
@@ -171,9 +240,18 @@ func (s *Store) RollbackModelStack(ctx context.Context, dataset, actor, manifest
 	return AssignmentAudit{Revision: revision, Action: "rollback", FromStack: active, ToStack: previous, ManifestSHA: manifestSHA, GateSummary: gateJSON, Actor: actor}, nil
 }
 
-// PrepareModelStack registers and schedules the currently implemented manifest.
-// It never replaces an unrelated candidate and is restricted to test datasets.
 func (s *Store) PrepareModelStack(ctx context.Context, dataset string) (string, error) {
+	return s.prepareModelStack(ctx, dataset, nil)
+}
+
+// PrepareModelStackAuthorized registers the candidate for a real dataset. The
+// exact authorization bytes are parsed and validated while the dataset row is
+// locked; the candidate remains invisible until an authorized promotion.
+func (s *Store) PrepareModelStackAuthorized(ctx context.Context, dataset string, authorization []byte) (string, error) {
+	return s.prepareModelStack(ctx, dataset, authorization)
+}
+
+func (s *Store) prepareModelStack(ctx context.Context, dataset string, ownerAuthorization []byte) (string, error) {
 	stack := modelmanifest.StackID()
 	manifest, err := modelmanifest.CurrentHash()
 	if err != nil {
@@ -190,8 +268,15 @@ func (s *Store) PrepareModelStack(ctx context.Context, dataset string) (string, 
  WHERE id=$1 AND retired_at IS NULL FOR UPDATE`, dataset).Scan(&synthetic, &today); err != nil {
 		return "", err
 	}
-	if !synthetic {
-		return "", am.ErrGateClosed
+	if ownerAuthorization == nil {
+		if !synthetic {
+			return "", am.ErrGateClosed
+		}
+	} else {
+		var auth am.OwnerAuthorization
+		if synthetic || json.Unmarshal(ownerAuthorization, &auth) != nil || auth.Validate(time.Now().UTC(), dataset, stack, manifest) != nil {
+			return "", am.ErrOwnerAuthorizationInvalid
+		}
 	}
 	var existing string
 	err = tx.QueryRow(ctx, `SELECT stack_id FROM analysis_model_channels WHERE dataset_id=$1 AND channel='candidate' FOR UPDATE`, dataset).Scan(&existing)

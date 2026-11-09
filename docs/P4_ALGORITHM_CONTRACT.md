@@ -61,3 +61,19 @@ P3 输入 blocker：原 sample 删除级联 association 后未 dirty Workout；s
 ## 2026-10-29 Correctness addendum — training_state.bundle/v2
 
 新 state publication 使用 training_state.bundle/v2、fitness_fatigue/v2；recovery/v1、readiness/v1 公式不变。daily_load 仅由当天 durable Workout 的 published load 决定：当天任一缺失则 null，无记录为 0 recorded load（不证明导入覆盖完整）。历史 180 日 unknown 继续使 fitness/fatigue/balance/recovery/readiness unavailable；窗口完全无 Workout 也不生成恢复/准备度。日与窗口可用性相互独立；历史缺失解决后按原有限核重新计算。相同 raw/lineage 的 daily_load 可能改变，因此升级 bundle 与组件，不复用 v1 标签；旧结果和 pointer 历史不重写。CLI 需明确当前 v2，不自动重算历史。旧 v1 golden 保留为已知数值基线，v2 对原完整输入的数值继续比对。
+
+## 2026-11-09 Correctness addendum — workout.bundle/v3
+
+新发布使用 workout.bundle/v3、workout.features/v3；training_load.trimp/v1 公式不变，training_state.bundle/v2 不变（其 Workout 输入同时接受 features v1/v2/v3）。升级原因：HealthKit 的 HR/Power 样本通常是瞬时点（start=end），v2 只按区间长度累计 coverage，完整同步也会得到 0 coverage，进而把平均 HR/Power 与 TRIMP 标成 partial/insufficient。v3 修正该语义，不伪造原始事实，也不改变缺失即 null 的规则。
+
+- 瞬时采样支持区间：只有点的数值，没有持续时间。v3 将同一 Workout 内按时间排序的瞬时点，从当前点延伸到下一点，仅当下一点间隔 ≤15 s 时计为支持区间；更宽的空隙不外推。同一时刻出现不同数值仍视为歧义，均值保持 null。区间的 mean 仍按持续时间加权；只有点而无区间时按点均值；coverage 为支持/观测区间并集除以 Workout 时间跨度，封顶 0..1。该规则只影响 coverage 与加权，不读取、排序或改写 raw。
+- 步频代理：HealthKit SDK 没有跑步步频 quantity 标识，原生 `HKQuantityTypeIdentifierRunningCadence` 仅在未来/第三方数据出现时使用。无原生步频时，v3 用关联的 StepCount 区间计算平均 steps/min：每个区间按与 Workout 重叠比例计入步数与秒数，均值=总步数/总秒数×60；coverage 取步数区间的并集。`details.method=step_count_proxy`、`details.derivedFrom=HKQuantityTypeIdentifierStepCount` 明确标注代理来源，不冒充原生步频；存在原生步频时不使用代理。
+- 路线质量：`route_distance` 在存在合法连接且路线 coverage ≥0.9 时为 available；`elevation_gain`/`elevation_loss` 还需至少 90% 的合法距离连接同时具备合法海拔与垂直精度，否则 partial；无合法连接/海拔时为 insufficient。`route_coverage` 始终是其自身测量值（available），不作为距离可用的替代。details 新增 `coverage` 与 `validElevationConnections`；不做 GPS 平滑、插值或路线改写。
+- TRIMP 仍需显式 personal parameters（resting/max HR、A/B、provenance）：v3 只修复 heart_rate_coverage 这一缺失分量；没有 parameters 时 `workout_load` 继续为 insufficient 并列出 `personal_parameters`，不引入人口默认值或隐式性别系数。
+- 版本与重算：显式 CLI 只接受当前 workout.bundle/v3；旧 v2 请求被拒绝，旧 run/publication 原样保留；不自动全历史重算。相同 raw 在 v3 下可得到不同 coverage、cadence、route quality，因此必须升级 bundle/features 标签。
+
+## 2026-11-09 Addendum — personal TRIMP parameter input
+
+`training_load.trimp/v1` 的公式与数值语义不变。新增个人参数入口把 resting/max HR 与 Banister A/B 作为显式追加输入：`POST /v2/model-inputs/trimp-parameters`（kind `trimp_parameters`，schema `rai.trimp_parameters/1`）。payload 必须同时包含 `restingHR`、`maxHR`、`coefficientA`、`coefficientB`；范围 30≤RHR<HRmax<220、(0,10]；缺失任一字段、非法值、带 through/supersedes 或撤销请求均拒绝，不补默认、不按年龄/性别推断。
+
+`rai_commit_typed_model_input` 在同一事务追加 `analysis_parameter_sets` 新版本，并为最近 179 天（最多 1000 条）Workout 重排 `analysis.workout` job；参数集 append-only，历史版本不被改写，trimp 输入不使 v2 模型栈变脏。`GET /v2/analysis/parameters` 只读返回最新显式版本或 null；`rai_api` 仍无参数表写权限。App 的「心率参考」继续只进入模型 pipeline；训练负荷入口为「我的 → 个人设置 → 静息与最大心率」。

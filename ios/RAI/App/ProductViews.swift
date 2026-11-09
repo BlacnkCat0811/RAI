@@ -484,6 +484,8 @@ private struct ModelInputSheet: View {
             TextField("静息心率（可选）", text: $restingHR)
             Text("只接受 30–219 bpm；最大心率必须高于静息心率。不会按年龄推断。")
               .font(.caption).foregroundStyle(RAITheme.secondary)
+            Text("这里的心率参考只用于能力模型。训练负荷（TRIMP）请在「我的 → 个人设置 → 静息与最大心率」填写。")
+              .font(.caption).foregroundStyle(RAITheme.secondary)
           }
         } else if kind == "sleep_target" {
           Section("睡眠目标（小时）") {
@@ -734,6 +736,14 @@ struct ProfileView: View {
     Form {
       Section("个人资料") { TextField("称呼", text: $name) }
       Section {
+        NavigationLink("静息与最大心率") { HeartRateSettingsView(model: model) }
+          .accessibilityIdentifier("profile.hr-settings")
+      } header: {
+        Text("个人设置")
+      } footer: {
+        Text("用于训练负荷（TRIMP）的个人心率与系数；只追加新版本，不推断年龄或性别。")
+      }
+      Section {
         NavigationLink("健康数据同步") { WorkoutSyncView(model: sync) }.accessibilityIdentifier("profile.workout-sync")
         NavigationLink("同步与诊断") { SyncView(model: sync) }.accessibilityIdentifier("profile.sync")
         Button("重新连接并刷新") { Task { await model.reconnect() } }
@@ -779,6 +789,155 @@ struct ProfileView: View {
       if let error = model.error { Section { Text(error).foregroundStyle(RAITheme.amber) } }
     }.scrollContentBackground(.hidden).navigationTitle("我的").raiScreen().accessibilityIdentifier(
       "screen.profile")
+  }
+}
+
+struct HeartRateSettingsView: View {
+  @Bindable var model: ProductModel
+  @Environment(\.dismiss) private var dismiss
+  @State private var restingHR = ""
+  @State private var maxHR = ""
+  @State private var coefficientA = "0.64"
+  @State private var coefficientB = "1.92"
+  @State private var effectiveDate = Date()
+  @State private var current: JSON?
+  @State private var loading = true
+  @State private var busy = false
+  @State private var message: String?
+
+  var body: some View {
+    Form {
+      Section("当前已保存") {
+        if let current {
+          LabeledContent("参数版本", value: "#\(current["version"].integer ?? 0)")
+          LabeledContent("静息心率", value: bpm(current.number("restingHR")))
+          LabeledContent("最大心率", value: bpm(current.number("maxHR")))
+          LabeledContent("系数 A / B", value: coefficients(current))
+          if !current.string("provenance").isEmpty {
+            LabeledContent("来源", value: current.string("provenance"))
+          }
+        } else if loading {
+          ProgressView()
+        } else {
+          Text("尚未保存个人参数，训练负荷会保持不足。").font(.footnote)
+            .foregroundStyle(RAITheme.secondary)
+        }
+      }
+      Section {
+        TextField("静息心率", text: $restingHR)
+          .keyboardType(.numberPad)
+          .accessibilityIdentifier("hr-settings.resting")
+        TextField("最大心率", text: $maxHR)
+          .keyboardType(.numberPad)
+          .accessibilityIdentifier("hr-settings.max")
+      } header: {
+        Text("心率（bpm）")
+      } footer: {
+        Text("两项都必须在 30–219 bpm 之间，且最大心率高于静息心率。只使用你明确填写的数值，不会按年龄或性别推断。")
+      }
+      Section {
+        TextField("系数 A", text: $coefficientA)
+          .keyboardType(.decimalPad)
+          .accessibilityIdentifier("hr-settings.coefficient-a")
+        TextField("系数 B", text: $coefficientB)
+          .keyboardType(.decimalPad)
+          .accessibilityIdentifier("hr-settings.coefficient-b")
+      } header: {
+        Text("TRIMP 系数（高级）")
+      } footer: {
+        Text("Banister 系数 A、B 必须显式填写，范围 (0, 10]。界面显示的 0.64 / 1.92 是常用起点，请按个人情况确认；服务端不会补默认值。")
+      }
+      Section {
+        DatePicker("生效日期", selection: $effectiveDate, displayedComponents: .date)
+        if model.pendingModelInput != nil {
+          Button("重试待确认的提交") {
+            busy = true
+            Task {
+              if let failure = await model.retryModelInput() {
+                message = failure
+              } else {
+                await reload()
+              }
+              busy = false
+            }
+          }.disabled(busy)
+        }
+        if let message { Text(message).foregroundStyle(.red).font(.footnote) }
+        Button(busy ? "保存中…" : "保存并重算最近跑步") { submit() }
+          .disabled(busy || !valid)
+          .accessibilityIdentifier("hr-settings.save")
+      } footer: {
+        Text("保存后服务端会追加一个新参数版本，并重新排队最近 179 天的跑步分析（最多 1000 条）；历史参数不会被改写。")
+      }
+    }
+    .navigationTitle("静息与最大心率")
+    .raiScreen()
+    .accessibilityIdentifier("screen.hr-settings")
+    .task { await reload() }
+  }
+
+  private var valid: Bool {
+    guard let rest = Double(restingHR), let max = Double(maxHR),
+      rest >= 30, rest < 220, max >= 30, max < 220, max > rest,
+      let a = Double(coefficientA), let b = Double(coefficientB),
+      a > 0, a <= 10, b > 0, b <= 10
+    else { return false }
+    return true
+  }
+
+  private func bpm(_ value: Double?) -> String {
+    guard let value else { return "--" }
+    return String(format: "%.0f bpm", value)
+  }
+
+  private func coefficients(_ value: JSON) -> String {
+    guard let a = value.number("coefficientA"), let b = value.number("coefficientB") else {
+      return "--"
+    }
+    return String(format: "%.2f / %.2f", a, b)
+  }
+
+  private func reload() async {
+    loading = true
+    let loaded = await model.loadAnalysisParameters()
+    current = loaded
+    if let loaded {
+      restingHR = text(loaded.number("restingHR"))
+      maxHR = text(loaded.number("maxHR"))
+      if loaded.number("coefficientA") != nil { coefficientA = text(loaded.number("coefficientA")) }
+      if loaded.number("coefficientB") != nil { coefficientB = text(loaded.number("coefficientB")) }
+    }
+    loading = false
+  }
+
+  private func text(_ value: Double?) -> String {
+    guard let value else { return "" }
+    return value == value.rounded() ? String(format: "%.0f", value) : String(format: "%g", value)
+  }
+
+  private func submit() {
+    guard valid, let rest = Double(restingHR), let max = Double(maxHR),
+      let a = Double(coefficientA), let b = Double(coefficientB)
+    else { return }
+    busy = true
+    message = nil
+    Task {
+      let failure = await model.submitModelInput(
+        kind: "trimp_parameters",
+        payload: [
+          "restingHR": .number(rest), "maxHR": .number(max),
+          "coefficientA": .number(a), "coefficientB": .number(b),
+        ],
+        effectiveFrom: effectiveDate)
+      await MainActor.run {
+        busy = false
+        if let failure {
+          message = failure
+        } else {
+          dismiss()
+        }
+      }
+    }
   }
 }
 
