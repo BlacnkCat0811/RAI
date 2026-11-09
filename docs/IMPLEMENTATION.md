@@ -1368,3 +1368,12 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - 合成回归：新增重叠 3 段/5 段层级（无计划必须返回空并说明重叠；计划 3 步必须唯一选中 3 段层级并套标签）、非重叠 lap 优先于 segment、重复组末尾恢复展开与 8 段活动对齐、计划 2 步/实测 3 段拒绝部分套标签、嵌套 activity 事件合并去重等测试；既有事件回退测试同步改为“lap 通用标签、唯一 segment 分区可对齐计划”。
 - 本机证据（2026-11-09）：`scripts/local/test.sh unit ./...` PASS（9 s）；`scripts/local/test.sh gate` PASS（38 s；Go race/vet/依赖边界/controller 安全检查）；真实隔离 PostgreSQL 18.6 `scripts/local/test.sh integration ./integration -run '^TestWorkoutDetail'` PASS（profile 14 s；`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`）；`scripts/local/test.sh swift` PASS（257 tests / 37 suites）；Debug `generic/platform=iOS` `CODE_SIGNING_ALLOWED=NO` 构建 PASS（产物 `com.rai.v2.ios`，MinimumOSVersion 18.0）；`scripts/local/test.sh simulator` PASS（98 tests：95 passed / 0 failed / 3 skipped）。
 - 未验证/未授权：未用真实 iPhone/HealthKit 数据重放修复后的详情页，未确认真实设备两套 segment 层级的 start/end 是否严格满足唯一分区对齐（不满足时按设计回退公里分段）；未运行带真实 API 的 WorkoutDetail UI XCTest、未截图复核新标题/`--`/回退说明；未跑 `full` 全量集成回归；未构建镜像、未部署、未读取或改写生产数据；本次无 migration 与事务写入变更。
+
+### 云端部署 — rai-coach-20261108（2026-11-09，训练详情分段修复 + v4 原始载荷）
+
+用户要求不运行测试并部署。本轮把提交 `afb8680` 部署到云端；该提交首次在云端包含 v4 原始载荷重写（`d279070`）与训练详情分段来源修复，无新 migration，schema 保持 49。
+
+- 构建：Go1.27.3 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`，二进制 SHA-256 `cd7773c740d00a89fcc7ceedbaa89ff5722a1b92a9bc946b2782c4602f761528`（16,949,408 B）；`rai version` 报告 schema 49、`source_commit=afb8680`、OpenAPI 1.8.0、analysis `workout.bundle/v3`。镜像 `rai-coach:20261109-afb8680`（ID `sha256:5c94e9cc0669203730f4d7045123b2700d1e9403c809698b6a045dc295a80fb5`）。
+- 迁移与备份：部署前 `pg_dump -Fc` 备份到 `/opt/rai-coach-20261108/backup-before-segment-deploy-20261109-155138.dump`（10,151,832 B，617 TOC 项，容器内 `pg_restore -l` 校验通过）；保留 `rai.bak-44136ac` 与 `environment.bak-44136ac`。`admin migrate` 无待应用迁移，`migrate-status` 49 份全部 applied（最后 `00049_public_trimp_parameters.sql`）。
+- 运行态：api/worker 用新镜像重建并 healthy；容器内 `probe --ready`、`worker-ready` 通过；公网 `GET /ready` 返回 `{"status":"ready"}`、`GET /health` 200；未认证 `GET /v2/handshake`（带 `X-RAI-Sync-Protocol: 4`）返回 401；API/Worker 近 5 分钟日志无 WARN/ERROR。
+- 未验证/未授权：按用户要求未运行任何 Go/Swift/集成测试；未用真实 iPhone/HealthKit 数据验证分段修复与 v4 上传；未读取 enrollment token 做带凭证的 v4 握手实测；未重算既有 Workout。部署不代表真机、模型或产品验收。
