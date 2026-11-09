@@ -1096,6 +1096,9 @@ struct WorkoutSyncView: View {
           Button("重试") { model.retry(workout.id) }.font(.caption.weight(.semibold)).disabled(!model.canStartWorkoutSync)
         case .preparing, .uploading:
           Button("继续") { model.retry(workout.id) }.font(.caption2).disabled(!model.canStartWorkoutSync)
+        case .accepted:
+          // The exact payload is durably accepted; re-sending cannot change the outcome.
+          Button("检查状态") { model.checkStatus(workout.id) }.font(.caption2).disabled(model.busy)
         case .acknowledged, .analyzing:
           Button("检查状态") { model.checkStatus(workout.id) }.font(.caption2).disabled(model.busy)
           Button("更新") { model.syncWorkouts([workout.id]) }.font(.caption2).disabled(!model.canStartWorkoutSync)
@@ -1176,9 +1179,9 @@ struct WorkoutSyncView: View {
 
   private func statusLabel(_ phase: WorkoutSyncPhase) -> String {
     [
-      .notSynced: "未同步", .preparing: "准备中", .uploading: "上传中",
-      .acknowledged: "服务器已确认", .analyzing: "分析中", .published: "已发布",
-      .partial: "部分完成", .failed: "失败", .deleted: "已删除",
+      .notSynced: "未同步", .preparing: "正在准备", .uploading: "正在上传",
+      .accepted: "已接收，等待入库", .acknowledged: "已入库，等待分析", .analyzing: "分析中",
+      .published: "分析可查看", .partial: "部分完成", .failed: "失败", .deleted: "已删除",
     ][phase] ?? phase.rawValue
   }
 
@@ -1186,7 +1189,7 @@ struct WorkoutSyncView: View {
     switch phase {
     case .notSynced: RAITheme.secondary
     case .preparing, .uploading: RAITheme.amber
-    case .acknowledged, .analyzing: RAITheme.blue
+    case .accepted, .acknowledged, .analyzing: RAITheme.blue
     case .published: RAITheme.green
     case .partial: RAITheme.orange
     case .failed: Color.red
@@ -1204,9 +1207,9 @@ struct WorkoutSyncDetail: View {
   @Environment(\.dismiss) private var dismiss
   private func phaseLabel(_ phase: WorkoutSyncPhase) -> String {
     [
-      .notSynced: "未同步", .preparing: "准备中", .uploading: "上传中",
-      .acknowledged: "服务器已确认", .analyzing: "分析中", .published: "已发布",
-      .partial: "部分完成", .failed: "失败", .deleted: "已删除",
+      .notSynced: "未同步", .preparing: "正在准备", .uploading: "正在上传",
+      .accepted: "已接收，等待入库", .acknowledged: "已入库，等待分析", .analyzing: "分析中",
+      .published: "分析可查看", .partial: "部分完成", .failed: "失败", .deleted: "已删除",
     ][phase] ?? phase.rawValue
   }
 
@@ -1224,6 +1227,9 @@ struct WorkoutSyncDetail: View {
         Section("独立同步任务") {
           LabeledContent("阶段", value: phaseLabel(task.phase))
           LabeledContent("创建", value: task.createdAt.formatted(date: .abbreviated, time: .standard))
+          if let accepted = task.ingestAcceptedAt {
+            LabeledContent("服务端已接收", value: accepted.formatted(date: .abbreviated, time: .standard))
+          }
           if let acknowledged = task.acknowledgedAt {
             LabeledContent("Durable ACK", value: acknowledged.formatted(date: .abbreviated, time: .standard))
           }

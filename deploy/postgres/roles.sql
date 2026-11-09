@@ -40,6 +40,12 @@ GRANT SELECT, INSERT ON sync_request_budgets TO rai_api;
 GRANT UPDATE(available_at) ON sync_request_budgets TO rai_api;
 GRANT SELECT, INSERT ON sync_upload_slots TO rai_api;
 GRANT UPDATE(device_id,token,expires_at) ON sync_upload_slots TO rai_api;
+-- UUID ingest acceptance writes only the raw envelope identity; the worker
+-- owns every semantic/fact column. Explicit Workout deletion clears raw bytes
+-- while keeping the original acceptance identity and receipt.
+GRANT SELECT ON workout_ingests TO rai_api;
+GRANT INSERT(dataset_id,workout_uuid,raw_json,payload_bytes,device_id,dataset_epoch,collector_epoch,state,accepted_at,next_attempt_at) ON workout_ingests TO rai_api;
+GRANT UPDATE(raw_json,state,error_code,finished_at,lease_until) ON workout_ingests TO rai_api;
 
 GRANT SELECT ON goose_db_version, datasets, dirty_scopes, jobs, job_attempts TO rai_worker;
 -- SELECT FOR UPDATE requires UPDATE privilege, even when the locked value is unchanged.
@@ -48,11 +54,23 @@ GRANT UPDATE ON jobs, job_attempts TO rai_worker;
 GRANT INSERT ON job_attempts TO rai_worker;
 GRANT UPDATE(clean_generation) ON dirty_scopes TO rai_worker;
 
+-- UUID ingest worker: claim/finalize the row and write the same normalized
+-- facts the API path writes, inside one transaction.
+GRANT SELECT ON workout_ingests TO rai_worker;
+GRANT UPDATE(state,commit_revision,commit_receipt,finished_at,error_code,attempts,next_attempt_at,lease_until,raw_json) ON workout_ingests TO rai_worker;
+GRANT INSERT ON health_samples, workout_samples, workouts, workout_statistics, workout_events,
+    workout_activities, series_uploads, series_chunks, workout_imports, change_events TO rai_worker;
+GRANT INSERT(dataset_id,route_uuid,workout_uuid,source_bundle_id,dataset_epoch,collector_epoch,
+    expected_chunk_count,expected_point_count,first_recorded_at,last_recorded_at,
+    expected_payload_manifest_sha256) ON workout_routes TO rai_worker;
+GRANT EXECUTE ON FUNCTION rai_route_append_chunk(uuid,uuid,integer,integer,bytea,bytea,jsonb) TO rai_worker;
+GRANT EXECUTE ON FUNCTION rai_route_seal(uuid,uuid,integer,bigint,bytea,bytea,bytea,bigint) TO rai_worker;
+
 -- P4: API reads published DTO inputs; cannot write derived history/pointers.
 GRANT SELECT ON analysis_runs, analysis_published_results, analysis_publications TO rai_api;
 GRANT SELECT ON workouts, workout_statistics, workout_events, workout_activities,
     health_samples, workout_samples, workout_enrichments, workout_routes,
-    route_points, series_uploads, series_chunks, workout_imports, analysis_parameter_sets,
+    route_points, route_chunks, series_uploads, series_chunks, workout_imports, analysis_parameter_sets,
     analysis_runs, analysis_results, analysis_publications TO rai_worker;
 GRANT INSERT ON analysis_runs, analysis_results, analysis_publications, dirty_scopes, jobs TO rai_worker;
 GRANT UPDATE(status,finished_at,error_code) ON analysis_runs TO rai_worker;

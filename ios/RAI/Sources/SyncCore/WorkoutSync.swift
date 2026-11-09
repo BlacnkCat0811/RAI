@@ -7,6 +7,8 @@ public enum WorkoutSyncPhase: String, Codable, Sendable, CaseIterable {
     case notSynced = "NOT_SYNCED"
     case preparing = "PREPARING"
     case uploading = "UPLOADING"
+    /// The exact payload is durably accepted server-side but not yet imported.
+    case accepted = "SERVER_ACCEPTED"
     case acknowledged = "SERVER_ACKNOWLEDGED"
     case analyzing = "ANALYZING"
     case published = "PUBLISHED"
@@ -82,7 +84,7 @@ public enum AnalysisFollowup {
     /// is older than this; it never starts an unbounded poll.
     public static let staleRefreshInterval: TimeInterval = 30
     public static func shouldContinue(_ phase: WorkoutSyncPhase) -> Bool {
-        phase == .acknowledged || phase == .analyzing
+        phase == .accepted || phase == .acknowledged || phase == .analyzing
     }
     public static func delay(forAttempt attempt: Int) -> TimeInterval? {
         guard attempt >= 0, attempt < delays.count else { return nil }
@@ -110,6 +112,14 @@ public struct WorkoutSyncTask: Codable, Sendable, Equatable {
     public var bundleFile: String?
     public var bundleSHA256: String?
     public var bundleBoundary: String?
+    /// UUID ingest lane marker. `"uuid"` means the fixed per-session payload is
+    /// authoritative and the old bundle upload must never be retried for this
+    /// Workout. A missing value on an old task keeps the legacy lane.
+    public var ingestMode: String?
+    /// Server acceptance of the exact payload; the file may already be gone.
+    public var ingestAcceptedAt: Date?
+    /// Last observed ingest status (`accepted`, `committed`, `rejected`, ...).
+    public var ingestStatus: String?
     /// Derived gzip multipart; canonical bundleFile remains recovery authority.
     public var bundleWireFile: String?
     public var bundleWireSHA256: String?

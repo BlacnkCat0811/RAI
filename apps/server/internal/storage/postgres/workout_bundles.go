@@ -27,6 +27,12 @@ func tolerantRewrites(bundle syncing.WorkoutBundle) bool {
 	return bundle.Observation != nil || bundle.SourceTable != nil
 }
 
+// importWorkoutBundleHook runs inside the fact transaction after every fact,
+// dirty scope, job and legacy receipt has been written and before COMMIT. A
+// nonzero error rolls the whole import back. The worker uses it to mark the
+// accepted ingest row committed under its claim token.
+type importWorkoutBundleHook func(ctx context.Context, tx pgx.Tx, receipt json.RawMessage, revision int64) error
+
 // ImportWorkoutBundle is the one-request Workout write path and the single
 // semantic validation point: the HTTP boundary only proves the wire contract,
 // so every caller (including a direct Store caller) runs exactly one
@@ -34,7 +40,17 @@ func tolerantRewrites(bundle syncing.WorkoutBundle) bool {
 // against committed facts, writes the complete normalized projection, and
 // publishes exactly one Workout analysis generation.
 func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bundle syncing.WorkoutBundle, raw []byte) (json.RawMessage, error) {
+	return s.importWorkoutBundle(ctx, p, bundle, raw, nil)
+}
+
+func (s *Store) importWorkoutBundle(ctx context.Context, p syncing.Principal, bundle syncing.WorkoutBundle, raw []byte, after importWorkoutBundleHook) (json.RawMessage, error) {
 	defer syncing.PhaseTimer(ctx, "import_total")()
+	// Deletion-only bundles commit child deletions through their own nested
+	// transaction, which cannot join an ingest commit. The v4 worker never
+	// produces one.
+	if after != nil && bundle.DeletionOnly {
+		return nil, syncing.Fail(422, "unsupported_payload")
+	}
 	validationStart := time.Now()
 	validationDone := syncing.PhaseTimer(ctx, syncing.PhaseSemanticValidation)
 	err := syncing.ValidateWorkoutBundle(bundle)
@@ -190,7 +206,21 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 	// route tombstone checks above. This prevents a deleted child from being
 	// reported as committed merely because the old bundle bytes match.
 	if priorFound {
-		return json.RawMessage(priorReceipt), nil
+		body := json.RawMessage(priorReceipt)
+		if after != nil {
+			var prior syncing.WorkoutImportReceipt
+			revision := rev
+			if json.Unmarshal(priorReceipt, &prior) == nil {
+				revision = prior.CommitRevision
+			}
+			if err = after(ctx, tx, body, revision); err != nil {
+				return nil, err
+			}
+			if err = tx.Commit(ctx); err != nil {
+				return nil, err
+			}
+		}
+		return body, nil
 	}
 
 	// A successful read is not ordered HealthKit deletion evidence. In particular,
@@ -329,6 +359,11 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 		return nil, err
 	}
 	receiptDone()
+	if after != nil {
+		if err = after(ctx, tx, json.RawMessage(body), nextRev); err != nil {
+			return nil, err
+		}
+	}
 	commitDone := syncing.PhaseTimer(ctx, "commit")
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
@@ -436,6 +471,9 @@ func (s *Store) DeleteWorkoutBundle(ctx context.Context, p syncing.Principal, re
 		if err != nil {
 			return nil, err
 		}
+		if err = clearWorkoutIngestRaw(ctx, tx, p.DatasetID, req.WorkoutID); err != nil {
+			return nil, err
+		}
 		if err = tx.Commit(ctx); err != nil {
 			return nil, err
 		}
@@ -516,6 +554,9 @@ func (s *Store) DeleteWorkoutBundle(ctx context.Context, p syncing.Principal, re
 	}
 	body, err := json.Marshal(receipt)
 	if err != nil {
+		return nil, err
+	}
+	if err = clearWorkoutIngestRaw(ctx, tx, p.DatasetID, req.WorkoutID); err != nil {
 		return nil, err
 	}
 	if err = tx.Commit(ctx); err != nil {

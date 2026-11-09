@@ -203,3 +203,54 @@ v4 解码器把原始载荷投影为现有 `syncing.WorkoutBundle`：
 客户端：`ClientConfiguration.v4Enabled` 默认为 true；只有 handshake 返回 `bundleProtocolVersion=4` 且 `bundleCompact=true` 时才走 v4。显式 `syncProtocolV4=false` 强制回退 v3。
 
 v4 在此次重定义前从未部署，因此不保留旧列式 v4 兼容路径，也不迁移旧 v4 本地文件；旧本地 v4 状态按新协议丢弃重建，服务端事实不受影响。
+
+## 7. 按 Workout UUID 一次接收
+
+服务端提供一条可独立启停的接收入口，使同一个 `HKWorkout.uuid` 在每个 dataset 中只被接收一次；首次成功接收的原始 v4 载荷是唯一权威副本。该入口不替代 v3，也不改变 `workout-bundles` 的 v3 语义。
+
+### 7.1 端点
+
+```http
+POST /v2/sync/workout-ingests/{workoutID}
+Authorization: Bearer <device-token>
+Content-Type: multipart/form-data; boundary=...
+
+<与第 2 节完全相同的单 file part 原始 v4 JSON>
+```
+
+- 路径 `workoutID` 必须是规范 UUID，且必须等于载荷顶层 `workoutID`，否则 422 `workout_ingest_mismatch`。
+- 校验 Bearer、dataset、dataset/collector epoch、UTF-8、重复键、嵌套深度、`protocolVersion=4` 与 wire 大小；不解析样本/route 语义。
+- 首次接收成功返回 200 `{workoutID, ingestStatus:"accepted", acceptedAt}`，且响应晚于数据库提交。该回执冻结首次记录值；之后转为 `committed`/`rejected` 仍重放同一 `acceptedAt`。
+- 同一 UUID 的重复 POST 返回首次接收回执，即使字节不同；原始载荷与回执均不替换。
+- 已存在但无接收记录的 Workout 返回 `{workoutID, ingestStatus:"already_imported"}`。
+- 根删除屏障优先：已删除 UUID 返回 409 `workout_deleted`。
+- 非法载荷 422/413；积压超限 429 并带 `Retry-After`；模式关闭时 409 `workout_uuid_ingest_disabled`，暂停时 503 `workout_uuid_ingest_paused`。
+
+```http
+GET /v2/sync/workout-ingests/{workoutID}
+Authorization: Bearer <device-token>
+```
+
+单次数据库快照返回状态，优先级固定为：
+
+1. `deleted`（存在根 tombstone）
+2. `accepted` / `committed` / `rejected`（接收记录）
+3. `already_imported`（仅存在 Workout 事实）
+4. 404 `workout_ingest_not_found`
+
+`committed` 附带 `commitRevision`、`analysisStatus` 与 `analysisJobIDs`；`rejected` 附带 `errorCode`。查询只作用于调用者自己的 dataset；同一 UUID 在其他 dataset 的状态不可见。
+
+### 7.2 服务端状态机
+
+- 接收行按 `(dataset_id, workout_uuid)` 唯一，保存精确 `raw_json` 字节、载荷大小、接收设备、epochs、状态、`accepted_at`、`commit_receipt`、`finished_at`、`error_code`、`attempts`、`next_attempt_at`、`lease_until`。
+- 每个 dataset 的待处理积压上限为 200 行 / 512 MiB；并发进程通过主键 `ON CONFLICT DO NOTHING` 与读回解决。
+- 单个 Worker 解析循环：90 秒租约、60 秒处理预算；解码 v4 原始字节后走与同步导入相同的事实写核心。事实、历史、分析待办与 `committed` 状态在同一事务提交，并以认领令牌（`attempts`）和有效租约守护；任一守护失败则整个事务回滚。
+- 永久错误（解码失败、身份不匹配、删除、fencing、生命周期）写 `rejected` 并停止自动重试；暂态错误指数退避，最多 3 次；最后一次认领在租约过期后终结为 `rejected`。
+- 提交成功或解析失败后仍保留原始载荷；显式 Workout 删除会清空原始载荷但保留接收身份与既有回执，使待处理行立即终止为 `rejected`。
+- `workout-bundles` 的 v4 POST 在 `uuid` 模式返回 409 `workout_uuid_ingest_required`，在 `uuid_paused` 模式返回 503 `workout_uuid_ingest_paused`；GET 回执、v3 与管理删除路径继续可用。
+
+### 7.3 模式与握手
+
+服务端环境变量 `RAI_WORKOUT_UUID_INGEST_MODE` 取值 `legacy`（默认）、`uuid`、`uuid_paused`。握手恒返回 `workoutUUIDIngestVersion=1` 与 `workoutUUIDIngestAccepting`；客户端只有在该值为 `true` 时才使用本条入口。
+
+客户端在详细 HealthKit 发现前先按 UUID 判断：本地 Outbox 已有已接收回执则不再上传；否则查询服务端状态后再决定上传或轮询。接收回执与清理授权原子持久化；新路径不引入 uploadID/ingestID/载荷哈希身份。

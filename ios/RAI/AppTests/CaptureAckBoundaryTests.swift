@@ -11,9 +11,10 @@ import Synchronization
 //
 // These tests drive the real `performSync` + `uploadAndAcknowledge` path with a
 // synthetic `HealthKitReading`, a real `OutboxStore` and a deterministic
-// barrier: the fake query suspends inside the capture loop, the test commits a
-// concurrent producer mutation, and only then is the loop released. No sleeps,
-// no timing guesses.
+// barrier: delivery of the fixed bundle suspends, the test commits a concurrent
+// producer mutation, and only then is the upload released. No sleeps, no timing
+// guesses. A completed discovery stream can supply the bundle without a second
+// HealthKit read, so the barrier sits at the uploader rather than in the read.
 
 /// One-way handshake between the capture loop and the test: the loop arrives,
 /// the test acts, the test releases.
@@ -66,18 +67,18 @@ private func boundarySourceRevision() -> HKSourceRevision {
                             operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
 }
 
-/// A synthetic reader whose capture loop can be suspended at one exact type.
+/// A synthetic reader. Sampling is no longer the only capture window: the
+/// bundle may reuse an already-exhausted discovery stream, so tests gate the
+/// uploader instead, after the bundle's fact set is fixed and before the ACK.
 private actor BarrierHealth: HealthKitReading {
     let workout: HKWorkout
     private var samples: [String: [HKSample]]
-    private let pauseAt: String?
-    private let barrier: CaptureBarrier
     private(set) var bundleSampleReads: [String] = []
     private(set) var seriesReads = 0
     private(set) var routeReads = 0
 
-    init(workout: HKWorkout, samples: [String: [HKSample]], pauseAt: String? = nil, barrier: CaptureBarrier) {
-        self.workout = workout; self.samples = samples; self.pauseAt = pauseAt; self.barrier = barrier
+    init(workout: HKWorkout, samples: [String: [HKSample]]) {
+        self.workout = workout; self.samples = samples
     }
     func authorize() async throws {}
     func workout(_ id: String) async throws -> HKWorkout? {
@@ -87,13 +88,14 @@ private actor BarrierHealth: HealthKitReading {
         HealthPage(samples: [], deleted: [], anchor: Data([1]), limit: 25)
     }
     func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage {
-        HealthPage(samples: [], deleted: [], anchor: Data([2]), limit: 1000)
+        // Discovery and the bundle read observe one HealthKit sample set, so an
+        // exhausted discovery stream really does supply what the bundle needs.
+        HealthPage(samples: samples[type.identifier] ?? [], deleted: [], anchor: Data([2]), limit: 1000)
     }
     func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
     func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
     func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] {
         bundleSampleReads.append(type.identifier)
-        if type.identifier == pauseAt { await barrier.arrive() }
         return samples[type.identifier] ?? []
     }
     func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { [:] }
@@ -150,8 +152,15 @@ private final class BoundaryUploader: FileUploader, @unchecked Sendable {
     /// Number of sample upserts the ACK echoes, so a bundle that carried one
     /// sample and a bundle that carried two are distinguishable.
     let samplesInserted: Mutex<Int>
-    init(samplesInserted: Int = 1) { self.samplesInserted = Mutex(samplesInserted) }
+    /// An optional gate that suspends delivery after the bundle's fact set is
+    /// fixed. The test commits concurrent work, then releases this upload, so
+    /// the ACK provably refers to bytes assembled before that work existed.
+    let gate: CaptureBarrier?
+    init(samplesInserted: Int = 1, gate: CaptureBarrier? = nil) {
+        self.samplesInserted = Mutex(samplesInserted); self.gate = gate
+    }
     func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
+        if let gate { await gate.arrive() }
         uploads.withLock { $0 += 1 }
         let parts = identity.split(separator: ":", maxSplits: 1)
         let workoutID = parts.first.map(String.init) ?? ""
@@ -241,9 +250,9 @@ final class CaptureAckBoundaryTests: XCTestCase {
         // after the injection and legitimately carry it (R3 runs types
         // concurrently), which would make the R1 assertion vacuous.
         let health = BarrierHealth(workout: workout,
-            samples: [heartRate: [first, second], distance: []], pauseAt: heartRate, barrier: barrier)
+            samples: [heartRate: [first, second], distance: []])
         let coordinator = makeCoordinator(store, health)
-        let uploader = BoundaryUploader(samplesInserted: 2)
+        let uploader = BoundaryUploader(samplesInserted: 2, gate: barrier)
         let secret = try secret()
 
         let sync = Task { try await coordinator.syncWorkout(id: id, secret: secret, transfers: uploader, forceNewBundle: false) }
@@ -272,7 +281,7 @@ final class CaptureAckBoundaryTests: XCTestCase {
 
         // The next pass must actually deliver it rather than skip as unchanged.
         let resumed = BarrierHealth(workout: workout,
-            samples: [heartRate: [first, second, lateSample], distance: []], barrier: CaptureBarrier())
+            samples: [heartRate: [first, second, lateSample], distance: []])
         let second_ = makeCoordinator(store, resumed)
         let uploader2 = BoundaryUploader(samplesInserted: 3)
         try await second_.syncWorkout(id: id, secret: secret, transfers: uploader2, forceNewBundle: false)
@@ -295,9 +304,9 @@ final class CaptureAckBoundaryTests: XCTestCase {
         let first = boundarySample(.heartRate, workout, offset: 0)
         let barrier = CaptureBarrier()
         let health = BarrierHealth(workout: workout,
-            samples: [heartRate: [first], distance: []], pauseAt: distance, barrier: barrier)
+            samples: [heartRate: [first], distance: []])
         let coordinator = makeCoordinator(store, health)
-        let uploader = BoundaryUploader(samplesInserted: 1)
+        let uploader = BoundaryUploader(samplesInserted: 1, gate: barrier)
         let secret = try secret()
 
         let sync = Task { try await coordinator.syncWorkout(id: id, secret: secret, transfers: uploader, forceNewBundle: false) }
@@ -324,8 +333,7 @@ final class CaptureAckBoundaryTests: XCTestCase {
         // A second pass carries the explicit child deletion. HealthKit no
         // longer returns the deleted sample, so the read is complete, not
         // partial — a partial read would (correctly) refuse the ACK entirely.
-        let resumed = BarrierHealth(workout: workout, samples: [heartRate: [], distance: []],
-                                    barrier: CaptureBarrier())
+        let resumed = BarrierHealth(workout: workout, samples: [heartRate: [], distance: []])
         let uploader2 = BoundaryUploader(samplesInserted: 1)
         try await makeCoordinator(store, resumed).syncWorkout(id: id, secret: secret, transfers: uploader2, forceNewBundle: false)
         XCTAssertEqual(uploader2.uploads.withLock { $0 }, 1, "the undelivered deletion was skipped as unchanged")
@@ -349,9 +357,9 @@ final class CaptureAckBoundaryTests: XCTestCase {
         let first = boundarySample(.heartRate, workout, offset: 0)
         let barrier = CaptureBarrier()
         let health = BarrierHealth(workout: workout,
-            samples: [heartRate: [first], distance: []], pauseAt: distance, barrier: barrier)
+            samples: [heartRate: [first], distance: []])
         let coordinator = makeCoordinator(store, health)
-        let uploader = BoundaryUploader(samplesInserted: 1)
+        let uploader = BoundaryUploader(samplesInserted: 1, gate: barrier)
         let secret = try secret()
         let deletions = BoundaryReplies.deletions.withLock { $0 }
 

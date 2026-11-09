@@ -122,7 +122,7 @@ public struct RAIAPIClient: Sendable {
     private func performCall(_ method: String, _ path: String, body: Data?, file: URL?,
                              mediaType: String, gzip: Bool, identity: String, query: [String: String],
                              headers: [String: String] = [:]) async throws -> JSON {
-        let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path == "/v2/sync/workout-completeness" || path == "/v2/sync/daily-facts" || path == "/v2/sync/vo2max-facts"
+        let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path.hasPrefix("/v2/sync/workout-ingests") || path == "/v2/sync/workout-completeness" || path == "/v2/sync/daily-facts" || path == "/v2/sync/vo2max-facts"
         let networkStart = Date()
         defer {
             metrics.elapsed("network_ms", since: networkStart)
@@ -133,7 +133,7 @@ public struct RAIAPIClient: Sendable {
         guard !path.contains("?"), !path.contains("#") else { throw SyncFailure.invalid("invalid_api_path") }
         components.path = path; components.queryItems = query.isEmpty ? nil : query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }; components.fragment = nil
         guard let url = components.url else { throw SyncFailure.invalid("invalid_api_url") }
-        var request = URLRequest(url: url, timeoutInterval: path == "/v2/sync/workout-bundles" && method == "POST" ? 270 : 60)
+        var request = URLRequest(url: url, timeoutInterval: method == "POST" && (path == "/v2/sync/workout-bundles" || path.hasPrefix("/v2/sync/workout-ingests/")) ? 270 : 60)
         request.httpMethod = method; request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         request.setValue(mediaType, forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

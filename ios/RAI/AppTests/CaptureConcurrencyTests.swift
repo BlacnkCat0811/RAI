@@ -303,6 +303,14 @@ final class CaptureConcurrencyTests: XCTestCase {
         return Data(rest[rest.startIndex..<end.lowerBound])
     }
     private func samples(_ multipart: Data) throws -> [JSON] { try JSON.decode(part(multipart))["samples"].list }
+    /// `syncWorkout` now drains scoped discovery before building a v3 bundle,
+    /// so a fresh task would otherwise reuse the facts captured moments earlier
+    /// and never enter the capture stream this suite measures. A pending read is
+    /// the production input that forces the bundle to read HealthKit again.
+    private func requireFreshBundleReads(_ store: OutboxStore, id: String) async throws {
+        try await store.beginTask(id, resetBundle: false)
+        try await store.updateTask(id) { $0.pendingReadKeys = HealthKitClient.quantityTypes.map(\.identifier) }
+    }
 
     /// R2-P02/F10: the measured concurrency for 1, 2 and 4 streams. The numbers
     /// asserted here are the ones reported in the evidence document.
@@ -316,8 +324,10 @@ final class CaptureConcurrencyTests: XCTestCase {
             let dir = directory("streams\(streams)"), store = try OutboxStore(directory: dir)
             let uploader = CaptureUploader(store: store, directory: dir)
             let coordinator = makeCoordinator(store, probe, streams: streams)
+            let id = workout.uuid.uuidString.lowercased()
+            try await requireFreshBundleReads(store, id: id)
             let started = DispatchTime.now().uptimeNanoseconds
-            try await coordinator.syncWorkout(id: workout.uuid.uuidString.lowercased(), secret: try secret(),
+            try await coordinator.syncWorkout(id: id, secret: try secret(),
                                               transfers: uploader, forceNewBundle: false)
             let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000
             let peak = await probe.peakConcurrency()
@@ -349,7 +359,9 @@ final class CaptureConcurrencyTests: XCTestCase {
         let dir = directory("failure"), store = try OutboxStore(directory: dir)
         let uploader = CaptureUploader(store: store, directory: dir)
         let coordinator = makeCoordinator(store, probe, streams: 1)
-        try await coordinator.syncWorkout(id: workout.uuid.uuidString.lowercased(), secret: try secret(),
+        let id = workout.uuid.uuidString.lowercased()
+        try await requireFreshBundleReads(store, id: id)
+        try await coordinator.syncWorkout(id: id, secret: try secret(),
                                           transfers: uploader, forceNewBundle: false)
         let stored = await store.task(workout.uuid.uuidString.lowercased())
         let task = try XCTUnwrap(stored)
@@ -374,6 +386,7 @@ final class CaptureConcurrencyTests: XCTestCase {
         let uploader = CaptureUploader(store: store, directory: dir)
         let coordinator = makeCoordinator(store, probe, streams: 2)
         let id = workout.uuid.uuidString.lowercased()
+        try await requireFreshBundleReads(store, id: id)
         let secret = try secret()
         let sync = Task { try await coordinator.syncWorkout(id: id, secret: secret, transfers: uploader, forceNewBundle: false) }
         await fulfillment(of: [parkedRead], timeout: 60)

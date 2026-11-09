@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RAI native delta API
-  version: 1.8.0
+  version: 1.9.0
   description: >-
     Protocol 3 HealthKit Workout Bundle import: one multipart request carries one
     immutable Workout, all its scalar samples, multi-point quantity series and
@@ -14,6 +14,8 @@ info:
     Phase 5 adds immutable training bases, persistent field overrides, Effective Plan
     versions, frozen executions and deterministic feedback. All mutation command IDs
     are immutable and replayable; manual edits survive recalculation.
+    Protocol 4 clients may opt into per-Workout-UUID raw ingestion, where the
+    first accepted payload is authoritative and later duplicates replay it.
   license: {name: Proprietary, identifier: LicenseRef-Proprietary}
 servers:
   - url: http://127.0.0.1:8080
@@ -322,6 +324,76 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
         '415': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/workout-ingests/{workoutID}:
+    parameters:
+      - in: path
+        name: workoutID
+        required: true
+        schema: {$ref: '#/components/schemas/ID'}
+    post:
+      summary: Accept one raw protocol-4 Workout payload by UUID
+      operationId: acceptWorkoutIngest
+      description: >-
+        First successful reception of an HKWorkout UUID in this dataset is
+        authoritative. The multipart field is `file` with the raw protocol-4
+        JSON document (or its gzip form) exactly as specified by
+        contracts/sync-v4.md. Only the wire envelope (identity, epochs,
+        protocolVersion=4, UTF-8, duplicate keys, nesting, size) is validated
+        before the acceptance transaction; samples, streams and routes are
+        parsed by the Worker. The 200 response is written only after the
+        acceptance row commits. A duplicate UUID replays the original
+        acceptedAt even when its bytes differ, and never replaces the stored
+        payload. A Workout that already exists without an ingest row returns
+        already_imported. A root tombstone returns 409 workout_deleted.
+        The endpoint is enabled only while the runtime handshake reports
+        workoutUUIDIngestAccepting=true.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Exactly one raw v4 JSON or gzip file part; wire/decoded/gzip limits match POST /v2/sync/workout-bundles.
+      responses:
+        '200':
+          description: Durable acceptance receipt, or already_imported for a pre-existing Workout
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkoutIngestReceipt'}
+        '401': {$ref: '#/components/responses/Error'}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        '503': {$ref: '#/components/responses/Error'}
+        default: {$ref: '#/components/responses/Error'}
+    get:
+      summary: Read one Workout ingest status in one database snapshot
+      operationId: getWorkoutIngest
+      description: >-
+        Dataset-scoped status. Priority is fixed: deleted (root tombstone) >
+        accepted/committed/rejected (ingest row) > already_imported (Workout
+        facts only) > 404 workout_ingest_not_found. committed includes
+        commitRevision, analysisStatus and analysisJobIDs; rejected includes
+        errorCode. A 404 is never deletion evidence.
+      responses:
+        '200':
+          description: Current ingest status for this dataset
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkoutIngestStatus'}
+        '401': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
         '422': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
@@ -653,6 +725,8 @@ components:
         bundleProtocolVersion: {enum: [3, 4]}
         bundleObservationVersion: {const: 1, description: Optional Phase 3 observation contract}
         bundleCompact: {type: boolean, description: "Protocol 4 compact bundle capability; present only when negotiated"}
+        workoutUUIDIngestVersion: {const: 1, description: Workout UUID ingest contract version}
+        workoutUUIDIngestAccepting: {type: boolean, description: True only while POST /v2/sync/workout-ingests accepts new raw payloads; status reads and replays remain available in every mode}
         explicitChildDeletions: {const: true, description: Optional Phase 3 explicit deletion arrays in the same bundle}
         routes: {const: true, description: Routes are embedded in the bundle and published atomically}
         sampleWorkoutAssociations: {const: true, description: Bundle sample membership is the association; no per-sample call is exposed}
@@ -758,6 +832,37 @@ components:
         ingestStatus: {const: deleted}
         alreadyDeleted: {type: boolean}
         commitRevision: {type: integer, minimum: 1}
+    WorkoutIngestReceipt:
+      type: object
+      additionalProperties: false
+      required: [workoutID, ingestStatus, acceptedAt]
+      description: >-
+        Durable acceptance ACK. The first successful reception freezes these
+        values; later committed/rejected transitions replay the same
+        acceptedAt. already_imported responses omit acceptedAt and are not an
+        ingest row.
+      properties:
+        workoutID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {enum: [accepted, already_imported]}
+        acceptedAt: {type: string, format: date-time}
+    WorkoutIngestStatus:
+      type: object
+      additionalProperties: false
+      required: [workoutID, ingestStatus]
+      description: >-
+        One-snapshot status. Priority is deleted > accepted/committed/rejected >
+        already_imported > 404. Only the caller's dataset is visible.
+      properties:
+        workoutID: {$ref: '#/components/schemas/ID'}
+        ingestStatus: {enum: [deleted, accepted, committed, rejected, already_imported]}
+        acceptedAt: {type: string, format: date-time}
+        commitRevision: {type: integer, minimum: 1}
+        analysisStatus: {enum: [queued, not_required]}
+        analysisJobIDs:
+          type: array
+          items: {$ref: '#/components/schemas/ID'}
+          description: Queued analysis job identities; empty for not_required.
+        errorCode: {type: string, maxLength: 128}
     TrainingGoal: {"type": "object", "additionalProperties": false, "required": ["type", "date", "distanceM"], "properties": {"type": {"const": "running"}, "date": {"type": "string", "format": "date"}, "distanceM": {"type": "number", "minimum": 1000, "maximum": 42195}, "targetTimeS": {"type": "number"}}}
     TrainingConfig: {"type": "object", "additionalProperties": false, "required": ["startDate", "weeks", "goal", "availableDays", "longRunDay"], "properties": {"startDate": {"type": "string", "format": "date"}, "weeks": {"type": "integer", "minimum": 4, "maximum": 16}, "goal": {"$ref": "#/components/schemas/TrainingGoal"}, "availableDays": {"type": "array", "minItems": 2, "maxItems": 6, "uniqueItems": true, "items": {"type": "integer", "minimum": 1, "maximum": 7}}, "longRunDay": {"type": "integer", "minimum": 1, "maximum": 7}, "baselineWeeklyM": {"type": "number", "minimum": 3000, "maximum": 160000}, "previousLongM": {"type": "number", "minimum": 1000, "maximum": 50000}}}
     TrainingStep: {"type": "object", "additionalProperties": false, "required": ["kind", "durationS", "effort"], "properties": {"kind": {"enum": ["warmup", "work", "repeat", "cooldown"]}, "durationS": {"type": "integer"}, "effort": {"type": "integer"}, "repeats": {"type": "integer"}, "recoveryS": {"type": "integer"}}}

@@ -13,6 +13,7 @@ import (
 	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
+	"rai/server/internal/syncing"
 	"rai/server/internal/training"
 	tl "rai/server/internal/trainingload"
 	wf "rai/server/internal/workoutfeatures"
@@ -35,6 +36,7 @@ var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "
 // independent renewal loop cancels calculation immediately after lease loss.
 func Run(ctx context.Context, q Queue, log *slog.Logger) error {
 	log.Info("worker_started", "handlers", len(kinds), "processing_slots", 1)
+	go runWorkoutIngests(ctx, q, log)
 	poll := time.NewTicker(time.Second)
 	defer poll.Stop()
 	lastRecovery := time.Time{}
@@ -65,6 +67,54 @@ func Run(ctx context.Context, q Queue, log *slog.Logger) error {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-poll.C:
+		}
+	}
+}
+
+// WorkoutIngestQueue is the independent UUID ingest slot. It shares the
+// process with analysis but never waits for the analysis loop.
+type WorkoutIngestQueue interface {
+	ProcessNextWorkoutIngest(context.Context) (syncing.WorkoutIngestOutcome, error)
+	RecoverExpiredWorkoutIngests(context.Context) (int, error)
+}
+
+func runWorkoutIngests(ctx context.Context, q Queue, log *slog.Logger) {
+	ingest, ok := q.(WorkoutIngestQueue)
+	if !ok {
+		return
+	}
+	poll := time.NewTicker(time.Second)
+	defer poll.Stop()
+	lastRecovery := time.Time{}
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		if time.Since(lastRecovery) >= 15*time.Second {
+			n, err := ingest.RecoverExpiredWorkoutIngests(ctx)
+			if err != nil && ctx.Err() == nil {
+				log.Warn("workout_ingest_recovery_failed", "reason", "database_unavailable")
+			}
+			if n > 0 {
+				log.Info("workout_ingest_expired", "count", n)
+			}
+			lastRecovery = time.Now()
+		}
+		outcome, err := ingest.ProcessNextWorkoutIngest(ctx)
+		if err != nil {
+			if ctx.Err() == nil {
+				log.Warn("workout_ingest_processing_failed", "reason", "database_unavailable")
+			}
+		} else if outcome.Claimed {
+			log.Info("workout_ingest", "component", "worker", "operation", "workout_ingest",
+				"workout_hash", logIdentity(outcome.WorkoutID), "status", outcome.Status,
+				"error_code", outcome.ErrorCode, "attempts", outcome.Attempts)
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
 		case <-poll.C:
 		}
 	}

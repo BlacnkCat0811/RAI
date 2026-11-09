@@ -25,17 +25,49 @@ type API struct {
 	uploads  chan struct{}
 	uploadMu sync.Mutex
 	devices  map[uploadDevice]bool
+
+	ingestMode    syncing.WorkoutIngestMode
+	statusSlots   chan struct{}
+	statusMu      sync.Mutex
+	statusBuckets map[uploadDevice]statusBudget
 }
 
 type uploadDevice struct{ datasetID, deviceID string }
+
+type statusBudget struct {
+	tokens  float64
+	updated time.Time
+}
 
 // ProcessUploadSlots is the process-wide concurrent upload ceiling. It is the
 // default budget the handshake advertises and the capacity of the upload slot
 // channel; performance entries must not raise it.
 const ProcessUploadSlots = 2
 
+// Status queries never write. They still hold a bounded process-local slot so
+// one client cannot occupy every database connection with polling.
+const (
+	ProcessStatusSlots     = 8
+	statusQueriesPerMinute = 60
+	statusBurst            = 10
+	maxStatusBuckets       = 1024
+)
+
+type Options struct {
+	WorkoutUUIDIngestMode syncing.WorkoutIngestMode
+}
+
 func New(store syncing.Store, log *slog.Logger) http.Handler {
-	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool)}
+	return NewWithOptions(store, log, Options{WorkoutUUIDIngestMode: syncing.WorkoutIngestLegacy})
+}
+
+func NewWithOptions(store syncing.Store, log *slog.Logger, options Options) http.Handler {
+	mode := options.WorkoutUUIDIngestMode
+	if mode == "" {
+		mode = syncing.WorkoutIngestLegacy
+	}
+	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool),
+		ingestMode: mode, statusSlots: make(chan struct{}, ProcessStatusSlots), statusBuckets: make(map[uploadDevice]statusBudget)}
 	m := http.NewServeMux()
 	live := func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) }
 	ready := func(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +94,10 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	m.Handle("POST /v2/sync/workout-bundles", a.auth(syncing.UploadLane, a.importWorkoutBundle))
 	m.Handle("GET /v2/sync/workout-bundles/{id}", a.auth(syncing.ReadLane, a.workoutBundle))
 	m.Handle("DELETE /v2/sync/workout-bundles/{id}", a.auth(syncing.UploadLane, a.deleteWorkoutBundle))
+	// UUID ingest skips Admit: its request budget has a foreign key into
+	// datasets, and acceptance must proceed while a fact import holds that row.
+	m.Handle("POST /v2/sync/workout-ingests/{workoutID}", a.ingestAuth(syncing.UploadLane, a.acceptWorkoutIngest))
+	m.Handle("GET /v2/sync/workout-ingests/{workoutID}", a.ingestAuth(syncing.ReadLane, a.workoutIngestStatus))
 	m.Handle("POST /v2/model-inputs/{kind}", a.auth(syncing.UploadLane, a.modelInput))
 	m.Handle("POST /v2/model-inputs/{id}/revocations", a.auth(syncing.UploadLane, a.modelInputRevocation))
 	m.Handle("GET /v2/analysis/workouts/{id}", a.auth(syncing.ReadLane, a.workoutAnalysis))
@@ -184,6 +220,17 @@ func (a *API) changes(w http.ResponseWriter, r *http.Request, p syncing.Principa
 }
 
 func (a *API) auth(lane syncing.AdmissionLane, next handler) http.Handler {
+	return a.authenticate(lane, true, next)
+}
+
+// ingestAuth keeps bearer, lifecycle, role and transport validation but skips
+// the database request-budget write. The UUID endpoints enforce their own
+// process-local limits and the ingest backlog quota.
+func (a *API) ingestAuth(lane syncing.AdmissionLane, next handler) http.Handler {
+	return a.authenticate(lane, false, next)
+}
+
+func (a *API) authenticate(lane syncing.AdmissionLane, admit bool, next handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") || len(header) < 50 || len(header) > 256 {
@@ -212,7 +259,7 @@ func (a *API) auth(lane syncing.AdmissionLane, next handler) http.Handler {
 		if err == nil && lane != syncing.ReadLane && !p.CanCollect {
 			err = syncing.Fail(403, "read_only_device")
 		}
-		if err == nil {
+		if err == nil && admit {
 			err = a.store.Admit(ctx, p, lane)
 		}
 		if err == nil {
@@ -324,7 +371,7 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	}
 	respond(w, 200, map[string]any{"protocolVersion": 3, "deviceID": m.DeviceID, "collectorEpoch": m.CollectorEpoch, "datasetStatus": m.DatasetStatus, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
 		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": ProcessUploadSlots, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
-		"capabilities": map[string]any{"workoutSyncCompletenessVersion": 1, "workoutSyncCompletenessV2Version": 2, "workoutStreamSetVersion": 1, "workoutSourcePolicyVersion": syncing.WorkoutSourcePolicyVersion, "vo2maxFactsVersion": 1, "vo2maxMetadataRegistryVersion": 1, "vo2maxMaxChanges": syncing.MaxVO2Changes, "vo2maxMaxBytes": syncing.MaxVO2Bytes, "dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": payloadVersion, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": payloadVersion, "bundleObservationVersion": 1, "bundleCompact": bundleCompact, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
+		"capabilities": map[string]any{"workoutSyncCompletenessVersion": 1, "workoutSyncCompletenessV2Version": 2, "workoutStreamSetVersion": 1, "workoutSourcePolicyVersion": syncing.WorkoutSourcePolicyVersion, "workoutUUIDIngestVersion": 1, "workoutUUIDIngestAccepting": a.ingestMode.Accepting(), "vo2maxFactsVersion": 1, "vo2maxMetadataRegistryVersion": 1, "vo2maxMaxChanges": syncing.MaxVO2Changes, "vo2maxMaxBytes": syncing.MaxVO2Bytes, "dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": payloadVersion, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": payloadVersion, "bundleObservationVersion": 1, "bundleCompact": bundleCompact, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
 	return nil
 }
 func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
@@ -363,6 +410,18 @@ func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p sync
 	}
 	if err := json.Unmarshal(raw, &version); err != nil {
 		return syncing.Fail(422, "unsupported_payload")
+	}
+	// v3 remains routable for older clients; only the superseded v4 entry is
+	// isolated once this dataset uses the UUID rule.
+	if version.ProtocolVersion == 4 {
+		switch a.ingestMode {
+		case syncing.WorkoutIngestUUID:
+			stage = "mode"
+			return syncing.WorkoutUUIDIngestRequired()
+		case syncing.WorkoutIngestPaused:
+			stage = "mode"
+			return syncing.WorkoutUUIDIngestPaused()
+		}
 	}
 	if version.ProtocolVersion == 4 {
 		bundle, err = syncing.DecodeWorkoutBundleV4JSON(raw)
@@ -417,6 +476,64 @@ func (a *API) workoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Pr
 		return err
 	}
 	respond(w, 200, json.RawMessage(receipt))
+	return nil
+}
+
+// acceptWorkoutIngest stores the first raw protocol-4 snapshot for this UUID.
+// The receipt is returned only after the acceptance transaction commits.
+func (a *API) acceptWorkoutIngest(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	if !a.ingestMode.Accepting() {
+		if a.ingestMode == syncing.WorkoutIngestPaused {
+			return syncing.WorkoutUUIDIngestPaused()
+		}
+		return syncing.WorkoutUUIDIngestDisabled()
+	}
+	workoutID := r.PathValue("workoutID")
+	if !syncing.ValidID(workoutID) {
+		return syncing.Fail(422, "unsupported_payload")
+	}
+	release, err := a.acquireUpload(p)
+	if err != nil {
+		return err
+	}
+	defer release()
+	raw, read, err := readBundleBody(w, r)
+	if err != nil {
+		return err
+	}
+	envelope, err := syncing.DecodeWorkoutIngestEnvelope(raw)
+	if err != nil {
+		return err
+	}
+	if envelope.WorkoutID != workoutID {
+		return syncing.Fail(422, "workout_ingest_mismatch")
+	}
+	receipt, err := a.store.AcceptWorkoutIngest(r.Context(), p, envelope, raw)
+	if err != nil {
+		return err
+	}
+	a.log.Info("workout_ingest_accepted", "component", "sync", "operation", "workout_ingest_accept",
+		"request_hash", logIdentity(w.Header().Get("X-Request-ID")), "workout_hash", logIdentity(workoutID),
+		"decoded_bytes", read.DecodedBytes)
+	respond(w, 200, json.RawMessage(receipt))
+	return nil
+}
+
+func (a *API) workoutIngestStatus(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	workoutID := r.PathValue("workoutID")
+	if !syncing.ValidID(workoutID) {
+		return syncing.Fail(422, "unsupported_payload")
+	}
+	release, err := a.acquireStatusQuery(p)
+	if err != nil {
+		return err
+	}
+	defer release()
+	status, err := a.store.WorkoutIngest(r.Context(), p, workoutID)
+	if err != nil {
+		return err
+	}
+	respond(w, 200, status)
 	return nil
 }
 
@@ -935,6 +1052,46 @@ func (a *API) logDurable(w http.ResponseWriter, operation string, body []byte, e
 	}
 	_ = json.Unmarshal(body, &summary)
 	a.log.Info("durable_commit", "component", "sync", "operation", operation, "request_hash", logIdentity(w.Header().Get("X-Request-ID")), "duration_ms", elapsed.Milliseconds(), "status", summary.Status, "counts", summary.Counts, "point_count", summary.TotalPoints, "chunk_count", summary.CommittedChunks)
+}
+
+// acquireStatusQuery bounds one indexed status read per slot and applies a
+// small per-device token bucket. The map is pruned before it can grow without
+// bound; devices never key on bearer tokens.
+func (a *API) acquireStatusQuery(p syncing.Principal) (func(), error) {
+	now := time.Now()
+	key := uploadDevice{p.DatasetID, p.DeviceID}
+	a.statusMu.Lock()
+	bucket, ok := a.statusBuckets[key]
+	if !ok {
+		if len(a.statusBuckets) >= maxStatusBuckets {
+			for stale, value := range a.statusBuckets {
+				if now.Sub(value.updated) > 2*time.Minute {
+					delete(a.statusBuckets, stale)
+				}
+			}
+			if len(a.statusBuckets) >= maxStatusBuckets {
+				a.statusMu.Unlock()
+				return nil, &syncing.Error{Status: 429, Code: "status_capacity_exceeded", RetryAfterSeconds: 1}
+			}
+		}
+		bucket = statusBudget{tokens: statusBurst, updated: now}
+	}
+	bucket.tokens = min(float64(statusBurst), bucket.tokens+now.Sub(bucket.updated).Seconds()*statusQueriesPerMinute/60)
+	bucket.updated = now
+	if bucket.tokens < 1 {
+		a.statusBuckets[key] = bucket
+		a.statusMu.Unlock()
+		return nil, &syncing.Error{Status: 429, Code: "status_rate_exceeded", RetryAfterSeconds: 1}
+	}
+	bucket.tokens--
+	a.statusBuckets[key] = bucket
+	a.statusMu.Unlock()
+	select {
+	case a.statusSlots <- struct{}{}:
+		return func() { <-a.statusSlots }, nil
+	default:
+		return nil, &syncing.Error{Status: 429, Code: "status_capacity_exceeded", RetryAfterSeconds: 1}
+	}
 }
 
 // Only active uploads occupy map entries. The global two-slot cap bounds both

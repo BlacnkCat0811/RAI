@@ -9,6 +9,11 @@ struct ClientConfiguration: Codable, Sendable {
     /// configuration on v3; the handshake still decides what the server offers.
     var syncProtocolV4: Bool? = nil
     var v4Enabled: Bool { syncProtocolV4 ?? true }
+    /// The UUID ingest lane requires both v4 and the handshake capability.
+    /// Explicit false is the client-side emergency switch back to the legacy
+    /// bundle lane; it never discards a task that already chose the UUID lane.
+    var workoutUUIDIngest: Bool? = nil
+    var uuidIngestEnabled: Bool { workoutUUIDIngest ?? true }
     static let account = "RAI.V2.DevelopmentConfiguration"
     struct Secret: Codable { let configuration: ClientConfiguration; let token: String }
     static func validatedSecret(baseURL: String, collectorEpoch: String, token: String) throws -> Secret {

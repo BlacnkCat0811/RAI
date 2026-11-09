@@ -43,7 +43,7 @@ func run(log *slog.Logger) error {
 		return config.ContainerResources(os.Stdout)
 	}
 	if mode == "version" {
-		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": migrations.LatestVersion(), "sync_protocol": 3, "openapi": "1.8.0", "analysis": []string{analysis.WorkoutAlgorithm + "/" + analysis.WorkoutVersion, analysis.StateAlgorithm + "/" + analysis.StateVersion, analysis.DependencyAlgorithm + "/" + analysis.Version}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
+		return json.NewEncoder(os.Stdout).Encode(map[string]any{"source_commit": sourceCommit, "go": runtime.Version(), "schema": migrations.LatestVersion(), "sync_protocol": 3, "openapi": "1.9.0", "analysis": []string{analysis.WorkoutAlgorithm + "/" + analysis.WorkoutVersion, analysis.StateAlgorithm + "/" + analysis.StateVersion, analysis.DependencyAlgorithm + "/" + analysis.Version}, "training": "training_plan/v1", "coach_parameters": "coach_parameters/v1", "feedback": "training_feedback/v1", "training_merge": "training_merge/v2"})
 	}
 	if mode == "probe" {
 		if len(os.Args) == 2 {
@@ -143,7 +143,11 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	server := httpapi.NewHTTPServer(addr, httpapi.New(store, log))
+	ingestMode, err := config.WorkoutUUIDIngestMode()
+	if err != nil {
+		return errors.New("invalid workout UUID ingest mode")
+	}
+	server := httpapi.NewHTTPServer(addr, httpapi.NewWithOptions(store, log, httpapi.Options{WorkoutUUIDIngestMode: ingestMode}))
 	server.TLSConfig, err = config.TLS()
 	if err != nil {
 		return err

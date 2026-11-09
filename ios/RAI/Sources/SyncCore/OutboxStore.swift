@@ -167,6 +167,34 @@ public actor OutboxStore {
         guard name == URL(fileURLWithPath: name).lastPathComponent, !name.hasPrefix(".") else { throw SyncFailure.localState("invalid_payload_path") }
         return directory.appendingPathComponent(name)
     }
+    /// UUID ingest is one fixed, session-scoped payload per Workout. The name is
+    /// derived from the UUID so a process killed between the atomic rename and
+    /// the state commit can still find the completed multipart body.
+    public static let ingestModeUUID = "uuid"
+    public nonisolated static func ingestPayloadName(_ id: String) -> String? {
+        guard id.count == 36, id == id.lowercased(), id != "00000000-0000-0000-0000-000000000000",
+              UUID(uuidString: id) != nil else { return nil }
+        return "workout-ingest." + id + ".multipart.json"
+    }
+    /// The boundary only lives in the first multipart line. A file counts as a
+    /// complete payload only when both the opener and the closing delimiter are
+    /// present, so a half-written temporary file never becomes upload authority.
+    public nonisolated static func ingestPayloadBoundary(_ body: Data) -> String? {
+        guard let newline = body.range(of: Data("\r\n".utf8)), newline.lowerBound >= 4, newline.lowerBound <= 80,
+              body.starts(with: Data("--".utf8)) else { return nil }
+        let boundary = String(decoding: body[body.startIndex..<newline.lowerBound].dropFirst(2), as: UTF8.self)
+        guard boundary.count >= 8, boundary.count <= 70,
+              boundary.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" || $0 == ".") }) else { return nil }
+        let opener = Data(("--" + boundary + "\r\n").utf8)
+        let suffix = Data(("\r\n--" + boundary + "--\r\n").utf8)
+        guard body.count >= opener.count + suffix.count, body.starts(with: opener),
+              body.suffix(suffix.count) == suffix, body.range(of: Data("\r\n\r\n".utf8)) != nil else { return nil }
+        return boundary
+    }
+    public nonisolated static func ingestPayloadBoundary(file: URL) -> String? {
+        guard let bytes = try? Data(contentsOf: file, options: .mappedIfSafe) else { return nil }
+        return ingestPayloadBoundary(bytes)
+    }
     public func bind(_ scope: Scope) throws {
         guard state.scope == nil || state.scope == scope else { throw SyncFailure.localState("dataset_or_collector_changed") }
         var next = state; next.scope = scope; try commit(next)
@@ -285,23 +313,36 @@ public actor OutboxStore {
         var tasks = next.tasks ?? [:]
         if var task = tasks[id] {
             guard task.phase != .deleted, task.errorCode != "workout_deleted" else { throw SyncFailure.localState("workout_deleted") }
-            // Unacknowledged source bytes survive even an explicit rescan.
-            if task.bundleFile == nil, resetBundle { task.uploadReceipt = nil; task.bundleSHA256 = nil }
-            if task.bundleFile != nil {
-                task.phase = .uploading
+            if task.ingestMode == Self.ingestModeUUID {
+                // The server already answered for this UUID. An explicit sync
+                // refreshes status but never rewinds acceptance or re-arms a
+                // terminal state. `forceNewBundle` has no meaning in this lane.
+                if task.ingestStatus != nil {
+                    task.updatedAt = Date(); tasks[id] = task; next.tasks = tasks; try commit(next); return
+                }
+                if task.bundleFile != nil { task.phase = .uploading }
                 if task.lastUploadError?.retryable == false { task.lastUploadError = nil; task.errorCode = nil }
+                task.updatedAt = Date()
+                tasks[id] = task
             } else {
-                task.phase = .preparing; task.errorCode = nil; task.stagedAll = false
+                // Unacknowledged source bytes survive even an explicit rescan.
+                if task.bundleFile == nil, resetBundle { task.uploadReceipt = nil; task.bundleSHA256 = nil }
+                if task.bundleFile != nil {
+                    task.phase = .uploading
+                    if task.lastUploadError?.retryable == false { task.lastUploadError = nil; task.errorCode = nil }
+                } else {
+                    task.phase = .preparing; task.errorCode = nil; task.stagedAll = false
+                }
+                task.updatedAt = Date()
+                tasks[id] = task
             }
-            task.updatedAt = Date()
-            tasks[id] = task
         } else {
             tasks[id] = WorkoutSyncTask(workoutID: id)
         }
         next.tasks = tasks; try commit(next)
     }
     public func setBundle(_ id: String, file: String, sha256: String, boundary: String, sampleDeletions: Int = 0, routeDeletions: Int = 0, discoveryGeneration: Int64? = nil, deletionEventIDs: [String] = [], pendingReadKeys: [String] = [], manifest: CaptureManifest? = nil) throws {
-        guard let task = state.tasks?[id], task.phase != .deleted,
+        guard let task = state.tasks?[id], task.phase != .deleted, task.ingestMode != Self.ingestModeUUID,
               task.bundleFile == nil || (task.bundleFile == file && task.bundleSHA256 == sha256 && task.bundleBoundary == boundary) else {
             throw SyncFailure.localState("pending_bundle_immutable")
         }
@@ -315,7 +356,7 @@ public actor OutboxStore {
         }
     }
     public func setBundleWire(_ id: String, bundleHash: String, file: String, sha256: String, wireBytes: Int = 0, gzipMS: Double = 0) throws {
-        guard let task = state.tasks?[id], task.bundleFile != nil, task.bundleSHA256 == bundleHash,
+        guard let task = state.tasks?[id], task.ingestMode != Self.ingestModeUUID, task.bundleFile != nil, task.bundleSHA256 == bundleHash,
               task.uploadReceipt == nil else { throw SyncFailure.localState("bundle_not_prepared") }
         var next = state
         if let old = task.bundleWireFile, old != file { next.reclaimFiles = Array(Set((next.reclaimFiles ?? []) + [old])).sorted() }
@@ -342,7 +383,7 @@ public actor OutboxStore {
     public func discardUnreadableBundle(_ id: String) throws {
         var next = state
         var tasks = next.tasks ?? [:]
-        guard var task = tasks[id], task.uploadReceipt == nil, task.bundleFile != nil else {
+        guard var task = tasks[id], task.ingestMode != Self.ingestModeUUID, task.uploadReceipt == nil, task.bundleFile != nil else {
             throw SyncFailure.localState("bundle_not_prepared")
         }
         releaseBundleFile(&task, in: &next)
@@ -352,10 +393,214 @@ public actor OutboxStore {
         tasks[id] = task; next.tasks = tasks
         try commit(next)
     }
+    // MARK: - UUID ingest lane (protocol 4, one payload per Workout)
+
+    /// Persist the lane marker before the first status query. A Workout that
+    /// already has a bundle receipt is history: it stays on the legacy skip
+    /// path and is never re-uploaded under the UUID rule.
+    public func markIngestLane(_ id: String) throws {
+        var next = state
+        var tasks = next.tasks ?? [:]
+        if var task = tasks[id] {
+            guard task.phase != .deleted, task.errorCode != "workout_deleted" else { throw SyncFailure.localState("workout_deleted") }
+            guard task.ingestMode == nil else { return }
+            guard task.uploadReceipt == nil, task.deletionReceipt == nil,
+                  ![.acknowledged, .analyzing, .published, .partial].contains(task.phase) else { return }
+            task.ingestMode = Self.ingestModeUUID
+            task.updatedAt = Date()
+            tasks[id] = task
+        } else {
+            var task = WorkoutSyncTask(workoutID: id)
+            task.ingestMode = Self.ingestModeUUID
+            tasks[id] = task
+        }
+        next.tasks = tasks; try commit(next)
+    }
+    /// Write the fixed session payload, then commit its identity. The atomic
+    /// file rename precedes the state commit, so a crash leaves a complete file
+    /// that recovery can find by UUID rather than a task pointing at nothing.
+    @discardableResult
+    public func stageWorkoutIngestPayload(_ id: String, body: Data) throws -> (file: String, boundary: String) {
+        guard let name = Self.ingestPayloadName(id) else { throw SyncFailure.localState("invalid_workout_id") }
+        guard let boundary = Self.ingestPayloadBoundary(body) else { throw SyncFailure.localState("payload_corrupt") }
+        try Self.write(body, to: directory.appendingPathComponent(name))
+        try setIngestBundle(id, file: name, boundary: boundary)
+        return (name, boundary)
+    }
+    /// Make one exact multipart body the upload authority. A different existing
+    /// file is never overwritten; adoption reuses the same bytes and boundary.
+    public func setIngestBundle(_ id: String, file: String, boundary: String) throws {
+        var next = state
+        var tasks = next.tasks ?? [:]
+        guard var task = tasks[id] else { throw SyncFailure.localState("unknown_workout_task") }
+        guard task.phase != .deleted, task.errorCode != "workout_deleted" else { throw SyncFailure.localState("workout_deleted") }
+        guard task.ingestStatus == nil, task.ingestAcceptedAt == nil, task.uploadReceipt == nil else {
+            throw SyncFailure.localState("workout_ingest_immutable")
+        }
+        guard file == URL(fileURLWithPath: file).lastPathComponent, !file.hasPrefix(".") else {
+            throw SyncFailure.localState("invalid_payload_path")
+        }
+        guard FileManager.default.fileExists(atPath: try fileURL(file).path) else { throw SyncFailure.localState("missing_payload") }
+        guard task.bundleFile == nil || (task.bundleFile == file && task.bundleBoundary == boundary) else {
+            throw SyncFailure.localState("pending_bundle_immutable")
+        }
+        var reclaim = next.reclaimFiles ?? []
+        if task.bundleFile != file {
+            if let old = task.bundleFile { reclaim.append(old) }
+            if let wire = task.bundleWireFile { reclaim.append(wire) }
+            task.bundleWireFile = nil; task.bundleWireSHA256 = nil
+        }
+        task.ingestMode = Self.ingestModeUUID
+        task.bundleFile = file; task.bundleBoundary = boundary; task.bundleSHA256 = nil
+        task.uploadReceipt = nil; task.acknowledgedAt = nil
+        task.attemptCount = nil; task.nextAttemptAt = nil; task.lastUploadError = nil
+        task.errorCode = nil; task.stagedAll = false; task.childDeletionOnly = nil
+        task.phase = .uploading
+        // The fixed name may still be queued for reclamation from an earlier
+        // release. It is authority again in this very commit, so GC must not
+        // delete it after the rename.
+        reclaim.removeAll { $0 == file }
+        next.reclaimFiles = reclaim.isEmpty ? nil : Array(Set(reclaim)).sorted()
+        tasks[id] = task; next.tasks = tasks; try commit(next)
+    }
+    /// Re-attach the completed fixed payload after a kill window. The task must
+    /// not already hold a different file or a server answer.
+    @discardableResult
+    public func recoverWorkoutIngestPayload(_ id: String) throws -> (file: String, boundary: String)? {
+        guard let name = Self.ingestPayloadName(id), let task = state.tasks?[id],
+              task.ingestStatus == nil, task.ingestAcceptedAt == nil, task.bundleFile == nil else { return nil }
+        let url = try fileURL(name)
+        guard FileManager.default.fileExists(atPath: url.path),
+              let boundary = Self.ingestPayloadBoundary(file: url) else { return nil }
+        try setIngestBundle(id, file: name, boundary: boundary)
+        return (name, boundary)
+    }
+    /// Drop bytes the server provably never accepted. The caller rebuilds from
+    /// one fresh HealthKit read only outside recovery.
+    public func discardIngestPayload(_ id: String) throws {
+        var next = state
+        var tasks = next.tasks ?? [:]
+        guard var task = tasks[id], task.ingestMode == Self.ingestModeUUID,
+              task.ingestStatus == nil, task.ingestAcceptedAt == nil else {
+            throw SyncFailure.localState("bundle_not_prepared")
+        }
+        releaseBundleFile(&task, in: &next)
+        task.phase = .preparing; task.errorCode = nil; task.lastUploadError = nil
+        task.attemptCount = nil; task.nextAttemptAt = nil; task.stagedAll = false
+        tasks[id] = task; next.tasks = tasks; try commit(next)
+    }
+    /// A cached gzip artifact is reused without re-hashing the payload; the
+    /// task's file is immutable, so its derived wire stays valid. The name is
+    /// the only identity this lane stores.
+    public func setIngestWire(_ id: String, file: String, wireBytes: Int = 0, gzipMS: Double = 0) throws {
+        guard let task = state.tasks?[id], task.ingestMode == Self.ingestModeUUID,
+              task.bundleFile != nil, task.ingestStatus == nil, task.ingestAcceptedAt == nil else {
+            throw SyncFailure.localState("bundle_not_prepared")
+        }
+        var next = state
+        if let old = task.bundleWireFile, old != file { next.reclaimFiles = Array(Set((next.reclaimFiles ?? []) + [old])).sorted() }
+        next.tasks?[id]?.bundleWireFile = file
+        next.tasks?[id]?.metrics["gzip_multipart_bytes"] = Double(wireBytes)
+        next.tasks?[id]?.metrics["gzip_ms"] = gzipMS
+        try commit(next)
+    }
+    public func claimIngest(_ id: String, now: Date = Date()) throws -> WorkoutSyncTask? {
+        guard let task = state.tasks?[id], task.ingestMode == Self.ingestModeUUID,
+              task.bundleFile != nil, task.bundleBoundary != nil,
+              task.ingestStatus == nil, task.ingestAcceptedAt == nil, task.uploadReceipt == nil,
+              task.phase != .deleted, task.phase != .failed,
+              !activeBundleAttempts.contains(id), (task.nextAttemptAt ?? .distantPast) <= now else { return nil }
+        try updateTask(id) {
+            $0.phase = .uploading; $0.attemptCount = min(($0.attemptCount ?? 0) + 1, 1_000_000)
+            $0.nextAttemptAt = now.addingTimeInterval(60)
+        }
+        activeBundleAttempts.insert(id)
+        return state.tasks?[id]
+    }
+    public func failIngest(_ id: String, error: UploadError, now: Date = Date()) throws {
+        guard let task = state.tasks?[id], task.ingestMode == Self.ingestModeUUID,
+              task.ingestStatus == nil, task.ingestAcceptedAt == nil, task.phase != .deleted else { return }
+        try updateTask(id) { task in
+            task.phase = error.retryable ? .uploading : .failed
+            task.errorCode = error.code; task.lastUploadError = error
+            let delay = min(900, pow(2, Double(min(max((task.attemptCount ?? 1) - 1, 0), 10))))
+            task.nextAttemptAt = now.addingTimeInterval(max(delay, error.retryAfter ?? 0))
+        }
+    }
+    /// The acceptance receipt is durable before the local file is authorized
+    /// for cleanup: receipt, phase and reclaim entry are one commit.
+    public func acknowledgeWorkoutIngest(_ id: String, receipt: JSON, now: Date = Date()) throws {
+        let status = try WorkoutIngestStatus(receipt: receipt, workoutID: id)
+        try applyWorkoutIngestStatus(id, status: status, now: now)
+    }
+    /// Monotonic server state. A late duplicate status can never rewind an
+    /// acceptance, a rejection or a deletion. Accepted keeps the file out of
+    /// recovery, so a contradictory 404 can never trigger a silent re-upload.
+    @discardableResult
+    public func applyWorkoutIngestStatus(_ id: String, status: WorkoutIngestStatus, now: Date = Date()) throws -> Bool {
+        var next = state
+        var tasks = next.tasks ?? [:]
+        guard var task = tasks[id] else { throw SyncFailure.localState("unknown_workout_task") }
+        if task.phase == .deleted, status.state != .deleted { return false }
+        let current = Self.ingestRank(task.ingestStatus)
+        guard status.state.rank >= current else { return false }
+        if status.state.rank == current, task.ingestStatus == status.state.rawValue { return false }
+        switch status.state {
+        case .accepted:
+            task.phase = .accepted
+            if let acceptedAt = status.acceptedAt { task.ingestAcceptedAt = acceptedAt }
+            task.ingestAcceptedAt = task.ingestAcceptedAt ?? now
+            task.uploadReceipt = status.raw
+        case .committed:
+            task.phase = .acknowledged
+            task.uploadReceipt = status.raw
+            if task.acknowledgedAt == nil { task.acknowledgedAt = now }
+        case .alreadyImported:
+            task.phase = .acknowledged
+            task.uploadReceipt = status.raw
+            if task.acknowledgedAt == nil { task.acknowledgedAt = now }
+        case .rejected:
+            task.phase = .failed
+            task.errorCode = status.errorCode ?? "workout_ingest_rejected"
+        case .deleted:
+            task.phase = .deleted
+            task.errorCode = "workout_deleted"
+            next.deletedWorkouts.insert(id)
+        }
+        if let acceptedAt = status.acceptedAt, task.ingestAcceptedAt == nil { task.ingestAcceptedAt = acceptedAt }
+        task.ingestMode = Self.ingestModeUUID
+        task.ingestStatus = status.state.rawValue
+        task.lastUploadError = nil; task.nextAttemptAt = nil; task.attemptCount = nil
+        if status.state != .rejected, status.state != .deleted { task.errorCode = nil }
+        // Acceptance is the cleanup authorization; later states have nothing
+        // left to release.
+        releaseBundleFile(&task, in: &next)
+        task.updatedAt = now
+        tasks[id] = task; next.tasks = tasks
+        try commit(next)
+        return true
+    }
+    nonisolated static func ingestRank(_ raw: String?) -> Int {
+        switch raw {
+        case "accepted": return 1
+        case "committed", "already_imported": return 2
+        case "rejected": return 3
+        case "deleted": return 4
+        default: return 0
+        }
+    }
     public func releaseBundle(_ id: String) throws {
         var next = state
         var tasks = next.tasks ?? [:]
         guard var task = tasks[id] else { return }
+        if task.ingestMode == Self.ingestModeUUID {
+            guard task.ingestStatus != nil || task.ingestAcceptedAt != nil else { throw SyncFailure.localState("bundle_not_acknowledged") }
+            releaseBundleFile(&task, in: &next)
+            tasks[id] = task
+            next.tasks = tasks
+            try commit(next)
+            return
+        }
         if task.childDeletionOnly == true && task.bundleFile != nil && task.uploadReceipt == nil { throw SyncFailure.localState("bundle_not_acknowledged") }
         if let receipt = task.uploadReceipt, let hash = task.bundleSHA256 {
             try WorkoutBundleACK.validate(receipt, workoutID: id, bundleHash: hash, sampleDeletions: task.submittedSampleDeletions ?? 0, routeDeletions: task.submittedRouteDeletions ?? 0)
@@ -370,7 +615,7 @@ public actor OutboxStore {
     /// Claim and retry time commit before network I/O. In-process claims are
     /// shared by all workers; restart releases claims but preserves the delay.
     public func claimBundle(_ id: String, now: Date = Date()) throws -> WorkoutSyncTask? {
-        guard let task = state.tasks?[id], task.bundleFile != nil, task.bundleSHA256 != nil,
+        guard let task = state.tasks?[id], task.ingestMode != Self.ingestModeUUID, task.bundleFile != nil, task.bundleSHA256 != nil,
               task.bundleBoundary != nil, task.uploadReceipt == nil, (task.deletionReceipt == nil || task.childDeletionOnly == true),
               (task.phase != .deleted || task.childDeletionOnly == true), task.phase != .failed,
               task.childDeletionOnly != true || task.lastUploadError?.retryable != false,
@@ -384,7 +629,7 @@ public actor OutboxStore {
     }
     public func endBundleAttempt(_ id: String) { activeBundleAttempts.remove(id) }
     public func failBundle(_ id: String, error: UploadError, now: Date = Date()) throws {
-        guard let task = state.tasks?[id], task.uploadReceipt == nil, (task.deletionReceipt == nil || task.childDeletionOnly == true), (task.phase != .deleted || task.childDeletionOnly == true) else { return }
+        guard let task = state.tasks?[id], task.ingestMode != Self.ingestModeUUID, task.uploadReceipt == nil, (task.deletionReceipt == nil || task.childDeletionOnly == true), (task.phase != .deleted || task.childDeletionOnly == true) else { return }
         try updateTask(id) { task in
             task.phase = task.childDeletionOnly == true ? .deleted : (error.retryable ? .uploading : .failed)
             task.errorCode = error.code; task.lastUploadError = error
@@ -410,7 +655,7 @@ public actor OutboxStore {
         try commit(next)
     }
     public func acknowledgeBundle(_ id: String, receipt: JSON) throws {
-        guard let task = state.tasks?[id], let hash = task.bundleSHA256 else { throw SyncFailure.receiptMismatch }
+        guard let task = state.tasks?[id], task.ingestMode != Self.ingestModeUUID, let hash = task.bundleSHA256 else { throw SyncFailure.receiptMismatch }
         if task.childDeletionOnly == true {
             guard let deletion = task.deletionReceipt, task.phase == .deleted else { throw SyncFailure.receiptMismatch }
             try Self.validateDeletion(deletion, id: id)
@@ -559,7 +804,48 @@ public actor OutboxStore {
     public func reconcileTasks() throws {
         guard var tasks = state.tasks else { return }
         var changed = false
+        var reclaim = state.reclaimFiles
+        var reclaimChanged = false
         for (id, var task) in tasks {
+            if task.ingestMode == Self.ingestModeUUID {
+                // A server answer is final for this local phase; only an
+                // unanswered payload waits for file recovery.
+                guard task.ingestStatus == nil, [.notSynced, .preparing, .uploading].contains(task.phase) else { continue }
+                if let file = task.bundleFile, task.bundleBoundary != nil,
+                   let url = try? fileURL(file), FileManager.default.fileExists(atPath: url.path) {
+                    task.phase = .uploading; tasks[id] = task; changed = true
+                    continue
+                }
+                // A kill after the fixed rename but before the state commit.
+                if let name = Self.ingestPayloadName(id), let url = try? fileURL(name),
+                   FileManager.default.fileExists(atPath: url.path),
+                   let boundary = Self.ingestPayloadBoundary(file: url) {
+                    reclaim?.removeAll { $0 == name }; reclaimChanged = true
+                    task.bundleFile = name; task.bundleBoundary = boundary; task.bundleSHA256 = nil
+                    task.phase = .uploading; task.errorCode = nil; task.lastUploadError = nil
+                    task.attemptCount = nil; task.nextAttemptAt = nil
+                    task.updatedAt = Date(); tasks[id] = task; changed = true
+                    continue
+                }
+                task.phase = .failed; task.errorCode = "interrupted"; task.updatedAt = Date()
+                tasks[id] = task; changed = true
+                continue
+            }
+            // An upgraded task killed after the fixed rename but before the
+            // lane marker commit is adopted without re-reading HealthKit.
+            if task.ingestMode == nil, task.uploadReceipt == nil, task.deletionReceipt == nil,
+               [.preparing, .uploading].contains(task.phase), task.bundleFile == nil,
+               let name = Self.ingestPayloadName(id), let url = try? fileURL(name),
+               FileManager.default.fileExists(atPath: url.path),
+               let boundary = Self.ingestPayloadBoundary(file: url) {
+                reclaim?.removeAll { $0 == name }; reclaimChanged = true
+                task.ingestMode = Self.ingestModeUUID
+                task.bundleFile = name; task.bundleBoundary = boundary; task.bundleSHA256 = nil
+                task.phase = .uploading; task.errorCode = nil; task.lastUploadError = nil
+                task.attemptCount = nil; task.nextAttemptAt = nil; task.updatedAt = Date()
+                tasks[id] = task; changed = true
+                continue
+            }
             if task.bundleFile != nil, task.uploadReceipt == nil, task.deletionReceipt == nil,
                (task.phase != .failed || ["interrupted", "workout_import_not_found", "receipt_mismatch", "invalid_response"].contains(task.errorCode ?? "")), task.phase != .deleted {
                 task.phase = .uploading; tasks[id] = task; changed = true
@@ -587,7 +873,11 @@ public actor OutboxStore {
                 changed = true
             }
         }
-        if changed { var next = state; next.tasks = tasks; try commit(next) }
+        if changed {
+            var next = state; next.tasks = tasks
+            if reclaimChanged { next.reclaimFiles = reclaim.map { Array(Set($0)).sorted() } }
+            try commit(next)
+        }
     }
     public func acknowledge(_ id: String, cursor: Int, receipt: JSON) throws {
         guard let index = state.pages.firstIndex(where: { $0.id == id }), state.pages[index].cursor == cursor else { throw SyncFailure.localState("stale_operation") }

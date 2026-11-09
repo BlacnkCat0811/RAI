@@ -34,6 +34,11 @@ actor SyncCoordinator {
     private var analysisRefreshes: [String: Task<Void, Never>] = [:]
     private var supportsIntegrity = false
     private var syncProtocolV4 = false
+    /// UUID ingest capabilities of the current handshake. The lane decision is
+    /// made before any HealthKit discovery and never changes mid-session.
+    private var workoutUUIDIngestVersion = 0
+    private var workoutUUIDIngestAccepting = false
+    private var uuidIngestEnabled = true
     private var dailyRunning = false
     private var supportsDaily = false
     private var vo2Running = false
@@ -227,6 +232,10 @@ actor SyncCoordinator {
                 if !(try await discoverPage(query: query, type: HKObjectType.workoutType(), workout: nil)) { break }
             }
         }
+        // A UUID-ingest session sends one complete raw payload per Workout.
+        // Root list discovery above still feeds the picker; the old per-sample
+        // journal is not on the delivery path and must not read HealthKit.
+        if uuidIngestEnabled, syncProtocolV4, workoutUUIDIngestVersion >= 1 { return }
         let snapshot = await store.discoverySnapshot()
         let known = workoutIDs ?? snapshot.workoutArchives.keys.sorted()
         guard !known.isEmpty else { return }
@@ -366,9 +375,14 @@ actor SyncCoordinator {
         running = true; defer { running = false }
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
         let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
+        // A UUID-mode session delivers each Workout only through the
+        // status-first lane. This old auto-delivery would re-read or re-upload
+        // a UUID the server already accepted.
+        guard !(uuidIngestEnabled && syncProtocolV4 && workoutUUIDIngestVersion >= 1) else { return }
         let discovery = await store.discoverySnapshot()
         for (id, work) in discovery.work.sorted(by: { $0.key < $1.key }) where work.needsDelivery() {
             try Task.checkCancellation()
+            if await store.task(id)?.ingestMode == OutboxStore.ingestModeUUID { continue }
             do {
                 if let task = await store.task(id), let file = task.bundleFile,
                    let boundary = task.bundleBoundary, let url = try? await store.fileURL(file),
@@ -410,6 +424,9 @@ actor SyncCoordinator {
         }
         syncProtocolV4 = wantsV4 && bundleProtocol == 4
             && hello["capabilities"]["bundleCompact"] == .bool(true)
+        workoutUUIDIngestVersion = Int(hello["capabilities"]["workoutUUIDIngestVersion"].integer ?? 0)
+        workoutUUIDIngestAccepting = hello["capabilities"]["workoutUUIDIngestAccepting"] == .bool(true)
+        uuidIngestEnabled = secret.configuration.uuidIngestEnabled
         supportsIntegrity = hello["capabilities"]["bundleObservationVersion"].integer == 1 && hello["capabilities"]["explicitChildDeletions"] == .bool(true)
         supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
         vo2Capabilities = hello["capabilities"]
@@ -436,6 +453,10 @@ actor SyncCoordinator {
         try await store.reconcileTasks()
         for task in await store.allTasks() {
             try Task.checkCancellation()
+            if task.ingestMode == OutboxStore.ingestModeUUID {
+                try await recoverIngestTask(task, api: api, scope: scope, transfers: transfers, metrics: metrics)
+                continue
+            }
             switch task.phase {
             case .preparing, .uploading:
                 guard task.bundleFile != nil, task.bundleSHA256 != nil, task.bundleBoundary != nil else {
@@ -471,12 +492,47 @@ actor SyncCoordinator {
         _ = try? await store.collectGarbage(dryRun: false)
     }
 
+    /// Recovery for the UUID lane. It never reads HealthKit: an unanswered
+    /// payload is resent from its exact file, a paused lane is retried once the
+    /// server accepts again, and accepted/committed states only refresh.
+    private func recoverIngestTask(_ task: WorkoutSyncTask, api: RAIAPIClient, scope: Scope,
+                                   transfers: any FileUploader, metrics: SyncMetrics) async throws {
+        switch task.phase {
+        case .preparing, .uploading:
+            do { try await syncIngestWorkout(id: task.workoutID, api: api, scope: scope, transfers: transfers, metrics: metrics, recovery: true) }
+            catch is CancellationError { throw CancellationError() }
+            catch { /* the task records its retryable failure */ }
+        case .accepted, .acknowledged, .analyzing:
+            do { try await refreshAnalysis(id: task.workoutID, api: api) }
+            catch is CancellationError { throw CancellationError() }
+            catch { /* status/analysis failures never invalidate an acceptance */ }
+            try? await store.releaseBundle(task.workoutID)
+            if let phase = await store.task(task.workoutID)?.phase, AnalysisFollowup.shouldContinue(phase) {
+                scheduleAnalysisRefresh(id: task.workoutID, api: api)
+            }
+        case .published, .partial, .deleted:
+            try? await store.releaseBundle(task.workoutID)
+        case .failed where ["interrupted", "workout_uuid_ingest_paused", "workout_uuid_ingest_disabled"].contains(task.errorCode ?? ""):
+            do { try await syncIngestWorkout(id: task.workoutID, api: api, scope: scope, transfers: transfers, metrics: metrics, recovery: true) }
+            catch is CancellationError { throw CancellationError() }
+            catch { }
+        default:
+            break
+        }
+    }
+
     func syncWorkout(id: String, secret: ClientConfiguration.Secret, transfers: any FileUploader, forceNewBundle: Bool) async throws {
         guard !activeWorkouts.contains(id) else { throw SyncFailure.localState("sync_already_running") }
         activeWorkouts.insert(id); defer { activeWorkouts.remove(id) }
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
         let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
         try await store.selectDiscoveredWorkout(id)
+        // The UUID decision happens before scoped discovery. A task that chose
+        // this lane never falls back to the old bundle upload.
+        if await usesUUIDIngest(id) {
+            try await syncIngestWorkout(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics, recovery: false)
+            return
+        }
         if !forceNewBundle, await isAlreadyDelivered(id) {
             // The durable ACK already covers every fact local discovery knows
             // about, so there is nothing to read, encode or post. A later
@@ -493,8 +549,149 @@ actor SyncCoordinator {
             }
             return
         }
+        if !syncProtocolV4 {
+            // The per-sample journal only feeds a bundle this sync builds. A
+            // prepared immutable bundle is retried from its exact bytes, so a
+            // retry must not read HealthKit before delivering them again.
+            if await store.task(id)?.bundleFile == nil {
+                try await discoverChanges(workoutIDs: [id])
+            }
+        }
         try await store.beginTask(id, resetBundle: forceNewBundle)
         try await performSync(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: forceNewBundle, recovery: false)
+    }
+
+    /// The UUID lane is chosen before any HealthKit discovery. A completed
+    /// legacy history keeps its skip/refresh path so an upgrade never
+    /// re-uploads an acknowledged UUID; a prepared v4 body is adopted, while a
+    /// prepared v3 body keeps the legacy delivery.
+    private func usesUUIDIngest(_ id: String) async -> Bool {
+        guard uuidIngestEnabled, syncProtocolV4, workoutUUIDIngestVersion >= 1 else { return false }
+        guard let task = await store.task(id) else { return true }
+        if let mode = task.ingestMode { return mode == OutboxStore.ingestModeUUID }
+        guard task.uploadReceipt == nil, task.deletionReceipt == nil,
+              ![.acknowledged, .analyzing, .published, .partial, .deleted].contains(task.phase) else { return false }
+        if let file = task.bundleFile, let boundary = task.bundleBoundary,
+           let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
+            return Self.bundleProtocolVersion(url, boundary: boundary) == 4
+        }
+        return true
+    }
+
+    /// Status first: an accepted or committed UUID never reads HealthKit or
+    /// re-sends bytes. Only a confirmed "not received" may adopt or build one
+    /// payload, and recovery never builds.
+    private func syncIngestWorkout(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
+                                   metrics: SyncMetrics, recovery: Bool) async throws {
+        let started = Date()
+        try await store.beginTask(id, resetBundle: false)
+        try await store.markIngestLane(id)
+        let status = try await WorkoutIngestDelivery.status(id, api: api)
+        if let status {
+            if try await applyIngestStatus(id: id, status: status, api: api) { return }
+        }
+        guard let task = await store.task(id) else { throw SyncFailure.localState("unknown_workout_task") }
+        if status == nil, task.ingestStatus != nil || task.ingestAcceptedAt != nil {
+            // Acceptance is durable server state. A contradictory 404 must be
+            // reported, never repaired by silently uploading again.
+            try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "workout_ingest_missing_after_acceptance" }
+            throw UploadError(code: "workout_ingest_missing_after_acceptance", status: 409)
+        }
+        guard workoutUUIDIngestAccepting else {
+            try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "workout_uuid_ingest_paused" }
+            throw SyncFailure.localState("workout_uuid_ingest_paused")
+        }
+        // A kill between the fixed rename and the state commit leaves a
+        // complete file that recovery reattaches by UUID.
+        var current = task
+        if let file = current.bundleFile, let boundary = current.bundleBoundary,
+           let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
+            if !Self.ingestPayloadCompleted(url, boundary: boundary) {
+                guard !recovery else {
+                    try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "interrupted" }
+                    return
+                }
+                // The prepared bytes are not a legal payload. Drop the exact
+                // identity and allow exactly one rebuild for this explicit sync.
+                try await store.discardIngestPayload(id)
+                current = await store.task(id) ?? current
+            }
+        } else if current.bundleFile != nil {
+            // The recorded file is gone. Drop the dangling reference, then look
+            // for the fixed payload before rebuilding.
+            try? await store.discardIngestPayload(id)
+            current = await store.task(id) ?? current
+        }
+        if current.bundleFile == nil {
+            _ = try? await store.recoverWorkoutIngestPayload(id)
+            current = await store.task(id) ?? current
+        }
+        if current.bundleFile == nil {
+            if recovery {
+                try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "interrupted" }
+                return
+            }
+            try await updateTask(id, phase: .preparing)
+            do {
+                let engine = V4SyncEngine(store: store, health: health, scope: scope)
+                let bundle = try await engine.build(id: id, anchor: current.workoutAnchor)
+                let boundary = "rai.boundary." + Wire.id()
+                let body = WorkoutBundleAssembler.multipart(bundle: bundle.raw, boundary: boundary)
+                try await store.stageWorkoutIngestPayload(id, body: body)
+                if let nextAnchor = bundle.nextAnchor { try? await store.setWorkoutAnchor(id, anchor: nextAnchor) }
+                try await updateTask(id, phase: .uploading,
+                                     metrics: ["v4_build_ms": Date().timeIntervalSince(started) * 1000])
+            } catch {
+                if error is CancellationError || Task.isCancelled { throw CancellationError() }
+                if let latest = await store.task(id), latest.ingestStatus == nil, latest.ingestAcceptedAt == nil {
+                    let value = (error as? UploadError)?.code ?? (error as? SyncFailure).map(code) ?? "sync_failed"
+                    try? await store.updateTask(id) { $0.phase = .failed; $0.errorCode = value }
+                }
+                throw error
+            }
+        }
+        guard try await WorkoutIngestDelivery(store: store, api: api).accept(id, scope: scope) else { return }
+        var timings = (await store.task(id))?.metrics ?? [:]
+        timings["workout_sync_ms"] = Date().timeIntervalSince(started) * 1000
+        try? await store.setTaskMetrics(id, metrics: timings)
+        try? await store.synced()
+        _ = try? await store.collectGarbage(dryRun: false)
+        // Acceptance is visible immediately; publication continues on the
+        // existing bounded follow-up (status first, then analysis).
+        scheduleAnalysisRefresh(id: id, api: api)
+    }
+
+    /// Applies one authoritative status answer. Returns true when this pass has
+    /// nothing left to upload.
+    @discardableResult
+    private func applyIngestStatus(id: String, status: WorkoutIngestStatus, api: RAIAPIClient) async throws -> Bool {
+        _ = try await store.applyWorkoutIngestStatus(id, status: status)
+        switch status.state {
+        case .accepted:
+            scheduleAnalysisRefresh(id: id, api: api)
+            return true
+        case .committed, .alreadyImported:
+            try await refreshAnalysis(id: id, api: api)
+            scheduleAnalysisRefresh(id: id, api: api)
+            return true
+        case .rejected, .deleted:
+            return true
+        }
+    }
+
+    /// The fixed body must close with the same boundary it opened with; a
+    /// truncated file is rebuilt rather than uploaded.
+    private static func ingestPayloadCompleted(_ url: URL, boundary: String) -> Bool {
+        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]), let size = values.fileSize, size > 0 else { return false }
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        let opener = Data(("--" + boundary + "\r\n").utf8)
+        guard let head = try? handle.read(upToCount: opener.count), head == opener else { return false }
+        let suffix = Data(("\r\n--" + boundary + "--\r\n").utf8)
+        guard size >= suffix.count else { return false }
+        try? handle.seek(toOffset: UInt64(size - suffix.count))
+        guard let tail = try? handle.read(upToCount: suffix.count) else { return false }
+        return tail == suffix
     }
 
     /// True when this Workout's durable ACK already covers the local discovery
@@ -681,7 +878,14 @@ actor SyncCoordinator {
             }
             var eligible: [NormalizedFact] = []
             var typeProvenance: [JSON] = []
-            for fact in facts where !deletedKeys.contains(fact.factKey) {
+            // A fact whose deletion is explicitly carried by this bundle is
+            // deliberately omitted, not missing. Reusing an exhausted discovery
+            // stream can still list the archived upsert of a locally deleted
+            // sample; counting it as an unresolved read marks the whole type
+            // partial and makes the ACK withhold the very deletion the bundle
+            // encoded.
+            let expectedFacts = facts.filter { !deletedKeys.contains($0.factKey) }
+            for fact in expectedFacts {
                 guard let provenance = fact.source, let event = fact.event else {
                     // Captured but not describable (unsupported metadata). The
                     // archived path failed here too: the fact stays local and the
@@ -696,7 +900,7 @@ actor SyncCoordinator {
             outcome.events = events
             outcome.provenance = typeProvenance
             outcome.coverage[type.identifier] = .result(count: events.count)
-            if eligible.count != facts.count { outcome.coverage[type.identifier]?.state = .partial; outcome.coverage[type.identifier]?.diagnostics = ["source_policy_pending"] }
+            if eligible.count != expectedFacts.count { outcome.coverage[type.identifier]?.state = .partial; outcome.coverage[type.identifier]?.diagnostics = ["source_policy_pending"] }
 
             // Series failure must not discard the scalar samples that were
             // already read for this type. Completeness describes read coverage
@@ -720,7 +924,7 @@ actor SyncCoordinator {
                 }
                 outcome.series = captured
                 outcome.coverage["series:" + type.identifier] = .result(count: seriesCount)
-                if !events.isEmpty && eligible.count == facts.count { outcome.complete = true }
+                if !events.isEmpty && eligible.count == expectedFacts.count { outcome.complete = true }
             } catch is CancellationError { throw CancellationError() }
             catch let failure as SyncFailure {
                 outcome.coverage["series:" + type.identifier] = WorkoutCoverage(state: .failed, sampleCount: events.count, errorCode: code(failure))
@@ -1209,23 +1413,55 @@ actor SyncCoordinator {
     func checkAnalysis(id: String, secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
         let (api, _) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-        if let task = await store.task(id), task.bundleFile != nil, task.uploadReceipt == nil {
-            guard let hash = task.bundleSHA256 else { throw SyncFailure.localState("bundle_not_prepared") }
-            // An older analysis publication is not proof for this exact bundle.
-            let receipt = try await api.call("GET", "/v2/sync/workout-bundles/" + id, query: ["sha256": hash])
-            try WorkoutBundleACK.validate(receipt, workoutID: id, bundleHash: hash, sampleDeletions: task.submittedSampleDeletions ?? 0, routeDeletions: task.submittedRouteDeletions ?? 0)
-            try await store.acknowledgeBundle(id, receipt: receipt)
-            _ = try? await store.collectGarbage(dryRun: false)
-        }
-        if await store.task(id) == nil {
+        if let task = await store.task(id) {
+            var uuidLane = task.ingestMode == OutboxStore.ingestModeUUID
+            if !uuidLane { uuidLane = await usesUUIDIngest(id) }
+            if uuidLane {
+                try await store.markIngestLane(id)
+                try await refreshAnalysis(id: id, api: api)
+                if let phase = await store.task(id)?.phase, AnalysisFollowup.shouldContinue(phase) {
+                    scheduleAnalysisRefresh(id: id, api: api)
+                }
+                return
+            }
+            if task.bundleFile != nil, task.uploadReceipt == nil {
+                guard let hash = task.bundleSHA256 else { throw SyncFailure.localState("bundle_not_prepared") }
+                // An older analysis publication is not proof for this exact bundle.
+                let receipt = try await api.call("GET", "/v2/sync/workout-bundles/" + id, query: ["sha256": hash])
+                try WorkoutBundleACK.validate(receipt, workoutID: id, bundleHash: hash, sampleDeletions: task.submittedSampleDeletions ?? 0, routeDeletions: task.submittedRouteDeletions ?? 0)
+                try await store.acknowledgeBundle(id, receipt: receipt)
+                _ = try? await store.collectGarbage(dryRun: false)
+            }
+        } else {
             try await store.beginTask(id, resetBundle: false)
+            if uuidIngestEnabled, syncProtocolV4, workoutUUIDIngestVersion >= 1 {
+                try await store.markIngestLane(id)
+                try await refreshAnalysis(id: id, api: api)
+                return
+            }
             try await store.updateTask(id) { $0.phase = .acknowledged; $0.acknowledgedAt = Date() }
         }
         try await refreshAnalysis(id: id, api: api)
     }
 
     private func refreshAnalysis(id: String, api: RAIAPIClient) async throws {
-        if let task = await store.task(id), task.bundleFile != nil, task.uploadReceipt == nil { return }
+        if let task = await store.task(id), task.ingestMode == OutboxStore.ingestModeUUID {
+            // Accepted/committed is decided by the ingest status, not by the
+            // old bundle receipt. Only a committed import has analysis to read.
+            let status = try await WorkoutIngestDelivery.status(id, api: api)
+            guard let status else {
+                if task.ingestStatus != nil || task.ingestAcceptedAt != nil {
+                    try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "workout_ingest_missing_after_acceptance" }
+                } else if task.bundleFile == nil {
+                    try await store.updateTask(id) { $0.phase = .notSynced; $0.errorCode = nil }
+                }
+                try await store.updateTask(id) { $0.analysisCheckedAt = Date() }
+                return
+            }
+            _ = try await store.applyWorkoutIngestStatus(id, status: status)
+            try await store.updateTask(id) { $0.analysisCheckedAt = Date() }
+            guard status.state == .committed || status.state == .alreadyImported else { return }
+        } else if let task = await store.task(id), task.bundleFile != nil, task.uploadReceipt == nil { return }
         do {
             let value = try await api.call("GET", "/v2/analysis/workouts/" + id)
             let metrics = value["metrics"].list

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	neturl "net/url"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -21,6 +22,11 @@ import (
 type Store struct {
 	Pool *pgxpool.Pool
 	q    *dbgen.Queries
+
+	// Acceptance serializes backlog accounting per dataset inside one process.
+	// Multi-process races still resolve through the ingest primary key.
+	ingestMu    sync.Mutex
+	ingestLocks map[string]*sync.Mutex
 }
 
 func Open(ctx context.Context, url string, maxConnections int32) (*Store, error) {
@@ -63,7 +69,7 @@ func OpenWithTracer(ctx context.Context, url string, maxConnections int32, trace
 func (s *Store) Ready(ctx context.Context) error {
 	// Constant-sized schema evidence, no business table scan and no implicit migration.
 	var ok bool
-	err := s.Pool.QueryRow(ctx, `SELECT to_regclass('sync_batches') IS NOT NULL AND to_regclass('jobs') IS NOT NULL AND to_regclass('analysis_publications') IS NOT NULL AND to_regclass('training_effective_versions') IS NOT NULL AND to_regclass('daily_health_coverage') IS NOT NULL AND to_regclass('analysis_artifacts') IS NOT NULL AND to_regclass('analysis_model_channels') IS NOT NULL AND to_regclass('athlete_model_inputs') IS NOT NULL`).Scan(&ok)
+	err := s.Pool.QueryRow(ctx, `SELECT to_regclass('sync_batches') IS NOT NULL AND to_regclass('jobs') IS NOT NULL AND to_regclass('analysis_publications') IS NOT NULL AND to_regclass('training_effective_versions') IS NOT NULL AND to_regclass('daily_health_coverage') IS NOT NULL AND to_regclass('analysis_artifacts') IS NOT NULL AND to_regclass('analysis_model_channels') IS NOT NULL AND to_regclass('athlete_model_inputs') IS NOT NULL AND to_regclass('workout_ingests') IS NOT NULL`).Scan(&ok)
 	if err != nil {
 		return err
 	}

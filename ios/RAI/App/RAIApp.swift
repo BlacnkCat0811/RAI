@@ -787,8 +787,9 @@ final class SyncModel {
                                 "series_identity_conflict", "route_identity_conflict",
                                 "sample_deleted", "route_deleted", "workout_deleted",
                                 "workout_not_visible", "receipt_mismatch", "bundle_too_large"]
-            let canResume = task?.bundleFile != nil && task?.bundleSHA256 != nil &&
-                task?.bundleBoundary != nil && !nonResumable.contains(task?.errorCode ?? "")
+            let canResume = task?.bundleFile != nil && task?.bundleBoundary != nil &&
+                (task?.bundleSHA256 != nil || task?.ingestMode == "uuid") &&
+                !nonResumable.contains(task?.errorCode ?? "")
             await self.runWorkouts([id], forceNewBundle: !canResume)
         }
     }
@@ -902,8 +903,8 @@ final class SyncModel {
         while !Task.isCancelled && !stopped {
             round += 1
             do {
-                // Journal scoped raw changes before building any bundle.
-                try await coordinator.discoverChanges(workoutIDs: [id])
+                // The lane decision happens inside syncWorkout, before any
+                // scoped discovery. UUID ingest does not consume the journal.
                 var attempt = 0
                 while true {
                     do {
@@ -1037,6 +1038,10 @@ final class SyncModel {
         do {
             guard let secret = try? ClientConfiguration.load() else { status = "未配置同步"; return }
             try Task.checkCancellation()
+            // Recovery handshakes first, so the UUID lane is known before any
+            // discovery decides whether the old per-sample journal is needed.
+            status = "接续已保存的上传与分析状态"
+            try await coordinator.recoverPending(secret: secret, transfers: transfers)
             if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") {
                 status = "扫描健康记录变化（可优先同步所选记录）"
                 do { try await coordinator.discoverChanges() }
@@ -1047,9 +1052,6 @@ final class SyncModel {
                 try await coordinator.discoverDaily()
                 apply(await store.snapshot())
             }
-            try Task.checkCancellation()
-            status = "接续已保存的上传与分析状态"
-            try await coordinator.recoverPending(secret: secret, transfers: transfers)
             if UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") {
                 do { try await coordinator.syncDaily(secret: secret, transfers: transfers) }
                 catch is CancellationError { throw CancellationError() }

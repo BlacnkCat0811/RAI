@@ -1,4 +1,13 @@
-## 2026-11-09 — Workout Sync v4 原始载荷重定义
+## 2026-11-09 — Workout UUID 一次接收 / schema 50 / OpenAPI 1.9.0
+
+- 新增 `POST /v2/sync/workout-ingests/{workoutID}`：首次成功接收的 protocol-4 原始载荷按 `(dataset_id, workout_uuid)` 唯一保存，是唯一权威副本；重复 UUID 即使字节不同也重放首次 `acceptedAt`，不替换原始字节。已有 Workout 但无接收记录返回 `already_imported`，根删除屏障返回 409 `workout_deleted`。`POST /v2/sync/workout-bundles` 的 v4 路径在 `uuid` 模式返回 409 `workout_uuid_ingest_required`，`uuid_paused` 返回 503；v3 与管理删除路径不变。
+- 新增 `GET /v2/sync/workout-ingests/{workoutID}`：单快照状态，优先级 `deleted` > `accepted`/`committed`/`rejected` > `already_imported` > 404 `workout_ingest_not_found`；`committed` 带 `commitRevision`/`analysisStatus`/`analysisJobIDs`，`rejected` 带 `errorCode`；严格按 dataset 隔离。
+- 握手新增 `workoutUUIDIngestVersion=1` 与 `workoutUUIDIngestAccepting`；服务端模式由 `RAI_WORKOUT_UUID_INGEST_MODE=legacy|uuid|uuid_paused` 控制，默认 `legacy`。
+- Schema 50 新增 `workout_ingests`（原始字节、载荷大小、接收设备、epochs、状态、接收/完成时间、提交回执、错误码、尝试次数、下次尝试与租约）。每 dataset 待处理配额 200 行 / 512 MiB；Worker 单解析循环以 90 秒租约、60 秒处理预算和认领令牌把事实、历史、分析待办与 `committed` 状态放在同一事务；永久错误直接 `rejected`，暂态错误最多 3 次，过期末次认领终结为 `rejected`。
+- 显式 Workout 删除清空待处理原始载荷并终止接收行，但保留接收身份与既有回执。
+- `contracts/sync-v4.md` 新增第 7 节；`contracts/openapi-v2.yaml` 升为 1.9.0。
+
+
 
 - 原地重写 `contracts/sync-v4.md`：v4 改为单 Workout 原始 JSON 上传（顶层 `source`/`metadata`/`workout`/`streams`/`series`/`routes`，逐样本内联 `source`/`metadata`）；移除 `sources` 表、`kind`、`uuids`/`src` 平行数组、`metadataRegistryVersion`、`observation`/`coverage`、`deletions`/`routeDeletions`。未知字段合法并保留在 `workout_imports.payload` 精确字节中；服务端只投影已知事实，坏流/样本/点跳过；样本/route/series 上限仍返回 413 `bundle_too_large`。
 - 不做删除同步：v4 客户端不再生成 sample/route 删除或 DELETE，HealthKit 删除事件不改变服务端事实；v3 删除语义不变。

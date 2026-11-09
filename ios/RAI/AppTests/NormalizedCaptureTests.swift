@@ -221,7 +221,16 @@ final class NormalizedCaptureTests: XCTestCase {
                        "per-sample archiving still happens outside the counted path")
         XCTAssertEqual(meterAfter.unarchive - meterBefore.unarchive, 0,
                        "per-sample unarchiving still happens outside the counted path")
-        XCTAssertGreaterThanOrEqual(task.metrics["normalized_segment_writes"] ?? 0, 1)
+        // The scoped discovery that precedes the bundle already captured the
+        // samples as normalized segments; the bundle may therefore reuse them
+        // and report zero bundle-path writes. The journal is the evidence that
+        // the normalized capture path actually stored every sample.
+        let journal = await store.discoverySnapshot().events.values.filter {
+            $0.workoutID == id && !$0.deleted && $0.type != HKObjectType.workoutType().identifier
+        }
+        XCTAssertEqual(journal.count, ordered.count, "the normalized capture did not journal every sample")
+        XCTAssertTrue(journal.allSatisfy { $0.hasSegmentReference },
+                      "normalized facts were not stored as capture segments")
 
         let captured = try XCTUnwrap(uploader.captured.withLock { $0.first })
         let sent = try samples(captured)
@@ -346,14 +355,16 @@ final class NormalizedCaptureTests: XCTestCase {
         let meterAfter = SampleArchiveMeter.snapshot()
 
         XCTAssertEqual(uploader.uploads.withLock { $0 }, 1, "the legacy segment did not feed the bundle")
-        // The archived fact is used for its own type; the other streams have no
-        // exhausted discovery pass yet, so they read HealthKit as before.
+        // Sync drains scoped discovery first; every quantity stream is thereby
+        // exhausted (empty for the other types), so all of them are reused and
+        // only the seeded one actually carries a fact.
         let bundleReads = await health.bundleSampleReads
         XCTAssertFalse(bundleReads.contains(sample.sampleType.identifier),
                        "the legacy fact was re-read from HealthKit")
         let saved = await store.task(id)
         let task = try XCTUnwrap(saved)
-        XCTAssertEqual(task.metrics["reused_discovery_reads"], 1)
+        XCTAssertEqual(task.metrics["reused_discovery_reads"], Double(HealthKitClient.quantityTypes.count))
+        XCTAssertEqual(task.metrics["full_sample_reads"], 0)
         XCTAssertEqual(task.metrics["sample_unarchive_calls"], 1,
                        "the legacy record must be unarchived, and counted")
         XCTAssertEqual(meterAfter.unarchive - meterBefore.unarchive, 1)
