@@ -48,7 +48,7 @@ func TestIndependentOracles(t *testing.T) {
 	c := DefaultConfig("UTC")
 	at := int64(1000 * Hour)
 	for i, want := range []float64{100, 36.787944117144235, 13.53352832366127} {
-		near(t, DecayedBurden([]Term{{at, 100}}, at+int64(i)*36*Hour, c), want)
+		near(t, DecayedBurden([]Term{{End: at, AU: 100}}, at+int64(i)*36*Hour, c), want)
 	}
 	for _, x := range []struct{ p, d, b, w float64 }{{100, 0, 100, 100}, {80, 0, 100, 80}, {80, 100, 100, 40}, {80, 200, 100, 20}} {
 		v, e := Score(x.p, x.d, x.b)
@@ -126,12 +126,12 @@ func TestProperties(t *testing.T) {
 	}
 	at := in.AsOf
 	c := in.Config
-	aD := DecayedBurden([]Term{{at - 2*Hour, 50}, {at - Hour, 75}}, at, c)
+	aD := DecayedBurden([]Term{{End: at - 2*Hour, AU: 50}, {End: at - Hour, AU: 75}}, at, c)
 	near(t, aD, 50*math.Exp(-2./36)+75*math.Exp(-1./36))
-	if DecayedBurden([]Term{{at - 2*Hour, 100}}, at, c) >= DecayedBurden([]Term{{at - Hour, 100}}, at, c) {
+	if DecayedBurden([]Term{{End: at - 2*Hour, AU: 100}}, at, c) >= DecayedBurden([]Term{{End: at - Hour, AU: 100}}, at, c) {
 		t.Fatal("older workout has greater burden")
 	}
-	near(t, DecayedBurden([]Term{{at + Hour, 100}}, at, c), 0)
+	near(t, DecayedBurden([]Term{{End: at + Hour, AU: 100}}, at, c), 0)
 	// Delete removes a complete contribution; a late arrival adds one exactly once.
 	in.Loads = append(in.Loads, WorkoutLoad{ID: "late", End: at - Hour, AU: ptr(100), Model: LoadModel, Quality: "complete", Compatible: true, Days: []DailyLoad{{in.Days[42].Date, ptr(100), "complete"}}})
 	late := calculate(t, in)
@@ -226,7 +226,7 @@ func TestFreshenAndGoldenTimeProgression(t *testing.T) {
 	// Independent fixed-P/B progression over 72h, regardless of evidence expiry.
 	prev := 0.
 	for _, h := range []int64{0, 12, 24, 36, 72} {
-		d := DecayedBurden([]Term{{in.AsOf, 100}}, in.AsOf+h*Hour, in.Config)
+		d := DecayedBurden([]Term{{End: in.AsOf, AU: 100}}, in.AsOf+h*Hour, in.Config)
 		v, _ := Score(80, d, 100)
 		if v < prev {
 			t.Fatal("time progression")

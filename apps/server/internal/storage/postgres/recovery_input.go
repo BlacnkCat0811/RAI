@@ -118,6 +118,12 @@ func loadRecoveryFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Sna
 			Algorithm json.RawMessage
 			Duration  int64
 		}{source, meta["HKAlgorithmVersion"], duration})
+		// The stable identity drops app/OS/firmware versions and the SDNN
+		// sample duration, so one Watch stays one source across updates.
+		f.StableEpoch = rc.Hash(struct {
+			Source    syncing.HealthKitSource
+			Algorithm json.RawMessage
+		}{source.StableIdentity(), meta["HKAlgorithmVersion"]})
 		if m, ok := meta["HKMetadataKeySyncIdentifier"]; ok {
 			f.SyncKey = rc.Hash(struct {
 				Bundle, Type string

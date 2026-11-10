@@ -14,14 +14,18 @@ type DailyInput struct {
 // Kernel is an O(1) finite daily advance with an explicit 180-day ring.
 // Counts reset residual floating point dust exactly when the kernel is empty.
 type Kernel struct {
-	Tau         float64             `json:"tau"`
-	Ring        [Horizon]DailyInput `json:"ring"`
-	Position    int                 `json:"position"`
-	Known       float64             `json:"known"`
-	UnknownMass float64             `json:"unknownMass"`
-	UnknownDays int                 `json:"unknownDays"`
-	PartialDays int                 `json:"partialDays"`
-	NonzeroDays int                 `json:"nonzeroDays"`
+	Tau float64 `json:"tau"`
+	// MaxUnknownMass is the largest unknown-day weight the bounded (v2) state
+	// values by imputation. Zero, the frozen v1 state, keeps any unknown day in
+	// the ring fail-closed.
+	MaxUnknownMass float64             `json:"maxUnknownMass,omitempty"`
+	Ring           [Horizon]DailyInput `json:"ring"`
+	Position       int                 `json:"position"`
+	Known          float64             `json:"known"`
+	UnknownMass    float64             `json:"unknownMass"`
+	UnknownDays    int                 `json:"unknownDays"`
+	PartialDays    int                 `json:"partialDays"`
+	NonzeroDays    int                 `json:"nonzeroDays"`
 }
 
 func (k *Kernel) Advance(x DailyInput) KernelValue {
@@ -62,11 +66,46 @@ func (k *Kernel) Advance(x DailyInput) KernelValue {
 	v := KernelValue{KnownContribution: k.Known, UnknownWeightMass: k.UnknownMass}
 	if k.UnknownDays == 0 {
 		v.Value = ptr(k.Known)
+	} else if k.UnknownMass <= k.MaxUnknownMass {
+		if mean, ok := k.knownTrainingDayMean(); ok {
+			v.ImputedContribution = k.UnknownMass * mean
+			v.Value = ptr(k.Known + v.ImputedContribution)
+		}
 	}
 	return v
 }
 
+// knownTrainingDayMean is the mean known load of ring days with a nonzero
+// known load. It reads only the ring, so a bounded rebuild that seeds the full
+// horizon reproduces it exactly; no state outside the horizon is consulted.
+func (k *Kernel) knownTrainingDayMean() (float64, bool) {
+	sum, n := 0.0, 0
+	for _, x := range k.Ring {
+		if x.Known != 0 {
+			sum += x.Known
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, false
+	}
+	return sum / float64(n), true
+}
+
+// Unknown-day weight the bounded (v2) state may impute. One unknown training
+// day in the last week stays below the acute limit; several do not.
+const (
+	AcuteUnknownMassMax   = .15
+	ChronicUnknownMassMax = .10
+)
+
+// CalculateLoadState is the frozen v1 state: any unknown day within the
+// 180-day ring leaves acute and chronic unavailable.
 func CalculateLoadState(in StateInput) (StateResult, error) {
+	return calculateLoadState(in, false)
+}
+
+func calculateLoadState(in StateInput, bounded bool) (StateResult, error) {
 	out := StateResult{Schema: StateSchema, DatasetID: in.DatasetID, Generation: in.Generation, Model: StateAlgorithm, Version: Version, ConfigHash: ConfigHash(), Scope: ScopeName, Unit: Unit + "/day", TrendUnit: Unit + "/day²", Days: []DailyState{}}
 	loc, err := resolvedCalendar(in.Timezone, in.Calendar)
 	if err != nil {
@@ -117,6 +156,9 @@ func CalculateLoadState(in StateInput) (StateResult, error) {
 		loads[x.Day] = v
 	}
 	acute, chronic := Kernel{Tau: 7}, Kernel{Tau: 42}
+	if bounded {
+		acute.MaxUnknownMass, chronic.MaxUnknownMass = AcuteUnknownMassMax, ChronicUnknownMassMax
+	}
 	var prior [7]KernelValue
 	var priorSet [7]bool
 	index := 0
@@ -143,6 +185,10 @@ func CalculateLoadState(in StateInput) (StateResult, error) {
 				ds.Ratio = ptr(*av.Value / *cv.Value)
 			}
 			if ds.HistoryDaysObserved <= 42 || acute.PartialDays > 0 || chronic.PartialDays > 0 {
+				ds.Quality = "partial"
+			}
+			if av.ImputedContribution > 0 || cv.ImputedContribution > 0 {
+				ds.Imputed = true
 				ds.Quality = "partial"
 			}
 		}

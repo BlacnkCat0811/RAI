@@ -66,6 +66,22 @@ type SampleDeletion struct {
 
 var watchProduct = regexp.MustCompile(`^Watch[0-9]+,[0-9]+$`)
 
+// StableIdentity keeps only what identifies the recording app and physical
+// device across software updates: bundle, product type and hardware. App, OS,
+// firmware and software versions and the user-editable name are provenance,
+// not identity, so a watchOS update must not start a new personal baseline or
+// split one device's history into separate source epochs.
+func (s HealthKitSource) StableIdentity() HealthKitSource {
+	out := HealthKitSource{BundleID: s.BundleID, ProductType: s.ProductType}
+	if s.Device != nil {
+		d := HealthKitDevice{Manufacturer: s.Device.Manufacturer, Model: s.Device.Model, HardwareVersion: s.Device.HardwareVersion}
+		if d != (HealthKitDevice{}) {
+			out.Device = &d
+		}
+	}
+	return out
+}
+
 // Classification is the frozen RAI source classification. UA1-R3B adds exactly
 // one deterministic class, user_entered, and no new eligible class: an empty
 // descriptor field means "HealthKit did not report it", and the Swift client

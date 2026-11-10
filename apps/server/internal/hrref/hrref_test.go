@@ -191,3 +191,20 @@ func TestMislabelRequiresExplicitSteps(t *testing.T) {
 	}
 }
 func fp(v float64) *float64 { return &v }
+
+// A reference entered after a Workout, with an earlier effective date and
+// measurement, applies to that Workout in the revised view.
+func TestResolveRevisedViewUsesLaterEntry(t *testing.T) {
+	workout := base
+	entered := base + 30*day
+	r := ref("late-entry", m(190, workout-10*day, entered), m(50, workout-10*day, entered), workout-20*day)
+	r.KnownAt = entered
+	s, e := Resolve(Input{AsOf: entered + day, WorkoutStart: workout, SourceEpoch: "e1", References: []Reference{r}})
+	if e != nil || s.HRMax == nil || s.RestingHR == nil {
+		t.Fatalf("later entry must cover earlier workout: %+v %v", s, e)
+	}
+	// Still never visible before it was known.
+	if _, e = Resolve(Input{AsOf: entered - day, WorkoutStart: workout, SourceEpoch: "e1", References: []Reference{r}}); e != ErrInvalid {
+		t.Fatalf("unknown-at-asOf reference used: %v", e)
+	}
+}

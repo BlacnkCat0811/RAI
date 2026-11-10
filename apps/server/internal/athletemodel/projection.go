@@ -158,6 +158,10 @@ func RecoveryDailyTrend(a, b rc.Result) *float64 {
 // function stays frozen for legacy callers and its output is never relabeled.
 func ProjectLoadV2(state *tl.DailyState, anchor, updated, at int64) Metric[TrainingLoadValue] {
 	m := ProjectLoad(nil, state, nil, anchor, updated, at)
+	if state != nil && state.Imputed {
+		// Acute/chronic include unknown days valued at the typical training day.
+		m.Envelope.ReasonCodes = CanonicalReasons(append(m.Envelope.ReasonCodes, "load_imputed"))
+	}
 	m.Envelope.ModelVersion = tl.AlgorithmV2 + "/" + tl.VersionV2
 	m.Envelope.PayloadVersion = tl.SchemaV2
 	if m.Value != nil {

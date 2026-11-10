@@ -11,7 +11,11 @@ const (
 	InputSchemaV3   = "rai.readiness.input/3"
 	LoadModelV2     = "rai.training_load.hrr_integral/v2"
 	RecoveryModelV2 = "rai.recovery.physiological/v2"
-	PolicyV3        = "recorded-running;complete-day-median;finite-tail-certified;allowlist-load-v2-recovery-v2/v3"
+	PolicyV3        = "recorded-running;known-day-median;finite-tail-certified;allowlist-load-v2-recovery-v2;decayed-unknown-burden/v3.1"
+	// UnknownBurdenMaxV3 bounds the decayed burden of unknown Workouts, in
+	// typical training days. With a 36 h tau a typical unknown run is below it
+	// after about 2.8 days, so old gaps no longer veto today's score.
+	UnknownBurdenMaxV3 = .15
 )
 
 func ScopeV3For(stack string) string { return "model/" + stack + "/athlete/readiness/v3" }
@@ -19,7 +23,14 @@ func ScopeV3For(stack string) string { return "model/" + stack + "/athlete/readi
 func DefaultV3Config(tz string) Config {
 	c := DefaultConfig(tz)
 	c.Policy = PolicyV3
+	c.UnknownBurdenMax = UnknownBurdenMaxV3
 	return c
+}
+
+// knownLoad is the v3 knownness rule: a lineage-compatible v2 load with a
+// value is known at any quality tier; its tier only affects confidence upstream.
+func knownLoad(w WorkoutLoad) bool {
+	return w.AU != nil && w.Compatible && !w.Conflict && w.Model == LoadModelV2
 }
 
 func ValidateV3(in ReadinessSnapshot) error {
@@ -91,7 +102,7 @@ func LoadBaselineV3(in ReadinessSnapshot) Baseline {
 				if v.Day != d.Date {
 					continue
 				}
-				if w.AU == nil || v.AU == nil || v.Quality != "complete" || w.Quality != "complete" || !w.Compatible || w.Model != LoadModelV2 {
+				if !knownLoad(w) || v.AU == nil {
 					known = false
 				} else {
 					sum += *v.AU
@@ -142,8 +153,9 @@ func CalculateV3(input ReadinessSnapshot) (Result, error) {
 	r := Result{Date: in.Days[len(in.Days)-1].Date, Schema: SchemaV3, Dataset: in.Dataset, Generation: in.Generation, ModelVersion: ModelV3, ConfigHash: c.Hash(), Config: c, InputHash: InputHash(in), CalendarHash: Hash(in.Days), AsOf: in.AsOf, EvaluationAt: in.AsOf, CapturedAt: in.CapturedAt, ValidBefore: in.Days[len(in.Days)-1].End, Status: "insufficient_data", Quality: "insufficient", Recovery: in.Recovery, Sync: in.Sync, Baseline: LoadBaselineV3(in), ConfidenceMeaning: "evidence_support_not_probability", Terms: []Term{}, Refs: []Ref{}, Reasons: []string{}, CandidateOnly: true, Scope: "recorded_running_training_readiness"}
 	r.TailBound = TailUpperBound(c)
 	r.MaxScoreTailError = 100 * math.Ln2 * r.TailBound / c.BaselineFloor
-	conflict := false
+	conflict, materialConflict := false, false
 	badModel := false
+	var unknown []Term
 	for _, w := range in.Loads {
 		r.Refs = append(r.Refs, Ref{ID: w.ID, RunID: w.RunID, Hash: w.Hash, FactHash: w.FactHash, End: w.End, ParameterID: w.ParameterID})
 		if w.End > in.AsOf {
@@ -157,32 +169,56 @@ func CalculateV3(input ReadinessSnapshot) (Result, error) {
 			badModel = true
 			continue
 		}
-		if w.Conflict || !w.Compatible && w.AU != nil {
-			conflict = true
-		}
-		if w.AU == nil || !w.Compatible || w.Quality != "complete" {
-			r.UnknownLoads++
-		} else {
+		if knownLoad(w) {
 			r.KnownLoads++
-			r.Terms = append(r.Terms, Term{w.End, *w.AU})
+			r.Terms = append(r.Terms, Term{End: w.End, AU: *w.AU})
+			continue
 		}
+		r.UnknownLoads++
+		unknown = append(unknown, Term{End: w.End, Imputed: true})
+		conflict = conflict || w.Conflict || !w.Compatible && w.AU != nil
 	}
 	if badModel {
 		r.Reasons = append(r.Reasons, "load_model_not_allowed")
 		r.Status = "source_conflict"
 	}
-	if r.UnknownLoads == 0 {
+	if len(unknown) == 0 {
 		r.Burden = ptr(DecayedBurden(r.Terms, in.AsOf, c))
+	} else if typical, ok := typicalTrainingLoad(r); ok {
+		// Unknown Workouts are valued at the typical training-day load. Only
+		// their decayed share of today's burden decides whether that guess is
+		// small enough to keep the score.
+		for i := range unknown {
+			unknown[i].AU = typical
+		}
+		known := DecayedBurden(r.Terms, in.AsOf, c)
+		u := DecayedBurden(unknown, in.AsOf, c)
+		// Measured in typical training days, like burdenInTypicalDays, so the
+		// imputed part can move the load multiplier by at most 2^-UnknownBurdenMax.
+		scale := typical
+		if r.Baseline.Value != nil {
+			scale = *r.Baseline.Value
+		}
+		ratio := u / scale
+		r.UnknownBurden = ptr(ratio)
+		if ratio <= c.UnknownBurdenMax {
+			r.Terms = append(r.Terms, unknown...)
+			r.Burden = ptr(known + u)
+		} else {
+			r.Reasons = append(r.Reasons, "recent_load_unknown")
+			materialConflict = conflict
+		}
 	} else {
 		r.Reasons = append(r.Reasons, "recent_load_unknown")
+		materialConflict = conflict
 	}
-	if conflict {
+	if materialConflict {
 		r.Reasons = append(r.Reasons, "load_parameter_conflict")
 		r.Status = "source_conflict"
 	}
 	if r.Baseline.Value == nil {
 		r.Reasons = append(r.Reasons, "load_baseline_insufficient")
-		if !conflict {
+		if !materialConflict {
 			r.Status = "collecting"
 		}
 	}
@@ -217,6 +253,9 @@ func CalculateV3(input ReadinessSnapshot) (Result, error) {
 		r.Quality = "complete"
 		r.LoadSupport = math.Min(1, float64(r.Baseline.TrainingDays)/float64(c.MinimumDays)) * math.Min(1, float64(r.Baseline.SpanDays)/float64(c.MinimumSpanDays))
 		r.Confidence = math.Min(c.ConfidenceCap, math.Min(in.Recovery.Confidence, r.LoadSupport))
+		if r.UnknownBurden != nil {
+			r.Confidence *= 1 - math.Min(1, *r.UnknownBurden)
+		}
 		evaluate(&r, in.AsOf)
 	}
 	sort.Strings(r.Reasons)
@@ -245,4 +284,27 @@ func FreshenV3(anchor Result, at int64) (Result, error) {
 	}
 	evaluate(&r, at)
 	return r, nil
+}
+
+// typicalTrainingLoad is the baseline median training-day load, or, while the
+// baseline is still collecting, the median of the known recent Workout loads.
+func typicalTrainingLoad(r Result) (float64, bool) {
+	if r.Baseline.Median != nil && *r.Baseline.Median > 0 {
+		return *r.Baseline.Median, true
+	}
+	vals := []float64{}
+	for _, t := range r.Terms {
+		if t.AU > 0 {
+			vals = append(vals, t.AU)
+		}
+	}
+	if len(vals) == 0 {
+		return 0, false
+	}
+	sort.Float64s(vals)
+	n := len(vals)
+	if n%2 == 1 {
+		return vals[n/2], true
+	}
+	return vals[n/2-1]/2 + vals[n/2]/2, true
 }

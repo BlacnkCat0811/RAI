@@ -10,7 +10,7 @@ const (
 	ModelV2       = "rai.recovery.physiological/v2"
 	SchemaV2      = "rai.recovery.physiological/2"
 	InputSchemaV2 = "rai.recovery.input/2"
-	PolicyV2      = "night-sdnn-00-06-sleep-context;ln-median;sleep-regularity-circular-medoid;typed-target;persistent-3d/v2"
+	PolicyV2      = "night-sdnn-00-06-sleep-context;ln-median;sleep-regularity-circular-medoid;typed-target;persistent-3d;stable-source-key/v2.1"
 )
 
 type SleepTarget struct {

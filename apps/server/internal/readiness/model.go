@@ -41,6 +41,10 @@ type Config struct {
 	BaselineFloor     float64 `json:"baselineFloorAU"`
 	ConfidenceCap     float64 `json:"confidenceCap"`
 	MaxWorkoutAU      float64 `json:"maxWorkoutAU"`
+	// UnknownBurdenMax (v3 only) is the largest decayed burden, in typical
+	// training days, that unknown Workouts may contribute when valued at the
+	// typical training-day load. Zero keeps the frozen v1 fail-closed rule.
+	UnknownBurdenMax float64 `json:"unknownBurdenMax,omitempty"`
 }
 
 func DefaultConfig(tz string) Config {
@@ -143,6 +147,9 @@ type Baseline struct {
 type Term struct {
 	End int64   `json:"endUs"`
 	AU  float64 `json:"load"`
+	// Imputed marks a v3 term valued at the typical training-day load because
+	// the Workout's own load is unknown.
+	Imputed bool `json:"imputed,omitempty"`
 }
 type Ref struct {
 	FactHash    string `json:"factHash"`
@@ -182,6 +189,7 @@ type Result struct {
 	Sync                     Sync              `json:"workoutSync"`
 	KnownLoads               int               `json:"knownLoads"`
 	UnknownLoads             int               `json:"unknownLoads"`
+	UnknownBurden            *float64          `json:"unknownBurdenInTypicalDays,omitempty"`
 	Terms                    []Term            `json:"loadTerms"`
 	Refs                     []Ref             `json:"inputRefs"`
 	TailBound                float64           `json:"omittedTailUpperBoundAU"`

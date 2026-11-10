@@ -44,7 +44,7 @@ func ConfigHashV2() string {
 	return Hash(struct {
 		Policy string
 		V      string
-	}{"window90;quantile.8;gamma.7-1;step.001;recency45;residual.06;outlier.10;confirmation.05;loo.05;cap.55;maximal.50;cap.7;source-epoch;annotation-known-at/v2", VersionV2})
+	}{"window90;quantile.8;gamma.7-1;step.001;recency45;residual.06;outlier.10;confirmation.05;loo.05;cap.55;maximal.50;cap.7;stable-source-key;annotation-known-at/v2.1", VersionV2})
 }
 
 func annotate(es []FeatureRef, annotations []EffortAnnotation, at int64, maximal bool) ([]FeatureRef, []string) {

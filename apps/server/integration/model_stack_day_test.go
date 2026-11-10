@@ -1,0 +1,267 @@
+//go:build integration
+
+package integration
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"rai/server/internal/modelinput"
+	"rai/server/internal/modelmanifest"
+	rd "rai/server/internal/readiness"
+	"rai/server/internal/syncing"
+	tl "rai/server/internal/trainingload"
+	wf "rai/server/internal/workoutfeatures"
+)
+
+// stackRun builds a protocol-6 running Workout with Apple Watch style 5 s HR
+// intervals; the first one starts 3 s after the Workout, as on a real Watch.
+// version is the Watch software version reported by the source.
+func stackRun(t *testing.T, f *fixture, workoutID string, start time.Time, version string, hr func(i int) float64) []byte {
+	t.Helper()
+	const seconds = 30 * 60
+	samples := []string{}
+	for i, at := 0, 3; at+5 <= seconds; i, at = i+1, at+5 {
+		samples = append(samples, fmt.Sprintf("[%d,%d,%g]", int64(at)*1_000_000, int64(at+5)*1_000_000, hr(i)))
+	}
+	source := fmt.Sprintf(`{"bundleID":"com.apple.health","version":%q,"productType":"Watch7,1","operatingSystemVersion":%q}`, version, version)
+	return []byte(fmt.Sprintf(`{
+		"protocolVersion":6,
+		"datasetID":%q,"datasetEpoch":%q,"collectorEpoch":%q,"workoutID":%q,
+		"startUs":%d,"endUs":%d,
+		"source":%s,
+		"metadata":{"HKTimeZone":"Asia/Shanghai","HKIndoorWorkout":false},
+		"workout":{"activityType":37,"durationUs":%d},
+		"streams":[{"type":%q,"unit":"count/min","status":"complete","samples":[%s]}],
+		"routes":[]
+	}`, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID,
+		start.UnixMicro(), start.Add(seconds*time.Second).UnixMicro(), source, int64(seconds)*1_000_000,
+		v6HRType, strings.Join(samples, ",")))
+}
+
+type stackDayRun struct {
+	id      string
+	day     int
+	version string
+	hr      func(int) float64
+}
+
+type stackDayOptions struct {
+	corrupt      string // Workout whose stored facts are made unreadable
+	maxOnly      bool   // reference without an explicit resting HR
+	dailyRHRDays int    // synthetic daily resting-HR facts for the last N days
+}
+
+// runStackDay ingests the runs, applies the options, prepares the synthetic v2
+// stack and processes today's release. It returns the reader for today's
+// published artifacts.
+func runStackDay(t *testing.T, f *fixture, runs []stackDayRun, opts stackDayOptions) (time.Time, func(string, any)) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := f.s.Pool.Exec(ctx, `UPDATE datasets SET synthetic_test=true WHERE id=$1`, f.p.DatasetID); err != nil {
+		t.Fatal(err)
+	}
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	measured := today.AddDate(0, 0, -90).Format(time.RFC3339)
+	// Entered today, effective and measured 90 days ago.
+	payload := modelinput.Payload{"maxHR": 190.0, "restingHR": 50.0, "measuredAt": measured, "restingMeasuredAt": measured, "method": "user_entered", "unit": "bpm"}
+	if opts.maxOnly {
+		delete(payload, "restingHR")
+		delete(payload, "restingMeasuredAt")
+	}
+	if _, err := f.s.CommitModelInput(ctx, f.p, modelinput.Request{ID: syncing.NewID(), Kind: "hr_reference", SubjectKey: "athlete",
+		EffectiveFrom: measured, Provenance: "synthetic integration reference", Payload: payload}); err != nil {
+		t.Fatal(err)
+	}
+	for k := 1; k <= opts.dailyRHRDays; k++ {
+		at := today.AddDate(0, 0, -k).Add(6 * time.Hour)
+		if _, err := f.s.Pool.Exec(ctx, `INSERT INTO health_samples(dataset_id,sample_type,sample_uuid,event_start,event_end,value_numeric,unit,source_bundle_id,content_sha256,entity_revision,metadata)
+ VALUES($1,'HKQuantityTypeIdentifierRestingHeartRate',$2::uuid,$3,$3,$4,'count/min','com.apple.health',sha256(convert_to($2::text,'UTF8')),1,
+ '{"RAI:dailySource":{"bundleID":"com.apple.health","productType":"Watch7,1","version":"11.0"}}')`,
+			f.p.DatasetID, syncing.NewID(), at, 48+float64(k%5)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, r := range runs {
+		acceptIngest(t, f, f.p, stackRun(t, f, r.id, today.AddDate(0, 0, r.day).Add(8*time.Hour), r.version, r.hr))
+	}
+	for _, o := range processAllIngests(t, f.s) {
+		if o.Status != "committed" {
+			t.Fatalf("ingest outcome %+v", o)
+		}
+	}
+	if opts.corrupt != "" {
+		if _, err := f.s.Pool.Exec(ctx, `UPDATE workouts SET payload='{}'::jsonb WHERE dataset_id=$1 AND workout_uuid=$2`, f.p.DatasetID, opts.corrupt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.s.PrepareModelStack(ctx, f.p.DatasetID); err != nil {
+		t.Fatal(err)
+	}
+	succeeded := 0
+	for i := 0; i < 10; i++ {
+		l, err := f.s.Claim(ctx, []string{modelmanifest.StackJobKind})
+		if errors.Is(err, pgx.ErrNoRows) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		status, err := f.s.ProcessModelStack(ctx, l, time.Now())
+		if err != nil {
+			t.Fatalf("day release failed: %v", err)
+		}
+		if status == "SUCCEEDED" {
+			succeeded++
+		}
+	}
+	if succeeded == 0 {
+		t.Fatal("no day release succeeded")
+	}
+	scope := modelmanifest.DayScope(modelmanifest.StackID(), today.Format(time.DateOnly))
+	return today, func(key string, v any) {
+		t.Helper()
+		var b []byte
+		if err := f.s.Pool.QueryRow(ctx, `SELECT a.payload FROM analysis_publications p
+ JOIN analysis_artifacts a ON a.dataset_id=p.dataset_id AND a.run_id=p.published_run_id AND a.artifact_key=$3
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$4`, f.p.DatasetID, scope, key, "model_product_v2/"+key).Scan(&b); err != nil {
+			t.Fatalf("artifact %s: %v", key, err)
+		}
+		if err := json.Unmarshal(b, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func steadyHR(int) float64 { return 150 }
+
+// TestModelStackDayIsolatesWorkoutsAndKeepsSourceAcrossUpdates runs one real
+// v2 day release over synthetic Workouts:
+//   - a warm-up below the resting reference used to fail the whole day;
+//   - a reference entered today must cover the earlier Workouts it is
+//     effective for;
+//   - a Watch software update must not split one device into two source epochs.
+func TestModelStackDayIsolatesWorkoutsAndKeepsSourceAcrossUpdates(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	warmup := func(i int) float64 {
+		if i < 12 {
+			return 45 + float64(i)*2.5
+		}
+		return 150
+	}
+	runs := []stackDayRun{
+		{syncing.NewID(), -3, "11.0", steadyHR},
+		{syncing.NewID(), -2, "11.0", warmup},
+		{syncing.NewID(), -1, "11.1", steadyHR}, // after a Watch software update
+	}
+	today, artifact := runStackDay(t, f, runs, stackDayOptions{})
+	day := today.Format(time.DateOnly)
+	var state tl.StateResult
+	artifact("load_state", &state)
+	if len(state.Days) != 1 || state.Days[0].Day != day || state.Days[0].UnknownWorkouts != 0 || state.Days[0].Acute.Value == nil || state.Days[0].Chronic.Value == nil {
+		t.Fatalf("load state: %+v", state.Days)
+	}
+	if state.ConfigHash != tl.ConfigHashV2() {
+		t.Fatal("load state carries a stale policy identity")
+	}
+	var ready rd.Result
+	artifact("training_readiness", &ready)
+	if ready.KnownLoads != 3 || ready.UnknownLoads != 0 || slices.Contains(ready.Reasons, "recent_load_unknown") {
+		t.Fatalf("readiness loads known=%d unknown=%d reasons=%v", ready.KnownLoads, ready.UnknownLoads, ready.Reasons)
+	}
+	// One Watch, before and after its update, stays one source epoch.
+	epochs := map[string]string{}
+	rows, err := f.s.Pool.Query(ctx, `SELECT a.payload FROM analysis_publications p
+ JOIN analysis_artifacts a ON a.dataset_id=p.dataset_id AND a.run_id=p.published_run_id AND a.artifact_key='workout_features'
+ WHERE p.dataset_id=$1 AND p.scope_key LIKE $2`, f.p.DatasetID, "model/"+modelmanifest.StackID()+"/workout/%")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var b []byte
+		var feature wf.WorkoutFeatures
+		if err := rows.Scan(&b); err != nil || json.Unmarshal(b, &feature) != nil {
+			t.Fatal(err)
+		}
+		epochs[feature.WorkoutID] = strings.Join(feature.Evidence.SourceEpochs, ",")
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(epochs) != 3 || epochs[runs[0].id] == "" || epochs[runs[0].id] != epochs[runs[2].id] {
+		t.Fatalf("source epochs split across a software update: %v", epochs)
+	}
+}
+
+// A Workout whose stored facts cannot be evaluated is an unknown load on that
+// Workout only; the day release still publishes every product artifact.
+func TestModelStackDayIsolatesCorruptWorkout(t *testing.T) {
+	f := setup(t)
+	corrupt := syncing.NewID()
+	runs := []stackDayRun{
+		{corrupt, -6, "11.0", steadyHR},
+		{syncing.NewID(), -2, "11.0", steadyHR},
+		{syncing.NewID(), -1, "11.0", steadyHR},
+	}
+	_, artifact := runStackDay(t, f, runs, stackDayOptions{corrupt: corrupt})
+	var state tl.StateResult
+	artifact("load_state", &state)
+	d := state.Days[0]
+	if d.Acute.Value == nil || d.Chronic.Value == nil || !d.Imputed || d.Acute.UnknownWeightMass <= 0 {
+		t.Fatalf("corrupt workout blanked or vanished from the load state: %+v", d)
+	}
+	var ready rd.Result
+	artifact("training_readiness", &ready)
+	if ready.KnownLoads != 2 || ready.UnknownLoads != 1 {
+		t.Fatalf("readiness loads known=%d unknown=%d", ready.KnownLoads, ready.UnknownLoads)
+	}
+	// The Phase 0 health report sees the same release and the isolated input.
+	h, err := f.s.ModelStackHealth(context.Background(), f.p.DatasetID, "candidate", 30, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !h.StackIsCode || h.Published["load_state"].PublishedDays != 1 || h.Published["load_state"].MissingDays != 29 ||
+		h.Published["training_readiness"].PublishedDays != 1 || h.Workouts.Workouts != 3 ||
+		h.Workouts.InputFailures["analysis_invalid_input"] != 1 || h.Workouts.LoadTier["complete"] != 2 || h.Workouts.LoadTier["unknown"] != 1 ||
+		h.Workouts.LoadReasons["workout_invalid_input"] != 1 || h.Workouts.StableSourceSets != 1 {
+		b, _ := json.Marshal(h)
+		t.Fatalf("health report: %s", b)
+	}
+	b, _ := json.Marshal(h)
+	for _, id := range []string{corrupt, runs[1].id, f.p.DatasetID} {
+		if strings.Contains(string(b), id) {
+			t.Fatal("health report leaked an identifier")
+		}
+	}
+}
+
+// Without an explicit resting HR each Workout's dose uses the 28-day resting
+// baseline before it. Workouts weeks back need facts older than the evaluated
+// day's own recovery window.
+func TestModelStackDayRestingBaselineCoversHistory(t *testing.T) {
+	f := setup(t)
+	runs := []stackDayRun{
+		{syncing.NewID(), -40, "11.0", steadyHR},
+		{syncing.NewID(), -25, "11.0", steadyHR},
+		{syncing.NewID(), -3, "11.0", steadyHR},
+	}
+	_, artifact := runStackDay(t, f, runs, stackDayOptions{maxOnly: true, dailyRHRDays: 80})
+	var ready rd.Result
+	artifact("training_readiness", &ready)
+	if ready.KnownLoads != 3 || ready.UnknownLoads != 0 {
+		t.Fatalf("historical Workouts lost their resting baseline: known=%d unknown=%d", ready.KnownLoads, ready.UnknownLoads)
+	}
+}

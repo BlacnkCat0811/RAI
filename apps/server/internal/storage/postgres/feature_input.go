@@ -60,7 +60,12 @@ func (s *Store) loadFeatureInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 	return loadWorkoutFeatureFacts(ctx, tx, l, in, asOf, id, true)
 }
 
-func loadWorkoutFeatureFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf time.Time, id string, legacyParameters bool) error {
+// loadWorkoutFeatureFacts reads one Workout's facts. legacyCandidate keeps the
+// frozen v1 candidate input: legacy HR parameters and source epochs over the
+// full source descriptor. The v2 stack instead derives source epochs from the
+// software-version-free identity, so a watchOS update keeps one device's
+// history in one epoch.
+func loadWorkoutFeatureFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf time.Time, id string, legacyCandidate bool) error {
 	n := wf.RawWorkoutSnapshot{DatasetID: l.DatasetID, WorkoutID: id, Generation: in.Generation, Revision: in.Revision, AsOf: asOf.UTC().UnixMicro(), Policy: wf.DefaultPolicy(), AlgorithmVersion: wf.Algorithm + "/" + wf.Version, Fact: wf.FactRef{Kind: "workout", ID: id, State: wf.Present}, Availability: map[string]wf.State{}}
 	in.FeatureInput = &n
 	var body []byte
@@ -106,7 +111,11 @@ func loadWorkoutFeatureFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analys
 	factSources := map[string]map[string]wf.Source{}
 	allSources := map[string]wf.Source{}
 	addSource := func(key string, source syncing.HealthKitSource, parent *syncing.HealthKitSource) {
-		src := wf.NewSource(source.BundleID, source.Classification(parent), featureJSON(source))
+		descriptor := featureJSON(source)
+		if !legacyCandidate {
+			descriptor = featureJSON(source.StableIdentity())
+		}
+		src := wf.NewSource(source.BundleID, source.Classification(parent), descriptor)
 		if factSources[key] == nil {
 			factSources[key] = map[string]wf.Source{}
 		}
@@ -508,7 +517,7 @@ func loadWorkoutFeatureFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analys
 		return err
 	}
 
-	if legacyParameters {
+	if legacyCandidate {
 		rows, err = tx.Query(ctx, `SELECT id::text,encode(content_sha256,'hex'),effective_from,effective_through,supersedes_id::text,payload,provenance,created_at FROM athlete_model_inputs WHERE dataset_id=$1 AND kind='hr_reference' AND schema_version='rai.hr_reference/1' AND effective_from<=$2 AND (effective_through IS NULL OR effective_through>$2) AND created_at<=$3 ORDER BY effective_from,id LIMIT 257`, l.DatasetID, start, asOf)
 		if err != nil {
 			return err

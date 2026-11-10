@@ -70,28 +70,32 @@ type ExternalExposure struct {
 	DistanceM     *float64 `json:"distanceM"`
 }
 type Result struct {
-	Schema            string            `json:"schemaVersion"`
-	DatasetID         string            `json:"datasetID"`
-	WorkoutID         string            `json:"workoutID"`
-	InputGeneration   int64             `json:"inputGeneration"`
-	Model             string            `json:"model"`
-	ModelVersion      string            `json:"modelVersion"`
-	ConfigHash        string            `json:"configHash"`
-	Scope             string            `json:"scope"`
-	Status            string            `json:"status"`
-	Load              *float64          `json:"load"`
-	Unit              string            `json:"unit"`
-	Method            string            `json:"method"`
-	Quality           string            `json:"quality"`
-	Confidence        float64           `json:"confidence"`
-	ObservedLoad      *float64          `json:"observedLoad"`
-	EstimatedLoad     *float64          `json:"estimatedLoad"`
-	ScaleFactor       *float64          `json:"scaleFactor"`
-	ActiveSeconds     *float64          `json:"activeSeconds"`
-	ValidHRSeconds    float64           `json:"validHRSeconds"`
-	Coverage          float64           `json:"coverage"`
-	MaxGap            float64           `json:"maxGapSeconds"`
-	ConflictSeconds   float64           `json:"parameterConflictSeconds"`
+	Schema          string   `json:"schemaVersion"`
+	DatasetID       string   `json:"datasetID"`
+	WorkoutID       string   `json:"workoutID"`
+	InputGeneration int64    `json:"inputGeneration"`
+	Model           string   `json:"model"`
+	ModelVersion    string   `json:"modelVersion"`
+	ConfigHash      string   `json:"configHash"`
+	Scope           string   `json:"scope"`
+	Status          string   `json:"status"`
+	Load            *float64 `json:"load"`
+	Unit            string   `json:"unit"`
+	Method          string   `json:"method"`
+	Quality         string   `json:"quality"`
+	Confidence      float64  `json:"confidence"`
+	ObservedLoad    *float64 `json:"observedLoad"`
+	EstimatedLoad   *float64 `json:"estimatedLoad"`
+	ScaleFactor     *float64 `json:"scaleFactor"`
+	ActiveSeconds   *float64 `json:"activeSeconds"`
+	ValidHRSeconds  float64  `json:"validHRSeconds"`
+	Coverage        float64  `json:"coverage"`
+	MaxGap          float64  `json:"maxGapSeconds"`
+	ConflictSeconds float64  `json:"parameterConflictSeconds"`
+	// Bounded (v2) policy only; omitted from frozen v1 artifacts.
+	QualityTier       string            `json:"qualityTier,omitempty"`
+	AboveMaxSeconds   float64           `json:"aboveReferenceMaxSeconds,omitempty"`
+	BelowRestSeconds  float64           `json:"belowReferenceRestSeconds,omitempty"`
 	HRReference       *wf.Parameter     `json:"hrReference"`
 	FeatureArtifactID string            `json:"featureArtifactID"`
 	FeatureVersion    string            `json:"featureVersion"`
@@ -123,6 +127,9 @@ type KernelValue struct {
 	Value             *float64 `json:"value"`
 	KnownContribution float64  `json:"knownContribution"`
 	UnknownWeightMass float64  `json:"unknownWeightMass"`
+	// Bounded (v2) state only: unknown days valued at the ring's mean known
+	// training day. Omitted when nothing was imputed, so v1 stays byte-identical.
+	ImputedContribution float64 `json:"imputedContribution,omitempty"`
 }
 type DailyState struct {
 	Day                 string      `json:"day"`
@@ -138,6 +145,8 @@ type DailyState struct {
 	Trend7              *float64    `json:"trend7"`
 	HistoryDaysObserved int         `json:"historyDaysObserved"`
 	InitialState        string      `json:"initialState"`
+	// Bounded (v2) state only: acute or chronic includes imputed unknown days.
+	Imputed bool `json:"imputed,omitempty"`
 }
 type StateResult struct {
 	Schema     string       `json:"schemaVersion"`

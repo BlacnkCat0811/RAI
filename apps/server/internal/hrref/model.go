@@ -101,8 +101,14 @@ func Validate(r Reference, asOf int64) error {
 	return nil
 }
 
+// effective decides whether a reference applies to a Workout starting at at.
+// The stack evaluates the revised view: Validate already requires the row to
+// be known at the evaluation instant (KnownAt <= asOf), so a reference entered
+// today with an earlier effective date and measurement applies to the earlier
+// Workouts it covers. Requiring KnownAt <= Workout start would leave every
+// Workout before the first entry without load, forever.
 func effective(r Reference, at int64) bool {
-	return !r.Revoked && r.EffectiveFrom <= at && (r.EffectiveThrough == nil || at < *r.EffectiveThrough) && r.KnownAt <= at
+	return !r.Revoked && r.EffectiveFrom <= at && (r.EffectiveThrough == nil || at < *r.EffectiveThrough)
 }
 
 func within(m Measurement, at int64, days int) bool {

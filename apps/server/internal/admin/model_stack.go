@@ -33,7 +33,7 @@ func readOwnerAuthorization(path string) ([]byte, error) {
 // values, confidence numbers, identifiers and internal health/model parameters.
 func ModelStackCommand(ctx context.Context, url string, args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("model-stack inspect --dataset --evaluation-at | identity | promotion-plan | prepare-synthetic | prepare-real | activate-real | rollback-real")
+		return errors.New("model-stack inspect --dataset --evaluation-at | health --dataset [--days 90] [--channel active] | identity | promotion-plan | prepare-synthetic | prepare-real | activate-real | rollback-real")
 	}
 	if args[0] == "identity" {
 		if len(args) != 1 {
@@ -180,6 +180,29 @@ func ModelStackCommand(ctx context.Context, url string, args []string, out io.Wr
 			return errors.New("model-stack promote refused")
 		}
 		return json.NewEncoder(out).Encode(r)
+	}
+	if args[0] == "health" {
+		fs := flag.NewFlagSet("model-stack health", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		dataset := fs.String("dataset", "", "")
+		days := fs.Int("days", 90, "")
+		channel := fs.String("channel", "active", "")
+		if fs.Parse(args[1:]) != nil || fs.NArg() != 0 || !syncing.ValidID(*dataset) || *days < 1 || *days > 186 || (*channel != "active" && *channel != "candidate") {
+			return errors.New("model-stack health requires --dataset, --days 1..186 and --channel active|candidate")
+		}
+		s, e := postgres.Open(ctx, url, 2)
+		if e != nil {
+			return errors.New("model-stack database configuration failed")
+		}
+		defer s.Pool.Close()
+		// Counts and reason codes only: no health values, identifiers or times.
+		r, e := s.ModelStackHealth(ctx, *dataset, *channel, *days, time.Now())
+		if e != nil {
+			return errors.New("model-stack health read failed")
+		}
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		return enc.Encode(r)
 	}
 	if args[0] != "inspect" {
 		return errors.New("unsupported model-stack action")

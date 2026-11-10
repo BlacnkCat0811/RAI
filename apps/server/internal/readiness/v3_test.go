@@ -1,6 +1,10 @@
 package readiness
 
-import "testing"
+import (
+	"slices"
+	"testing"
+	"time"
+)
 
 func v2Fixture() ReadinessSnapshot {
 	in := fixture()
@@ -69,5 +73,60 @@ func TestV2NoWorkoutRefreshAndSupersede(t *testing.T) {
 	}
 	if before.Score != nil || before.Status != "superseded" {
 		t.Fatalf("must supersede at civil-day anchor boundary: %+v", before)
+	}
+}
+
+func withLoad(in ReadinessSnapshot, id string, end int64, au *float64, quality string, conflict bool) ReadinessSnapshot {
+	day := time.UnixMicro(end).UTC().Format(time.DateOnly)
+	in.Loads = append(in.Loads, WorkoutLoad{ID: id, End: end, Model: LoadModelV2, AU: au, Quality: quality, Compatible: !conflict, Conflict: conflict, Days: []DailyLoad{{day, au, quality}}})
+	return in
+}
+
+// Estimated-tier (partial quality) loads are known; only their value counts.
+func TestV3PartialLoadIsKnown(t *testing.T) {
+	complete, err := CalculateV3(v2Fixture())
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := v2Fixture()
+	for i := range in.Loads {
+		in.Loads[i].Quality = "partial"
+		in.Loads[i].Days[0].Quality = "partial"
+	}
+	partial, err := CalculateV3(in)
+	if err != nil || partial.Score == nil || *partial.Score != *complete.Score || partial.Baseline.TrainingDays != complete.Baseline.TrainingDays {
+		t.Fatalf("partial loads changed readiness: %v %+v", err, partial.Reasons)
+	}
+}
+
+// E8: an unknown Workout months ago no longer vetoes today's score, while a
+// recent one whose decayed weight is material still does.
+func TestV3UnknownBurdenIsDecayed(t *testing.T) {
+	base, _ := CalculateV3(v2Fixture())
+	old := withLoad(v2Fixture(), "old-unknown", v2Fixture().AsOf-100*24*Hour, nil, "insufficient", false)
+	r, err := CalculateV3(old)
+	if err != nil || r.Score == nil || r.UnknownBurden == nil || *r.UnknownBurden > 1e-9 {
+		t.Fatalf("old unknown vetoed readiness: %v %+v", err, r.Reasons)
+	}
+	near(t, *r.Score, *base.Score)
+	threeDays := withLoad(v2Fixture(), "older-unknown", v2Fixture().AsOf-72*Hour, nil, "insufficient", false)
+	r, _ = CalculateV3(threeDays)
+	if r.Score == nil || *r.Score >= *base.Score || !r.Terms[len(r.Terms)-1].Imputed || r.Confidence >= base.Confidence {
+		t.Fatalf("three-day-old unknown must be imputed at the typical load: %+v", r)
+	}
+	recent := withLoad(v2Fixture(), "recent-unknown", v2Fixture().AsOf-2*Hour, nil, "insufficient", false)
+	r, _ = CalculateV3(recent)
+	if r.Score != nil || !slices.Contains(r.Reasons, "recent_load_unknown") || r.Status == "source_conflict" {
+		t.Fatalf("recent unknown must block: %+v", r)
+	}
+	conflict := withLoad(v2Fixture(), "recent-conflict", v2Fixture().AsOf-2*Hour, nil, "insufficient", true)
+	r, _ = CalculateV3(conflict)
+	if r.Status != "source_conflict" || !slices.Contains(r.Reasons, "load_parameter_conflict") {
+		t.Fatalf("material conflict must stay explicit: %+v", r)
+	}
+	oldConflict := withLoad(v2Fixture(), "old-conflict", v2Fixture().AsOf-60*24*Hour, nil, "insufficient", true)
+	r, _ = CalculateV3(oldConflict)
+	if r.Score == nil || r.Status != "available" {
+		t.Fatalf("old conflict vetoed readiness: %+v", r)
 	}
 }

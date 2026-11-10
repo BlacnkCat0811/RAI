@@ -139,7 +139,7 @@ func Calculate(input ReadinessSnapshot) (Result, error) {
 			r.UnknownLoads++
 		} else {
 			r.KnownLoads++
-			r.Terms = append(r.Terms, Term{w.End, *w.AU})
+			r.Terms = append(r.Terms, Term{End: w.End, AU: *w.AU})
 		}
 	}
 	if r.UnknownLoads == 0 {

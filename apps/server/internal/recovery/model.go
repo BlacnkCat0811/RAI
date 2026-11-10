@@ -105,10 +105,14 @@ type Day struct {
 type Fact struct {
 	ContextIncomplete                            bool
 	Type, ID, Hash, SemanticHash, Epoch, SyncKey string
-	Start, End, KnownAt, Revision                int64
-	Value                                        *float64
-	Category                                     *int
-	Manual                                       bool
+	// StableEpoch is the loader's software-version-free source identity. It
+	// is not part of the frozen v1 input hash; the v2 stack substitutes it for
+	// Epoch so baselines survive watchOS updates.
+	StableEpoch                   string `json:"-"`
+	Start, End, KnownAt, Revision int64
+	Value                         *float64
+	Category                      *int
+	Manual                        bool
 }
 type Tombstone struct {
 	Type, ID, Hash    string

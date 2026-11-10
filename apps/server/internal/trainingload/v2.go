@@ -34,18 +34,27 @@ type V2Input struct {
 	WorkoutInput
 	Reference         *Reference `json:"reference"`
 	ReferenceConflict bool       `json:"referenceConflict"`
-	OverlapResolved   bool       `json:"overlapResolved"`
-	OverlapUnknown    bool       `json:"overlapUnknown"`
+	// ReferenceInvalid isolates a reference row that failed validation to this
+	// Workout: its load is unknown with an explicit reason instead of failing
+	// the whole day release.
+	ReferenceInvalid bool `json:"referenceInvalid,omitempty"`
+	OverlapResolved  bool `json:"overlapResolved"`
+	OverlapUnknown   bool `json:"overlapUnknown"`
 }
 
+// ConfigHashV2 identifies the bounded product policy: quality tiers, HRR
+// clamped to [0,1] instead of zero tolerance, and imputation of a bounded
+// unknown-day weight in the load state.
 func ConfigHashV2() string {
 	return Hash(struct {
-		Load, State, Exposure               string
-		Coverage, MaxGap, Conflict, Summary float64
-		Ratio                               float64
-		Horizon                             int
-		ReferencePolicy, Overlap            string
-	}{AlgorithmV2 + "/" + VersionV2, StateAlgorithmV2 + "/" + VersionV2, wf.ExposureSchema, .95, 30, 0, .35, 1, Horizon, "hr_reference/2;365d/90d;baseline28d/v2", "positive-intersection-knownness/v1"})
+		Load, State, Exposure                                   string
+		CompleteCoverage, CompleteMaxGap                        float64
+		EstimatedCoverage, EstimatedMaxGap                      float64
+		Summary, Ratio                                          float64
+		AcuteUnknownMass, ChronicUnknownMass                    float64
+		Horizon                                                 int
+		ReferencePolicy, Overlap, BoundPolicy, ImputationPolicy string
+	}{AlgorithmV2 + "/" + VersionV2, StateAlgorithmV2 + "/" + VersionV2, wf.ExposureSchema, CompleteCoverage, CompleteMaxGap, EstimatedCoverage, EstimatedMaxGap, .35, 1, AcuteUnknownMassMax, ChronicUnknownMassMax, Horizon, "hr_reference/2;365d/90d;baseline28d;revised-known-at/v2.1", "positive-intersection-knownness/v1", "hrr-clamp-0-1;tiers/v3", "ring-mean-known-training-day/v1"})
 }
 
 func ScopeV2(workout string) string { return ScopeV2For(workout, wf.StackID()) }
@@ -66,7 +75,7 @@ func ScopeStateV2For(stack string) string {
 func CalculateTrainingLoadV2(in V2Input, generation int64) (Result, error) {
 	base := in.WorkoutInput
 	if in.Deleted {
-		r, err := CalculateTrainingLoad(base, generation)
+		r, err := calculateLoad(base, generation, boundedPolicy)
 		if err != nil {
 			return Result{}, err
 		}
@@ -74,7 +83,7 @@ func CalculateTrainingLoadV2(in V2Input, generation int64) (Result, error) {
 		return r, nil
 	}
 	if in.ReferenceConflict {
-		r, err := CalculateTrainingLoad(base, generation)
+		r, err := calculateLoad(base, generation, boundedPolicy)
 		if err != nil {
 			return Result{}, err
 		}
@@ -83,10 +92,20 @@ func CalculateTrainingLoadV2(in V2Input, generation int64) (Result, error) {
 		r.ReasonCodes = append(r.ReasonCodes, "reference_conflict")
 		return r, nil
 	}
+	if in.ReferenceInvalid {
+		base.Exposure.Parameter = nil
+		r, err := calculateLoad(base, generation, boundedPolicy)
+		if err != nil {
+			return Result{}, err
+		}
+		r.Schema, r.Model, r.ModelVersion, r.ConfigHash, r.Scope = SchemaV2, AlgorithmV2, VersionV2, ConfigHashV2(), ScopeV2(r.WorkoutID)
+		r.ReasonCodes = append(r.ReasonCodes, "reference_invalid")
+		return r, nil
+	}
 	if in.Reference == nil || in.Reference.ID == "" || in.Reference.Hash == "" || !finite(in.Reference.RestHR) || !finite(in.Reference.MaxHR) || in.Reference.RestHR <= 0 || in.Reference.MaxHR <= in.Reference.RestHR || in.Reference.MeasuredAt <= 0 || in.Reference.RecordedAt <= 0 || in.Reference.Provenance == "" {
 		if in.Reference == nil {
 			base.Exposure.Parameter = nil
-			r, err := CalculateTrainingLoad(base, generation)
+			r, err := calculateLoad(base, generation, boundedPolicy)
 			if err != nil {
 				return Result{}, err
 			}
@@ -97,7 +116,7 @@ func CalculateTrainingLoadV2(in V2Input, generation int64) (Result, error) {
 		return Result{}, ErrV2Invalid
 	}
 	base.Exposure.Parameter = &wf.Parameter{ID: in.Reference.ID, Hash: in.Reference.Hash, EffectiveFrom: in.Reference.MeasuredAt, RecordedAt: in.Reference.RecordedAt, RestHR: in.Reference.RestHR, MaxHR: in.Reference.MaxHR, Provenance: in.Reference.Provenance}
-	r, err := CalculateTrainingLoad(base, generation)
+	r, err := calculateLoad(base, generation, boundedPolicy)
 	if err != nil {
 		return Result{}, err
 	}
@@ -127,7 +146,7 @@ func CalculateTrainingLoadV2(in V2Input, generation int64) (Result, error) {
 }
 
 func CalculateLoadStateV2(in StateInput) (StateResult, error) {
-	r, err := CalculateLoadState(in)
+	r, err := calculateLoadState(in, true)
 	if err != nil {
 		return StateResult{}, err
 	}
