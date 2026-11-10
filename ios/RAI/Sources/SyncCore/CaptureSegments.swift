@@ -277,15 +277,6 @@ extension OutboxStore {
         return writer
     }
     public func abandonCaptureSegment(_ id: String) { activeCaptureSegments.remove(id) }
-    /// Seal a writer and release its in-flight registration in one step. Use this
-    /// (not `writer.seal()`) whenever the caller opened the writer through
-    /// `openCaptureSegment`, so GC can treat the sealed file as reclaimable when
-    /// nothing references it.
-    @discardableResult
-    public func sealCaptureSegment(_ writer: CaptureSegmentWriter) throws -> CaptureSegmentSeal {
-        defer { activeCaptureSegments.remove(writer.id) }
-        return try writer.seal()
-    }
     /// Capture one bounded batch of objects of one type into one sealed segment
     /// and, by default, commit their facts in a single atomic state write.
     ///

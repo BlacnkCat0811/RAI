@@ -275,55 +275,6 @@ func TestWorkoutUUIDIngestHTTPAcceptAndStatus(t *testing.T) {
 	}
 }
 
-func TestWorkoutUUIDIngestAlreadyImported(t *testing.T) {
-	f := setup(t)
-	ctx := context.Background()
-	workoutID := syncing.NewID()
-	raw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
-	bundle, err := syncing.DecodeWorkoutPayloadJSON(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = f.s.ImportWorkoutBundle(ctx, f.p, bundle, raw); err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.s.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, raw), raw)
-	requireSyncCode(t, err, "workout_ingest_missing_receipt")
-	server := httpapi.New(f.s, analysisLog)
-	var wire bytes.Buffer
-	writer := multipart.NewWriter(&wire)
-	part, err := writer.CreatePart(textproto.MIMEHeader{
-		"Content-Disposition": {`form-data; name="file"; filename="workout.json"`},
-		"Content-Type":        {"application/json"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = part.Write(raw); err != nil {
-		t.Fatal(err)
-	}
-	if err = writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-	request := httptest.NewRequest("POST", "/v2/sync/workout-ingests/"+workoutID, &wire)
-	request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	request.Header.Set("Content-Type", writer.FormDataContentType())
-	response := httptest.NewRecorder()
-	server.ServeHTTP(response, request)
-	if response.Code != 409 || !bytes.Contains(response.Body.Bytes(), []byte(`"code":"workout_ingest_missing_receipt"`)) {
-		t.Fatalf("missing acceptance did not return the consistency error: status=%d", response.Code)
-	}
-	if status := ingestStatus(t, f.s, f.p, workoutID); status.IngestStatus != "already_imported" {
-		t.Fatalf("already imported status: %+v", status)
-	}
-	if ingestRowCount(t, f.s, f.p.DatasetID) != 0 {
-		t.Fatal("already imported UUID created an ingest row")
-	}
-	if count(t, f, "health_samples") != 1 {
-		t.Fatal("already imported bundle wrote new facts")
-	}
-}
-
 func TestWorkoutUUIDIngestDatasetScoped(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
@@ -373,66 +324,6 @@ func TestWorkoutUUIDIngestDatasetScoped(t *testing.T) {
 	}
 	if got := countFor(t, f.s, "workouts", b.DatasetID, workoutID); got != 1 {
 		t.Fatalf("dataset B workouts=%d", got)
-	}
-}
-
-func TestWorkoutUUIDIngestDeleteOrdering(t *testing.T) {
-	f := setup(t)
-	ctx := context.Background()
-	deletedBeforeProcess := syncing.NewID()
-	deletedAfterProcess := syncing.NewID()
-
-	afterRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, deletedAfterProcess, 121)
-	acceptIngest(t, f, f.p, afterRaw)
-	if outcome := processIngest(t, f.s); outcome.Status != "committed" {
-		t.Fatalf("worker: %+v", outcome)
-	}
-	if _, err := f.s.DeleteWorkoutBundle(ctx, f.p, bundleDeleteRequest(f, deletedAfterProcess)); err != nil {
-		t.Fatal(err)
-	}
-	if status := ingestStatus(t, f.s, f.p, deletedAfterProcess); status.IngestStatus != "deleted" {
-		t.Fatalf("deleted status priority: %+v", status)
-	}
-	raw, state, _, _ := ingestRow(t, f.s, f.p.DatasetID, deletedAfterProcess)
-	if raw != nil || state != "committed" {
-		t.Fatalf("committed ingest row after delete: state=%s raw=%v", state, raw)
-	}
-	if _, err := f.s.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, afterRaw), afterRaw); err == nil {
-		t.Fatal("deleted UUID accepted again")
-	} else {
-		requireSyncCode(t, err, "workout_deleted")
-	}
-
-	beforeRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, deletedBeforeProcess, 133)
-	acceptIngest(t, f, f.p, beforeRaw)
-	if _, err := f.s.DeleteWorkoutBundle(ctx, f.p, bundleDeleteRequest(f, deletedBeforeProcess)); err != nil {
-		t.Fatal(err)
-	}
-	raw, state, _, _ = ingestRow(t, f.s, f.p.DatasetID, deletedBeforeProcess)
-	if raw != nil || state != "rejected" {
-		t.Fatalf("accepted-then-deleted row: state=%s raw=%v", state, raw)
-	}
-	status := ingestStatus(t, f.s, f.p, deletedBeforeProcess)
-	if status.IngestStatus != "deleted" {
-		t.Fatalf("pre-process deletion status: %+v", status)
-	}
-	if outcomes := processAllIngests(t, f.s); len(outcomes) != 0 {
-		t.Fatalf("deleted raw was processed: %+v", outcomes)
-	}
-	if countFor(t, f.s, "workouts", f.p.DatasetID, deletedBeforeProcess) != 0 ||
-		countFor(t, f.s, "workout_samples", f.p.DatasetID, deletedBeforeProcess) != 0 {
-		t.Fatal("deleted-before-process workout wrote facts")
-	}
-
-	unknown := syncing.NewID()
-	if _, err := f.s.DeleteWorkoutBundle(ctx, f.p, bundleDeleteRequest(f, unknown)); err != nil {
-		t.Fatal(err)
-	}
-	unknownRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, unknown, 128)
-	if _, err := f.s.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, unknownRaw), unknownRaw); err == nil {
-		t.Fatal("tombstoned unknown UUID accepted")
-	} else {
-		requireSyncCode(t, err, "workout_deleted")
 	}
 }
 

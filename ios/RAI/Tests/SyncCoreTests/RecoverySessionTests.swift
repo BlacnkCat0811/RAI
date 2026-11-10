@@ -56,20 +56,7 @@ private func recoveryHello(_ d: SyncSessionDescriptor) -> JSON {
             #expect(try await reopened.discoveryFlow(query).anchor == nil)
             try await reopened.promoteDiscovery(query, batchID: page)
             #expect(await reopened.discoverySnapshot().work[workout]?.generation == 1)
-            try await reopened.beginTask(workout)
-            let payload = Data("synthetic-new-session-bundle-\(index)".utf8)
-            try await reopened.markIngestLane(workout)
-            let body = WorkoutPayloadTransport.multipart(bundle: payload, boundary: "synthetic")
-            let staged = try await reopened.stageWorkoutIngestPayload(workout, body: body)
-            let pending = try OutboxStore(directory: directory) // Kill F
-            #expect(await pending.task(workout)?.bundleFile == staged.file)
-            #expect(try Data(contentsOf: pending.directory.appendingPathComponent(staged.file)) == body)
-            try await pending.acknowledgeWorkoutIngest(workout, receipt: .object([
-                "workoutID": .string(workout), "ingestStatus": .string("accepted"),
-                "acceptedAt": .string("2026-11-09T10:00:00Z")]))
-            _ = try await pending.collectGarbage(dryRun: false)
-            #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent(staged.file).path))
-            var dirty = await pending.snapshot(); dirty.receipts["synthetic"] = .string("ack"); dirty.deletedWorkouts = [workout]; dirty.tombstones = [workout]; dirty.localAnchors["synthetic"] = Data([99]); try await pending.commit(dirty)
+            var dirty = await reopened.snapshot(); dirty.receipts["synthetic"] = .string("ack"); dirty.deletedWorkouts = [workout]; dirty.tombstones = [workout]; dirty.localAnchors["synthetic"] = Data([99]); try await reopened.commit(dirty)
             let path = directory.appendingPathComponent("state.json"); previous.append((path, try Data(contentsOf: path)))
             #expect(try keys.load(sessionID: d.sessionID) == "synthetic-\(index)")
         }

@@ -74,25 +74,6 @@ public struct WorkoutCoverage: Codable, Sendable, Equatable {
     }
 }
 
-/// Bounded follow-up for an acknowledged Workout whose analysis is still
-/// asynchronous. The first refresh is immediate; later attempts use the
-/// server-visible backoff. The total budget stays below ten minutes and the
-/// closed phase set stops the loop as soon as publication is final.
-public enum AnalysisFollowup {
-    public static let delays: [TimeInterval] = [2, 5, 15, 30, 60, 120, 300]
-    /// A repeated unchanged sync may schedule one refresh when the last check
-    /// is older than this; it never starts an unbounded poll.
-    public static let staleRefreshInterval: TimeInterval = 30
-    public static func shouldContinue(_ phase: WorkoutSyncPhase) -> Bool {
-        phase == .accepted || phase == .acknowledged || phase == .analyzing
-    }
-    public static func delay(forAttempt attempt: Int) -> TimeInterval? {
-        guard attempt >= 0, attempt < delays.count else { return nil }
-        return delays[attempt]
-    }
-    public static var totalBudget: TimeInterval { delays.reduce(0, +) }
-}
-
 /// A local aggregate for one HKWorkout import task. Protocol 6 sends the
 /// complete Workout as one immutable raw payload; there are no pages, batches
 /// or association operations in this path.

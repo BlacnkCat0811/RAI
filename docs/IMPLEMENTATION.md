@@ -1667,3 +1667,58 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - 同轮修复：三处 admin 迁移测试断言由过期的 59 改为实测 60（本分支 `00051` 删 `workout_sync_completeness` 一表；HEAD 实测 61 张）；`ios/RAI/Sources/ProductCore/AthleteModel.swift` 的白名单加入 `rai.readiness.training/v3`（`swift --filter AthleteModel` 5 tests PASS）。
 
 仍未验证：未跑 `scripts/local/test.sh full` 或全量 integration 回归；真机与部署验收未变（沿用上一节结论）。
+
+### v3 写协议与 v3-only 存储下线、脏区写入收敛、worker 显式 as-of — 已实施（2026-11-10）
+
+变更：
+
+- 后端删除 v2/v3 同步写协议：`internal/syncing` 删除 `association.go`(40)、`enrichment.go`(65)、`workout_package.go`(275)、`workout_delete.go`(29) 及 `protocol.go`/`route.go`/`series.go` 中 `Envelope`/`StreamRequest`/`Batch`/`Page`/`Series`/`Route` 写路径（`ParseBody`、`DecodeJSON`、`ProtocolVersion=2` 等），`internal/httpapi` 删除未注册的 12 个 legacy handler。写协议收窄为 protocol 6：`internal/syncing/bundle_decode.go:43` 只接受 `ProtocolVersion == 6`；`workout_bundle.go` 内部 Validate 保留 3..6 兼容仅用于历史 bundle 解释，不是新写入路径。读路径与 v4/v5 既有数据解释未动。
+- v3-only 存储删除：`internal/storage/postgres` 删除 `associations.go`/`enrichments.go`/`pages.go`/`routes.go`/`series.go`/`workout_packages.go`，裁剪 `store.go`/`workout_bundles.go`（删除 exported `ImportWorkoutBundle`/`WorkoutImport`/`DeleteWorkoutBundle`；v6 路径改走包内 `importWorkoutBundle`），保留 `Store.Job`/`CommitDaily`/`CommitVO2` 与全部读路径。
+- 脏区事务收敛：新增 `internal/storage/postgres/analysis_dirty.go` 的 `MarkAnalysisDirty(ctx, tx, dataset, scope, kind, from, through)`，11 处裸 `SELECT rai_analysis_dirty` 调用（`admin/{analysis,features,performance,load}.go` 9 处、`analysis_publish.go` 2 处）改为单一 helper，参数与区间调整逐处保持不变；语义特殊的 3 处 SQL 保留并注释（`analysis_publish.go:342,:466`、`load_advance.go:36`）。
+- worker 显式 as-of 与错误处理：`cmd/rai/main.go:136-141` 每次启动只读一次 UTC 时间并传给 `jobs.Run`；`Run → Process → processWithRenewal → AdvanceAnalysisDay/LoadAnalysis/ProcessModelStack/LoadTraining` 全链路使用同一 `asOf`；`resolveAsOf` 的 wall-clock 兜底仅测试/兼容（生产路径不读）。恢复调度由 wall-clock delta 检查改为 15s ticker（首次立即执行），指标以 `time.Since(at)` 计。原先被吞掉的错误：analysis Algorithm 查找失败改为 `FailAnalysis` 并保留 cause；`FailAnalysis`/`FailTraining` 收尾、`StartAnalysisRun` 不完整快照、`TrainingVersions` 读取失败均记录 Warn（`analysis_run_start_failed`/`analysis_failure_record_failed`/`training_failure_record_failed`/`training_versions_read_failed`）。
+- iOS 删除死代码：19 文件 −1,425 行（prod −838、tests −586），含 `CaptureConcurrency.swift`、`SourceClassification.swift`、`OutboxStore` workout-task 管线等；`scripts/local/test.sh swift` PASS（186 tests / 30 suites）。
+
+真实证据（本机）：
+
+- 最终工作树 162 文件 +411/−32,814（其中本节文档 +25）：backend 142 文件 +385/−31,389（`internal/syncing`+`httpapi` 16 文件 +130/−2,313；`internal/storage` 13 文件 +108/−2,406；worker/admin 收窄 9 文件 +154/−71）；`integration` 106 文件 +1/−26,601（删除 103 个 legacy 套件）；`ios` 19 文件 +1/−1,425。
+- `scripts/local/test.sh gate` PASS：`LOCAL CHECKS: PASS profile=gate elapsed_seconds=23`；go race/vet/依赖边界全绿；隔离 PostgreSQL 18.6 上 admin 迁移集成整包 PASS（`ok rai/server/internal/admin 17.141s`，`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`）；依赖边界 264 packages、产品边界 files=46、设备脚本 4 tests 通过。
+- 真实隔离 PostgreSQL 18.6 事务级验证：`scripts/local/test.sh integration -run 'TestMarkAnalysisDirty' ./integration/` PASS（`ok rai/server/integration 4.544s`；`WritesScopeRange` 1.21s、`LoadDayBoundary` 0.90s、`RollbackLeavesNoScope` 0.99s），覆盖 helper 的 generation、区间、去重扩展与回滚语义。
+- `go build ./...`、`go vet ./...`、`go test ./...` 全绿；新增未跟踪测试文件：`integration/analysis_dirty_test.go`、`integration/helpers_test.go`、`internal/syncing/wire_test_helpers_test.go`。
+
+仍未验证：
+
+- 103 个 legacy integration 套件（analysis/features/load/performance/training/admin/vo2 等约 3 万行）已删除，原因是其数据播种全部依赖被删除的 v2/v3 `Commit`/`Event` 路径；本次只为新增的 `MarkAnalysisDirty` 合同补了真库用例，11 个转换站点的 admin/features/load/performance/publish 全流程回归未重建，属明确覆盖债，不能视为已恢复。
+- 真实 iPhone/HealthKit 与云端部署验收未执行；云端数据库仍 schema 50，现网 iOS 仍 v4/v5，本变更未部署。
+- `resolveAsOf` 兜底仍存在（未来调用方漏传 asOf 会静默使用 wall-clock）；恢复调度改为 15s ticker 的行为等价性只有单测覆盖，无长跑观测。
+- `workout_bundle.go` 内部 Validate 仍接受 3..6（历史 bundle 解释所需），若确认无历史数据可再收窄。
+- App/UITests 仅 Xcode 构建，本次 iOS 删除由 SwiftPM 测试与 grep 证明可达性，未跑 `xcodebuild test`。
+
+### 遗留风险收敛（protocol-6 收窄 / Xcode 测试 / 脏流真库用例） — 已实施（2026-11-10）
+
+- protocol-6 收窄：`apps/server/internal/syncing/workout_bundle.go` 的 `Validate()` 版本守卫由 `b.ProtocolVersion < 3 || b.ProtocolVersion > 6` 改为 `b.ProtocolVersion != 6`，并重写注释为“拒绝其它版本标签，避免历史 bundle 形状经内部调用方重新进入”；解码边界 `bundle_decode.go:43` 原本即 `!= 6`。新增 `TestBundleValidateProtocol6Only`（协议 2/3/4/5 → `*syncing.Error` 422 `unsupported_payload`，协议 6 通过）。httpapi 层的 v2–v5 旧信封 → HTTP 422 `unsupported_payload` 回归由既有 `TestWorkoutUUIDIngestRejectsOlderPayloadVersions` 覆盖。原文档“内部 Validate 仍接受 3..6”的残留风险作废。
+- Xcode App 层验证：`xcodebuild test -project ios/RAI/RAI.xcodeproj -scheme RAI -destination 'platform=iOS Simulator,name=RAI Local Tests' -only-testing:RAITests -derivedDataPath /tmp/RAI-xcodebuild-DD` PASS（87 executed / 6 skipped，iPhone 17 Pro iOS 26.5 模拟器）；未改任何 App 代码。此前失败中 `SyncCoordinator.swift:338` 的 “missing argument for parameter 'store'” 系默认 DerivedData 陈旧产物所致，改用独立 derivedDataPath 后消除。`RAIUITests` 10/11 失败仅因 P6 验收 host（`/tmp/rai-p6-native-acceptance/config.json`）未启动，属环境性、非本次删除导致。SwiftPM 测试仍 PASS（186 tests / 30 suites）。
+- 脏流真库覆盖：新增只读测试文件 `apps/server/integration/dirty_flows_test.go`（218 行）——`TestDirtyFlowPublishAfterIngest`、`TestDirtyFlowLoadDayAdvance` 在隔离 PostgreSQL 18.6 上 PASS（1.20s / 0.90s），覆盖 v6 ingest → analysis publish/advance → `rai_analysis_dirty` 行范围与 load 日界限写入；`LOCAL CHECKS: PASS profile=integration`。
+- 最终完成门禁：修复 `workout_bundle_test.go` 断言（改为类型断言 `*syncing.Error` 并检查 `Status == 422 && Code == "unsupported_payload"`）后，`scripts/local/test.sh gate` 通过：`LOCAL CHECKS: PASS profile=gate elapsed_seconds=36`，`GATE_EXIT=0`；`go test ./internal/syncing ./internal/httpapi` 均 ok。
+
+仍未验证（本次更新后）：
+
+- 103 个 legacy integration 套件（约 3 万行）覆盖债仍在：本次只补了 dirty 流的 publish/advance/load 两个端到端用例；admin/features/performance 中其余 `MarkAnalysisDirty` 转换站点、FailAnalysis/supersede、`analysis_publish.go:336` 的 training_state 分支仍未重建真库回归，不能视为已恢复。
+- 真实 iPhone/HealthKit 与云端部署验收未执行；云端仍 schema 50，现网 iOS 仍 v4/v5，本变更未部署。
+- `RAIUITests` 需要 P6 原生验收 host，未通过；本次 iOS 删除仅由 SwiftPM 测试、`RAITests` 与 grep 可达性证明。
+- `full` profile 未在本最终树上重跑（上一次 full 因并发编辑出现 transient 编译失败）；`gate`（go race/vet/边界 + 隔离 PG admin 迁移）已在本树通过。
+
+### 遗留风险收敛（v3 写协议/存储删除后的残余项）— 已实施（2026-11-10）
+
+- 协议收窄：`apps/server/internal/syncing/workout_bundle.go` 内部 `Validate` 由 3..6 收窄为仅 6，注释同步改写；解码边界 `apps/server/internal/syncing/bundle_decode.go` 仍只接受 `protocolVersion == 6`。新增 `TestBundleValidateProtocol6Only`（v2/v3/v4/v5 → 422 `unsupported_payload`，v6 通过）；旧协议 HTTP 上传由既有 `TestWorkoutUUIDIngestRejectsOlderPayloadVersions` 覆盖。
+- iOS App 测试：`xcodebuild test -project ios/RAI/RAI.xcodeproj -scheme RAI -destination 'platform=iOS Simulator,name=RAI Local Tests' -only-testing:RAITests -derivedDataPath /tmp/RAI-xcodebuild-DD` PASS 87 executed / 6 skipped；`scripts/local/test.sh swift` PASS 186 tests / 30 suites。
+- 脏事务流真实 PG 覆盖：新增 `apps/server/integration/dirty_flows_test.go`（218 行），`TestDirtyFlowPublishAfterIngest`、`TestDirtyFlowLoadDayAdvance` 在隔离 PostgreSQL 18.6 通过。
+
+真实证据（本机）：
+- `cd apps/server && source ../../scripts/local/lib.sh && rai_go_env && go test ./internal/syncing ./internal/httpapi` → ok（缓存命中）。
+- `cd /Users/ta/RAI && scripts/local/test.sh gate` → `LOCAL CHECKS: PASS profile=gate elapsed_seconds=19`（Go race/vet、依赖边界、隔离 PG18.6 admin 迁移测试）。
+- `scripts/local/test.sh integration -run 'TestDirtyFlow' ./integration/` → `LOCAL CHECKS: PASS profile=integration`（本轮任务记录）。
+
+仍未验证：
+- `RAIUITests` 10/11 依赖 P6 acceptance host（`/tmp/rai-p6-native-acceptance`），本轮未运行；无真机 iPhone/HealthKit 验收。
+- 云端仍为旧构建（schema 50）；当前 iOS v4/v5 上传在 v6-only 服务端会得到 422 `unsupported_payload`，需部署新版本后生效。
+- 103 个被删除的旧集成套件（约 3 万行）仅为部分替代：本轮只新增两条真实 PG 脏流测试；模型/trimp/readiness 等脏事务路径仍缺集成覆盖。

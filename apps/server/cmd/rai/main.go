@@ -137,7 +137,8 @@ func run(log *slog.Logger) error {
 		if err = store.Ready(ctx); err != nil {
 			return errors.New("worker schema not ready")
 		}
-		return jobs.Run(ctx, store, log)
+		asOf := time.Now().UTC()
+		return jobs.Run(ctx, store, log, asOf)
 	}
 	addr, err := config.ListenAddr()
 	if err != nil {

@@ -71,7 +71,7 @@ func QueueFeatureCandidate(ctx context.Context, s *postgres.Store, dataset, work
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, dataset, wf.Scope(workout), wf.JobKind, from, through)
+	err = postgres.MarkAnalysisDirty(ctx, tx, dataset, wf.Scope(workout), wf.JobKind, from, through)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func SetFeatureHRReference(ctx context.Context, s *postgres.Store, dataset strin
 		return errors.New("parameter range exceeds bounded capacity")
 	}
 	for _, x := range refs {
-		if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, dataset, wf.Scope(x.id), wf.JobKind, x.a, x.b); err != nil {
+		if err = postgres.MarkAnalysisDirty(ctx, tx, dataset, wf.Scope(x.id), wf.JobKind, x.a, x.b); err != nil {
 			return err
 		}
 	}

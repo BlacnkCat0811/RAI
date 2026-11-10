@@ -76,9 +76,6 @@ public struct DiscoveryWork: Codable, Sendable {
         selected && ((generation > deliveredGeneration && (error == nil || attempt <= 3)) ||
             (error == "partial_read_pending" && attempt <= 3))
     }
-    public func needsDelivery(now: Date = Date()) -> Bool {
-        hasAutomaticDeliveryWork && (nextAttemptAt ?? .distantPast) <= now
-    }
 }
 public struct DiscoveryState: Codable, Sendable {
     public var flows: [String: DiscoveryFlow] = [:]
@@ -198,12 +195,6 @@ extension OutboxStore {
         }
         next.discovery = discovery; try commit(next)
     }
-    public func selectDiscoveredWorkout(_ id: String) throws {
-        var next = state; var discovery = next.discovery ?? DiscoveryState(); var work = discovery.work[id] ?? DiscoveryWork()
-        guard !next.deletedWorkouts.contains(id) else { throw SyncFailure.localState("workout_deleted") }
-        work.selected = true; work.error = nil; work.nextAttemptAt = nil; work.attempt = 0
-        discovery.work[id] = work; next.discovery = discovery; try commit(next)
-    }
     public func associateDiscoveredFacts(workoutID: String, keys: [String]) throws {
         var next = state; var discovery = next.discovery ?? DiscoveryState()
         // Index unresolved events once. Scanning the entire historical journal
@@ -235,22 +226,6 @@ extension OutboxStore {
         // `updatedAt` on every producer pass.
         guard changed else { commitSkippedNoop += 1; return }
         next.discovery = discovery; try commit(next)
-    }
-    public func discoveryFailure(_ id: String, code: String) throws {
-        var next = state
-        if var work = next.discovery?.work[id] {
-            work.error = code; work.attempt += 1
-            work.nextAttemptAt = Date().addingTimeInterval(min(900, pow(2, Double(min(work.attempt, 9)))))
-            next.discovery?.work[id] = work
-        }
-        try commit(next)
-    }
-    public func discoveryAdvanceCursor(_ count: Int, total: Int) throws {
-        var next = state
-        let remaining = next.discovery?.cycleRemaining ?? 0
-        next.discovery?.scanCursor += count
-        next.discovery?.cycleRemaining = max(0, (remaining == 0 ? total : remaining) - count)
-        try commit(next)
     }
     /// A corrupt/old anchor is quarantined. This explicit API creates a new
     /// namespace for controlled rediscovery; old queues/anchors stay intact.

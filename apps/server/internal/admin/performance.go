@@ -112,11 +112,11 @@ func QueuePerformanceCandidate(ctx context.Context, s *postgres.Store, dataset, 
 		if r.fresh {
 			continue
 		}
-		if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, dataset, wf.Scope(r.id), wf.JobKind, r.from, r.through); err != nil {
+		if err = postgres.MarkAnalysisDirty(ctx, tx, dataset, wf.Scope(r.id), wf.JobKind, r.from, r.through); err != nil {
 			return err
 		}
 	}
-	if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, dataset, pf.Scope(), pf.JobKind, at.AddDate(0, 0, -90), at); err != nil {
+	if err = postgres.MarkAnalysisDirty(ctx, tx, dataset, pf.Scope(), pf.JobKind, at.AddDate(0, 0, -90), at); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

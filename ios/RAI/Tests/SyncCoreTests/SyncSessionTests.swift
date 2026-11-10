@@ -35,10 +35,6 @@ private func handshake(_ d: SyncSessionDescriptor) -> JSON {
         try await sessions.activate(a.sessionID, handshake: handshake(a))
         let old = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: a.sessionID))
         let workout = Wire.id(), q = DiscoveryQuery(type: "HKWorkoutTypeIdentifier")
-        try await old.beginTask(workout)
-        try await old.markIngestLane(workout)
-        _ = try await old.stageWorkoutIngestPayload(workout,
-            body: WorkoutPayloadTransport.multipart(bundle: Data("synthetic-old-bundle".utf8), boundary: "rai.old.boundary"))
         var state = await old.snapshot()
         state.receipts["old"] = .string("synthetic-receipt"); state.localAnchors["old"] = Data([9])
         state.deletedWorkouts = [workout]; state.tombstones = [workout]

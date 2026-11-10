@@ -34,40 +34,49 @@ var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "
 
 // Run uses one processing slot. The short poll waits on cancellation and the
 // independent renewal loop cancels calculation immediately after lease loss.
-func Run(ctx context.Context, q Queue, log *slog.Logger) error {
+//
+// The caller passes one explicit as-of instant so day advancement and analysis
+// snapshots stay deterministic for the whole run; the value is threaded
+// unchanged into every downstream operation.
+func Run(ctx context.Context, q Queue, log *slog.Logger, asOf time.Time) error {
 	log.Info("worker_started", "handlers", len(kinds), "processing_slots", 1)
 	go runWorkoutIngests(ctx, q, log)
 	poll := time.NewTicker(time.Second)
 	defer poll.Stop()
-	lastRecovery := time.Time{}
+	recovery := time.NewTicker(15 * time.Second)
+	defer recovery.Stop()
+	elapsed := func() time.Duration { return time.Since(asOf) }
+	recoverExpired := func() {
+		n, e := q.RequeueExpired(ctx)
+		if e != nil && ctx.Err() == nil {
+			log.Warn("queue_recovery_failed", "reason", "database_unavailable")
+		}
+		if n > 0 {
+			log.Info("leases_recovered", "count", n)
+		}
+		if e = q.AdvanceAnalysisDay(ctx, asOf); e != nil && ctx.Err() == nil {
+			log.Warn("analysis_day_advance_failed", "reason", "database_unavailable")
+		}
+	}
+	recoverExpired()
 	for {
 		if ctx.Err() != nil {
 			return nil
 		}
-		if time.Since(lastRecovery) >= 15*time.Second {
-			n, e := q.RequeueExpired(ctx)
-			if e != nil && ctx.Err() == nil {
-				log.Warn("queue_recovery_failed", "reason", "database_unavailable")
-			}
-			if n > 0 {
-				log.Info("leases_recovered", "count", n)
-			}
-			if e = q.AdvanceAnalysisDay(ctx, time.Now().UTC()); e != nil && ctx.Err() == nil {
-				log.Warn("analysis_day_advance_failed", "reason", "database_unavailable")
-			}
-			lastRecovery = time.Now()
-		}
-		claimStart := time.Now()
-		l, e := q.Claim(ctx, kinds)
-		if e == nil {
-			log.Info("job_claim", "component", "worker", "operation", "claim", "status", "claimed", "duration_ms", time.Since(claimStart).Milliseconds())
-			Process(ctx, q, l, log)
-			continue
-		}
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-recovery.C:
+			recoverExpired()
+			continue
 		case <-poll.C:
+		}
+		claimStart := elapsed()
+		l, e := q.Claim(ctx, kinds)
+		if e == nil {
+			log.Info("job_claim", "component", "worker", "operation", "claim", "status", "claimed", "duration_ms", (elapsed() - claimStart).Milliseconds())
+			Process(ctx, q, l, log, asOf)
+			continue
 		}
 	}
 }
@@ -84,22 +93,30 @@ func runWorkoutIngests(ctx context.Context, q Queue, log *slog.Logger) {
 	if !ok {
 		return
 	}
+	recoverExpired := func() {
+		n, err := ingest.RecoverExpiredWorkoutIngests(ctx)
+		if err != nil && ctx.Err() == nil {
+			log.Warn("workout_ingest_recovery_failed", "reason", "database_unavailable")
+		}
+		if n > 0 {
+			log.Info("workout_ingest_expired", "count", n)
+		}
+	}
+	recoverExpired()
 	poll := time.NewTicker(time.Second)
 	defer poll.Stop()
-	lastRecovery := time.Time{}
+	recovery := time.NewTicker(15 * time.Second)
+	defer recovery.Stop()
 	for {
 		if ctx.Err() != nil {
 			return
 		}
-		if time.Since(lastRecovery) >= 15*time.Second {
-			n, err := ingest.RecoverExpiredWorkoutIngests(ctx)
-			if err != nil && ctx.Err() == nil {
-				log.Warn("workout_ingest_recovery_failed", "reason", "database_unavailable")
-			}
-			if n > 0 {
-				log.Info("workout_ingest_expired", "count", n)
-			}
-			lastRecovery = time.Now()
+		select {
+		case <-ctx.Done():
+			return
+		case <-recovery.C:
+			recoverExpired()
+		default:
 		}
 		outcome, err := ingest.ProcessNextWorkoutIngest(ctx)
 		if err != nil {
@@ -122,12 +139,15 @@ func runWorkoutIngests(ctx context.Context, q Queue, log *slog.Logger) {
 
 // Process is also the deterministic single-claim integration/administrative
 // harness. Algorithms remain in analysis; storage owns publication transactions.
-func Process(ctx context.Context, q Queue, l analysis.Lease, log *slog.Logger) {
-	processWithRenewal(ctx, q, l, log, 20*time.Second)
+//
+// Production callers must pass one explicit as-of instant so the claimed job is
+// evaluated against the same moment as day advancement.
+func Process(ctx context.Context, q Queue, l analysis.Lease, log *slog.Logger, asOf time.Time) {
+	processWithRenewal(ctx, q, l, log, 20*time.Second, asOf)
 }
-func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slog.Logger, renewEvery time.Duration) {
-	start := time.Now()
-	name, _ := analysis.Algorithm(l.Kind)
+func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slog.Logger, renewEvery time.Duration, at time.Time) {
+	elapsed := func() time.Duration { return time.Since(at) }
+	name, algorithmErr := analysis.Algorithm(l.Kind)
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	renewalDone := make(chan struct{})
@@ -153,7 +173,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		if processor, ok := q.(interface {
 			ProcessModelStack(context.Context, analysis.Lease, time.Time) (string, error)
 		}); ok {
-			status, err = processor.ProcessModelStack(runCtx, l, time.Now())
+			status, err = processor.ProcessModelStack(runCtx, l, at)
 		} else {
 			err = &analysis.Failure{Code: "analysis_unsupported_algorithm"}
 		}
@@ -163,10 +183,12 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 			status = "FAILED"
 			code, retryable := analysis.ErrorCode(err)
 			failCtx, stop := context.WithTimeout(ctx, 5*time.Second)
-			_ = q.FailAnalysis(failCtx, l, "", code, retryable)
+			if failErr := q.FailAnalysis(failCtx, l, "", code, retryable); failErr != nil && ctx.Err() == nil {
+				log.Warn("analysis_failure_record_failed", "reason", "database_unavailable")
+			}
 			stop()
 		}
-		log.Info("model_stack_execution", "component", "worker", "status", status, "duration_ms", time.Since(start).Milliseconds())
+		log.Info("model_stack_execution", "component", "worker", "status", status, "duration_ms", elapsed().Milliseconds())
 		return
 	}
 	if l.Kind == "training.plan" {
@@ -177,7 +199,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		publicationDuration := time.Duration(0)
 		tq, ok := q.(TrainingQueue)
 		if ok {
-			in, err = tq.LoadTraining(runCtx, l, time.Now().UTC())
+			in, err = tq.LoadTraining(runCtx, l, at)
 			if err == nil {
 				id, err = tq.StartTrainingRun(runCtx, l, in)
 			}
@@ -186,9 +208,9 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 				base, err = training.Generate(in.Context)
 			}
 			if err == nil {
-				publicationStart := time.Now()
+				publicationStart := elapsed()
 				status, err = tq.PublishTraining(runCtx, l, id, in, base)
-				publicationDuration = time.Since(publicationStart)
+				publicationDuration = elapsed() - publicationStart
 			}
 		}
 		cancel()
@@ -198,7 +220,9 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		}
 		if ok && err != nil && ctx.Err() == nil {
 			failCtx, c := context.WithTimeout(ctx, 5*time.Second)
-			_ = tq.FailTraining(failCtx, l, id, err)
+			if failErr := tq.FailTraining(failCtx, l, id, err); failErr != nil && ctx.Err() == nil {
+				log.Warn("training_failure_record_failed", "reason", "database_unavailable")
+			}
 			c()
 		}
 		baseID, effectiveID := "", ""
@@ -216,22 +240,40 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 				baseID = b
 				effectiveID = e
 				overrideCount = n
+			} else if ctx.Err() == nil {
+				log.Warn("training_versions_read_failed", "reason", "database_unavailable")
 			}
 		}
 		errorCode := ""
 		if err != nil {
 			errorCode = "training_failed"
 		}
-		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_hash", logIdentity(trainingPlanFromScope(l.ScopeKey)), "generation", l.TargetGeneration, "base_hash", logIdentity(baseID), "effective_hash", logIdentity(effectiveID), "job_hash", logIdentity(l.ID), "run_hash", logIdentity(id), "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
+		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_hash", logIdentity(trainingPlanFromScope(l.ScopeKey)), "generation", l.TargetGeneration, "base_hash", logIdentity(baseID), "effective_hash", logIdentity(effectiveID), "job_hash", logIdentity(l.ID), "run_hash", logIdentity(id), "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", elapsed().Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
 		return
 	}
-	snapshotStart := time.Now()
-	in, err := q.LoadAnalysis(runCtx, l, time.Now().UTC())
-	snapshotDuration := time.Since(snapshotStart)
+	if algorithmErr != nil {
+		code, retryable := analysis.ErrorCode(algorithmErr)
+		failCtx, stop := context.WithTimeout(ctx, 5*time.Second)
+		if failErr := q.FailAnalysis(failCtx, l, "", code, retryable); failErr != nil && ctx.Err() == nil {
+			log.Warn("analysis_failure_record_failed", "reason", "database_unavailable")
+		}
+		stop()
+		cancel()
+		<-renewalDone
+		log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", code, "job_hash", logIdentity(l.ID), "scope_hash", logIdentity(l.ScopeKey), "generation", l.TargetGeneration, "algorithm", "", "algorithm_version", analysis.BundleVersion(l.Kind), "run_hash", "", "duration_ms", elapsed().Milliseconds(), "status", "FAILED", "result_status", "FAILED")
+		return
+	}
+	snapshotStart := elapsed()
+	in, err := q.LoadAnalysis(runCtx, l, at)
+	snapshotDuration := elapsed() - snapshotStart
 	id := ""
 	if err != nil && in.Generation > 0 {
 		in.InputVersion += "/incomplete"
-		id, _ = q.StartAnalysisRun(runCtx, l, in)
+		var startErr error
+		id, startErr = q.StartAnalysisRun(runCtx, l, in)
+		if startErr != nil && ctx.Err() == nil {
+			log.Warn("analysis_run_start_failed", "reason", "database_unavailable")
+		}
 	}
 	status := "FAILED"
 	if err == nil {
@@ -241,7 +283,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 	publicationDuration := time.Duration(0)
 	algorithmDuration := time.Duration(0)
 	if err == nil && in.Generation == l.TargetGeneration {
-		algorithmStart := time.Now()
+		algorithmStart := elapsed()
 		if l.Kind == rd.JobKind {
 			ms, err = analysis.CalculateCandidateReadiness(&in)
 		} else if l.Kind == rc.JobKind {
@@ -277,12 +319,12 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		} else {
 			ms, err = analysis.Analyze(runCtx, l.Kind, in)
 		}
-		algorithmDuration = time.Since(algorithmStart)
+		algorithmDuration = elapsed() - algorithmStart
 	}
 	if err == nil {
-		publicationStart := time.Now()
+		publicationStart := elapsed()
 		status, err = q.PublishAnalysis(runCtx, l, id, in, ms)
-		publicationDuration = time.Since(publicationStart)
+		publicationDuration = elapsed() - publicationStart
 	}
 	cancel()
 	<-renewalDone
@@ -290,14 +332,16 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		status = "FAILED"
 		code, retryable := analysis.ErrorCode(err)
 		failCtx, c := context.WithTimeout(ctx, 5*time.Second)
-		_ = q.FailAnalysis(failCtx, l, id, code, retryable)
+		if failErr := q.FailAnalysis(failCtx, l, id, code, retryable); failErr != nil && ctx.Err() == nil {
+			log.Warn("analysis_failure_record_failed", "reason", "database_unavailable")
+		}
 		c()
 	}
 	errorCode := ""
 	if err != nil {
 		errorCode, _ = analysis.ErrorCode(err)
 	}
-	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_hash", logIdentity(l.ID), "scope_hash", logIdentity(l.ScopeKey), "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.BundleVersion(l.Kind), "snapshot_ms", float64(snapshotDuration.Microseconds())/1000, "algorithm_ms", float64(algorithmDuration.Microseconds())/1000, "run_hash", logIdentity(id), "duration_ms", time.Since(start).Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
+	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_hash", logIdentity(l.ID), "scope_hash", logIdentity(l.ScopeKey), "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.BundleVersion(l.Kind), "snapshot_ms", float64(snapshotDuration.Microseconds())/1000, "algorithm_ms", float64(algorithmDuration.Microseconds())/1000, "run_hash", logIdentity(id), "duration_ms", elapsed().Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
 }
 
 // TrainingQueue extends the same queue with a distinct domain handler.

@@ -137,7 +137,7 @@ func Recompute(ctx context.Context, s *postgres.Store, r RecomputeRequest) (Reco
 	}
 	payload, _ := json.Marshal(map[string]string{"from": r.From, "through": r.Through, "algorithm": r.Algorithm})
 	for _, scope := range out.Scopes {
-		if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, r.Dataset, scope, kind, from, through.AddDate(0, 0, 1).Add(-time.Microsecond)); err != nil {
+		if err = postgres.MarkAnalysisDirty(ctx, tx, r.Dataset, scope, kind, from, through.AddDate(0, 0, 1).Add(-time.Microsecond)); err != nil {
 			return out, err
 		}
 		if kind == "analysis.training_state" {
@@ -193,7 +193,7 @@ func SetAnalysisParameters(ctx context.Context, s *postgres.Store, dataset strin
 		return errors.New("parameter update exceeds bounded reanalysis capacity")
 	}
 	for _, r := range refs {
-		if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,'analysis.workout',$3,$4)`, dataset, "workout:"+syncing.WorkoutType+":"+r.id, r.start, r.end); err != nil {
+		if err = postgres.MarkAnalysisDirty(ctx, tx, dataset, "workout:"+syncing.WorkoutType+":"+r.id, "analysis.workout", r.start, r.end); err != nil {
 			return err
 		}
 	}

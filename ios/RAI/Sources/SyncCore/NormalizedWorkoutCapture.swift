@@ -30,14 +30,6 @@ public enum SampleArchiveMeter {
     nonisolated(unsafe) private static var unarchiveCalls = 0
     nonisolated(unsafe) private static var objectArchiveCalls = 0
 
-    /// One `NSKeyedArchiver.archivedData` of a HealthKit object.
-    public static func recordArchive() {
-        lock.lock(); archiveCalls += 1; lock.unlock()
-    }
-    /// One `NSKeyedUnarchiver.unarchivedObject` of a HealthKit object.
-    public static func recordUnarchive() {
-        lock.lock(); unarchiveCalls += 1; lock.unlock()
-    }
     /// One `NSKeyedArchiver.archivedData` of a non-sample object or of a whole
     /// page (a Workout root record, a deletion tombstone, a completeness page).
     /// Counted separately: those are one object per Workout or per page, not the

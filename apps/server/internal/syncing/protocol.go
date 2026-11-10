@@ -2,10 +2,8 @@ package syncing
 
 import (
 	"bytes"
-	"compress/gzip"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -108,30 +106,6 @@ func (e Envelope) Canonical() ([]byte, []byte) {
 	b, _ := json.Marshal(e)
 	h := sha256.Sum256(b)
 	return b, h[:]
-}
-
-type StreamRequest struct {
-	DatasetID        string `json:"datasetID"`
-	DatasetEpoch     string `json:"datasetEpoch"`
-	CollectorEpoch   string `json:"collectorEpoch"`
-	StreamID         string `json:"streamID"`
-	SampleType       string `json:"sampleType"`
-	QueryFingerprint string `json:"queryFingerprint"`
-}
-
-func (s StreamRequest) Validate() error {
-	for _, id := range []string{s.DatasetID, s.DatasetEpoch, s.CollectorEpoch, s.StreamID} {
-		if !ValidID(id) {
-			return Fail(422, "unsupported_payload")
-		}
-	}
-	if _, ok := Units[s.SampleType]; !ok && s.SampleType != WorkoutType {
-		return Fail(422, "unsupported_payload")
-	}
-	if !strings.HasPrefix(s.QueryFingerprint, "sha256:") || !digestPattern.MatchString(strings.TrimPrefix(s.QueryFingerprint, "sha256:")) {
-		return Fail(422, "unsupported_payload")
-	}
-	return nil
 }
 
 type Principal struct {
@@ -280,150 +254,6 @@ func DecodeStrictJSON(b []byte, v any) error {
 	return nil
 }
 
-// DecodeJSON adds P3's required fields and payload-specific nullability.
-func DecodeJSON(b []byte, v any) error {
-	if err := DecodeStrictJSON(b, v); err != nil {
-		return err
-	}
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(b, &fields); err != nil || fields == nil {
-		return Fail(422, "unsupported_payload")
-	}
-	var required []string
-	switch value := v.(type) {
-	case *Envelope:
-		required = []string{"protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "streamID", "batchID", "clientSeq", "previousBatchID", "pageID", "fragmentIndex", "fragmentCount", "queryFingerprint", "contentEncoding", "wireBytes", "decodedBytes", "eventCount", "payloadSHA256"}
-	case *StreamRequest:
-		required = []string{"datasetID", "datasetEpoch", "collectorEpoch", "streamID", "sampleType", "queryFingerprint"}
-	case *SeriesRequest:
-		required = []string{"datasetID", "datasetEpoch", "collectorEpoch", "seriesID", "sampleType", "sampleUUID"}
-	case *SeriesSeal:
-		required = []string{"chunkCount", "totalPoints", "manifestSHA256"}
-	case *SeriesPoint:
-		required = []string{"startUs", "endUs", "value", "unit"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	case *WorkoutPackageRequest:
-		required = []string{"datasetID", "datasetEpoch", "collectorEpoch", "workoutID", "startUs", "endUs", "source", "workout"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-		if raw, ok := fields["workout"]; ok {
-			if err := validateWorkoutJSON(raw); err != nil {
-				return err
-			}
-		}
-	case *WorkoutPackageSeal:
-		required = []string{"chunkCount", "totalDetails", "manifestSHA256"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	case *WorkoutDetail:
-		required = []string{"kind", "ordinal"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-		present := 0
-		for _, key := range []string{"activity", "statistic", "event"} {
-			if _, ok := fields[key]; ok {
-				present++
-			}
-		}
-		if present != 1 {
-			return Fail(422, "unsupported_payload")
-		}
-		for _, key := range []string{"activity", "statistic", "event"} {
-			if raw, ok := fields[key]; ok {
-				if err := validateWorkoutJSON(raw); err != nil {
-					return err
-				}
-			}
-		}
-	case *Event:
-		required = []string{"op", "kind", "type", "uuid"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-		if value.Op == "delete" && len(fields) != 4 {
-			return Fail(422, "unsupported_payload")
-		}
-		if value.Op == "upsert" {
-			required = append(required, "startUs", "endUs", "source")
-			if value.Quantity != nil {
-				var quantity map[string]json.RawMessage
-				if json.Unmarshal(fields["quantity"], &quantity) != nil || quantity["value"] == nil || bytes.Equal(quantity["value"], []byte("null")) {
-					return Fail(422, "unsupported_payload")
-				}
-			}
-			if value.Workout != nil {
-				if err := validateWorkoutJSON(fields["workout"]); err != nil {
-					return err
-				}
-			}
-		}
-	case *RouteManifest:
-		required = []string{"protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "routeID", "workoutID", "source", "expectedChunkCount", "expectedPointCount", "firstRecordedAtUs", "lastRecordedAtUs"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	case *RouteSeal:
-		required = []string{"protocolVersion", "chunkCount", "totalPoints", "manifestSHA256", "payloadManifestSHA256"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	case *RouteDeleteRequest:
-		required = []string{"protocolVersion", "datasetEpoch", "collectorEpoch"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	case *RoutePoint:
-		required = []string{"sequence", "recordedAtUs", "latitude", "longitude"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	case *AssociationRequest:
-		required = []string{"protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "associationID", "sampleType", "sampleUUID", "workoutUUID", "source"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	case *WorkoutEnrichmentRequest:
-		required = []string{"protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "enrichmentID", "workoutID", "source", "sourceVersion", "observedAtUs"}
-		for _, raw := range fields {
-			if bytes.Equal(raw, []byte("null")) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	}
-	for _, key := range required {
-		raw, ok := fields[key]
-		if !ok || (key != "previousBatchID" && bytes.Equal(raw, []byte("null"))) {
-			return Fail(422, "unsupported_payload")
-		}
-	}
-	return nil
-}
-
 func exactJSONFields(raw []byte, typ reflect.Type) error {
 	for typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
@@ -514,67 +344,6 @@ func walkJSON(d *json.Decoder) error {
 	}
 	_, err = d.Token()
 	return err
-}
-
-// ParseBody performs all network/hash/gzip/schema work before any database lock.
-func ParseBody(r io.Reader, e Envelope, sampleType string) ([]Event, error) {
-	wire, err := io.ReadAll(io.LimitReader(r, MaxWireBytes+1))
-	if err != nil {
-		return nil, Fail(400, "body_read_failed")
-	}
-	if len(wire) > MaxWireBytes {
-		return nil, Fail(413, "batch_too_large")
-	}
-	h := sha256.Sum256(wire)
-	if len(wire) != e.WireBytes || hex.EncodeToString(h[:]) != e.PayloadSHA256 {
-		return nil, Fail(422, "payload_hash_mismatch")
-	}
-	gz, err := gzip.NewReader(bytes.NewReader(wire))
-	if err != nil {
-		return nil, Fail(422, "unsupported_payload")
-	}
-	defer gz.Close()
-	decoded, err := io.ReadAll(io.LimitReader(gz, MaxDecodedBytes+1))
-	if len(decoded) > MaxDecodedBytes {
-		return nil, Fail(413, "batch_too_large")
-	}
-	if err != nil || len(decoded) != e.DecodedBytes {
-		return nil, Fail(422, "unsupported_payload")
-	}
-	lines := bytes.Split(decoded, []byte{'\n'})
-	if len(lines) > 0 && len(lines[len(lines)-1]) == 0 {
-		lines = lines[:len(lines)-1]
-	}
-	if len(lines) > MaxEvents {
-		return nil, Fail(413, "batch_too_large")
-	}
-	if len(lines) != e.EventCount {
-		return nil, Fail(422, "event_count_mismatch")
-	}
-	events := make([]Event, 0, len(lines))
-	for i, line := range lines {
-		if len(line) > MaxLineBytes {
-			return nil, Fail(413, "event_too_large")
-		}
-		var ev Event
-		if err := DecodeJSON(line, &ev); err != nil {
-			return nil, &Error{Status: 422, Code: "unsupported_payload", EventIndex: &i}
-		}
-		if err := ev.Validate(sampleType); err != nil {
-			var typed *Error
-			if errors.As(err, &typed) {
-				copy := *typed
-				copy.EventIndex = &i
-				return nil, &copy
-			}
-			return nil, &Error{Status: 422, Code: "unsupported_payload", EventIndex: &i}
-		}
-		events = append(events, ev)
-	}
-	if err := ValidateDetailBudget(events); err != nil {
-		return nil, err
-	}
-	return events, nil
 }
 
 // Collapse applies delete-wins independent of arrival order and gives a fixed key order.

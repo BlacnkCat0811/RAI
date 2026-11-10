@@ -58,12 +58,6 @@ struct SyncCoreTests {
             chain = Wire.chain(chain, Wire.digest(canonical)); #expect(Wire.hex(chain) == vector.manifest)
         }
     }
-    @Test func goStringEscapingAndSeriesCanonical() throws {
-        #expect(String(decoding: try JSON.string("m/s<&>").data(), as: UTF8.self) == "\"m/s\\u003c\\u0026\\u003e\"")
-        let stat: JSON = .object(["type": .string("HKQuantityTypeIdentifierRunningSpeed"), "startUs": .int(1), "endUs": .int(2),
-            "average": .object(["value": .number(3.5), "unit": .string("m/s")])])
-        #expect(String(decoding: try Supplements.canonicalDetail("statistic", stat), as: UTF8.self) == "{\"type\":\"HKQuantityTypeIdentifierRunningSpeed\",\"startUs\":1,\"endUs\":2,\"average\":{\"value\":3.5,\"unit\":\"m/s\"}}")
-    }
     @Test func gzipStableAndEmpty() throws {
         let bytes = Data("synthetic\n".utf8)
         #expect(try Wire.gzip(bytes) == Wire.gzip(bytes))

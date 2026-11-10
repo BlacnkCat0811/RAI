@@ -23,40 +23,7 @@ type StreamState struct {
 	LastClientSeq    int64   `json:"lastClientSeq"`
 	LastBatchID      *string `json:"lastBatchID"`
 }
-type BatchState struct {
-	Envelope Envelope        `json:"envelope"`
-	State    string          `json:"ingestStatus"`
-	Receipt  json.RawMessage `json:"receipt,omitempty"`
-}
 
-// PageState confirms delivery of the declared fragments, never HealthKit query
-// completeness or the client's local contiguous anchor position.
-type PageState struct {
-	PageID             string          `json:"pageID"`
-	StreamID           string          `json:"streamID"`
-	DatasetEpoch       string          `json:"datasetEpoch"`
-	CollectorEpoch     string          `json:"collectorEpoch"`
-	QueryFingerprint   string          `json:"queryFingerprint"`
-	FragmentCount      int             `json:"fragmentCount"`
-	FirstClientSeq     int64           `json:"firstClientSeq"`
-	CommittedFragments int             `json:"committedFragments"`
-	IngestStatus       string          `json:"ingestStatus"`
-	Receipt            json.RawMessage `json:"receipt,omitempty"`
-}
-type PageReceipt struct {
-	PageID           string `json:"pageID"`
-	StreamID         string `json:"streamID"`
-	DatasetEpoch     string `json:"datasetEpoch"`
-	CollectorEpoch   string `json:"collectorEpoch"`
-	QueryFingerprint string `json:"queryFingerprint"`
-	IngestStatus     string `json:"ingestStatus"`
-	FragmentCount    int    `json:"fragmentCount"`
-	FirstClientSeq   int64  `json:"firstClientSeq"`
-	LastClientSeq    int64  `json:"lastClientSeq"`
-	LastBatchID      string `json:"lastBatchID"`
-	ManifestSHA256   string `json:"manifestSHA256"`
-	CommitRevision   int64  `json:"commitRevision"`
-}
 type Counts struct {
 	Inserted   int `json:"inserted"`
 	Unchanged  int `json:"unchanged"`
@@ -83,35 +50,10 @@ type Store interface {
 	ReleaseUpload(context.Context, Principal, UploadLease) error
 	Metadata(context.Context, Principal) (Metadata, error)
 	Changes(context.Context, Principal, string, int) (ChangePage, error)
-	RegisterStream(context.Context, Principal, StreamRequest) (StreamState, error)
-	Stream(context.Context, Principal, string) (StreamState, error)
-	RegisterBatch(context.Context, Principal, Envelope) (BatchState, error)
-	Batch(context.Context, Principal, string) (BatchState, error)
-	Page(context.Context, Principal, string) (PageState, error)
-	RegisterSeries(context.Context, Principal, SeriesRequest) (SeriesState, error)
-	Series(context.Context, Principal, string) (SeriesState, error)
-	CommitSeriesChunk(context.Context, Principal, SeriesChunk, UploadLease) (json.RawMessage, error)
-	SealSeries(context.Context, Principal, string, SeriesSeal) (json.RawMessage, error)
-	RegisterWorkoutPackage(context.Context, Principal, WorkoutPackageRequest) (WorkoutPackageState, error)
-	WorkoutPackage(context.Context, Principal, string) (WorkoutPackageState, error)
-	CommitWorkoutPackageChunk(context.Context, Principal, WorkoutDetailChunk, UploadLease) (json.RawMessage, error)
-	SealWorkoutPackage(context.Context, Principal, string, WorkoutPackageSeal) (json.RawMessage, error)
-	RegisterRoute(context.Context, Principal, RouteManifest) (RouteState, error)
-	Route(context.Context, Principal, string) (RouteState, error)
-	CommitRouteChunk(context.Context, Principal, RouteChunk, UploadLease) (json.RawMessage, error)
-	SealRoute(context.Context, Principal, string, RouteSeal) (json.RawMessage, error)
-	DeleteRoute(context.Context, Principal, string, RouteDeleteRequest) (json.RawMessage, error)
-	AssociateSample(context.Context, Principal, AssociationRequest) (json.RawMessage, error)
-	ImportWorkoutBundle(context.Context, Principal, WorkoutBundle, []byte) (json.RawMessage, error)
 	AcceptWorkoutIngest(context.Context, Principal, WorkoutIngestEnvelope, []byte) (json.RawMessage, error)
 	WorkoutIngest(context.Context, Principal, string) (WorkoutIngestStatus, error)
 	ProcessNextWorkoutIngest(context.Context) (WorkoutIngestOutcome, error)
 	RecoverExpiredWorkoutIngests(context.Context) (int, error)
-	WorkoutImport(context.Context, Principal, string, string) (json.RawMessage, error)
-	DeleteWorkoutBundle(context.Context, Principal, WorkoutDeleteRequest) (json.RawMessage, error)
-	EnrichWorkout(context.Context, Principal, WorkoutEnrichmentRequest) (json.RawMessage, error)
-	WorkoutEnrichment(context.Context, Principal, string) (json.RawMessage, error)
-	CommitUpload(context.Context, Principal, Envelope, []Event, UploadLease) (json.RawMessage, error)
 	CommitDaily(context.Context, Principal, []byte, UploadLease) (json.RawMessage, error)
 	CommitVO2(context.Context, Principal, []byte, UploadLease) (json.RawMessage, error)
 	VO2Coverage(context.Context, Principal) (VO2Coverage, error)

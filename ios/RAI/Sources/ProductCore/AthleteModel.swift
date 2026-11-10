@@ -160,7 +160,6 @@ public struct AthleteModelSnapshot: Codable, Equatable, Sendable {
   public var raiVO2Max: RAIVO2Metric?
   public var supportsPresentation: Bool { ["rai.athlete_model/1", "rai.athlete_model/2"].contains(schemaVersion) }
 }
-public struct AthleteModelCandidateSnapshot: Codable, Equatable, Sendable { public var candidateOnly: Bool; public var snapshot: AthleteModelSnapshot }
 
 
 public struct AthleteHistoryPoint: Codable, Equatable, Sendable, Identifiable {

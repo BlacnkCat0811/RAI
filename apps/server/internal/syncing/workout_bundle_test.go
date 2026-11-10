@@ -58,3 +58,19 @@ func TestWorkoutBundleRejectsBrokenMembership(t *testing.T) {
 		})
 	}
 }
+
+func TestBundleValidateProtocol6Only(t *testing.T) {
+	for _, version := range []int{2, 3, 4, 5} {
+		bundle := validBundle()
+		bundle.ProtocolVersion = version
+		if err := bundle.Validate(); err == nil {
+			t.Fatalf("protocol %d: expected rejection, got nil", version)
+		} else if e, ok := err.(*Error); !ok || e.Status != 422 || e.Code != "unsupported_payload" {
+			t.Fatalf("protocol %d: unexpected error %#v", version, err)
+		}
+	}
+	bundle := validBundle()
+	if err := bundle.Validate(); err != nil {
+		t.Fatalf("protocol 6: %v", err)
+	}
+}

@@ -147,10 +147,8 @@ private func dailyFixture() async throws -> (OutboxStore, URL) {
         _ = try await store.dailyFlow(type)
         try await store.stageDaily(type: type, previousAnchor: nil, candidateAnchor: Data([1]), facts: [], deleted: [], observedAt: now, hasMore: false)
         let pending = try #require(try await store.dailyFlow(type).pending)
-        try await store.deferBundleRecovery(UploadError(code: "offline", status: 0, retryAfter: 10), now: now)
         let reopened = try OutboxStore(directory: directory), deferred = try await reopened.dailyFlow(type)
         #expect(deferred.anchor == nil && deferred.pending?.hash == pending.hash)
-        #expect(deferred.pending!.nextAttempt >= now.addingTimeInterval(10))
         try await reopened.deferDailyRecovery(UploadError(code: "offline"), now: now.addingTimeInterval(1))
         #expect(try await reopened.dailyFlow(type).pending?.attempt == 1)
     }

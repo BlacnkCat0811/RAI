@@ -72,7 +72,7 @@ func QueueTrainingLoadCandidate(ctx context.Context, s *postgres.Store, dataset,
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, dataset, wf.Scope(workout), wf.JobKind, from, through)
+	err = postgres.MarkAnalysisDirty(ctx, tx, dataset, wf.Scope(workout), wf.JobKind, from, through)
 	if err != nil {
 		return err
 	}
@@ -147,11 +147,11 @@ func RecomputeTrainingLoad(ctx context.Context, s *postgres.Store, dataset, from
 		if _, err = tx.Exec(ctx, `INSERT INTO analysis_model_dependencies(dataset_id,upstream_scope,downstream_scope) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, dataset, wf.Scope(r.id), tl.Scope(r.id)); err != nil {
 			return 0, err
 		}
-		if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, dataset, wf.Scope(r.id), wf.JobKind, r.a, r.b); err != nil {
+		if err = postgres.MarkAnalysisDirty(ctx, tx, dataset, wf.Scope(r.id), wf.JobKind, r.a, r.b); err != nil {
 			return 0, err
 		}
 	}
-	if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, dataset, tl.StateScope(), tl.StateJobKind, from, through.AddDate(0, 0, 1)); err != nil {
+	if err = postgres.MarkAnalysisDirty(ctx, tx, dataset, tl.StateScope(), tl.StateJobKind, from, through.AddDate(0, 0, 1)); err != nil {
 		return 0, err
 	}
 	return len(refs), tx.Commit(ctx)

@@ -135,17 +135,12 @@ public actor OutboxPipeline {
     private let metrics: SyncMetrics
     private var draining = false
     /// While an initial quantity import is still catching up, association
-    /// pages can only fail with `association_unavailable` and would add a
-    /// 409 retry for every new fact generation. Keep them durable but skip
-    /// them until the sample streams have reached their end.
-    private var associationsPaused = false
     /// Set when the server's device bucket is exhausted. The bucket is shared
     /// by every page and every request, so continuing this pass can only
     /// produce more 429s and grow each page's retry counter. The coordinator
     /// stops reading HealthKit until the caller retries after this instant.
     public private(set) var pausedUntil: Date?
     public init(store: OutboxStore, api: RAIAPIClient, metrics: SyncMetrics = .init()) { self.store = store; self.api = api; self.metrics = metrics }
-    public func setAssociationsPaused(_ paused: Bool) { associationsPaused = paused }
     private let seriesConcurrency = 8
     /// Drains every staged page when `taskID` is nil (startup/background
     /// recovery), or only pages owned by one Workout task. A task-scoped pass
@@ -160,7 +155,6 @@ public actor OutboxPipeline {
             return first.createdAt < second.createdAt
         }
         for page in pages {
-            if associationsPaused && page.anchorKey.hasPrefix("association:") { continue }
             let generation = await store.snapshot().factGeneration
             let dependencyBecameAvailable = page.waitingForFactGeneration.map { generation > $0 } ?? false
             if let error = page.error, !error.retryable, !dependencyBecameAvailable { continue }

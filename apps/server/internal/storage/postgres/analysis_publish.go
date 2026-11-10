@@ -211,7 +211,7 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 			}
 			if !current {
 				status = "SUPERSEDED"
-				if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,$3,$4,$5)`, l.DatasetID, l.ScopeKey, pf.JobKind, in.From, in.Through); err != nil {
+				if err = MarkAnalysisDirty(ctx, tx, l.DatasetID, l.ScopeKey, pf.JobKind, in.From, in.Through); err != nil {
 					return "", err
 				}
 				if err = tx.QueryRow(ctx, `SELECT generation FROM dirty_scopes WHERE dataset_id=$1 AND scope_key=$2`, l.DatasetID, l.ScopeKey).Scan(&generation); err != nil {
@@ -333,10 +333,12 @@ func (s *Store) PublishAnalysis(ctx context.Context, l Lease, id string, in anal
 			}
 		}
 		if l.Kind == "analysis.workout" {
-			if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,'athlete/default','analysis.training_state',$2,$3)`, l.DatasetID, in.From, in.Through); err != nil {
+			if err = MarkAnalysisDirty(ctx, tx, l.DatasetID, "athlete/default", "analysis.training_state", in.From, in.Through); err != nil {
 				return "", err
 			}
 		}
+		// Bespoke: sample/series depend on many workouts, so each dirty range is
+		// derived from the referenced workout rows instead of one caller range.
 		if l.Kind == "analysis.sample" || l.Kind == "analysis.series" {
 			for _, scope := range in.Dependencies {
 				if _, err = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,'analysis.workout',w.event_start,w.event_end) FROM workouts w WHERE dataset_id=$1 AND 'workout:HKWorkoutTypeIdentifier:'||workout_uuid::text=$2`, l.DatasetID, scope); err != nil {
@@ -462,6 +464,8 @@ func (s *Store) AdvanceAnalysisDay(ctx context.Context, at time.Time) error {
 			return e
 		}
 		_, e = lockActiveDataset(ctx, tx, id)
+		// Bespoke: the range must use the dataset's own calendar and skip scopes
+		// that are still dirty, which a plain caller-supplied range cannot express.
 		if e == nil {
 			_, e = tx.Exec(ctx, `SELECT rai_analysis_dirty($1,'athlete/default','analysis.training_state',date_trunc('day',$2::timestamptz,d.timezone),$2) FROM datasets d JOIN dirty_scopes x ON x.dataset_id=d.id AND x.scope_key='athlete/default' WHERE d.id=$1 AND x.generation=x.clean_generation AND x.dirty_through<date_trunc('day',$2::timestamptz,d.timezone)`, id, at)
 		}

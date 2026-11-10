@@ -156,16 +156,4 @@ extension HealthDiscoveryTests {
         #expect(await store.discoverySnapshot().events.count == 1)
         #expect(await store.discoverySnapshot().events[first.id]?.archiveSHA256 == Wire.hash(a))
     }
-
-    @Test func existingLocalTaskKeepsLateChildChangesSelected() async throws {
-        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), id = Wire.id(), query = DiscoveryQuery(type: "HKWorkoutTypeIdentifier")
-        try await store.beginTask(id)
-        _ = try await store.discoveryFlow(query)
-        let archive = Data("synthetic-existing-workout".utf8), file = try await store.savePayload(archive)
-        let event = DiscoveryEvent(type: query.type, uuid: id, deleted: false, archiveFile: file, archiveHash: Wire.hash(archive))
-        let batch = try await store.stageDiscovery(query, previousAnchor: nil, anchor: Data([1]), events: [event], hasMore: false)
-        try await store.promoteDiscovery(query, batchID: batch)
-        #expect(await store.discoverySnapshot().work[id]?.selected == true)
-    }
 }

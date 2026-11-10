@@ -66,15 +66,6 @@ public enum WorkoutMetadataRegistry {
         entries.first { $0.key == key && $0.scopes.contains(scope) }
     }
 
-    /// A key that exists in the registry but not at the requested scope.
-    public static func isKnownElsewhere(_ key: String) -> Bool {
-        entries.contains { $0.key == key }
-    }
-
-    /// Opaque-preserved keys carry no client-side meaning.
-    public static func isOpaque(_ key: String) -> Bool {
-        entries.contains { $0.key == key && $0.introducedIn > 1 }
-    }
 
     /// Exact text preservation: no trimming, no case folding, no Unicode
     /// normalization. Only bounded, well-formed, control-free content passes.

@@ -33,6 +33,8 @@ func (s *Store) advanceCandidateLoadDay(ctx context.Context, at time.Time) error
 			return e
 		}
 		_, e = lockActiveDataset(ctx, tx, id)
+		// Bespoke: the dirty range starts at the next unpublished load day from
+		// analysis_publications, so it cannot use one caller-supplied range.
 		if e == nil {
 			_, e = tx.Exec(ctx, `SELECT rai_analysis_dirty(d.id,$2,$3,((max(p.day)+1)::timestamp AT TIME ZONE d.timezone),$4) FROM datasets d JOIN dirty_scopes x ON x.dataset_id=d.id AND x.scope_key=$2 AND x.generation=x.clean_generation JOIN analysis_publications p ON p.dataset_id=d.id AND p.scope_key=$2 WHERE d.id=$1 GROUP BY d.id HAVING max(p.day)<($4::timestamptz AT TIME ZONE d.timezone)::date`, id, tl.StateScope(), tl.StateJobKind, at)
 		}

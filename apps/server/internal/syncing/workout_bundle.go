@@ -106,10 +106,10 @@ func (p WorkoutBundlePoint) ToRoutePoint(sequence int64) RoutePoint {
 
 func (b WorkoutBundle) Validate() error {
 	bad := func() error { return Fail(422, "unsupported_payload") }
-	// The wire boundary (DecodeWorkoutPayloadJSON) accepts protocol 6 only.
-	// The store still materializes historical bundle shapes for management
-	// paths, so this internal validator accepts their version tags.
-	if b.ProtocolVersion < 3 || b.ProtocolVersion > 6 || !ValidID(b.DatasetID) || !ValidID(b.DatasetEpoch) ||
+	// The wire boundary (DecodeWorkoutPayloadJSON) accepts protocol 6 only;
+	// this validator rejects every other version tag so historical bundle
+	// shapes cannot re-enter through internal callers.
+	if b.ProtocolVersion != 6 || !ValidID(b.DatasetID) || !ValidID(b.DatasetEpoch) ||
 		!ValidID(b.CollectorEpoch) || !ValidID(b.WorkoutID) || !ValidID(b.Workout.UUID) ||
 		b.Workout.UUID != b.WorkoutID || len(b.Samples) > MaxWorkoutBundleEvents ||
 		len(b.Routes) > MaxBundleRoutes {
