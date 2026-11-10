@@ -91,7 +91,7 @@ func loadTrainingReadinessSignal(ctx context.Context, q trainingDB, dataset, sta
 	var payload []byte
 	var hash, algorithm, version, runID string
 	var generation int64
-	scope, family := readiness.ScopeV2For(stack), "model_product_v2"
+	scope, family := readiness.ScopeV3For(stack), "model_product_v2"
 	if stack == modelmanifest.StackID() {
 		scope, family = modelmanifest.DayScope(stack, day), "model_product_v2/training_readiness"
 	}
@@ -107,7 +107,7 @@ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$3 AND p.day=$4::da
 		return sig, false, err
 	}
 	var r readiness.Result
-	if json.Unmarshal(payload, &r) != nil || readiness.Hash(r) != hash || r.Dataset != dataset || r.Date != day || r.Schema != readiness.SchemaV2 || r.ModelVersion != readiness.ModelV2 || r.Generation != generation || r.ConfigHash != readiness.DefaultV2Config(tz).Hash() {
+	if json.Unmarshal(payload, &r) != nil || readiness.Hash(r) != hash || r.Dataset != dataset || r.Date != day || r.Schema != readiness.SchemaV3 || r.ModelVersion != readiness.ModelV3 || r.Generation != generation || r.ConfigHash != readiness.DefaultV3Config(tz).Hash() {
 		return sig, false, syncing.Fail(503, "training_readiness_invalid")
 	}
 	sig = training.Signal{RunID: runID, Generation: generation, Day: r.Date, Name: "readiness", Algorithm: algorithm, Version: version, Quality: r.Quality}

@@ -21,8 +21,8 @@ func TestCurrentManifestIsCanonicalAndVersioned(t *testing.T) {
 	if m.Features.Version != "v1" || m.Features.JobKind != StackJobKind || m.Load.Version != "v2" || m.VO2Max.ModelID != "rai.vo2max.submax" || m.VO2Max.Version != "v1" {
 		t.Fatalf("identities %+v %+v", m.Features, m.VO2Max)
 	}
-	if m.Readiness.Version != "v2" || m.Recovery.Version != "v2" || m.ProductSchema != "rai.athlete_model/2" {
-		t.Fatal("v2 boundary missing")
+	if m.Readiness.Version != "v3" || m.Readiness.Schema != "rai.readiness.training/3" || m.Recovery.Version != "v2" || m.ProductSchema != "rai.athlete_model/2" {
+		t.Fatal("readiness v3 boundary missing")
 	}
 	for _, d := range m.Diagnostics {
 		if !strings.HasPrefix(d.Schema, "rai.") || d.Version != "v1" {

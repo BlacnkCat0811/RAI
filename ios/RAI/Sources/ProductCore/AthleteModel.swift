@@ -40,7 +40,7 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
       "runningAbility": ["rai.running_ability/v1", "rai.running_ability/v2"],
       "externalVO2Max": ["rai.vo2max.external_projection/v1"],
       "physiologicalRecovery": ["rai.recovery.physiological/v1", "rai.recovery.physiological/v2"],
-      "trainingReadiness": ["rai.readiness.training/v1", "rai.readiness.training/v2"],
+      "trainingReadiness": ["rai.readiness.training/v1", "rai.readiness.training/v2", "rai.readiness.training/v3"],
       "raiVO2Max": ["rai.vo2max.submax/v1"]]
     return versions[metric]?.contains(modelVersion) == true && state.isKnown
       && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2"].contains(mappingVersion)

@@ -1450,7 +1450,7 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - 隔离 PostgreSQL 合成探针复现两种旧状态。旧 v4 `accepted` 行被新 Worker 永久拒绝为 `unsupported_payload`，同 UUID 提交 v6 只重放旧接收回执，未生成事实。以 v4 格式保存的已提交历史重新加载分析时返回 `analysis_source_unclassified`。
 - v6 未知字段复现。扩展字段含 `1e400` 时，词法检查直接拒绝。扩展字段含 `\u0000` 时，接收表按原字节保存，随后 `jsonb` 转换导致事实事务回滚，三次尝试后以 `processing_attempts_exhausted` 结束。扩展字段 `observation` 为字符串时，事实已提交，但分析加载返回 `analysis_invalid_input`。
 - SwiftPM 212 项通过。iOS Simulator App XCTest 74 项通过、2 项跳过、0 项失败，结果保存在 `.local/ua1-r/simulator.NY2ec3/result.xcresult`。额外的 Swift 合成探针复现了旧 UUID Outbox 的 v4 gzip 缓存经重建索引后仍进入 POST。探针用本地传输替身记录请求体，未连接任何服务器。
-- 代码审查发现，真实 HealthKit 查询中的标量或路线超限错误可被组包器降级为缺流或空路线，首次接收后同 UUID 无法补传。v6 当前也无法续期 Workout completeness 证明，已有证明会随新 Workout revision 落后，Readiness 的覆盖门槛仍依赖该证明。项目约定保留的 v3 显式删除入口已随旧路由移除，定向测试覆盖的是 Store 删除与屏障。
+- 代码审查发现，真实 HealthKit 查询中的标量或路线超限错误可被组包器降级为缺流或空路线，首次接收后同 UUID 无法补传。v6 当前也无法续期 Workout completeness 证明，已有证明会随新 Workout revision 落后，Readiness 的覆盖门槛仍依赖该证明（**该缺陷已于 2026-11-10 按产品决定取消**：completeness 控制面整体下线，Readiness 只按上传是否提交判定，见文末“Workout completeness 控制面下线 — 已实施”）。项目约定保留的 v3 显式删除入口已随旧路由移除，定向测试覆盖的是 Store 删除与屏障。
 - `scripts/local/test.sh syncperf --iterations 1 --warmups 0 --cold 0` 退出码为 0，但输出 `no tests to run`。本轮没有有效的吞吐或延迟测量。未执行 `full`、真实 iPhone/HealthKit、真实数据升级或部署验收。
 
 后续实施采用空白数据库和独立 iOS 会话，从 HealthKit 以 v6 重传。旧载荷排空、历史分析兼容、v3 客户端入口和旧 Outbox 升级退出实施范围。上面的复现结果作为当前实现证据保留。本次交付范围为方案文档。 [v6 全量重传与同步优化方案](WORKOUT_SYNC_V6_REIMPORT_PLAN.md)
@@ -1601,3 +1601,69 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 测试与门禁：`go test ./internal/syncing/ ./internal/workoutfeatures/` PASS（1.7 s / 3.9 s，含新用例 `TestV6MetadataReachesEnvironmentPresent`、`TestV6MetadataAbsenceLeavesEnvironmentMissing`）；`go vet` 两包 exit 0。App XCTest 在一次性模拟器 iPhone 17 Pro / iOS 26.5 上跑 `RAITests/RawStreamSyncEngineTests` **15/15 PASS**（结果包 `.local/sim-metadata-derived/raw-stream2.xcresult`），全量 `RAITests` **82 passed / 0 failed / 5 skipped**（`.local/sim-metadata-derived/all.xcresult`，5 项为既有 opt-in 跳过）。`scripts/check-ua1-r3a-privacy.py` PASS（5 文件，0 命中）。
 
 未验：未在真机重跑上传（无真机可用），未对已入库记录做回填（用户明确排除），未部署；fail-open 下登记 key 若载体类型被 Apple 改变会静默降级（该键缺失而非整包失败），目前只由合成用例覆盖。
+
+### 完整性证明（Workout completeness）下线方案 — 仅方案交付，未实施（2026-11-10）
+
+用户决定（取代前一轮“新增 `workout-sync-completeness/v3`”的修复方向）：**像 RQrun 一样只检查上传成功，不再管集合完整性；把过期的完整性要求删除。** 本轮只交付方案，未修改任何 Go/Swift/迁移/契约文件，未运行测试，未部署。
+
+方案文件：[WORKOUT_COMPLETENESS_RETIREMENT_PLAN.md](WORKOUT_COMPLETENESS_RETIREMENT_PLAN.md)（含新语义判定表、逐行影响面、版本与哈希影响、分两步 DROP 的发布顺序、测试与验收、风险）。
+
+勘察确认的三条事实（构成本次“删除而非修补”的依据）：
+
+1. **客户端从未实现完整性证明**：`ios/` 全量 grep `WorkoutCompleteness` / `workout-sync-completeness` 零命中；`contracts/sync-v6.md:32` 明确 v6 不携带 observation/coverage/completeness/锚点。`ios/RAI/Sources/ProductCore/WorkoutDetail.swift:326` 的 `completeness` 是逐条记录的分析完整度产品字段，与本控制面无关，不在删除范围。
+2. **服务端控制面无人写入**：`workout_sync_completeness` 只有两处 INSERT（`apps/server/internal/storage/postgres/workout_completeness.go:215`、`workout_completeness_v2.go:234`），都只能由客户端主动 `POST /v2/sync/workout-completeness` 触发，而该端点从未被任何客户端调用。
+3. **它当前唯一作用是阻塞**：`apps/server/internal/readiness/v2.go:185`（`!CaughtUp → load_sync_incomplete` + `status=sync_incomplete`）与 `apps/server/internal/storage/postgres/model_stack_inputs.go:348-354`（覆盖不成立时清空当日 `RecordedLoad/Acute/Chronic/Balance/Ratio/Trend7` 并置 `insufficient`），即 `docs/IMPLEMENTATION.md` 上文 `:1453` 记录的“v6 无法续期 completeness → Readiness 覆盖门槛失效”。
+
+方案要点（详见方案文件，此处只记决策）：
+
+- **新判据**：上传成功 = `workout_ingests.state = 'committed'`（回执 `IngestStatus:"committed"`，`migrations/00050_workout_ingests.sql` 已有该状态与回执，不需要新端点）。服务端不再区分“只传了 3 条”与“只有 3 条”，此代价登记为**已接受的产品决定**（RQrun 同构）。
+- **删除范围**：completeness 控制面（路由、能力广告、handler、`syncing` 契约与 `CommitWorkoutCompleteness{,V2}`、三个 postgres 实现文件、`dbgen` 模型、5 个测试文件、契约夹具）+ Readiness 的 `Coverage` 字段与全部覆盖闸门（`model.go:77-83/123/175/43`、`v2.go:80/185-188`、`calculate.go:65/160-163/225-227`、`readiness_input.go:25/57-79`、`model_stack_inputs.go:333-341/348-354/400/415`、`model_stack_research.go:50/156-175`、`readiness_publish.go:18`）。
+- **保留**：`source_policy`（现为接收期来源门禁，`workout_bundle_v6.go:295` 的 `422 source_policy_excluded`，与覆盖无关）、`workout_ingests`/`workout_imports`/`raw_json`/`change_events` 历史、`athletemodel` 对历史 `load_sync_incomplete` 的映射、recovery/daily/VO2 各自的覆盖判据（属另一控制面）。
+- **必须处理的副作用**：删除 `Config.CoverageFreshUs` 会改变 `Config.Hash()`，而 `readiness_input.go:44-46` 硬校验 assignment 哈希，部署后不重签会让所有 readiness 作业 `analysis.Invalid()`。因此发布清单强制包含每个在用 dataset 一次 `rai readiness compute`（`admin/readiness_candidate.go:66-75` 已有 hash 变化重写逻辑）。同时建议把 Readiness 升到 `rai.readiness.training/3`（`modelmanifest/manifest.go:74` 的 ConfigHash 摘要同步去掉 `36h`），避免同名 v2 artifact 前后语义不同。
+- **不再需要新鲜度替代闸门**：readiness 是当日 anchor，`FreshenV2`（`readiness/v2.go:230-240`）跨日置 `candidate_superseded`，且 anchor 只由上传触发的 `rai_readiness_dirty` 生成——没有新上传就没有今日 anchor，不会拿旧数据冒充今天。
+- **发布顺序**：S1 代码删除 + 迁移只清函数/触发器/幽灵依赖边（`00041:196-210` 的 `readiness/load-coverage/v1`）→ S2 重签 assignment → S3 验收 → S4 迁移 `DROP TABLE workout_sync_completeness`（分两步是为了保留旧二进制回滚能力，因为读侧每次 readiness 作业都读该表）→ S5 文档。
+- **明确不做**：服务端推断式覆盖（“库里看到 N 条就算齐”）、client flag / synthetic 标记冒充覆盖、删除历史事实、改动 recovery/daily/VO2 覆盖语义、任何客户端改动。
+
+仍未验证（本轮无实施）：删除后的 readiness 语义未在真实隔离 PG 上跑过；`Config.Hash()` 变化对现有 assignment 的实际影响未实测；`integration/synthetic_local_seed_test.go` 对 `syntheticCoverage` 的依赖范围未逐一确认；daily/VO2 覆盖判据在 v6 之后是否也会出现同类死锁未核实（方案 §7 R5 列为后续项）。方案本身不代表任何部署或产品验收。
+
+### Workout completeness 控制面下线 — 已实施（2026-11-10）
+
+按产品决定取消 Workout 集合完整性证明：服务端只按上传是否提交判定 Workout，与 RQrun 的 `upload_record` 成功语义一致。上一节记录的“v6 无法续期 completeness → Readiness 覆盖门槛失效”不再适用。
+
+判据替换：上传成功 = `workout_ingests.state='committed'`（`migrations/00050_workout_ingests.sql` 的 CHECK 已保证该状态行必有 `finished_at` 与 `commit_revision`）。新增 `apps/server/internal/storage/postgres/workout_sync_evidence.go` 的 `workoutSyncEvidence`，用 `SELECT count(*), max(finished_at) ... WHERE dataset_id=$1 AND state='committed'` 产出 `rd.Sync{CommittedWorkouts, LastCommitAt}`，只作诊断与围栏输入，不参与任何闸门。
+
+已删除：
+
+- 控制面：`POST /v2/sync/workout-completeness` 路由与 handler、`syncing.WorkoutCompletenessContract`/`WorkoutCompletenessV2Contract` 及 `CommitWorkoutCompleteness{,V2}` 接口方法、`storage/postgres/workout_completeness{,_v2,_coverage}.go`、`dbgen` 的 `WorkoutSyncCompleteness` 模型、握手能力 `workoutSyncCompletenessVersion`/`workoutSyncCompletenessV2Version`/`workoutStreamSetVersion`、5 个 Go 测试文件、`contracts/fixtures/workout-completeness-*` 与 `contracts/workout-completeness-v2.md`、`docs/WORKOUT_SYNC_COMPLETENESS_CONTRACT.md`。
+- 存储：迁移 `00051_retire_workout_completeness.sql` 删除 `workout_sync_completeness` 表、`workout_completeness_immutable`/`workout_completeness_dirty`/`model_stack_dirty_proof` 触发器及其函数、`workout_completeness_fact_revision` 索引，并 `DELETE` 存量 `analysis_model_dependencies` 中 `upstream_scope='readiness/load-coverage/v1'` 的幽灵边、`CREATE OR REPLACE rai_readiness_edges()` 不再写该边。`RequiredSchemaVersion` 50 → 51，`deploy/postgres/{roles,runtime-grants}.sql` 去掉该表授权。
+- Readiness：`Coverage{Identity,From,Through,CaughtUp,Synthetic,StreamHash}` 与 `Config.CoverageFreshUs` 删除，替换为 `Sync{CommittedWorkouts,LastCommitAt}`；`load_sync_incomplete` reason 与 `sync_incomplete` status 不再产生；`model_stack_inputs.go` 的“覆盖不成立即清空当日 RecordedLoad/Acute/Chronic/Balance/Ratio/Trend7 并置 insufficient”整块删除；`model_stack_research.go` 的 `loadSettling` 改用 `day.Quality=="complete"`。模型版本升为 `rai.readiness.training/v3`（schema `/3`、input `/3`、policy `.../v3`，`modelmanifest` 的 ConfigHash 摘要去掉 `36h`）。
+
+诚实降级的替代依据（未放松）：`LoadBaselineV3` 仍要求 ≥5 个完整训练日、跨度 ≥14 天、最近训练日在 14 天内，否则 `Baseline.State="collecting"`；`FreshenV3` 跨日置 `candidate_superseded`；`PublishAnalysis` 仍重算输入并比较 `InputHash`，任何在上传提交后才落地的输入变化都会围栏旧候选。代价是服务端不再区分“只上传了 3 条”与“只有 3 条”，登记为已接受的产品决定。
+
+真实证据（本机）：
+
+- `scripts/local/test.sh gate` PASS（gofmt、`go vet`、`go test -race ./...`、依赖边界与产品边界，35s）。
+- `go build ./...`、`go vet ./...`、`go vet -tags=integration ./integration/` 通过。
+- 隔离 PostgreSQL 18.6 集成测试：`-run 'TestReadiness|TestModelStack|TestTrainingModel|TestAthleteModel|TestSyntheticLocalSeed' ./integration` 首轮 3 项失败（`roles.sql` 仍授权已删表；`TestReadinessSnapshotRepeatableRead` 原依赖 syntheticCoverage 变更做围栏），修掉后该三项目标用例 PASS（15.2s，`RAI_TEST_LEFTOVER_DATABASES=0`）。`TestReadinessSnapshotRepeatableRead` 改为在快照取到之后插入一条 `committed` 的 `workout_ingests` 行来制造输入变化，断言发布被 SUPERSEDED。
+- 新增/改写用例：`TestReadinessNeverGatesOnUploadCompleteness`（集成，断言无 `sync_incomplete`、`load_sync_incomplete`，未决 load 仍报 `UnknownLoads=1`）、`TestSyncEvidenceNeverGates`（单元，`Sync{}` 时仍出 Score）、`TestFreshenAndGoldenTimeProgression` 末尾改为断言同步证据不再阻断新鲜度投影。
+
+- `scripts/local/contracts.sh` PASS：redocly 2.71.1 对 `contracts/openapi-v2.yaml` 报 0 errors、35 warnings（原基线 36，减少 1 条对应删除的 completeness 路径），证据写入 `docs/evidence/local-contracts-lint.json`（`contract_sha256` 已更新）。
+
+- 全量 `scripts/local/test.sh integration ./integration`（1176 s）首轮 FAIL 两类，均已定位并修复：(1) `rai.readiness.training/3` 被数据库工件门禁拒绝（`feature_artifact_invalid_run`，RA041）——`migrations/00043` 的 `analysis_artifacts_check` 只列 `/1`、`/2`，且 `rai_feature_artifact_insert()` 的 `ver` CASE 把 `/3` 落到 `v1`；新增 `migrations/00052_readiness_v3_artifact.sql` 注册 `/3`（保留 `/1`，legacy v1 路径仍在写）并把 `ver` 加 `WHEN schema_version='rai.readiness.training/3' THEN 'v3'`，`RequiredSchemaVersion` 51 → 52；(2) `TestVO2RestrictedRoles` 断言 worker 不能 INSERT `health_samples`，与 8318fa7 起 UUID 摄入 worker 需写规范化事实的授权冲突，属该提交留下的既有失败，改为断言 worker 不能 UPDATE/DELETE 原始样本、不能改 `daily_health_coverage`。另外 `validHistoryArtifact` 的 `trainingReadiness` 分支仍要求 artifact `version="v2"`，已改 `"v3"`（否则产品读取报 `technical_failure`、晋升门禁 `promotion_gate_closed`）；集成夹具 `seedV2Artifact` 的 readiness 调用把 run 的 `algorithm_version` 从 `"v2"` 改为 `"v3"`（5 处）。`rai_readiness_edges()` 保持只对 `/1` 触发：`analysis_model_dependencies_check` 只允许 `instant/readiness/v1/...` 下游 scope，v2 时代同样不写依赖边，`/3` 沿用该行为。
+
+- 修复后全量 `scripts/local/test.sh integration ./integration` **PASS**（1184.3 s，`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`）；`scripts/local/test.sh gate` PASS（6 s，缓存命中）。
+
+仍未验证：真实 iPhone/HealthKit 与部署验收未执行；云端数据库仍是 schema 50 且现网 iOS 包仍是 v4/v5（上传 422 `unsupported_payload`），本变更未部署。daily/VO2 各自的覆盖判据属另一控制面，未改动。
+
+### 日常 gate 纳入 admin 迁移集成测试 — 已实施（2026-11-10）
+
+`scripts/local/test.sh` 的 `gate` 此前只跑 `go test -race ./...`（不含 `integration` tag），`internal/admin` 的迁移集成测试只在 `full` 或显式 integration 时执行；三处 `information_schema.tables` 断言因此长期停留在过期值（写死的 59 在 HEAD 已对应 61 张表），迁移导致的表数漂移无法在日常门禁暴露。
+
+变更：`gate` 在 race 单测后固定执行 `pg_tests -v ./internal/admin/`（真实隔离 PostgreSQL 18，`-p 1 -timeout=40m`；admin 包 12 个 integration 文件、13 个测试整包执行，避免按用例名正则漏掉 `TestUpgrade29PreservesVo2MaxSourceSelectionInput`）；usage 与 Scope 文案同步，`quick`/`full` 不变。
+
+真实证据（本机）：
+
+- `scripts/local/test.sh gate` PASS（22 s；`ok rai/server/internal/admin 14.915s`，13 个迁移/回滚测试全 PASS；`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`；依赖边界 264 packages、产品边界 files=48、设备脚本 4 tests 通过）。
+- 同轮修复：三处 admin 迁移测试断言由过期的 59 改为实测 60（本分支 `00051` 删 `workout_sync_completeness` 一表；HEAD 实测 61 张）；`ios/RAI/Sources/ProductCore/AthleteModel.swift` 的白名单加入 `rai.readiness.training/v3`（`swift --filter AthleteModel` 5 tests PASS）。
+
+仍未验证：未跑 `scripts/local/test.sh full` 或全量 integration 回归；真机与部署验收未变（沿用上一节结论）。

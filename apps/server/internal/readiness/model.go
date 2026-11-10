@@ -40,12 +40,21 @@ type Config struct {
 	BaselineFreshDays int     `json:"baselineFreshDays"`
 	BaselineFloor     float64 `json:"baselineFloorAU"`
 	ConfidenceCap     float64 `json:"confidenceCap"`
-	CoverageFreshUs   int64   `json:"coverageFreshUs"`
 	MaxWorkoutAU      float64 `json:"maxWorkoutAU"`
 }
 
 func DefaultConfig(tz string) Config {
-	return Config{tz, "recorded-running;complete-day-median;finite-tail-certified/v1", 36 * Hour, 180 * 24 * Hour, 42, 5, 14, 14, 1, .55, 24 * Hour, 10000}
+	return Config{Timezone: tz,
+		Policy:            "recorded-running;complete-day-median;finite-tail-certified/v1",
+		TauUs:             36 * Hour,
+		LookbackUs:        180 * 24 * Hour,
+		BaselineDays:      42,
+		MinimumDays:       5,
+		MinimumSpanDays:   14,
+		BaselineFreshDays: 14,
+		BaselineFloor:     1,
+		ConfidenceCap:     .55,
+		MaxWorkoutAU:      10000}
 }
 func Hash(v any) string {
 	b, e := json.Marshal(v)
@@ -72,15 +81,13 @@ type RecoveryEvidence struct {
 	Coverage   float64  `json:"evidenceCoverage"`
 }
 
-// Coverage comes from verified Workout completeness control-plane receipts.
-// Synthetic is retained solely as the visible marker of isolated model fixtures.
-type Coverage struct {
-	Identity   string `json:"identity"`
-	From       int64  `json:"fromUs"`
-	Through    int64  `json:"throughUs"`
-	CaughtUp   bool   `json:"caughtUp"`
-	Synthetic  bool   `json:"syntheticOnly"`
-	StreamHash string `json:"streamHash"`
+// Sync is the positive upload evidence this dataset carries: how many Workouts
+// the server committed and when the newest commit finished. It is diagnostic
+// only. The model never requires a set to be complete, because the server cannot
+// distinguish "the client uploaded three of five" from "there were three".
+type Sync struct {
+	CommittedWorkouts int   `json:"committedWorkouts"`
+	LastCommitAt      int64 `json:"lastCommitAtUs"`
 }
 type Day struct {
 	Date  string `json:"date"`
@@ -120,7 +127,7 @@ type ReadinessSnapshot struct {
 	Recovery       *RecoveryEvidence `json:"recovery"`
 	Loads          []WorkoutLoad     `json:"loads"`
 	Days           []Day             `json:"calendar"` // 42 complete prior civil days, then today.
-	Coverage       Coverage          `json:"loadCoverage"`
+	Sync           Sync              `json:"workoutSync"`
 }
 type Baseline struct {
 	Value         *float64 `json:"value"`
@@ -172,7 +179,7 @@ type Result struct {
 	Confidence               float64           `json:"confidence"`
 	LoadSupport              float64           `json:"loadSupportConfidence"`
 	ConfidenceMeaning        string            `json:"confidenceMeaning"`
-	Coverage                 Coverage          `json:"loadCoverage"`
+	Sync                     Sync              `json:"workoutSync"`
 	KnownLoads               int               `json:"knownLoads"`
 	UnknownLoads             int               `json:"unknownLoads"`
 	Terms                    []Term            `json:"loadTerms"`

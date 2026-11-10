@@ -326,7 +326,10 @@ func TestVO2RestrictedRoles(t *testing.T) {
 		t.Fatal("restricted coverage", err)
 	}
 	worker := openRole(workerRole)
-	for _, sql := range []string{`INSERT INTO health_samples SELECT * FROM health_samples LIMIT 0`, `UPDATE daily_health_coverage SET anchor_present=false`} {
+	// The UUID ingest worker writes normalized facts, so it may INSERT raw
+	// samples; the frozen boundary is that it cannot rewrite or erase raw
+	// history and cannot mutate coverage state.
+	for _, sql := range []string{`UPDATE health_samples SET value_numeric=1`, `DELETE FROM health_samples`, `UPDATE daily_health_coverage SET anchor_present=false`} {
 		if _, err = worker.Pool.Exec(ctx, sql); err == nil {
 			t.Fatal("worker raw/coverage permission expanded")
 		}

@@ -80,9 +80,9 @@ func TestTrainingContextUsesV2ReadinessSignal(t *testing.T) {
 	end := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, loc).UnixMicro()
 	nowUs := now.UnixMicro()
 	score := 82.0
-	cfg := readiness.DefaultV2Config("Asia/Shanghai")
-	result := readiness.Result{Date: day, Schema: readiness.SchemaV2, Dataset: f.p.DatasetID, Generation: 1, ModelVersion: readiness.ModelV2, ConfigHash: cfg.Hash(), Config: cfg, InputHash: "x", CalendarHash: "x", AsOf: nowUs, EvaluationAt: nowUs, CapturedAt: nowUs, ValidBefore: end, Status: "available", Quality: "complete", Score: &score, Coverage: readiness.Coverage{Through: nowUs, CaughtUp: true}}
-	seedV2Artifact(t, f, readiness.ScopeV2For("synthetic-v2"), "training_readiness", readiness.SchemaV2, readiness.Algorithm, "v2", "model_product_v2", day, result)
+	cfg := readiness.DefaultV3Config("Asia/Shanghai")
+	result := readiness.Result{Date: day, Schema: readiness.SchemaV3, Dataset: f.p.DatasetID, Generation: 1, ModelVersion: readiness.ModelV3, ConfigHash: cfg.Hash(), Config: cfg, InputHash: "x", CalendarHash: "x", AsOf: nowUs, EvaluationAt: nowUs, CapturedAt: nowUs, ValidBefore: end, Status: "available", Quality: "complete", Score: &score, Sync: readiness.Sync{CommittedWorkouts: 6, LastCommitAt: nowUs}}
+	seedV2Artifact(t, f, readiness.ScopeV3For("synthetic-v2"), "training_readiness", readiness.SchemaV3, readiness.Algorithm, "v3", "model_product_v2", day, result)
 	in, err := f.s.LoadTraining(context.Background(), analysis.Lease{DatasetID: f.p.DatasetID, ScopeKey: "plan:" + p.ID}, now)
 	if err != nil {
 		t.Fatal(err)
@@ -113,9 +113,9 @@ func TestTrainingContextIgnoresV2ReadinessOnLegacyAdapter(t *testing.T) {
 	day := now.Format("2006-01-02")
 	end := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, loc).UnixMicro()
 	score := 90.0
-	cfg := readiness.DefaultV2Config("Asia/Shanghai")
-	result := readiness.Result{Date: day, Schema: readiness.SchemaV2, Dataset: f.p.DatasetID, Generation: 1, ModelVersion: readiness.ModelV2, ConfigHash: cfg.Hash(), Config: cfg, AsOf: now.UnixMicro(), ValidBefore: end, Status: "available", Quality: "complete", Score: &score}
-	seedV2Artifact(t, f, readiness.ScopeV2For("synthetic-v2"), "training_readiness", readiness.SchemaV2, readiness.Algorithm, "v2", "model_product_v2", day, result)
+	cfg := readiness.DefaultV3Config("Asia/Shanghai")
+	result := readiness.Result{Date: day, Schema: readiness.SchemaV3, Dataset: f.p.DatasetID, Generation: 1, ModelVersion: readiness.ModelV3, ConfigHash: cfg.Hash(), Config: cfg, AsOf: now.UnixMicro(), ValidBefore: end, Status: "available", Quality: "complete", Score: &score}
+	seedV2Artifact(t, f, readiness.ScopeV3For("synthetic-v2"), "training_readiness", readiness.SchemaV3, readiness.Algorithm, "v3", "model_product_v2", day, result)
 	in, err := f.s.LoadTraining(context.Background(), analysis.Lease{DatasetID: f.p.DatasetID, ScopeKey: "plan:" + p.ID}, now)
 	if err != nil {
 		t.Fatal(err)
@@ -138,9 +138,9 @@ func TestTrainingContextDoesNotUseExpiredV2Readiness(t *testing.T) {
 	now := time.Now().In(loc)
 	day := now.Format("2006-01-02")
 	score := 90.0
-	cfg := readiness.DefaultV2Config("Asia/Shanghai")
-	result := readiness.Result{Date: day, Schema: readiness.SchemaV2, Dataset: f.p.DatasetID, Generation: 1, ModelVersion: readiness.ModelV2, ConfigHash: cfg.Hash(), Config: cfg, AsOf: now.Add(-2 * time.Hour).UnixMicro(), ValidBefore: now.Add(-time.Hour).UnixMicro(), Status: "available", Quality: "complete", Score: &score}
-	seedV2Artifact(t, f, readiness.ScopeV2For("synthetic-v2"), "training_readiness", readiness.SchemaV2, readiness.Algorithm, "v2", "model_product_v2", day, result)
+	cfg := readiness.DefaultV3Config("Asia/Shanghai")
+	result := readiness.Result{Date: day, Schema: readiness.SchemaV3, Dataset: f.p.DatasetID, Generation: 1, ModelVersion: readiness.ModelV3, ConfigHash: cfg.Hash(), Config: cfg, AsOf: now.Add(-2 * time.Hour).UnixMicro(), ValidBefore: now.Add(-time.Hour).UnixMicro(), Status: "available", Quality: "complete", Score: &score}
+	seedV2Artifact(t, f, readiness.ScopeV3For("synthetic-v2"), "training_readiness", readiness.SchemaV3, readiness.Algorithm, "v3", "model_product_v2", day, result)
 	in, err := f.s.LoadTraining(context.Background(), analysis.Lease{DatasetID: f.p.DatasetID, ScopeKey: "plan:" + p.ID}, now)
 	if err != nil {
 		t.Fatal(err)

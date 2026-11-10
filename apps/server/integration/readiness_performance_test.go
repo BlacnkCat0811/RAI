@@ -60,7 +60,6 @@ func TestReadinessPerformanceMatrix(t *testing.T) {
 				previous = density
 				drainReadinessUpstream(t, f, wf.JobKind)
 				drainReadinessUpstream(t, f, tl.JobKind)
-				readinessSyntheticCoverage(t, f)
 				l := latestReadinessLease(t, f)
 				runtime.GC()
 				var a, b runtime.MemStats
@@ -155,13 +154,19 @@ func TestReadinessSnapshotRepeatableRead(t *testing.T) {
 	if !waiting {
 		t.Fatal("snapshot barrier not reached")
 	}
-	readinessSyntheticCoverage(t, f)
 	if e = block.Commit(ctx); e != nil {
 		t.Fatal(e)
 	}
 	got := <-done
 	if got.e != nil || got.in.Generation != l.TargetGeneration {
 		t.Fatal("mixed snapshot", got.e)
+	}
+	// A committed upload that lands after this snapshot changes the sync evidence,
+	// so the snapshot may no longer publish even though it was internally
+	// consistent when it was taken.
+	if _, e = f.s.Pool.Exec(ctx, `INSERT INTO workout_ingests(dataset_id,workout_uuid,payload_bytes,device_id,dataset_epoch,collector_epoch,state,accepted_at,commit_revision,finished_at,next_attempt_at)
+ SELECT d.id,$2,1,$3,d.epoch,c.collector_epoch,'committed',now(),1,now(),now() FROM datasets d JOIN collector_leases c ON c.dataset_id=d.id WHERE d.id=$1`, f.p.DatasetID, syncing.NewID(), f.p.DeviceID); e != nil {
+		t.Fatal(e)
 	}
 	id, e := f.s.StartAnalysisRun(ctx, l, got.in)
 	if e != nil {

@@ -21,7 +21,7 @@ func TestReadinessV2PerformanceP95(t *testing.T) {
 	ds := make([]time.Duration, 0, 30)
 	for i := -3; i < 30; i++ {
 		start := time.Now()
-		if _, err := CalculateV2(in); err != nil {
+		if _, err := CalculateV3(in); err != nil {
 			t.Fatal(err)
 		}
 		if i >= 0 {

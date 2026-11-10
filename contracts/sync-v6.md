@@ -367,7 +367,7 @@ rai/v1|<datasetID>|<workoutID>|activity|<ordinal>
 - 旧版本已确认的任务与回执保留为只读历史；客户端不重新上传该 Workout 的旧字节，
   也不自动读取其分析状态。
 - 新流程没有成功后的状态恢复路径，也不在任何失败路径上回退到 v3/v4/v5。
-- completion/completeness 控制面与日常事实/VO2 是独立协议；它们不属于 Workout
+- 日常事实/VO2 是独立协议；`workout-sync-completeness` 已于 2026-11-10 下线，不属于 Workout
   v6 载荷，也不恢复客户端删除或快照缺失推断。
 
 ## 9. 验收与测试入口

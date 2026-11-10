@@ -85,7 +85,7 @@ func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, s
 		"vo2":       ve.ScopeFor(stack),
 		"raiVO2":    vo2.ScopeFor(stack),
 		"recovery":  rc.ScopeV2For(stack, day),
-		"readiness": rd.ScopeV2For(stack),
+		"readiness": rd.ScopeV3For(stack),
 	}
 	// One bounded batch read for all six slots keeps the product request at a
 	// fixed SELECT count and avoids N+1 artifact lookups.
@@ -225,7 +225,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 		if !validHistoryArtifact("trainingReadiness", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
 			out.TrainingReadiness = am.Missing[am.ReadinessValue]("trainingReadiness", at.UnixMicro(), "technical_failure")
 		} else {
-			v, e := rd.FreshenV2(r, at.UnixMicro())
+			v, e := rd.FreshenV3(r, at.UnixMicro())
 			if e != nil {
 				out.TrainingReadiness = am.Missing[am.ReadinessValue]("trainingReadiness", at.UnixMicro(), "technical_failure")
 			} else {
@@ -307,7 +307,7 @@ func (s *Store) ReadAthleteHistory(ctx context.Context, p syncing.Principal, met
 			scopes = append(scopes, rc.ScopeV2For(stack, day.Format(time.DateOnly)))
 		}
 	case "trainingReadiness":
-		scopes, key = []string{rd.ScopeV2For(stack)}, "training_readiness"
+		scopes, key = []string{rd.ScopeV3For(stack)}, "training_readiness"
 	case "externalVO2Max":
 		scopes, key = []string{ve.ScopeFor(stack)}, ve.ArtifactKey
 	case "raiVO2Max":
@@ -377,9 +377,9 @@ func validHistoryArtifact(metric, dataset, tz string, a publishedModelArtifact) 
 			r.Schema == a.Schema && r.ConfigHash == rc.DefaultV2Config(tz).Hash() && rc.Hash(r) == a.ContentHash
 	case "trainingReadiness":
 		var r rd.Result
-		return a.Schema == rd.SchemaV2 && a.Algorithm == rd.Algorithm && a.Version == "v2" &&
+		return a.Schema == rd.SchemaV3 && a.Algorithm == rd.Algorithm && a.Version == "v3" &&
 			json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation &&
-			r.Schema == a.Schema && r.ConfigHash == rd.DefaultV2Config(tz).Hash() && rd.Hash(r) == a.ContentHash
+			r.Schema == a.Schema && r.ConfigHash == rd.DefaultV3Config(tz).Hash() && rd.Hash(r) == a.ContentHash
 	case "externalVO2Max":
 		var r ve.Result
 		return a.Schema == ve.Schema && a.Algorithm == ve.Algorithm && a.Version == "v1" &&

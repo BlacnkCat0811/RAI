@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RAI native delta API
-  version: 1.13.2
+  version: 1.13.3
   description: >-
     Protocol 6 HealthKit Workout upload: foreground, user-initiated only. Each
     explicit sync performs one handshake, then per selected Workout one
@@ -113,46 +113,8 @@ paths:
                       sampleWorkoutAssociations: true
                       changefeed: false
                       analysis: true
-                      workoutSyncCompletenessV2Version: 2
                       workoutSourcePolicyVersion: rai.workout.source_policy.apple_watch_only/v1
         '401': {$ref: '#/components/responses/Error'}
-        '429': {$ref: '#/components/responses/RateLimited'}
-        default: {$ref: '#/components/responses/Error'}
-  /v2/sync/workout-completeness:
-    post:
-      summary: Commit verified Workout all-stream discovery evidence
-      operationId: commitWorkoutCompleteness
-      description: >-
-        Independent control plane for visible running Workouts and all supported
-        associated streams. Immutable final receipt follows dataset-locked stream,
-        anchor, sequence, inventory and durable fact receipt verification. Client
-        commits its staged anchors only after this ACK. No physiological formula,
-        source selection, synthetic override or product activation is performed.
-        The body contract selects the semantics: workout-sync-completeness/v1
-        requires a Protocol 3 receipt for every visible Workout, while
-        workout-sync-completeness/v2 requires every visible Workout to be either
-        eligible (receipt) or explicitly excluded by the frozen source policy
-        (re-verifiable evidence), with zero unclassified Workouts. An unknown
-        contract is rejected with 422 unsupported_version; the two lineages are
-        never reinterpreted as one another.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/WorkoutCompletenessManifest'}
-      responses:
-        '200':
-          description: Immutable verified completeness receipt
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - {$ref: '#/components/schemas/WorkoutCompletenessReceipt'}
-                  - {$ref: '#/components/schemas/WorkoutCompletenessReceiptV2'}
-        '401': {$ref: '#/components/responses/Error'}
-        '409': {$ref: '#/components/responses/Error'}
-        '413': {$ref: '#/components/responses/Error'}
-        '422': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
   /v2/sync/vo2max-facts:
@@ -565,18 +527,7 @@ components:
               operation: {type: string}
         nextCursor: {type: string}
         hasMore: {type: boolean}
-    WorkoutCompletenessPage: {"type":"object","additionalProperties":false,"required":["pageID","sequence","previousPageSHA256","previousAnchorSHA256","candidateAnchorSHA256","queryStartedAtUs","queryCompletedAtUs","additions","deletions","hasMore"],"properties":{"pageID":{"$ref":"#/components/schemas/ID"},"sequence":{"type":"integer","format":"int64","minimum":1},"previousPageSHA256":{"oneOf":[{"type":"string","pattern":"^[0-9a-f]{64}$"},{"type":"null"}]},"previousAnchorSHA256":{"oneOf":[{"type":"string","pattern":"^[0-9a-f]{64}$"},{"type":"null"}]},"candidateAnchorSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"queryStartedAtUs":{"type":"integer","format":"int64"},"queryCompletedAtUs":{"type":"integer","format":"int64"},"additions":{"type":"array","items":{"$ref":"#/components/schemas/ID"},"maxItems":1000},"deletions":{"type":"array","items":{"$ref":"#/components/schemas/ID"},"maxItems":1000},"hasMore":{"type":"boolean"}}}
-    WorkoutCompletenessStream: {"type":"object","additionalProperties":false,"required":["key","sampleType","workoutID","queryFingerprint","pages"],"properties":{"key":{"type":"string","maxLength":256},"sampleType":{"type":"string"},"workoutID":{"oneOf":[{"$ref":"#/components/schemas/ID"},{"type":"null"}]},"queryFingerprint":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"pages":{"type":"array","items":{"$ref":"#/components/schemas/WorkoutCompletenessPage"},"minItems":1,"maxItems":8192}}}
-    WorkoutCompletenessSeries: {"type":"object","additionalProperties":false,"required":["sampleType","sha256","pointCount","queryCompletedAtUs"],"properties":{"sampleType":{"type":"string"},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"pointCount":{"type":"integer","minimum":0,"maximum":1000000},"queryCompletedAtUs":{"type":"integer","format":"int64"}}}
-    WorkoutCompletenessWorkout: {"type":"object","additionalProperties":false,"required":["workoutID","bundleSHA256","routeState","series"],"properties":{"workoutID":{"$ref":"#/components/schemas/ID"},"bundleSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"routeState":{"enum":["present","absent"]},"series":{"type":"array","items":{"$ref":"#/components/schemas/WorkoutCompletenessSeries"},"minItems":10,"maxItems":10}}}
-    WorkoutCompletenessManifest: {"type":"object","additionalProperties":false,"required":["contract","protocolVersion","datasetID","datasetEpoch","collectorEpoch","manifestID","generation","previousManifestSHA256","streamSetVersion","windowFromUs","knownCutoffUs","createdAtUs","supportedStreams","unsupportedStreams","notApplicableStreams","streams","workouts"],"properties":{"contract":{"const":"workout-sync-completeness/v1"},"protocolVersion":{"const":1},"datasetID":{"$ref":"#/components/schemas/ID"},"datasetEpoch":{"$ref":"#/components/schemas/ID"},"collectorEpoch":{"$ref":"#/components/schemas/ID"},"manifestID":{"$ref":"#/components/schemas/ID"},"generation":{"type":"integer","format":"int64","minimum":1},"previousManifestSHA256":{"oneOf":[{"type":"string","pattern":"^[0-9a-f]{64}$"},{"type":"null"}]},"streamSetVersion":{"const":1},"windowFromUs":{"type":"integer","format":"int64"},"knownCutoffUs":{"type":"integer","format":"int64"},"createdAtUs":{"type":"integer","format":"int64"},"supportedStreams":{"type":"array","items":{"type":"string"},"minItems":12,"maxItems":12,"uniqueItems":true},"unsupportedStreams":{"type":"array","items":{"enum":["native_running_cadence","elevation_sample"]},"minItems":2,"maxItems":2,"uniqueItems":true},"notApplicableStreams":{"type":"array","items":{"type":"string"},"uniqueItems":true},"streams":{"type":"array","items":{"$ref":"#/components/schemas/WorkoutCompletenessStream"},"minItems":1,"maxItems":2817},"workouts":{"type":"array","items":{"$ref":"#/components/schemas/WorkoutCompletenessWorkout"},"maxItems":256}},"description":"Immutable control-plane evidence; exact body at most 16 MiB, 8192 pages and 250000 events. Server validates all stream sets, anchor/sequence chains, inventory, durable v3 receipts and fresh series digests; no client complete flag. Capture cutoff describes visible running Workouts and their supported streams, not read permission, future arrivals or whole-body load."}
-    WorkoutCompletenessReceipt: {"type":"object","additionalProperties":false,"required":["contract","protocolVersion","datasetID","datasetEpoch","collectorEpoch","manifestID","generation","manifestSHA256","ingestStatus","commitRevision","streamCount","workoutCount"],"properties":{"contract":{"const":"workout-sync-completeness/v1"},"protocolVersion":{"const":1},"datasetID":{"$ref":"#/components/schemas/ID"},"datasetEpoch":{"$ref":"#/components/schemas/ID"},"collectorEpoch":{"$ref":"#/components/schemas/ID"},"manifestID":{"$ref":"#/components/schemas/ID"},"generation":{"type":"integer","format":"int64","minimum":1},"manifestSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"ingestStatus":{"const":"committed"},"commitRevision":{"type":"integer","format":"int64","minimum":1},"streamCount":{"type":"integer","minimum":1},"workoutCount":{"type":"integer","minimum":0,"maximum":256}}}
     SourcePolicyDeviceEvidence: {"type":"object","additionalProperties":false,"required":["manufacturer","model","hardwareVersion","firmwareVersion","softwareVersion"],"properties":{"manufacturer":{"type":"string","maxLength":255},"model":{"type":"string","maxLength":255},"hardwareVersion":{"type":"string","maxLength":255},"firmwareVersion":{"type":"string","maxLength":255},"softwareVersion":{"type":"string","maxLength":255}},"description":"Classification input only. Empty string means the descriptor was not reported. No device identifier, Workout UUID or health value is transported."}
-    SourcePolicyEvidence: {"type":"object","additionalProperties":false,"required":["bundleID","name","version","productType","operatingSystemVersion","device"],"properties":{"bundleID":{"type":"string","maxLength":255},"name":{"type":"string","maxLength":255},"version":{"type":"string","maxLength":255},"productType":{"type":"string","maxLength":255},"operatingSystemVersion":{"type":"string","maxLength":255},"device":{"$ref":"#/components/schemas/SourcePolicyDeviceEvidence"}},"description":"The minimal descriptor the frozen policy reads; at most 2048 canonical bytes. The server re-runs rai.workout.source_policy.apple_watch_only/v1 over exactly this evidence instead of trusting a client claim."}
-    CompletenessExclusion: {"type":"object","additionalProperties":false,"required":["workoutIdentitySHA256","classification","outcome","reason","classificationVersion","sourcePolicyVersion","evidenceSHA256","sourceEvidence"],"properties":{"workoutIdentitySHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"classification":{"enum":["third_party","user_entered"]},"outcome":{"const":"excluded"},"reason":{"const":"excluded_by_source_policy"},"classificationVersion":{"const":1},"sourcePolicyVersion":{"const":"rai.workout.source_policy.apple_watch_only/v1"},"evidenceSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"sourceEvidence":{"$ref":"#/components/schemas/SourcePolicyEvidence"}},"description":"Durable proof that a visible Workout was deliberately not ingested. Identity is hashed; no raw Workout UUID, bundle identifier or device identifier is exposed publicly."}
-    CompletenessInventory: {"type":"object","additionalProperties":false,"required":["visibleCount","eligibleCount","excludedCount","unclassifiedCount","pendingClassificationCount","visibleSHA256","eligibleSHA256","excludedSHA256"],"properties":{"visibleCount":{"type":"integer","minimum":0,"maximum":256},"eligibleCount":{"type":"integer","minimum":0,"maximum":256},"excludedCount":{"type":"integer","minimum":0,"maximum":256},"unclassifiedCount":{"const":0},"pendingClassificationCount":{"const":0},"visibleSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"eligibleSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"excludedSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"}},"description":"visible = eligible + excluded + unclassified must hold, with zero unclassified and zero pending. Membership is proved by hashed identity digests, never by counts alone."}
-    WorkoutCompletenessManifestV2: {"type":"object","additionalProperties":false,"required":["contract","protocolVersion","datasetID","datasetEpoch","collectorEpoch","manifestID","generation","previousManifestSHA256","streamSetVersion","sourcePolicyVersion","sourcePolicySHA256","classificationVersion","inventory","exclusions","windowFromUs","knownCutoffUs","createdAtUs","supportedStreams","unsupportedStreams","notApplicableStreams","streams","workouts"],"properties":{"contract":{"const":"workout-sync-completeness/v2"},"protocolVersion":{"const":2},"datasetID":{"$ref":"#/components/schemas/ID"},"datasetEpoch":{"$ref":"#/components/schemas/ID"},"collectorEpoch":{"$ref":"#/components/schemas/ID"},"manifestID":{"$ref":"#/components/schemas/ID"},"generation":{"type":"integer","format":"int64","minimum":1},"previousManifestSHA256":{"oneOf":[{"type":"string","pattern":"^[0-9a-f]{64}$"},{"type":"null"}]},"streamSetVersion":{"const":1},"sourcePolicyVersion":{"const":"rai.workout.source_policy.apple_watch_only/v1"},"sourcePolicySHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"classificationVersion":{"const":1},"inventory":{"$ref":"#/components/schemas/CompletenessInventory"},"exclusions":{"type":"array","items":{"$ref":"#/components/schemas/CompletenessExclusion"},"maxItems":256},"windowFromUs":{"type":"integer","format":"int64"},"knownCutoffUs":{"type":"integer","format":"int64"},"createdAtUs":{"type":"integer","format":"int64"},"supportedStreams":{"type":"array","items":{"type":"string"},"minItems":12,"maxItems":12,"uniqueItems":true},"unsupportedStreams":{"type":"array","items":{"enum":["native_running_cadence","elevation_sample"]},"minItems":2,"maxItems":2,"uniqueItems":true},"notApplicableStreams":{"type":"array","items":{"type":"string"},"uniqueItems":true},"streams":{"type":"array","items":{"$ref":"#/components/schemas/WorkoutCompletenessStream"},"minItems":1,"maxItems":2817},"workouts":{"type":"array","items":{"$ref":"#/components/schemas/WorkoutCompletenessWorkout"},"maxItems":256}},"description":"Visible running inventory with explicit source-policy exclusions. workouts[] is the ELIGIBLE set only; exclusions[] proves every other visible Workout. The server recomputes the page-chain visible membership, requires it to equal eligible ∪ excluded, requires the stored fact domain to equal the eligible set, and re-runs the frozen classifier over each exclusion's evidence. A v2 manifest may only extend a v2 lineage; a committed v1 generation is never reinterpreted."}
-    WorkoutCompletenessReceiptV2: {"type":"object","additionalProperties":false,"required":["contract","protocolVersion","sourcePolicyVersion","datasetID","datasetEpoch","collectorEpoch","manifestID","generation","manifestSHA256","ingestStatus","commitRevision","streamCount","workoutCount","visibleCount","eligibleCount","excludedCount","unclassifiedCount","visibleSHA256","eligibleSHA256","excludedSHA256"],"properties":{"contract":{"const":"workout-sync-completeness/v2"},"protocolVersion":{"const":2},"sourcePolicyVersion":{"const":"rai.workout.source_policy.apple_watch_only/v1"},"datasetID":{"$ref":"#/components/schemas/ID"},"datasetEpoch":{"$ref":"#/components/schemas/ID"},"collectorEpoch":{"$ref":"#/components/schemas/ID"},"manifestID":{"$ref":"#/components/schemas/ID"},"generation":{"type":"integer","format":"int64","minimum":1},"manifestSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"ingestStatus":{"const":"committed"},"commitRevision":{"type":"integer","format":"int64","minimum":1},"streamCount":{"type":"integer","minimum":1},"workoutCount":{"type":"integer","minimum":0,"maximum":256},"visibleCount":{"type":"integer","minimum":0,"maximum":256},"eligibleCount":{"type":"integer","minimum":0,"maximum":256},"excludedCount":{"type":"integer","minimum":0,"maximum":256},"unclassifiedCount":{"const":0},"visibleSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"eligibleSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"excludedSHA256":{"type":"string","pattern":"^[0-9a-f]{64}$"}},"description":"Immutable v2 receipt. It restates the inventory the server verified, so a client can prove which membership was accepted; a lost ACK replays the identical body."}
     ID: {type: string, format: uuid, pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', not: {const: '00000000-0000-0000-0000-000000000000'}}
     Handshake:
       type: object
@@ -622,8 +573,6 @@ components:
       required: [sampleTypes, workouts, workoutType, workoutPayloadVersion, workoutUUIDIngestVersion, routes, sampleWorkoutAssociations, changefeed, analysis]
       description: Explicit capability boundary for this deployment. Unsupported source fields must remain local; clients must not truncate them to fit.
       properties:
-        workoutSyncCompletenessVersion: {const: 1}
-        workoutStreamSetVersion: {const: 1}
         vo2maxFactsVersion: {const: 1}
         vo2maxMetadataRegistryVersion: {const: 1}
         vo2maxMaxChanges: {const: 128}

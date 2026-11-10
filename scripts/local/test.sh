@@ -8,7 +8,7 @@ usage() {
   cat <<'USAGE'
 usage: scripts/local/test.sh [quick|gate|unit|integration|full|syncperf|swift|simulator|simupload|e2e|perf] [test arguments]
   quick        cached Go unit tests, vet and dependency boundaries (default)
-  gate         cached Go race, vet and boundaries; add affected PG tests for transactions
+  gate         cached Go race, vet and boundaries plus isolated PG admin migration tests
   unit         Go unit tests; accepts -run and package arguments
   integration  fresh local PostgreSQL 18, race enabled; accepts -run/packages
   full         uncached Go race, vet, build, sqlc, full isolated PG regression
@@ -198,6 +198,9 @@ case "$rai_profile" in
       go test ./...
     elif [[ "$rai_profile" == gate ]]; then
       go test -race ./...
+      # Admin migration tests need a real isolated PostgreSQL. Keep them in the
+      # daily gate so migration/schema drift fails here, not only in a full run.
+      pg_tests -v ./internal/admin/
     else
       go mod verify
       # Race executes unit tests too; avoid a redundant uncached unit pass.
@@ -216,6 +219,8 @@ case "$rai_profile" in
   *) usage >&2; exit 2 ;;
 esac
 echo "LOCAL CHECKS: PASS profile=$rai_profile elapsed_seconds=$((SECONDS - rai_started_seconds))"
-if [[ "$rai_profile" == quick || "$rai_profile" == gate ]]; then
+if [[ "$rai_profile" == quick ]]; then
   echo 'Scope: Go tests/vet/boundaries and controller safety; PostgreSQL/iOS/device acceptance not run.'
+elif [[ "$rai_profile" == gate ]]; then
+  echo 'Scope: Go race/vet/boundaries plus isolated PG admin migration tests; iOS/device acceptance not run.'
 fi

@@ -80,24 +80,7 @@ func readinessFixture(t *testing.T) (*fixture, []syncing.WorkoutBundle, map[stri
 	if e = admin.QueueReadinessCandidate(ctx, f.s, f.p.DatasetID, syncing.NewID(), "synthetic M6 candidate"); e != nil {
 		t.Fatal(e)
 	}
-	readinessSyntheticCoverage(t, f)
 	return f, workouts, bs
-}
-func readinessSyntheticCoverage(t *testing.T, f *fixture) {
-	t.Helper()
-	ctx := context.Background()
-	var manifest []byte
-	var now time.Time
-	if e := f.s.Pool.QueryRow(ctx, `SELECT clock_timestamp(),COALESCE((SELECT jsonb_agg(jsonb_build_array(s.id,s.query_fingerprint,s.last_client_seq,s.last_batch_id) ORDER BY s.id) FROM sync_streams s JOIN collector_leases c USING(dataset_id,collector_epoch) WHERE s.dataset_id=$1 AND s.sample_type='HKWorkoutTypeIdentifier'),'[]'::jsonb)`, f.p.DatasetID).Scan(&now, &manifest); e != nil {
-		t.Fatal(e)
-	}
-	var streams any
-	_ = json.Unmarshal(manifest, &streams)
-	c := rd.Coverage{Identity: syncing.NewID(), From: now.AddDate(0, 0, -200).UnixMicro(), Through: now.UnixMicro(), CaughtUp: true, Synthetic: true, StreamHash: rd.Hash(streams)}
-	b, _ := json.Marshal(c)
-	if _, e := f.s.Pool.Exec(ctx, `UPDATE analysis_model_channels SET extension_configs=jsonb_set(extension_configs,ARRAY[$2,'syntheticCoverage'],$3::jsonb) WHERE dataset_id=$1 AND channel='candidate'`, f.p.DatasetID, rd.Model, b); e != nil {
-		t.Fatal(e)
-	}
 }
 func runReadinessLatest(t *testing.T, f *fixture) {
 	t.Helper()
@@ -164,7 +147,7 @@ func TestReadinessPublication(t *testing.T) {
 	ctx := context.Background()
 	runReadinessLatest(t, f)
 	r, id := readReadiness(t, f)
-	if r.Score == nil || r.Status != "available" || *r.Score > *r.RecoveryScore || r.Confidence > .55 || r.Confidence > r.Recovery.Confidence || !r.Coverage.Synthetic || r.Baseline.TrainingDays != 6 {
+	if r.Score == nil || r.Status != "available" || *r.Score > *r.RecoveryScore || r.Confidence > .55 || r.Confidence > r.Recovery.Confidence || r.Baseline.TrainingDays != 6 {
 		t.Fatal("readiness unavailable", r.Status, r.Reasons)
 	}
 	if math.Abs(*r.Score-*r.RecoveryScore*math.Pow(.5, *r.Burden / *r.Baseline.Value)) > 1e-9 {
@@ -232,20 +215,22 @@ func TestReadinessPublication(t *testing.T) {
 		}
 	}
 }
-func TestReadinessMissingCoverageAndUnknownLoad(t *testing.T) {
+func TestReadinessNeverGatesOnUploadCompleteness(t *testing.T) {
 	f, _, _ := readinessFixture(t)
-	ctx := context.Background()
-	if _, e := f.s.Pool.Exec(ctx, `UPDATE analysis_model_channels SET extension_configs=extension_configs#-ARRAY[$2,'syntheticCoverage'] WHERE dataset_id=$1 AND channel='candidate'`, f.p.DatasetID, rd.Model); e != nil {
-		t.Fatal(e)
-	}
 	runReadinessLatest(t, f)
 	r, _ := readReadiness(t, f)
-	if r.Score != nil || r.Status != "sync_incomplete" {
-		t.Fatal("no upload became rest")
+	// A committed upload is the whole sync criterion. Nothing proves the set is
+	// complete, so readiness must produce a real result instead of sync_incomplete.
+	if r.Score == nil || r.Status == "sync_incomplete" {
+		t.Fatal("upload success became a sync gate", r.Status, r.Reasons)
+	}
+	for _, reason := range r.Reasons {
+		if reason == "load_sync_incomplete" {
+			t.Fatal("retired sync reason survived", r.Reasons)
+		}
 	}
 	b := m3Bundle(t, f, time.Now().Add(-time.Hour), 300)
 	importPhase3(t, f, b)
-	readinessSyntheticCoverage(t, f)
 	runReadinessLatest(t, f)
 	r, _ = readReadiness(t, f)
 	if r.Score != nil || r.UnknownLoads != 1 {
@@ -253,7 +238,7 @@ func TestReadinessMissingCoverageAndUnknownLoad(t *testing.T) {
 	}
 }
 func TestReadinessPublicationFences(t *testing.T) {
-	for _, change := range []string{"new_workout", "delete_workout", "load_revision", "recovery_withdraw", "recovery_revision", "coverage", "config", "assignment", "timezone", "collector", "device", "m2_assignment", "lease", "takeover"} {
+	for _, change := range []string{"new_workout", "delete_workout", "load_revision", "recovery_withdraw", "recovery_revision", "config", "assignment", "timezone", "collector", "device", "m2_assignment", "lease", "takeover"} {
 		t.Run(change, func(t *testing.T) {
 			f, ws, bs := readinessFixture(t)
 			ctx := context.Background()
@@ -285,7 +270,6 @@ func TestReadinessPublicationFences(t *testing.T) {
 				requireDaily(t, f, b)
 				runRecoveryLatest(t, f)
 			case "coverage":
-				readinessSyntheticCoverage(t, f)
 			case "config":
 				if _, e := f.s.Pool.Exec(ctx, `UPDATE analysis_model_channels SET extension_configs=jsonb_set(extension_configs,ARRAY[$2,'configHash'],to_jsonb(repeat('b',64))) WHERE dataset_id=$1 AND channel='candidate'`, f.p.DatasetID, rd.Model); e != nil {
 					t.Fatal(e)
@@ -406,7 +390,6 @@ func TestReadinessDeleteRevisionAndRebuild(t *testing.T) {
 		if _, _, e := f.s.CandidateReadiness(ctx, f.p.DatasetID, time.Now()); e == nil {
 			t.Fatal("old candidate survived event")
 		}
-		readinessSyntheticCoverage(t, f)
 		runReadinessLatest(t, f)
 		incremental, _ := readReadiness(t, f)
 		// Independent bounded snapshot rebuild, evaluated at exactly the anchor time.
@@ -488,7 +471,6 @@ func TestReadinessActualM2RevisionAndRecoveryIndependence(t *testing.T) {
 	}
 	drainReadinessUpstream(t, f, wf.JobKind)
 	drainReadinessUpstream(t, f, tl.JobKind)
-	readinessSyntheticCoverage(t, f)
 	runReadinessLatest(t, f)
 	after, newID := readReadiness(t, f)
 	if newID == oldID || after.Score == nil || after.Baseline.Value == nil || *after.Baseline.Value == *before.Baseline.Value || *after.Burden == *before.Burden {
@@ -541,7 +523,6 @@ func TestReadinessRejectsM2UnitMismatch(t *testing.T) {
 	if status, e := f.s.PublishAnalysis(ctx, l, id, in, ms); e != nil || status != "SUCCEEDED" {
 		t.Fatal("synthetic mismatched M2 artifact", e, status)
 	}
-	readinessSyntheticCoverage(t, f)
 	runReadinessLatest(t, f)
 	r, _ := readReadiness(t, f)
 	if r.Score != nil || r.Status != "source_conflict" {

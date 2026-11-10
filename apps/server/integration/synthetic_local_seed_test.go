@@ -29,46 +29,6 @@ import (
 	wf "rai/server/internal/workoutfeatures"
 )
 
-func markCompleteCoverage(b *syncing.WorkoutBundle) {
-	if b.Observation == nil {
-		return
-	}
-	b.CompleteRoutes = true
-	for _, kind := range syncing.WorkoutCompletenessQuantities {
-		count := 0
-		for _, sample := range b.Samples {
-			if sample.Type == kind {
-				count++
-			}
-		}
-		state := "no_records_observed"
-		if count > 0 {
-			state = "complete"
-		}
-		b.Observation.Coverage[kind] = syncing.BundleCoverage{State: state, SampleCount: count, QueryCompleted: true, LocalPersisted: true}
-		points := 0
-		for _, series := range b.Series {
-			if series.SampleType == kind {
-				points += len(series.Points)
-			}
-		}
-		seriesState := "no_records_observed"
-		if points > 0 {
-			seriesState = "complete"
-		}
-		b.Observation.Coverage["series:"+kind] = syncing.BundleCoverage{State: seriesState, SampleCount: points, QueryCompleted: true, LocalPersisted: true}
-	}
-	state := "no_records_observed"
-	if len(b.Routes) > 0 {
-		state = "complete"
-	}
-	points := 0
-	for _, route := range b.Routes {
-		points += len(route.Points)
-	}
-	b.Observation.Coverage["route"] = syncing.BundleCoverage{State: state, SampleCount: points, QueryCompleted: true, LocalPersisted: true}
-}
-
 // seedRecoveryDays uploads 29 synthetic nights of sleep, HRV and resting heart
 // rate in one stream per type. The morning sleep episode ends at 05:30 local so
 // every day inside the recovery window is complete and non-pending.
@@ -231,7 +191,6 @@ func TestSyntheticLocalSeed(t *testing.T) {
 	for _, item := range schedule {
 		end := now.Add(-time.Duration(item.daysAgo) * 24 * time.Hour)
 		b := m4Bundle(t, f, end, item.seconds)
-		markCompleteCoverage(&b)
 		importPhase3(t, f, b)
 		known := time.UnixMicro(*b.Workout.EndUs).Add(time.Minute)
 		if _, err = s.Pool.Exec(ctx, `UPDATE workouts SET first_received_at=$3,available_at=$3 WHERE dataset_id=$1 AND workout_uuid=$2`,
@@ -248,9 +207,6 @@ func TestSyntheticLocalSeed(t *testing.T) {
 	if err = admin.SetFeatureHRReference(ctx, s, p.DatasetID, wf.Parameter{ID: syncing.NewID(),
 		EffectiveFrom: now.AddDate(0, 0, -365).UnixMicro(), EffectiveThrough: ptr(through.UnixMicro()),
 		RestHR: 50, MaxHR: 200, Provenance: "synthetic-local-debug"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = commitCompletenessV2(t, f, completenessManifestV2(f, bundles, nil)); err != nil {
 		t.Fatal(err)
 	}
 	seedRecoveryDays(t, f)

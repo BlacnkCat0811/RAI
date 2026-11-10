@@ -2,7 +2,9 @@
 
 日期：2026-11-07（Asia/Shanghai）
 
-状态：**待执行的修复方案，不是实现、性能或验收通过证明。**
+状态：**已被取代（2026-11-10）。** 本文大量依赖 `workout-sync-completeness` 控制面（`completeness_flow`/`completeness_cycles`/`completeness_proofs` 等），该控制面已按产品决定整体下线，服务端改为只按上传是否提交判定 Workout（见 IMPLEMENTATION.md 的“Workout completeness 控制面下线 — 已实施”）。本文保留为历史方案原文，不再执行。
+
+原状态：**待执行的修复方案，不是实现、性能或验收通过证明。**
 
 基线：`main / 18eab55`，工作区存在未提交改动。执行前必须重新确认 HEAD、`AGENTS.md`、迁移校验和与当前设备状态，以执行时的实际代码为准。
 

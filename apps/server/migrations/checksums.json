@@ -48,5 +48,7 @@
   "00047_public_vo2_selection_input.sql": "3602116afa0a4659dc4c3512851ba099fa97f0282bcd582b00ef5640b678dbd5",
   "00048_published_research_artifacts.sql": "7a094a2f09bae9b0996d5e55f2d7fec9a8fed4d23d59bf3d28329cd6d5b41169",
   "00049_public_trimp_parameters.sql": "835cc3e572d76c74fb12493e0bcff0cda100a3da56fbd326f95d94981662e8fd",
-  "00050_workout_ingests.sql": "300005ab946668c001cb7841602c6ab449232fa5e161662a122976f9983392e3"
+  "00050_workout_ingests.sql": "300005ab946668c001cb7841602c6ab449232fa5e161662a122976f9983392e3",
+  "00051_retire_workout_completeness.sql": "1b96d67f81ffa9f612135f9436ac0564dc24b7e80a72ab53f18da14378a528db",
+  "00052_readiness_v3_artifact.sql": "9492e1cd5418386be811834f3a43a3e27ead715a02c7c230febff640e5ab8f1b"
 }

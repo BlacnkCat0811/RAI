@@ -1,3 +1,9 @@
+## 2026-11-10 — Workout completeness 控制面下线（OpenAPI 1.13.3）
+
+- 按产品决定取消 Workout 集合完整性证明：服务端只按上传是否提交（`workout_ingests.state='committed'`）判定 Workout，与 RQrun 一致。`POST /v2/sync/workout-completeness`、`WorkoutCompletenessManifest{,V2}`/`WorkoutCompletenessReceipt{,V2}`/`WorkoutCompletenessPage|Stream|Series|Workout`/`CompletenessInventory`/`CompletenessExclusion`/`SourcePolicyEvidence` schema、握手能力 `workoutSyncCompletenessVersion`/`workoutSyncCompletenessV2Version`/`workoutStreamSetVersion` 与 `contracts/fixtures/workout-completeness-*` 全部移除。未知旧客户端请求该路径得到 404（端点已不存在），不再返回 422 `unsupported_version`。
+- Readiness 输入/结果中的 `loadCoverage`（`Coverage{identity,fromUs,throughUs,caughtUp,syntheticOnly,streamHash}`）被 `workoutSync{committedWorkouts,lastCommitAtUs}` 取代；模型版本升为 `rai.readiness.training/v3`（schema `/3`、input `/3`、policy `.../v3`）。`load_sync_incomplete` 与 `sync_incomplete` 状态不再产生。
+- 迁移 `00051_retire_workout_completeness.sql` 删除 `workout_sync_completeness` 及其不可变/dirty 触发器、`workout_completeness_fact_revision` 索引、`model_stack_dirty_proof` 触发器，并从 `rai_readiness_edges()` 去掉 `readiness/load-coverage/v1` 幽灵上游边。
+
 ## 2026-11-10 — v6 顶层 metadata 恢复上传（environment 投影必填）
 
 - iOS `RawStreamSyncEngine` 之前以 `metadata: nil` 组包，根记录的室内/室外与天气从未上传；服务端 `workoutfeatures` 的 environment 投影只读该字段，因此这些 Workout 的 `environment.state` 恒为 `missing`，load/performance/CS/endurance/VO2 全部按 `environment_unknown` 降级。首次接收的原始字节是唯一权威副本，已入库记录无法回填。

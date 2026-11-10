@@ -22,9 +22,6 @@ func Validate(in ReadinessSnapshot) error {
 	if in.AsOf < today.Start || in.AsOf >= today.End {
 		return ErrInvalid
 	}
-	if in.Coverage.Through > in.AsOf {
-		return ErrInvalid
-	}
 	seen := map[string]bool{}
 	for _, l := range in.Loads {
 		if l.ID == "" || seen[l.ID] || l.End <= 0 || l.AU != nil && (!finite(*l.AU) || *l.AU < 0 || *l.AU > c.MaxWorkoutAU) {
@@ -62,7 +59,10 @@ func LoadBaseline(in ReadinessSnapshot) Baseline {
 	vals := []float64{}
 	first, last := -1, -1
 	for i, d := range in.Days[:len(in.Days)-1] {
-		known := in.Coverage.CaughtUp && in.Coverage.From <= d.Start && in.Coverage.Through >= d.End
+		// Every civil day that ended at or before AsOf is judgeable; a day without
+		// a committed Workout is a known zero. The server never infers a missing
+		// upload, so incompleteness is only ever reported per Workout.
+		known := d.End <= in.AsOf
 		sum := 0.
 		for _, w := range in.Loads {
 			if w.End > in.AsOf {
@@ -119,7 +119,7 @@ func Calculate(input ReadinessSnapshot) (Result, error) {
 		return Result{}, e
 	}
 	c := in.Config
-	r := Result{Date: in.Days[len(in.Days)-1].Date, Schema: Schema, Dataset: in.Dataset, Generation: in.Generation, ModelVersion: Model, ConfigHash: c.Hash(), Config: c, InputHash: InputHash(in), CalendarHash: Hash(in.Days), AsOf: in.AsOf, EvaluationAt: in.AsOf, CapturedAt: in.CapturedAt, ValidBefore: in.Days[len(in.Days)-1].End, Status: "insufficient_data", Quality: "insufficient", Recovery: in.Recovery, Coverage: in.Coverage, Baseline: LoadBaseline(in), ConfidenceMeaning: "evidence_support_not_probability", Terms: []Term{}, Refs: []Ref{}, Reasons: []string{}, CandidateOnly: true, Scope: "recorded_running_training_readiness"}
+	r := Result{Date: in.Days[len(in.Days)-1].Date, Schema: Schema, Dataset: in.Dataset, Generation: in.Generation, ModelVersion: Model, ConfigHash: c.Hash(), Config: c, InputHash: InputHash(in), CalendarHash: Hash(in.Days), AsOf: in.AsOf, EvaluationAt: in.AsOf, CapturedAt: in.CapturedAt, ValidBefore: in.Days[len(in.Days)-1].End, Status: "insufficient_data", Quality: "insufficient", Recovery: in.Recovery, Sync: in.Sync, Baseline: LoadBaseline(in), ConfidenceMeaning: "evidence_support_not_probability", Terms: []Term{}, Refs: []Ref{}, Reasons: []string{}, CandidateOnly: true, Scope: "recorded_running_training_readiness"}
 	r.TailBound = TailUpperBound(c)
 	r.MaxScoreTailError = 100 * math.Ln2 * r.TailBound / c.BaselineFloor
 	conflict := false
@@ -156,10 +156,6 @@ func Calculate(input ReadinessSnapshot) (Result, error) {
 		if !conflict {
 			r.Status = "collecting"
 		}
-	}
-	if !in.Coverage.CaughtUp || in.Coverage.Identity == "" || in.Coverage.From > in.AsOf-c.LookbackUs || in.AsOf-in.Coverage.Through > c.CoverageFreshUs {
-		r.Reasons = append(r.Reasons, "load_sync_incomplete")
-		r.Status = "sync_incomplete"
 	}
 	if in.Recovery == nil {
 		r.Reasons = append(r.Reasons, "recovery_missing")
@@ -222,9 +218,6 @@ func Freshen(anchor Result, at int64) (Result, error) {
 	} else if r.Recovery == nil || at > r.Recovery.FreshUntil {
 		r.Reasons = append(r.Reasons, "recovery_stale")
 		r.Status = "stale"
-	} else if at-r.Coverage.Through > r.Config.CoverageFreshUs {
-		r.Reasons = append(r.Reasons, "load_sync_incomplete")
-		r.Status = "sync_incomplete"
 	} else {
 		evaluate(&r, at)
 		r.Confidence = math.Min(r.Confidence, r.Recovery.Confidence*math.Exp(-float64(at-r.AsOf)/float64(72*Hour)))

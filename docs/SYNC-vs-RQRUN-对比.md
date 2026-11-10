@@ -198,14 +198,14 @@
 ## 14. 范围差异：daily/VO2/completeness 与双轨遗留
 
 - **RQrun**：抓包中只有 Workout 上传与状态查询；日常健康事实（步数、睡眠等）不在该协议内。
-- **RAI**：Workout 之外还同步 daily 事实、VO2max、completeness（`openapi-v2.yaml` 多个 `/v2/sync/*` 端点；握手 `dailyFactsVersion=1`、`vo2maxFactsVersion=1`）。
+- **RAI**：Workout 之外还同步 daily 事实、VO2max（`openapi-v2.yaml` 多个 `/v2/sync/*` 端点；握手 `dailyFactsVersion=1`、`vo2maxFactsVersion=1`）。completeness 控制面已于 2026-11-10 按产品决定下线：服务端只按上传是否提交判定 Workout，与 RQrun 一致。
 - **实现现状**：客户端实际是双轨——v6 手动 Workout 上传（`SyncCore/WorkoutBundleV6.swift` + `App/RawStreamSyncEngine.swift`），旧 anchor+Outbox 增量流仍在服务 daily/VO2（`OutboxStore`、`BatchBuilder`、`CaptureManifest`、`SyncSession`、`HealthDiscovery`、后台 `URLSession`/`.batch` 通道仍被 `Product.swift:223`、`BackgroundTransfers.swift:9,21-30` 等引用）；旧通道的 `claimIngest`/`acknowledge` 只有测试调用（`OutboxStore.swift:459-534`）；`ForegroundSyncScheduler` 除自身外无引用，疑似停用。这是 RAI 自身的债务点，不是与 RQrun 的协议差异，但会让人误以为 v6 是“全量同步”。
 
 ## 15. 发现的契约/实现不一致（建议修复）
 
 1. **openapi 示例版本号矛盾**：`contracts/openapi-v2.yaml:74` 的示例用 `protocolVersion:3`，而握手能力 `workoutPayloadVersion=6`（`:109`）。实际语义是“会话协议 3 / 载荷 6”，文档应写清两个版本号。
 2. **200 语义在旧契约与 v6 不一致**：`contracts/sync-v2.md:23` 要求 `ingestStatus=committed` 才算成功，v6 只承诺原始载荷接收（`sync-v6.md:43-45`）。v6 是唯一支持协议，旧文应标注废弃。
-3. **`workout-metadata-registry-v2.md:3-5` 仍写“控制面 completeness/v1、Workout Protocol 3”**，与 v6 现状不符。
+3. ~~**`workout-metadata-registry-v2.md:3-5` 仍写“控制面 completeness/v1、Workout Protocol 3”**，与 v6 现状不符。~~ 已修复（2026-11-10）：completeness 控制面已下线，该文档改为“控制面版本：无”。
 4. **v6 错误表缺 `workout_deleted`**：POST 错误表未列删除命中，但服务端确实返回 409 `workout_deleted`（`postgres/workout_ingest.go`）；`sync-v4.md:224-227` 有类似情形。
 5. **`capabilities.changefeed=false` 但有 `/v2/sync/changes`**：需注明该端点仅服务 v3/v4 或管理路径。
 

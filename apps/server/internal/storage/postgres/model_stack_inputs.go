@@ -330,12 +330,9 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 			}
 		}
 	}
-	coverage, _, err := verifiedWorkoutCompletenessV2(ctx, tx, l.DatasetID, epoch, collector)
+	upload, err := workoutSyncEvidence(ctx, tx, l.DatasetID)
 	if err != nil {
 		return nil, err
-	}
-	if coverage.Through > at.UnixMicro() {
-		coverage.Through = at.UnixMicro()
 	}
 	day := date.Format(time.DateOnly)
 	stateInput := tl.StateInput{Calendar: date.Location(), Timezone: date.Location().String(), DatasetID: l.DatasetID,
@@ -345,13 +342,6 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		return nil, analysis.Invalid()
 	}
 	state.Scope = tl.ScopeStateV2For(stack)
-	if !coverage.CaughtUp || coverage.From > from.UnixMicro() || at.UnixMicro()-coverage.Through > rd.DefaultV2Config(date.Location().String()).CoverageFreshUs {
-		for i := range state.Days {
-			d := &state.Days[i]
-			d.Quality = "insufficient"
-			d.RecordedLoad, d.Acute.Value, d.Chronic.Value, d.Balance, d.Ratio, d.Trend7 = nil, nil, nil, nil, nil, nil
-		}
-	}
 	if source == "" && len(features) > 0 {
 		latestEpoch := features[len(features)-1].Feature.Evidence.SourceEpochs
 		features = slices.DeleteFunc(features, func(f pf.FeatureRef) bool { return !slices.Equal(f.Feature.Evidence.SourceEpochs, latestEpoch) })
@@ -396,32 +386,29 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	}
 	recoveryID := syncing.NewID()
 	readyInput := rd.ReadinessSnapshot{Dataset: l.DatasetID, Epoch: epoch, Collector: collector, Assignment: l.ID, LoadAssignment: stack,
-		Generation: generation, AsOf: at.UnixMicro(), CapturedAt: captured.UnixMicro(), Config: rd.DefaultV2Config(date.Location().String()),
-		Coverage: coverage, Loads: loads}
+		Generation: generation, AsOf: at.UnixMicro(), CapturedAt: captured.UnixMicro(), Config: rd.DefaultV3Config(date.Location().String()),
+		Sync: upload, Loads: loads}
 	readyInput.Recovery = &rd.RecoveryEvidence{RunID: recoveryID, Hash: rc.Hash(recovery), Generation: generation, Model: rc.ModelV2,
 		Status: recovery.Status, Quality: recovery.Quality, Score: recovery.Score, AsOf: recovery.AsOf, Confidence: recovery.Confidence, Coverage: recovery.ComponentCoverage,
 		FreshUntil: min(date.AddDate(0, 0, 1).UnixMicro(), recovery.AsOf+36*rd.Hour)}
 	for d := date.AddDate(0, 0, -readyInput.Config.BaselineDays); !d.After(date); d = d.AddDate(0, 0, 1) {
 		readyInput.Days = append(readyInput.Days, rd.Day{Date: d.Format(time.DateOnly), Start: d.UnixMicro(), End: d.AddDate(0, 0, 1).UnixMicro()})
 	}
-	ready, err := rd.CalculateV2(readyInput)
+	ready, err := rd.CalculateV3(readyInput)
 	if err != nil {
 		return nil, analysis.Invalid()
 	}
 	artifacts := []stackArtifact{
 		{key: "load_state", schema: tl.StateSchemaV2, algorithm: tl.StateAlgorithmV2, version: tl.VersionV2, value: state,
-			inputHash: featureHash(struct {
-				State    tl.StateInput
-				Coverage rd.Coverage
-			}{stateInput, coverage})},
+			inputHash: featureHash(stateInput)},
 		{key: pf.ArtifactKeyV2, schema: pf.SchemaV2, algorithm: pf.CurveModel, version: pf.VersionV2, value: ability, inputHash: featureHash(abilityInput)},
 		{key: "running_ability_maximal_v2", family: "model_research_v1/running_ability_maximal_v2", schema: pf.AbilitySchemaV2, algorithm: pf.CurveModel, version: pf.VersionV2, value: maximal, inputHash: featureHash(maximalInput)},
 		{key: ve.ArtifactKey, schema: ve.Schema, algorithm: ve.Algorithm, version: "v1", value: external, inputHash: featureHash(in.ExternalInput)},
 		{key: vo2.ArtifactKey, schema: vo2.Schema, algorithm: vo2.Algorithm, version: vo2.Version, value: owned, inputHash: featureHash(ownedInput)},
 		{key: "physiological_recovery", schema: rc.SchemaV2, algorithm: rc.Algorithm, version: "v2", value: recovery, runID: recoveryID, inputHash: featureHash(recoveryInput)},
-		{key: "training_readiness", schema: rd.SchemaV2, algorithm: rd.Algorithm, version: "v2", value: ready, inputHash: ready.InputHash},
+		{key: "training_readiness", schema: rd.SchemaV3, algorithm: rd.Algorithm, version: "v3", value: ready, inputHash: ready.InputHash},
 	}
-	artifacts = append(artifacts, modelResearchArtifacts(workouts, state, ready, coverage, l.DatasetID, generation, stack, at.UnixMicro())...)
+	artifacts = append(artifacts, modelResearchArtifacts(workouts, state, ready, l.DatasetID, generation, stack, at.UnixMicro())...)
 	if date.Format(time.DateOnly) == captured.In(date.Location()).Format(time.DateOnly) {
 		for _, w := range workouts {
 			artifacts = append(artifacts, stackArtifact{key: wf.ArtifactKey, schema: wf.Schema, algorithm: wf.Algorithm, version: wf.Version, value: w.feature, inputHash: w.feature.Evidence.InputHash})

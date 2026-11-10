@@ -1,8 +1,10 @@
 package syncing
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"sort"
 	"strings"
 )
@@ -11,9 +13,13 @@ import (
 //
 // The product decision is frozen: only an Apple Watch native running Workout is
 // part of the RAI data domain. An explicitly identified third-party or
-// user-entered Workout is excluded by policy and must be proven excluded, not
+// user-entered Workout is excluded by policy and is rejected at ingest, not
 // silently skipped. Anything the frozen classifier cannot resolve is
-// unclassified and blocks completeness instead of being folded into excluded.
+// unclassified and fails closed for that Workout instead of being folded into
+// excluded.
+//
+// This is an ingest-time source gate. It does not feed any set-completeness
+// proof: the server judges a Workout only by whether its upload committed.
 const (
 	WorkoutSourcePolicyVersion       = "rai.workout.source_policy.apple_watch_only/v1"
 	WorkoutSourcePolicySHA256        = "63713b4f82a33c6e9544de37fbd0701c42a29b71f2ca54588c7fc9cf463e0654"
@@ -100,7 +106,7 @@ func (e SourcePolicyEvidence) Source() HealthKitSource {
 // server never accepts a client-declared classification without this.
 func (e SourcePolicyEvidence) Classification() string { return e.Source().Classification(nil) }
 
-func (e SourcePolicyEvidence) Canonical() []byte { return completenessCanonical(e) }
+func (e SourcePolicyEvidence) Canonical() []byte { return policyCanonical(e) }
 
 func (e SourcePolicyEvidence) SHA256() string { return BundleDigest(e.Canonical()) }
 
@@ -131,5 +137,33 @@ func WorkoutIdentitySHA256(workoutID string) string {
 func InventorySHA256(identityHashes []string) string {
 	sorted := append([]string{}, identityHashes...)
 	sort.Strings(sorted)
-	return BundleDigest(completenessCanonical(sorted))
+	return BundleDigest(policyCanonical(sorted))
+}
+
+// policyCanonical re-encodes v through encoding/json with json.Number preserved
+// so evidence digests do not depend on Go numeric formatting.
+func policyCanonical(v any) []byte {
+	raw, _ := json.Marshal(v)
+	var tree any
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	_ = d.Decode(&tree)
+	raw, _ = json.Marshal(tree)
+	return raw
+}
+
+// EqualStringSet reports whether a and b hold the same distinct values.
+func EqualStringSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	x, y := append([]string{}, a...), append([]string{}, b...)
+	sort.Strings(x)
+	sort.Strings(y)
+	for i := range x {
+		if x[i] != y[i] || i > 0 && x[i] == x[i-1] {
+			return false
+		}
+	}
+	return true
 }

@@ -18,11 +18,10 @@ import (
 )
 
 type readinessAssignment struct {
-	Hash     string      `json:"configHash"`
-	ID       string      `json:"assignmentID"`
-	Timezone string      `json:"timezone"`
-	Scope    string      `json:"scope"`
-	Coverage rd.Coverage `json:"syntheticCoverage"`
+	Hash     string `json:"configHash"`
+	ID       string `json:"assignmentID"`
+	Timezone string `json:"timezone"`
+	Scope    string `json:"scope"`
 }
 
 func (s *Store) loadReadinessInput(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf time.Time) error {
@@ -54,30 +53,14 @@ func (s *Store) loadReadinessInput(ctx context.Context, tx pgx.Tx, l Lease, in *
 	for d := today.AddDate(0, 0, -x.Config.BaselineDays); !d.After(today); d = d.AddDate(0, 0, 1) {
 		x.Days = append(x.Days, rd.Day{Date: d.Format("2006-01-02"), Start: d.UnixMicro(), End: d.AddDate(0, 0, 1).UnixMicro()})
 	}
-	x.Coverage = a.Coverage
-	var manifest []byte
-	if e = tx.QueryRow(ctx, `SELECT COALESCE(jsonb_agg(jsonb_build_array(id,query_fingerprint,last_client_seq,last_batch_id) ORDER BY id),'[]'::jsonb) FROM (SELECT id,query_fingerprint,last_client_seq,last_batch_id FROM sync_streams WHERE dataset_id=$1 AND collector_epoch::text=$2 AND sample_type='HKWorkoutTypeIdentifier' ORDER BY id LIMIT 129) bounded_streams`, l.DatasetID, collector).Scan(&manifest); e != nil {
+	// Upload success is the only sync signal: committed Workout ingests. There is
+	// deliberately no completeness proof to satisfy, so a dataset with few or no
+	// Workouts reports honestly through the load baseline instead of a sync gate.
+	upload, e := workoutSyncEvidence(ctx, tx, l.DatasetID)
+	if e != nil {
 		return e
 	}
-	var streams any
-	if json.Unmarshal(manifest, &streams) != nil {
-		return analysis.Invalid()
-	}
-	// Preserve visibly synthetic isolated model fixtures; real transport evidence
-	// is accepted only from the immutable, server-validated control plane below.
-	if a, ok := streams.([]any); ok && len(a) > 128 {
-		return &analysis.Failure{Code: "analysis_input_limit"}
-	}
-	x.Coverage.CaughtUp = x.Coverage.CaughtUp && x.Coverage.Synthetic && x.Coverage.StreamHash == rd.Hash(streams)
-	if coverage, found, err := verifiedWorkoutCompleteness(ctx, tx, l.DatasetID, epoch, collector); err != nil {
-		return err
-	} else if found {
-		x.Coverage = coverage
-	}
-	if x.Coverage.Through > x.AsOf {
-		x.Coverage.CaughtUp = false
-		x.Coverage.Through = x.AsOf
-	}
+	x.Sync = upload
 	var rb []byte
 	var rh, rid string
 	var rg int64

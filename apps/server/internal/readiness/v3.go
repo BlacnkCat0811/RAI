@@ -6,28 +6,28 @@ import (
 )
 
 const (
-	ModelV2         = "rai.readiness.training/v2"
-	SchemaV2        = "rai.readiness.training/2"
-	InputSchemaV2   = "rai.readiness.input/2"
+	ModelV3         = "rai.readiness.training/v3"
+	SchemaV3        = "rai.readiness.training/3"
+	InputSchemaV3   = "rai.readiness.input/3"
 	LoadModelV2     = "rai.training_load.hrr_integral/v2"
 	RecoveryModelV2 = "rai.recovery.physiological/v2"
-	PolicyV2        = "recorded-running;complete-day-median;finite-tail-certified;allowlist-load-v2-recovery-v2/v2"
+	PolicyV3        = "recorded-running;complete-day-median;finite-tail-certified;allowlist-load-v2-recovery-v2/v3"
 )
 
-func ScopeV2For(stack string) string { return "model/" + stack + "/athlete/readiness/v2" }
+func ScopeV3For(stack string) string { return "model/" + stack + "/athlete/readiness/v3" }
 
-func DefaultV2Config(tz string) Config {
+func DefaultV3Config(tz string) Config {
 	c := DefaultConfig(tz)
-	c.Policy = PolicyV2
+	c.Policy = PolicyV3
 	return c
 }
 
-func ValidateV2(in ReadinessSnapshot) error {
+func ValidateV3(in ReadinessSnapshot) error {
 	c := in.Config
 	if len(in.Loads) > MaxLoads {
 		return ErrLimit
 	}
-	if c != DefaultV2Config(c.Timezone) || c.Timezone == "" || in.Dataset == "" || in.Assignment == "" || in.Generation < 1 || in.AsOf <= 0 || in.CapturedAt < in.AsOf || len(in.Days) != c.BaselineDays+1 {
+	if c != DefaultV3Config(c.Timezone) || c.Timezone == "" || in.Dataset == "" || in.Assignment == "" || in.Generation < 1 || in.AsOf <= 0 || in.CapturedAt < in.AsOf || len(in.Days) != c.BaselineDays+1 {
 		return ErrInvalid
 	}
 	for i, d := range in.Days {
@@ -36,7 +36,7 @@ func ValidateV2(in ReadinessSnapshot) error {
 		}
 	}
 	today := in.Days[len(in.Days)-1]
-	if in.AsOf < today.Start || in.AsOf >= today.End || in.Coverage.Through > in.AsOf {
+	if in.AsOf < today.Start || in.AsOf >= today.End {
 		return ErrInvalid
 	}
 	seen := map[string]bool{}
@@ -71,13 +71,17 @@ func ValidateV2(in ReadinessSnapshot) error {
 	return nil
 }
 
-func LoadBaselineV2(in ReadinessSnapshot) Baseline {
+func LoadBaselineV3(in ReadinessSnapshot) Baseline {
 	c := in.Config
 	b := Baseline{State: "collecting"}
 	vals := []float64{}
 	first, last := -1, -1
 	for i, d := range in.Days[:len(in.Days)-1] {
-		known := in.Coverage.CaughtUp && in.Coverage.From <= d.Start && in.Coverage.Through >= d.End
+		// Every civil day that ended at or before AsOf is judgeable: a day with no
+		// committed Workout is a known zero, not an unknown. The server never
+		// infers that a Workout was missing, so absence of evidence is only
+		// reported per Workout through its own load quality.
+		known := d.End <= in.AsOf
 		sum := 0.
 		for _, w := range in.Loads {
 			if w.End > in.AsOf {
@@ -129,13 +133,13 @@ func LoadBaselineV2(in ReadinessSnapshot) Baseline {
 	return b
 }
 
-func CalculateV2(input ReadinessSnapshot) (Result, error) {
+func CalculateV3(input ReadinessSnapshot) (Result, error) {
 	in := Canonical(input)
-	if e := ValidateV2(in); e != nil {
+	if e := ValidateV3(in); e != nil {
 		return Result{}, e
 	}
 	c := in.Config
-	r := Result{Date: in.Days[len(in.Days)-1].Date, Schema: SchemaV2, Dataset: in.Dataset, Generation: in.Generation, ModelVersion: ModelV2, ConfigHash: c.Hash(), Config: c, InputHash: InputHash(in), CalendarHash: Hash(in.Days), AsOf: in.AsOf, EvaluationAt: in.AsOf, CapturedAt: in.CapturedAt, ValidBefore: in.Days[len(in.Days)-1].End, Status: "insufficient_data", Quality: "insufficient", Recovery: in.Recovery, Coverage: in.Coverage, Baseline: LoadBaselineV2(in), ConfidenceMeaning: "evidence_support_not_probability", Terms: []Term{}, Refs: []Ref{}, Reasons: []string{}, CandidateOnly: true, Scope: "recorded_running_training_readiness"}
+	r := Result{Date: in.Days[len(in.Days)-1].Date, Schema: SchemaV3, Dataset: in.Dataset, Generation: in.Generation, ModelVersion: ModelV3, ConfigHash: c.Hash(), Config: c, InputHash: InputHash(in), CalendarHash: Hash(in.Days), AsOf: in.AsOf, EvaluationAt: in.AsOf, CapturedAt: in.CapturedAt, ValidBefore: in.Days[len(in.Days)-1].End, Status: "insufficient_data", Quality: "insufficient", Recovery: in.Recovery, Sync: in.Sync, Baseline: LoadBaselineV3(in), ConfidenceMeaning: "evidence_support_not_probability", Terms: []Term{}, Refs: []Ref{}, Reasons: []string{}, CandidateOnly: true, Scope: "recorded_running_training_readiness"}
 	r.TailBound = TailUpperBound(c)
 	r.MaxScoreTailError = 100 * math.Ln2 * r.TailBound / c.BaselineFloor
 	conflict := false
@@ -182,10 +186,6 @@ func CalculateV2(input ReadinessSnapshot) (Result, error) {
 			r.Status = "collecting"
 		}
 	}
-	if !in.Coverage.CaughtUp || in.Coverage.Identity == "" || in.Coverage.From > in.AsOf-c.LookbackUs || in.AsOf-in.Coverage.Through > c.CoverageFreshUs {
-		r.Reasons = append(r.Reasons, "load_sync_incomplete")
-		r.Status = "sync_incomplete"
-	}
 	if in.Recovery == nil {
 		r.Reasons = append(r.Reasons, "recovery_missing")
 		r.Status = "insufficient_data"
@@ -223,8 +223,8 @@ func CalculateV2(input ReadinessSnapshot) (Result, error) {
 	return r, nil
 }
 
-func FreshenV2(anchor Result, at int64) (Result, error) {
-	if at < anchor.AsOf || anchor.ModelVersion != ModelV2 || anchor.Config != DefaultV2Config(anchor.Config.Timezone) {
+func FreshenV3(anchor Result, at int64) (Result, error) {
+	if at < anchor.AsOf || anchor.ModelVersion != ModelV3 || anchor.Config != DefaultV3Config(anchor.Config.Timezone) {
 		return Result{}, ErrInvalid
 	}
 	r := anchor

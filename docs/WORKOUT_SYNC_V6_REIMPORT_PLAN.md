@@ -61,7 +61,9 @@ A 与 B 是开启正式重传的门槛。C 是将 Readiness 标为可用的门�
 
 首次快照以封包时 HealthKit 可见数据为准。随后到达的关联样本按当前 UUID 一次接收语义留在 HealthKit。Workout 顶层 Watch 来源证明根来源，子流的归属仅表明与该 Workout 关联。支持关联观测的算法可用该证据。需要独立设备来源的指标在证据不足时如实标记。
 
-## 5. Readiness 覆盖证明
+## 5. Readiness 覆盖证明（**已取消，2026-11-10**）
+
+> 本节及 §2 阶段 C 的 v6 覆盖证明不再实施。产品决定：服务端只按上传是否提交判定 Workout（与 RQrun 一致），`workout-sync-completeness` 控制面连同 `workout_sync_completeness` 表已删除，Readiness 改用 `workoutSync{committedWorkouts,lastCommitAtUs}` 诊断字段并升级为 `rai.readiness.training/v3`。下文保留为历史方案原文。
 
 给现有 Workout completeness 控制面定义独立的 v6 证明版本，保持 Workout 单包及上传热路径不变。客户端在 Readiness 所需的有界时间窗中固定谓词、截止点和当前 collector，分批持久保存可见 Workout 清单、来源排除证据和 `committed` 回执关联。Workout 内各受支持流的采集结果使用 v6 的诊断字段。证明描述本轮可见范围，HealthKit 授权状态和绝对历史完整性保持未知。
 

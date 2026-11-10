@@ -62,7 +62,6 @@ func modelStackFixture(t *testing.T) *fixture {
 		t.Fatal(e)
 	}
 	drainReadinessUpstream(t, f, ve.JobKind)
-	readinessSyntheticCoverage(t, f)
 	runReadinessLatest(t, f)
 	return f
 }

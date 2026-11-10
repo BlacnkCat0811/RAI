@@ -14,7 +14,7 @@ func fixture() ReadinessSnapshot {
 	at := time.Date(2026, 11, 4, 8, 0, 0, 0, time.UTC).UnixMicro()
 	start := time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC)
 	in := ReadinessSnapshot{Dataset: "synthetic", Epoch: "epoch", Collector: "collector", Assignment: "assignment", Generation: 1, AsOf: at, CapturedAt: at, Config: DefaultConfig("UTC"), Loads: []WorkoutLoad{}}
-	in.Coverage = Coverage{Identity: "synthetic", From: at - 200*24*Hour, Through: at, CaughtUp: true, Synthetic: true, StreamHash: "streams"}
+	in.Sync = Sync{CommittedWorkouts: 6, LastCommitAt: at}
 	in.Recovery = &RecoveryEvidence{Model: RecoveryModel, RunID: "recovery", Hash: "hash", Generation: 1, AsOf: at, FreshUntil: at + 96*Hour, Status: "available", Quality: "complete", Score: ptr(80), Confidence: .5, Coverage: 1}
 	for d := -42; d <= 0; d++ {
 		x := start.AddDate(0, 0, d)
@@ -143,7 +143,7 @@ func TestProperties(t *testing.T) {
 	near(t, *deleted.Score, *a.Score)
 }
 func TestMissingStates(t *testing.T) {
-	for _, kind := range []string{"recovery_missing", "recovery_partial", "recovery_stale", "source_conflict", "collecting_baseline", "sync_incomplete", "unknown_load", "partial_load", "parameter_conflict", "unknown_history"} {
+	for _, kind := range []string{"recovery_missing", "recovery_partial", "recovery_stale", "source_conflict", "collecting_baseline", "unknown_load", "partial_load", "parameter_conflict", "unknown_history"} {
 		t.Run(kind, func(t *testing.T) {
 			in := fixture()
 			switch kind {
@@ -158,8 +158,6 @@ func TestMissingStates(t *testing.T) {
 				in.Recovery.Status = "source_conflict"
 			case "collecting_baseline":
 				in.Loads = nil
-			case "sync_incomplete":
-				in.Coverage.CaughtUp = false
 			case "unknown_load":
 				in.Loads[0].AU = nil
 				in.Loads[0].Days[0].AU = nil
@@ -168,7 +166,9 @@ func TestMissingStates(t *testing.T) {
 			case "parameter_conflict":
 				in.Loads[0].Compatible = false
 			case "unknown_history":
-				in.Coverage.From = in.AsOf
+				// A dataset with no committed Workout at all has no history to judge:
+				// the load baseline is collecting, never a sync verdict.
+				in.Loads = nil
 			}
 			r := calculate(t, in)
 			if r.Score != nil || r.Confidence != 0 || r.Quality != "insufficient" || len(r.Reasons) == 0 {
@@ -213,7 +213,6 @@ func TestBaselineMedianCalendarAndFloor(t *testing.T) {
 	}
 	in.AsOf = start.Add(8 * time.Hour).UnixMicro()
 	in.CapturedAt = in.AsOf
-	in.Coverage.Through = in.AsOf
 	in.Recovery.AsOf = in.AsOf
 	in.Recovery.FreshUntil = in.AsOf + Hour
 	if _, e = Calculate(in); e != nil {
@@ -254,9 +253,29 @@ func TestFreshenAndGoldenTimeProgression(t *testing.T) {
 	r = calculate(t, in)
 	r.ValidBefore = in.AsOf + 100*Hour
 	r.Recovery.FreshUntil = in.AsOf + 100*Hour
-	cov, _ := Freshen(r, in.AsOf+25*Hour)
-	if cov.Score != nil || cov.Status != "sync_incomplete" {
-		t.Fatal("coverage future extrapolated")
+	// Upload evidence never gates freshness: a dataset with no new commit still
+	// projects forward until the candidate's own ValidBefore, and crossing that
+	// boundary is refused by candidate supersession instead.
+	fwd, e := Freshen(r, in.AsOf+25*Hour)
+	if e != nil || fwd.Score == nil {
+		t.Fatal("sync evidence gated freshness", e)
+	}
+	if in.Sync.CommittedWorkouts == 0 {
+		t.Fatal("fixture lost its upload evidence")
+	}
+}
+
+func TestSyncEvidenceNeverGates(t *testing.T) {
+	in := fixture()
+	in.Sync = Sync{}
+	r, e := Calculate(in)
+	if e != nil || r.Score == nil || r.Status == "sync_incomplete" {
+		t.Fatal("zero sync evidence gated the result", e, r.Status)
+	}
+	for _, reason := range r.Reasons {
+		if reason == "load_sync_incomplete" || reason == "sync_incomplete" {
+			t.Fatal("sync reason survived", reason)
+		}
 	}
 }
 func TestModelInputBoundaryAndInvalid(t *testing.T) {

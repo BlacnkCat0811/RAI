@@ -140,9 +140,9 @@ func TestActiveSchema2ProjectsAllSixTypedMetrics(t *testing.T) {
 	seedV2Artifact(t, f, rc.ScopeV2For("synthetic-v2", day), "physiological_recovery", rc.SchemaV2, rc.Algorithm, "v2", "model_product_v2", day, recovery)
 
 	baseline, recoveryScore, readyScore, penalty, burden := 20.0, 80.0, 70.0, .8, 10.0
-	readiness := rd.Result{Date: day, Schema: rd.SchemaV2, Dataset: f.p.DatasetID, Generation: 1, ModelVersion: rd.ModelV2, ConfigHash: rd.DefaultV2Config("Asia/Shanghai").Hash(), Config: rd.DefaultV2Config("Asia/Shanghai"), InputHash: "x", CalendarHash: "x", AsOf: nowUs, EvaluationAt: nowUs, CapturedAt: nowUs, ValidBefore: end, Status: "available", Quality: "complete", Score: &readyScore, RecoveryScore: &recoveryScore, Burden: &burden, Baseline: rd.Baseline{Value: &baseline, Median: &baseline, TrainingDays: 20, SpanDays: 30, State: "established"}, Penalty: &penalty, Coverage: rd.Coverage{Through: nowUs, CaughtUp: true}, Confidence: .5}
+	readiness := rd.Result{Date: day, Schema: rd.SchemaV3, Dataset: f.p.DatasetID, Generation: 1, ModelVersion: rd.ModelV3, ConfigHash: rd.DefaultV3Config("Asia/Shanghai").Hash(), Config: rd.DefaultV3Config("Asia/Shanghai"), InputHash: "x", CalendarHash: "x", AsOf: nowUs, EvaluationAt: nowUs, CapturedAt: nowUs, ValidBefore: end, Status: "available", Quality: "complete", Score: &readyScore, RecoveryScore: &recoveryScore, Burden: &burden, Baseline: rd.Baseline{Value: &baseline, Median: &baseline, TrainingDays: 20, SpanDays: 30, State: "established"}, Penalty: &penalty, Sync: rd.Sync{CommittedWorkouts: 6, LastCommitAt: nowUs}, Confidence: .5}
 	t.Log("seeding readiness")
-	seedV2Artifact(t, f, rd.ScopeV2For("synthetic-v2"), "training_readiness", rd.SchemaV2, rd.Algorithm, "v2", "model_product_v2", day, readiness)
+	seedV2Artifact(t, f, rd.ScopeV3For("synthetic-v2"), "training_readiness", rd.SchemaV3, rd.Algorithm, "v3", "model_product_v2", day, readiness)
 
 	t.Log("reading product")
 	snap, err := f.s.ReadAthleteProduct(context.Background(), f.p, now)

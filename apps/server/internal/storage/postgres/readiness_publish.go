@@ -15,7 +15,7 @@ func readinessLineage(in rd.ReadinessSnapshot) any {
 	for _, w := range in.Loads {
 		refs = append(refs, rd.Ref{ID: w.ID, RunID: w.RunID, Hash: w.Hash, FactHash: w.FactHash, End: w.End, ParameterID: w.ParameterID})
 	}
-	return map[string]any{"recovery": in.Recovery, "loadRefs": refs, "configHash": in.Config.Hash(), "assignmentID": in.Assignment, "asOf": in.AsOf, "capturedAt": in.CapturedAt, "calendarHash": rd.Hash(in.Days), "coverage": in.Coverage}
+	return map[string]any{"recovery": in.Recovery, "loadRefs": refs, "configHash": in.Config.Hash(), "assignmentID": in.Assignment, "asOf": in.AsOf, "capturedAt": in.CapturedAt, "calendarHash": rd.Hash(in.Days), "workoutSync": in.Sync}
 }
 func (s *Store) readinessCurrent(ctx context.Context, tx pgx.Tx, l Lease, in analysis.Snapshot) (bool, error) {
 	if in.ReadinessInput == nil {

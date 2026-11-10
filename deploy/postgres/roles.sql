@@ -125,8 +125,6 @@ GRANT SELECT ON change_events TO rai_worker;
 GRANT EXECUTE ON FUNCTION rai_readiness_dirty(uuid) TO rai_worker;
 
 -- UA1-R: append-only verified coverage; no runtime mutation of history.
-GRANT SELECT, INSERT ON workout_sync_completeness TO rai_api;
-GRANT SELECT ON workout_sync_completeness TO rai_worker;
 
 GRANT EXECUTE ON FUNCTION rai_commit_typed_model_input(uuid,uuid,uuid,text,timestamptz,timestamptz,uuid,uuid,text,bytea,jsonb,text) TO rai_api;
 GRANT EXECUTE ON FUNCTION rai_model_stack_tick(uuid,timestamptz) TO rai_worker;

@@ -47,7 +47,7 @@ func researchArtifact(key, dataset string, generation int64, envelope researchEn
 	}
 }
 
-func modelResearchArtifacts(workouts []stackWorkout, state tl.StateResult, ready rd.Result, coverage rd.Coverage, dataset string, generation int64, stack string, at int64) []stackArtifact {
+func modelResearchArtifacts(workouts []stackWorkout, state tl.StateResult, ready rd.Result, dataset string, generation int64, stack string, at int64) []stackArtifact {
 	var out []stackArtifact
 	scope := "model/" + stack + "/athlete/diagnostic/v1/"
 
@@ -70,7 +70,7 @@ func modelResearchArtifacts(workouts []stackWorkout, state tl.StateResult, ready
 	out = append(out, researchArtifact("critical_speed", dataset, generation, critical))
 
 	settling := unavailableResearch(diag.LoadSettlingIdentity(), scope+"load_settling", at, diag.ReasonInsufficientHistory)
-	if result, ok := loadSettling(state, ready, coverage); ok {
+	if result, ok := loadSettling(state, ready); ok {
 		settling = returnedResearch(diag.LoadSettlingIdentity(), scope+"load_settling", at, result.Status, result.Reasons, result)
 	}
 	out = append(out, researchArtifact("load_settling", dataset, generation, settling))
@@ -153,7 +153,7 @@ func criticalSpeed(workouts []stackWorkout, at int64) (diag.CriticalSpeedResult,
 	return result, err == nil
 }
 
-func loadSettling(state tl.StateResult, ready rd.Result, coverage rd.Coverage) (diag.SettlingResult, bool) {
+func loadSettling(state tl.StateResult, ready rd.Result) (diag.SettlingResult, bool) {
 	if len(state.Days) == 0 {
 		return diag.SettlingResult{}, false
 	}
@@ -170,6 +170,6 @@ func loadSettling(state tl.StateResult, ready rd.Result, coverage rd.Coverage) (
 	if ready.Score != nil {
 		score = *ready.Score
 	}
-	result, err := diag.SettlingWindow(load, baseline, score, coverage.CaughtUp && day.Quality == "complete", ready.Confidence)
+	result, err := diag.SettlingWindow(load, baseline, score, day.Quality == "complete", ready.Confidence)
 	return result, err == nil
 }

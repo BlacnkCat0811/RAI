@@ -1,7 +1,7 @@
 # Workout metadata registry v2（UA1-R3A）
 
 状态：**已实现，真实设备验收见 `docs/UA1_R3A_RESULT.md`**。
-控制面版本：`workout-sync-completeness/v1`（不变）；Workout Protocol 3（不变，仅新增一个可选字段）。
+控制面版本：**无**（`workout-sync-completeness` 已于 2026-11-10 按产品决定下线，服务端只按上传是否提交判定 Workout）；Workout Protocol 3（不变，仅新增一个可选字段）。
 Schema：不变（workout event 整体作为单个 JSON 文档保存，不新增列、不新增 migration）。
 
 ## 1. 为什么有版本
@@ -12,7 +12,7 @@ Schema：不变（workout event 整体作为单个 JSON 文档保存，不新增
 - `2` = 版本 1 + 两个真实 WorkoutActivity metadata key（opaque-preserved）。
 - 其它值、或版本 < 2 却携带版本 2 的 key ⇒ 整包 `422 unsupported_payload`，服务端不降级、不丢弃。
 
-服务端严格解码（`DisallowUnknownFields`），因此**不认识该字段的旧服务端会拒绝整个 bundle**：客户端保留 pending、不丢 metadata、不推进 completeness anchor（失败关闭，而不是静默降级）。
+服务端严格解码（`DisallowUnknownFields`），因此**不认识该字段的旧服务端会拒绝整个 bundle**：客户端保留 pending、不丢 metadata（失败关闭，而不是静默降级）。
 
 ## 2. 决策分类
 
@@ -49,7 +49,7 @@ Schema：不变（workout event 整体作为单个 JSON 文档保存，不新增
 - metadata 不进入 `WorkoutCoreIdentity.canonical`（每个层级都剔除 `metadata`），因此新增 key 不会制造 `workout_core_change_requires_review`（R1 不回退）。
 - 但 metadata 进入 fact 字节与 discovery fingerprint，所以它是**被保留的事实**：HealthKit 保存后不可变 ⇒ 跨重启确定。
 - 规范化与输入字典顺序无关：同一语义 metadata ⇒ 同一 canonical 字节与哈希（两侧各有测试）。
-- `streamSetVersion`、completeness fingerprint、manifest 结构不变：每个 bundle 自描述 registry 版本，新旧 capture 不会被混用。
+- bundle 自描述 registry 版本，新旧 capture 不会被混用。
 
 ## 6. 共享黄金向量
 
