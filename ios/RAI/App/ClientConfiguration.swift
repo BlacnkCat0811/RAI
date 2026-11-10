@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Security
 import SyncCore
 
@@ -46,9 +47,17 @@ struct ClientConfiguration: Codable, Sendable {
         let m = try SyncSessionStore.read(root: sessionRoot())
         return m.activeSessionID.flatMap { m.sessions[$0] }
     }
+    /// The active credential, read once and then kept in memory. Every upload,
+    /// status check and refresh used to hit the manifest file and the Keychain.
+    /// `invalidateCache()` runs whenever the active session changes.
+    private static let cached = Mutex<Secret?>(nil)
+    static func invalidateCache() { cached.withLock { $0 = nil } }
     static func load() throws -> Secret? {
+        if let hit = cached.withLock({ $0 }) { return hit }
         guard let d = try activeDescriptor(), let token = try SessionKeychain().load(sessionID: d.sessionID) else { return nil }
-        return Secret(configuration: .init(baseURL: d.baseURL, collectorEpoch: d.collectorEpoch), token: token)
+        let secret = Secret(configuration: .init(baseURL: d.baseURL, collectorEpoch: d.collectorEpoch), token: token)
+        cached.withLock { $0 = secret }
+        return secret
     }
     static func load(sessionID: String) throws -> Secret? {
         let m = try SyncSessionStore.read(root: sessionRoot())

@@ -30,6 +30,7 @@
 		B2C3D4E5F6071829304B5C8D /* WorkoutListPagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5C8 /* WorkoutListPagingTests.swift */; };
 		B2C3D4E5F6071829304B5C9F /* NormalizedCapturePerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6071829304B5CB /* NormalizedCapturePerformanceTests.swift */; };
 		AA50E8F4DA8B6A9BE235AD89 /* RAIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F1C943D1E266CB2CE42EA95 /* RAIApp.swift */; };
+		2E32366AAA23ACBD5A7E26F3 /* DebugAcceptance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905313EC20F247608BE730C7 /* DebugAcceptance.swift */; };
 		CE77CC555CD1BF81346F22E2 /* SyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C22EC825B004D4C177125E /* SyncCoordinator.swift */; };
 		D9156F70077CC7BD59084BB8 /* ClientConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE18C52EB6E3A1E357E8DCB7 /* ClientConfiguration.swift */; };
 		E643ACCBB0EEE14443B39F98 /* ProductViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07A341B735C9EDE82516D5B7 /* ProductViews.swift */; };
@@ -61,6 +62,7 @@
 		A1B2C3D4E5F6000000000022 /* RawStreamSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStreamSyncEngine.swift; sourceTree = "<group>"; };
 		206684FC925C137C0A697818 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		3F1C943D1E266CB2CE42EA95 /* RAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RAIApp.swift; sourceTree = "<group>"; };
+		905313EC20F247608BE730C7 /* DebugAcceptance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugAcceptance.swift; sourceTree = "<group>"; };
 		4320F1F750058239C53789B3 /* RAI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4874173CD79CACDE6A74EE5A /* NormalizerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NormalizerTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6071829304B5C /* SourcePolicyGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourcePolicyGateTests.swift; sourceTree = "<group>"; };
@@ -166,6 +168,7 @@
 				07A341B735C9EDE82516D5B7 /* ProductViews.swift */,
 				6C2FDB10010A581B0F9F5385 /* WorkoutDetailView.swift */,
 				3F1C943D1E266CB2CE42EA95 /* RAIApp.swift */,
+				905313EC20F247608BE730C7 /* DebugAcceptance.swift */,
 				D573336D2D55F14E12765B60 /* RAITheme.swift */,
 				50C22EC825B004D4C177125E /* SyncCoordinator.swift */,
 				6D79734A29F98E7FF31585DA /* TrainingViews.swift */,
@@ -356,6 +359,7 @@
 				E643ACCBB0EEE14443B39F98 /* ProductViews.swift in Sources */,
 				96528C42F0F2AF0B7AB0C666 /* WorkoutDetailView.swift in Sources */,
 				AA50E8F4DA8B6A9BE235AD89 /* RAIApp.swift in Sources */,
+				2E32366AAA23ACBD5A7E26F3 /* DebugAcceptance.swift in Sources */,
 				74409469EFBA71F64DB591A7 /* RAITheme.swift in Sources */,
 				CE77CC555CD1BF81346F22E2 /* SyncCoordinator.swift in Sources */,
 				69A14B76ECBDB83F1149DA87 /* TrainingViews.swift in Sources */,

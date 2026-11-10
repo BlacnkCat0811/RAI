@@ -77,33 +77,53 @@ func (s *Store) AcceptWorkoutIngest(ctx context.Context, p syncing.Principal, en
 	}
 
 	// Tombstone, original acceptance and an already-imported Workout are read
-	// before quota. Duplicates never consume capacity or get new bytes.
-	var deleted, imported bool
+	// before quota. A byte-identical duplicate never consumes capacity and gets
+	// the original receipt back.
+	var deleted, imported, sameBytes bool
 	var acceptedAt *time.Time
+	var existingState *string
 	err = tx.QueryRow(ctx, `SELECT
 		EXISTS(SELECT 1 FROM entity_tombstones t WHERE t.dataset_id=$1 AND t.sample_type=$2 AND t.sample_uuid=$3),
 		i.accepted_at,
+		i.state,
+		COALESCE(i.raw_json = $4::bytea, false),
 		EXISTS(SELECT 1 FROM workouts w WHERE w.dataset_id=$1 AND w.workout_uuid=$3)
 		FROM (SELECT 1) AS one
 		LEFT JOIN workout_ingests i ON i.dataset_id=$1 AND i.workout_uuid=$3`,
-		p.DatasetID, syncing.WorkoutType, envelope.WorkoutID).Scan(&deleted, &acceptedAt, &imported)
+		p.DatasetID, syncing.WorkoutType, envelope.WorkoutID, raw).Scan(&deleted, &acceptedAt, &existingState, &sameBytes, &imported)
 	if err != nil {
 		return nil, err
 	}
 	if deleted {
 		return nil, syncing.Fail(409, "workout_deleted")
 	}
+	// An existing row is replaced when it was rejected (the client may retry the
+	// same or fixed bytes) or when it is committed and the client now holds a
+	// different snapshot, e.g. the Watch finished syncing heart rate or route
+	// after the first upload. Pending rows and identical bytes replay the
+	// original receipt.
+	replace := false
 	if acceptedAt != nil {
-		body, err := ingestAcceptedReceipt(envelope.WorkoutID, *acceptedAt)
-		if err != nil {
-			return nil, err
+		if existingState != nil {
+			switch *existingState {
+			case "rejected":
+				replace = true
+			case "committed":
+				replace = !sameBytes
+			}
 		}
-		if err = tx.Commit(ctx); err != nil {
-			return nil, err
+		if !replace {
+			body, err := ingestAcceptedReceipt(envelope.WorkoutID, *acceptedAt)
+			if err != nil {
+				return nil, err
+			}
+			if err = tx.Commit(ctx); err != nil {
+				return nil, err
+			}
+			return body, nil
 		}
-		return body, nil
 	}
-	if imported {
+	if acceptedAt == nil && imported {
 		// A fact row is not proof that this immutable raw upload was accepted.
 		return nil, syncing.Fail(409, "workout_ingest_missing_receipt")
 	}
@@ -116,6 +136,33 @@ func (s *Store) AcceptWorkoutIngest(ctx context.Context, p syncing.Principal, en
 	}
 	if pending >= syncing.MaxWorkoutIngestBacklog || pendingBytes+int64(len(raw)) > syncing.MaxWorkoutIngestBacklogBytes {
 		return nil, syncing.WorkoutIngestBacklogExceeded()
+	}
+
+	if replace {
+		var replacedAt time.Time
+		err = tx.QueryRow(ctx, `UPDATE workout_ingests
+			SET raw_json=$3::bytea, payload_bytes=$4::bigint, device_id=$5::uuid,
+				dataset_epoch=$6::uuid, collector_epoch=$7::uuid,
+				state='accepted', accepted_at=clock_timestamp(), next_attempt_at=clock_timestamp(),
+				attempts=0, lease_until=NULL, finished_at=NULL, error_code=NULL,
+				commit_revision=NULL, commit_receipt=NULL
+			WHERE dataset_id=$1 AND workout_uuid=$2 AND state IN ('rejected','committed')
+			RETURNING accepted_at`, p.DatasetID, envelope.WorkoutID, raw, int64(len(raw)),
+			p.DeviceID, envelope.DatasetEpoch, envelope.CollectorEpoch).Scan(&replacedAt)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, syncing.Fail(409, "workout_ingest_conflict")
+		}
+		if err != nil {
+			return nil, err
+		}
+		body, err := ingestAcceptedReceipt(envelope.WorkoutID, replacedAt)
+		if err != nil {
+			return nil, err
+		}
+		if err = tx.Commit(ctx); err != nil {
+			return nil, err
+		}
+		return body, nil
 	}
 
 	var insertedAt time.Time
@@ -231,6 +278,58 @@ func (s *Store) WorkoutIngest(ctx context.Context, p syncing.Principal, workoutI
 	return syncing.WorkoutIngestStatus{}, syncing.Fail(404, "workout_ingest_not_found")
 }
 
+// workoutIngestRetryCap bounds the backoff between attempts after a transient
+// failure.
+const workoutIngestRetryCap = 10 * time.Minute
+
+// WorkoutIngestStatuses is the batch form of WorkoutIngest: one statement, one
+// snapshot, answers in the order requested. Unknown UUIDs come back as
+// "not_found" instead of failing the whole request.
+func (s *Store) WorkoutIngestStatuses(ctx context.Context, p syncing.Principal, ids []string) ([]syncing.WorkoutIngestStatus, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT u.id::text,
+		EXISTS(SELECT 1 FROM entity_tombstones t WHERE t.dataset_id=$1 AND t.sample_type=$2 AND t.sample_uuid=u.id),
+		i.state, i.accepted_at, i.commit_revision, i.error_code,
+		EXISTS(SELECT 1 FROM workouts w WHERE w.dataset_id=$1 AND w.workout_uuid=u.id)
+		FROM unnest($3::uuid[]) WITH ORDINALITY AS u(id, ord)
+		LEFT JOIN workout_ingests i ON i.dataset_id=$1 AND i.workout_uuid=u.id
+		ORDER BY u.ord`, p.DatasetID, syncing.WorkoutType, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]syncing.WorkoutIngestStatus, 0, len(ids))
+	for rows.Next() {
+		var id string
+		var deleted, imported bool
+		var state, errorCode *string
+		var acceptedAt *time.Time
+		var revision *int64
+		if err = rows.Scan(&id, &deleted, &state, &acceptedAt, &revision, &errorCode, &imported); err != nil {
+			return nil, err
+		}
+		status := syncing.WorkoutIngestStatus{WorkoutID: id}
+		switch {
+		case deleted:
+			status.IngestStatus = "deleted"
+		case state != nil:
+			status.IngestStatus = *state
+			status.AcceptedAt = acceptedAt
+			if *state == "committed" {
+				status.CommitRevision = revision
+			}
+			if *state == "rejected" && errorCode != nil {
+				status.ErrorCode = *errorCode
+			}
+		case imported:
+			status.IngestStatus = "already_imported"
+		default:
+			status.IngestStatus = "not_found"
+		}
+		out = append(out, status)
+	}
+	return out, rows.Err()
+}
+
 type workoutIngestClaim struct {
 	datasetID      string
 	workoutID      string
@@ -312,21 +411,21 @@ func (s *Store) ProcessNextWorkoutIngest(ctx context.Context) (syncing.WorkoutIn
 		outcome.Status = "rejected"
 		return outcome, nil
 	}
-	if claim.attempts >= syncing.WorkoutIngestAttempts {
-		code = "processing_attempts_exhausted"
-		applied, finishErr := s.finishWorkoutIngest(ctx, claim, "rejected", code, false, time.Time{})
-		if finishErr != nil {
-			return outcome, finishErr
-		}
-		outcome.ErrorCode = code
-		if !applied {
-			outcome.Status = "lease_lost"
-			return outcome, nil
-		}
-		outcome.Status = "rejected"
-		return outcome, nil
+	// Transient trouble (database hiccup, timeout) never turns into a permanent
+	// rejection: back off exponentially, capped, and keep trying. Crash loops
+	// are still stopped by RecoverExpiredWorkoutIngests.
+	shift := claim.attempts - 1
+	if shift < 0 {
+		shift = 0
 	}
-	next := time.Now().Add(syncing.WorkoutIngestRetryDelay * time.Duration(1<<(claim.attempts-1)))
+	if shift > 7 {
+		shift = 7
+	}
+	delay := syncing.WorkoutIngestRetryDelay << uint(shift)
+	if delay > workoutIngestRetryCap {
+		delay = workoutIngestRetryCap
+	}
+	next := time.Now().Add(delay)
 	applied, finishErr := s.finishWorkoutIngest(ctx, claim, "accepted", code, false, next)
 	if finishErr != nil {
 		return outcome, finishErr

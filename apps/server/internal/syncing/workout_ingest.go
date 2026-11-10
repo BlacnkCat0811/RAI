@@ -17,6 +17,7 @@ const (
 	WorkoutIngestDecodeBudget                    = 15 * time.Second
 	WorkoutIngestRetryDelay                      = 5 * time.Second
 	workoutIngestAcceptBacklogRetrySeconds       = 5
+	MaxIngestStatusBatch                         = 200
 )
 
 // WorkoutIngestEnvelope is the wire-only identity of a protocol-6 payload. It

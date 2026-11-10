@@ -27,9 +27,21 @@ import (
 // ingestRaw builds the exact raw protocol-6 bytes a client would upload.
 func ingestRaw(t *testing.T, datasetID, datasetEpoch, collectorEpoch, workoutID string, value float64) []byte {
 	t.Helper()
+	return ingestRawSamples(t, datasetID, datasetEpoch, collectorEpoch, workoutID, value)
+}
+
+// ingestRawSamples builds a snapshot whose heart-rate stream carries one sample
+// per value, so a later snapshot can append samples the way a Watch that
+// finishes syncing after the first upload would.
+func ingestRawSamples(t *testing.T, datasetID, datasetEpoch, collectorEpoch, workoutID string, values ...float64) []byte {
+	t.Helper()
 	start := time.Date(2026, 11, 1, 8, 0, 0, 0, time.UTC)
 	startUs := start.UnixMicro()
 	source := `{"bundleID":"com.apple.health","productType":"Watch7,1"}`
+	samples := make([]string, len(values))
+	for i, v := range values {
+		samples[i] = fmt.Sprintf("[%d,%d,%g]", int64(i)*1000000, int64(i)*1000000+500000, v)
+	}
 	return []byte(fmt.Sprintf(`{
 		"protocolVersion":6,
 		"datasetID":%q,"datasetEpoch":%q,"collectorEpoch":%q,"workoutID":%q,
@@ -37,10 +49,10 @@ func ingestRaw(t *testing.T, datasetID, datasetEpoch, collectorEpoch, workoutID 
 		"source":%s,
 		"workout":{"activityType":37,"durationUs":60000000},
 		"streams":[{"type":%q,"unit":"count/min","status":"complete",
-			"samples":[[0,500000,%g]]}],
+			"samples":[%s]}],
 		"routes":[]
 	}`, datasetID, datasetEpoch, collectorEpoch, workoutID,
-		startUs, start.Add(time.Minute).UnixMicro(), source, kind, value))
+		startUs, start.Add(time.Minute).UnixMicro(), source, kind, strings.Join(samples, ",")))
 }
 
 func ingestEnvelope(t *testing.T, raw []byte) syncing.WorkoutIngestEnvelope {
@@ -170,22 +182,144 @@ func TestWorkoutUUIDIngestAcceptCommitReplay(t *testing.T) {
 		t.Fatalf("committed row: state=%s raw_retained=%v", state, bytes.Equal(stored, raw))
 	}
 
-	// Different bytes for the same UUID replay the first acceptance and never
-	// replace the stored payload.
-	raw2 := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 199)
-	replay := acceptIngest(t, f, f.p, raw2)
+	// Byte-identical bytes replay the first acceptance and write nothing.
+	replay := acceptIngest(t, f, f.p, raw)
 	if replay.IngestStatus != "accepted" || !replay.AcceptedAt.Equal(receipt.AcceptedAt) {
 		t.Fatalf("replay changed acceptance: %+v", replay)
 	}
 	if ingestRowCount(t, f.s, f.p.DatasetID) != 1 {
 		t.Fatal("replay created a second ingest row")
 	}
-	stored, _, _, _ = ingestRow(t, f.s, f.p.DatasetID, workoutID)
-	if !bytes.Equal(stored, raw) {
-		t.Fatal("replay replaced the original raw payload")
+	if _, state, _, _ = ingestRow(t, f.s, f.p.DatasetID, workoutID); state != "committed" {
+		t.Fatalf("identical replay reopened the row: %s", state)
 	}
 	if count(t, f, "health_samples") != 1 {
 		t.Fatal("replay wrote facts")
+	}
+}
+
+// A newer snapshot of an already committed Workout (the Watch finished syncing
+// more samples after the first upload) replaces the stored bytes, is parsed
+// again and queues a fresh analysis.
+func TestWorkoutUUIDIngestCommittedSnapshotReplaced(t *testing.T) {
+	f := setup(t)
+	workoutID := syncing.NewID()
+	first := ingestRawSamples(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
+	acceptIngest(t, f, f.p, first)
+	if outcome := processIngest(t, f.s); outcome.Status != "committed" {
+		t.Fatalf("first commit: %+v", outcome)
+	}
+	firstRevision := *ingestStatus(t, f.s, f.p, workoutID).CommitRevision
+
+	second := ingestRawSamples(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121, 130)
+	receipt := acceptIngest(t, f, f.p, second)
+	if receipt.IngestStatus != "accepted" {
+		t.Fatalf("replacement acceptance: %+v", receipt)
+	}
+	stored, state, attempts, _ := ingestRow(t, f.s, f.p.DatasetID, workoutID)
+	if state != "accepted" || attempts != 0 || !bytes.Equal(stored, second) {
+		t.Fatalf("replacement row: state=%s attempts=%d exact=%v", state, attempts, bytes.Equal(stored, second))
+	}
+	if outcome := processIngest(t, f.s); outcome.Status != "committed" {
+		t.Fatalf("replacement commit: %+v", outcome)
+	}
+	status := ingestStatus(t, f.s, f.p, workoutID)
+	if status.IngestStatus != "committed" || status.CommitRevision == nil || *status.CommitRevision <= firstRevision ||
+		status.AnalysisStatus != "queued" {
+		var rc string
+		_ = f.s.Pool.QueryRow(context.Background(), `SELECT commit_receipt::text FROM workout_ingests WHERE workout_uuid=$1`, workoutID).Scan(&rc)
+		t.Fatalf("replaced status: %+v first=%d receipt=%s", status, firstRevision, rc)
+	}
+	if count(t, f, "health_samples") != 2 || count(t, f, "workouts") != 1 || ingestRowCount(t, f.s, f.p.DatasetID) != 1 {
+		t.Fatalf("replacement facts: samples=%d workouts=%d", count(t, f, "health_samples"), count(t, f, "workouts"))
+	}
+
+	// A snapshot that contradicts committed facts is rejected, honestly, and
+	// the earlier facts stay in place.
+	conflicting := ingestRawSamples(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 99, 130)
+	acceptIngest(t, f, f.p, conflicting)
+	if outcome := processIngest(t, f.s); outcome.Status != "rejected" {
+		t.Fatalf("conflicting outcome: %+v", outcome)
+	}
+	if count(t, f, "health_samples") != 2 {
+		t.Fatal("conflicting snapshot changed facts")
+	}
+}
+
+// A rejected upload can be sent again; the client is no longer stuck with a
+// permanent failure.
+func TestWorkoutUUIDIngestRejectedCanBeRetried(t *testing.T) {
+	f := setup(t)
+	workoutID := syncing.NewID()
+	foreign := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, syncing.NewID(), 121)
+	envelope := ingestEnvelope(t, foreign)
+	envelope.WorkoutID = workoutID
+	if _, err := f.s.AcceptWorkoutIngest(context.Background(), f.p, envelope, foreign); err != nil {
+		t.Fatal(err)
+	}
+	if outcome := processIngest(t, f.s); outcome.Status != "rejected" {
+		t.Fatalf("expected rejection: %+v", outcome)
+	}
+	good := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
+	receipt := acceptIngest(t, f, f.p, good)
+	if receipt.IngestStatus != "accepted" {
+		t.Fatalf("retry acceptance: %+v", receipt)
+	}
+	if outcome := processIngest(t, f.s); outcome.Status != "committed" {
+		t.Fatalf("retry commit: %+v", outcome)
+	}
+	if status := ingestStatus(t, f.s, f.p, workoutID); status.IngestStatus != "committed" || status.ErrorCode != "" {
+		t.Fatalf("retried status: %+v", status)
+	}
+}
+
+func TestWorkoutUUIDIngestBatchStatuses(t *testing.T) {
+	f := setup(t)
+	committed, pending, rejected, unknown := syncing.NewID(), syncing.NewID(), syncing.NewID(), syncing.NewID()
+	for _, id := range []string{committed} {
+		acceptIngest(t, f, f.p, ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, id, 121))
+	}
+	processIngest(t, f.s)
+	acceptIngest(t, f, f.p, ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, pending, 121))
+	bad := []byte(`{"protocolVersion":6}`)
+	badEnvelope := syncing.WorkoutIngestEnvelope{DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
+		CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: rejected, ProtocolVersion: 6}
+	if _, err := f.s.AcceptWorkoutIngest(context.Background(), f.p, badEnvelope, bad); err != nil {
+		t.Fatal(err)
+	}
+	// Drain the rejected row but leave `pending` accepted by pushing it into the future.
+	if _, err := f.s.Pool.Exec(context.Background(), `UPDATE workout_ingests SET next_attempt_at=clock_timestamp()+interval '1 hour'
+		WHERE dataset_id=$1 AND workout_uuid=$2`, f.p.DatasetID, pending); err != nil {
+		t.Fatal(err)
+	}
+	processIngest(t, f.s)
+
+	items, err := f.s.WorkoutIngestStatuses(context.Background(), f.p, []string{unknown, rejected, pending, committed})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []struct{ id, state string }{{unknown, "not_found"}, {rejected, "rejected"}, {pending, "accepted"}, {committed, "committed"}}
+	if len(items) != len(want) {
+		t.Fatalf("items: %+v", items)
+	}
+	for i, w := range want {
+		if items[i].WorkoutID != w.id || items[i].IngestStatus != w.state {
+			t.Fatalf("item %d: %+v want %s", i, items[i], w.state)
+		}
+	}
+	if items[1].ErrorCode == "" || items[3].CommitRevision == nil {
+		t.Fatalf("details missing: %+v %+v", items[1], items[3])
+	}
+
+	server := httpapi.New(f.s, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	body, _ := json.Marshal(map[string]any{"workoutIDs": []string{committed, unknown}})
+	req := httptest.NewRequest("POST", "/v2/sync/workout-ingests/status", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
+	req.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	server.ServeHTTP(recorder, req)
+	if recorder.Code != 200 || !bytes.Contains(recorder.Body.Bytes(), []byte(`"not_found"`)) {
+		t.Fatalf("HTTP batch: %d %s", recorder.Code, recorder.Body.String())
 	}
 }
 
@@ -494,7 +628,7 @@ func TestWorkoutUUIDIngestRestrictedRuntimeRoles(t *testing.T) {
 	}
 }
 
-func TestWorkoutUUIDIngestTransientRetryExhaustion(t *testing.T) {
+func TestWorkoutUUIDIngestTransientRetryNeverRejects(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	api, worker, workerRole := runtimeRoles(t, f)
@@ -507,35 +641,33 @@ func TestWorkoutUUIDIngestTransientRetryExhaustion(t *testing.T) {
 	if _, err := f.s.Pool.Exec(ctx, "REVOKE INSERT ON health_samples FROM "+pgx.Identifier{workerRole}.Sanitize()); err != nil {
 		t.Fatal(err)
 	}
-	for attempt := 1; attempt <= syncing.WorkoutIngestAttempts; attempt++ {
+	// Transient failures never turn into a permanent rejection, however many
+	// attempts have been spent; the backoff grows but stays capped.
+	for attempt := 1; attempt <= syncing.WorkoutIngestAttempts+3; attempt++ {
 		outcome, err := worker.ProcessNextWorkoutIngest(ctx)
 		if err != nil || !outcome.Claimed {
 			t.Fatalf("attempt %d: %+v %v", attempt, outcome, err)
 		}
-		if attempt < syncing.WorkoutIngestAttempts {
-			if outcome.Status != "retry" || outcome.ErrorCode == "" {
-				t.Fatalf("attempt %d outcome: %+v", attempt, outcome)
-			}
-			if _, err = f.s.Pool.Exec(ctx, `UPDATE workout_ingests SET next_attempt_at=clock_timestamp()
-				WHERE dataset_id=$1 AND workout_uuid=$2`, f.p.DatasetID, failing); err != nil {
-				t.Fatal(err)
-			}
-			continue
+		if outcome.Status != "retry" || outcome.ErrorCode == "" {
+			t.Fatalf("attempt %d outcome: %+v", attempt, outcome)
 		}
-		if outcome.Status != "rejected" || outcome.ErrorCode != "processing_attempts_exhausted" {
-			t.Fatalf("terminal outcome: %+v", outcome)
+		if _, err = f.s.Pool.Exec(ctx, `UPDATE workout_ingests SET next_attempt_at=clock_timestamp()
+			WHERE dataset_id=$1 AND workout_uuid=$2`, f.p.DatasetID, failing); err != nil {
+			t.Fatal(err)
 		}
 	}
 	if _, err := f.s.Pool.Exec(ctx, "GRANT INSERT ON health_samples TO "+pgx.Identifier{workerRole}.Sanitize()); err != nil {
 		t.Fatal(err)
 	}
-	status := ingestStatus(t, f.s, f.p, failing)
-	if status.IngestStatus != "rejected" || status.ErrorCode != "processing_attempts_exhausted" {
-		t.Fatalf("exhausted status: %+v", status)
+	if status := ingestStatus(t, f.s, f.p, failing); status.IngestStatus != "accepted" {
+		t.Fatalf("transient failure became terminal: %+v", status)
 	}
 	if countFor(t, f.s, "workouts", f.p.DatasetID, failing) != 0 ||
 		countFor(t, f.s, "workout_samples", f.p.DatasetID, failing) != 0 {
-		t.Fatal("exhausted ingest left facts")
+		t.Fatal("failed ingest left facts")
+	}
+	if outcome, err := worker.ProcessNextWorkoutIngest(ctx); err != nil || outcome.Status != "committed" {
+		t.Fatalf("late recovery: %+v %v", outcome, err)
 	}
 
 	recovered := syncing.NewID()

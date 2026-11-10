@@ -30,10 +30,7 @@ actor SyncCoordinator {
     private let session: URLSession
     private let sessionStore: SyncSessionStore?
     private let sessionID: String?
-    private var running = false
     private var workoutBatchRunning = false
-    /// The handshake may pause new protocol-6 uploads.
-    private var workoutUUIDIngestAccepting = false
     private var dailyRunning = false
     private var supportsDaily = false
     private var vo2Running = false
@@ -201,94 +198,18 @@ actor SyncCoordinator {
         try await health.workoutPage(before: before, limit: limit)
     }
 
-    /// Discovery keeps the visible Workout inventory used by the picker. The
-    /// protocol-6 payload is built from one complete HealthKit read per
-    /// Workout; there is no per-sample journal on the delivery path.
-    func discoverChanges() async throws {
-        if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
-        guard !running else { return }
-        running = true; defer { running = false }
-        let query = DiscoveryQuery(type: HKObjectType.workoutType().identifier)
-        for _ in 0..<4 {
-            try Task.checkCancellation()
-            if !(try await discoverPage(query: query, type: HKObjectType.workoutType(), workout: nil)) { break }
-        }
+    /// Wakes the app when HealthKit saves a Workout. The handler only decides
+    /// whether an automatic round is due; nothing is read inside the callback.
+    func observeWorkouts(_ handler: @escaping @Sendable () async -> Void) async throws { try await health.observeWorkouts(handler) }
+
+    /// What the server holds for these UUIDs, one request per 200.
+    func workoutStatuses(_ ids: [String], secret: ClientConfiguration.Secret,
+                         transfers: any FileUploader) async throws -> [String: WorkoutRemoteStatus] {
+        guard !ids.isEmpty else { return [:] }
+        let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
+        let (api, _) = try await context(secret: secret, transfers: transfers, metrics: metrics)
+        return try await WorkoutIngestDelivery(api: api).statuses(ids)
     }
-    @discardableResult private func discoverPage(query requested: DiscoveryQuery, type: HKSampleType, workout: HKWorkout?) async throws -> Bool {
-        let query = await store.activeDiscoveryQuery(requested)
-        var flow = try await store.discoveryFlow(query)
-        if let staged = flow.staged {
-            try await store.promoteDiscovery(query, batchID: staged.id)
-            flow = try await store.discoveryFlow(query)
-        }
-        // Invalid anchors remain quarantined. No catch path substitutes nil.
-        if flow.error == "invalid_healthkit_anchor" { throw SyncFailure.localState("invalid_healthkit_anchor") }
-        do {
-            let page: HealthPage
-            if type == HKObjectType.workoutType(), let id = query.workoutID { page = try await health.readWorkout(id: id, anchor: flow.anchor) }
-            else { page = try await health.read(type: type, anchor: flow.anchor, workout: workout) }
-            var events: [DiscoveryEvent] = []
-            // The Workout root record stays a plain archive file: it is the
-            // visible inventory (`workoutArchives`), the identity a later scan
-            // uses to enumerate scoped streams, and the fallback when a root is
-            // no longer visible. Its volume is one object per Workout, so it is
-            // not where the per-sample cost lives.
-            let rootType = type == HKObjectType.workoutType()
-            // Child upserts are archived into bounded capture segments: one
-            // sealed file per batch instead of one atomic file per sample. The
-            // events are returned unstaged and committed together with the
-            // journal and the anchor by `stageDiscovery`, so a crash before
-            // that point leaves an unreferenced orphan, never a fact.
-            for start in stride(from: 0, to: page.samples.count, by: 1000) {
-                try Task.checkCancellation()
-                let chunk = page.samples[start..<min(start + 1000, page.samples.count)]
-                if rootType {
-                    for sample in chunk {
-                        let archive = try NSKeyedArchiver.archivedData(withRootObject: sample, requiringSecureCoding: true)
-                        SampleArchiveMeter.recordObjectArchive()
-                        let file = try await store.savePayload(archive, suffix: "healthkit.archive")
-                        events.append(DiscoveryEvent(type: type.identifier, uuid: sample.uuid.uuidString.lowercased(),
-                            deleted: false, archiveFile: file, archiveHash: Wire.hash(archive), workoutID: query.workoutID))
-                    }
-                    continue
-                }
-                var records: [CapturedFact] = []
-                records.reserveCapacity(chunk.count)
-                for sample in chunk {
-                    // Normalized capture (P4): the fact is stored in the shape
-                    // the bundle needs, so no per-sample archive is produced.
-                    let fact = Normalizer.capturedFact(sample, type: type.identifier, workoutID: query.workoutID)
-                    records.append(CapturedFact(type: type.identifier, uuid: fact.uuid, archive: try fact.encoded(),
-                                                identityHash: fact.identityHash, encoding: .normalized))
-                }
-                let captured = try await store.captureFactSegment(type: type.identifier, workoutID: query.workoutID,
-                                                                 records: records, publish: false)
-                events.append(contentsOf: captured.events)
-            }
-            // Deletions keep their own archive file: a deletion event is a
-            // tombstone marker, not a fact whose bytes are ever reused, and the
-            // segment reference form is explicitly rejected for them.
-            for object in page.deleted {
-                try Task.checkCancellation()
-                let archive = try NSKeyedArchiver.archivedData(withRootObject: object, requiringSecureCoding: true)
-                SampleArchiveMeter.recordObjectArchive()
-                let file = try await store.savePayload(archive, suffix: "healthkit.archive")
-                events.append(DiscoveryEvent(type: type.identifier, uuid: object.uuid.uuidString.lowercased(), deleted: true,
-                    archiveFile: file, archiveHash: Wire.hash(archive), workoutID: query.workoutID))
-            }
-            let batchID = try await store.stageDiscovery(query, previousAnchor: flow.anchor, anchor: page.anchor, events: events, hasMore: page.isFull)
-            try await store.promoteDiscovery(query, batchID: batchID)
-            return page.isFull
-        } catch {
-            // Preemption is not a failed discovery stream. Keep the previous
-            // anchor and hasMore so the automatic scheduler can resume later.
-            if error is CancellationError || Task.isCancelled { throw CancellationError() }
-            let failure = (error as? SyncFailure).map(code) ?? (error is CancellationError ? "cancelled" : "healthkit_query_failed")
-            try await store.discoveryError(query, code: failure)
-            throw error
-        }
-    }
-    func observeDiscovery(_ handler: @escaping @Sendable () async -> Void) async throws { try await health.observeChanges(handler) }
 
     private func context(secret: ClientConfiguration.Secret, transfers: any FileUploader, metrics: SyncMetrics) async throws -> (RAIAPIClient, Scope) {
         let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, session: session, uploader: transfers, metrics: metrics)
@@ -309,7 +230,6 @@ actor SyncCoordinator {
               HealthKitClient.quantityTypes.allSatisfy({ supported.contains($0.identifier) }) else {
             throw SyncFailure.invalid("unsupported_handshake")
         }
-        workoutUUIDIngestAccepting = hello["capabilities"]["workoutUUIDIngestAccepting"] == .bool(true)
         supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
         vo2Capabilities = hello["capabilities"]
         let scope = Scope(serviceID: service, datasetID: dataset, datasetEpoch: epoch, collectorEpoch: secret.configuration.collectorEpoch)
@@ -332,9 +252,6 @@ actor SyncCoordinator {
         workoutBatchRunning = true; defer { workoutBatchRunning = false }
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
         let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-        guard workoutUUIDIngestAccepting else {
-            throw SyncFailure.localState("workout_uuid_ingest_paused")
-        }
         let delivery = WorkoutIngestDelivery(api: api)
         var outcomes: [WorkoutUploadOutcome] = []
         outcomes.reserveCapacity(ids.count)
@@ -345,7 +262,7 @@ actor SyncCoordinator {
             do {
                 let raw = try await RawStreamSyncEngine(health: health, scope: scope).build(id: id)
                 metrics.value("v6_build_ms", Date().timeIntervalSince(buildStarted) * 1000)
-                let receipt = try await delivery.accept(raw, workoutID: id, scope: scope)
+                let receipt = try await delivery.acceptWithRetry(raw, workoutID: id, scope: scope)
                 metrics.value("workout_sync_ms", Date().timeIntervalSince(buildStarted) * 1000)
                 let outcome = WorkoutUploadOutcome(workoutID: id, acceptedAt: receipt.acceptedAt, errorCode: nil)
                 outcomes.append(outcome)

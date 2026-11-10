@@ -81,6 +81,7 @@ func New(store syncing.Store, log *slog.Logger) http.Handler {
 	// datasets, and acceptance must proceed while a fact import holds that row.
 	m.Handle("POST /v2/sync/workout-ingests/{workoutID}", a.ingestAuth(syncing.UploadLane, a.acceptWorkoutIngest))
 	m.Handle("GET /v2/sync/workout-ingests/{workoutID}", a.ingestAuth(syncing.ReadLane, a.workoutIngestStatus))
+	m.Handle("POST /v2/sync/workout-ingests/status", a.ingestAuth(syncing.ReadLane, a.workoutIngestStatuses))
 	m.Handle("POST /v2/model-inputs/{kind}", a.auth(syncing.UploadLane, a.modelInput))
 	m.Handle("POST /v2/model-inputs/{id}/revocations", a.auth(syncing.UploadLane, a.modelInputRevocation))
 	m.Handle("GET /v2/analysis/workouts/{id}", a.auth(syncing.ReadLane, a.workoutAnalysis))
@@ -394,6 +395,44 @@ func (a *API) workoutIngestStatus(w http.ResponseWriter, r *http.Request, p sync
 		return err
 	}
 	respond(w, 200, status)
+	return nil
+}
+
+// workoutIngestStatuses answers up to MaxIngestStatusBatch UUIDs in one read so
+// the app can render its whole Workout list (and recover after a reinstall)
+// without one request per record.
+func (a *API) workoutIngestStatuses(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+	var body struct {
+		WorkoutIDs []string `json:"workoutIDs"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&body); err != nil {
+		return syncing.Fail(422, "unsupported_payload")
+	}
+	if len(body.WorkoutIDs) == 0 || len(body.WorkoutIDs) > syncing.MaxIngestStatusBatch {
+		return syncing.Fail(422, "unsupported_payload")
+	}
+	for _, id := range body.WorkoutIDs {
+		if !syncing.ValidID(id) {
+			return syncing.Fail(422, "unsupported_payload")
+		}
+	}
+	release, err := a.acquireStatusQuery(p)
+	if err != nil {
+		return err
+	}
+	defer release()
+	// Optional capability: kept off syncing.Store so existing fakes still compile.
+	batcher, ok := a.store.(interface {
+		WorkoutIngestStatuses(context.Context, syncing.Principal, []string) ([]syncing.WorkoutIngestStatus, error)
+	})
+	if !ok {
+		return syncing.Fail(501, "not_implemented")
+	}
+	items, err := batcher.WorkoutIngestStatuses(r.Context(), p, body.WorkoutIDs)
+	if err != nil {
+		return err
+	}
+	respond(w, 200, map[string]any{"items": items})
 	return nil
 }
 

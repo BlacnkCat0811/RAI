@@ -64,31 +64,80 @@ public struct ProductSnapshot: Sendable {
     sessions.first { $0.date == today && $0.type != "REST" } ?? sessions.first { $0.date == today }
   }
   public func metric(_ name: String) -> Double? {
+    // The server owns algorithm versions; the home page only needs a usable value.
     guard let metric = state["metrics"].list.first(where: { $0.string("metric") == name }),
-      ["available", "partial"].contains(metric.string("quality")),
-      metric.string("algorithmVersion") == "v1"
-        || (metric.string("algorithmVersion") == "v2"
-          && metric.string("algorithm") == "fitness_fatigue")
+      ["available", "partial"].contains(metric.string("quality"))
     else { return nil }
     return metric.number("value")
+  }
+}
+extension ProductSnapshot {
+  /// A read that failed this time keeps the last good value instead of blanking
+  /// its card; the failure is still reported through `failures`.
+  public func keepingLastGood(from previous: ProductSnapshot) -> ProductSnapshot {
+    var out = self
+    for key in failures.keys {
+      switch key {
+      case "plan": out.plan = previous.plan
+      case "state": out.state = previous.state
+      case "overview": out.overview = previous.overview
+      case "history": out.history = previous.history
+      case "athlete": out.athlete = previous.athlete
+      case "workouts": out.workouts = previous.workouts; out.next = previous.next
+      default: break
+      }
+    }
+    return out
+  }
+}
+/// Last good home snapshot, kept on disk so a cold start paints immediately and
+/// refreshes in the background.
+public enum ProductSnapshotCache {
+  private struct Stored: Codable {
+    var plan: JSON, state: JSON, overview: JSON, history: JSON
+    var athlete: AthleteModelSnapshot?
+    var workouts: [JSON]
+    var next: String
+  }
+  public static func encode(_ snapshot: ProductSnapshot) -> Data? {
+    try? JSONEncoder().encode(Stored(
+      plan: snapshot.plan, state: snapshot.state, overview: snapshot.overview, history: snapshot.history,
+      athlete: snapshot.athlete, workouts: snapshot.workouts.map(\.raw), next: snapshot.next))
+  }
+  public static func decode(_ data: Data) -> ProductSnapshot? {
+    guard let stored = try? JSONDecoder().decode(Stored.self, from: data) else { return nil }
+    var out = ProductSnapshot()
+    out.plan = stored.plan; out.state = stored.state; out.overview = stored.overview; out.history = stored.history
+    out.athlete = stored.athlete; out.workouts = stored.workouts.map(ProductWorkout.init); out.next = stored.next
+    return out
   }
 }
 public actor ProductAPI {
   public let client: RAIAPIClient
   public init(client: RAIAPIClient) { self.client = client }
+  /// The six home reads are independent, so they run concurrently. The result
+  /// is assembled in a fixed order after all of them finish.
   public func load() async -> ProductSnapshot {
-    // Bounded sequential reads fit the existing device admission budget.
-    var out = ProductSnapshot()
-    for (key, path) in [
+    let reads = [
       ("plan", "/v2/training/plans/current"), ("state", "/v2/analysis/state"),
       ("overview", "/v2/product/overview"), ("workouts", "/v2/workouts"),
       ("history", "/v2/analysis/history"), ("athlete", "/v2/analysis/athlete"),
-    ] {
-      do {
-        let value = try await get(path)
+    ]
+    var results: [String: Result<JSON, any Error>] = [:]
+    await withTaskGroup(of: (String, Result<JSON, any Error>).self) { group in
+      for (key, path) in reads {
+        group.addTask { [self] in
+          do { return (key, .success(try await get(path))) } catch { return (key, .failure(error)) }
+        }
+      }
+      for await (key, result) in group { results[key] = result }
+    }
+    var out = ProductSnapshot()
+    for (key, _) in reads {
+      switch results[key] {
+      case .success(let value):
         switch key {
-        case "athlete":
-          out.athlete = try? JSONDecoder().decode(AthleteModelSnapshot.self, from: value.data())
+        case "athlete": out.athlete = try? JSONDecoder().decode(AthleteModelSnapshot.self, from: value.data())
         case "plan": out.plan = value
         case "state": out.state = value
         case "overview": out.overview = value
@@ -97,8 +146,8 @@ public actor ProductAPI {
           out.workouts = value["items"].list.map(ProductWorkout.init)
           out.next = value.string("next")
         }
-      } catch let e as UploadError { out.failures[key] = e.code } catch {
-        out.failures[key] = "connection_unavailable"
+      case .failure(let error as UploadError): out.failures[key] = error.code
+      default: out.failures[key] = "connection_unavailable"
       }
     }
     return out

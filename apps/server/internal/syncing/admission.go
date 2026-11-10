@@ -81,3 +81,39 @@ func RequestBudgets() map[AdmissionLane]AdmissionPolicy {
 	requestBudgetsMu.RUnlock()
 	return defaultRequestBudgets()
 }
+
+// Limiter is an in-process GCRA token bucket. One personal server instance
+// needs no shared state: a restart simply refills every bucket, which is the
+// same as a quiet minute. It replaces the per-request PostgreSQL bucket writes.
+type Limiter struct {
+	mu  sync.Mutex
+	tat map[string]time.Time
+}
+
+func NewLimiter() *Limiter { return &Limiter{tat: map[string]time.Time{}} }
+
+// Allow spends one slot of key's bucket at now. On denial it reports how long
+// the caller should wait. A denied request does not move the bucket.
+func (l *Limiter) Allow(key string, budget RequestBudget, now time.Time) (time.Duration, bool) {
+	interval := time.Minute / time.Duration(budget.PerMinute)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	tat := l.tat[key]
+	if tat.Before(now) {
+		tat = now
+	}
+	next := tat.Add(interval)
+	allowAt := next.Add(-time.Duration(budget.Burst) * interval)
+	if now.Before(allowAt) {
+		return allowAt.Sub(now), false
+	}
+	l.tat[key] = next
+	if len(l.tat) > 4096 {
+		for k, v := range l.tat {
+			if v.Before(now) {
+				delete(l.tat, k)
+			}
+		}
+	}
+	return 0, true
+}

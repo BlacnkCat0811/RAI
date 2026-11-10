@@ -26,6 +26,9 @@ type Store struct {
 	// Multi-process races still resolve through the ingest primary key.
 	ingestMu    sync.Mutex
 	ingestLocks map[string]*sync.Mutex
+
+	// limiter holds the request budgets in memory (see Admit).
+	limiter *syncing.Limiter
 }
 
 func Open(ctx context.Context, url string, maxConnections int32) (*Store, error) {
@@ -63,7 +66,7 @@ func OpenWithTracer(ctx context.Context, url string, maxConnections int32, trace
 	if err != nil {
 		return nil, err
 	}
-	return &Store{Pool: p, q: dbgen.New(p)}, nil
+	return &Store{Pool: p, q: dbgen.New(p), limiter: syncing.NewLimiter()}, nil
 }
 func (s *Store) Ready(ctx context.Context) error {
 	// Constant-sized schema evidence, no business table scan and no implicit migration.

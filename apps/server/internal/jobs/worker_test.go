@@ -2,9 +2,11 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"rai/server/internal/analysis"
+	"sync"
 	"testing"
 	"time"
 )
@@ -112,6 +114,79 @@ func TestWorkerUsesExactExplicitAsOf(t *testing.T) {
 		}
 	}
 }
+
+// TestRunWithClockAdvancesWithTheClock proves a long-lived worker re-reads the
+// clock: after the fake clock crosses midnight the next day advancement must see
+// the later instant instead of the one captured at startup.
+func TestRunWithClockAdvancesWithTheClock(t *testing.T) {
+	previous := recoveryInterval
+	recoveryInterval = 20 * time.Millisecond
+	defer func() { recoveryInterval = previous }()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	called := make(chan struct{})
+	advanced := make(chan time.Time, 8)
+	start := time.Date(2026, 11, 10, 23, 59, 0, 0, time.UTC)
+	var mu sync.Mutex
+	current := start
+	now := func() time.Time {
+		mu.Lock()
+		defer mu.Unlock()
+		return current
+	}
+	q := &tickingRecovery{advanced: advanced, called: called}
+	done := make(chan error, 1)
+	go func() {
+		done <- RunWithClock(ctx, q, slog.New(slog.NewJSONHandler(io.Discard, nil)), now)
+	}()
+	select {
+	case got := <-advanced:
+		if !got.Equal(start) {
+			t.Fatalf("first advance used %v, want %v", got, start)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("first day advancement did not happen")
+	}
+	mu.Lock()
+	current = start.Add(2 * time.Minute)
+	mu.Unlock()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case got := <-advanced:
+			if got.Equal(start.Add(2 * time.Minute)) {
+				goto advancedPastMidnight
+			}
+		case <-deadline:
+			t.Fatal("day advancement never observed the moved clock")
+		}
+	}
+advancedPastMidnight:
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("worker did not stop")
+	}
+}
+
+type tickingRecovery struct {
+	Queue
+	called   chan struct{}
+	advanced chan time.Time
+}
+
+func (r *tickingRecovery) AdvanceAnalysisDay(_ context.Context, at time.Time) error {
+	select {
+	case r.advanced <- at:
+	default:
+	}
+	return nil
+}
+func (r *tickingRecovery) Claim(ctx context.Context, _ []string) (analysis.Lease, error) {
+	return analysis.Lease{}, errors.New("empty")
+}
+func (r *tickingRecovery) RequeueExpired(context.Context) (int, error) { return 0, nil }
 
 type renewalQueue struct {
 	Queue

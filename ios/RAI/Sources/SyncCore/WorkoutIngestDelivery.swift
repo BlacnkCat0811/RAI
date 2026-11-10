@@ -89,20 +89,85 @@ public struct WorkoutIngestStatus: Sendable, Equatable {
     }
 }
 
-/// One foreground POST for one freshly built protocol-6 payload. There is no
-/// persisted file, upload id, status pre-read, retry or reconciliation: the
-/// Workout UUID is the identity and a 200 is the final upload result.
+/// What the server currently holds for one Workout UUID, as answered by the
+/// batch status endpoint. `notFound` is a normal answer, not an error.
+public struct WorkoutRemoteStatus: Sendable, Equatable {
+    public enum State: String, Sendable {
+        case accepted, committed, rejected, deleted, notFound = "not_found"
+        case alreadyImported = "already_imported"
+    }
+    public let workoutID: String
+    public let state: State
+    public let acceptedAt: Date?
+    public let errorCode: String?
+    public init(workoutID: String, state: State, acceptedAt: Date? = nil, errorCode: String? = nil) {
+        self.workoutID = workoutID; self.state = state; self.acceptedAt = acceptedAt; self.errorCode = errorCode
+    }
+}
+
+/// One foreground POST for one freshly built protocol-6 payload. The Workout
+/// UUID is the identity and a 200 is the upload result; transient failures can
+/// be retried with `acceptWithRetry`, and `statuses` reads back what the
+/// server holds for many UUIDs at once.
 public struct WorkoutIngestDelivery: Sendable {
     public static let protocolVersion = 6
+    public static let retryDelays: [TimeInterval] = [1, 3, 8]
+    public static let maxRetryAfter: TimeInterval = 30
     public let api: RAIAPIClient
     public init(api: RAIAPIClient) { self.api = api }
+
+    /// Network trouble, 408, 429 and 5xx are worth another try; everything else
+    /// (4xx, local validation, authentication) is not.
+    static func retryDelay(for error: any Error, attempt: Int) -> TimeInterval? {
+        guard attempt < retryDelays.count, let failure = error as? UploadError, failure.retryable,
+              !["authentication_required", "cancelled", "bundle_too_large"].contains(failure.code) else { return nil }
+        let base = retryDelays[attempt]
+        guard let advised = failure.retryAfter else { return base }
+        return min(max(base, advised), maxRetryAfter)
+    }
+
+    /// `accept` with up to three retries (1 s, 3 s, 8 s, or the server's
+    /// `Retry-After` when longer). Re-sending identical bytes is idempotent.
+    public func acceptWithRetry(_ raw: Data, workoutID: String, scope: Scope,
+                                sleep: @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }) async throws -> WorkoutIngestStatus {
+        var attempt = 0
+        while true {
+            do {
+                return try await accept(raw, workoutID: workoutID, scope: scope)
+            } catch {
+                guard let delay = Self.retryDelay(for: error, attempt: attempt) else { throw error }
+                attempt += 1
+                try await sleep(delay)
+            }
+        }
+    }
+
+    /// One batch read of the server's state, 200 UUIDs per request. The answer
+    /// order does not matter; every requested UUID is present in the result.
+    public func statuses(_ ids: [String]) async throws -> [String: WorkoutRemoteStatus] {
+        var out: [String: WorkoutRemoteStatus] = [:]
+        var index = 0
+        while index < ids.count {
+            try Task.checkCancellation()
+            let chunk = Array(ids[index..<min(index + 200, ids.count)])
+            index += chunk.count
+            let body = try JSON.object(["workoutIDs": .array(chunk.map(JSON.string))]).data()
+            let reply = try await api.call("POST", "/v2/sync/workout-ingests/status", body: body)
+            for item in reply["items"].list {
+                guard let id = item["workoutID"].text, chunk.contains(id),
+                      let raw = item["ingestStatus"].text, let state = WorkoutRemoteStatus.State(rawValue: raw) else { continue }
+                out[id] = WorkoutRemoteStatus(workoutID: id, state: state, acceptedAt: WorkoutIngestStatus.date(item["acceptedAt"]),
+                                              errorCode: item["errorCode"].text)
+            }
+        }
+        return out
+    }
 
     /// Sends the exact bytes built for this Workout once. Gzip is chosen once
     /// before the request; an over-limit gzip falls back to the legal plaintext
     /// multipart body instead of producing a partial upload.
     public func accept(_ raw: Data, workoutID: String, scope: Scope) async throws -> WorkoutIngestStatus {
         try Task.checkCancellation()
-        try Self.validate(raw, workoutID: workoutID, scope: scope)
         let boundary = "rai.boundary." + Wire.id()
         let body: Data
         if let wire = try? WorkoutPayloadTransport.gzipWire(raw: raw, boundary: boundary) {
@@ -123,19 +188,6 @@ public struct WorkoutIngestDelivery: Sendable {
         } catch {
             if error is CancellationError || Task.isCancelled { throw CancellationError() }
             throw WorkoutPayloadTransport.failure(error)
-        }
-    }
-
-    /// The bytes built from HealthKit must belong to this exact handshake and
-    /// Workout before they are sent. No hash or durable copy is involved.
-    static func validate(_ raw: Data, workoutID: String, scope: Scope) throws {
-        guard let bundle = try? JSON.decode(raw),
-              bundle["protocolVersion"].integer == Int64(Self.protocolVersion),
-              bundle["workoutID"].text == workoutID,
-              bundle["datasetID"].text == scope.datasetID,
-              bundle["datasetEpoch"].text == scope.datasetEpoch,
-              bundle["collectorEpoch"].text == scope.collectorEpoch else {
-            throw SyncFailure.localState("bundle_session_mismatch")
         }
     }
 }

@@ -24,23 +24,7 @@ public enum WorkoutPayloadTransport {
         let zipped = try Wire.gzip(raw)
         let milliseconds = Date().timeIntervalSince(compressionStart) * 1000
         try Wire.GzipBundle.validate(decoded: raw.count, compressed: zipped.count)
-        let wire = multipart(bundle: zipped, boundary: boundary, compressed: true)
-        guard isGzipMultipart(wire, boundary: boundary) else { throw SyncFailure.localState("gzip_wire_invalid") }
-        return GzipWire(wire: wire, milliseconds: milliseconds)
-    }
-
-    /// A cached wire artifact is only reusable while it is still a single gzip
-    /// file part; a plaintext part (or any non-gzip body) is never sent.
-    static func isGzipMultipart(_ wire: Data, boundary: String) -> Bool {
-        let opener = Data(("--" + boundary + "\r\n").utf8)
-        guard wire.starts(with: opener) else { return false }
-        guard let separator = wire.range(of: Data("\r\n\r\n".utf8)) else { return false }
-        let headers = wire[wire.startIndex..<separator.lowerBound]
-        guard String(decoding: headers, as: UTF8.self).contains("Content-Type: application/gzip"),
-              String(decoding: headers, as: UTF8.self).contains("filename=\"workout.json.gz\"") else { return false }
-        let payload = wire.distance(from: wire.startIndex, to: separator.upperBound)
-        guard payload + 2 <= wire.count else { return false }
-        return wire[wire.startIndex + payload] == 0x1F && wire[wire.startIndex + payload + 1] == 0x8B
+        return GzipWire(wire: multipart(bundle: zipped, boundary: boundary, compressed: true), milliseconds: milliseconds)
     }
 
     static func failure(_ error: any Error) -> UploadError {

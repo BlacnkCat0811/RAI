@@ -101,7 +101,7 @@ struct WorkoutDetail: View {
     for delay in [2, 5, 10, 15] {
       try? await Task.sleep(for: .seconds(delay))
       guard !Task.isCancelled, scenePhase == .active else { return }
-      await model.loadWorkoutDetail(workout.id)
+      _ = await model.pollWorkoutFreshness(workout.id)
       if freshness?.completeness == "complete" { return }
     }
   }

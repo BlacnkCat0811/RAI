@@ -48,7 +48,6 @@ services:
     environment:
       RAI_DATABASE_URL_FILE: /run/secrets/api_dsn
       RAI_ENFORCE_RUNTIME_ROLE: '1'
-      RAI_WORKOUT_UUID_INGEST_MODE: ${RAI_WORKOUT_UUID_INGEST_MODE:-legacy}
       RAI_LISTEN_ADDR: 0.0.0.0:8443
       RAI_REQUIRE_TLS: '1'
       RAI_TLS_CERT_FILE: /run/secrets/tls_cert

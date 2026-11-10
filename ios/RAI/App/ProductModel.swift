@@ -15,108 +15,59 @@ enum UserFacingText {
     return String(code[..<separator])
   }
 
+  /// Two kinds of failure reach the user: the ones that fix themselves (try
+  /// again later) and the ones that need an action. Everything else falls back
+  /// to a generic line; the exact code stays in the diagnostics.
   static func error(_ code: String) -> String {
     if code.hasPrefix("keychain_") || code.hasPrefix("session_keychain_") { return "钥匙串读写失败" }
-    if code.hasPrefix("unsupported_workout_metadata_types") { return "运动记录包含暂不支持的健康元数据" }
-    if code.hasPrefix("unsupported_workout_quantity_types") { return "运动记录包含暂不支持的健康统计类型" }
+    if code.hasPrefix("network_") { return "网络不可用，稍后会自动重试" }
+    if code.hasPrefix("unsupported_workout_metadata") || code.hasPrefix("nonfinite_workout_metadata")
+      || code.hasPrefix("workout_metadata_limit") || code == "metadata_requires_review"
+    {
+      return "记录包含暂不支持的健康元数据，本条记录未上传，原始数据仍在健康 App 中"
+    }
     return [
-      "device_rate_exceeded": "服务限流，请稍后再次点击同步",
-      "dataset_rate_exceeded": "私有服务繁忙，请稍后再次点击同步",
-      "association_unavailable": "关联样本尚未到达；本次记录未上传",
+      // Retry later
+      "connection_unavailable": "无法连接私有服务，稍后重试",
+      "device_rate_exceeded": "请求太频繁，稍后重试",
+      "device_upload_capacity_exceeded": "服务繁忙，稍后会自动重试",
+      "dataset_rate_exceeded": "服务繁忙，稍后重试",
+      "workout_ingest_backlog_exceeded": "服务端待处理记录较多，稍后重试",
+      "request_retry_limit": "请求重试次数已用尽，稍后重试",
+      "interrupted": "上传已中断，可再次同步",
+      "sync_already_running": "已有同步任务在进行",
       "analysis_not_ready": "分析尚未就绪",
-      "training_not_found": "未找到训练计划",
-      "connection_unavailable": "无法连接私有服务",
-      "configure_development_api_first": "请先配置私有服务",
-      "product_dataset_changed": "私有数据集已更改",
-      "dataset_retired": "此同步空间已停用，请使用管理员提供的新凭证建立会话",
+      // Needs an action
+      "configure_development_api_first": "请先连接私有服务",
+      "authentication_required": "访问令牌已失效，请重新连接服务器",
+      "dataset_retired": "此同步空间已停用，请使用新的连接链接",
       "session_not_active": "此会话尚未启用或已经归档",
-      "session_handshake_mismatch": "新凭证与服务身份不匹配，会话未切换",
-      "session_identity_reused": "请使用管理员新建的独立身份",
-      "legacy_session_identity_reused": "旧身份不能用于新会话，请使用新数据集凭证",
+      "session_handshake_mismatch": "凭证与服务身份不匹配，连接未保存",
       "session_identity_conflict": "凭证与已保存的会话不一致，原会话已保留",
-      "session_switch_busy": "请等待当前同步结束后再切换会话",
-      "bundle_session_mismatch": "上传包属于另一会话，原文件已保留",
-      "upload_file_session_mismatch": "上传文件属于另一会话，原文件已保留",
-      "resolve_pending_command_first": "请先处理待确认的提交",
-      "command_identity_mismatch": "提交标识不匹配",
+      "session_switch_busy": "请等待当前同步结束后再切换服务器",
       "invalid_api_origin": "服务地址无效",
       "invalid_collector_epoch": "采集器周期标识无效",
       "missing_device_token": "缺少设备访问令牌",
-      "device_token_contains_whitespace": "设备访问令牌不能包含空白",
-      "http_requires_configured_debug_host": "调试环境服务地址未配置",
       "https_required": "服务地址必须使用加密连接",
-      "source_policy_pending": "来源尚未确认是 Apple Watch 原始采集，原记录待处理",
-      "source_policy_excluded": "这条记录不是 Apple Watch 原生跑步，已按来源策略排除，不会上传",
-      "metadata_requires_review": "记录包含未审核的元数据，本条记录未上传，原始数据已留在本机待处理",
-      "unsupported_workout_metadata_type": "运动元数据类型无法识别，本条记录未上传，原始数据已留在本机",
-      "unsupported_workout_metadata_unit": "运动元数据的单位与记录不符，本条记录未上传，原始数据已留在本机",
-      "nonfinite_workout_metadata": "运动元数据包含无效数值，本条记录未上传，原始数据已留在本机",
-      "workout_metadata_limit": "运动元数据条目超过上限，本条记录未上传，原始数据已留在本机",
-      "unsupported_integrity_contract": "服务尚未支持数据完整性协议",
-      "workout_core_change_requires_review": "运动原始主体发生变化，需要核对",
-      "route_count_incomplete": "路线读取尚未完整，已采集点已保留",
-      "route_capture_changed": "路线与本机已保存的点不一致，需要核对",
-      "analysis_source_unclassified": "数据来源待确认，尚未进入正式分析",
-      "child_workout_mismatch": "删除事件与已有运动关联不一致，需要核对",
-      "unsupported_handshake": "服务协议不兼容",
-      "capability_or_limit_mismatch": "服务能力或限制不匹配",
-      "request_retry_limit": "请求重试次数已用尽",
-      "healthkit_unavailable": "设备不支持健康数据",
-      "no_visible_running_workout": "没有可读取的跑步记录",
-      "invalid_healthkit_anchor": "健康数据同步位置无效",
-      "healthkit_read_failed": "健康数据读取失败",
-      "workout_not_visible": "HealthKit 中找不到这条跑步记录",
-      "workout_identity_conflict": "服务端已有同一条跑步的不同内容，不能覆盖",
-      "sample_identity_conflict": "服务端已有同一样本的不同内容，不能覆盖",
-      "sample_association_conflict": "该样本已关联到另一条跑步记录",
-      "series_identity_conflict": "该样本的明细与已保存记录不一致",
-      "route_identity_conflict": "路线与已保存记录不一致",
-      "workout_import_not_found": "服务端还没有这条跑步的导入回执",
-      "workout_ingest_not_found": "服务端尚未收到这条跑步记录",
-      "workout_ingest_conflict": "服务端已有这条跑步的不同接收记录，需要核对",
-      "workout_ingest_mismatch": "服务返回的接收结果与本地记录不一致",
-      "workout_ingest_rejected": "服务未能解析这条跑步记录，原始数据已保留在本机",
-      "workout_ingest_missing_after_acceptance": "服务端确认接收后又找不到这条记录，需要人工核对",
-      "workout_ingest_backlog_exceeded": "服务端待入库记录较多，请稍后再次点击同步",
-      "workout_ingest_immutable": "本机已固定的上传文件不能被覆盖",
-      "workout_uuid_ingest_required": "服务要求按记录逐条上传，请更新同步",
-      "workout_uuid_ingest_paused": "服务暂时停止接收新的跑步记录，请稍后再次点击同步",
-      "workout_uuid_ingest_disabled": "服务尚未开启逐条接收，请联系管理员",
+      "unsupported_handshake": "服务协议不兼容，请更新应用或服务",
       "unsupported_protocol": "服务协议版本不兼容，请更新应用",
-      "protocol_upgrade_required": "旧版上传文件已失效，请重新同步这条记录",
-      "payload_corrupt": "本机上传文件已损坏，将重新读取生成",
-      "bundle_too_large": "本次上传数据超过安全上限",
-      "quantity_series_incomplete": "样本明细读取不完整",
-      "sample_deleted": "样本已从 HealthKit 删除",
-      "route_deleted": "路线已从 HealthKit 删除",
+      "healthkit_unavailable": "设备不支持健康数据",
+      "healthkit_read_failed": "健康数据读取失败，请检查授权",
+      "workout_not_visible": "HealthKit 中找不到这条跑步记录",
+      "source_policy_excluded": "这条记录不是 Apple Watch 原生跑步，不会上传",
+      "source_policy_pending": "来源尚未确认，暂不上传",
       "workout_deleted": "这条跑步记录已从 HealthKit 删除",
-      "interrupted": "本次上传已中断，可再次点击同步",
-      "sync_already_running": "已有同步任务在进行",
-      "sample_page_limit": "样本分页超过安全上限",
-      "association_page_limit": "关联分页超过安全上限",
-      "workout_enrichment_mapping_conflict": "运动记录补充信息冲突",
-      "workout_total_conflict": "运动总距离或总能量与已保存记录不一致",
-      "workout_metadata_conflict": "运动元数据与已保存记录不一致",
-      "immutable_workout_changed": "运动记录内容发生变化",
-      "workout_enrichment_conflict": "服务端已有不同的补充信息",
-      "workout_enrichment_stale": "补充信息版本已过期",
-      "unsupported_workout_metadata_types": "运动元数据类型暂不支持",
-      "route_read_or_mapping_failed": "路线读取失败",
+      "bundle_too_large": "这条记录的数据量超过安全上限",
+      "workout_ingest_rejected": "服务端未能解析这条记录，可重新上传",
+      "workout_identity_conflict": "服务端已有这条跑步的不同内容",
+      "sample_identity_conflict": "服务端已有这条跑步的不同样本",
       "route_read_incomplete": "路线读取未完成，本条记录未上传",
       "invalid_time_range": "记录时间范围无效，本条记录未上传",
-      "unsupported_sample": "记录包含不支持的健康样本，本条记录未上传",
-      "series_type_not_configured": "记录包含未配置的明细类型，本条记录未上传",
-      "nonfinite_quantity": "记录包含无效数值，本条记录未上传",
       "receipt_mismatch": "服务返回结果与请求不一致",
-      "workout_ingest_missing_receipt": "服务端已有这条跑步记录，但缺少原始上传回执，请检查服务端数据一致性",
       "invalid_response": "服务返回结果异常",
-      "oversized_response": "服务返回结果过大",
-      "invalid_http_response": "服务返回了无效响应",
       "invalid_training_override": "训练调整无效",
-      "training_request_too_large": "训练修改内容过大",
-      "unsupported_media_type": "不支持的数据格式",
-      "unsupported_content_encoding": "不支持的数据编码",
-      "training_response_requires_pagination": "训练结果需要分页读取",
+      "resolve_pending_command_first": "请先处理待确认的提交",
+      "training_not_found": "未找到训练计划",
     ][code] ?? "操作未完成，请稍后重试"
   }
 
@@ -236,14 +187,33 @@ final class ProductModel {
     configured = false
     await refresh()
   }
+  private var cacheRestored = false
+  private static func cacheURL() -> URL? {
+    guard let session = try? ClientConfiguration.activeDescriptor()?.sessionID,
+      let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+    else { return nil }
+    return caches.appendingPathComponent("RAIProductHome-\(session).json")
+  }
   func refresh() async {
     guard !loading else { return }
     loading = true
     defer { loading = false }
     let start = Date()
+    // Stale-while-revalidate: paint the last good snapshot first, refresh behind it.
+    if !cacheRestored {
+      cacheRestored = true
+      if let url = Self.cacheURL(), let bytes = try? Data(contentsOf: url),
+        let cached = ProductSnapshotCache.decode(bytes)
+      {
+        data = cached
+      }
+    }
     await configure()
     guard let api else { return }
-    let loaded = await api.load()
+    let loaded = await api.load().keepingLastGood(from: data)
+    if loaded.failures.isEmpty, let url = Self.cacheURL(), let bytes = ProductSnapshotCache.encode(loaded) {
+      try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
     let stateStart = Date()
     data = loaded
     log.info("state_publication_ms=\(Date().timeIntervalSince(stateStart)*1000,privacy:.public)")
@@ -310,18 +280,22 @@ final class ProductModel {
     else { return nil }
     return response["parameters"]
   }
+  /// Own flag on purpose: this must never flip the shared `loading`, which
+  /// drives the home spinner and makes `submit()` / `refresh()` bail out.
+  private var athleteRefreshing = false
   func refreshAthleteAssignment() async {
-    guard !loading, let api else { return }
-    loading = true
-    defer { loading = false }
+    guard !athleteRefreshing, let api else { return }
+    athleteRefreshing = true
+    defer { athleteRefreshing = false }
     do {
       let json = try await api.get("/v2/analysis/athlete")
       let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: json.data())
       if !Task.isCancelled { data.athlete = snapshot }
     } catch let failure as UploadError where failure.code == "not_product_activated" {
+      // The only case that really means "no athlete model": clear the card.
       if !Task.isCancelled { data.athlete = nil }
     } catch {
-      if !Task.isCancelled { data.athlete = nil }
+      // Network or decoding trouble keeps the last good value on screen.
     }
   }
   func loadAthleteHistory(metric: String) async throws -> AthleteHistoryPage {
@@ -377,33 +351,57 @@ final class ProductModel {
   var workoutDetailError: String?
   var diagnostics: AthleteDiagnostics?
   var diagnosticsError: String?
+  /// Last loaded detail per Workout, so going back and forth between records
+  /// shows content at once while the refresh runs behind it.
+  private var detailCache: [String: (detail: WorkoutDetailResponse, series: WorkoutSeriesResponse?, freshness: WorkoutFreshness?)] = [:]
   func loadWorkoutDetail(_ id: String) async {
     guard let api else {
       workoutDetailError = "请先配置私有服务。"
       return
     }
     if workoutDetail?.workout.workoutID != id {
-      workoutDetail = nil
-      workoutSeries = nil
-      workoutFreshness = nil
+      if let cached = detailCache[id] {
+        workoutDetail = cached.detail; workoutSeries = cached.series; workoutFreshness = cached.freshness
+      } else {
+        workoutDetail = nil; workoutSeries = nil; workoutFreshness = nil
+      }
       workoutDetailError = nil
     }
     workoutDetailLoading = true
     defer { workoutDetailLoading = false }
+    async let detailResult = Self.capture { try await api.workoutDetail(id) }
+    async let seriesResult = Self.capture { try await api.workoutSeries(id) }
+    async let freshnessResult = Self.capture { try await api.workoutFreshness(id) }
+    let (detailOutcome, series, freshness) = await (detailResult, seriesResult, freshnessResult)
     do {
-      let detail = try await api.workoutDetail(id)
+      let detail = try detailOutcome.get()
       guard detail.workout.workoutID == id else { throw SyncFailure.invalid("invalid_response") }
       workoutDetail = detail
       workoutDetailError = nil
+      if let value = try? series.get() { workoutSeries = value }
+      if let value = try? freshness.get() { workoutFreshness = value }
+      detailCache[id] = (detail, workoutSeries, workoutFreshness)
     } catch let failure as UploadError {
       workoutDetailError = "训练详情暂不可用：\(UserFacingText.error(failure.code))"
-      return
     } catch {
       workoutDetailError = "训练详情暂不可用，请稍后重试。"
-      return
     }
-    workoutSeries = try? await api.workoutSeries(id)
-    workoutFreshness = try? await api.workoutFreshness(id)
+  }
+  private nonisolated static func capture<T: Sendable>(_ body: @Sendable () async throws -> T) async -> Result<T, any Error> {
+    do { return .success(try await body()) } catch { return .failure(error) }
+  }
+  /// Polling only asks for freshness; the full detail is fetched again when the
+  /// analysis state actually changes.
+  func pollWorkoutFreshness(_ id: String) async -> Bool {
+    guard let api, workoutDetail?.workout.workoutID == id,
+      let fresh = try? await api.workoutFreshness(id)
+    else { return false }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    let changed = (try? encoder.encode(fresh)) != workoutFreshness.flatMap { try? encoder.encode($0) }
+    workoutFreshness = fresh
+    if changed { await loadWorkoutDetail(id) }
+    return changed
   }
   func loadAudit() async {
     let plan = data.plan.string("planID")

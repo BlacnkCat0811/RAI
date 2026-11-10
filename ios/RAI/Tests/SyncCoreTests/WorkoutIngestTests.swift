@@ -267,27 +267,78 @@ struct WorkoutIngestTests {
         #expect(IngestProtocol.calls.count == 1)
     }
 
-    @Test func envelopeMustMatchTheRoundBeforeAnyRequest() async throws {
-        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
-        let other = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
-        let id = Wire.id()
-        let delivery = WorkoutIngestDelivery(api: ingestAPI())
-        let valid = try ingestPayloadV6(id, scope)
-        let oldVersion = try ingestPayloadV6(id, scope, extra: ["protocolVersion": .int(5)])
-        let mismatchedID = try ingestPayloadV6(Wire.id(), scope)
-        let cases: [(Data, String, Scope)] = [
-            (valid, id, other),
-            (oldVersion, id, scope),
-            (mismatchedID, id, scope),
-            (valid, Wire.id(), scope),
-            (valid, id.uppercased(), scope),
-        ]
-        for (raw, workoutID, acceptedScope) in cases {
-            await #expect(throws: SyncFailure.localState("bundle_session_mismatch")) {
-                _ = try await delivery.accept(raw, workoutID: workoutID, scope: acceptedScope)
-            }
+    @Test func retryPolicyOnlyRetriesTransientFailures() {
+        let transient = [UploadError(code: "network_-1001"), UploadError(code: "x", status: 429, retryAfter: nil),
+                         UploadError(code: "x", status: 503), UploadError(code: "x", status: 408)]
+        for error in transient { #expect(WorkoutIngestDelivery.retryDelay(for: error, attempt: 0) == 1) }
+        #expect(WorkoutIngestDelivery.retryDelay(for: transient[0], attempt: 1) == 3)
+        #expect(WorkoutIngestDelivery.retryDelay(for: transient[0], attempt: 2) == 8)
+        #expect(WorkoutIngestDelivery.retryDelay(for: transient[0], attempt: 3) == nil)
+        #expect(WorkoutIngestDelivery.retryDelay(for: UploadError(code: "x", status: 429, retryAfter: 12), attempt: 0) == 12)
+        #expect(WorkoutIngestDelivery.retryDelay(for: UploadError(code: "x", status: 429, retryAfter: 900), attempt: 0) == 30)
+        for error in [UploadError(code: "workout_deleted", status: 409), UploadError(code: "unsupported_payload", status: 422),
+                      UploadError(code: "authentication_required", retryAfter: 60), UploadError(code: "cancelled")] {
+            #expect(WorkoutIngestDelivery.retryDelay(for: error, attempt: 0) == nil)
         }
-        #expect(IngestProtocol.calls.isEmpty)
+        #expect(WorkoutIngestDelivery.retryDelay(for: SyncFailure.localState("x"), attempt: 0) == nil)
+    }
+
+    @Test func acceptWithRetryResendsAfterTransientFailureThenSucceeds() async throws {
+        defer { IngestProtocol.reset() }
+        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
+        let id = Wire.id()
+        let raw = try ingestPayloadV6(id, scope)
+        IngestProtocol.reset(StoredReply(status: nil))
+        let delays = Mutex<[TimeInterval]>([])
+        let delivery = WorkoutIngestDelivery(api: ingestAPI())
+        do {
+            let receipt = try await delivery.acceptWithRetry(raw, workoutID: id, scope: scope) { delay in
+                delays.withLock { $0.append(delay) }
+                // The network comes back after the second wait.
+                if delays.withLock({ $0.count }) == 2 {
+                    IngestProtocol.reset(StoredReply(body: try acceptedReceipt(id).data()))
+                }
+            }
+            #expect(receipt.state == .accepted)
+        }
+        #expect(delays.withLock { $0 } == [1, 3])
+        // The double was reset when the network "came back", so only the final
+        // successful POST is still on record.
+        #expect(IngestProtocol.calls.count == 1)
+
+        // A permanent failure is not retried.
+        IngestProtocol.reset(StoredReply(status: 409, body: Data(#"{"code":"workout_deleted"}"#.utf8)))
+        await #expect(throws: UploadError.self) {
+            _ = try await delivery.acceptWithRetry(raw, workoutID: id, scope: scope) { _ in }
+        }
+        #expect(IngestProtocol.calls.count == 1)
+        // Retries stop after three waits.
+        IngestProtocol.reset(StoredReply(status: nil))
+        await #expect(throws: UploadError.self) {
+            _ = try await delivery.acceptWithRetry(raw, workoutID: id, scope: scope) { _ in }
+        }
+        #expect(IngestProtocol.calls.count == 4)
+    }
+
+    @Test func batchStatusesReturnEveryAnswerByUUID() async throws {
+        defer { IngestProtocol.reset() }
+        let committed = Wire.id(), rejected = Wire.id(), missing = Wire.id()
+        let reply: JSON = .object(["items": .array([
+            .object(["workoutID": .string(committed), "ingestStatus": .string("committed"),
+                     "acceptedAt": .string("2026-11-09T10:00:00Z"), "commitRevision": .int(3)]),
+            .object(["workoutID": .string(rejected), "ingestStatus": .string("rejected"), "errorCode": .string("unsupported_payload")]),
+            .object(["workoutID": .string(missing), "ingestStatus": .string("not_found")]),
+            .object(["workoutID": .string(Wire.id()), "ingestStatus": .string("committed")]),
+        ])])
+        IngestProtocol.reset(StoredReply(body: try reply.data()))
+        let result = try await WorkoutIngestDelivery(api: ingestAPI()).statuses([committed, rejected, missing])
+        #expect(result.count == 3)
+        #expect(result[committed]?.state == .committed)
+        #expect(result[committed]?.acceptedAt != nil)
+        #expect(result[rejected]?.errorCode == "unsupported_payload")
+        #expect(result[missing]?.state == .notFound)
+        #expect(IngestProtocol.calls.last?.path == "/v2/sync/workout-ingests/status")
+        #expect(IngestProtocol.calls.last?.method == "POST")
     }
 
     @Test func acceptanceReceiptsAreStrict() throws {

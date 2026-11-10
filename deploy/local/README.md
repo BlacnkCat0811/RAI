@@ -65,7 +65,7 @@ scripts/local/contracts.sh  # OpenAPI contract lint with pinned redocly + Node
 a temporary database, validates that the restored schema version matches the
 newest committed migration (20 at the time of writing, counted from
 `apps/server/migrations/*.sql` so the gate cannot go stale) and drops that
-temporary database. It writes `docs/evidence/local-dev-environment.json`.
+temporary database. It writes `.local/evidence/local-dev-environment.json`.
 
 `test.sh full` calls the existing [`scripts/test-postgres.sh`](../../scripts/test-postgres.sh),
 which starts a throwaway Unix-socket-only PostgreSQL 18 cluster, runs the full
@@ -155,7 +155,7 @@ scripts/local/contracts.sh
 
 It executes `redocly lint contracts/openapi-v2.yaml` with the pinned
 `@redocly/cli@2.71.1` through `npm exec`, with the npm cache kept inside
-`.local/npm-cache`, and writes `docs/evidence/local-contracts-lint.json`. Only
+`.local/npm-cache`, and writes `.local/evidence/local-contracts-lint.json`. Only
 errors fail the script; the 31 warnings are the pre-existing baseline and are
 neither suppressed nor silently fixed. The lint proves the document is valid and
 self-consistent — it does not prove the Go handlers implement it, which is what
@@ -172,7 +172,7 @@ scripts/local/pg.sh restore .local/backups/<file>.dump
 `restore` targets `${RAI_RESTORE_DB:-rai_dev_restore}` and never overwrites
 `rai_dev` by default. These are development backups only; they are not encrypted
 and do not replace the production backup procedure in
-[`docs/P7_BACKUP_RESTORE.md`](../../docs/P7_BACKUP_RESTORE.md).
+[`docs/P7_BACKUP_RESTORE.md`](../../docs/archive/P7_BACKUP_RESTORE.md).
 
 ## Boundaries
 

@@ -26,7 +26,8 @@ warnings="${warnings:-0}"
 tail -n 2 "$log"
 echo "OpenAPI lint: 0 errors, $warnings warnings"
 
-evidence="$rai_root/docs/evidence/local-contracts-lint.json"
+mkdir -p "$rai_local/evidence"
+evidence="$rai_local/evidence/local-contracts-lint.json"
 python3 - "$evidence" "$contract" "$log" "$warnings" "$rai_redocly_version" "$rai_node_version" <<'PY'
 import hashlib, json, pathlib, sys, datetime
 evidence, contract, log, warnings, redocly, node = sys.argv[1:7]

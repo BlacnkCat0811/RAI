@@ -246,10 +246,10 @@ private struct BrokenACKUploader: FileUploader {
 }
 final class WorkoutCoordinatorReliabilityTests: XCTestCase {
     @MainActor
-    func testLeavingListAndDetailPagesCancelsTheirReservedUploads() async {
+    func testLeavingListAndDetailPagesDoesNotCancelTheUpload() async {
         for showingDetail in [false, true] {
             let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
-            let owner = UUID(), id = Wire.id()
+            let id = Wire.id()
             let workout = HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
                 distanceM: nil, averageHeartRate: nil, isIndoor: true, activityType: 37,
                 sourceName: "Apple Watch", deviceName: "Watch", sourceClassification: "apple_watch",
@@ -258,8 +258,8 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
             let appeared = expectation(description: "upload page appeared")
             let disappeared = expectation(description: "upload page disappeared")
             let content: AnyView = showingDetail
-                ? AnyView(WorkoutSyncDetail(model: model, workout: workout, uploadOwner: owner))
-                : AnyView(WorkoutSyncView(model: model, uploadOwner: owner))
+                ? AnyView(WorkoutSyncDetail(model: model, workout: workout))
+                : AnyView(WorkoutSyncView(model: model))
             let host = UIHostingController(rootView: AnyView(content
                 .onAppear { appeared.fulfill() }.onDisappear { disappeared.fulfill() }))
             let window = UIWindow(frame: UIScreen.main.bounds)
@@ -267,44 +267,44 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
             window.makeKeyAndVisible()
             await fulfillment(of: [appeared], timeout: 3)
 
-            // Hold scheduler cleanup so no session lookup or network operation
-            // starts before the page actually disappears.
+            // Hold the scheduler so the round cannot finish before the page goes.
             let pause = UploadPagePause()
             let (started, signal) = AsyncStream<Void>.makeStream()
             scheduler.startAutomatic { signal.yield(()); await pause.wait() }
             for await _ in started { break }
-            model.syncWorkouts([id], owner: owner)
+            model.syncWorkouts([id])
             host.rootView = AnyView(EmptyView())
             await fulfillment(of: [disappeared], timeout: 3)
-            XCTAssertEqual(model.workoutResults[id]?.errorCode, "interrupted")
-            XCTAssertNotNil(model.batch?.finishedAt)
+            // The upload belongs to the model, not to the page.
+            XCTAssertNil(model.workoutResults[id]?.errorCode)
+            XCTAssertNil(model.batch?.finishedAt)
+            XCTAssertEqual(scheduler.mode, .manual)
+            // Only the explicit cancel button stops it.
+            model.cancelWorkoutSync()
             await pause.release()
             await scheduler.waitForCompletion()
             window.isHidden = true
             window.rootViewController = nil
-            XCTAssertEqual(model.workoutResults[id]?.state, .failed)
-            XCTAssertEqual(model.selected, [id])
+            XCTAssertEqual(model.workoutResults[id]?.errorCode, "interrupted")
             XCTAssertEqual(scheduler.mode, .idle)
         }
     }
 
     @MainActor
-    func testClosingAnUploadOwnerCancelsTheReservedBatchAndPreservesSuccess() async {
+    func testExplicitCancelPreservesSuccessAndMarksTheRestInterrupted() async {
         let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
-        let owner = UUID(), ids = [Wire.id(), Wire.id(), Wire.id()]
+        let ids = [Wire.id(), Wire.id(), Wire.id()]
         model.workouts = ids.map { id in
             HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
                                  distanceM: nil, averageHeartRate: nil, isIndoor: true,
                                  activityType: 37, sourceName: "Apple Watch", deviceName: "Watch",
                                  sourceClassification: "apple_watch", sourceOutcome: WorkoutSourcePolicy.eligible)
         }
-        model.syncWorkouts(ids, owner: owner)
+        model.syncWorkouts(ids)
         model.workoutResults[ids[0]] = WorkoutUploadResult(state: .succeeded, acceptedAt: Date())
-        // Closing an unrelated sheet must not stop this page's operation.
-        model.cancelWorkoutSync(owner: UUID())
         XCTAssertNil(model.batch?.finishedAt)
         XCTAssertEqual(scheduler.mode, .manual)
-        model.cancelWorkoutSync(owner: owner)
+        model.cancelWorkoutSync()
         await scheduler.waitForCompletion()
         XCTAssertEqual(ids.map { model.workoutResults[$0]?.state }, [.succeeded, .failed, .failed])
         XCTAssertEqual(model.selected, Set(ids.dropFirst()))
@@ -314,7 +314,7 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
     }
 
     @MainActor
-    func testBackgroundCancelsAnUploadBeforeTheSchedulerStartsIt() async {
+    func testBackgroundDoesNotCancelARunningUpload() async {
         let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
         let id = Wire.id()
         model.workouts = [HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
@@ -324,10 +324,11 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
         model.syncWorkouts([id])
         model.suspendForegroundWork()
         await scheduler.waitForCompletion()
+        // The round ran to its own end (this model has no session, so it fails
+        // for that reason) instead of being cut off as "interrupted".
         XCTAssertEqual(model.workoutResults[id]?.state, .failed)
-        XCTAssertEqual(model.workoutResults[id]?.errorCode, "interrupted")
+        XCTAssertNotEqual(model.workoutResults[id]?.errorCode, "interrupted")
         XCTAssertNotNil(model.batch?.finishedAt)
-        XCTAssertEqual(model.selected, [id])
     }
 
     @MainActor
@@ -411,37 +412,6 @@ private actor SyntheticAnchoredHealth: HealthKitReading {
 }
 
 final class Phase3HealthKitIntegrityTests: XCTestCase {
-    func testRealHKSecureArchiveAndScopedIncrementalDiscovery() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rai-hk-discovery-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), health = SyntheticAnchoredHealth()
-        let workout = await health.value, id = workout.uuid.uuidString.lowercased()
-        let coordinator = SyncCoordinator(store: store, health: health)
-        try await coordinator.discoverChanges()
-        let first = await store.discoverySnapshot()
-        // Protocol 6 enumerates Workout roots only; child streams are read by
-        // the explicit payload build, not by background discovery.
-        XCTAssertEqual(first.flows.count, 1)
-        XCTAssertEqual(first.events.count, 1)
-        let archive = try XCTUnwrap(first.workoutArchives[id])
-        let decoded = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKWorkout.self, from: Data(contentsOf: dir.appendingPathComponent(archive)))
-        XCTAssertEqual(decoded?.uuid, workout.uuid)
-        let reopened = try OutboxStore(directory: dir)
-        let resumed = SyncCoordinator(store: reopened, health: health)
-        try await resumed.discoverChanges()
-        try await resumed.discoverChanges()
-        let last = await reopened.discoverySnapshot()
-        XCTAssertEqual(last.events.count, first.events.count)
-        XCTAssertEqual(last.work[id]?.generation, first.work[id]?.generation)
-        XCTAssertTrue(last.flows.values.allSatisfy { $0.anchor != nil && $0.staged == nil })
-    }
-    func testInvalidSecureAnchorNeverQueriesWithNil() async throws {
-        let client = HealthKitClient()
-        do {
-            _ = try await client.read(type: HKObjectType.workoutType(), anchor: Data([1,2,3]), workout: nil)
-            XCTFail("Invalid secure anchor accepted")
-        } catch { /* fails before any HealthKit result or replacement anchor */ }
-    }
     func testDeviceIdentifiersAndUnreviewedMetadataStayLocal() throws {
         let date = Date(timeIntervalSince1970: 100)
         let device = HKDevice(name: "synthetic-private-device-name", manufacturer: "Apple Inc.", model: "Watch", hardwareVersion: "Watch7,1", firmwareVersion: "1", softwareVersion: "1", localIdentifier: "synthetic-private-local", udiDeviceIdentifier: "synthetic-private-udi")
@@ -518,40 +488,6 @@ private final class PlatformSessionCredentials: SessionCredentialStore, Sendable
     func load(sessionID: String) throws -> String? { tokens.withLock { $0[sessionID] } }
 }
 extension Phase5ASessionPlatformTests {
-    func testNewSessionNilAnchorReimportsVisibleHKWorkoutAfterOldDeletion() async throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent("rai-platform-discovery-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: root) }
-        let credentials = PlatformSessionCredentials(), sessions = try SyncSessionStore(root: root, credentials: credentials)
-        func descriptor() -> SyncSessionDescriptor { .init(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!) }
-        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutPayloadVersion": .int(6), "workoutUUIDIngestVersion": .int(1), "workoutUUIDIngestAccepting": .bool(true)])]) }
-        let a = descriptor(), b = descriptor(), health = SyntheticAnchoredHealth()
-        _ = try await sessions.prepare(a, token: "old"); try await sessions.activate(a.sessionID, handshake: hello(a))
-        let old = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: a.sessionID))
-        let oldCoordinator = SyncCoordinator(store: old, health: health, sessionStore: sessions, sessionID: a.sessionID)
-        try await oldCoordinator.discoverChanges()
-        let workout = await health.value, id = workout.uuid.uuidString.lowercased(), query = DiscoveryQuery(type: HKObjectType.workoutType().identifier)
-        let previous = try await old.discoveryFlow(query).anchor
-        let page = try await old.stageDiscovery(query, previousAnchor: previous, anchor: Data([9]), events: [DiscoveryEvent(type: query.type, uuid: id, deleted: true)], hasMore: false)
-        try await old.promoteDiscovery(query, batchID: page)
-        let oldSnapshot = await old.discoverySnapshot()
-        XCTAssertTrue(oldSnapshot.events.values.contains { $0.uuid == id && $0.deleted })
-        _ = try await sessions.prepare(b, token: "new")
-        let fresh = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: b.sessionID))
-        let coordinator = SyncCoordinator(store: fresh, health: health, sessionStore: sessions, sessionID: b.sessionID)
-        do { try await coordinator.discoverChanges(); XCTFail("prepared session discovered") } catch { }
-        let nilAnchor = try await fresh.discoveryFlow(query).anchor; XCTAssertNil(nilAnchor)
-        try await sessions.activate(b.sessionID, handshake: hello(b))
-        try await coordinator.discoverChanges()
-        let first = await fresh.discoverySnapshot()
-        XCTAssertNotNil(first.workoutArchives[id]); XCTAssertFalse(first.events.values.contains { $0.uuid == id && $0.deleted })
-        XCTAssertEqual(first.events.count, 1)
-        try await coordinator.discoverChanges()
-        let repeated = await fresh.discoverySnapshot()
-        XCTAssertEqual(first.events.count, repeated.events.count)
-        XCTAssertEqual(first.work[id]?.generation, repeated.work[id]?.generation)
-        let oldAnchor = try await old.discoveryFlow(query).anchor; XCTAssertEqual(oldAnchor, Data([9]))
-        do { try await oldCoordinator.discoverChanges(); XCTFail("retired session discovered") } catch { }
-    }
     func testBackgroundEventsFinishingBeforeRegistrationStillComplete() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-background-finish-" + Wire.id())
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -579,7 +515,6 @@ extension Phase5ASessionPlatformTests {
         let old = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: a.sessionID))
         let coordinator = SyncCoordinator(store: old, health: SyntheticAnchoredHealth(), sessionStore: sessions, sessionID: a.sessionID)
         _ = try await sessions.prepare(b, token: "synthetic-B", recovery: true)
-        do { try await coordinator.discoverChanges(); XCTFail("recovery_required coordinator read HealthKit") } catch { }
         XCTAssertEqual(try keys.load(sessionID: a.sessionID), "synthetic-A")
         XCTAssertEqual(try keys.load(sessionID: b.sessionID), "synthetic-B")
         let restarted = try SyncSessionStore(root: root, credentials: keys)

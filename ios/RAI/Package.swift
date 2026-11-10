@@ -9,11 +9,6 @@ let package = Package(
         .target(name: "SyncCore", dependencies: ["RAICompression"]),
         .target(name: "ProductCore", dependencies: ["SyncCore"]),
         .testTarget(name: "ProductCoreTests", dependencies: ["ProductCore"], resources: [.copy("Fixtures")]),
-        .executableTarget(name: "ProductProbe", dependencies: ["ProductCore", "SyncCore"], path: "Tools/ProductProbe"),
-        .executableTarget(name: "SyncProbe", dependencies: ["SyncCore"], path: "Tools/SyncProbe"),
-        .executableTarget(name: "GCProbe", dependencies: ["SyncCore"], path: "Tools/GCProbe"),
-        .executableTarget(name: "VO2Probe", dependencies: ["SyncCore"], path: "Tools/VO2Probe"),
-        .executableTarget(name: "DailyProbe", dependencies: ["SyncCore"], path: "Tools/DailyProbe"),
         .testTarget(name: "SyncCoreTests", dependencies: ["SyncCore"], resources: [.copy("Fixtures")])
     ], swiftLanguageModes: [.v6]
 )

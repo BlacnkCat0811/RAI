@@ -61,10 +61,18 @@ GET 的 `commitRevision`、`analysisStatus` 与 `analysisJobIDs` 是接收提交
 实时进度或结果时读取 `/v2/jobs/{id}` 与 `/v2/analysis/workouts/{id}`；不要把快照当作
 当前分析状态，也不要为等待分析而轮询该状态端点（上传流程本来就不轮询）。
 
-客户端不因重复 UUID 重新上传已成功的 Workout；服务端重放保证同一 UUID 再次提交
-也不会产生新事实或新分析任务。客户端不保存待上传 Workout 状态，也不在上传中断后
-自动恢复：本轮中断即结束，下一次用户点击同步会重新读取 HealthKit 并重新构建 v6
-字节，服务端按 UUID 去重。
+上传与重传规则（个人使用场景）：
+
+- 字节完全相同的重复提交重放原回执，不产生新事实或新分析任务。
+- 同一 UUID 的**新快照**（Watch 在首次上传后才同步完心率、路线等）会替换已存的原文：
+  上一次为 `rejected`，或为 `committed` 但字节不同，则行回到 `accepted`，Worker 重新
+  投影并入队新的分析；仍在等待 Worker 的 `accepted` 行不被替换。若新快照与已提交事实
+  冲突（例如同一下标的样本值变了），该次替换被 Worker 拒绝并报告 `rejected`，先前事实保持不变。
+- Worker 遇到数据库抖动、超时等暂时性错误时按指数退避（上限 10 分钟）无限重试，不再
+  因次数用尽而永久拒绝；只有解析/语义错误立即 `rejected`。
+- 客户端在跑完约 10 分钟后自动上传新记录，在上传后约 30 分钟内再补传一次（幂等）；失败的
+  单条请求按 1 s / 3 s / 8 s（尊重 `Retry-After`）最多重试三次。客户端用
+  `POST /v2/sync/workout-ingests/status` 一次校准最多 200 条记录的服务端状态。
 
 服务端无条件声明 `workoutPayloadVersion=6` 与 `workoutUUIDIngestVersion=1`；没有
 版本协商、回退开关或旧协议构建器。客户端握手缺少这两个能力（或返回其他载荷版本）

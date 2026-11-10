@@ -29,12 +29,15 @@ struct ProductTabs: View {
       .task { await model.refresh() }
       .onChange(of: sync.activeSessionID) { _, _ in model = ProductModel(); Task { await model.refresh() } }
       .onChange(of: phase) { _, value in if value == .active { Task { await model.refresh() } } }
-      .task(id: phase) {
-        guard phase == .active else { return }
-        while !Task.isCancelled {
-          try? await Task.sleep(for: .seconds(8))
+      // No fixed polling. After a fresh upload the analysis needs a little time, so
+      // refresh once at ~30 s and once more at ~2 min; the task is cancelled if
+      // another upload lands or the tabs go away.
+      .task(id: sync.lastUploadAt) {
+        guard let uploadedAt = sync.lastUploadAt, Date().timeIntervalSince(uploadedAt) < 180 else { return }
+        for delay in [30, 90] {
+          try? await Task.sleep(for: .seconds(delay))
           guard !Task.isCancelled else { return }
-          await model.refreshAthleteAssignment()
+          await model.refresh()
         }
       }
   }
@@ -89,7 +92,10 @@ struct HomeView: View {
             Text("暂无已同步的运动记录").font(.subheadline).foregroundStyle(RAITheme.secondary)
           }
         }.padding(18).raiGlass()
-        if model.loading { ProgressView("正在更新").font(.caption) }
+        // Only the very first load shows a spinner; later refreshes are silent.
+        if model.loading && model.data.workouts.isEmpty && model.data.athlete == nil {
+          ProgressView("正在更新").font(.caption)
+        }
         if let error = model.error {
           Text(error).font(.footnote).foregroundStyle(RAITheme.amber).accessibilityIdentifier(
             "product.error")
@@ -963,11 +969,6 @@ struct WorkoutSyncView: View {
   @State private var detail: HealthWorkoutSummary?
   @State private var exportStatus: String?
   @State private var showExcluded = false
-  @State private var uploadOwner = UUID()
-  init(model: SyncModel, uploadOwner: UUID = UUID()) {
-    self.model = model
-    _uploadOwner = State(initialValue: uploadOwner)
-  }
   private enum Filter: String, CaseIterable { case all = "全部", unsynced = "未上传", failed = "失败", succeeded = "成功" }
 
   var body: some View {
@@ -1020,10 +1021,8 @@ struct WorkoutSyncView: View {
     }
     .refreshable { await model.loadWorkouts() }
     .task { if model.workouts.isEmpty { await model.loadWorkouts() } }
-    .onDisappear {
-      // Presenting this page's detail sheet does not close the upload page.
-      if detail == nil { model.cancelWorkoutSync(owner: uploadOwner) }
-    }
+    // The upload belongs to SyncModel, not to this page: leaving the page (or
+    // closing the detail sheet) must not stop it. Only the cancel button does.
     .sheet(item: $detail) { workout in
       NavigationStack { WorkoutSyncDetail(model: model, workout: workout) }
     }
@@ -1035,13 +1034,23 @@ struct WorkoutSyncView: View {
   }
 
   private var intro: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    let succeeded = model.workoutResults.values.filter { $0.state == .succeeded }.count
+    let failed = model.workoutResults.values.filter { $0.state == .failed }.count
+    return VStack(alignment: .leading, spacing: 10) {
       HStack {
-        Image(systemName: "square.stack.3d.up.fill").foregroundStyle(RAITheme.amber)
-        Text("一条跑步 = 一次独立上传").font(.headline)
+        Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(RAITheme.amber)
+        Text("跑步记录同步").font(.headline)
       }
-      Text("本页不会自动上传。选择记录后点击“同步所选记录”：本轮只握手一次，然后逐条读取、组包并发送一次 POST。中断后未完成的已选记录计为失败；再次点击会重新读取并重试。")
+      Text("新的跑步记录会在跑完约 10 分钟后自动上传。")
         .font(.caption).foregroundStyle(RAITheme.secondary)
+      HStack(spacing: 12) {
+        Text("已同步 \(succeeded) 条").font(.caption.weight(.semibold))
+        if failed > 0 { Text("失败 \(failed) 条（可重试）").font(.caption.weight(.semibold)).foregroundStyle(.red) }
+        Spacer()
+        if let last = model.lastUploadAt {
+          Text("最近 \(last, format: .dateTime.month().day().hour().minute())").font(.caption2).foregroundStyle(RAITheme.secondary)
+        }
+      }
       HStack(spacing: 10) {
         Label(model.authorization, systemImage: "checkmark.shield").font(.caption2).foregroundStyle(RAITheme.secondary)
         Spacer()
@@ -1050,8 +1059,7 @@ struct WorkoutSyncView: View {
       if model.busy {
         HStack(spacing: 8) {
           ProgressView().controlSize(.small)
-          Text(model.currentWorkoutID == nil ? model.status : "\(model.status) · \(shortID(model.currentWorkoutID ?? ""))")
-            .font(.caption2).foregroundStyle(RAITheme.secondary)
+          Text(model.status).font(.caption2).foregroundStyle(RAITheme.secondary)
         }
       }
       if let exportStatus { Text("已导出：\(exportStatus)").font(.caption2).foregroundStyle(RAITheme.green) }
@@ -1071,7 +1079,7 @@ struct WorkoutSyncView: View {
         Text("已选 \(batch.ids.count) 条 · 上传成功 \(succeeded) 条 · 上传失败 \(failed) 条").font(.caption)
         if batch.finishedAt == nil {
           ProgressView(value: Double(succeeded + failed), total: Double(max(batch.ids.count, 1)))
-          Button("取消上传") { model.cancelWorkoutSync(owner: uploadOwner) }.font(.caption)
+          Button("取消上传") { model.cancelWorkoutSync() }.font(.caption)
         }
       }.padding(14).raiGlass()
         .accessibilityIdentifier("sync.batchSummary")
@@ -1083,39 +1091,21 @@ struct WorkoutSyncView: View {
       Picker("筛选", selection: $filter) {
         ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
       }.pickerStyle(.segmented)
-      HStack(spacing: 12) {
-        Button("选择本页") { model.selectCurrentPage() }
-        Button("选择全部符合条件记录") { Task { await model.selectAllEligibleWorkouts() } }
-        Spacer(minLength: 0)
-        Text("已选 \(model.selected.count) 条").font(.caption.monospacedDigit())
-      }.font(.caption).disabled(!selectionEditable)
       HStack {
-        Button("清除选择") { model.selected.removeAll() }
-          .font(.caption).disabled(model.selected.isEmpty || !selectionEditable)
+        Text("更早的历史记录不会自动上传。").font(.caption2).foregroundStyle(RAITheme.secondary)
         Spacer()
-        Button("同步所选记录") {
-          let ids = model.workouts.map(\.id).filter { model.selected.contains($0) }
-          model.syncWorkouts(ids, owner: uploadOwner)
-        }
-        .font(.caption.weight(.semibold))
-        .disabled(!model.canStartWorkoutSync || model.selected.isEmpty)
-        .accessibilityIdentifier("sync.selected")
+        Button("补传历史记录") { Task { await model.backfillUnsyncedWorkouts() } }
+          .font(.caption.weight(.semibold))
+          .disabled(!model.canStartWorkoutSync || !selectionEditable)
+          .accessibilityIdentifier("sync.backfill")
       }
     }.padding(14).raiGlass()
   }
 
   private func row(_ workout: HealthWorkoutSummary) -> some View {
-    let selected = model.selected.contains(workout.id)
     let result = model.workoutResults[workout.id]
     return VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .top, spacing: 10) {
-        Button {
-          if selected { model.selected.remove(workout.id) } else { model.selected.insert(workout.id) }
-        } label: {
-          Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-            .font(.title3).foregroundStyle(selected ? RAITheme.amber : RAITheme.secondary)
-        }.buttonStyle(.plain).disabled(!selectionEditable || !workout.isEligible)
-          .accessibilityIdentifier("sync.select")
         VStack(alignment: .leading, spacing: 3) {
           HStack(spacing: 6) {
             Text(workout.isIndoor == true ? "室内跑步" : workout.isIndoor == false ? "户外跑步" : "跑步（类型 --）").font(.headline)
@@ -1142,7 +1132,7 @@ struct WorkoutSyncView: View {
         Spacer()
         Button("详情") { detail = workout }.font(.caption2)
         if workout.isEligible {
-          Button(result == nil ? "同步" : "重新同步") { model.syncWorkouts([workout.id], owner: uploadOwner) }
+          Button(result == nil ? "同步" : "重新同步") { model.syncWorkouts([workout.id]) }
             .font(.caption.weight(.semibold))
             .disabled(!model.canStartWorkoutSync || result?.state == .pending || result?.state == .uploading)
         } else {
@@ -1154,7 +1144,6 @@ struct WorkoutSyncView: View {
         Text(reason).font(.caption2).foregroundStyle(.red)
       }
     }.padding(16).raiGlass()
-      .overlay(RoundedRectangle(cornerRadius: RAITheme.radius).strokeBorder(selected ? RAITheme.amber.opacity(0.65) : .clear, lineWidth: 1))
       .accessibilityIdentifier("sync.workout.row")
   }
 
@@ -1172,7 +1161,7 @@ struct WorkoutSyncView: View {
     case .pending: label = "等待上传"; color = RAITheme.secondary
     case .uploading: label = "正在上传"; color = RAITheme.amber
     case .succeeded: label = "上传成功"; color = RAITheme.green
-    case .failed: label = "上传失败"; color = .red
+    case .failed: label = "失败，可重试"; color = .red
     }
     return Text(label).font(.caption2.weight(.semibold))
       .padding(.horizontal, 8).padding(.vertical, 4)
@@ -1230,12 +1219,6 @@ struct WorkoutSyncDetail: View {
   @Bindable var model: SyncModel
   let workout: HealthWorkoutSummary
   @Environment(\.dismiss) private var dismiss
-  @State private var uploadOwner = UUID()
-  init(model: SyncModel, workout: HealthWorkoutSummary, uploadOwner: UUID = UUID()) {
-    self.model = model
-    self.workout = workout
-    _uploadOwner = State(initialValue: uploadOwner)
-  }
   private var result: WorkoutUploadResult? { model.workoutResults[workout.id] }
 
   private var resultLabel: String {
@@ -1275,7 +1258,7 @@ struct WorkoutSyncDetail: View {
       }
       Section {
         Button(result == nil ? "同步这条记录" : "重新同步") {
-          model.syncWorkouts([workout.id], owner: uploadOwner)
+          model.syncWorkouts([workout.id])
         }.disabled(!model.canStartWorkoutSync || !workout.isEligible)
         Text("上传成功表示服务端已耐久接收原始载荷；不等待入库或分析完成，也不会自动检查后续状态。")
           .font(.caption)
@@ -1284,7 +1267,6 @@ struct WorkoutSyncDetail: View {
     .navigationTitle("同步详情")
     .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("关闭") { dismiss() } } }
     .scrollContentBackground(.hidden).raiScreen()
-    .onDisappear { model.cancelWorkoutSync(owner: uploadOwner) }
   }
 }
 

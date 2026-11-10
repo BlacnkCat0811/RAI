@@ -35,7 +35,7 @@ final class SyncModel {
     var pendingChanges = 0
     var error: String?
     private var operationBusy = false
-    private let syncScheduler: ForegroundSyncScheduler
+    let syncScheduler: ForegroundSyncScheduler
     var busy: Bool {
         get { operationBusy || syncScheduler.isRunning }
         set { operationBusy = newValue }
@@ -58,323 +58,26 @@ final class SyncModel {
     private var workoutCursor: Date?
     private var pageWorkoutIDs: [String] = []
     private var workoutUploadOwner: UUID?
+    /// Workouts the server has accepted, persisted per session so the list and
+    /// its filters survive a relaunch. `workoutResults` is seeded from this.
+    private var acceptedWorkouts: [String: Date] = [:]
+    private var acceptedWorkoutsFile: URL?
+    private static let acceptedWorkoutsName = "accepted-workouts.json"
+    /// Keeps a running Workout upload alive for the short grace period iOS gives
+    /// a backgrounded app, instead of cancelling it the moment the app leaves.
+    private var backgroundUploadTask: UIBackgroundTaskIdentifier = .invalid
     var canLoadMoreWorkouts: Bool { hasMoreWorkouts && !loadingMoreWorkouts && !busy && !loadingWorkouts }
     #if DEBUG
-    private var dailyRDIsolated = false
-    /// Separate Debug-only namespace. Never activates/rebinds the normal session,
-    /// reads its credentials, or starts product polling against its backend.
-    func runLocalDeviceAcceptance() async {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let configURL = documents.appendingPathComponent("local-device-config.json")
-        let reportURL = documents.appendingPathComponent("local-device-report.json")
-        let sessionManifestURL = try? ClientConfiguration.sessionRoot().appendingPathComponent("sessions.json")
-        let originalManifestHash = sessionManifestURL.flatMap { try? Data(contentsOf: $0) }.map(Wire.hash)
-        let started = Date()
-        var report: [String: JSON] = ["environment": .string("local-mac-device/v1"), "result": .string("RUNNING"),
-            "healthValuesExported": .bool(false)]
-        func checkpoint(_ stage: String) throws {
-            report["stage"] = .string(stage)
-            report["wallMs"] = .number(Date().timeIntervalSince(started) * 1000)
-            try OutboxStore.write(JSON.object(report).data(), to: reportURL)
-            status = "本机验收：" + stage
-        }
-        busy = true; UIApplication.shared.isIdleTimerDisabled = true
-        defer {
-            busy = false; UIApplication.shared.isIdleTimerDisabled = false
-            let afterHash = sessionManifestURL.flatMap { try? Data(contentsOf: $0) }.map(Wire.hash)
-            report["originalSessionManifestPresent"] = .bool(originalManifestHash != nil)
-            report["originalSessionManifestUnchanged"] = .bool(originalManifestHash == afterHash)
-            report["wallMs"] = .number(Date().timeIntervalSince(started) * 1000)
-            try? OutboxStore.write(JSON.object(report).data(), to: reportURL)
-        }
-        do {
-            try checkpoint("configuration")
-            let config = try JSON.decode(Data(contentsOf: configURL))
-            try FileManager.default.removeItem(at: configURL)
-            guard config["environment"].text == "local-mac-device/v1",
-                  let namespace = config["outboxNamespace"].text.flatMap(UUID.init(uuidString:)),
-                  let expected = config["datasetSHA256"].text,
-                  let command = config["command"].text, ["probe", "single", "list", "structure"].contains(command) else {
-                throw SyncFailure.invalid("local_acceptance_config_invalid")
-            }
-            let secret = try ClientConfiguration.validatedSecret(baseURL: config["baseURL"].text ?? "",
-                collectorEpoch: config["collectorEpoch"].text ?? "", token: config["token"].text ?? "")
-            let host = secret.configuration.baseURL.host ?? ""
-            let octets = host.split(separator: ".").compactMap { Int($0) }
-            let privateIPv4 = octets.count == 4 && octets.allSatisfy { (0...255).contains($0) } &&
-                (octets[0] == 10 || octets[0] == 192 && octets[1] == 168 || octets[0] == 172 && (16...31).contains(octets[1]) || octets[0] == 169 && octets[1] == 254)
-            guard secret.configuration.baseURL.scheme == "http", privateIPv4,
-                  host == Bundle.main.object(forInfoDictionaryKey: "RAIDevelopmentHTTPHost") as? String else {
-                throw SyncFailure.invalid("local_acceptance_requires_configured_lan_host")
-            }
-            try checkpoint("handshake")
-            let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token)
-            let hello = try await api.call("GET", "/v2/handshake")
-            guard let dataset = hello["datasetID"].text, Wire.hash(Data(dataset.utf8)) == expected,
-                  hello["collectorEpoch"].text == secret.configuration.collectorEpoch,
-                  hello["protocolVersion"].integer == 3,
-                  hello["capabilities"]["workoutPayloadVersion"].integer == 6,
-                  hello["capabilities"]["workoutUUIDIngestVersion"].integer == 1 else {
-                throw SyncFailure.invalid("local_acceptance_identity_mismatch")
-            }
-            report["handshakeVerified"] = .bool(true)
-            report["command"] = .string(command)
-            if command == "probe" { report["result"] = .string("PROBE_VERIFIED"); return }
-
-            let directory = try ClientConfiguration.sessionRoot().appendingPathComponent("local-acceptance-" + namespace.uuidString.lowercased())
-            let store = try OutboxStore(directory: directory)
-            let transfers = BackgroundTransfers(directory: directory, identifier: "com.rai.v2.local-acceptance." + namespace.uuidString.lowercased())
-            let health = HealthKitClient()
-            let coordinator = SyncCoordinator(store: store, health: health)
-            try checkpoint("read_authorization")
-            try await health.authorize()
-            if command == "structure" {
-                try checkpoint("inspect_structure")
-                let path: URL
-                if let id = config["workoutID"].text { path = try await health.inspectWorkout(id: id) }
-                else { path = try await health.inspectLatestRunningWorkout() }
-                let data = try Data(contentsOf: path)
-                try OutboxStore.write(data, to: documents.appendingPathComponent("workout-structure.json"))
-                report["result"] = .string("STRUCTURE_INSPECTED")
-                return
-            }
-            let watchdog = MainThreadWatchdog()
-            if command == "list" {
-                try checkpoint("list_workouts")
-                await health.resetWorkoutListEvidence()
-                let summaries = try await health.recentWorkouts(limit: 25)
-                var rows: [JSON] = [], privateRows: [JSON] = []
-                for summary in summaries.sorted(by: { $0.start > $1.start }) {
-                    let minutes = Int((summary.durationS / 60).rounded())
-                    rows.append(.object(["durationMinutes": .int(Int64(minutes)), "indoor": .bool(summary.isIndoor ?? false),
-                        "outcome": .string(summary.sourceOutcome)]))
-                    if summary.isEligible {
-                        privateRows.append(.object(["workoutID": .string(summary.id),
-                            "durationMinutes": .int(Int64(minutes)), "indoor": .bool(summary.isIndoor ?? false)]))
-                    }
-                }
-                // Identities stay in the protected App container; the pulled report is counts only.
-                try OutboxStore.write(JSON.object(["schema": .string("rai.local-acceptance.eligible-workouts/1"),
-                    "identifiersExportedToReport": .bool(false), "workouts": .array(privateRows)]).data(),
-                    to: documents.appendingPathComponent("eligible-workouts.json"))
-                report["visibleWorkoutCount"] = .int(Int64(summaries.count))
-                report["eligibleWorkoutCount"] = .int(Int64(summaries.filter(\.isEligible).count))
-                report["excludedWorkoutCount"] = .int(Int64(summaries.filter(\.isExcluded).count))
-                report["unclassifiedWorkoutCount"] = .int(Int64(summaries.filter(\.isUnclassified).count))
-                report["sourcePolicyVersion"] = .string(WorkoutSourcePolicy.version)
-                report["workoutList"] = .array(rows)
-                report["listEvidence"] = await health.workoutListEvidence()
-                report["result"] = .string("WORKOUT_LIST_OBSERVED")
-            } else if command == "single" {
-                let selectedURL = directory.appendingPathComponent("selected-workout.json")
-                var id = config["workoutID"].text ?? (try? JSON.decode(Data(contentsOf: selectedURL)))?["workoutID"].text
-                if id == nil {
-                    try checkpoint("select_latest_eligible")
-                    for candidate in try await health.recentWorkouts(limit: 25) {
-                        guard let workout = try await health.workout(candidate.id),
-                              HealthSourcePolicy.classification(Normalizer.source(workout)) == "apple_watch" else { continue }
-                        id = candidate.id; break
-                    }
-                    guard let selected = id else { throw SyncFailure.localState("local_eligible_workout_not_observed") }
-                    try OutboxStore.write(JSON.object(["workoutID": .string(selected)]).data(), to: selectedURL)
-                }
-                guard let id else { throw SyncFailure.localState("local_eligible_workout_not_observed") }
-                try checkpoint("single_workout_sync")
-                let outcomes = try await coordinator.uploadWorkouts([id], secret: secret, transfers: transfers)
-                guard let outcome = outcomes.first else { throw SyncFailure.localState("local_workout_upload_missing") }
-                guard outcome.succeeded else { throw SyncFailure.localState(outcome.errorCode ?? "local_workout_upload_failed") }
-                report["workoutReceiptVerified"] = .bool(true)
-                report["acceptedAtPresent"] = .bool(outcome.acceptedAt != nil)
-                report["result"] = .string("SINGLE_WORKOUT_ACCEPTED")
-            } else {
-                throw SyncFailure.invalid("local_acceptance_command_invalid")
-            }
-            let stalls = watchdog.finish()
-            report["mainThreadMaxStallMs"] = .number(stalls.maxMs)
-            report["mainThreadStallsOver250"] = .int(Int64(stalls.over250))
-            report["mainThreadTicks"] = .int(Int64(stalls.ticks))
-            report["processPeakRssBytes"] = .int(processPeakResidentBytes())
-            report["residentAfterSyncBytes"] = .int(currentResidentBytes())
-            // A list-only run never commits an Outbox state; absence is not a failure.
-            if let attributes = try? FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent("state.json").path) {
-                report["stateBytes"] = .int((attributes[.size] as? NSNumber)?.int64Value ?? 0)
-            }
-            try checkpoint("completed")
-        } catch {
-            report["result"] = .string("BLOCKED")
-            report["reason"] = .string(VO2Max.failureCode(error))
-            report["systemCode"] = .int(Int64((error as NSError).code))
-            status = "本机验收尚未完成"
-        }
-    }
-    func runUA1RVO2Acceptance() async {
-        guard let expected = ProcessInfo.processInfo.environment["RAI_UA1_R_DATASET_SHA256"],
-              let descriptor = try? ClientConfiguration.activeDescriptor(),
-              Wire.hash(Data(descriptor.datasetID.utf8)) == expected, let store else { return }
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let mode = ProcessInfo.processInfo.environment["RAI_UA1_R_VO2"] ?? "inspect"
-        var report: [String: JSON] = ["mode": .string(mode), "healthValuesExported": .bool(false)]
-        do {
-            let flow = try await store.vo2Flow()
-            if let blocked = flow.blocked {
-                let archive = try Data(contentsOf: await store.fileURL(blocked.file))
-                guard Wire.hash(archive) == blocked.hash else { throw SyncFailure.localState("vo2_payload_corrupt") }
-                report["blockedArchiveSHA256"] = .string(blocked.hash)
-                report["nativeShape"] = try VO2MaxNormalizer.blockedNativeShape(archive)
-            } else if mode != "deliver" { throw SyncFailure.localState("vo2_blocked_missing") }
-            if mode == "stage" {
-                guard let coordinator else { throw SyncFailure.localState("sync_unavailable") }
-                try await coordinator.discoverVO2()
-            } else if mode == "deliver" {
-                guard let coordinator, let transfers, let secret = try ClientConfiguration.load() else {
-                    throw SyncFailure.localState("sync_unavailable")
-                }
-                try await coordinator.syncVO2Only(secret: secret, transfers: transfers)
-            }
-            let current = try await store.vo2Flow()
-            report["anchorCommitted"] = .bool(current.anchor != nil)
-            report["sequence"] = .int(current.sequence)
-            report["bootstrapComplete"] = .bool(current.bootstrapComplete)
-            report["hasMore"] = .bool(current.hasMore)
-            report["blockedRetained"] = .bool(current.blocked != nil)
-            report["pending"] = .bool(current.pending != nil)
-            if let code = current.error { report["errorCode"] = .string(code) }
-            if let pending = current.pending {
-                let raw = try Data(contentsOf: await store.fileURL(pending.file))
-                guard Wire.hash(raw) == pending.hash else { throw SyncFailure.localState("vo2_payload_corrupt") }
-                let body = try JSON.decode(raw), facts = body["facts"].list
-                report["pendingSHA256"] = .string(pending.hash)
-                report["stagedFactCount"] = .int(Int64(facts.count))
-                var fields: [String: Int] = [:]
-                for fact in facts { for key in fact["metadata"].fields.keys { fields[key, default: 0] += 1 } }
-                report["stagedMetadataFieldCounts"] = .object(fields.mapValues { .int(Int64($0)) })
-            }
-            report["result"] = .string(mode == "inspect" ? "INSPECTED" : (current.error == nil ? "COMPLETED" : "BLOCKED"))
-        } catch { report["result"] = .string("BLOCKED"); report["reason"] = .string(VO2Max.failureCode(error)) }
-        try? OutboxStore.write(JSON.object(report).data(), to: documents.appendingPathComponent("ua1-r-vo2-report.json"))
-    }
-    /// Operator-enabled device acceptance. Uses the real App's session,
-    /// Outbox, scheduler and Daily delivery; never discovers Workout data.
-    func runDailyDeviceAcceptance() async {
-        guard DailyDeviceDiagnostics.enabled else { return }
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let path = documents.appendingPathComponent("m5a-rd-config.json")
-        UIApplication.shared.isIdleTimerDisabled = true
-        defer { UIApplication.shared.isIdleTimerDisabled = false }
-        do {
-            let config = try JSON.decode(Data(contentsOf: path))
-            guard let command = config["command"].text, ["prepare", "stage", "offline", "bootstrap", "incremental", "observer", "once"].contains(command),
-                  let expected = config["datasetFingerprint"].text else { throw SyncFailure.invalid("rd_config_invalid") }
-            try await DailyDeviceDiagnostics.shared.begin(command)
-            // Consume the private command/credential file immediately. The
-            // normal session Keychain stores credentials after activation.
-            try FileManager.default.removeItem(at: path)
-            if command == "prepare" {
-                DailyDeviceDiagnostics.probeLocalTransport(config["baseURL"].text)
-                try await bindNewSession(baseURL: config["baseURL"].text ?? "", collectorEpoch: config["collectorEpoch"].text ?? "", token: config["token"].text ?? "")
-            }
-            guard let descriptor = try ClientConfiguration.activeDescriptor(), Wire.hash(Data(descriptor.datasetID.utf8)) == expected,
-                  let store, let coordinator, let transfers, let secret = try ClientConfiguration.load() else { throw SyncFailure.invalid("rd_isolation_mismatch") }
-            dailyRDIsolated = true
-            try await DailyDeviceDiagnostics.shared.event("isolated_session_verified")
-            try await store.bind(Scope(serviceID: descriptor.serviceID, datasetID: descriptor.datasetID, datasetEpoch: descriptor.datasetEpoch, collectorEpoch: descriptor.collectorEpoch))
-            try await DailyDeviceDiagnostics.shared.snapshot("restored", store: store)
-            if command == "prepare" {
-                guard HKHealthStore.isHealthDataAvailable() else { throw SyncFailure.invalid("healthkit_unavailable") }
-                try await DailyDeviceDiagnostics.shared.event("authorization_request_started")
-                try await HKHealthStore().requestAuthorization(toShare: [], read: Set(HealthKitClient.dailyTypes.map { $0 as HKObjectType }))
-                UserDefaults.standard.set(true, forKey: "healthAuthorizationRequested")
-                authorization = "已请求读取权限；数据是否可用由系统管理"
-                try await DailyDeviceDiagnostics.shared.event("authorization_request_completed")
-            } else if command == "stage" {
-                try await store.markDailyWake()
-                try await coordinator.discoverDaily()
-                try await DailyDeviceDiagnostics.shared.snapshot("discovery_before_upload", store: store)
-            } else if command == "offline" {
-                do {
-                    try await coordinator.syncDaily(secret: secret, transfers: transfers)
-                    try await DailyDeviceDiagnostics.shared.event("offline_call_returned")
-                } catch {
-                    try await DailyDeviceDiagnostics.shared.event("offline_transport_failed", fields: ["systemCode": .int(Int64((error as NSError).code))])
-                }
-                try await DailyDeviceDiagnostics.shared.snapshot("after_offline_attempt", store: store)
-            } else {
-                let rounds = command == "bootstrap" ? 90 : 1
-                for round in 0..<rounds {
-                    let start = Date()
-                    if round == 0 {
-                        syncDailyNow()
-                        await syncScheduler.waitForCompletion()
-                    } else {
-                        // Continue the same foreground opportunity. Repeated
-                        // manual wake generations would create extra empty
-                        // coverage pages for already caught-up types.
-                        do { try await coordinator.syncDaily(secret: secret, transfers: transfers) }
-                        catch { try await DailyDeviceDiagnostics.shared.event("continuation_failed", fields: ["httpStatus": .int(Int64((error as? UploadError)?.status ?? 0))]) }
-                    }
-                    try await DailyDeviceDiagnostics.shared.event("manual_opportunity_completed", fields: ["round": .int(Int64(round)), "wallMs": .number(Date().timeIntervalSince(start) * 1000)])
-                    try await DailyDeviceDiagnostics.shared.snapshot("after_manual_opportunity", store: store)
-                    let state = await store.snapshot()
-                    if DailyHealth.types.allSatisfy({ state.daily?[$0].map { $0.bootstrapComplete && $0.pending == nil && !$0.hasMore && $0.error == nil } == true }) { break }
-                    if command == "bootstrap" { try await Task.sleep(for: .seconds(2)) }
-                }
-                if command == "observer" {
-                    try await coordinator.observeDaily { [weak self] in
-                        Task { @MainActor in self?.syncDailyNow() }
-                    }
-                    try await DailyDeviceDiagnostics.shared.event("observer_registered")
-                    try await Task.sleep(for: .seconds(20))
-                    for _ in 0..<8 { syncDailyNow() }
-                    await syncScheduler.waitForCompletion()
-                    try await DailyDeviceDiagnostics.shared.event("manual_burst_completed", fields: ["requested": .int(8)])
-                    try await DailyDeviceDiagnostics.shared.snapshot("after_observer_and_manual_burst", store: store)
-                }
-            }
-            let finalState = await store.snapshot()
-            apply(finalState)
-            if DailyHealth.types.allSatisfy({ finalState.daily?[$0].map { $0.pending == nil && !$0.hasMore && $0.error == nil } == true }) { error = nil }
-            try await DailyDeviceDiagnostics.shared.snapshot("command_completed", store: store)
-            try await DailyDeviceDiagnostics.shared.event("run_completed", fields: ["command": .string(command)])
-            status = "M5A-RD 脱敏验收命令完成"
-        } catch {
-            let code: String
-            switch error {
-            case SyncFailure.invalid(let value), SyncFailure.localState(let value): code = value
-            case let failure as UploadError: code = failure.code.range(of: #"^[a-z0-9_-]{1,80}$"#, options: .regularExpression) != nil ? failure.code : "rd_upload_failed"
-            default: code = "rd_command_failed"
-            }
-            try? await DailyDeviceDiagnostics.shared.event("run_failed", fields: ["code": .string(code), "systemCode": .int(Int64((error as NSError).code))])
-            status = "M5A-RD 验收尚未完成"
-        }
-    }
-    #endif
-    #if DEBUG
+    var dailyRDIsolated = false
     var inspectionStatus: String?
-    func inspectRunningWorkout() {
-        guard !busy else { return }
-        busy = true
-        inspectionStatus = "正在只读检查跑步结构…"
-        task = Task {
-            defer { busy = false }
-            do {
-                _ = try await HealthKitClient().inspectLatestRunningWorkout()
-                inspectionStatus = "脱敏结构报告已生成；没有推进同步位置。"
-            } catch let failure as SyncFailure {
-                switch failure {
-                case .invalid(let code), .localState(let code): inspectionStatus = "结构检查失败：\(UserFacingText.error(code))。"
-                case .receiptMismatch: inspectionStatus = "结构检查失败。"
-                }
-            } catch { inspectionStatus = "结构检查失败，错误代码 \((error as NSError).code)。" }
-        }
-    }
     #endif
     private(set) var activeSessionID: String?
-    private var sessions: SyncSessionStore?
-    private var transferRegistry: [String: BackgroundTransfers] = [:]
+    var sessions: SyncSessionStore?
+    var transferRegistry: [String: BackgroundTransfers] = [:]
     private(set) var transfers: BackgroundTransfers?
-    private var coordinator: SyncCoordinator?
-    private var store: OutboxStore?
-    private var task: Task<Void, Never>?
+    var coordinator: SyncCoordinator?
+    var store: OutboxStore?
+    var task: Task<Void, Never>?
     init(syncScheduler: ForegroundSyncScheduler = ForegroundSyncScheduler()) {
         self.syncScheduler = syncScheduler
         #if DEBUG
@@ -404,6 +107,7 @@ final class SyncModel {
     }
     private func install(_ descriptor: SyncSessionDescriptor) throws {
         guard let sessions else { throw SyncFailure.localState("session_store_unavailable") }
+        ClientConfiguration.invalidateCache()
         let directory = try SyncSessionStore.directory(root: sessions.root, sessionID: descriptor.sessionID)
         let store = try OutboxStore(directory: directory)
         let transfers = transferRegistry[descriptor.backgroundIdentifier] ?? BackgroundTransfers(directory: directory, identifier: descriptor.backgroundIdentifier, sessionID: descriptor.sessionID)
@@ -411,7 +115,10 @@ final class SyncModel {
         self.store = store; self.transfers = transfers
         self.coordinator = SyncCoordinator(store: store, sessionStore: sessions, sessionID: descriptor.sessionID)
         activeSessionID = descriptor.sessionID
-        workouts = []; selected = []; workoutResults = [:]; batch = nil; currentWorkoutID = nil
+        acceptedWorkoutsFile = directory.appendingPathComponent(Self.acceptedWorkoutsName)
+        acceptedWorkouts = Self.readAcceptedWorkouts(acceptedWorkoutsFile)
+        workouts = []; selected = []; batch = nil; currentWorkoutID = nil
+        workoutResults = acceptedWorkouts.mapValues { WorkoutUploadResult(state: .succeeded, acceptedAt: $0) }
         workoutCursor = nil; pageWorkoutIDs = []; hasMoreWorkouts = false; pendingChanges = 0
     }
     func bindNewSession(baseURL: String, collectorEpoch: String, token: String) async throws {
@@ -436,11 +143,36 @@ final class SyncModel {
         else {
             guard descriptor.baseURL == secret.configuration.baseURL, try SessionKeychain().load(sessionID: descriptor.sessionID) == secret.token else { throw SyncFailure.invalid("session_identity_conflict") }
         }
-        // Outbox and credential are durable before the final validating handshake.
-        let validation = try await api.call("GET", "/v2/handshake")
-        try await sessions.activate(descriptor.sessionID, handshake: validation)
+        try await sessions.activate(descriptor.sessionID, handshake: hello)
         try install(try await sessions.requireActive(descriptor.sessionID))
         apply(await store!.snapshot()); status = "新同步会话已启用；将重新发现当前可见健康记录"
+    }
+    /// A `rai://connect?url=…&epoch=…&token=…` link only proposes a server; the
+    /// user confirms it by name before anything is stored or contacted.
+    struct PendingConnection: Equatable {
+        let baseURL: String, collectorEpoch: String, token: String
+        var host: String { URL(string: baseURL)?.host ?? baseURL }
+    }
+    var pendingConnection: PendingConnection?
+    func receiveConnectLink(_ link: URL) {
+        guard link.scheme == "rai", link.host == "connect",
+              let items = URLComponents(url: link, resolvingAgainstBaseURL: false)?.queryItems else { return }
+        func value(_ name: String) -> String { items.first { $0.name == name }?.value ?? "" }
+        guard (try? ClientConfiguration.validatedSecret(baseURL: value("url"), collectorEpoch: value("epoch"), token: value("token"))) != nil else {
+            error = "连接链接无效。"; return
+        }
+        pendingConnection = PendingConnection(baseURL: value("url"), collectorEpoch: value("epoch"), token: value("token"))
+    }
+    func confirmPendingConnection() async {
+        guard let pending = pendingConnection else { return }
+        pendingConnection = nil
+        do {
+            try await bindNewSession(baseURL: pending.baseURL, collectorEpoch: pending.collectorEpoch, token: pending.token)
+            error = nil
+            status = "已连接到 \(pending.host)；请请求读取权限，新的跑步记录会自动上传。"
+        } catch let failure as SyncFailure {
+            error = "连接未保存：" + UserFacingText.syncFailure(failure)
+        } catch { self.error = "连接未保存：无法连接服务器或握手失败。" }
     }
     func importRecoverySession(_ data: Data) async throws {
         guard !busy, !loadingWorkouts, let sessions else { throw SyncFailure.localState("session_switch_busy") }
@@ -493,7 +225,7 @@ final class SyncModel {
                 UserDefaults.standard.set(true, forKey: "healthAuthorizationRequested")
                 // Observers only mark local discovery work. They never start an
                 // upload; a Workout is sent only by the explicit sync button.
-                try? await coordinator.observeDaily { [weak self] in await self?.dailyWake() }
+                await installObservers()
             } catch { self.error = "健康数据授权请求失败。" }
         }
     }
@@ -512,6 +244,9 @@ final class SyncModel {
             hasMoreWorkouts = page.count >= Self.workoutPageSize
             selected = selected.intersection(Set(page.map(\.id)))
             workoutsRefreshedAt = Date()
+            // One request settles every row (also after a reinstall or a new phone).
+            let visible = page.map(\.id)
+            Task { await refreshRemoteStatuses(visible) }
             if !busy {
                 if workouts.isEmpty { status = "HealthKit 中还没有可见的跑步记录" }
                 error = nil
@@ -542,17 +277,11 @@ final class SyncModel {
             self.error = "更早的健康记录读取失败，请稍后重试。"
         }
     }
-    /// Selects only the currently displayed page.
-    func selectCurrentPage() {
-        let eligible = Set(workouts.filter(\.isEligible).map(\.id))
-        selected = Set(pageWorkoutIDs.filter { eligible.contains($0) })
-        status = "已选择本页 \(selected.count) 条符合条件记录"
-    }
-    /// Selects every eligible record across the full visible history. Pages
-    /// are read one at a time and no detail query or upload is started.
-    func selectAllEligibleWorkouts() async {
+    /// Reads the whole visible history page by page, then uploads every eligible
+    /// record the server does not have yet (or rejected), oldest last.
+    func backfillUnsyncedWorkouts() async {
         guard !loadingWorkouts, !loadingMoreWorkouts, !busy, let coordinator else { return }
-        loadingMoreWorkouts = true; defer { loadingMoreWorkouts = false }
+        loadingMoreWorkouts = true
         do {
             while hasMoreWorkouts {
                 let page = try await coordinator.workoutPage(before: workoutCursor, limit: Self.workoutPageSize)
@@ -564,72 +293,31 @@ final class SyncModel {
                 }
                 workoutCursor = last
             }
-            selected = Set(workouts.filter(\.isEligible).map(\.id))
-            status = "已选择全部 \(selected.count) 条符合条件记录"
             error = nil
         } catch let failure as SyncFailure {
-            error = UserFacingText.syncFailure(failure)
+            loadingMoreWorkouts = false
+            error = UserFacingText.syncFailure(failure); return
         } catch {
-            self.error = "未能读取全部历史记录，已保留当前选择。"
+            loadingMoreWorkouts = false
+            self.error = "未能读取全部历史记录。"; return
         }
+        loadingMoreWorkouts = false
+        await refreshRemoteStatuses(workouts.filter(\.isEligible).map(\.id))
+        let ids = workouts.filter { $0.isEligible && workoutResults[$0.id]?.state != .succeeded }.map(\.id)
+        guard !ids.isEmpty else { status = "所有符合条件的记录都已同步"; return }
+        syncWorkouts(ids)
     }
-    #if DEBUG
-    /// Writes a redacted acceptance snapshot to Documents. It contains only
-    /// hashed Workout ids, per-record final states and counts; never
-    /// coordinates, heart rate, distance values, tokens or raw HealthKit data.
-    @discardableResult
-    func exportAcceptanceEvidence() -> URL? {
-        let rows: [JSON] = workouts.map { workout in
-            let result = workoutResults[workout.id]
-            var row: [String: JSON] = [
-                "workoutIDHash": .string(Wire.hash(Data(workout.id.utf8))),
-                "state": .string(result?.state.rawValue ?? "not_uploaded"),
-                "sourceOutcome": .string(workout.sourceOutcome),
-                "distancePresent": .bool(workout.distanceM != nil),
-                "heartRatePresent": .bool(workout.averageHeartRate != nil),
-                "indoor": workout.isIndoor.map(JSON.bool) ?? .null,
-            ]
-            row["acceptedAt"] = result?.acceptedAt.map { .string(ISO8601DateFormatter().string(from: $0)) } ?? .null
-            row["errorCode"] = result?.errorCode.map(JSON.string) ?? .null
-            return .object(row)
-        }
-        let batchRow: JSON
-        if let batch {
-            batchRow = .object([
-                "selectedCount": .int(Int64(batch.ids.count)),
-                "succeededCount": .int(Int64(batch.ids.filter { workoutResults[$0]?.state == .succeeded }.count)),
-                "failedCount": .int(Int64(batch.ids.filter { workoutResults[$0]?.state == .failed }.count)),
-                "startedAt": .string(ISO8601DateFormatter().string(from: batch.startedAt)),
-                "finishedAt": batch.finishedAt.map { .string(ISO8601DateFormatter().string(from: $0)) } ?? .null,
-                "durationMs": batch.duration.map { .number($0 * 1000) } ?? .null,
-            ])
-        } else { batchRow = .null }
-        let report: JSON = .object([
-            "schema": .string("rai.workout-upload.acceptance/v2"),
-            "generatedAt": .string(ISO8601DateFormatter().string(from: Date())),
-            "appVersion": .string(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""),
-            "iOSVersion": .string(UIDevice.current.systemVersion),
-            "deviceModel": .string(UIDevice.current.model),
-            "loadedWorkoutCount": .int(Int64(workouts.count)),
-            "hasMoreWorkouts": .bool(hasMoreWorkouts),
-            "selectedCount": .int(Int64(selected.count)),
-            "batch": batchRow,
-            "rows": .array(rows),
-        ])
-        do {
-            let url = try FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-                .appendingPathComponent("per-workout-sync-acceptance.json")
-            try OutboxStore.write(try report.data(), to: url)
-            return url
-        } catch { self.error = "验收证据导出失败"; return nil }
-    }
-    #endif
-    func syncWorkouts(_ ids: [String], owner: UUID = UUID()) {
+    func syncWorkouts(_ ids: [String]) {
         guard canStartWorkoutSync else { return }
         let eligible = Set(workouts.filter(\.isEligible).map(\.id))
         var seen = Set<String>(), ordered: [String] = []
         for id in ids where eligible.contains(id) && seen.insert(id).inserted { ordered.append(id) }
         guard !ordered.isEmpty else { return }
+        startBatch(ordered)
+    }
+    private func startBatch(_ ordered: [String]) {
+        // The token only lets a stale round ignore progress that is not its own.
+        let owner = UUID()
         recoveryWake?.cancel()
         // Reserve the selection before the scheduler waits for automatic work
         // to stop. Even a page closed in this handoff window gets final results.
@@ -638,8 +326,8 @@ final class SyncModel {
         for id in ordered { workoutResults[id] = WorkoutUploadResult(state: .pending) }
         syncScheduler.startManual { await self.runWorkoutBatch(ordered, owner: owner) }
     }
-    func cancelWorkoutSync(owner: UUID? = nil) {
-        guard let activeOwner = workoutUploadOwner, owner == nil || owner == activeOwner else { return }
+    func cancelWorkoutSync() {
+        guard workoutUploadOwner != nil else { return }
         syncScheduler.cancel()
         if let batch { finishBatch(batch.ids, interrupted: true) }
         currentWorkoutID = nil
@@ -650,7 +338,10 @@ final class SyncModel {
     /// record without a final outcome after cancellation counts as failed.
     private func runWorkoutBatch(_ ids: [String], owner: UUID) async {
         let round = batch ?? WorkoutBatch(ids: ids, startedAt: Date())
-        defer { if workoutUploadOwner == owner { workoutUploadOwner = nil } }
+        defer {
+            if workoutUploadOwner == owner { workoutUploadOwner = nil }
+            endBackgroundUploadTask()
+        }
         error = nil; currentWorkoutID = nil
         var interrupted = false
         do {
@@ -696,6 +387,7 @@ final class SyncModel {
         }
         if batch == nil { batch = round }
         finishBatch(ids, interrupted: interrupted || Task.isCancelled)
+        scheduleStatusChecks(ids.filter { workoutResults[$0]?.state == .succeeded })
         if let store { apply(await store.snapshot()) }
     }
     private func markUploading(_ id: String) {
@@ -711,6 +403,7 @@ final class SyncModel {
         if outcome.succeeded {
             workoutResults[outcome.workoutID] = WorkoutUploadResult(state: .succeeded, acceptedAt: outcome.acceptedAt)
             recordUpload(at: outcome.acceptedAt ?? Date())
+            recordAcceptedWorkout(outcome.workoutID, at: outcome.acceptedAt ?? Date())
         } else {
             let code = outcome.errorCode ?? "sync_failed"
             workoutResults[outcome.workoutID] = WorkoutUploadResult(state: .failed, errorCode: code,
@@ -724,6 +417,145 @@ final class SyncModel {
         if let current = lastUploadAt, current >= date { return }
         lastUploadAt = date
         UserDefaults.standard.set(date, forKey: Self.lastUploadKey)
+    }
+    private func recordAcceptedWorkout(_ id: String, at date: Date) {
+        acceptedWorkouts[id] = date
+        remoteRejected[id] = nil
+        // Best effort: losing this file only makes old rows read "未上传" again.
+        persistAcceptedWorkouts()
+    }
+    private static func readAcceptedWorkouts(_ file: URL?) -> [String: Date] {
+        guard let file, let data = try? Data(contentsOf: file) else { return [:] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode([String: Date].self, from: data)) ?? [:]
+    }
+    // MARK: Server status and automatic sync
+
+    /// Server-side parse failures by Workout, refreshed from the batch status
+    /// endpoint. Automatic sync never resends these by itself.
+    private var remoteRejected: [String: String] = [:]
+    private var autoSyncRunning = false
+    private var lastAutoSyncAt: Date?
+    private var workoutObserverInstalled = false
+    private let autoPolicy = WorkoutAutoSyncPolicy()
+
+    /// Folds one batch of server answers into the local picture. The server is
+    /// authoritative: a record it does not know is not "uploaded", whatever the
+    /// local file says, and a record it rejected is shown as retryable.
+    func applyRemoteStatuses(_ remote: [String: WorkoutRemoteStatus]) {
+        var changed = false
+        for (id, status) in remote {
+            switch status.state {
+            case .accepted, .committed, .alreadyImported:
+                remoteRejected[id] = nil
+                let at = status.acceptedAt ?? acceptedWorkouts[id] ?? Date()
+                if acceptedWorkouts[id] != at { acceptedWorkouts[id] = at; changed = true }
+                if workoutResults[id]?.state != .uploading, workoutResults[id]?.state != .pending {
+                    workoutResults[id] = WorkoutUploadResult(state: .succeeded, acceptedAt: at)
+                }
+            case .rejected:
+                let code = status.errorCode ?? "workout_ingest_rejected"
+                remoteRejected[id] = code
+                if acceptedWorkouts.removeValue(forKey: id) != nil { changed = true }
+                if workoutResults[id]?.state != .uploading, workoutResults[id]?.state != .pending {
+                    workoutResults[id] = WorkoutUploadResult(state: .failed, errorCode: code,
+                                                            reason: "服务端未能解析这条记录，可重新上传。")
+                }
+            case .notFound:
+                remoteRejected[id] = nil
+                if acceptedWorkouts.removeValue(forKey: id) != nil { changed = true }
+                if workoutResults[id]?.state == .succeeded { workoutResults[id] = nil }
+            case .deleted:
+                break
+            }
+        }
+        if changed { persistAcceptedWorkouts() }
+    }
+    /// One request for the whole visible list; failures are silent because the
+    /// local cache is still a fair guess.
+    func refreshRemoteStatuses(_ ids: [String]) async {
+        guard !ids.isEmpty, let coordinator, let transfers, let secret = try? ClientConfiguration.load() else { return }
+        if let remote = try? await coordinator.workoutStatuses(ids, secret: secret, transfers: transfers) {
+            applyRemoteStatuses(remote)
+        }
+    }
+    /// The server parses an upload after it answers, so a rejection only shows
+    /// up a little later. Look again twice to surface it.
+    private func scheduleStatusChecks(_ ids: [String]) {
+        guard !ids.isEmpty else { return }
+        Task { [weak self] in
+            for delay in [20, 90] {
+                try? await Task.sleep(for: .seconds(delay))
+                await self?.refreshRemoteStatuses(ids)
+            }
+        }
+    }
+    /// Sends the newest unsent Workouts without a tap: on launch, on return to
+    /// the foreground and when HealthKit reports a new Workout. Old history is
+    /// left to the manual backfill.
+    func autoSyncWorkouts(fromBackground: Bool = false) async {
+        guard !autoSyncRunning, canStartWorkoutSync, let coordinator, let transfers,
+              UserDefaults.standard.bool(forKey: "healthAuthorizationRequested"),
+              let secret = try? ClientConfiguration.load() else { return }
+        if let last = lastAutoSyncAt, Date().timeIntervalSince(last) < 60 { return }
+        lastAutoSyncAt = Date()
+        autoSyncRunning = true; defer { autoSyncRunning = false }
+        if fromBackground { beginBackgroundUploadTask() }
+        do {
+            let page = try await coordinator.workoutPage(before: nil, limit: 30)
+            let eligible = page.filter(\.isEligible)
+            guard !eligible.isEmpty else { endBackgroundIfIdle(); return }
+            let remote = try await coordinator.workoutStatuses(eligible.map(\.id), secret: secret, transfers: transfers)
+            applyRemoteStatuses(remote)
+            var due = autoPolicy.due(candidates: eligible.map { .init(id: $0.id, end: $0.end) },
+                                     accepted: acceptedWorkouts, rejected: Set(remoteRejected.keys), now: Date())
+            // The system only grants a short window to a background wake.
+            if fromBackground { due = Array(due.prefix(2)) }
+            guard !due.isEmpty, canStartWorkoutSync else { endBackgroundIfIdle(); return }
+            startBatch(due)
+        } catch {
+            endBackgroundIfIdle()
+        }
+    }
+    private func endBackgroundIfIdle() {
+        if workoutUploadOwner == nil, UIApplication.shared.applicationState != .active { endBackgroundUploadTask() }
+    }
+    /// HKObserverQuery registrations do not survive a relaunch, so they are
+    /// re-created whenever read access has been requested.
+    private func installObservers() async {
+        guard let coordinator, UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") else { return }
+        try? await coordinator.observeDaily { [weak self] in await self?.dailyWake() }
+        guard !workoutObserverInstalled else { return }
+        do {
+            try await coordinator.observeWorkouts { [weak self] in
+                await self?.autoSyncWorkouts(fromBackground: UIApplication.shared.applicationState != .active)
+            }
+            workoutObserverInstalled = true
+        } catch { workoutObserverInstalled = false }
+    }
+    private func persistAcceptedWorkouts() {
+        guard let file = acceptedWorkoutsFile else { return }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        if let data = try? encoder.encode(acceptedWorkouts) { try? OutboxStore.write(data, to: file) }
+    }
+    private func beginBackgroundUploadTask() {
+        guard backgroundUploadTask == .invalid else { return }
+        backgroundUploadTask = UIApplication.shared.beginBackgroundTask(withName: "rai.workout-upload") { [weak self] in
+            // Time is up: stop cleanly. Unfinished records are marked interrupted
+            // and can be sent again from the list.
+            MainActor.assumeIsolated {
+                self?.cancelWorkoutSync()
+                self?.endBackgroundUploadTask()
+            }
+        }
+    }
+    private func endBackgroundUploadTask() {
+        guard backgroundUploadTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundUploadTask)
+        backgroundUploadTask = .invalid
     }
     private func markBatchFailed(_ ids: [String], code: String, reason: String) {
         for id in ids where workoutResults[id]?.isFinished != true {
@@ -755,13 +587,13 @@ final class SyncModel {
         if let failure = error as? UploadError { return UserFacingText.stableCode(failure.code) }
         return "sync_failed"
     }
-    private func apply(_ snapshot: LocalState) {
+    func apply(_ snapshot: LocalState) {
         // Workout uploads have no persisted task state. Only the daily journal
         // keeps a durable pending page here.
         pendingChanges = (snapshot.daily ?? [:]).values.filter { $0.pending != nil }.count
     }
     /// Foreground discovery timer. It never starts an upload.
-    private var recoveryWake: Task<Void, Never>?
+    var recoveryWake: Task<Void, Never>?
     func syncDailyNow() {
         #if DEBUG
         if DailyDeviceDiagnostics.enabled, !dailyRDIsolated { status = "请先完成独立验收会话连接"; return }
@@ -822,12 +654,19 @@ final class SyncModel {
             status = "扫描健康变化"
             try await coordinator.discoverDaily()
             apply(await store.snapshot())
-            status = "健康变化已记录；Workout 仅在点击同步后上传"
+            status = "健康变化已记录"
         } catch is CancellationError { status = "已暂停；同步位置已保留" }
         catch { self.error = "日常健康变化扫描尚未完成；同步位置已保留。" }
         if !Task.isCancelled { scheduleDiscoveryScan(await store.snapshot()) }
+        // The scan holds the scheduler; the automatic Workout round starts once
+        // it has finished and released it.
+        Task { [weak self] in
+            await self?.installObservers()
+            await self?.syncScheduler.waitForCompletion()
+            await self?.autoSyncWorkouts()
+        }
     }
-    private func dailyWake() {
+    func dailyWake() {
         guard let store else { return }
         Task { self.apply(await store.snapshot()) }
     }
@@ -849,8 +688,14 @@ final class SyncModel {
         }
     }
     func suspendForegroundWork() {
-        cancelWorkoutSync()
-        task?.cancel(); syncScheduler.cancel(); recoveryWake?.cancel()
+        task?.cancel(); recoveryWake?.cancel()
+        if workoutUploadOwner != nil {
+            // A Workout upload in flight is not cancelled by leaving the app: ask
+            // iOS for background time and let the current batch keep going.
+            beginBackgroundUploadTask()
+        } else {
+            syncScheduler.cancel()
+        }
     }
 }
 
@@ -873,49 +718,24 @@ struct RAIApp: App {
     @Environment(\.scenePhase) private var phase
     var body: some Scene {
         WindowGroup {
-            Group {
-                #if DEBUG
-                if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" {
-                    VStack(spacing: 16) { Text("RAI 本机独立验收").font(.headline); Text(model.status) }
-                }
-                else if DailyDeviceDiagnostics.enabled {
-                    NavigationStack { SyncView(model: model) }
-                        .tint(RAITheme.orange).preferredColorScheme(.dark)
-                }
-                else { ProductTabs(sync: model) }
-                #else
-                ProductTabs(sync: model)
-                #endif
-            }
+            RootContent(model: model)
                 .environment(\.locale, Locale(identifier: "zh-Hans-CN"))
                 .preferredColorScheme(.dark)
+                .onOpenURL { model.receiveConnectLink($0) }
+                .alert("连接到这台服务器？", isPresented: Binding(
+                    get: { model.pendingConnection != nil }, set: { if !$0 { model.pendingConnection = nil } })) {
+                    Button("连接") { Task { await model.confirmPendingConnection() } }
+                    Button("取消", role: .cancel) { model.pendingConnection = nil }
+                } message: {
+                    Text("你的跑步与健康数据会上传到 \(model.pendingConnection?.host ?? "")。只连接你自己部署的服务器。")
+                }
                 .task {
-                    #if DEBUG
-                    if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" { await model.runLocalDeviceAcceptance(); return }
-                    if ProcessInfo.processInfo.environment["RAI_UA1_R_VO2"] != nil { await model.runUA1RVO2Acceptance(); return }
-                    if DailyDeviceDiagnostics.enabled { await model.runDailyDeviceAcceptance(); return }
-                    #endif
+                    if await model.runDebugAcceptanceIfRequested() { return }
                     model.scanHealthChanges(newWake: true)
                 }
                 .onChange(of: phase) { _, phase in
-                    if phase == .active {
-                        #if DEBUG
-                        if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" { return }
-                        if ProcessInfo.processInfo.environment["RAI_UA1_R_VO2"] != nil { return }
-                        if DailyDeviceDiagnostics.enabled {
-                            Task { try? await DailyDeviceDiagnostics.shared.event("scene_active") }
-                            model.scanHealthChanges(newWake: true)
-                            return
-                        }
-                        #endif
-                        model.scanHealthChanges(newWake: true)
-                    }
-                    else if phase == .background {
-                        #if DEBUG
-                        if DailyDeviceDiagnostics.enabled { Task { try? await DailyDeviceDiagnostics.shared.event("scene_background") } }
-                        #endif
-                        model.suspendForegroundWork()
-                    }
+                    if phase == .active { model.sceneBecameActive() }
+                    else if phase == .background { model.sceneEnteredBackground() }
                 }
         }
     }
@@ -947,15 +767,16 @@ struct SyncView: View {
                     LabeledContent("本轮 Workout", value: "已选 \(batch.ids.count) 条")
                 }
                 if let error = model.error { Text(error).foregroundStyle(.red).font(.footnote) }
-                NavigationLink("健康数据同步（选择记录）") { WorkoutSyncView(model: model) }
-                Text("每条跑步记录独立读取、独立上传、独立确认；不会把多条记录合并为一个上传包。").font(.caption)
-                Text("启动、回到前台和 HealthKit 变化只扫描本地变化，不会自动上传。Workout 只有在你选择记录并点击“同步”后才发送；中断后再次点击会重新读取并重试。").font(.caption)
+                NavigationLink("跑步记录同步状态") { WorkoutSyncView(model: model) }
+                Text("新的跑步记录会自动上传；需要时可在这里补传历史记录。").font(.caption)
             }
-            Section("灾难恢复") {
+            #if DEBUG
+            Section("灾难恢复（调试）") {
                 Button("导入新恢复会话凭证") { importingRecovery = true }.disabled(model.busy)
-                Text("旧会话将归档。仅重新导入健康 App 当前可见记录；训练历史不迁移。备份库不得直接续接旧会话。").font(.caption)
+                Text("旧会话将归档，仅重新导入健康 App 当前可见记录。").font(.caption)
             }
-            Section("开发接口") {
+            #endif
+            Section("手动连接") {
                 TextField("服务地址", text: $apiURL).textInputAutocapitalization(.never).autocorrectionDisabled()
                 TextField("采集器周期标识", text: $collector).textInputAutocapitalization(.never).autocorrectionDisabled()
                 SecureField("设备访问令牌", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -977,9 +798,11 @@ struct SyncView: View {
                     }
                 }.disabled(model.busy)
                 if let configurationStatus { Text(configurationStatus).font(.footnote).foregroundStyle(.green) }
-                Text("请使用管理员新建的数据集凭证。新会话从健康 App 当前可见历史开始；旧会话和旧训练历史保留但不迁移。").font(.caption)
+                Text("更省事的做法：在电脑上运行 scripts/connect-link.py，把得到的 rai:// 链接发到手机并点开。").font(.caption)
             }
-        }.fileImporter(isPresented: $importingRecovery, allowedContentTypes: [.json]) { result in
+        }
+        #if DEBUG
+        .fileImporter(isPresented: $importingRecovery, allowedContentTypes: [.json]) { result in
             Task {
                 do {
                     let url = try result.get()
@@ -989,78 +812,13 @@ struct SyncView: View {
                     model.error = nil
                 } catch { model.error = "恢复会话未激活：请保留凭证包并检查身份与连接。" }
             }
-        }.navigationTitle("同步与诊断")
+        }
+        #endif
+        .navigationTitle("同步与诊断")
             .scrollContentBackground(.hidden)
             .raiScreen()
     }
 }
 
 
-#if DEBUG
-private struct AcceptanceConfig: Decodable {
-    let baseURL: String
-    let collectorEpoch: String
-    let token: String
-}
-#endif
 
-#if DEBUG
-/// Debug-only technical instrumentation for the local device acceptance path.
-///
-/// Records the longest main-thread stall observed while one sync runs, so a
-/// "no sustained main-thread blocking" claim is measured on the device instead
-/// of assumed. A main-queue timer that fires late by Δ means the main thread was
-/// unavailable for Δ; the largest Δ is the worst stall in the window.
-@MainActor
-final class MainThreadWatchdog {
-    private var timer: Timer?
-    private var last = Date()
-    private var maxMs: Double = 0
-    private var over250 = 0
-    private var ticks = 0
-    private let interval = 0.05
-
-    init() {
-        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.tick() }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        self.timer = timer
-    }
-
-    private func tick() {
-        let now = Date()
-        let lateness = now.timeIntervalSince(last) - interval
-        last = now
-        ticks += 1
-        guard lateness > 0 else { return }
-        let milliseconds = lateness * 1000
-        if milliseconds > maxMs { maxMs = milliseconds }
-        if milliseconds > 250 { over250 += 1 }
-    }
-
-    func finish() -> (maxMs: Double, over250: Int, ticks: Int) {
-        timer?.invalidate()
-        timer = nil
-        return ((maxMs * 10).rounded() / 10, over250, ticks)
-    }
-}
-
-/// Peak resident size of this process. Darwin reports `ru_maxrss` in bytes.
-func processPeakResidentBytes() -> Int64 {
-    var usage = rusage()
-    guard getrusage(RUSAGE_SELF, &usage) == 0 else { return 0 }
-    return Int64(usage.ru_maxrss)
-}
-
-func currentResidentBytes() -> Int64 {
-    var info = mach_task_basic_info()
-    var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size / MemoryLayout<natural_t>.size)
-    let result = withUnsafeMutablePointer(to: &info) { pointer in
-        pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-            task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
-        }
-    }
-    return result == KERN_SUCCESS ? Int64(info.resident_size) : 0
-}
-#endif

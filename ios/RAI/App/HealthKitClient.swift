@@ -46,58 +46,34 @@ struct HealthSeriesGroup: Sendable {
 
 protocol HealthKitReading: Sendable {
     func authorize() async throws
-    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage
     func workout(_ id: String) async throws -> HKWorkout?
-    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute
-    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation]
     func recentWorkouts(limit: Int) async throws -> [HealthWorkoutSummary]
     /// Newest first, strictly older by start date than `before`. A page includes
     /// every row tied at its oldest start date and can exceed the requested limit.
     func workoutPage(before: Date?, limit: Int) async throws -> [HealthWorkoutSummary]
-    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage
     func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample]
-    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]]
     /// One series query per type grouped by parent in memory. The parent's own
     /// quantity is the group header for protocol 6.
     func bundleSeriesGroups(type: HKQuantityType, workout: HKWorkout) async throws -> [HealthSeriesGroup]
     func bundleRoutes(workout: HKWorkout) async throws -> [HealthRouteBundle]
-    func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]]
-    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead
-    func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws
+    func observeWorkouts(_ handler: @escaping @Sendable () async -> Void) async throws
     func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
     func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
     func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws
-    /// Technical capture-batch counters (flushes, synchronizations, points).
-    /// Declared `async` so an actor-isolated reader can satisfy it without
-    /// crossing the conformance's isolation boundary.
-    func captureBatchCounters() async -> (seriesFlushes: Int, seriesSynchronizations: Int, seriesPoints: Int,
-                                          routeFlushes: Int, routeSynchronizations: Int, routePoints: Int)
 }
 
 extension HealthKitReading {
-    func captureBatchCounters() async -> (seriesFlushes: Int, seriesSynchronizations: Int, seriesPoints: Int,
-                                          routeFlushes: Int, routeSynchronizations: Int, routePoints: Int) {
-        (0, 0, 0, 0, 0, 0)
-    }
+    // Test doubles only implement what they exercise.
     func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws {}
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws { }
-    func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]] { try await bundleSeries(type: type, workout: workout) }
-    func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws { }
-    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead {
-        let routes = try await bundleRoutes(workout: workout)
-        return HealthRouteRead(routes: routes, coverage: [:], enumerationCompleted: true)
-    }
-    // Test doubles that only drain saved Outbox pages do not need HealthKit.
+    func observeWorkouts(_ handler: @escaping @Sendable () async -> Void) async throws { }
     func recentWorkouts(limit: Int) async throws -> [HealthWorkoutSummary] { throw SyncFailure.invalid("healthkit_unavailable") }
     func workoutPage(before: Date?, limit: Int) async throws -> [HealthWorkoutSummary] { throw SyncFailure.invalid("healthkit_unavailable") }
-    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] { throw SyncFailure.invalid("healthkit_unavailable") }
-    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { throw SyncFailure.invalid("healthkit_unavailable") }
     func bundleSeriesGroups(type: HKQuantityType, workout: HKWorkout) async throws -> [HealthSeriesGroup] { throw SyncFailure.invalid("healthkit_unavailable") }
-
     func bundleRoutes(workout: HKWorkout) async throws -> [HealthRouteBundle] { throw SyncFailure.invalid("healthkit_unavailable") }
 }
 
@@ -205,16 +181,6 @@ actor HealthKitClient: HealthKitReading {
             guard let value = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: archive) else { throw SyncFailure.localState("invalid_healthkit_anchor") }
             return value
         } catch { throw SyncFailure.localState("invalid_healthkit_anchor") }
-    }
-    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout? = nil) async throws -> HealthPage {
-        let previous = try Self.decodeAnchor(anchor)
-        // Apple's async descriptor uses the anchored query mechanism and stops
-        // its underlying query on cancellation. Never substitutes a zero anchor.
-        let limit = type == HKObjectType.workoutType() ? 25 : (type == HKSeriesType.workoutRoute() ? 1 : 1000)
-        let query = HKAnchoredObjectQueryDescriptor(predicates: [.sample(type: type, predicate: workout.map { HKQuery.predicateForObjects(from: $0) })], anchor: previous, limit: limit)
-        let result = try await query.result(for: health)
-        return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
-                          anchor: try NSKeyedArchiver.archivedData(withRootObject: result.newAnchor, requiringSecureCoding: true), limit: limit)
     }
     func workout(_ id: String) async throws -> HKWorkout? {
         guard let uuid = UUID(uuidString: id) else { throw SyncFailure.invalid("invalid_workout_uuid") }
@@ -384,17 +350,6 @@ actor HealthKitClient: HealthKitReading {
             deviceName: workout.device?.name, sourceClassification: classification,
             sourceOutcome: WorkoutSourcePolicy.outcome(classification))
     }
-    /// Anchored query scoped to exactly one Workout UUID. A page from this
-    /// query can never contain another Workout, so the Outbox cannot discard a
-    /// different Workout when this stream advances.
-    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage {
-        guard let uuid = UUID(uuidString: id) else { throw SyncFailure.invalid("invalid_workout_uuid") }
-        let previous = try Self.decodeAnchor(anchor)
-        let query = HKAnchoredObjectQueryDescriptor(predicates: [.sample(type: HKObjectType.workoutType(), predicate: HKQuery.predicateForObject(with: uuid))], anchor: previous, limit: 1)
-        let result = try await query.result(for: health)
-        return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
-                          anchor: try NSKeyedArchiver.archivedData(withRootObject: result.newAnchor, requiringSecureCoding: true), limit: 1)
-    }
     /// Complete sample read scoped to one Workout. This is the only read used
     /// by the bundle path; it returns every visible sample, not a page.
     func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] {
@@ -405,25 +360,6 @@ actor HealthKitClient: HealthKitReading {
         return samples
     }
 
-    /// One query per quantity type returns every visible child point and its
-    /// parent sample. This is the batched equivalent of RQrun's per-metric
-    /// arrays; it never issues one HealthKit query per sample.
-    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] {
-        let query = HKQuantitySeriesSampleQueryDescriptor(predicate: .quantitySample(type: type,
-            predicate: HKQuery.predicateForObjects(from: workout)), options: [.includeSample])
-        var bySample: [String: [JSON]] = [:]
-        for try await value in query.results(for: health) {
-            guard let sample = value.sample else { throw SyncFailure.localState("series_parent_missing") }
-            let quantity = try Normalizer.quantity(value.quantity, type: type.identifier)
-            bySample[sample.uuid.uuidString.lowercased(), default: []].append(.object([
-                "startUs": .int(Normalizer.us(value.dateInterval.start)),
-                "endUs": .int(Normalizer.us(value.dateInterval.end)),
-                "value": quantity["value"],
-                "unit": quantity["unit"],
-            ]))
-        }
-        return bySample
-    }
 
     /// Protocol-6 variant of `bundleSeries`: one query still returns every
     /// visible point, but each parent sample is kept as the group header.
@@ -464,55 +400,6 @@ actor HealthKitClient: HealthKitReading {
         }
     }
 
-    func captureSeries(type: HKQuantityType, workout: HKWorkout, store: OutboxStore) async throws -> [String: [JSON]] {
-        let name = try await store.beginFactCapture(), url = try await store.fileURL(name)
-        let file = try FileHandle(forWritingTo: url); defer { try? file.close() }
-        var bySample: [String: [JSON]] = [:], count = 0
-        // Points are buffered and flushed in bounded batches: one write plus one
-        // synchronization per batch instead of one per point. The file format is
-        // unchanged (newline-delimited JSON), so an interrupted capture still
-        // leaves a readable prefix.
-        let policy = CaptureSegmentPolicy.standard
-        var buffer = Data(), pending = 0, batchStart = Date()
-        func flush() throws {
-            guard !buffer.isEmpty else { return }
-            try file.write(contentsOf: buffer)
-            try file.synchronize()
-            buffer.removeAll(keepingCapacity: true)
-            pending = 0
-            batchStart = Date()
-            seriesCaptureFlushes += 1
-            seriesCaptureSynchronizations += 1
-        }
-        // A cancelled or failed read must not silently drop buffered points: the
-        // capture prefix stays durable, exactly as the per-point writer did.
-        defer { try? flush() }
-        let query = HKQuantitySeriesSampleQueryDescriptor(predicate: .quantitySample(type: type, predicate: HKQuery.predicateForObjects(from: workout)), options: [.includeSample])
-        for try await value in query.results(for: health) {
-            try Task.checkCancellation()
-            guard count < 1_000_000 else { throw SyncFailure.invalid("series_point_limit") }
-            let quantity = try Normalizer.quantity(value.quantity, type: type.identifier)
-            let point: JSON = .object(["startUs": .int(Normalizer.us(value.dateInterval.start)), "endUs": .int(Normalizer.us(value.dateInterval.end)), "value": quantity["value"], "unit": quantity["unit"]])
-            var capture: [String: JSON] = ["point": point, "type": .string(type.identifier), "workoutID": .string(workout.uuid.uuidString.lowercased())]
-            if let sample = value.sample { capture["sampleUUID"] = .string(sample.uuid.uuidString.lowercased()) }
-            var bytes = try JSON.object(capture).data(); bytes.append(10)
-            buffer.append(bytes); pending += 1; count += 1; seriesCapturePoints += 1
-            if pending >= policy.maxRecords || buffer.count >= policy.maxBytes || Date().timeIntervalSince(batchStart) >= policy.maxInterval {
-                try flush()
-            }
-            guard let sample = value.sample else { throw SyncFailure.localState("series_parent_missing") }
-            bySample[sample.uuid.uuidString.lowercased(), default: []].append(point)
-        }
-        try flush()
-        return bySample
-    }
-    /// Technical counters for the capture batch policy: flush and
-    /// synchronization counts must track batches, not points.
-    func captureBatchCounters() async -> (seriesFlushes: Int, seriesSynchronizations: Int, seriesPoints: Int,
-                                          routeFlushes: Int, routeSynchronizations: Int, routePoints: Int) {
-        (seriesCaptureFlushes, seriesCaptureSynchronizations, seriesCapturePoints,
-         routeCaptureFlushes, routeCaptureSynchronizations, routeCapturePoints)
-    }
 
     /// v4 route read: no capture store, no per-route file. Each route is read
     /// to exhaustion and returned with its own coverage. A route-level failure
@@ -567,57 +454,6 @@ actor HealthKitClient: HealthKitReading {
         }
         return result
     }
-    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead {
-        // limit+1 detects truncation at the actual bundle contract (16).
-        let query = HKSampleQueryDescriptor(predicates: [.sample(type: HKSeriesType.workoutRoute(), predicate: HKQuery.predicateForObjects(from: workout))], sortDescriptors: [], limit: 17)
-        let objects = try await query.result(for: health)
-        guard objects.count <= 16, objects.allSatisfy({ $0 is HKWorkoutRoute }) else { throw SyncFailure.invalid("route_count_limit") }
-        var result = HealthRouteRead(enumerationCompleted: true)
-        for object in objects {
-            guard let route = object as? HKWorkoutRoute else { throw SyncFailure.invalid("unsupported_route") }
-            let id = route.uuid.uuidString.lowercased(), key = "route:" + id
-            var points: [RoutePoint] = []
-            do {
-                let checkpoint = try await store.routeCapture(id, expected: route.count)
-                let capture = try RouteCaptureFile(url: await store.fileURL(checkpoint.file))
-                // Successful exhaustion is the descriptor's completion signal.
-                // Cancellation/error never executes finish or marks complete.
-                for try await location in HKWorkoutRouteQueryDescriptor(route).results(for: health) {
-                    try Task.checkCancellation()
-                    let point = try Self.point(location)
-                    try capture.append(point); points.append(point)
-                }
-                try capture.finish(expected: route.count)
-                routeCaptureFlushes += capture.flushes
-                routeCaptureSynchronizations += capture.synchronizations
-                routeCapturePoints += capture.pointsWritten
-                try await store.updateRouteCapture(id, count: points.count, completed: true)
-                result.routes.append(HealthRouteBundle(id: id, source: route.sourceRevision.source.bundleIdentifier, points: points, provenance: Normalizer.source(route)))
-                var coverage = WorkoutCoverage.result(count: points.count, expected: route.count)
-                coverage.localPersisted = true
-                var issues: Set<String> = []
-                for index in points.indices {
-                    let point = points[index]
-                    if point.recordedAtUs < Normalizer.us(workout.startDate) { issues.insert("before_workout") }
-                    if point.recordedAtUs > Normalizer.us(workout.endDate) { issues.insert("after_workout") }
-                    if index > 0 {
-                        if point.recordedAtUs == points[index-1].recordedAtUs { issues.insert("timestamp_equal") }
-                        if point.recordedAtUs < points[index-1].recordedAtUs { issues.insert("timestamp_regression") }
-                    }
-                }
-                coverage.diagnostics = issues.sorted(); result.coverage[key] = coverage
-            } catch {
-                let code = (error as? SyncFailure).map { failure -> String in
-                    switch failure { case .invalid(let code), .localState(let code): return code; case .receiptMismatch: return "receipt_mismatch" }
-                } ?? (error is CancellationError ? "cancelled" : "route_query_failed")
-                try await store.updateRouteCaptureIfPresent(id, count: points.count, error: code)
-                var coverage = WorkoutCoverage.result(count: points.count, completed: false, expected: route.count)
-                coverage.localPersisted = true; coverage.errorCode = code; result.coverage[key] = coverage
-                if error is CancellationError { throw error }
-            }
-        }
-        return result
-    }
     private static func point(_ location: CLLocation) throws -> RoutePoint {
         let seconds = location.timestamp.timeIntervalSince1970
         guard seconds.isFinite, seconds >= -62135596800, seconds < 253402300800 else { throw SyncFailure.invalid("invalid_route_timestamp") }
@@ -627,58 +463,20 @@ actor HealthKitClient: HealthKitReading {
             verticalAccuracy: location.verticalAccuracy >= 0 ? location.verticalAccuracy : nil,
             speed: location.speed >= 0 ? location.speed : nil, course: location.course >= 0 && location.course < 360 ? location.course : nil)
     }
-    func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws {
+    /// One observer on the Workout type with immediate background delivery.
+    /// The notification carries no facts; the handler decides what to read.
+    func observeWorkouts(_ handler: @escaping @Sendable () async -> Void) async throws {
         guard observers.isEmpty else { return }
-        var backgroundFailed = false
-        for type in Self.types + [HKSeriesType.workoutRoute()] {
-            let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
-                // Notifications contain no facts. The handler journals bounded
-                // anchored results; periodic foreground catch-up remains needed.
-                let delivery = HealthDeliveryCompletion(completion)
-                Task { await handler(); delivery.finish() }
-            }
-            health.execute(query); observers.append(query)
-            do { try await health.enableBackgroundDelivery(for: type, frequency: .immediate) }
-            catch { backgroundFailed = true }
+        let type = HKObjectType.workoutType()
+        let query = HKObserverQuery(sampleType: type, predicate: nil) { _, completion, error in
+            let delivery = HealthDeliveryCompletion(completion)
+            Task { if error == nil { await handler() }; delivery.finish() }
         }
-        if backgroundFailed { throw SyncFailure.localState("background_delivery_unavailable") }
+        health.execute(query); observers.append(query)
+        do { try await health.enableBackgroundDelivery(for: type, frequency: .immediate) }
+        catch { throw SyncFailure.localState("background_delivery_unavailable") }
     }
 
-    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute {
-        let spool = try RouteSpool(directory: directory)
-        for try await location in HKWorkoutRouteQueryDescriptor(route).results(for: health) {
-            try Task.checkCancellation()
-            // Negative accuracy/speed/course are Apple's unavailable sentinels.
-            let point = RoutePoint(recordedAtUs: Normalizer.us(location.timestamp), latitude: location.coordinate.latitude, longitude: location.coordinate.longitude,
-                altitude: location.verticalAccuracy >= 0 ? location.altitude : nil,
-                horizontalAccuracy: location.horizontalAccuracy >= 0 ? location.horizontalAccuracy : nil,
-                verticalAccuracy: location.verticalAccuracy >= 0 ? location.verticalAccuracy : nil,
-                speed: location.speed >= 0 ? location.speed : nil, course: location.course >= 0 && location.course < 360 ? location.course : nil)
-            try spool.append([point])
-        }
-        return try spool.finish()
-    }
-    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] {
-        let id = Wire.id(), type = sample.quantityType.identifier
-        let path = "/v2/sync/series/" + id
-        var archive = DetailSpool(directory: store.directory)
-        let query = HKQuantitySeriesSampleQueryDescriptor(predicate: .quantitySample(type: sample.quantityType, predicate: HKQuery.predicateForObject(with: sample.uuid)))
-        for try await value in query.results(for: health) {
-            let q = try Normalizer.quantity(value.quantity, type: type)
-            try archive.append(Wire.object([("startUs", .int(Normalizer.us(value.dateInterval.start))), ("endUs", .int(Normalizer.us(value.dateInterval.end))), ("value", q["value"]), ("unit", q["unit"])]))
-        }
-        try archive.flush()
-        guard archive.count == sample.count, let last = archive.chunks.last else { throw SyncFailure.invalid("quantity_series_incomplete") }
-        var registration = scope.fields; registration.removeValue(forKey: "protocolVersion")
-        registration.merge(["seriesID": .string(id), "sampleType": .string(type), "sampleUUID": .string(sample.uuid.uuidString.lowercased())]) { _, b in b }
-        let file = try await store.savePayload(JSON.object(registration).data())
-        var operations: [OutboxOperation] = [.request(.init(method: "POST", path: "/v2/sync/series", file: file, expected: ["seriesID": .string(id), "sampleType": .string(type), "sampleUUID": .string(sample.uuid.uuidString.lowercased())]))]
-        operations += archive.uploadOperations(path: path, mediaType: "application/x-rai-health-series+ndjson", idKey: "seriesID", id: id, digestKey: "chunkSHA256")
-        let seal: JSON = .object(["chunkCount": .int(Int64(archive.chunks.count)), "totalPoints": .int(archive.count), "manifestSHA256": .string(last.manifest)])
-        let sealFile = try await store.savePayload(seal.data())
-        operations.append(.request(.init(method: "POST", path: path + "/seal", file: sealFile, expected: ["seriesID": .string(id), "ingestStatus": .string("sealed"), "manifestSHA256": .string(last.manifest), "totalPoints": .int(archive.count)])))
-        return operations
-    }
 }
 
 #if DEBUG

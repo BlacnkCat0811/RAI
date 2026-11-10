@@ -215,22 +215,23 @@ paths:
       summary: Accept one raw protocol-6 Workout payload by UUID
       operationId: acceptWorkoutIngest
       description: >-
-        First successful reception of an HKWorkout UUID in this dataset is
-        authoritative. The multipart field is `file` with the raw protocol-6
-        JSON document exactly as specified by contracts/sync-v6.md. Only the
-        wire envelope (identity, epochs, protocolVersion 6, UTF-8, duplicate
-        keys, nesting, size) is validated before the acceptance transaction;
-        samples, streams and routes are parsed by the Worker. The 200 response
-        is written only after the acceptance row commits. Clients send this
-        request only during an explicit foreground sync: one request per
-        Workout, no status pre-read, automatic retry, background transfer or
-        analysis polling. A 200 is the final upload result. A duplicate UUID
-        replays the original acceptedAt even when its bytes differ, and never
-        replaces the stored payload. A Workout that already exists without an
-        ingest row returns 409 workout_ingest_missing_receipt, never a successful
-        upload receipt. A root tombstone returns 409
-        workout_deleted. The endpoint is enabled only while the runtime
-        handshake reports workoutUUIDIngestAccepting=true.
+        The multipart field is `file` with the raw protocol-6 JSON document
+        exactly as specified by contracts/sync-v6.md. Only the wire envelope
+        (identity, epochs, protocolVersion 6, UTF-8, duplicate keys, nesting,
+        size) is validated before the acceptance transaction; samples, streams
+        and routes are parsed by the Worker. The 200 response is written only
+        after the acceptance row commits. Re-sending byte-identical content, or
+        sending while the previous copy is still waiting for the Worker,
+        replays the original acceptedAt. A newer snapshot replaces the stored
+        payload when the previous upload was rejected, or was committed with
+        different bytes (for example the Watch finished syncing heart rate
+        after the first upload); the row returns to `accepted`, is parsed
+        again and queues a new analysis. A replacement the facts contradict is
+        rejected by the Worker and leaves the earlier facts in place. Transient
+        Worker failures are retried with a capped backoff and never become a
+        permanent rejection. A Workout that already exists without an ingest
+        row returns 409 workout_ingest_missing_receipt, never a successful
+        upload receipt. A root tombstone returns 409 workout_deleted.
       requestBody:
         required: true
         content:
@@ -245,7 +246,7 @@ paths:
                   description: Exactly one raw protocol-6 JSON file part; shape is defined by contracts/sync-v6.md.
       responses:
         '200':
-          description: Durable first acceptance receipt, or its immutable replay
+          description: Durable acceptance receipt, or the replay of an identical upload
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WorkoutIngestReceipt'}
@@ -279,6 +280,51 @@ paths:
               schema: {$ref: '#/components/schemas/WorkoutIngestStatus'}
         '401': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/RateLimited'}
+        default: {$ref: '#/components/responses/Error'}
+  /v2/sync/workout-ingests/status:
+    post:
+      summary: Read the ingest status of up to 200 Workout UUIDs at once
+      operationId: getWorkoutIngestStatuses
+      description: >-
+        One request settles a whole list. Items come back in request order;
+        a UUID the server has never seen answers `not_found` (never an error,
+        and never deletion evidence). Other states follow getWorkoutIngest.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workoutIDs]
+              properties:
+                workoutIDs:
+                  type: array
+                  minItems: 1
+                  maxItems: 200
+                  items: {$ref: '#/components/schemas/ID'}
+      responses:
+        '200':
+          description: One status per requested UUID
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [workoutID, ingestStatus]
+                      properties:
+                        workoutID: {$ref: '#/components/schemas/ID'}
+                        ingestStatus: {type: string, enum: [accepted, committed, rejected, deleted, already_imported, not_found]}
+                        acceptedAt: {type: string, format: date-time}
+                        commitRevision: {type: integer, format: int64}
+                        errorCode: {type: string}
+        '401': {$ref: '#/components/responses/Error'}
         '422': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}

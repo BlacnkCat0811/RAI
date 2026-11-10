@@ -85,7 +85,8 @@ step "stop API and Worker"
 "$rai_root/scripts/local/stack.sh" stop
 
 step "write machine-readable evidence"
-evidence="$rai_root/docs/evidence/local-dev-environment.json"
+mkdir -p "$rai_local/evidence"
+evidence="$rai_local/evidence/local-dev-environment.json"
 python3 - "$evidence" "$server_version" "$applied" "$total" "$restored_version" "$restored_tables" "$dump" <<'PY'
 import json, sys, datetime, hashlib, pathlib
 path, server_version, applied, total, restored_version, tables, dump = sys.argv[1:8]

@@ -30,22 +30,33 @@ type Queue interface {
 	AdvanceAnalysisDay(context.Context, time.Time) error
 }
 
+// recoveryInterval is how often leases are recovered and the analysis day is
+// advanced. It is a variable only so tests can shorten it.
+var recoveryInterval = 15 * time.Second
+
 var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "analysis.training_state", "training.plan", wf.JobKind, tl.JobKind, tl.StateJobKind, pf.JobKind, ve.JobKind, rc.JobKind, rd.JobKind, modelmanifest.StackJobKind}
 
 // Run uses one processing slot. The short poll waits on cancellation and the
 // independent renewal loop cancels calculation immediately after lease loss.
 //
-// The caller passes one explicit as-of instant so day advancement and analysis
-// snapshots stay deterministic for the whole run; the value is threaded
-// unchanged into every downstream operation.
+// Run pins the whole run to one explicit as-of instant. It is only meant for
+// deterministic harnesses; a long-lived worker must use RunWithClock, otherwise
+// day advancement never moves past the instant the process started.
 func Run(ctx context.Context, q Queue, log *slog.Logger, asOf time.Time) error {
+	return RunWithClock(ctx, q, log, func() time.Time { return asOf })
+}
+
+// RunWithClock reads the clock again for every day advancement and every
+// claimed job. One job still sees a single instant, so its calculation stays
+// deterministic, but the instant moves forward between jobs and across
+// midnight.
+func RunWithClock(ctx context.Context, q Queue, log *slog.Logger, now func() time.Time) error {
 	log.Info("worker_started", "handlers", len(kinds), "processing_slots", 1)
 	go runWorkoutIngests(ctx, q, log)
 	poll := time.NewTicker(time.Second)
 	defer poll.Stop()
-	recovery := time.NewTicker(15 * time.Second)
+	recovery := time.NewTicker(recoveryInterval)
 	defer recovery.Stop()
-	elapsed := func() time.Duration { return time.Since(asOf) }
 	recoverExpired := func() {
 		n, e := q.RequeueExpired(ctx)
 		if e != nil && ctx.Err() == nil {
@@ -54,7 +65,7 @@ func Run(ctx context.Context, q Queue, log *slog.Logger, asOf time.Time) error {
 		if n > 0 {
 			log.Info("leases_recovered", "count", n)
 		}
-		if e = q.AdvanceAnalysisDay(ctx, asOf); e != nil && ctx.Err() == nil {
+		if e = q.AdvanceAnalysisDay(ctx, now().UTC()); e != nil && ctx.Err() == nil {
 			log.Warn("analysis_day_advance_failed", "reason", "database_unavailable")
 		}
 	}
@@ -71,11 +82,11 @@ func Run(ctx context.Context, q Queue, log *slog.Logger, asOf time.Time) error {
 			continue
 		case <-poll.C:
 		}
-		claimStart := elapsed()
+		claimStart := time.Now()
 		l, e := q.Claim(ctx, kinds)
 		if e == nil {
-			log.Info("job_claim", "component", "worker", "operation", "claim", "status", "claimed", "duration_ms", (elapsed() - claimStart).Milliseconds())
-			Process(ctx, q, l, log, asOf)
+			log.Info("job_claim", "component", "worker", "operation", "claim", "status", "claimed", "duration_ms", time.Since(claimStart).Milliseconds())
+			Process(ctx, q, l, log, now().UTC())
 			continue
 		}
 	}
