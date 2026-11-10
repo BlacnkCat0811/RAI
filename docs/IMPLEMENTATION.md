@@ -1572,3 +1572,17 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 验证库终态（`rai_sim_v6`，两轮 suite 各接受 2 条 Workout 后）：`workout_ingests` 4 行全部 committed、attempts=1，payload_bytes 1914/2159 与 `octet_length(raw_json)` 一致，commit_revision 1..4；`workouts` 4、`health_samples` 6、`workout_routes` 2、`series_chunks` 2；jobs `analysis.workout` ×4 与 `analysis.training_state` ×6 全 succeeded；`analysis_results` 244。重复 UUID 重放未新增行。库在证据记录完成后已按清理流程删除；截图与 xcresult 保留。
 
 测试与门禁：`xcrun swift test --filter ProductPresentationTests` 8/8；`scripts/local/test.sh swift` PASS（214 tests / 33 suites，3 s）；`scripts/local/test.sh gate` PASS（Go race/vet/依赖边界，15 s）；`scripts/local/test.sh simupload` PASS（3/3，91 s）。仍未验证：真实 HealthKit 读取与来源分类、真实云端部署、真机 UI 手动上传、性能与部署验收。
+
+### 云端部署 — rai-coach-20261108（2026-11-10，schema 50 / Workout 同步只保留 v6）
+
+用户要求“提交所有改动到远程仓库不用进行任何测试，并且部署”，并在提问中选定部署目标为云端 `www.tpandmr.xyz/v2/`（服务器 `/opt/rai-coach-20261108`，Compose project `rai-coach-20261108`）。本节记录实际动作与观测，取代上一节“云端仍是旧版”的表述。
+
+- 源码与提交：工作树 130 项改动（含删除 v4 bundle 引擎、新增 `workout_import_projection`、iOS `RawStreamSyncEngine`/`WorkoutPayloadTransport`）提交为 `06c1a3c` 并推送 `d692d14..06c1a3c`；按用户要求未运行任何 Go/Swift/集成测试。
+- 构建：Go 1.27.3 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`，`-trimpath -buildvcs=false -ldflags='-s -w -X main.sourceCommit=06c1a3c'`，二进制 SHA-256 `b625497d3030f7fabfa6d2c1b6a52ff8345271fdeabe8d66f328405224601f01`（16,949,408 B），上传后服务器 `sha256sum` 一致。镜像 `rai-coach:20261110-06c1a3c`（ID `b69347e93140`，仍由 scratch 构建）。
+- 部署文件一致性：部署前比对 `deploy/postgres/{roles.sql,runtime-grants.sql,bootstrap.sh}`、`deploy/release/compose.yaml`、`deploy/cloud-test/compose.yaml` 的本机与服务器 SHA-256，五项完全相同，因此本轮不需要同步模板或刷新授权。
+- 备份：部署前 `pg_dump -Fc` 到 `/opt/rai-coach-20261108/backup-before-06c1a3c-20261110-135200.dump`（33,108,041 B）；保留 `rai.bak-06c1a3c`（旧二进制 17,010,848 B）与 `environment.bak-06c1a3c`。
+- 迁移：无新 migration（`apps/server/migrations` 仍到 `00050_workout_ingests.sql`，`RequiredSchemaVersion=50`）。`admin migrate` 无变更，`admin migrate-status` 50 份全部 `applied`。
+- 运行态：`environment` 的 `RAI_RELEASE_IMAGE` 改为 `rai-coach:20261110-06c1a3c`，`./dc up -d --wait api worker` 后 api/worker 均 healthy；容器内 `probe --ready`、`worker-ready` 退出码 0；`rai version` 报告 `schema=50`、`source_commit=06c1a3c`、`openapi=1.13.2`、`sync_protocol=3`、analysis `workout.bundle/v3`。公网 `GET https://www.tpandmr.xyz/ready` 200、`/health` 200；重启后 3 分钟窗口内 API/Worker 日志无 WARN/ERROR。
+- 兼容性边界（重要）：握手仍宣告 `workoutPayloadVersion=6`，服务端 `POST /v2/sync/workout-ingests/{id}` 只接受 `protocolVersion=6` 原始载荷。部署后日志立即出现设备侧 `422 unsupported_payload`：现网安装的 iOS 包仍是 v4/v5 客户端，在 App 用本仓库源码重新构建并安装前无法上传 Workout。已接受的旧数据、`workout_ingests` 历史与删除屏障不受影响。
+- `RAI_WORKOUT_UUID_INGEST_MODE` 在硬切后已从 Go 代码移除，服务器 `environment` 中残留的 `export RAI_WORKOUT_UUID_INGEST_MODE=uuid` 现为惰性变量，未删除。
+- 未验证/未授权：按用户要求未运行任何测试；未用真实 iPhone 验证 v6 读取/上传/后台传输；未重建或安装 iOS 包，因此“接收→worker 提交→分析刷新”的端到端链路本轮无实测证据；未做带凭证的合成上传以免写入真实 dataset。部署不代表真机、模型或产品验收。
