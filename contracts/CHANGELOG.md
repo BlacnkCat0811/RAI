@@ -1,3 +1,9 @@
+## 2026-11-10 — v6 顶层 metadata 恢复上传（environment 投影必填）
+
+- iOS `RawStreamSyncEngine` 之前以 `metadata: nil` 组包，根记录的室内/室外与天气从未上传；服务端 `workoutfeatures` 的 environment 投影只读该字段，因此这些 Workout 的 `environment.state` 恒为 `missing`，load/performance/CS/endurance/VO2 全部按 `environment_unknown` 降级。首次接收的原始字节是唯一权威副本，已入库记录无法回填。
+- 客户端改为用 `Normalizer.rawMetadata(workout.metadata, scope: .workout)` 编码顶层 metadata：登记 key 走 registry 类型化编码（数量为 `{value, unit}`），未登记 key 以 JSON-safe 形式保留、不阻断整包（fail-open，与逐样本/活动 metadata 及“未知字段不拒绝整包”的既有规则一致）。带 key 后缀的失败码在到达界面/诊断前被截成稳定前缀，key 名不外泄。
+- `contracts/sync-v6.md` 新增 3.1.1：线格式上 `metadata` 仍可省略，但对 iOS 采集的 Apple Watch 跑步是分析必填，并澄清第 1 节“去掉 metadata”只指逐样本 metadata。新增共享黄金向量 `contracts/fixtures/workout-bundle-v6-metadata.json`，服务端契约测试 `workout_bundle_v6_metadata_test.go` 断言客户端字节解码后 `environment.state=present`。
+
 ## 2026-11-10 — 状态快照语义与产品空态澄清 / OpenAPI 1.13.2
 
 - `GET /v2/sync/workout-ingests/{workoutID}` 的 `analysisStatus`/`analysisJobIDs` 明确为接收提交时的快照，Worker 完成后不变；实时状态读 `/v2/jobs/{id}`，已发布结果读 `/v2/analysis/workouts/{id}`。服务端行为不变（回执与历史语义保留），只澄清合同文本。

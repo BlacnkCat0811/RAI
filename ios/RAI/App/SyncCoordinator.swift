@@ -362,19 +362,24 @@ actor SyncCoordinator {
         return outcomes
     }
 
+    // Failure codes reach the workout detail row and the diagnostic report, so
+    // a keyed metadata code is reduced to its stable prefix first.
     private nonisolated static func uploadCode(_ error: any Error) -> String {
         if let failure = error as? SyncFailure {
             switch failure {
-            case .invalid(let code), .localState(let code): return code
+            case .invalid(let code), .localState(let code): return UserFacingText.stableCode(code)
             case .receiptMismatch: return "receipt_mismatch"
             }
         }
-        if let failure = error as? UploadError { return failure.code }
+        if let failure = error as? UploadError { return UserFacingText.stableCode(failure.code) }
         return "sync_failed"
     }
 
     private nonisolated func code(_ failure: SyncFailure) -> String {
-        switch failure { case .invalid(let value), .localState(let value): return value; case .receiptMismatch: return "receipt_mismatch" }
+        switch failure {
+        case .invalid(let value), .localState(let value): return UserFacingText.stableCode(value)
+        case .receiptMismatch: return "receipt_mismatch"
+        }
     }
 }
 

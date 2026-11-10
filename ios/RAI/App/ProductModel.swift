@@ -6,6 +6,15 @@ import UIKit
 import os
 
 enum UserFacingText {
+  /// A failure code can carry a raw HealthKit metadata key as a suffix
+  /// (`unsupported_workout_metadata_unit:<key>`). The workout detail view
+  /// prints the code verbatim and the diagnostic report copies it, so the
+  /// suffix is dropped here: the key name never leaves this device.
+  static func stableCode(_ code: String) -> String {
+    guard let separator = code.firstIndex(of: ":") else { return code }
+    return String(code[..<separator])
+  }
+
   static func error(_ code: String) -> String {
     if code.hasPrefix("keychain_") || code.hasPrefix("session_keychain_") { return "钥匙串读写失败" }
     if code.hasPrefix("unsupported_workout_metadata_types") { return "运动记录包含暂不支持的健康元数据" }
@@ -38,7 +47,11 @@ enum UserFacingText {
       "https_required": "服务地址必须使用加密连接",
       "source_policy_pending": "来源尚未确认是 Apple Watch 原始采集，原记录待处理",
       "source_policy_excluded": "这条记录不是 Apple Watch 原生跑步，已按来源策略排除，不会上传",
-      "metadata_requires_review": "记录包含未审核的元数据，原始数据已留在本机待处理",
+      "metadata_requires_review": "记录包含未审核的元数据，本条记录未上传，原始数据已留在本机待处理",
+      "unsupported_workout_metadata_type": "运动元数据类型无法识别，本条记录未上传，原始数据已留在本机",
+      "unsupported_workout_metadata_unit": "运动元数据的单位与记录不符，本条记录未上传，原始数据已留在本机",
+      "nonfinite_workout_metadata": "运动元数据包含无效数值，本条记录未上传，原始数据已留在本机",
+      "workout_metadata_limit": "运动元数据条目超过上限，本条记录未上传，原始数据已留在本机",
       "unsupported_integrity_contract": "服务尚未支持数据完整性协议",
       "workout_core_change_requires_review": "运动原始主体发生变化，需要核对",
       "route_count_incomplete": "路线读取尚未完整，已采集点已保留",

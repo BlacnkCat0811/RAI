@@ -32,9 +32,10 @@ RQrun 的打包过程是：读一次 Workout，按 series 循环，每个点只�
 - **不携带 observation / coverage / completeness / 锚点 / CaptureManifest**：v6 是
   原始序列载荷，不是采集证明。
 
-与 v4 相比，v6 去掉了 `uuid`、`source`、`metadata`、`sourceTable`、`metadataTable`、
-顶层 `series` 和 `routeID`。与 v5 相比，v6 去掉了逐样本 UUID、来源/元数据索引和
-series 父引用；时间增量、三元素点数组和顶层来源仍然保留。
+与 v4 相比，v6 去掉了逐样本的 `uuid`、`source`、`metadata`，以及 `sourceTable` /
+`metadataTable` 索引表、顶层 `series` 和逐样本 `routeID`；顶层 `source` 与顶层
+`metadata` 都保留。与 v5 相比，v6 去掉了逐样本 UUID、来源/元数据索引和 series 父
+引用；时间增量、三元素点数组和顶层来源仍然保留。
 
 ## 2. 传输与协商
 
@@ -122,6 +123,24 @@ v6 字节仍遵循“原始载荷落库、服务端只解释已知字段、未�
 `workout` 至少包含合法的 `activityType` 与 `durationUs`；未知字段保留在原始载荷中。
 可选 `activities` 保留分段的时间、时长、configuration、统计和事件，但不携带 `uuid`。
 服务端按原数组下标生成活动的内部身份；额外传入的活动 `uuid` 仅保留在原文，不参与投影。
+
+#### 3.1.1 顶层 `metadata`
+
+线格式上 `metadata` 可以省略，但对 iOS 采集的 Apple Watch 跑步它是分析必填。服务端
+`workoutfeatures` 的 environment 投影只从这里读室内/室外与天气（`HKIndoorWorkout`、
+`HKWeatherTemperature`、`HKWeatherHumidity`）。省略不是“暂时缺省”：它让
+`environment.state` 变成 `missing`，随后 load、performance、CS、endurance、VO2 全部
+按 `environment_unknown` 降级。首次成功接收的原始字节是该 `workoutID` 的唯一权威副本，
+事后重新读取或服务端补写都无法恢复，因此客户端必须上传。
+
+- 允许的 key 由 `contracts/workout-metadata-registry-v2.md` 的 workout scope 决定。
+- 数量型 key 写作 `{ "value": <number>, "unit": "<registry unit>" }`；文本与布尔是标量。
+- 客户端 fail-open：未登记的 key 以 JSON-safe 形式照原样带上，不阻断整包（与逐样本/活动
+  metadata 的既有处理和本节“未知字段不拒绝整包”一致）。登记过的 key 一律按 registry 类型
+  编码，未知 key 不会被丢弃也不影响 environment 投影。
+- 服务端 `projectMetadata` 只保留可 JSON 投影的值，其余静默丢弃，不因此拒绝整包。
+- 共享黄金向量：`contracts/fixtures/workout-bundle-v6-metadata.json`。iOS 的编码结果与
+  服务端的投影/分析结果都对着它断言。
 
 ### 3.2 标量 stream
 
@@ -317,6 +336,10 @@ rai/v1|<datasetID>|<workoutID>|activity|<ordinal>
   RunningStrideLength、RunningVerticalOscillation；RunningSpeed 按既有 fixture
   保持标量。
 - 路线读取一次；室内或没有路线的 Workout 允许空 `routes`。
+- 顶层 `metadata` 用 `Normalizer.rawMetadata(workout.metadata, scope: .workout)` 编码：
+  登记 key 走 registry 类型化编码（数量写作 `{value, unit}`），未登记 key 以 JSON-safe
+  形式保留、不阻断上传；空 metadata 不写该字段（省略等同空）。不使用会抛
+  `metadata_requires_review` 的 `workoutMetadata`：一个陌生 key 不应让整条记录传不上去。
 - 不做逐样本查询、不落盘往返、不生成逐样本 UUID/来源/元数据，不调用
   `Normalizer.source(sample)`。
 - 排序确定：streams 按 type；samples 按 start/end/value；series 组按 start/end/
@@ -349,7 +372,9 @@ rai/v1|<datasetID>|<workoutID>|activity|<ordinal>
 
 ## 9. 验收与测试入口
 
-- 服务端单元测试：`apps/server/internal/syncing/workout_bundle_v6_test.go`；
+- 服务端单元测试：`apps/server/internal/syncing/workout_bundle_v6_test.go`；顶层
+  metadata 的跨语言契约（客户端夹具字节 → 解码 → environment 投影）：
+  `apps/server/internal/syncing/workout_bundle_v6_metadata_test.go`；
   HTTP 能力与入口测试：`apps/server/internal/httpapi/workout_ingest_test.go`；
   真实隔离 PostgreSQL 集成测试：`apps/server/integration/workout_ingest_v6_test.go`。
 - iOS SwiftPM：`ios/RAI/Tests/SyncCoreTests/WorkoutBundleV6Tests.swift` 与

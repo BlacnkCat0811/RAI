@@ -4,10 +4,11 @@ import SyncCore
 @testable import RAI
 
 private func v6Workout(_ start: Date, duration: TimeInterval = 60,
-                       bundleID: String = "com.apple.health") -> HKWorkout {
+                       bundleID: String = "com.apple.health",
+                       metadata: [String: Any]? = [HKMetadataKeyIndoorWorkout: true]) -> HKWorkout {
     let workout = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(duration),
                             duration: duration, totalEnergyBurned: nil, totalDistance: nil,
-                            metadata: [HKMetadataKeyIndoorWorkout: true])
+                            metadata: metadata)
     let source = class_createInstance(HKSource.self, 0) as! HKSource
     source.setValue(bundleID, forKey: "bundleIdentifier")
     source.setValue("Apple Watch", forKey: "name")
@@ -142,7 +143,7 @@ final class RawStreamSyncEngineTests: XCTestCase {
         XCTAssertEqual(json["protocolVersion"].integer, 6)
         XCTAssertEqual(json["workoutID"].text, workout.uuid.uuidString.lowercased())
         XCTAssertEqual(json["source"]["bundleID"].text, "com.apple.health")
-        XCTAssertTrue(json.fields["metadata"] == nil)
+        XCTAssertEqual(json["metadata"], .object([HKMetadataKeyIndoorWorkout: .bool(true)]))
         XCTAssertTrue(json.fields["sourceTable"] == nil)
         XCTAssertTrue(json.fields["series"] == nil)
 
@@ -389,5 +390,74 @@ final class RawStreamSyncEngineTests: XCTestCase {
         XCTAssertEqual(counts.routes, 0)
         XCTAssertTrue(counts.samples.isEmpty)
         XCTAssertTrue(counts.series.isEmpty)
+    }
+
+    // MARK: - Top-level metadata contract
+
+    /// The fixture is the shared golden vector: the Go decoder test asserts the
+    /// same object survives projection and reaches `environment.state=present`.
+    private func metadataFixture() throws -> JSON {
+        let root = URL(filePath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+        let path = root.appending(path: "contracts/fixtures/workout-bundle-v6-metadata.json")
+        return try JSON.decode(Data(contentsOf: path))
+    }
+
+    func testTopLevelMetadataMatchesTheContractFixture() async throws {
+        let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000), duration: 2_400, metadata: [
+            HKMetadataKeyIndoorWorkout: false,
+            HKMetadataKeyWeatherHumidity: HKQuantity(unit: HKUnit.percent(), doubleValue: 0.5),
+            HKMetadataKeyWeatherTemperature: HKQuantity(unit: HKUnit.degreeCelsius(), doubleValue: 16),
+        ])
+        let health = V6Health(workout: workout)
+        let built = try await RawStreamSyncEngine(health: health, scope: scope)
+            .build(id: workout.uuid.uuidString.lowercased())
+        let json = try JSON.decode(built)
+
+        XCTAssertEqual(json["metadata"], try metadataFixture()["metadata"],
+                       "client bytes must carry the metadata the server analysis reads")
+        XCTAssertEqual(json["metadata"]["HKWeatherTemperature"]["unit"].text, "degC")
+        XCTAssertEqual(json["metadata"]["HKWeatherHumidity"]["unit"].text, "1")
+    }
+
+    func testUnknownWorkoutMetadataKeyIsCarriedWithoutBlockingTheUpload() async throws {
+        let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000),
+                                metadata: [HKMetadataKeyIndoorWorkout: true, "HKUnreviewedSyntheticKey": "x"])
+        let health = V6Health(workout: workout)
+        let built = try await RawStreamSyncEngine(health: health, scope: scope)
+            .build(id: workout.uuid.uuidString.lowercased())
+        let metadata = try XCTUnwrap(JSON.decode(built)["metadata"].fields)
+        XCTAssertEqual(metadata[HKMetadataKeyIndoorWorkout], .bool(true),
+                       "registered keys keep their typed encoding")
+        XCTAssertEqual(metadata["HKUnreviewedSyntheticKey"], .string("x"),
+                       "an unregistered key is carried JSON-safely instead of blocking the upload")
+        let counts = await health.counters()
+        XCTAssertFalse(counts.samples.isEmpty, "an unregistered key must not stop the stream reads")
+    }
+
+    func testWorkoutWithoutMetadataOmitsTheTopLevelField() async throws {
+        let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000), metadata: nil)
+        let health = V6Health(workout: workout)
+        let built = try await RawStreamSyncEngine(health: health, scope: scope)
+            .build(id: workout.uuid.uuidString.lowercased())
+        let json = try JSON.decode(built)
+        XCTAssertTrue(json.fields["metadata"] == nil, "an empty metadata object must stay off the wire")
+    }
+
+    func testMetadataFailureCodesStayStableForTheUI() {
+        // The detail row prints the code verbatim and the diagnostic report
+        // copies it, so a keyed code must never carry the key off the device.
+        XCTAssertEqual(UserFacingText.stableCode("unsupported_workout_metadata_unit:HKSyntheticKey"),
+                       "unsupported_workout_metadata_unit")
+        XCTAssertEqual(UserFacingText.stableCode("metadata_requires_review"), "metadata_requires_review")
+
+        let fallback = UserFacingText.error("code_without_a_message")
+        for code in ["metadata_requires_review", "unsupported_workout_metadata_type",
+                     "unsupported_workout_metadata_unit", "nonfinite_workout_metadata",
+                     "workout_metadata_limit"] {
+            XCTAssertNotEqual(UserFacingText.error(code), fallback, "\(code) needs a user-facing reason")
+        }
+        XCTAssertTrue(UserFacingText.error("metadata_requires_review").contains("未上传"))
     }
 }

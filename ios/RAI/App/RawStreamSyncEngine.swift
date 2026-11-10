@@ -44,6 +44,15 @@ struct RawStreamSyncEngine: Sendable {
         guard outcome == WorkoutSourcePolicy.eligible else {
             throw SyncFailure.invalid(outcome == WorkoutSourcePolicy.excluded ? "source_policy_excluded" : "source_policy_pending")
         }
+        // The server's environment projection (indoor/outdoor, weather) reads
+        // only this top-level object, so a Workout without it can never be
+        // qualified. Registered keys are encoded exactly as the metadata
+        // contract types them ({value, unit} for quantities); an unregistered
+        // key is carried through JSON-safely instead of blocking the upload,
+        // matching the v6 rule that unknown fields never reject a bundle and
+        // the fail-open choice already made for activity metadata. The server
+        // drops values it cannot project before they reach the analysis input.
+        let metadata = Normalizer.rawMetadata(workout.metadata, scope: .workout)
         let startUs = Normalizer.us(workout.startDate), endUs = Normalizer.us(workout.endDate)
         guard startUs <= endUs else { throw SyncFailure.invalid("invalid_time_range") }
         let streamTypes = HealthKitClient.quantityTypes
@@ -87,11 +96,9 @@ struct RawStreamSyncEngine: Sendable {
             routes.append(route.points)
         }
 
-        // v6 clients send no metadata; the optional top-level field exists for
-        // other producers and server-side diagnostics.
         return try WorkoutBundleV6.data(
             scope: scope, workoutID: id, startUs: startUs, endUs: endUs,
-            source: source, metadata: nil,
+            source: source, metadata: metadata,
             workout: Normalizer.rawWorkout(workout),
             streams: streams.map { stream in
                 WorkoutStreamV6(type: stream.type, unit: stream.unit, status: stream.status,

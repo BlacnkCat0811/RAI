@@ -748,11 +748,11 @@ final class SyncModel {
     private static func uploadCode(_ error: any Error) -> String {
         if let failure = error as? SyncFailure {
             switch failure {
-            case .invalid(let code), .localState(let code): return code
+            case .invalid(let code), .localState(let code): return UserFacingText.stableCode(code)
             case .receiptMismatch: return "receipt_mismatch"
             }
         }
-        if let failure = error as? UploadError { return failure.code }
+        if let failure = error as? UploadError { return UserFacingText.stableCode(failure.code) }
         return "sync_failed"
     }
     private func apply(_ snapshot: LocalState) {

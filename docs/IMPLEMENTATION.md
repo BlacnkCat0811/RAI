@@ -1586,3 +1586,18 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
 - 兼容性边界（重要）：握手仍宣告 `workoutPayloadVersion=6`，服务端 `POST /v2/sync/workout-ingests/{id}` 只接受 `protocolVersion=6` 原始载荷。部署后日志立即出现设备侧 `422 unsupported_payload`：现网安装的 iOS 包仍是 v4/v5 客户端，在 App 用本仓库源码重新构建并安装前无法上传 Workout。已接受的旧数据、`workout_ingests` 历史与删除屏障不受影响。
 - `RAI_WORKOUT_UUID_INGEST_MODE` 在硬切后已从 Go 代码移除，服务器 `environment` 中残留的 `export RAI_WORKOUT_UUID_INGEST_MODE=uuid` 现为惰性变量，未删除。
 - 未验证/未授权：按用户要求未运行任何测试；未用真实 iPhone 验证 v6 读取/上传/后台传输；未重建或安装 iOS 包，因此“接收→worker 提交→分析刷新”的端到端链路本轮无实测证据；未做带凭证的合成上传以免写入真实 dataset。部署不代表真机、模型或产品验收。
+
+### Workout v6 顶层 metadata 丢失修复（2026-11-10，仅客户端组包 + 合同/测试）
+
+用户 P1 报告“iOS 组包传 `metadata: nil`，根记录的室内/室外与天气没上传，服务端分析仍读这些字段”。排查确认成立且后果比原描述更重：`RawStreamSyncEngine` 以 `metadata: nil` 组包，服务端 `workoutfeatures` 的 environment 投影只读顶层 metadata，于是 `environment.state` 恒为 `missing`，`HKIndoorWorkout` 为 nil 使 `environment_unknown` 进入 windows/qualification 基线，load 之外的 performance、CS、endurance、VO2 全部 ineligible；`workout_ingests` 只接受首次字节，重复 POST 只重放首次 `acceptedAt`，已入库记录无法回填。真机侧另有旁证：`.local/ua1/private/workout-wifi-report.json` 记录真实 Watch 跑步带 6 个 workout scope 内的 metadata key，`workout-before-wifi-report.json` 的 `coverage.metadata` 为 `complete`，说明旧协议曾上传、v6 全丢。
+
+本轮按用户指定范围实施（不含历史回填）：
+
+1. 客户端组包：`ios/RAI/App/RawStreamSyncEngine.swift` 在来源门禁之后调用 `Normalizer.rawMetadata(workout.metadata, scope: .workout)` 并把结果传给 `WorkoutBundleV6.data`，替换原 `metadata: nil`。fail-open：登记 key 按 registry 类型编码（数量为 `{value, unit}`，服务端 `environment()` 照常读取），未登记 key 以 JSON-safe 形式保留、不阻断整包——`workoutMetadata` 的 fail-closed 会让一个陌生 key 令整条记录传不上去，与 v6“未知字段不拒绝整包”相悖，且 `docs/IMPLEMENTATION.md` 已记录过 iOS 27 新增 workout key 触发白名单拒绝、导致该页之后 stream 永久停读的事故。空 metadata 不写该字段（省略等同空），行为与旧字节一致。
+2. 失败面：`ProductModel.swift` 的 `metadata_requires_review` 文案改为“本条记录未上传”（该码仍可能来自 route/sample metadata 的 fail-closed 校验），并补齐 `unsupported_workout_metadata_type`、`unsupported_workout_metadata_unit`、`nonfinite_workout_metadata`、`workout_metadata_limit` 的提示；新增 `UserFacingText.stableCode`，在 `SyncCoordinator` 与 `RAIApp` 两处 `uploadCode` 把带 key 后缀的码截成稳定前缀，避免 key 名进入详情页“错误代码”行或诊断报告。
+3. 测试：`ios/RAI/AppTests/RawStreamSyncEngineTests.swift` 把原“metadata 必须缺席”的断言改成断言顶层 metadata 内容，新增三条用例——与合同夹具逐字段比对、未登记 key 被保留且不阻断 stream 读取、空 metadata 不写字段——以及一条 UI 码稳定性用例。新增共享黄金向量 `contracts/fixtures/workout-bundle-v6-metadata.json`（protocol 6、apple_watch 来源、三键 metadata、一条 HR stream）。新增 `apps/server/internal/syncing/workout_bundle_v6_metadata_test.go`：解码该夹具 → 断言 metadata 投影 → 组 `RawWorkoutSnapshot` → `Compute` 断言 `environment.state=present`、indoor=false、16 °C、湿度 0.5；反向对照去掉 metadata 时 `state=missing` 且各字段为空。
+4. 合同：`contracts/sync-v6.md` 新增 3.1.1（线格式可省略、running 分析下必填、fail-open 规则、夹具位置），澄清第 1 节“v6 去掉了 metadata”只指逐样本 metadata；第 7 节补客户端编码规则，第 9 节补新测试入口；`contracts/CHANGELOG.md` 记录。
+
+测试与门禁：`go test ./internal/syncing/ ./internal/workoutfeatures/` PASS（1.7 s / 3.9 s，含新用例 `TestV6MetadataReachesEnvironmentPresent`、`TestV6MetadataAbsenceLeavesEnvironmentMissing`）；`go vet` 两包 exit 0。App XCTest 在一次性模拟器 iPhone 17 Pro / iOS 26.5 上跑 `RAITests/RawStreamSyncEngineTests` **15/15 PASS**（结果包 `.local/sim-metadata-derived/raw-stream2.xcresult`），全量 `RAITests` **82 passed / 0 failed / 5 skipped**（`.local/sim-metadata-derived/all.xcresult`，5 项为既有 opt-in 跳过）。`scripts/check-ua1-r3a-privacy.py` PASS（5 文件，0 命中）。
+
+未验：未在真机重跑上传（无真机可用），未对已入库记录做回填（用户明确排除），未部署；fail-open 下登记 key 若载体类型被 Apple 改变会静默降级（该键缺失而非整包失败），目前只由合成用例覆盖。
