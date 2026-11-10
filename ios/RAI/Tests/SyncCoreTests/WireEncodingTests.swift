@@ -114,12 +114,12 @@ struct WireEncodingTests {
         let reference = try referenceObject(fields), produced = try Wire.object(fields)
         #expect(reference == produced)
     }
-    // MARK: - R4 gzip wire contract (client side of the server's bundle limits)
+    // MARK: - gzip wire contract (client side of the server's payload limits)
 
-    /// The bundle wire is one deterministic gzip member inside one multipart
-    /// file part. Byte identity matters because the server hashes the
-    /// *decompressed* bytes as `bundleSHA256`, while the wire bytes may legally
-    /// differ (compression level, gzip header timestamp) for the same JSON.
+    /// The protocol-6 wire is one deterministic gzip member inside one multipart
+    /// file part. Byte identity matters because a retry must reuse the sealed
+    /// artifact, while the wire bytes may legally differ (compression level,
+    /// gzip header timestamp) for the same JSON.
     @Test func gzipBundleWireIsOneDeterministicMember() throws {
         let raw = Data(String(repeating: "{\"synthetic\":true}\n", count: 512).utf8)
         let first = try Wire.gzip(raw)
@@ -134,7 +134,7 @@ struct WireEncodingTests {
         // Exactly one member: no second gzip magic after the first member's header.
         #expect(!first.dropFirst(10).dropLast(8).starts(with: Data([0x1F, 0x8B])))
 
-        let wire = WorkoutBundleAssembler.multipart(bundle: first, boundary: "rai.wire.test", compressed: true)
+        let wire = WorkoutPayloadTransport.multipart(bundle: first, boundary: "rai.wire.test", compressed: true)
         let text = String(decoding: wire.prefix(160), as: UTF8.self)
         #expect(text.hasPrefix("--rai.wire.test\r\n"))
         #expect(text.contains("name=\"file\""))

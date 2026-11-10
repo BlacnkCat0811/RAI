@@ -113,7 +113,7 @@ func loadWorkoutFeatureFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analys
 		factSources[key][src.Epoch] = src
 		allSources[src.Epoch] = src
 	}
-	rows, err := tx.Query(ctx, `SELECT bundle_sha256, payload->'observation' FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND payload ? 'observation' ORDER BY bundle_sha256 LIMIT 2001`, l.DatasetID, id)
+	rows, err := tx.Query(ctx, `SELECT bundle_sha256, payload->'observation' FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND payload ? 'observation' AND (payload->>'protocolVersion') IS DISTINCT FROM '6' ORDER BY bundle_sha256 LIMIT 2001`, l.DatasetID, id)
 	if err != nil {
 		return err
 	}
@@ -169,18 +169,17 @@ func loadWorkoutFeatureFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analys
 	if err != nil {
 		return err
 	}
-	// A protocol 4/5/6 payload carries the source next to every fact instead of
-	// repeating it in an observation. The latest raw bundle is the current
-	// complete snapshot, so it supplies the same attribution v3 got from its
-	// observation history.
+	// A protocol-6 payload carries one top-level source that every fact inherits
+	// instead of repeating it in an observation. The latest import read model
+	// supplies attribution for the v6 facts; its digest still names the raw bytes.
 	var compactRaw []byte
 	var compactDigest []byte
-	compactErr := tx.QueryRow(ctx, `SELECT bundle_sha256,payload FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND (payload->>'protocolVersion')::int IN (4,5,6) ORDER BY imported_at DESC,bundle_sha256 DESC LIMIT 1`, l.DatasetID, id).Scan(&compactDigest, &compactRaw)
+	compactErr := tx.QueryRow(ctx, `SELECT bundle_sha256,payload FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 AND (payload->>'protocolVersion')::int = 6 ORDER BY imported_at DESC,bundle_sha256 DESC LIMIT 1`, l.DatasetID, id).Scan(&compactDigest, &compactRaw)
 	if compactErr != nil && !errors.Is(compactErr, pgx.ErrNoRows) {
 		return compactErr
 	}
 	if compactErr == nil {
-		table, err := syncing.WorkoutBundlePayloadSourceTable(compactRaw)
+		table, err := workoutImportSources(compactRaw)
 		if err != nil {
 			return analysis.Invalid()
 		}

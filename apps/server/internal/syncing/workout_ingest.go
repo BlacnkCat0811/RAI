@@ -5,28 +5,6 @@ import (
 	"time"
 )
 
-// WorkoutIngestMode chooses the one Workout entry for every client that talks
-// to this process. A dataset is never served by both idempotency rules at once.
-type WorkoutIngestMode string
-
-const (
-	WorkoutIngestLegacy WorkoutIngestMode = "legacy"
-	WorkoutIngestUUID   WorkoutIngestMode = "uuid"
-	WorkoutIngestPaused WorkoutIngestMode = "uuid_paused"
-)
-
-func ParseWorkoutIngestMode(value string) (WorkoutIngestMode, error) {
-	switch WorkoutIngestMode(value) {
-	case WorkoutIngestLegacy:
-		return WorkoutIngestLegacy, nil
-	case WorkoutIngestUUID:
-		return WorkoutIngestUUID, nil
-	case WorkoutIngestPaused:
-		return WorkoutIngestPaused, nil
-	}
-	return "", Fail(422, "unsupported_workout_ingest_mode")
-}
-
 // Acceptance keeps only a bounded backlog. Committed/rejected history retains
 // its raw payload for the exact-byte record but never counts against this
 // parse capacity.
@@ -41,8 +19,8 @@ const (
 	workoutIngestAcceptBacklogRetrySeconds       = 5
 )
 
-// WorkoutIngestEnvelope is the wire-only identity of a protocol-4 payload. It
-// proves UTF-8, no duplicate keys, bounded nesting, protocol 4 and the four
+// WorkoutIngestEnvelope is the wire-only identity of a protocol-6 payload. It
+// proves UTF-8, no duplicate keys, bounded nesting, protocol 6 and the four
 // UUIDs; Workout core, source policy and every projected fact stay with the
 // worker.
 type WorkoutIngestEnvelope struct {
@@ -60,30 +38,15 @@ func DecodeWorkoutIngestEnvelope(raw []byte) (WorkoutIngestEnvelope, error) {
 	if json.Unmarshal(raw, &version) != nil || version.ProtocolVersion == nil {
 		return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
 	}
-	switch *version.ProtocolVersion {
-	case 4:
-		wire, err := decodeV4Envelope(raw)
-		if err != nil {
-			return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
-		}
-		return WorkoutIngestEnvelope{DatasetID: *wire.DatasetID, DatasetEpoch: *wire.DatasetEpoch,
-			CollectorEpoch: *wire.CollectorEpoch, WorkoutID: *wire.WorkoutID, ProtocolVersion: 4}, nil
-	case 5:
-		wire, err := decodeV5Envelope(raw)
-		if err != nil {
-			return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
-		}
-		return WorkoutIngestEnvelope{DatasetID: *wire.DatasetID, DatasetEpoch: *wire.DatasetEpoch,
-			CollectorEpoch: *wire.CollectorEpoch, WorkoutID: *wire.WorkoutID, ProtocolVersion: 5}, nil
-	case 6:
-		wire, err := decodeV6Envelope(raw)
-		if err != nil {
-			return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
-		}
-		return WorkoutIngestEnvelope{DatasetID: *wire.DatasetID, DatasetEpoch: *wire.DatasetEpoch,
-			CollectorEpoch: *wire.CollectorEpoch, WorkoutID: *wire.WorkoutID, ProtocolVersion: 6}, nil
+	if *version.ProtocolVersion != 6 {
+		return WorkoutIngestEnvelope{}, bundleField("protocolVersion", "unsupported_protocol")
 	}
-	return WorkoutIngestEnvelope{}, bundleField("protocolVersion", "unsupported_protocol")
+	wire, err := decodeV6Envelope(raw)
+	if err != nil {
+		return WorkoutIngestEnvelope{}, Fail(422, "unsupported_payload")
+	}
+	return WorkoutIngestEnvelope{DatasetID: *wire.DatasetID, DatasetEpoch: *wire.DatasetEpoch,
+		CollectorEpoch: *wire.CollectorEpoch, WorkoutID: *wire.WorkoutID, ProtocolVersion: 6}, nil
 }
 
 // WorkoutIngestReceipt is the acceptance-time replay. Later parse state never
@@ -119,22 +82,4 @@ type WorkoutIngestOutcome struct {
 func WorkoutIngestBacklogExceeded() error {
 	return &Error{Status: 429, Code: "workout_ingest_backlog_exceeded",
 		RetryAfterSeconds: workoutIngestAcceptBacklogRetrySeconds}
-}
-
-// Accepting reports whether new UUID payloads may be accepted. Status queries
-// and already accepted work remain available in every mode.
-func (m WorkoutIngestMode) Accepting() bool { return m == WorkoutIngestUUID }
-
-// A client that already used the UUID entry must not fall back to the old
-// upload path, which would apply a second idempotency rule to the same dataset.
-func WorkoutUUIDIngestRequired() error {
-	return Fail(409, "workout_uuid_ingest_required")
-}
-
-func WorkoutUUIDIngestPaused() error {
-	return &Error{Status: 503, Code: "workout_uuid_ingest_paused", RetryAfterSeconds: 30}
-}
-
-func WorkoutUUIDIngestDisabled() error {
-	return Fail(409, "workout_uuid_ingest_disabled")
 }

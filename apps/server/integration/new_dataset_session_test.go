@@ -64,7 +64,7 @@ func preparedCredential(t *testing.T) admin.Enrollment {
 	return c
 }
 func deleteBundleRequest(f *fixture, id string) syncing.WorkoutDeleteRequest {
-	return syncing.WorkoutDeleteRequest{ProtocolVersion: 3, DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch, CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: id}
+	return syncing.WorkoutDeleteRequest{DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch, CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: id}
 }
 func requireSyncCode(t *testing.T, e error, code string) {
 	t.Helper()
@@ -132,26 +132,20 @@ func TestNewDatasetIndependentIdentityPreservesHistoryAndFreshImport(t *testing.
 	})
 	handler := httpapi.New(f.s, analysisLog)
 	t.Run("old bundle replay and token fencing", func(t *testing.T) {
-		for _, token := range []string{f.enrollment.Token, c.Token} {
-			status, body := uploadBundleHTTP(t, handler, token, raw)
-			if status != 409 && status != 403 {
-				t.Fatal("old bundle accepted", status, string(body))
-			}
-		}
-		fresh := old
-		fresh.DatasetID = c.DatasetID
-		fresh.DatasetEpoch = c.DatasetEpoch
-		fresh.CollectorEpoch = c.CollectorEpoch
-		freshRaw, _ := json.Marshal(fresh)
-		status, body := uploadBundleHTTP(t, handler, f.enrollment.Token, freshRaw)
-		if status != 409 || !bytes.Contains(body, []byte("dataset_retired")) {
-			t.Fatal("old token not retired", status)
-		}
+		_, e := f.s.ImportWorkoutBundle(ctx, f.p, old, raw)
+		requireSyncCode(t, e, "dataset_retired")
 		p, e := f.s.Authenticate(ctx, c.Token)
 		if e != nil {
 			t.Fatal(e)
 		}
 		_, e = f.s.ImportWorkoutBundle(ctx, p, old, raw)
+		requireSyncCode(t, e, "dataset_forbidden")
+		fresh := old
+		fresh.DatasetID = c.DatasetID
+		fresh.DatasetEpoch = c.DatasetEpoch
+		fresh.CollectorEpoch = c.CollectorEpoch
+		freshRaw, _ := json.Marshal(fresh)
+		_, e = f.s.ImportWorkoutBundle(ctx, f.p, fresh, freshRaw)
 		requireSyncCode(t, e, "dataset_forbidden")
 		bad := fresh
 		bad.DatasetEpoch = f.enrollment.DatasetEpoch
@@ -178,13 +172,10 @@ func TestNewDatasetIndependentIdentityPreservesHistoryAndFreshImport(t *testing.
 		childRaw, _ := json.Marshal(child)
 		_, e = f.s.ImportWorkoutBundle(ctx, f.p, child, childRaw)
 		requireSyncCode(t, e, "dataset_retired")
-		for _, path := range []string{"/v2/sync/workout-bundles/" + old.WorkoutID, "/v2/sync/streams", "/v2/training/plans"} {
-			method := "POST"
-			if path == "/v2/sync/workout-bundles/"+old.WorkoutID {
-				method = "DELETE"
-			}
-			q := httptest.NewRequest(method, path, bytes.NewReader([]byte(`{}`)))
+		for _, path := range []string{"/v2/sync/workout-ingests/" + old.WorkoutID, "/v2/sync/streams", "/v2/training/plans"} {
+			q := httptest.NewRequest(http.MethodPost, path, bytes.NewReader([]byte(`{}`)))
 			q.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
+			q.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, q)
 			if w.Code != 409 || !bytes.Contains(w.Body.Bytes(), []byte("dataset_retired")) {
@@ -219,9 +210,9 @@ func TestNewDatasetIndependentIdentityPreservesHistoryAndFreshImport(t *testing.
 		erased.DatasetEpoch = c.DatasetEpoch
 		erased.CollectorEpoch = c.CollectorEpoch
 		payload, _ := json.Marshal(erased)
-		status, ack := uploadBundleHTTP(t, handler, c.Token, payload)
-		if status != http.StatusOK {
-			t.Fatal("fresh import failed", status, string(ack))
+		ack, e := f.s.ImportWorkoutBundle(ctx, p, erased, payload)
+		if e != nil {
+			t.Fatal("fresh import failed", e)
 		}
 		var receipt syncing.WorkoutImportReceipt
 		if e = json.Unmarshal(ack, &receipt); e != nil || len(receipt.AnalysisJobIDs) != 1 {

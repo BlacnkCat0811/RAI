@@ -133,21 +133,7 @@ func (s HealthKitSource) Validate() error {
 var coverageStates = map[string]bool{"not_queried": true, "observed": true, "no_records_observed": true, "partial": true, "complete": true, "failed": true, "unsupported": true, "unknown": true}
 var metadataKeys = map[string]bool{"HKTimeZone": true, "HKIndoorWorkout": true, "HKAverageMETs": true, "HKElevationAscended": true, "HKElevationDescended": true, "HKWeatherHumidity": true, "HKWeatherTemperature": true, "HKAverageSpeed": true, "HKMaximumSpeed": true}
 
-// Workout metadata registry. Version 1 is the original nine-key HealthKit
-// allowlist above. Version 2 (UA1-R3A) adds two real WorkoutActivity metadata
-// keys that Apple does not publish in the iPhoneOS SDK: their semantics are
-// undocumented, so they are preserved exactly and never interpreted. Nothing
-// is derived from them, and they are accepted on WorkoutActivity metadata only.
-const (
-	WorkoutMetadataRegistryVersion = 2
-	// MetadataRegistryVersionV1 is the meaning of an absent declaration:
-	// clients that predate the field only ever produced version 1 payloads.
-	MetadataRegistryVersionV1 = 1
-	// WorkoutMetadataRegistryV1MaxKeys bounds one metadata object at every
-	// scope; it is unchanged by the version 2 expansion.
-	WorkoutMetadataRegistryV1MaxKeys = 64
-	metadataTextMaxBytes             = 64
-)
+const metadataTextMaxBytes = 64
 
 type metadataScope int
 
@@ -166,15 +152,6 @@ var opaqueActivityIntegerKeys = map[string]bool{"WOIntervalStepSuccessful": true
 // dropped value: the Workout-level, Activity-level and event-level allowlists
 // stay separate so that a later scope change cannot masquerade as compatible.
 func metadataScopeAllowsOpaque(scope metadataScope) bool { return scope == scopeActivity }
-
-func opaqueActivityMetadataPresent(metadata map[string]any) bool {
-	for key := range metadata {
-		if opaqueActivityTextKeys[key] || opaqueActivityIntegerKeys[key] {
-			return true
-		}
-	}
-	return false
-}
 
 // metadataInteger accepts only an exact signed 64-bit integer. A boolean,
 // fractional, exponent-bearing or out-of-range number is rejected instead of
@@ -199,34 +176,6 @@ func metadataInteger(value any) (int64, bool) {
 		return int64(typed), true
 	}
 	return 0, false
-}
-
-// validateMetadataRegistryVersion enforces that a bundle may carry only the
-// keys its declared registry version supports. An absent field means version 1.
-func (b WorkoutBundle) validateMetadataRegistryVersion() error {
-	if b.ProtocolVersion >= 4 {
-		// Protocol 4 and later have no metadata registry: every unknown key is
-		// preserved verbatim instead of being allowlisted by version.
-		return nil
-	}
-	version := MetadataRegistryVersionV1
-	if b.MetadataRegistryVersion != nil {
-		version = *b.MetadataRegistryVersion
-	}
-	if version < MetadataRegistryVersionV1 || version > WorkoutMetadataRegistryVersion {
-		return Fail(422, "unsupported_payload")
-	}
-	if version < 2 && opaqueActivityMetadataPresent(b.Workout.Metadata) {
-		return Fail(422, "unsupported_payload")
-	}
-	if b.Workout.Workout != nil {
-		for _, activity := range b.Workout.Workout.Activities {
-			if version < 2 && opaqueActivityMetadataPresent(activity.Metadata) {
-				return Fail(422, "unsupported_payload")
-			}
-		}
-	}
-	return nil
 }
 
 // Metadata is validated per scope: a key valid at one scope is never silently

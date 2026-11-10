@@ -1,6 +1,6 @@
 # RAI Sync Protocol 4 — 原始 Workout 上传
 
-状态：实现合同。v4 已原地重定义为“原始记录上传”：客户端提交 HealthKit 观察到的原始 Workout JSON，服务端只解释已知字段，未知字段保留在原始载荷中，不做删除同步。运行时以 `GET /v2/handshake` 返回的 `workoutPayloadVersion=4`、`bundleProtocolVersion=4`、`bundleCompact=true` 和实际限额为准。协议 3 继续保留给未升级客户端。
+状态：已撤回（2026-11-10）。Workout 同步只保留 protocol 6（`contracts/sync-v6.md`）；本文描述的 v4 原始载荷、`workout-bundles` 入口与 v4 解码器均已删除。本文仅保留历史线格式与语义记录，服务端不再接受该版本，iOS 也不再构建。
 
 ## 1. 设计目标
 

@@ -59,14 +59,14 @@ public struct WorkoutIngestStatus: Sendable, Equatable {
         raw = value
     }
 
-    /// Acceptance answers only ever use these two states; anything else is not
-    /// a receipt for this exact payload.
+    /// Only a durable first acceptance (or its replay) confirms this upload.
     public init(receipt: JSON, workoutID: String) throws {
-        guard receipt["workoutID"].text == workoutID,
+        guard Self.validID(workoutID), let id = receipt["workoutID"].text, Self.validID(id), id == workoutID,
               let rawState = receipt["ingestStatus"].text, let state = WorkoutIngestState(rawValue: rawState),
               state == .accepted || state == .alreadyImported else { throw SyncFailure.receiptMismatch }
+        guard state != .alreadyImported else { throw SyncFailure.localState("workout_ingest_missing_receipt") }
         let acceptedAt = Self.date(receipt["acceptedAt"])
-        guard state == .alreadyImported || acceptedAt != nil else { throw SyncFailure.receiptMismatch }
+        guard acceptedAt != nil else { throw SyncFailure.receiptMismatch }
         self.workoutID = workoutID; self.state = state; self.acceptedAt = acceptedAt
         commitRevision = nil; analysisStatus = nil; analysisJobIDs = []
         errorCode = receipt["errorCode"].text
@@ -89,107 +89,53 @@ public struct WorkoutIngestStatus: Sendable, Equatable {
     }
 }
 
-/// One POST for the exact multipart body persisted by the Outbox. There is no
-/// payload hash, upload id or ingest id in this lane: the UUID is the identity
-/// and the first accepted bytes are authoritative server-side.
+/// One foreground POST for one freshly built protocol-6 payload. There is no
+/// persisted file, upload id, status pre-read, retry or reconciliation: the
+/// Workout UUID is the identity and a 200 is the final upload result.
 public struct WorkoutIngestDelivery: Sendable {
-    public let store: OutboxStore
+    public static let protocolVersion = 6
     public let api: RAIAPIClient
-    public init(store: OutboxStore, api: RAIAPIClient) { self.store = store; self.api = api }
+    public init(api: RAIAPIClient) { self.api = api }
 
-    /// Returns false when the store's retry delay has not elapsed yet.
-    @discardableResult
-    public func accept(_ id: String, scope: Scope, now: Date = Date()) async throws -> Bool {
+    /// Sends the exact bytes built for this Workout once. Gzip is chosen once
+    /// before the request; an over-limit gzip falls back to the legal plaintext
+    /// multipart body instead of producing a partial upload.
+    public func accept(_ raw: Data, workoutID: String, scope: Scope) async throws -> WorkoutIngestStatus {
         try Task.checkCancellation()
-        guard let task = try await store.claimIngest(id, now: now) else { return false }
-        let boundary = task.bundleBoundary!
-        let identity = "workout-ingest:" + scope.datasetID + ":" + id
+        try Self.validate(raw, workoutID: workoutID, scope: scope)
+        let boundary = "rai.boundary." + Wire.id()
+        let body: Data
+        if let wire = try? WorkoutPayloadTransport.gzipWire(raw: raw, boundary: boundary) {
+            body = wire.wire
+            api.metrics.value("workout_ingest_gzip_derive_ms", wire.milliseconds)
+            api.metrics.value("workout_ingest_gzip_wire_bytes", Double(wire.wire.count))
+        } else {
+            guard raw.count <= Wire.GzipBundle.maxDecodedBytes else { throw SyncFailure.localState("bundle_too_large") }
+            body = WorkoutPayloadTransport.multipart(bundle: raw, boundary: boundary)
+        }
+        api.metrics.value("workout_ingest_post_attempt", 1)
         do {
-            let file = try await store.fileURL(task.bundleFile!)
-            let uploadFile: URL
-            if let wireName = task.bundleWireFile, let wireURL = try? await store.fileURL(wireName),
-               let wire = try? Data(contentsOf: wireURL, options: .mappedIfSafe),
-               WorkoutBundleDelivery.isGzipMultipart(wire, boundary: boundary) {
-                // The payload file is immutable for this task, so a derived wire
-                // from an earlier attempt stays valid without re-reading or
-                // re-hashing the raw body.
-                uploadFile = wireURL
-            } else {
-                let raw = try Self.payloadBody(file: file, boundary: boundary)
-                let bundle = try JSON.decode(raw)
-                guard let version = bundle["protocolVersion"].integer,
-                      [4, 6].contains(Int(version)),
-                      task.payloadVersion == nil || Int64(task.payloadVersion!) == version,
-                      bundle["workoutID"].text == id,
-                      bundle["datasetID"].text == scope.datasetID,
-                      bundle["datasetEpoch"].text == scope.datasetEpoch,
-                      bundle["collectorEpoch"].text == scope.collectorEpoch else {
-                    throw SyncFailure.localState("bundle_session_mismatch")
-                }
-                let derived = try WorkoutBundleDelivery.gzipWire(raw: raw, boundary: boundary)
-                let name = try await store.savePayload(derived.wire, suffix: "multipart.gz")
-                try await store.setIngestWire(id, file: name, wireBytes: derived.wire.count, gzipMS: derived.milliseconds)
-                api.metrics.value("workout_ingest_gzip_derive_ms", derived.milliseconds)
-                api.metrics.value("workout_ingest_gzip_wire_bytes", Double(derived.wire.count))
-                uploadFile = try await store.fileURL(name)
-            }
-            api.metrics.value("workout_ingest_post_attempt", 1)
-            do {
-                let receipt = try await api.call("POST", "/v2/sync/workout-ingests/" + id, file: uploadFile,
-                                                 mediaType: "multipart/form-data; boundary=" + boundary,
-                                                 identity: identity)
-                try await store.acknowledgeWorkoutIngest(id, receipt: receipt)
-                api.metrics.value("workout_ingest_post_success", 1)
-            } catch {
-                // Preemption leaves the OS-managed transfer for reattachment.
-                if error is CancellationError || Task.isCancelled { throw CancellationError() }
-                let failure = WorkoutBundleDelivery.failure(error)
-                // Credentials are shared by both calls; a second 401 explains
-                // nothing new and would only add delay.
-                guard failure.code != "authentication_required" else { throw failure }
-                // A lost response after commit is the common ambiguous case.
-                // The status answer decides; the same bytes are never re-sent
-                // just to learn that the first acceptance exists.
-                let recovered = try? await Self.status(id, api: api)
-                guard let recovered else { throw failure }
-                try await store.applyWorkoutIngestStatus(id, status: recovered)
-                api.metrics.value("workout_ingest_post_reconciled", 1)
-            }
-            api.discardUploadResult(identity)
-            await store.endBundleAttempt(id)
-            return true
+            let receipt = try await api.call("POST", "/v2/sync/workout-ingests/" + workoutID,
+                                             body: body, mediaType: "multipart/form-data; boundary=" + boundary)
+            let status = try WorkoutIngestStatus(receipt: receipt, workoutID: workoutID)
+            api.metrics.value("workout_ingest_post_success", 1)
+            return status
         } catch {
-            let cancelled = error is CancellationError || Task.isCancelled
-            if !cancelled { api.discardUploadResult(identity) }
-            let failure = WorkoutBundleDelivery.failure(cancelled ? CancellationError() : error)
-            do { try await store.failIngest(id, error: failure, now: max(now, Date())) }
-            catch { await store.endBundleAttempt(id); throw error }
-            await store.endBundleAttempt(id)
-            if cancelled { throw CancellationError() }
-            throw failure
+            if error is CancellationError || Task.isCancelled { throw CancellationError() }
+            throw WorkoutPayloadTransport.failure(error)
         }
     }
 
-    /// `nil` means the exact 404 `workout_ingest_not_found`; every other error
-    /// propagates so a network failure is never mistaken for "not received".
-    public static func status(_ id: String, api: RAIAPIClient) async throws -> WorkoutIngestStatus? {
-        do {
-            let value = try await api.call("GET", "/v2/sync/workout-ingests/" + id)
-            return try WorkoutIngestStatus(value, workoutID: id)
-        } catch let error as UploadError where error.status == 404 && error.code == "workout_ingest_not_found" {
-            return nil
+    /// The bytes built from HealthKit must belong to this exact handshake and
+    /// Workout before they are sent. No hash or durable copy is involved.
+    static func validate(_ raw: Data, workoutID: String, scope: Scope) throws {
+        guard let bundle = try? JSON.decode(raw),
+              bundle["protocolVersion"].integer == Int64(Self.protocolVersion),
+              bundle["workoutID"].text == workoutID,
+              bundle["datasetID"].text == scope.datasetID,
+              bundle["datasetEpoch"].text == scope.datasetEpoch,
+              bundle["collectorEpoch"].text == scope.collectorEpoch else {
+            throw SyncFailure.localState("bundle_session_mismatch")
         }
-    }
-
-    /// The stored file is exactly the plaintext multipart body; the JSON bytes
-    /// between its framing are the payload the server would receive.
-    static func payloadBody(file: URL, boundary: String) throws -> Data {
-        let bytes = try Data(contentsOf: file, options: .mappedIfSafe)
-        let opener = Data(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"workout.json\"\r\nContent-Type: application/json\r\n\r\n").utf8)
-        let suffix = Data(("\r\n--" + boundary + "--\r\n").utf8)
-        guard bytes.count >= opener.count + suffix.count, bytes.starts(with: opener), bytes.suffix(suffix.count) == suffix else {
-            throw SyncFailure.localState("payload_corrupt")
-        }
-        return bytes.subdata(in: opener.count..<(bytes.count - suffix.count))
     }
 }

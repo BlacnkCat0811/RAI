@@ -114,18 +114,19 @@ func (s *Store) loadWorkoutInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 	w.End = end.UnixMicro()
 	w.Duration = float64(duration) / 1e6
 	var payloadRaw []byte
-	importErr := tx.QueryRow(ctx, `SELECT payload FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 ORDER BY imported_at DESC,bundle_sha256 DESC LIMIT 1`, l.DatasetID, id).Scan(&payloadRaw)
+	var importDigest string
+	importErr := tx.QueryRow(ctx, `SELECT payload,encode(bundle_sha256,'hex') FROM workout_imports WHERE dataset_id=$1 AND workout_uuid=$2 ORDER BY imported_at DESC,bundle_sha256 DESC LIMIT 1`, l.DatasetID, id).Scan(&payloadRaw, &importDigest)
 	if importErr == nil {
 		var stored struct {
-			ProtocolVersion int                        `json:"protocolVersion"`
-			Observation     *syncing.BundleObservation `json:"observation"`
+			ProtocolVersion int             `json:"protocolVersion"`
+			Observation     json.RawMessage `json:"observation"`
 		}
 		if json.Unmarshal(payloadRaw, &stored) != nil {
 			return analysis.Invalid()
 		}
 		switch {
-		case stored.ProtocolVersion >= 4:
-			table, err := syncing.WorkoutBundlePayloadSourceTable(payloadRaw)
+		case stored.ProtocolVersion == 6:
+			table, err := workoutImportSources(payloadRaw)
 			if err != nil {
 				return analysis.Invalid()
 			}
@@ -135,8 +136,8 @@ func (s *Store) loadWorkoutInput(ctx context.Context, tx pgx.Tx, l Lease, in *an
 			if err := validateAnalysisProvenance(ctx, tx, l.DatasetID, id); err != nil {
 				return err
 			}
-			w.Lineage = append(w.Lineage, "healthkit-bundle:"+syncing.BundleDigest(payloadRaw))
-		case stored.Observation != nil:
+			w.Lineage = append(w.Lineage, "healthkit-bundle:"+importDigest)
+		case len(stored.Observation) > 0 && string(stored.Observation) != "null":
 			var observed syncing.WorkoutBundle
 			if json.Unmarshal(payloadRaw, &observed) != nil || observed.Observation == nil {
 				return analysis.Invalid()

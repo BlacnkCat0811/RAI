@@ -49,20 +49,3 @@ func TestListenAddr(t *testing.T) {
 		}
 	}
 }
-
-func TestWorkoutUUIDIngestMode(t *testing.T) {
-	t.Setenv("RAI_WORKOUT_UUID_INGEST_MODE", "")
-	if got, err := WorkoutUUIDIngestMode(); err != nil || got != "legacy" {
-		t.Fatalf("default: %q %v", got, err)
-	}
-	for _, value := range []string{"legacy", "uuid", "uuid_paused"} {
-		t.Setenv("RAI_WORKOUT_UUID_INGEST_MODE", value)
-		if got, err := WorkoutUUIDIngestMode(); err != nil || string(got) != value {
-			t.Fatalf("%q rejected: %v", value, err)
-		}
-	}
-	t.Setenv("RAI_WORKOUT_UUID_INGEST_MODE", "UUID")
-	if _, err := WorkoutUUIDIngestMode(); err == nil {
-		t.Fatal("invalid mode accepted")
-	}
-}

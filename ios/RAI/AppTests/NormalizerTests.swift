@@ -5,6 +5,7 @@ import HealthKit
 import SyncCore
 import Synchronization
 import ProductCore
+import SwiftUI
 @testable import RAI
 
 final class NormalizerTests: XCTestCase {
@@ -26,7 +27,6 @@ final class NormalizerTests: XCTestCase {
         let meters = try Normalizer.quantity(HKQuantity(unit: .meter(), doubleValue: 42), type: type)
         let persisted = try JSON.decode(kilometers.data())
         XCTAssertNotEqual(persisted, meters)
-        XCTAssertEqual(try WorkoutCoreIdentity.canonical(persisted), try WorkoutCoreIdentity.canonical(meters))
         XCTAssertEqual(try persisted.data(), try meters.data())
         for value in [Double.nan, .infinity, -.infinity] {
             XCTAssertThrowsError(try Normalizer.quantity(HKQuantity(unit: .meter(), doubleValue: value), type: type))
@@ -228,8 +228,10 @@ private final class CoordinatorReplies: URLProtocol, @unchecked Sendable {
         let handshake = request.url!.path == "/v2/handshake"
         let body: JSON = handshake ? .object(["protocolVersion": .int(3), "serviceID": .string(Self.identity.serviceID),
             "datasetID": .string(Self.identity.datasetID), "datasetEpoch": .string(Self.identity.datasetEpoch),
-            "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3),
-                "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])]) : .object(["code": .string("workout_import_not_found")])
+            "datasetStatus": .string("active"),
+            "capabilities": .object(["workoutPayloadVersion": .int(6),
+                "workoutUUIDIngestVersion": .int(1), "workoutUUIDIngestAccepting": .bool(true),
+                "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])]) : .object(["code": .string("workout_ingest_not_found")])
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: handshake ? 200 : 404, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)
     }
@@ -244,6 +246,91 @@ private struct BrokenACKUploader: FileUploader {
 }
 final class WorkoutCoordinatorReliabilityTests: XCTestCase {
     @MainActor
+    func testLeavingListAndDetailPagesCancelsTheirReservedUploads() async {
+        for showingDetail in [false, true] {
+            let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
+            let owner = UUID(), id = Wire.id()
+            let workout = HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
+                distanceM: nil, averageHeartRate: nil, isIndoor: true, activityType: 37,
+                sourceName: "Apple Watch", deviceName: "Watch", sourceClassification: "apple_watch",
+                sourceOutcome: WorkoutSourcePolicy.eligible)
+            model.workouts = [workout]
+            let appeared = expectation(description: "upload page appeared")
+            let disappeared = expectation(description: "upload page disappeared")
+            let content: AnyView = showingDetail
+                ? AnyView(WorkoutSyncDetail(model: model, workout: workout, uploadOwner: owner))
+                : AnyView(WorkoutSyncView(model: model, uploadOwner: owner))
+            let host = UIHostingController(rootView: AnyView(content
+                .onAppear { appeared.fulfill() }.onDisappear { disappeared.fulfill() }))
+            let window = UIWindow(frame: UIScreen.main.bounds)
+            window.rootViewController = host
+            window.makeKeyAndVisible()
+            await fulfillment(of: [appeared], timeout: 3)
+
+            // Hold scheduler cleanup so no session lookup or network operation
+            // starts before the page actually disappears.
+            let pause = UploadPagePause()
+            let (started, signal) = AsyncStream<Void>.makeStream()
+            scheduler.startAutomatic { signal.yield(()); await pause.wait() }
+            for await _ in started { break }
+            model.syncWorkouts([id], owner: owner)
+            host.rootView = AnyView(EmptyView())
+            await fulfillment(of: [disappeared], timeout: 3)
+            XCTAssertEqual(model.workoutResults[id]?.errorCode, "interrupted")
+            XCTAssertNotNil(model.batch?.finishedAt)
+            await pause.release()
+            await scheduler.waitForCompletion()
+            window.isHidden = true
+            window.rootViewController = nil
+            XCTAssertEqual(model.workoutResults[id]?.state, .failed)
+            XCTAssertEqual(model.selected, [id])
+            XCTAssertEqual(scheduler.mode, .idle)
+        }
+    }
+
+    @MainActor
+    func testClosingAnUploadOwnerCancelsTheReservedBatchAndPreservesSuccess() async {
+        let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
+        let owner = UUID(), ids = [Wire.id(), Wire.id(), Wire.id()]
+        model.workouts = ids.map { id in
+            HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
+                                 distanceM: nil, averageHeartRate: nil, isIndoor: true,
+                                 activityType: 37, sourceName: "Apple Watch", deviceName: "Watch",
+                                 sourceClassification: "apple_watch", sourceOutcome: WorkoutSourcePolicy.eligible)
+        }
+        model.syncWorkouts(ids, owner: owner)
+        model.workoutResults[ids[0]] = WorkoutUploadResult(state: .succeeded, acceptedAt: Date())
+        // Closing an unrelated sheet must not stop this page's operation.
+        model.cancelWorkoutSync(owner: UUID())
+        XCTAssertNil(model.batch?.finishedAt)
+        XCTAssertEqual(scheduler.mode, .manual)
+        model.cancelWorkoutSync(owner: owner)
+        await scheduler.waitForCompletion()
+        XCTAssertEqual(ids.map { model.workoutResults[$0]?.state }, [.succeeded, .failed, .failed])
+        XCTAssertEqual(model.selected, Set(ids.dropFirst()))
+        XCTAssertNotNil(model.batch?.finishedAt)
+        XCTAssertEqual(model.status, "本次上传已中断；上传成功 1 条，上传失败 2 条")
+        XCTAssertEqual(scheduler.mode, .idle)
+    }
+
+    @MainActor
+    func testBackgroundCancelsAnUploadBeforeTheSchedulerStartsIt() async {
+        let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
+        let id = Wire.id()
+        model.workouts = [HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
+                                              distanceM: nil, averageHeartRate: nil, isIndoor: true,
+                                              activityType: 37, sourceName: "Apple Watch", deviceName: "Watch",
+                                              sourceClassification: "apple_watch", sourceOutcome: WorkoutSourcePolicy.eligible)]
+        model.syncWorkouts([id])
+        model.suspendForegroundWork()
+        await scheduler.waitForCompletion()
+        XCTAssertEqual(model.workoutResults[id]?.state, .failed)
+        XCTAssertEqual(model.workoutResults[id]?.errorCode, "interrupted")
+        XCTAssertNotNil(model.batch?.finishedAt)
+        XCTAssertEqual(model.selected, [id])
+    }
+
+    @MainActor
     func testModelAllowsUserSyncDuringAutomaticWorkAndReservesSelectionImmediately() async {
         let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
         let (started, continuation) = AsyncStream<Void>.makeStream()
@@ -255,130 +342,36 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
         for await _ in started { break }
         XCTAssertTrue(model.busy)
         XCTAssertTrue(model.canStartWorkoutSync)
-        model.syncWorkouts([Wire.id()])
+        let id = Wire.id()
+        model.workouts = [HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
+                                              distanceM: nil, averageHeartRate: nil, isIndoor: true,
+                                              activityType: 37, sourceName: "Apple Watch", deviceName: "Watch",
+                                              sourceClassification: "apple_watch", sourceOutcome: WorkoutSourcePolicy.eligible)]
+        model.syncWorkouts([id])
         XCTAssertEqual(scheduler.mode, .manual)
         XCTAssertTrue(model.busy)
         XCTAssertFalse(model.canStartWorkoutSync)
+        // The round has no synthetic session; cancel it so this test never
+        // depends on the simulator's persisted app state or a network read.
+        scheduler.cancel()
         await scheduler.waitForCompletion()
         XCTAssertTrue(stopped)
         XCTAssertFalse(model.busy)
         XCTAssertTrue(model.canStartWorkoutSync)
     }
 
-    @MainActor
-    func testUserRecoveryPreemptsHealthDiscoveryAndPreservesResumableFlow() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-discovery-preemption-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let store = try OutboxStore(directory: directory), counters = CoordinatorCounters()
-        let (started, continuation) = AsyncStream<Void>.makeStream()
-        let health = PausedDiscoveryHealth(counters: counters, started: continuation)
-        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [CoordinatorReplies.self]
-        let coordinator = SyncCoordinator(store: store, health: health, session: URLSession(configuration: config))
-        let secret = ClientConfiguration.Secret(configuration: ClientConfiguration(baseURL: URL(string: "https://synthetic.invalid")!, collectorEpoch: CoordinatorReplies.identity.collectorEpoch), token: "synthetic")
-        let scheduler = ForegroundSyncScheduler()
-        var discoveryCancelled = false, recovered = false
-        scheduler.startAutomatic {
-            do { try await coordinator.discoverChanges(); XCTFail("paused discovery completed") }
-            catch is CancellationError { discoveryCancelled = true }
-            catch { XCTFail("unexpected discovery failure") }
-        }
-        for await _ in started { break }
-        XCTAssertTrue(scheduler.startManual {
-            do {
-                try await coordinator.recoverPending(secret: secret, transfers: BrokenACKUploader(counters: counters))
-                recovered = true
-            } catch { XCTFail("manual recovery could not acquire coordinator") }
-        })
-        await scheduler.waitForCompletion()
-        XCTAssertTrue(discoveryCancelled && recovered)
-        XCTAssertEqual(counters.reads.withLock { $0 }, 1)
-        let query = DiscoveryQuery(type: HKObjectType.workoutType().identifier)
-        let flow = try await store.discoveryFlow(query)
-        XCTAssertNil(flow.anchor); XCTAssertNil(flow.error); XCTAssertTrue(flow.hasMore)
-        XCTAssertEqual(scheduler.mode, .idle)
-    }
-
-    func testCancelledRecoveryStopsBeforeNextBundleWithoutHealthReads() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-recovery-cancellation-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let store = try OutboxStore(directory: directory), counters = CoordinatorCounters()
-        var originals: [String: Data] = [:]
-        for _ in 0..<2 {
-            let id = Wire.id()
-            var fields = CoordinatorReplies.identity.bundleFields; fields["workoutID"] = .string(id)
-            fields["observation"] = .object(["coverage": .object(["HKQuantityTypeIdentifierHeartRate": WorkoutCoverage.result(count: 1).wire])])
-            let raw = try JSON.object(fields).data()
-            try await store.beginTask(id)
-            let bytes = WorkoutBundleAssembler.multipart(bundle: raw, boundary: "test")
-            let file = try await store.savePayload(bytes, suffix: "multipart.json")
-            try await store.setBundle(id, file: file, sha256: Wire.hash(raw), boundary: "test")
-            originals[file] = bytes
-        }
-        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [CoordinatorReplies.self]
-        let coordinator = SyncCoordinator(store: store, health: NoHealthReads(counters: counters), session: URLSession(configuration: config))
-        let secret = ClientConfiguration.Secret(configuration: ClientConfiguration(baseURL: URL(string: "https://synthetic.invalid")!, collectorEpoch: CoordinatorReplies.identity.collectorEpoch), token: "synthetic")
-        do {
-            try await coordinator.recoverPending(secret: secret, transfers: CancelledRecoveryUploader(counters: counters))
-            XCTFail("recovery swallowed cancellation")
-        } catch is CancellationError { }
-        XCTAssertEqual(counters.uploads.withLock { $0 }, 1)
-        XCTAssertEqual(counters.reads.withLock { $0 }, 0)
-        for (file, original) in originals { XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent(file)), original) }
-        let tasks = await store.allTasks()
-        XCTAssertTrue(tasks.allSatisfy { $0.uploadReceipt == nil })
-        XCTAssertEqual(tasks.reduce(0) { $0 + ($1.attemptCount ?? 0) }, 1)
-    }
-
-    func testRecovery404KeepsExactBundleAndRetryTimeWithoutHealthReads() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rai-coordinator-test-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), id = Wire.id()
-        var bundleFields = CoordinatorReplies.identity.bundleFields; bundleFields["workoutID"] = .string(id)
-        bundleFields["observation"] = .object(["coverage": .object(["HKQuantityTypeIdentifierHeartRate": WorkoutCoverage.result(count: 1).wire])])
-        let raw = try JSON.object(bundleFields).data()
-        try await store.beginTask(id)
-        let file = try await store.savePayload(WorkoutBundleAssembler.multipart(bundle: raw, boundary: "test"), suffix: "multipart.json")
-        try await store.setBundle(id, file: file, sha256: Wire.hash(raw), boundary: "test")
-        let counters = CoordinatorCounters()
-        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [CoordinatorReplies.self]
-        let coordinator = SyncCoordinator(store: store, health: NoHealthReads(counters: counters), session: URLSession(configuration: config))
-        let secret = ClientConfiguration.Secret(configuration: ClientConfiguration(baseURL: URL(string: "https://synthetic.invalid")!, collectorEpoch: CoordinatorReplies.identity.collectorEpoch), token: "synthetic")
-        let transfers = BrokenACKUploader(counters: counters)
-        try await coordinator.recoverPending(secret: secret, transfers: transfers)
-        let pending = await store.task(id)
-        XCTAssertEqual(pending?.phase, .uploading); XCTAssertNil(pending?.uploadReceipt)
-        XCTAssertEqual(pending?.bundleFile, file); XCTAssertNotNil(pending?.nextAttemptAt)
-        let failedSnapshot = await store.snapshot()
-        XCTAssertNil(failedSnapshot.lastACK); XCTAssertNil(failedSnapshot.lastSync)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent(file).path))
-        try await coordinator.recoverPending(secret: secret, transfers: transfers)
-        XCTAssertEqual(counters.uploads.withLock { $0 }, 1); XCTAssertEqual(counters.reads.withLock { $0 }, 0)
-        do { try await coordinator.checkAnalysis(id: id, secret: secret, transfers: transfers); XCTFail("404 accepted as exact bundle proof") } catch { }
-        let after = await store.task(id)
-        XCTAssertEqual(after?.phase, .uploading); XCTAssertNil(after?.uploadReceipt)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dir.appendingPathComponent(file).path))
-    }
 }
 
-private struct PausedDiscoveryHealth: HealthKitReading {
-    let counters: CoordinatorCounters
-    let started: AsyncStream<Void>.Continuation
-    func authorize() async throws { }
-    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage {
-        counters.reads.withLock { $0 += 1 }; started.yield(())
-        try await Task.sleep(for: .seconds(3600))
-        throw SyncFailure.invalid("unexpected_completed_read")
+private actor UploadPagePause {
+    private var released = false
+    private var waiter: CheckedContinuation<Void, Never>?
+    func wait() async {
+        if !released { await withCheckedContinuation { waiter = $0 } }
     }
-    func workout(_ id: String) async throws -> HKWorkout? { throw SyncFailure.invalid("unexpected_health_read") }
-    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unexpected_health_read") }
-    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unexpected_health_read") }
-}
-
-private struct CancelledRecoveryUploader: FileUploader {
-    let counters: CoordinatorCounters
-    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
-        counters.uploads.withLock { $0 += 1 }
-        throw CancellationError()
+    func release() {
+        released = true
+        waiter?.resume()
+        waiter = nil
     }
 }
 
@@ -417,465 +410,6 @@ private actor SyntheticAnchoredHealth: HealthKitReading {
     func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
 }
 
-private actor SyntheticCompletenessHealth: HealthKitReading {
-    let value: HKWorkout
-    let quantity: HKQuantitySample
-    private(set) var anchors: [Data?] = []
-    private(set) var bundleReads = 0
-    var failType: String?
-    init() {
-        let start = Date().addingTimeInterval(-3600)
-        value = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60), duration: 60,
-            totalEnergyBurned: nil, totalDistance: nil, metadata: [HKMetadataKeyIndoorWorkout: true])
-        quantity = HKQuantitySample(type: HKQuantityType(.heartRate), quantity: HKQuantity(unit: .count().unitDivided(by: .minute()), doubleValue: 120), start: start, end: start)
-        let source = class_createInstance(HKSource.self, 0) as! HKSource
-        source.setValue("com.apple.health", forKey: "bundleIdentifier"); source.setValue("Synthetic", forKey: "name")
-        let revision = HKSourceRevision(source: source, version: "synthetic", productType: "Watch7,1", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
-        value.setValue(revision, forKey: "sourceRevision"); quantity.setValue(revision, forKey: "sourceRevision")
-    }
-    func setFailure(_ type: String?) { failType = type }
-    func authorize() async throws {}
-    func workout(_ id: String) async throws -> HKWorkout? { id == value.uuid.uuidString.lowercased() ? value : nil }
-    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage {
-        if type.identifier == failType { throw SyncFailure.invalid("completeness_temporarily_unavailable") }
-        anchors.append(anchor)
-        return try page(type: type, anchor: anchor)
-    }
-    private func page(type: HKSampleType, anchor: Data?) throws -> HealthPage {
-        let samples: [HKSample] = anchor != nil ? [] : type == HKObjectType.workoutType() ? [value] : type.identifier == quantity.sampleType.identifier ? [quantity] : []
-        let next = try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: anchor == nil ? 1 : 2), requiringSecureCoding: true)
-        return HealthPage(samples: samples, deleted: [], anchor: next, limit: 1000)
-    }
-    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage { try page(type: type, anchor: anchor) }
-    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage { try page(type: HKObjectType.workoutType(), anchor: anchor) }
-    func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] {
-        bundleReads += 1; return type.identifier == quantity.sampleType.identifier ? [quantity] : []
-    }
-    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { [:] }
-    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead { HealthRouteRead(routes: [], coverage: [:], enumerationCompleted: true) }
-    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
-    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
-}
-/// P0-3 synthetic inventory: three visible Workouts, one of which can be made
-/// to fail during completeness capture. Every query is attributed to the
-/// Workout so the test can prove the healthy ones are never re-read.
-private actor IsolatedCompletenessHealth: HealthKitReading {
-    struct Entry: Sendable { let workout: HKWorkout; let sample: HKQuantitySample }
-    let entries: [Entry]
-    private(set) var queries: [String] = []
-    private var failingID: String?
-    var workoutIDs: [String] { entries.map { $0.workout.uuid.uuidString.lowercased() } }
-    init() {
-        let base = Date().addingTimeInterval(-3600)
-        let source = class_createInstance(HKSource.self, 0) as! HKSource
-        source.setValue("com.apple.health", forKey: "bundleIdentifier"); source.setValue("Synthetic", forKey: "name")
-        let revision = HKSourceRevision(source: source, version: "synthetic", productType: "Watch7,1",
-                                        operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
-        entries = (0..<3).map { index in
-            let start = base.addingTimeInterval(Double(index) * 120)
-            let workout = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60), duration: 60,
-                totalEnergyBurned: nil, totalDistance: nil, metadata: [HKMetadataKeyIndoorWorkout: true])
-            workout.setValue(revision, forKey: "sourceRevision")
-            let sample = HKQuantitySample(type: HKQuantityType(.heartRate),
-                quantity: HKQuantity(unit: .count().unitDivided(by: .minute()), doubleValue: 120 + Double(index)),
-                start: start, end: start)
-            sample.setValue(revision, forKey: "sourceRevision")
-            return Entry(workout: workout, sample: sample)
-        }
-    }
-    func setFailure(_ id: String?) { failingID = id }
-    func authorize() async throws {}
-    func workout(_ id: String) async throws -> HKWorkout? {
-        entries.first { $0.workout.uuid.uuidString.lowercased() == id }?.workout
-    }
-    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage {
-        let id = workout?.uuid.uuidString.lowercased() ?? "roots"
-        queries.append(id)
-        if let workout, workout.uuid.uuidString.lowercased() == failingID {
-            throw SyncFailure.invalid("metadata_requires_review")
-        }
-        return try page(type: type, workout: workout, anchor: anchor)
-    }
-    private func page(type: HKSampleType, workout: HKWorkout?, anchor: Data?) throws -> HealthPage {
-        var samples: [HKSample] = []
-        if anchor == nil {
-            if type == HKObjectType.workoutType() {
-                samples = workout.map { [$0 as HKSample] } ?? entries.map { $0.workout as HKSample }
-            } else if let workout {
-                samples = entries.filter { $0.workout.uuid == workout.uuid && $0.sample.sampleType.identifier == type.identifier }
-                    .map(\.sample)
-            }
-        }
-        let next = try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: anchor == nil ? 1 : 2), requiringSecureCoding: true)
-        return HealthPage(samples: samples, deleted: [], anchor: next, limit: 1000)
-    }
-    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage {
-        try page(type: type, workout: workout, anchor: anchor)
-    }
-    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage {
-        let workout = entries.first { $0.workout.uuid.uuidString.lowercased() == id }?.workout
-        let samples: [HKSample] = anchor == nil ? [workout].compactMap { $0 as HKSample? } : []
-        let next = try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: anchor == nil ? 1 : 2), requiringSecureCoding: true)
-        return HealthPage(samples: samples, deleted: [], anchor: next, limit: 25)
-    }
-    func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] {
-        entries.filter { $0.workout.uuid == workout.uuid && $0.sample.sampleType.identifier == type.identifier }.map(\.sample)
-    }
-    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { [:] }
-    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead {
-        HealthRouteRead(routes: [], coverage: [:], enumerationCompleted: true)
-    }
-    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
-    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
-}
-private final class CompletenessReplies: URLProtocol, @unchecked Sendable {
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func startLoading() {
-        let scope = CoordinatorReplies.identity
-        let body: JSON
-        if request.url!.path == "/v2/handshake" {
-            body = .object(["protocolVersion": .int(3), "serviceID": .string(scope.serviceID), "datasetID": .string(scope.datasetID),
-                "datasetEpoch": .string(scope.datasetEpoch), "capabilities": .object([
-                    "workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3), "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
-                    "workoutSyncCompletenessVersion": .int(1), "workoutStreamSetVersion": .int(1),
-                    "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])])
-        } else { body = .object(["metrics": .array([])]) }
-        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)
-    }
-    override func stopLoading() {}
-}
-private final class NativeCompletenessUploader: FileUploader, Sendable {
-    let loseManifestACK = Mutex(true), manifests = Mutex<[Data]>([])
-    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
-        let receipt: JSON
-        if request.url!.path == "/v2/sync/workout-completeness" {
-            let raw = try Data(contentsOf: file); manifests.withLock { $0.append(raw) }
-            if loseManifestACK.withLock({ $0 }) { throw URLError(.networkConnectionLost) }
-            let body = try JSON.decode(raw)
-            var fields = body.fields.filter { ["contract", "protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "manifestID", "generation"].contains($0.key) }
-            fields["manifestSHA256"] = .string(Wire.hash(raw)); fields["ingestStatus"] = .string("committed"); fields["commitRevision"] = .int(2)
-            fields["streamCount"] = .int(Int64(body["streams"].list.count)); fields["workoutCount"] = .int(Int64(body["workouts"].list.count)); receipt = .object(fields)
-        } else {
-            let parts = identity.split(separator: ":"); var counts: [String: JSON] = ["workoutInserted": .bool(true)]
-            for key in ["samplesInserted", "samplesUnchanged", "samplesDeleted", "associationsInserted", "associationsUnchanged", "associationsDeleted", "seriesInserted", "seriesUnchanged", "routesInserted", "routesUnchanged", "routesDeleted"] { counts[key] = .int(0) }
-            receipt = .object(["workoutID": .string(String(parts[0])), "bundleSHA256": .string(String(parts[1])), "ingestStatus": .string("committed"),
-                "commitRevision": .int(1), "counts": .object(counts), "analysisStatus": .string("not_required"), "analysisJobIDs": .array([])])
-        }
-        return UploadResponse(data: try receipt.data(), status: 200, contentType: "application/json")
-    }
-    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
-        let reply = try await response(request, file: file, identity: identity); return (reply.data, reply.status, reply.retryAfter)
-    }
-}
-private actor SyntheticPolicyCompletenessHealth: HealthKitReading {
-    let eligible: HKWorkout
-    let excluded: HKWorkout
-    let quantity: HKQuantitySample
-    private(set) var anchors: [Data?] = []
-    private(set) var bundleReads = 0
-    var eligibleID: String { eligible.uuid.uuidString.lowercased() }
-    var excludedID: String { excluded.uuid.uuidString.lowercased() }
-    init() {
-        let start = Date().addingTimeInterval(-3600)
-        eligible = HKWorkout(activityType: .running, start: start, end: start.addingTimeInterval(60), duration: 60,
-            totalEnergyBurned: nil, totalDistance: nil, metadata: [HKMetadataKeyIndoorWorkout: true])
-        excluded = HKWorkout(activityType: .running, start: start.addingTimeInterval(-120), end: start.addingTimeInterval(-60), duration: 60,
-            totalEnergyBurned: nil, totalDistance: nil, metadata: [HKMetadataKeyIndoorWorkout: true])
-        quantity = HKQuantitySample(type: HKQuantityType(.heartRate), quantity: HKQuantity(unit: .count().unitDivided(by: .minute()), doubleValue: 120), start: start, end: start)
-        let watch = class_createInstance(HKSource.self, 0) as! HKSource
-        watch.setValue("com.apple.health", forKey: "bundleIdentifier"); watch.setValue("Synthetic watch", forKey: "name")
-        let watchRevision = HKSourceRevision(source: watch, version: "synthetic", productType: "Watch7,1", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0))
-        eligible.setValue(watchRevision, forKey: "sourceRevision"); quantity.setValue(watchRevision, forKey: "sourceRevision")
-        let writer = class_createInstance(HKSource.self, 0) as! HKSource
-        writer.setValue("synthetic.third.party.writer", forKey: "bundleIdentifier"); writer.setValue("Synthetic writer", forKey: "name")
-        excluded.setValue(HKSourceRevision(source: writer, version: "synthetic", productType: "iPhone14,5", operatingSystemVersion: OperatingSystemVersion(majorVersion: 26, minorVersion: 0, patchVersion: 0)), forKey: "sourceRevision")
-    }
-    func authorize() async throws {}
-    func workout(_ id: String) async throws -> HKWorkout? { [eligible, excluded].first { $0.uuid.uuidString.lowercased() == id } }
-    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage {
-        anchors.append(anchor); return try page(type: type, anchor: anchor)
-    }
-    private func page(type: HKSampleType, anchor: Data?) throws -> HealthPage {
-        let samples: [HKSample]
-        if anchor != nil { samples = [] }
-        else if type == HKObjectType.workoutType() { samples = [excluded, eligible] }
-        else { samples = type.identifier == quantity.sampleType.identifier ? [quantity] : [] }
-        let next = try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: anchor == nil ? 1 : 2), requiringSecureCoding: true)
-        return HealthPage(samples: samples, deleted: [], anchor: next, limit: 1000)
-    }
-    func read(type: HKSampleType, anchor: Data?, workout: HKWorkout?) async throws -> HealthPage { try page(type: type, anchor: anchor) }
-    func readWorkout(id: String, anchor: Data?) async throws -> HealthPage {
-        let samples: [HKSample] = anchor == nil ? [eligible, excluded].filter { $0.uuid.uuidString.lowercased() == id } : []
-        let next = try NSKeyedArchiver.archivedData(withRootObject: HKQueryAnchor(fromValue: anchor == nil ? 1 : 2), requiringSecureCoding: true)
-        return HealthPage(samples: samples, deleted: [], anchor: next, limit: 25)
-    }
-    func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] {
-        bundleReads += 1; return type.identifier == quantity.sampleType.identifier ? [quantity] : []
-    }
-    func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { [:] }
-    func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead { HealthRouteRead(routes: [], coverage: [:], enumerationCompleted: true) }
-    func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute { throw SyncFailure.invalid("unused") }
-    func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation] { throw SyncFailure.invalid("unused") }
-}
-private final class PolicyCompletenessReplies: URLProtocol, @unchecked Sendable {
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func startLoading() {
-        let scope = CoordinatorReplies.identity
-        let body: JSON
-        if request.url!.path == "/v2/handshake" {
-            body = .object(["protocolVersion": .int(3), "serviceID": .string(scope.serviceID), "datasetID": .string(scope.datasetID),
-                "datasetEpoch": .string(scope.datasetEpoch), "capabilities": .object([
-                    "workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3), "bundleObservationVersion": .int(1), "explicitChildDeletions": .bool(true),
-                    "workoutSyncCompletenessVersion": .int(1), "workoutSyncCompletenessV2Version": .int(2), "workoutStreamSetVersion": .int(1),
-                    "workoutSourcePolicyVersion": .string(WorkoutSourcePolicy.version),
-                    "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) })])])
-        } else { body = .object(["metrics": .array([])]) }
-        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)
-    }
-    override func stopLoading() {}
-}
-private final class V2CompletenessUploader: FileUploader, Sendable {
-    let manifests = Mutex<[Data]>([]), bundles = Mutex<[String]>([])
-    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
-        let receipt: JSON
-        if request.url!.path == "/v2/sync/workout-completeness" {
-            let raw = try Data(contentsOf: file); manifests.withLock { $0.append(raw) }
-            let body = try JSON.decode(raw)
-            var fields = body.fields.filter { ["contract", "protocolVersion", "datasetID", "datasetEpoch", "collectorEpoch", "manifestID", "generation", "sourcePolicyVersion"].contains($0.key) }
-            for key in ["visibleCount", "eligibleCount", "excludedCount", "unclassifiedCount", "visibleSHA256", "eligibleSHA256", "excludedSHA256"] { fields[key] = body["inventory"][key] }
-            fields["manifestSHA256"] = .string(Wire.hash(raw)); fields["ingestStatus"] = .string("committed"); fields["commitRevision"] = .int(2)
-            fields["streamCount"] = .int(Int64(body["streams"].list.count)); fields["workoutCount"] = .int(Int64(body["workouts"].list.count)); receipt = .object(fields)
-        } else {
-            bundles.withLock { $0.append(identity) }
-            let parts = identity.split(separator: ":"); var counts: [String: JSON] = ["workoutInserted": .bool(true)]
-            for key in ["samplesInserted", "samplesUnchanged", "samplesDeleted", "associationsInserted", "associationsUnchanged", "associationsDeleted", "seriesInserted", "seriesUnchanged", "routesInserted", "routesUnchanged", "routesDeleted"] { counts[key] = .int(0) }
-            receipt = .object(["workoutID": .string(String(parts[0])), "bundleSHA256": .string(String(parts[1])), "ingestStatus": .string("committed"),
-                "commitRevision": .int(1), "counts": .object(counts), "analysisStatus": .string("not_required"), "analysisJobIDs": .array([])])
-        }
-        return UploadResponse(data: try receipt.data(), status: 200, contentType: "application/json")
-    }
-    func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
-        let reply = try await response(request, file: file, identity: identity); return (reply.data, reply.status, reply.retryAfter)
-    }
-}
-final class WorkoutCompletenessNativeTests: XCTestCase {
-    func testR3SimulatorHTTPPostgres() async throws {
-        guard let config = ProcessInfo.processInfo.environment["RAI_UA1_R_SIMULATOR_CONFIG"] else { throw XCTSkip("Requires explicit isolated synthetic PG18 runner") }
-        let value = try JSON.decode(Data(config.utf8))
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-http-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let health = SyntheticCompletenessHealth(), store = try OutboxStore(directory: directory)
-        guard let baseURL = value["baseURL"].text.flatMap(URL.init(string:)), baseURL.scheme == "http", baseURL.host == "127.0.0.1" else { throw SyncFailure.invalid("synthetic_loopback_required") }
-        // Explicit isolated loopback fixture, as in the existing SDK/PG tests.
-        // The product's exact configured-debug-host and TLS rules are unchanged.
-        let secret = ClientConfiguration.Secret(configuration: .init(baseURL: baseURL, collectorEpoch: value["collectorEpoch"].text!), token: value["token"].text!)
-        let transfers = BackgroundTransfers(directory: directory, identifier: "com.rai.v2.ua1r.synthetic." + Wire.id())
-        let coordinator = SyncCoordinator(store: store, health: health)
-        for _ in 0..<12 {
-            do { try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: transfers) }
-            catch {
-                if let upload = error as? UploadError, upload.status == 429 {
-                    try await Task.sleep(for: .seconds(max(2, upload.retryAfter ?? 2)))
-                } else { try await Task.sleep(for: .seconds(2)) }
-            }
-            if await store.snapshot().workoutCompleteness?.generation == 1 { break }
-        }
-        let first = await store.snapshot().workoutCompleteness
-        XCTAssertEqual(first?.generation, 1); XCTAssertEqual(first?.anchors.count, 12)
-        let reads = await health.bundleReads
-        let reopened = try OutboxStore(directory: directory)
-        let incremental = SyncCoordinator(store: reopened, health: health)
-        for _ in 0..<12 {
-            do { try await incremental.syncWorkoutCompleteness(secret: secret, transfers: transfers) }
-            catch let upload as UploadError where upload.status == 429 {
-                try await Task.sleep(for: .seconds(max(2, upload.retryAfter ?? 2)))
-            }
-            if await reopened.snapshot().workoutCompleteness?.generation == 2 { break }
-        }
-        let second = await reopened.snapshot().workoutCompleteness, finalReads = await health.bundleReads
-        XCTAssertEqual(second?.generation, 2); XCTAssertEqual(second?.lastQueryCounts?["committedAnchor"], 12)
-        XCTAssertEqual(second?.lastQueryCounts?["bootstrap"], 0); XCTAssertEqual(finalReads, reads)
-        XCTAssertEqual(second?.anchors.count, 12)
-        print("UA1_R_SYNTHETIC_HTTP_PG generations=2 streams=12 incremental_bootstrap=0")
-    }
-    func testR3AllSupportedStreamsLostACKRelaunchAndIncrementalAnchors() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-native-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let health = SyntheticCompletenessHealth(), store = try OutboxStore(directory: directory)
-        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [CompletenessReplies.self]
-        let session = URLSession(configuration: config), uploader = NativeCompletenessUploader()
-        let secret = try ClientConfiguration.validatedSecret(baseURL: "https://synthetic.invalid", collectorEpoch: CoordinatorReplies.identity.collectorEpoch, token: String(repeating: "s", count: 48))
-        do { try await SyncCoordinator(store: store, health: health, session: session).syncWorkoutCompleteness(secret: secret, transfers: uploader); XCTFail("Lost ACK committed") } catch {}
-        let pending = await store.snapshot().workoutCompleteness
-        XCTAssertEqual(pending?.generation, 0); XCTAssertEqual(pending?.anchors.count, 0); XCTAssertNotNil(pending?.cycle?.pendingFile)
-        let queriesBeforeRetry = await health.anchors.count
-        let reopened = try OutboxStore(directory: directory); uploader.loseManifestACK.withLock { $0 = false }
-        let coordinator = SyncCoordinator(store: reopened, health: health, session: session)
-        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
-        let queriesAfterRetry = await health.anchors.count
-        XCTAssertEqual(queriesAfterRetry, queriesBeforeRetry)
-        let first = await reopened.snapshot().workoutCompleteness
-        XCTAssertEqual(first?.generation, 1); XCTAssertEqual(first?.anchors.count, 12)
-        let body = try JSON.decode(uploader.manifests.withLock { $0[0] })
-        XCTAssertEqual(body["workouts"].list[0]["routeState"], .string("absent"))
-        XCTAssertTrue(body["workouts"].list[0]["series"].list.allSatisfy { $0["pointCount"] == .int(0) })
-        XCTAssertEqual(uploader.manifests.withLock { $0[0] }, uploader.manifests.withLock { $0[1] })
-        let bundleReads = await health.bundleReads, completenessReads = await health.anchors.count
-        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
-        let second = await reopened.snapshot().workoutCompleteness, finalBundleReads = await health.bundleReads
-        let finalCompletenessReads = await health.anchors.count
-        XCTAssertEqual(second?.generation, 2); XCTAssertEqual(second?.lastQueryCounts?["committedAnchor"], 12)
-        XCTAssertEqual(second?.lastQueryCounts?["bootstrap"], 0); XCTAssertEqual(finalBundleReads, bundleReads)
-        // v2 requires an observation of every stream after this cycle's cutoff,
-        // so the root and all 11 child streams are read again.
-        XCTAssertEqual(finalCompletenessReads, completenessReads + 12)
-        XCTAssertEqual(second?.anchors.count, 12)
-        let incrementalManifest = try JSON.decode(uploader.manifests.withLock { $0[2] })
-        XCTAssertEqual(incrementalManifest["streams"].list.count, 12)
-        XCTAssertEqual(incrementalManifest["workouts"].list.count, 1)
-    }
-    func testR3TemporarilyUnavailableRequiredStreamCannotPublish() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-pending-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let health = SyntheticCompletenessHealth(); await health.setFailure(HKQuantityTypeIdentifier.runningPower.rawValue)
-        let store = try OutboxStore(directory: directory), config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [CompletenessReplies.self]
-        let coordinator = SyncCoordinator(store: store, health: health, session: URLSession(configuration: config)), uploader = NativeCompletenessUploader()
-        let secret = try ClientConfiguration.validatedSecret(baseURL: "https://synthetic.invalid", collectorEpoch: CoordinatorReplies.identity.collectorEpoch, token: String(repeating: "s", count: 48))
-        do { try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader); XCTFail("Unavailable stream completed") } catch {}
-        let flow = await store.snapshot().workoutCompleteness
-        XCTAssertEqual(flow?.generation, 0); XCTAssertTrue(flow?.anchors.isEmpty == true)
-        XCTAssertNil(flow?.cycle?.pendingFile); XCTAssertTrue(uploader.manifests.withLock { $0.isEmpty })
-    }
-    func testR3SourcePolicyV2ExcludedInventoryIsEvidenced() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-policy-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let health = SyntheticPolicyCompletenessHealth(), store = try OutboxStore(directory: directory)
-        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [PolicyCompletenessReplies.self]
-        let session = URLSession(configuration: config), uploader = V2CompletenessUploader()
-        let secret = try ClientConfiguration.validatedSecret(baseURL: "https://synthetic.invalid", collectorEpoch: CoordinatorReplies.identity.collectorEpoch, token: String(repeating: "s", count: 48))
-        let coordinator = SyncCoordinator(store: store, health: health, session: session)
-        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
-        let eligibleID = await health.eligibleID, excludedID = await health.excludedID
-        let flow = await store.snapshot().workoutCompleteness
-        XCTAssertEqual(flow?.generation, 1); XCTAssertEqual(flow?.inventory.count, 2); XCTAssertEqual(flow?.anchors.count, 12)
-        XCTAssertTrue(flow?.inventory.contains(excludedID) == true)
-        let manifests = uploader.manifests.withLock { $0 }
-        XCTAssertEqual(manifests.count, 1)
-        let body = try JSON.decode(manifests[0])
-        XCTAssertEqual(body["contract"], .string(WorkoutCompleteness.v2Contract))
-        XCTAssertEqual(body["protocolVersion"], .int(2))
-        XCTAssertEqual(body["sourcePolicyVersion"], .string(WorkoutSourcePolicy.version))
-        XCTAssertEqual(body["sourcePolicySHA256"], .string(WorkoutSourcePolicy.sha256))
-        XCTAssertEqual(body["inventory"]["visibleCount"], .int(2))
-        XCTAssertEqual(body["inventory"]["eligibleCount"], .int(1))
-        XCTAssertEqual(body["inventory"]["excludedCount"], .int(1))
-        XCTAssertEqual(body["inventory"]["unclassifiedCount"], .int(0))
-        XCTAssertEqual(body["inventory"]["visibleSHA256"], .string(WorkoutSourcePolicy.inventorySHA256([eligibleID, excludedID])))
-        XCTAssertEqual(body["workouts"].list.count, 1)
-        XCTAssertEqual(body["workouts"].list[0]["workoutID"], .string(eligibleID))
-        XCTAssertEqual(body["streams"].list.count, 12)
-        XCTAssertEqual(body["exclusions"].list.count, 1)
-        let exclusion = body["exclusions"].list[0]
-        XCTAssertEqual(exclusion["workoutIdentitySHA256"], .string(WorkoutSourcePolicy.identitySHA256(excludedID)))
-        XCTAssertEqual(exclusion["outcome"], .string(WorkoutSourcePolicy.excluded))
-        XCTAssertEqual(exclusion["reason"], .string(WorkoutSourcePolicy.excludedReason))
-        XCTAssertEqual(exclusion["classificationVersion"], .int(WorkoutSourcePolicy.classificationVersion))
-        XCTAssertEqual(exclusion["sourcePolicyVersion"], .string(WorkoutSourcePolicy.version))
-        // Server-side re-classification proof: the shipped evidence must reproduce the claimed class.
-        XCTAssertEqual(HealthSourcePolicy.classification(exclusion["sourceEvidence"]), "third_party")
-        XCTAssertEqual(exclusion["evidenceSHA256"], .string(Wire.hash(try exclusion["sourceEvidence"].data())))
-        // Excluded Workout never reaches Protocol 3, samples, routes or analysis.
-        let bundles = uploader.bundles.withLock { $0 }
-        XCTAssertFalse(bundles.contains { $0.hasPrefix(excludedID + ":") })
-        XCTAssertTrue(bundles.contains { $0.hasPrefix(eligibleID + ":") })
-        let firstReads = await health.bundleReads, firstAnchors = await health.anchors.count
-        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
-        let second = await store.snapshot().workoutCompleteness
-        XCTAssertEqual(second?.generation, 2); XCTAssertEqual(second?.inventory.count, 2)
-        XCTAssertEqual(second?.lastQueryCounts?["committedAnchor"], 12)
-        XCTAssertEqual(second?.lastQueryCounts?["bootstrap"], 0)
-        let finalReads = await health.bundleReads, finalAnchors = await health.anchors.count
-        XCTAssertEqual(finalReads, firstReads)
-        // The excluded Workout is not looked up again; the eligible Workout
-        // still re-observes the root-relative child streams for the new cutoff.
-        XCTAssertEqual(finalAnchors, firstAnchors + 12)
-        XCTAssertEqual(second?.anchors.count, 12)
-        XCTAssertEqual(uploader.manifests.withLock { $0.count }, 2)
-        let incremental = try JSON.decode(uploader.manifests.withLock { $0[1] })
-        XCTAssertEqual(incremental["streams"].list.count, 12)
-        XCTAssertEqual(incremental["inventory"]["visibleCount"], .int(2))
-        XCTAssertEqual(incremental["workouts"].list.count, 1)
-        XCTAssertEqual(incremental["exclusions"].list.count, 1)
-    }
-
-    /// P0-3: one unrepresentable Workout is recorded against itself; the other
-    /// proofs survive, no manifest is staged, a delayed second pass reads
-    /// nothing, and an explicit retry re-reads only the blocked Workout.
-    func testBlockedWorkoutKeepsOtherProofsAndRetriesAlone() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-r3-isolated-" + Wire.id())
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let health = IsolatedCompletenessHealth()
-        let ids = await health.workoutIDs
-        let bad = ids[1]
-        await health.setFailure(bad)
-        let store = try OutboxStore(directory: directory)
-        let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [CompletenessReplies.self]
-        let session = URLSession(configuration: config)
-        let uploader = NativeCompletenessUploader()
-        uploader.loseManifestACK.withLock { $0 = false }
-        let coordinator = SyncCoordinator(store: store, health: health, session: session)
-        let secret = try ClientConfiguration.validatedSecret(baseURL: "https://synthetic.invalid",
-            collectorEpoch: CoordinatorReplies.identity.collectorEpoch, token: String(repeating: "s", count: 48))
-
-        do {
-            try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
-            XCTFail("a blocked Workout produced a manifest")
-        } catch {}
-        let firstSnapshot = await store.snapshot().workoutCompleteness
-        var flow = try XCTUnwrap(firstSnapshot)
-        XCTAssertEqual(flow.cycle?.proofs.count, 2)
-        XCTAssertEqual(flow.cycle?.completedWorkouts, [ids[0], ids[2]].sorted())
-        XCTAssertEqual(flow.blocked?.keys.sorted(), [bad])
-        XCTAssertEqual(flow.blocked?[bad]?.code, "metadata_requires_review")
-        XCTAssertEqual(flow.errorCode, "completeness_blocked")
-        XCTAssertNil(flow.cycle?.pendingFile)
-        XCTAssertEqual(flow.generation, 0)
-        XCTAssertTrue(uploader.manifests.withLock { $0.isEmpty }, "a blocked round uploaded a manifest")
-
-        // Before the backoff expires the round must not touch HealthKit again.
-        let beforeDeferred = await health.queries.count
-        do { try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader) } catch {}
-        let deferredQueries = await health.queries.count
-        XCTAssertEqual(deferredQueries, beforeDeferred)
-        let deferredProofs = await store.snapshot().workoutCompleteness?.cycle?.proofs.count
-        XCTAssertEqual(deferredProofs, 2)
-        XCTAssertTrue(uploader.manifests.withLock { $0.isEmpty })
-
-        // Explicit retry zeroes the backoff; only the blocked Workout is read.
-        let cleared = try await store.retryWorkoutCompletenessBlocked()
-        XCTAssertEqual(cleared, 1)
-        await health.setFailure(nil)
-        let beforeRetry = await health.queries.count
-        try await coordinator.syncWorkoutCompleteness(secret: secret, transfers: uploader)
-        let retried = Array(await health.queries.dropFirst(beforeRetry))
-        XCTAssertTrue(retried.allSatisfy { $0 == bad || $0 == "roots" },
-                      "an explicit retry re-read a completed Workout: \(retried)")
-        let finalSnapshot = await store.snapshot().workoutCompleteness
-        flow = try XCTUnwrap(finalSnapshot)
-        XCTAssertEqual(flow.generation, 1)
-        XCTAssertNil(flow.cycle)
-        XCTAssertNil(flow.blocked)
-        XCTAssertEqual(uploader.manifests.withLock { $0.count }, 1)
-        let body = try JSON.decode(try XCTUnwrap(uploader.manifests.withLock { $0.first }))
-        XCTAssertEqual(body["workouts"].list.compactMap { $0["workoutID"].text }.sorted(), ids.sorted())
-    }
-}
 final class Phase3HealthKitIntegrityTests: XCTestCase {
     func testRealHKSecureArchiveAndScopedIncrementalDiscovery() async throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("rai-hk-discovery-" + Wire.id())
@@ -883,19 +417,19 @@ final class Phase3HealthKitIntegrityTests: XCTestCase {
         let store = try OutboxStore(directory: dir), health = SyntheticAnchoredHealth()
         let workout = await health.value, id = workout.uuid.uuidString.lowercased()
         let coordinator = SyncCoordinator(store: store, health: health)
-        try await coordinator.discoverChanges(workoutIDs: [id])
+        try await coordinator.discoverChanges()
         let first = await store.discoverySnapshot()
-        XCTAssertEqual(first.flows.count, 12)
-        XCTAssertEqual(first.events.count, 2)
-        let observedSample = await health.quantity
-        XCTAssertEqual(first.parents[HKQuantityTypeIdentifier.heartRate.rawValue + ":" + observedSample.uuid.uuidString.lowercased()], id)
+        // Protocol 6 enumerates Workout roots only; child streams are read by
+        // the explicit payload build, not by background discovery.
+        XCTAssertEqual(first.flows.count, 1)
+        XCTAssertEqual(first.events.count, 1)
         let archive = try XCTUnwrap(first.workoutArchives[id])
         let decoded = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKWorkout.self, from: Data(contentsOf: dir.appendingPathComponent(archive)))
         XCTAssertEqual(decoded?.uuid, workout.uuid)
         let reopened = try OutboxStore(directory: dir)
         let resumed = SyncCoordinator(store: reopened, health: health)
-        try await resumed.discoverChanges(workoutIDs: [id])
-        try await resumed.discoverChanges(workoutIDs: [id])
+        try await resumed.discoverChanges()
+        try await resumed.discoverChanges()
         let last = await reopened.discoverySnapshot()
         XCTAssertEqual(last.events.count, first.events.count)
         XCTAssertEqual(last.work[id]?.generation, first.work[id]?.generation)
@@ -989,7 +523,7 @@ extension Phase5ASessionPlatformTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let credentials = PlatformSessionCredentials(), sessions = try SyncSessionStore(root: root, credentials: credentials)
         func descriptor() -> SyncSessionDescriptor { .init(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!) }
-        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3)])]) }
+        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutPayloadVersion": .int(6), "workoutUUIDIngestVersion": .int(1), "workoutUUIDIngestAccepting": .bool(true)])]) }
         let a = descriptor(), b = descriptor(), health = SyntheticAnchoredHealth()
         _ = try await sessions.prepare(a, token: "old"); try await sessions.activate(a.sessionID, handshake: hello(a))
         let old = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: a.sessionID))
@@ -1010,7 +544,7 @@ extension Phase5ASessionPlatformTests {
         try await coordinator.discoverChanges()
         let first = await fresh.discoverySnapshot()
         XCTAssertNotNil(first.workoutArchives[id]); XCTAssertFalse(first.events.values.contains { $0.uuid == id && $0.deleted })
-        XCTAssertEqual(first.events.count, 2)
+        XCTAssertEqual(first.events.count, 1)
         try await coordinator.discoverChanges()
         let repeated = await fresh.discoverySnapshot()
         XCTAssertEqual(first.events.count, repeated.events.count)
@@ -1036,7 +570,7 @@ extension Phase5ASessionPlatformTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let keys = SessionKeychain(), sessions = try SyncSessionStore(root: root, credentials: keys)
         func descriptor() -> SyncSessionDescriptor { .init(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!) }
-        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3)])]) }
+        func hello(_ d: SyncSessionDescriptor) -> JSON { .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutPayloadVersion": .int(6), "workoutUUIDIngestVersion": .int(1), "workoutUUIDIngestAccepting": .bool(true)])]) }
         let a = descriptor(), b = descriptor()
         defer {
             for d in [a, b] { SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "RAI.V3.SyncSession", kSecAttrAccount as String: d.sessionID] as CFDictionary) }
@@ -1076,7 +610,7 @@ extension Phase5ASessionPlatformTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let sessions = try SyncSessionStore(root: root, credentials: PlatformSessionCredentials())
         let d = SyncSessionDescriptor(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!)
-        let hello: JSON = .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3)])])
+        let hello: JSON = .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "datasetEpoch": .string(d.datasetEpoch), "serviceID": .string(d.serviceID), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutPayloadVersion": .int(6), "workoutUUIDIngestVersion": .int(1), "workoutUUIDIngestAccepting": .bool(true)])])
         _ = try await sessions.prepare(d, token: "synthetic"); try await sessions.activate(d.sessionID, handshake: hello)
         let store = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: d.sessionID)), counters = CoordinatorCounters()
         let secret = ClientConfiguration.Secret(configuration: .init(baseURL: d.baseURL, collectorEpoch: d.collectorEpoch), token: "synthetic")
@@ -1084,7 +618,10 @@ extension Phase5ASessionPlatformTests {
             let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [RecoveryHandshakeFailures.self]; config.httpAdditionalHeaders = ["X-Synthetic-Status": String(status)]
             let session = URLSession(configuration: config); defer { session.invalidateAndCancel() }
             let coordinator = SyncCoordinator(store: store, health: NoHealthReads(counters: counters), session: session, sessionStore: sessions, sessionID: d.sessionID)
-            do { try await coordinator.recoverPending(secret: secret, transfers: BrokenACKUploader(counters: counters)); XCTFail("failure accepted") } catch { }
+            do {
+                _ = try await coordinator.uploadWorkouts([Wire.id()], secret: secret, transfers: BrokenACKUploader(counters: counters))
+                XCTFail("failure accepted")
+            } catch { }
             let active = try await sessions.requireActive(d.sessionID)
             XCTAssertEqual(active.status, .active)
         }
@@ -1395,7 +932,9 @@ private final class VO2OnlyHandshake: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         let s = CoordinatorReplies.identity
         let body: JSON = .object(["protocolVersion": .int(3), "serviceID": .string(s.serviceID), "datasetID": .string(s.datasetID), "datasetEpoch": .string(s.datasetEpoch),
-            "capabilities": .object(["workoutBundles": .bool(true), "bundleGzipPart": .bool(true), "bundleProtocolVersion": .int(3), "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) }),
+            "datasetStatus": .string("active"),
+            "capabilities": .object(["workoutPayloadVersion": .int(6), "workoutUUIDIngestVersion": .int(1),
+                "workoutUUIDIngestAccepting": .bool(true), "sampleTypes": .array(HealthKitClient.quantityTypes.map { .string($0.identifier) }),
                 "vo2maxFactsVersion": .int(1), "vo2maxMetadataRegistryVersion": .int(1), "vo2maxMaxChanges": .int(128), "vo2maxMaxBytes": .int(524288)])])
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: try! body.data()); client?.urlProtocolDidFinishLoading(self)

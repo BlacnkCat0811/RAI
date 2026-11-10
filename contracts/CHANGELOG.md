@@ -1,3 +1,33 @@
+## 2026-11-10 — 状态快照语义与产品空态澄清 / OpenAPI 1.13.2
+
+- `GET /v2/sync/workout-ingests/{workoutID}` 的 `analysisStatus`/`analysisJobIDs` 明确为接收提交时的快照，Worker 完成后不变；实时状态读 `/v2/jobs/{id}`，已发布结果读 `/v2/analysis/workouts/{id}`。服务端行为不变（回执与历史语义保留），只澄清合同文本。
+- iOS 首页把 `not_product_activated` 归入预期空态：不再显示"可下拉重试"的故障横幅，身体状态/训练负荷按空态呈现。同步徽标改为读取持久化的最近上传时间，重启后不再回到"尚未同步"；最近运动行在缺少距离数据时不再渲染"-- 公里 · --/公里"。
+
+## 2026-11-10 — Workout 手动上传审查修复 / OpenAPI 1.13.1
+
+- POST 的成功回执仅允许 `accepted`，且必须包含首次 `acceptedAt`。已有 Workout 却没有接收行时返回 409 `workout_ingest_missing_receipt`；GET 的历史 `already_imported` 状态继续保留，客户端将其视为一致性错误。
+- v6 原始字节继续精确保存在 `workout_ingests.raw_json`；`workout_imports.payload` 改为内部来源及事实身份投影，避免未知扩展超出 JSONB 表示范围时阻断事实事务。未知 `observation` 不参与 v6 分析解释。
+- 页面退出、取消和进入后台结束所属上传轮次；历史分页使用开始时间游标，并完整读取边界处同开始时间的记录。
+
+## 2026-11-10 — Workout v6 前台手动上传 / OpenAPI 1.13.0
+
+- Workout 上传只由用户显式点击同步触发；启动、回到前台、HealthKit 变化、后台任务完成都不自动上传。每轮先握手一次，然后逐条 Workout 读取、组装并发送；一个 Workout 一次 POST，批量结果只统计本轮成功/失败及原因。
+- 客户端移除 Workout 上传队列、Outbox 恢复、后台 URLSession、上传前状态查询、自动重试和分析轮询。200 表示原始字节已持久接收；成功不等待投影或分析，训练详情需要时另行读取服务端结果。
+- 已开始的 metric 查询报错、route 读取中断或限额溢出使该 Workout 本轮失败，不上传部分结果；室内无路线与合法空流可上传，已知坏点可跳过并记录诊断。顶层 `workoutID` 仍是唯一上传的 HealthKit 对象 UUID。
+- `contracts/sync-v6.md` 第 2、3.4、5.3、7、8 节改为前台手动上传语义；`contracts/openapi-v2.yaml` 升为 1.13.0，ingest 端点说明只允许显式前台单次请求，GET 状态不属于上传流程。
+
+## 2026-11-10 — v6 HealthKit 对象 UUID 仅保留顶层 Workout ID
+
+- iOS 的 `workoutID` 是载荷中唯一的 HealthKit 对象标识；活动分段移除残留的 `uuid`。标量、series 和路线继续不携带对象 UUID。dataset 与 epoch 会话身份保持独立。
+- 服务端为活动按 dataset、Workout 和原数组下标生成确定性内部 UUID；缺少客户端 UUID 的活动仍正常投影与入库。额外活动 `uuid` 仅保留在原文，不影响投影。无需 schema migration。
+
+## 2026-11-10 — Workout 同步只保留 v6（硬切）/ OpenAPI 1.12.0
+
+- 服务端与 iOS 只保留 protocol 6：删除 v3/v4/v5 Workout bundle 解码器、`POST/GET/DELETE /v2/sync/workout-bundles` 入口、`X-RAI-Sync-Protocol` 协商、`RAI_WORKOUT_PAYLOAD_V6` 与 `RAI_WORKOUT_UUID_INGEST_MODE` 开关。握手固定返回 `workoutPayloadVersion=6`、`workoutUUIDIngestVersion=1`、`workoutUUIDIngestAccepting=true`，不再返回 `workoutBundles`/`bundleProtocolVersion`/`bundleObservationVersion`/`bundleCompact`/`explicitChildDeletions`。
+- v6 唯一的 Workout 接收入口是 `POST /v2/sync/workout-ingests/{workoutID}`；状态读取仍按 `deleted > accepted/committed/rejected > already_imported > 404` 排序，重复 UUID 只重放首次 `acceptedAt`。
+- 客户端删除同步移除：iOS 不再生成 sample/route/Workout DELETE，服务端删除能力只保留管理路径。旧版本已确认回执保留为只读历史；未确认的旧任务在重建索引时释放载荷并标记 `protocol_upgrade_required`，显式重试时从 HealthKit 重建 v6。
+- `contracts/openapi-v2.yaml` 升为 1.12.0：删除 workout-bundles 路径与 v3/v4/v5 bundle schema，握手能力枚举固定为 6，ingest 说明只描述 protocol 6；`contracts/sync-v6.md` 删除回退与兼容章节，记录硬切及旧任务处理。`contracts/sync-v3.md`、`sync-v4.md`、`sync-v5.md` 状态改为“已撤回”，原文保留为历史记录，不再作为实现合同。
+
 ## 2026-11-09 — Workout 同步协议 v6 原始序列一次打包 / OpenAPI 1.11.0
 
 - 新增 `contracts/sync-v6.md`：一个 Workout 一个 JSON、一次 multipart + gzip 上传。流只带类型、单位、诊断状态和 `[[startDeltaUs,endDeltaUs,value],...]` 三元组；series 以父样本表头加同型点子点分组；route 点改为 3..8 元素元组。v6 不发送逐样本 UUID、metadata 或 source，也不发送 v4 的 `sourceTable`/`metadataTable`、`observation`、删除数组。

@@ -93,9 +93,9 @@ public enum AnalysisFollowup {
     public static var totalBudget: TimeInterval { delays.reduce(0, +) }
 }
 
-/// A local aggregate for one HKWorkout import task. Protocol 3 sends the
-/// complete Workout as one bundle and one HTTP request; the task no longer
-/// owns page, batch or association operations.
+/// A local aggregate for one HKWorkout import task. Protocol 6 sends the
+/// complete Workout as one immutable raw payload; there are no pages, batches
+/// or association operations in this path.
 public struct WorkoutSyncTask: Codable, Sendable, Equatable {
     public var workoutID: String
     public var phase: WorkoutSyncPhase
@@ -110,14 +110,13 @@ public struct WorkoutSyncTask: Codable, Sendable, Equatable {
     /// Durable exact-byte upload identity. A retry or recovery must reuse this
     /// file rather than re-reading HealthKit and rebuilding different bytes.
     public var bundleFile: String?
-    public var bundleSHA256: String?
     public var bundleBoundary: String?
     /// UUID ingest lane marker. `"uuid"` means the fixed per-session payload is
-    /// authoritative and the old bundle upload must never be retried for this
-    /// Workout. A missing value on an old task keeps the legacy lane.
+    /// authoritative. A missing value on an old task marks a protocol-3 task
+    /// that can only be refreshed, never uploaded.
     public var ingestMode: String?
-    /// Wire version of the staged ingest payload (4 or 6). Recorded with the
-    /// immutable file so a later delivery never validates v6 bytes as v4.
+    /// Wire version of the staged ingest payload. Recorded with the immutable
+    /// file so delivery never validates bytes against a different version.
     public var payloadVersion: Int?
     /// Server acceptance of the exact payload; the file may already be gone.
     public var ingestAcceptedAt: Date?
@@ -125,30 +124,12 @@ public struct WorkoutSyncTask: Codable, Sendable, Equatable {
     public var ingestStatus: String?
     /// Derived gzip multipart; canonical bundleFile remains recovery authority.
     public var bundleWireFile: String?
-    public var bundleWireSHA256: String?
-    /// Optional fields keep already persisted v1 Outbox state decodable.
+    /// Optional fields keep already persisted Outbox state decodable.
     public var attemptCount: Int?
     public var nextAttemptAt: Date?
     public var lastUploadError: UploadError?
+    /// The accepted or committed server answer for the exact payload.
     public var uploadReceipt: JSON?
-    public var deletionReceipt: JSON?
-    /// The HealthKit Workout anchored-query anchor, used only to discover an
-    /// explicit workout deletion. Missing children never authorize deletion.
-    public var workoutAnchor: Data?
-    public var discoveryGeneration: Int64?
-    public var originalWorkout: JSON?
-    public var submittedSampleDeletions: Int?
-    public var submittedRouteDeletions: Int?
-    public var bundleDeletionEventIDs: [String]?
-    public var pendingReadKeys: [String]?
-    /// R1 ACK boundary: the exact journal identities this bundle provably
-    /// encoded. A receipt confirms only what the manifest covers; anything a
-    /// producer committed later stays pending for the next delivery.
-    public var captureManifest: CaptureManifest?
-    public var childDeletionOnly: Bool?
-    /// Set only after the bundle receipt has been validated and the task is
-    /// acknowledged. Retained for decoding older local state.
-    public var stagedAll: Bool?
     public init(workoutID: String, now: Date = Date()) {
         self.workoutID = workoutID; phase = .preparing; createdAt = now; updatedAt = now
         coverage = [:]; metrics = [:]; missing = []

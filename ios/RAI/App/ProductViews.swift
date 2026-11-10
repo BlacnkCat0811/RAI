@@ -141,10 +141,14 @@ struct HomeView: View {
     }.buttonStyle(.plain).accessibilityIdentifier("home.sync")
   }
   private var syncLabel: String {
-    sync.busy
-      ? "同步中"
-      : sync.error != nil
-        ? "需处理" : (sync.pending + sync.legacyPending) > 0 ? "待同步" : sync.lastSync != nil ? "本轮已同步" : "尚未同步"
+    ProductSyncBadge.resolve(
+      busy: sync.busy,
+      hasError: sync.error != nil,
+      hasFailedResult: sync.workoutResults.values.contains { $0.state == .failed },
+      hasSucceededResult: sync.workoutResults.values.contains { $0.state == .succeeded },
+      lastUploadAt: sync.lastUploadAt,
+      pendingChanges: sync.pendingChanges
+    ).text
   }
   private var greetingText: String {
     let h = Calendar.current.component(.hour, from: Date())
@@ -367,9 +371,8 @@ struct ActivityRow: View {
       ).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
       VStack(alignment: .leading, spacing: 4) {
         Text(workout.title).font(.headline)
-        Text(
-          "\(ProductFormat.distance(workout.raw.number("distanceM"))) 公里 · \(ProductFormat.duration(workout.raw.number("durationS"))) · \(ProductFormat.pace(workout.metric("average_pace")))/公里"
-        ).font(.caption).monospacedDigit()
+        Text(workout.detailLine.isEmpty ? "暂无数据" : workout.detailLine)
+          .font(.caption).monospacedDigit()
         Text(workout.date, format: .dateTime.month().day().hour().minute()).font(.caption2)
           .foregroundStyle(RAITheme.secondary)
       }
@@ -952,21 +955,27 @@ import ProductCore
 import SwiftUI
 import SyncCore
 
-/// User-facing HealthKit Workout selection screen. One row is one HKWorkout;
-/// selecting several only enqueues several independent one-Workout tasks.
+/// One HKWorkout = one protocol-6 payload. A round is strictly sequential and
+/// ends with only two final per-record states: 上传成功 or 上传失败.
 struct WorkoutSyncView: View {
   @Bindable var model: SyncModel
   @State private var filter: Filter = .all
   @State private var detail: HealthWorkoutSummary?
   @State private var exportStatus: String?
   @State private var showExcluded = false
-  private enum Filter: String, CaseIterable { case all = "全部", pending = "未同步", failed = "失败", synced = "已同步" }
+  @State private var uploadOwner = UUID()
+  init(model: SyncModel, uploadOwner: UUID = UUID()) {
+    self.model = model
+    _uploadOwner = State(initialValue: uploadOwner)
+  }
+  private enum Filter: String, CaseIterable { case all = "全部", unsynced = "未上传", failed = "失败", succeeded = "成功" }
 
   var body: some View {
     ScrollView {
       LazyVStack(spacing: 12) {
         intro
         if model.loadingWorkouts { ProgressView("正在读取 HealthKit 跑步记录…").font(.caption) }
+        batchSummary
         selectionBar
         sourcePolicyNote
         ForEach(filtered) { workout in
@@ -974,6 +983,21 @@ struct WorkoutSyncView: View {
         }
         if filtered.isEmpty && !model.loadingWorkouts {
           EmptyCard(title: "没有符合条件的记录", detail: "只显示真实 HealthKit 跑步记录；缺失数据以 -- 显示。")
+        }
+        if model.hasMoreWorkouts {
+          Button {
+            Task { await model.loadMoreWorkouts() }
+          } label: {
+            HStack {
+              if model.loadingMoreWorkouts { ProgressView().controlSize(.small) }
+              Text(model.loadingMoreWorkouts ? "正在读取更早记录…" : "加载更早记录")
+            }.frame(maxWidth: .infinity)
+          }.font(.caption)
+            .disabled(!model.canLoadMoreWorkouts)
+            .accessibilityIdentifier("sync.loadMore")
+        } else if !model.workouts.isEmpty {
+          Text("已加载全部历史记录（\(model.workouts.count) 条）")
+            .font(.caption2).foregroundStyle(RAITheme.secondary)
         }
         if let error = model.error {
           Text(error).font(.footnote).foregroundStyle(RAITheme.amber)
@@ -996,19 +1020,27 @@ struct WorkoutSyncView: View {
     }
     .refreshable { await model.loadWorkouts() }
     .task { if model.workouts.isEmpty { await model.loadWorkouts() } }
+    .onDisappear {
+      // Presenting this page's detail sheet does not close the upload page.
+      if detail == nil { model.cancelWorkoutSync(owner: uploadOwner) }
+    }
     .sheet(item: $detail) { workout in
-      NavigationStack { WorkoutSyncDetail(model: model, workout: workout, status: status(for: workout)) }
+      NavigationStack { WorkoutSyncDetail(model: model, workout: workout) }
     }
     .accessibilityIdentifier("screen.workout-sync")
+  }
+
+  private var selectionEditable: Bool {
+    !model.busy && !model.loadingWorkouts && !model.loadingMoreWorkouts
   }
 
   private var intro: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {
         Image(systemName: "square.stack.3d.up.fill").foregroundStyle(RAITheme.amber)
-        Text("一条跑步 = 一个独立上传任务").font(.headline)
+        Text("一条跑步 = 一次独立上传").font(.headline)
       }
-      Text("进入此页不会自动上传。选择一条或多条真实 HealthKit 跑步记录后，每条记录独立读取、独立排队、独立确认；不会合并成一个大批次。")
+      Text("本页不会自动上传。选择记录后点击“同步所选记录”：本轮只握手一次，然后逐条读取、组包并发送一次 POST。中断后未完成的已选记录计为失败；再次点击会重新读取并重试。")
         .font(.caption).foregroundStyle(RAITheme.secondary)
       HStack(spacing: 10) {
         Label(model.authorization, systemImage: "checkmark.shield").font(.caption2).foregroundStyle(RAITheme.secondary)
@@ -1026,20 +1058,44 @@ struct WorkoutSyncView: View {
     }.padding(16).raiGlass()
   }
 
+  @ViewBuilder private var batchSummary: some View {
+    if let batch = model.batch {
+      let succeeded = batch.ids.filter { model.workoutResults[$0]?.state == .succeeded }.count
+      let failed = batch.ids.filter { model.workoutResults[$0]?.state == .failed }.count
+      VStack(alignment: .leading, spacing: 7) {
+        HStack {
+          Text(batch.finishedAt == nil ? "本轮上传进行中" : "本轮结果").font(.subheadline.weight(.semibold))
+          Spacer()
+          if let duration = batch.duration { Text(String(format: "%.1f 秒", duration)).font(.caption2).foregroundStyle(RAITheme.secondary) }
+        }
+        Text("已选 \(batch.ids.count) 条 · 上传成功 \(succeeded) 条 · 上传失败 \(failed) 条").font(.caption)
+        if batch.finishedAt == nil {
+          ProgressView(value: Double(succeeded + failed), total: Double(max(batch.ids.count, 1)))
+          Button("取消上传") { model.cancelWorkoutSync(owner: uploadOwner) }.font(.caption)
+        }
+      }.padding(14).raiGlass()
+        .accessibilityIdentifier("sync.batchSummary")
+    }
+  }
+
   private var selectionBar: some View {
     VStack(spacing: 10) {
       Picker("筛选", selection: $filter) {
         ForEach(Filter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
       }.pickerStyle(.segmented)
+      HStack(spacing: 12) {
+        Button("选择本页") { model.selectCurrentPage() }
+        Button("选择全部符合条件记录") { Task { await model.selectAllEligibleWorkouts() } }
+        Spacer(minLength: 0)
+        Text("已选 \(model.selected.count) 条").font(.caption.monospacedDigit())
+      }.font(.caption).disabled(!selectionEditable)
       HStack {
-        Button(model.selected.isEmpty ? "选择全部未同步" : "清除选择（\(model.selected.count)）") {
-          if model.selected.isEmpty { model.selected = Set(model.workouts.filter { $0.isEligible && status(for: $0) == .notSynced }.map(\.id)) }
-          else { model.selected.removeAll() }
-        }.font(.caption).disabled(!model.canStartWorkoutSync)
+        Button("清除选择") { model.selected.removeAll() }
+          .font(.caption).disabled(model.selected.isEmpty || !selectionEditable)
         Spacer()
-        Button("同步所选") {
+        Button("同步所选记录") {
           let ids = model.workouts.map(\.id).filter { model.selected.contains($0) }
-          model.syncWorkouts(ids)
+          model.syncWorkouts(ids, owner: uploadOwner)
         }
         .font(.caption.weight(.semibold))
         .disabled(!model.canStartWorkoutSync || model.selected.isEmpty)
@@ -1049,8 +1105,8 @@ struct WorkoutSyncView: View {
   }
 
   private func row(_ workout: HealthWorkoutSummary) -> some View {
-    let phase = status(for: workout)
     let selected = model.selected.contains(workout.id)
+    let result = model.workoutResults[workout.id]
     return VStack(alignment: .leading, spacing: 10) {
       HStack(alignment: .top, spacing: 10) {
         Button {
@@ -1058,7 +1114,7 @@ struct WorkoutSyncView: View {
         } label: {
           Image(systemName: selected ? "checkmark.circle.fill" : "circle")
             .font(.title3).foregroundStyle(selected ? RAITheme.amber : RAITheme.secondary)
-        }.buttonStyle(.plain).disabled(!model.canStartWorkoutSync || !workout.isEligible)
+        }.buttonStyle(.plain).disabled(!selectionEditable || !workout.isEligible)
           .accessibilityIdentifier("sync.select")
         VStack(alignment: .leading, spacing: 3) {
           HStack(spacing: 6) {
@@ -1073,7 +1129,7 @@ struct WorkoutSyncView: View {
           }
         }
         Spacer(minLength: 0)
-        if workout.isEligible { statusBadge(phase) } else {
+        if workout.isEligible { resultBadge(result) } else {
           Text(workout.isExcluded ? "已排除" : "待识别").font(.caption2.weight(.semibold))
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(RAITheme.secondary.opacity(0.18), in: Capsule())
@@ -1085,29 +1141,17 @@ struct WorkoutSyncView: View {
         if let device = workout.deviceName { Text(device).font(.caption2).foregroundStyle(RAITheme.secondary) }
         Spacer()
         Button("详情") { detail = workout }.font(.caption2)
-        if !workout.isEligible {
+        if workout.isEligible {
+          Button(result == nil ? "同步" : "重新同步") { model.syncWorkouts([workout.id], owner: uploadOwner) }
+            .font(.caption.weight(.semibold))
+            .disabled(!model.canStartWorkoutSync || result?.state == .pending || result?.state == .uploading)
+        } else {
           Text(workout.isExcluded ? "非 Apple Watch 原生来源，不上传" : "来源待识别，暂不上传")
             .font(.caption2).foregroundStyle(RAITheme.secondary)
-        } else {
-        switch phase {
-        case .notSynced:
-          Button("同步") { model.syncWorkouts([workout.id]) }.font(.caption.weight(.semibold)).disabled(!model.canStartWorkoutSync)
-        case .failed:
-          Button("重试") { model.retry(workout.id) }.font(.caption.weight(.semibold)).disabled(!model.canStartWorkoutSync)
-        case .preparing, .uploading:
-          Button("继续") { model.retry(workout.id) }.font(.caption2).disabled(!model.canStartWorkoutSync)
-        case .accepted:
-          // The exact payload is durably accepted; re-sending cannot change the outcome.
-          Button("检查状态") { model.checkStatus(workout.id) }.font(.caption2).disabled(model.busy)
-        case .acknowledged, .analyzing:
-          Button("检查状态") { model.checkStatus(workout.id) }.font(.caption2).disabled(model.busy)
-          Button("更新") { model.syncWorkouts([workout.id]) }.font(.caption2).disabled(!model.canStartWorkoutSync)
-        case .published, .partial:
-          Button("更新") { model.syncWorkouts([workout.id]) }.font(.caption2).disabled(!model.canStartWorkoutSync)
-        case .deleted:
-          Text("HealthKit 已删除").font(.caption2).foregroundStyle(RAITheme.secondary)
         }
-        }
+      }
+      if let result, result.state == .failed, let reason = result.reason {
+        Text(reason).font(.caption2).foregroundStyle(.red)
       }
     }.padding(16).raiGlass()
       .overlay(RoundedRectangle(cornerRadius: RAITheme.radius).strokeBorder(selected ? RAITheme.amber.opacity(0.65) : .clear, lineWidth: 1))
@@ -1121,11 +1165,20 @@ struct WorkoutSyncView: View {
     }
   }
 
-  private func statusBadge(_ phase: WorkoutSyncPhase) -> some View {
-    Text(statusLabel(phase)).font(.caption2.weight(.semibold))
+  private func resultBadge(_ result: WorkoutUploadResult?) -> some View {
+    let label: String, color: Color
+    switch result?.state {
+    case .none: label = "未上传"; color = RAITheme.secondary
+    case .pending: label = "等待上传"; color = RAITheme.secondary
+    case .uploading: label = "正在上传"; color = RAITheme.amber
+    case .succeeded: label = "上传成功"; color = RAITheme.green
+    case .failed: label = "上传失败"; color = .red
+    }
+    return Text(label).font(.caption2.weight(.semibold))
       .padding(.horizontal, 8).padding(.vertical, 4)
-      .background(statusColor(phase).opacity(0.18), in: Capsule())
-      .foregroundStyle(statusColor(phase))
+      .background(color.opacity(0.18), in: Capsule())
+      .foregroundStyle(color)
+      .accessibilityIdentifier("sync.result")
   }
 
   private var filtered: [HealthWorkoutSummary] {
@@ -1133,12 +1186,13 @@ struct WorkoutSyncView: View {
       // A record the frozen source policy excludes is never offered for sync.
       // It stays visible only on request, with a plain-language reason.
       if workout.isExcluded && !showExcluded { return false }
-      let phase = status(for: workout)
       switch filter {
       case .all: return true
-      case .pending: return phase == .notSynced
-      case .failed: return phase == .failed
-      case .synced: return ![.notSynced, .failed, .deleted].contains(phase)
+      case .unsynced:
+        let state = model.workoutResults[workout.id]?.state
+        return state == nil || state == .pending || state == .uploading
+      case .failed: return model.workoutResults[workout.id]?.state == .failed
+      case .succeeded: return model.workoutResults[workout.id]?.state == .succeeded
       }
     }
   }
@@ -1153,47 +1207,19 @@ struct WorkoutSyncView: View {
           if excluded > 0 {
             HStack(spacing: 6) {
               Image(systemName: "applewatch.slash").font(.caption2).foregroundStyle(RAITheme.secondary)
-              Text("已隐藏 \(excluded) 条非 Apple Watch 原生跑步记录（第三方 App 或手工录入）")
+              Text("已加载记录中有 \(excluded) 条非 Apple Watch 原生跑步记录（第三方 App 或手工录入）")
                 .font(.caption2).foregroundStyle(RAITheme.secondary)
               Spacer(minLength: 0)
               Button(showExcluded ? "收起" : "查看") { showExcluded.toggle() }.font(.caption2)
             }
           }
           if pending > 0 {
-            Text("\(pending) 条记录的来源暂无法确认，已保留在本机待识别，不会上传")
+            Text("已加载记录中有 \(pending) 条来源暂无法确认，不会上传")
               .font(.caption2).foregroundStyle(RAITheme.secondary)
           }
         }.padding(12).raiGlass()
           .accessibilityIdentifier("sync.sourcePolicyNote")
       }
-    }
-  }
-
-  private func status(for workout: HealthWorkoutSummary) -> WorkoutSyncPhase {
-    if let task = model.tasks[workout.id] { return task.phase }
-    if model.serverPresent.contains(workout.id) {
-      return model.serverStatuses[workout.id] == "published" ? .published : .acknowledged
-    }
-    return .notSynced
-  }
-
-  private func statusLabel(_ phase: WorkoutSyncPhase) -> String {
-    [
-      .notSynced: "未同步", .preparing: "正在准备", .uploading: "正在上传",
-      .accepted: "已接收，等待入库", .acknowledged: "已入库，等待分析", .analyzing: "分析中",
-      .published: "分析可查看", .partial: "部分完成", .failed: "失败", .deleted: "已删除",
-    ][phase] ?? phase.rawValue
-  }
-
-  private func statusColor(_ phase: WorkoutSyncPhase) -> Color {
-    switch phase {
-    case .notSynced: RAITheme.secondary
-    case .preparing, .uploading: RAITheme.amber
-    case .accepted, .acknowledged, .analyzing: RAITheme.blue
-    case .published: RAITheme.green
-    case .partial: RAITheme.orange
-    case .failed: Color.red
-    case .deleted: RAITheme.secondary
     }
   }
 
@@ -1203,14 +1229,23 @@ struct WorkoutSyncView: View {
 struct WorkoutSyncDetail: View {
   @Bindable var model: SyncModel
   let workout: HealthWorkoutSummary
-  let status: WorkoutSyncPhase
   @Environment(\.dismiss) private var dismiss
-  private func phaseLabel(_ phase: WorkoutSyncPhase) -> String {
-    [
-      .notSynced: "未同步", .preparing: "正在准备", .uploading: "正在上传",
-      .accepted: "已接收，等待入库", .acknowledged: "已入库，等待分析", .analyzing: "分析中",
-      .published: "分析可查看", .partial: "部分完成", .failed: "失败", .deleted: "已删除",
-    ][phase] ?? phase.rawValue
+  @State private var uploadOwner = UUID()
+  init(model: SyncModel, workout: HealthWorkoutSummary, uploadOwner: UUID = UUID()) {
+    self.model = model
+    self.workout = workout
+    _uploadOwner = State(initialValue: uploadOwner)
+  }
+  private var result: WorkoutUploadResult? { model.workoutResults[workout.id] }
+
+  private var resultLabel: String {
+    switch result?.state {
+    case .none: return "未上传"
+    case .pending: return "等待上传"
+    case .uploading: return "正在上传"
+    case .succeeded: return "上传成功"
+    case .failed: return "上传失败"
+    }
   }
 
   var body: some View {
@@ -1221,44 +1256,35 @@ struct WorkoutSyncDetail: View {
         LabeledContent("距离", value: workout.distanceM == nil ? "--" : ProductFormat.distance(workout.distanceM) + " km")
         LabeledContent("平均配速", value: workout.averagePaceSecondsPerM == nil ? "--" : ProductFormat.pace(workout.averagePaceSecondsPerM) + "/km")
         LabeledContent("平均心率", value: workout.averageHeartRate.map { String(format: "%.0f bpm", $0) } ?? "--")
-        LabeledContent("状态", value: phaseLabel(status))
       }
-      if let task = model.tasks[workout.id] {
-        Section("独立同步任务") {
-          LabeledContent("阶段", value: phaseLabel(task.phase))
-          LabeledContent("创建", value: task.createdAt.formatted(date: .abbreviated, time: .standard))
-          if let accepted = task.ingestAcceptedAt {
-            LabeledContent("服务端已接收", value: accepted.formatted(date: .abbreviated, time: .standard))
-          }
-          if let acknowledged = task.acknowledgedAt {
-            LabeledContent("Durable ACK", value: acknowledged.formatted(date: .abbreviated, time: .standard))
-          }
-          if let error = task.errorCode { LabeledContent("错误", value: error) }
-          ForEach(task.missing, id: \.self) { Text($0).font(.caption) }
+      Section("同步结果") {
+        LabeledContent("状态", value: resultLabel)
+        if let acceptedAt = result?.acceptedAt {
+          LabeledContent("服务端接收", value: acceptedAt.formatted(date: .abbreviated, time: .standard))
         }
-        Section("Coverage（缺失不等于 0）") {
-          if task.coverage.isEmpty { Text("尚无读取结果").font(.caption) }
-          ForEach(task.coverage.keys.sorted(), id: \.self) { key in
-            let item = task.coverage[key]!
-            LabeledContent(key) {
-              Text("\(item.stateText) · \(item.sampleCount)").font(.caption.monospacedDigit())
-            }
-          }
-        }
-        Section("分阶段耗时（毫秒）") {
-          ForEach(task.metrics.keys.sorted(), id: \.self) { key in
-            LabeledContent(key, value: String(format: "%.1f", task.metrics[key]!))
-          }
+        if let errorCode = result?.errorCode { LabeledContent("错误代码", value: errorCode) }
+        if let reason = result?.reason { Text(reason).font(.caption).foregroundStyle(.red) }
+      }
+      if !workout.isEligible {
+        Section("来源策略") {
+          Text(workout.isExcluded
+            ? "这条记录不是 Apple Watch 原生来源，按来源策略不会上传。"
+            : "这条记录的来源暂无法确认，不会上传。")
+            .font(.caption)
         }
       }
       Section {
-        Button("检查服务端状态") { model.checkStatus(workout.id) }.disabled(model.busy)
-        Button("重新同步（检查迟到数据）") { model.syncWorkouts([workout.id]) }.disabled(!model.canStartWorkoutSync)
+        Button(result == nil ? "同步这条记录" : "重新同步") {
+          model.syncWorkouts([workout.id], owner: uploadOwner)
+        }.disabled(!model.canStartWorkoutSync || !workout.isEligible)
+        Text("上传成功表示服务端已耐久接收原始载荷；不等待入库或分析完成，也不会自动检查后续状态。")
+          .font(.caption)
       }
     }
     .navigationTitle("同步详情")
     .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("关闭") { dismiss() } } }
     .scrollContentBackground(.hidden).raiScreen()
+    .onDisappear { model.cancelWorkoutSync(owner: uploadOwner) }
   }
 }
 

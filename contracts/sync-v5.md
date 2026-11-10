@@ -1,10 +1,8 @@
 # RAI 同步协议 v5：紧凑 Workout 原始载荷
 
-状态：实现合同。v5 在 v4“原始记录上传”语义上只改变编码，不改变事实含义：
-客户端提交 HealthKit 观察到的原始 Workout，服务端只解释已知字段，未知字段保留在
-原始载荷中。运行时以 `GET /v2/handshake` 返回的 `workoutPayloadVersion=5`、
-`bundleProtocolVersion=5`、`bundleCompact=true` 和实际限额为准。协议 3 和 4 继续
-保留给未升级客户端。
+状态：已撤回（2026-11-10）。Workout 同步只保留 protocol 6（`contracts/sync-v6.md`）；
+本文描述的 v5 紧凑编码从未有客户端生产者，相关编解码与兼容入口已删除。本文仅保留
+历史线格式与语义记录，服务端不再接受该版本，iOS 也不再构建。
 
 ## 1. 与 v4 的差异
 

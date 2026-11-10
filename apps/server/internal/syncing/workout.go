@@ -43,7 +43,8 @@ type Workout struct {
 	Activities        []WorkoutActivity  `json:"activities,omitempty"`
 }
 
-// Activity order and UUIDs come from the source. An absent endUs stays absent;
+// Activity order comes from the source. V6 activity UUIDs are server-generated;
+// legacy internal paths may still carry source UUIDs. An absent endUs stays absent;
 // the parent end is only a validation bound, never a synthesized source value.
 type WorkoutActivity struct {
 	UUID          string                `json:"uuid"`

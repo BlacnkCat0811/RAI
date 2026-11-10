@@ -1424,3 +1424,151 @@ NOT RUN / NOT VERIFIED：R2-P05 S120/S240（库无 120/240 分钟记录）、R2-
   - iOS `scripts/local/test.sh simulator` PASS：107 passed / 0 failed / 3 skipped（iPhone 12 Pro Max 模拟器 iOS 26.5，`simulator.8mGToY/result.xcresult`），含每类型只读一次、单流失败隔离、route 查询失败与单条 route 读取不完整均上传空 routes、第三方来源零读取、重试复用字节、默认不带 metadata、40 分钟计数与大小、超限抛错、握手回退到 v4。
   - UUID test vectors 与合同、服务端测试一致：sample 0 `34635001-1772-53c6-b1be-0d0ee6697213`；series 0 `e5920676-90e1-5960-9e25-7a82deac2d69`；route 0 `c78232c5-3611-5aa0-97fd-ecc1f7ffb71c`（dataset `11111111-1111-4111-8111-111111111111`、workout `22222222-2222-4222-8222-222222222222`、类型 HeartRate）。
 - 未验证/未授权：未构建镜像、未部署、云端仍为 schema 50 / OpenAPI 1.9.0；`RAI_WORKOUT_PAYLOAD_V6` 未在任何环境启用，iOS `workoutPayloadV6` 默认关闭；未用真实 iPhone/HealthKit 验证 v6 读取、上传、后台传输或混合 Watch+iPhone 来源；未在 App UI 中查看 v6 分析结果；未跑 `full`（uncached 全量集成回归）与真机验收。服务端 integration 只证明接收、投影、提交与待办入队，不证明分析模型正确性。
+
+### Workout 同步只保留 v6 — 硬切（2026-11-10，未部署）
+
+用户决定硬切：Workout 同步只保留 protocol 6，不再兼容 v3/v4/v5；客户端删除同步一并移除。上一节“Workout Sync v6”的协商与回退描述由本节取代，原文保留。无新 migration，schema 保持 50。
+
+- 服务端入口：删除 v4/v5 解码器、`POST/GET/DELETE /v2/sync/workout-bundles`、`X-RAI-Sync-Protocol` 协商、`RAI_WORKOUT_PAYLOAD_V6`、`RAI_WORKOUT_UUID_INGEST_MODE` 及 `legacy|uuid|uuid_paused` 模式。`POST/GET /v2/sync/workout-ingests/{workoutID}` 成为唯一接收/状态入口；`DecodeWorkoutPayloadJSON` 只接受 `protocolVersion=6`，旧版本原始载荷在 wire 边界返回 422 `unsupported_payload`（字段 `protocolVersion`，原因 `unsupported_protocol`），worker 重放旧载荷走永久拒绝而不是降级解码。握手固定返回 `workoutPayloadVersion=6`、`workoutUUIDIngestVersion=1`、`workoutUUIDIngestAccepting=true`，不再返回 `workoutBundles`/`bundleProtocolVersion`/`bundleObservationVersion`/`bundleCompact`/`explicitChildDeletions`。`cmd/rai version` 的 OpenAPI 字段同步为 1.12.0。
+- 服务端读取：分析、特征、完整性与来源表只从 protocol-6 原始载荷重建；根删除屏障、原始字节保留、事务内回执与分析待办语义不变。v3/v4 的删除上传路由随旧入口一并删除，删除能力只保留管理路径。
+- iOS：删除 `V4SyncEngine`、`WorkoutBundle`/`WorkoutBundleDelivery`/`WorkoutBundleV4` 与 v3/v4 组包和删除上传；唯一构建器为 `RawStreamSyncEngine`，唯一 multipart 入口为 `WorkoutPayloadTransport`。`context` 要求 `protocolVersion=3` 的 session 握手同时携带 `datasetStatus=active`、`workoutPayloadVersion=6`、`workoutUUIDIngestVersion=1` 与全部受支持样本类型，否则 `unsupported_handshake`，无回退。新任务只记录 `payloadVersion=6`；旧已确认回执保持只读并只刷新分析，未确认旧任务在重建索引时释放载荷并标记 `protocol_upgrade_required`，显式重试时重新读取 HealthKit 构建 v6。
+- 契约：`contracts/openapi-v2.yaml` 升为 1.12.0，删除 workout-bundles 路径与 v3/v4/v5 bundle schema，握手能力固定为 6；`contracts/sync-v6.md` 删除回退与兼容章节并记录硬切；`contracts/sync-v3.md`、`sync-v4.md`、`sync-v5.md` 状态改为“已撤回”，原文保留为历史记录。
+- 测试证据（本机 2026-11-10）：
+  - `scripts/local/test.sh quick` PASS（4 s；gofmt、Go 单元测试、vet 与依赖边界）。
+  - `scripts/local/test.sh gate` PASS（首次 28 s，更新版本清单后缓存复跑 3 s；`go test -race ./...`、`go vet ./...`、依赖边界与 controller 安全检查）。
+  - `scripts/local/test.sh integration -run 'TestWorkoutUUIDIngest' -v ./integration` PASS（15.151 s；隔离 PostgreSQL 18.6，`fsync=on`、`full_page_writes=on`、`synchronous_commit=on`、`data_checksums=on`；14 个用例通过，`TestWorkoutUUIDIngestPerf` 按环境变量跳过；覆盖 v6 提交/重放/删除、路径体不匹配、严格载荷拒绝、v6 不得走旧 compact 入口、租约/围栏/受限角色/暂态重试；`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`）。
+  - `scripts/local/test.sh swift` PASS（212 tests / 32 suites，14 s）。
+  - `scripts/local/test.sh simulator` PASS（iPhone 17 Pro / iOS 26.5；76 tests：74 passed / 2 skipped / 0 failed，执行 74.7 s；结果包 `.local/ua1-r/simulator.OAI713/result.xcresult`）。
+  - `scripts/local/contracts.sh` PASS（redocly 2.71.1 / node 22.23.2，0 errors / 36 既有 warnings）；Ruby YAML 结构校验 `paths=46 schemas=108`。
+- 未验证/未授权：未构建镜像、未部署，云端仍运行旧版（schema 50、已部署 OpenAPI 1.9.0，仍接受旧协议）；未用真实 iPhone/HealthKit 验证 v6 硬切后的读取、上传、后台传输与旧任务升级；未运行 UI XCTest（需要独立 P6 主机/配置）；未跑 `full` uncached 全量集成回归、未跑 `syncperf`/性能基准；旧 protocol-4/5 已提交历史载荷是否能被新分析读取未做真实数据库验证（代码只保留 v6 提取器），本轮仅以编译、单元与隔离集成测试覆盖。
+
+### 同步设计与实现审查（2026-11-10）
+
+审查当前工作区的 v6 硬切实现，使用本机合成数据。以下证据补充上一节的历史兼容性与测试范围。
+
+- `scripts/local/test.sh gate` 通过。隔离 PostgreSQL 18.6 定向回归通过，覆盖 Workout 接收、提交、重放、删除和围栏，以及变更通知分页、daily/VO2 生命周期和新 dataset 并发切换。测试集群均已清理。通知接口按 `(commit_rev, ordinal)` 排序，完整事实下载与 iOS 游标消费仍未实现。
+- 隔离 PostgreSQL 合成探针复现两种旧状态。旧 v4 `accepted` 行被新 Worker 永久拒绝为 `unsupported_payload`，同 UUID 提交 v6 只重放旧接收回执，未生成事实。以 v4 格式保存的已提交历史重新加载分析时返回 `analysis_source_unclassified`。
+- v6 未知字段复现。扩展字段含 `1e400` 时，词法检查直接拒绝。扩展字段含 `\u0000` 时，接收表按原字节保存，随后 `jsonb` 转换导致事实事务回滚，三次尝试后以 `processing_attempts_exhausted` 结束。扩展字段 `observation` 为字符串时，事实已提交，但分析加载返回 `analysis_invalid_input`。
+- SwiftPM 212 项通过。iOS Simulator App XCTest 74 项通过、2 项跳过、0 项失败，结果保存在 `.local/ua1-r/simulator.NY2ec3/result.xcresult`。额外的 Swift 合成探针复现了旧 UUID Outbox 的 v4 gzip 缓存经重建索引后仍进入 POST。探针用本地传输替身记录请求体，未连接任何服务器。
+- 代码审查发现，真实 HealthKit 查询中的标量或路线超限错误可被组包器降级为缺流或空路线，首次接收后同 UUID 无法补传。v6 当前也无法续期 Workout completeness 证明，已有证明会随新 Workout revision 落后，Readiness 的覆盖门槛仍依赖该证明。项目约定保留的 v3 显式删除入口已随旧路由移除，定向测试覆盖的是 Store 删除与屏障。
+- `scripts/local/test.sh syncperf --iterations 1 --warmups 0 --cold 0` 退出码为 0，但输出 `no tests to run`。本轮没有有效的吞吐或延迟测量。未执行 `full`、真实 iPhone/HealthKit、真实数据升级或部署验收。
+
+后续实施采用空白数据库和独立 iOS 会话，从 HealthKit 以 v6 重传。旧载荷排空、历史分析兼容、v3 客户端入口和旧 Outbox 升级退出实施范围。上面的复现结果作为当前实现证据保留。本次交付范围为方案文档。 [v6 全量重传与同步优化方案](WORKOUT_SYNC_V6_REIMPORT_PLAN.md)
+
+### Workout 前台手动上传 — 方案交付（2026-11-10，待实施）
+
+用户要求只交付方案，不执行实施。新增 [Workout v6 前台手动上传实施方案](WORKOUT_SYNC_V6_MANUAL_UPLOAD_PLAN.md)：仅用户点击触发、选择或批量上传、一条 Workout 一个 v6 JSON 和一次 POST、最终只显示上传成功/失败、中断后下次点击重新尝试；JSON 中的 HealthKit 对象 UUID 只保留顶层 `workoutID` 一次。新客户端目标去掉 Workout Outbox、后台传输、自动重试、恢复上传、状态补确认与分析轮询；服务端原文、UUID 去重、事务和真实分析保障继续保留。
+
+- 当前状态：前台简化尚未实施。上一轮已有活动分段去 UUID、服务端生成活动内部身份及相关合同/测试修改，本轮未继续修改或回滚这些代码。
+- 上一轮已取得的证据：先用合成 Go 用例复现无 UUID 活动被丢弃，修复后定向用例通过；`scripts/local/test.sh gate` PASS（53 s，Go race/vet/依赖边界与 controller 安全检查）；隔离 PostgreSQL 18.6 `TestWorkoutUUIDIngestV6*` 5 项 PASS（7.638 s，测试集群已清理）；SwiftPM `WorkoutBundleV6Tests` 8 项 PASS；合同检查 0 errors / 36 warnings。
+- 上一轮未通过项：Simulator App XCTest 退出码 65，失败用例为 `RawStreamSyncEngineTests.testBuildEmitsProtocolSixWithoutPerSampleIdentity`；结果包 `.local/ua1-r/simulator.sfSoaF/result.xcresult`。本轮只读取已结束任务的结果，未排查修复，不能宣称 UUID 变更已完成模拟器验收。
+- 本轮范围：只写方案及本记录，未启动测试、未实施客户端简化、未操作数据库、未构建发布镜像或部署。旧方案保留为历史；实际实施、修复、门禁和真机验收须后续授权并记录真实结果。
+
+### Workout 前台手动上传 — 实施结果（2026-11-10）
+
+按 [Workout v6 前台手动上传实施方案](WORKOUT_SYNC_V6_MANUAL_UPLOAD_PLAN.md) 完成阶段 A→D。Workout 上传只由用户显式点击触发；每轮一次握手、逐条读取/组包/发送一次 POST，最终只呈现上传成功或失败。本轮没有修改服务端事务、接收或删除逻辑，schema 仍为 50。
+
+- 载荷身份：`RawStreamSyncEngine` 只把 `HKWorkout.uuid` 写入顶层 `workoutID`；活动分段、标量样本、series 父组与点、路线与轨迹点都不再携带对象 UUID/source/metadata。服务端按线上数组下标生成内部身份，活动时间、时长、configuration、统计、事件和 metadata 继续投影。`RawStreamSyncEngineTests` 断言顶层 UUID 只出现一次、各类明细无 UUID，并覆盖活动分段、series、标量和路线。
+- 前台单次投递：`WorkoutIngestDelivery.accept` 先校验 protocolVersion=6、Workout ID、dataset/epochs 与握手一致，再对完整 JSON 做一次 gzip；gzip 限额或结构校验失败时改发同一份完整明文的单个 `file` part。发送后只执行一次 `POST /v2/sync/workout-ingests/{workoutID}`，只接受 `accepted`/`already_imported` 回执；不预读状态、不在失败后 GET 补确认、不自动重试、不写 Workout Outbox、不使用后台 URLSession。`WorkoutIngestTests` 9 项覆盖单次 POST、gzip 字节一致、明文回退、重复 UUID、传输失败只发一次、503 不重试、回执不匹配/空 ACK、会话不匹配时零请求。
+- 读取质量：每个 Workout 只读一次根记录，每个标量类型一次 sample 查询，series 类型一次 series 查询；已开始的任一 sample/series 查询报错、route 读取报错或中断、任一限额超限都使该 Workout 本轮失败，不上传部分结果。合法空流和室内无路线仍可上传；未知样本跳过并标记该 stream，不阻断整条。来源门禁在第一次明细读取前执行，被排除或来源未决的 Workout 不读取明细、不发送请求。
+- 批量与生命周期：同步页支持单条/多条选择、失败/成功/未上传筛选、历史分页、选择本页、选择全部符合条件记录和加载更早记录。每轮只握手一次，按用户选择顺序串行处理；单条失败不阻断后续，取消后未完成/未开始的已选项计为失败并保持选中。启动、回前台、HealthKit 观察回调、后台 URLSession 回调和重启只走日常扫描，不触发 Workout 读取或 POST；`RAIApp` 的 `scanHealthChanges`/`performForegroundScan` 路径和 `AppDelegate` 后台回调均不含 Workout 上传调用。
+- 清理：删除 `WorkoutPayloadTransport.multipartPayload` 与 `WorkoutIngestDelivery.status`；`RawStreamSyncEngine` 改为直接返回 `Data`，不再经过 Outbox 暂存或恢复；App 测试从旧 Outbox/uploader 流程迁移到前台单次投递。`OutboxStore` 中旧 Workout 任务存储仍保留给历史任务和其他协议，不作为新流程依赖；旧会话/旧任务未做物理清理。
+- 合同：`contracts/sync-v6.md` 已明确前台手动上传、顶层唯一 Workout UUID、一次 POST、成功仅表示原始字节持久接收；`contracts/openapi-v2.yaml` 的 Workout ingest POST 说明明确客户端只在显式前台同步发送一次、无状态预读/自动重试/后台传输/分析轮询；GET 状态接口保留给管理和其他读取方，新同步流程不调用。
+
+测试证据（本机 2026-11-10，仅合成数据）：
+
+- `scripts/local/test.sh swift` PASS：206 tests / 32 suites，5 s。
+- `scripts/local/test.sh simulator` PASS：iPhone 12 Pro Max / iOS 26.5，73 passed / 2 skipped / 0 failed（75 项），结果包 `.local/ua1-r/simulator.9Wgp3j/result.xcresult`。测试重写移除了旧 Outbox 恢复用例，数量少于上一轮基线。
+- `scripts/local/test.sh gate` PASS：11 s，Go race/vet/依赖边界和 controller 安全检查。
+- `scripts/local/test.sh integration -run 'TestWorkoutUUIDIngest' -v ./integration` PASS：19.211 s，14 项；隔离 PostgreSQL 18.6，`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`。覆盖接收/提交/重放、HTTP 接收与状态、already_imported、dataset 隔离、删除顺序、租约恢复、围栏、受限角色、暂态重试和 v6 活动无客户端 UUID。
+- `scripts/local/contracts.sh` PASS：redocly 0 errors / 36 warnings。
+- 修复了旧 App 用例 `testModelAllowsUserSyncDuringAutomaticWorkAndReservesSelectionImmediately`：新 `syncWorkouts` 只接受已加载且符合条件的记录，测试需先注入 eligible 列表并在断言后取消本轮，避免等待 1 小时的后台 sleep。
+
+未验证/未授权：未用真实 iPhone/HealthKit 验证前台生命周期、取消/杀进程、Watch 到手机的明细可见性和真实网络时延；Simulator 不证明 HealthKit 实际返回；未构建镜像、未部署、未切换旧入口；未跑 `scripts/local/test.sh full`、性能基准或真实设备验收。上传成功只证明服务端耐久接收原始字节，不证明事实投影或分析完成；Readiness 覆盖规则未在本轮调整。
+
+### Workout 前台手动上传 — 实施审查（2026-11-10）
+
+本节是用户要求审查实施后的实际结果，保留上面的实施声明与历史证据。结论：**主上传路径已实现，但尚不能按方案全部验收；发现 6 项 P2 问题。** 本轮未修复业务代码。用户附件中的“只交付方案”属于原方案的历史边界，本轮按用户新的审查请求执行本机合成验证，没有操作生产数据、部署或真实数据迁移。
+
+已核对：用户点击后串行构建与一次 POST、无失败后 GET 补确认/轮询/自动重试、无新 Workout Outbox 依赖、gzip 发送前回退、最终成功/失败计数，以及活动/样本/series/路线不上传 HealthKit UUID。新载荷的顶层唯一 Workout UUID 已通过本轮 Swift/Simulator 和真实隔离 PG 验证。
+
+审查发现（均需修正，以下后端未知扩展问题是上一轮已知问题，在本次方案的明确验收范围内仍未解决，不将它们表述为本轮新引入的回归）：
+
+1. **P2：退出同步页面没有取消本轮上传。** `ios/RAI/App/ProductViews.swift:1014–1019` 只绑定列表读取和详情 sheet，没有页面退出取消；`syncWorkouts` 把批量交给全局 `ForegroundSyncScheduler` 持有，当前只有 App 进入后台调用 `suspendForegroundWork`。用户返回上页或切到其他 tab、App 仍在前台时，当前请求及后续所选记录仍可继续。应绑定实际上传页面的退出/取消事件，取消当前操作并将尚未确认项计为中断失败；单条详情中发起的上传也需要有对应边界。本项由源代码调用链确认，未冒充真机交互复现。
+2. **P2：历史分页用开始时间游标，却按结束时间筛选。** `ios/RAI/App/HealthKitClient.swift:329–331` 用 `.strictEndDate` 过滤 `end <= before`，而页面按 `startDate` 降序，`RAIApp.swift:504` 保存的是末条 `start`。开始更早但结束晚于游标的重叠记录会永久漏掉，同开始时间跨页的记录也没有稳定游标处理；界面随后仍会声称已加载全部历史。应使用与排序一致的游标，并完整处理时间并列。现有 `WorkoutListPagingTests` 的替身直接按 `startDate < cursor` 过滤，且只测旧 `recentWorkouts`，未覆盖真实谓词或新手动分页。
+3. **P2：合法未知数值仍会阻断整个载荷。** `apps/server/internal/syncing/workout_bundle_v6.go:69–70` 的词法 decoder 未使用 `UseNumber`，`Token()` 默认转 float64；未知扩展 `"future":1e400` 是合法 JSON，却被拒为 `unsupported_payload`。应让词法层只检查语法/重复键/深度，对已知字段另作数值范围判断。本轮隔离 PG 合成探针在接收前复现失败。
+4. **P2：未知字符串中的 NUL 转义导致事实永远不能提交。** `apps/server/internal/storage/postgres/workout_bundles.go:355–358` 仍把整份原文强转 `jsonb`。`"future":"\u0000"` 可以可靠接收到 bytea，但 PG 的 JSONB 表示限制使事务回滚；本轮复现 3 次尝试后 `processing_attempts_exhausted`、Workout 事实数为 0、原文字节仍精确保留。客户端手动再试只重放首次回执，无法修复这条记录。应将原文与 JSONB 已知字段投影分离，不能让未知扩展阻断已知事实事务。
+5. **P2：v6 的未知 observation 扩展仍被旧类型解析阻断分析。** `apps/server/internal/storage/postgres/analysis_input.go:119–124` 在判断版本前把 `observation` 解码成旧 `BundleObservation`；`bundle_integrity.go:314–319` 有相同模式。合法 v6 附加 `"observation":"future-format"` 后，接收/事实提交成功，但 `LoadAnalysis` 返回 `analysis_invalid_input`；不带该扩展的对照包通过。应先识别协议，v6 不解析其未知 `observation`，并检查其他相同读取点。
+6. **P2：没有首次接收回执的 already_imported 被显示为上传成功。** `ios/RAI/Sources/SyncCore/WorkoutIngestDelivery.swift:65–69` 接受 `.alreadyImported` 且允许缺少 `acceptedAt`；服务端 `workout_ingest.go:106–115` 恰在“已有 Workout、无接收行”时返回该状态。它无法证明本方案要求的首次原文字节接收，且方案 §5.2 明确要求将此视为一致性异常。应限制成功为有效 `accepted` 首次/重放回执，并显式报出该异常。现有 Swift 和 PG 用例反而将此行为固定为通过，需随合同修正。
+
+本轮验证证据（本机、仅合成数据）：
+
+- `scripts/local/test.sh swift` PASS：206 tests / 32 suites，4 s；日志 `.local/testing/manual-review-swift.log`。
+- `scripts/local/test.sh gate` PASS：11 s，Go race/vet、依赖边界、产品边界和本机 controller 检查；日志 `.local/testing/manual-review-gate.log`。
+- `scripts/local/test.sh simulator` PASS：73 passed / 2 skipped / 0 failed，128 s；结果 `.local/ua1-r/simulator.HAEhhY/result.xcresult`，日志 `.local/testing/manual-review-simulator.log`。现有成功用例不能替代页面退出和真实 HealthKit 谓词验收。
+- 隔离 PG18.6/race 命令 `scripts/local/test.sh integration -run 'TestWorkoutUUIDIngest|TestManualReviewUnknownFields' -v ./integration` **FAIL（预期暴露缺陷）**：现有 UUID ingest 测试 15 PASS / 1 opt-in perf SKIP；额外未知扩展探针 3 FAIL / 1 对照 PASS，package 29.297 s，入口 53 s。日志 `.local/testing/manual-review-integration.log`。`RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`。
+- 临时探针运行后移出源码测试目录，保留在忽略目录 `.local/testing/manual-review-probe-20261110.go` 供复核；没有永久新增业务实现或回归测试。未运行 full、性能、真机 HealthKit、真实网络/杀进程和部署验收。
+
+### Workout 前台手动上传 — 六项审查问题修复（2026-11-10）
+
+按用户“修复上述 6 项问题”的授权完成以下修复，保留前面的方案、实施声明和审查证据。本轮只修改工作区并使用本机合成测试数据；没有操作生产数据库、迁移真实数据或部署。schema 保持 50。
+
+1. **页面退出取消上传。** 上传轮次在调度器交接前同步保留选择和页面归属。同步列表、单条详情的退出事件取消各自发起的上传；显式取消及进入后台使用同一结束逻辑。已成功项保留，未确认/未开始项成为中断失败并保持选中。关闭无关详情不会取消列表上传，取消后的迟到进度不能改写已结束轮次。新增模型测试和真实 `UIHostingController` 页面挂载/移除测试，覆盖列表与详情退出、调度器尚未开始上传的交接窗口、后台取消及成功项保留。
+2. **开始时间分页。** 列表查询用 `startDate < before` 与降序排序保持一致；手动历史分页完整补读末条开始时间相同的全部记录，再按 UUID 稳定排序、去重。页面允许超过请求条数，调用方用 `>=` 判断是否继续。测试将实际生产查询谓词应用于合成 HealthKit 字段，覆盖结束时间越过游标的重叠 Workout，以及 99 条较新、205 条同开始时间、1 条更早记录的两页遍历，无遗漏或重复。该测试不替代真实 HealthKit store 查询验收。
+3. **未知大数字不阻断词法校验。** v6 词法 decoder 使用 `UseNumber`，只做 JSON 结构、重复键和深度检查；已知字段仍执行各自数值范围验证。合法未知 `1e400`、`1e1000000` 可接收并保留原始字节。
+4. **原文与 JSONB 投影分离。** 新 v6 的权威原文字节仍精确保存在 `workout_ingests.raw_json`；`workout_imports.payload` 只存内部版本、来源和实际投影事实身份。事务不再把整包原文强转 JSONB，未知 NUL 转义和数值扩展不再使事实事务失败。可选 metadata 中无法供 JSONB/后续数值读取解释的值留在原文，保留可用同级内容和事件/活动；事实 metadata 的数值表示额外限制字面量长度及指数，防止极小指数或零值指数绕过 float 检查。分析 lineage 使用原文 digest。原有删除屏障、事实、提交日志、分析待办和最终回执的事务边界不变。
+5. **v6 不解释旧 observation 扩展。** 分析和完整性读取先识别协议；旧 observation 类型只在旧内部记录分支解码，特征读取排除 v6 的 observation。读取既有 v6 JSONB 原文和新内部投影均受覆盖；历史原文即使带有未知 `projectionVersion` / `workoutSource` 字段，也不会被误认成内部格式。隔离 PG 回归验证传统分析和候选特征分析都能加载。
+6. **缺少首次接收回执不再显示成功。** POST 对“已有 Workout、没有接收行”返回 409 `workout_ingest_missing_receipt`；客户端仅接受带有效首次 `acceptedAt` 的 `accepted` 回执，将旧 `already_imported` 响应显示为一致性错误。重复 UUID 继续重放首次接收时间和原文。GET 的历史状态语义保留。Swift 与 HTTP/PG 测试已从原来的错误成功预期改为失败预期。
+
+合同同步：OpenAPI 与 `rai version` 均为 1.13.1；更新 `contracts/sync-v6.md`、`contracts/CHANGELOG.md`，原实施方案不改写。上传 JSON 的 HealthKit 对象 UUID 仍只在顶层 `workoutID` 出现一次，新内部数据库身份投影不属于上传线格式。
+
+验证证据（本机 Mac，2026-11-10，仅合成数据）：
+
+- `scripts/local/test.sh unit ./internal/syncing ./internal/storage/postgres ./internal/httpapi` PASS，7 s；日志 `.local/testing/manual-fix-go-unit.log`。
+- `scripts/local/test.sh swift` PASS：206 tests / 32 suites，11 s；日志 `.local/testing/manual-fix-swift.log`。
+- `scripts/local/test.sh simulator` 最终 PASS：iPhone 12 Pro Max / iOS 26.5，78 passed / 2 skipped / 0 failed，共 80 项，入口 98 s；结果包 `.local/ua1-r/simulator.8iY3NY/result.xcresult`，日志 `.local/testing/manual-fix-simulator.log`。新增页面退出和两项实际分页谓词测试均通过。过程中的 DEBUG 测试夹具并发编译错误及 HealthKit KVC 谓词求值异常已修正后复跑；最终没有失败用例。
+- 隔离 PostgreSQL 18.6/race 定向回归 PASS：`TestWorkoutUUIDIngest` 全组，加 Workout 单事务导入/冲突/回执历史、v3 内部路线分析来源、显式子删除、删除与导入双锁顺序、删除提交回滚、分析故障原子性/晚到事实、特征发布/删除失效/围栏/故障原子性。30 个顶层用例通过、1 个 opt-in 性能用例跳过，package 78.136 s，入口 93 s；日志 `.local/testing/manual-fix-pg-regression.log`。
+- 历史投影识别修正后追加隔离 PG/race：`scripts/local/test.sh integration -run 'TestWorkoutUUIDIngestV6(UnknownExtensions|HistoricalObservationExtension)' -v ./integration` PASS，两个顶层用例、9 个扩展子用例，package 10.497 s，入口 28 s；日志 `.local/testing/manual-fix-extensions-final.log`。覆盖顶层/嵌套扩展、metadata 数值与 NUL、原文字节一致、首次回执重放、实际已知事实，以及历史 observation 与不同类型投影标记。两轮 PG 均使用 `fsync=on`、`full_page_writes=on`、`synchronous_commit=on`、`data_checksums=on`，均记录 `RAI_TEST_LEFTOVER_DATABASES=0`、`RAI_TEST_CLUSTER_REMOVED=1`。
+- 最终 `scripts/local/test.sh gate` PASS，15 s：Go race、vet、依赖/产品边界及本机 controller 安全检查；日志 `.local/testing/manual-fix-gate-final.log`。
+- `scripts/local/contracts.sh` PASS：0 errors / 36 既有 warnings；日志 `.local/testing/manual-fix-contracts.log`，证据 `docs/evidence/local-contracts-lint.json`。`git diff --check` PASS。
+
+仍未验证：真实 iPhone/Watch→HealthKit 可见性、真实 HealthKit store 的游标查询、真实网络取消及杀进程行为；未执行 `full`、性能基准、镜像构建、部署或真实数据升级。模拟器页面生命周期通过不等同于真机验收。既有已拒绝接收行仍遵循首次 UUID 不可变规则，本轮没有自动重置或重处理历史数据。上传成功仍只表示原文已耐久接收，不等待事实投影或分析完成。
+
+### 模拟器同步上传到本机模拟云端 — 模拟验收（2026-11-10，仅合成数据）
+
+按用户要求在 iPhone 12 Pro Max 模拟器上对“同步上传数据到云端”做模拟测试。依据工程约定（云端未部署 v6、不得使用远端测试库、仅用合成数据），“云端”由本机隔离 Go API + 隔离 PostgreSQL 18 充当；未触碰生产数据库、真实云端或旧入口。
+
+环境与被测对象：
+
+- 模拟器 iPhone 12 Pro Max（UDID `F4793F8A-4A9A-4C88-903E-99698BD773B0`，iOS 26.5/23F77），本机已启动。
+- 本机 PG18.6 集群（127.0.0.1:55432）新建隔离库 `rai_sim_v6`，`rai migrate` 至 schema 50；工作区构建的 `rai`（openapi 1.13.1）执行 `rai init` 生成独立 dataset/凭据（`.local/testing/sim-upload/enrollment.json`，0600）；`rai api`（127.0.0.1:18081）与 `rai worker` 同库启动，日志 `.local/testing/sim-upload/{api,worker}.log`。握手实测 `workoutPayloadVersion=6`、`workoutUUIDIngestAccepting=true`。
+- 新增 opt-in 模拟器真实上传测试 `ios/RAI/AppTests/WorkoutUploadLiveTests.swift`（RAITests 目标，注入环境变量才运行，否则 skip）：运行与 App 相同的 `SyncCoordinator.uploadWorkouts` → `RawStreamSyncEngine.build(id:)` v6 构建 → `WorkoutPayloadTransport` gzip multipart → 真实 `URLSession` TCP POST；HealthKit 用进程内合成 reader（模拟器无法自动种入 HealthKit 数据）。用例：单条含数量/序列/路线的 Workout 上传并校验只读一次、重复 UUID 重放原回执、未签发 token 握手 401。
+- 运行器 `.local/testing/sim-upload/run.sh`：`xcodebuild build-for-testing`（`RAI_DEV_HTTP_HOST=127.0.0.1`）→ 改写 xctestrun 注入 base URL/token/collectorEpoch → `test-without-building -only-testing:RAITests/WorkoutUploadLiveTests`。
+
+真实证据：
+
+- 测试 3/3 PASS（结果包 `.local/testing/sim-upload/simulator.li1LvK/result.xcresult`）；服务端日志出现对应 `workout_ingest_accepted`。
+- 隔离库核验（psql）：`workout_ingests` 4 行全部 `committed`、`attempts=1`，`payload_bytes` 1914/2159 且与 `octet_length(raw_json)` 一致，`commit_revision` 1..4；同一 UUID 第二次上传未新增行、未改 `accepted_at`（重放原回执）。事实投影：`workouts` 2 条（activity_type 37、duration 600s、source `com.apple.health`）；`health_samples` 3 条（HeartRate 132/148 count/min、RunningPower 268 W）；`workout_routes` 1 条；`series_chunks` 2 条；`jobs` 中 `analysis.workout` ×4、`analysis.training_state` ×6 全部 `succeeded`；`analysis_results` 244 行。原始字节、事实投影、Worker 分析全部在数据库内成立。
+- 负路径（curl 直打本机 API）：legacy `protocolVersion:5` → 422 `unsupported_payload`（field `protocolVersion`，`unsupported_protocol`）；v6 原文在路径与 `workoutID` 不一致时 → 422 `workout_ingest_mismatch`；非 multipart 直发 JSON → 415 `unsupported_media_type`；未签发 token → 401（测试内断言）。
+- 真实 App 回读闭环：Debug 构建（`RAI_DEV_HTTP_HOST=127.0.0.1`）安装进模拟器，以 `RAI_SYNTHETIC_ACCEPTANCE=1` + `RAI_ACCEPTANCE_CONFIG` 注入同一本机凭据启动 App；API 日志出现 `GET /v2/workouts` 200、`GET /v2/analysis/history` 200、`GET /v2/analysis/athlete` 409 `not_product_activated`（尚无已发布模型，符合预期）；App 首页“最近运动”显示 10月27日 09:03 跑步，即本轮上传的 Workout（UTC 01:03:20 = 本地 09:03）。截图 `.local/testing/sim-upload/app-launch.png`。
+- 回归：`scripts/local/test.sh simulator` PASS，78 passed / 0 failed / 5 skipped（共 83 项，含新增 3 项 live 用例在无注入时 skip），入口 106 s，结果包 `.local/ua1-r/simulator.aFhJjK/result.xcresult`。
+
+仍未验证：模拟器 HealthKit 为空且 `simctl` 无 health 服务、来源策略要求 Apple Watch 原生记录，故真实 HealthKit 读取与真实来源分类仍未验证；上传目标为本机 API，非真实云端部署（云端仍是旧版）；页面手动点击上传的 UI 流程未走（由测试驱动同一模型代码，且模拟器无数据可上传）；未执行 `full`、性能基准、镜像构建、部署或真机验收。模拟器验收不替代真机验收。
+
+### 模拟验收后续修复 — 首页状态诚实化、live 测试纳入正式入口（2026-11-10）
+
+用户确认 8 项结论后要求修复。本轮只改 iOS UI/产品逻辑、脚本与合同文本；服务端行为不变。
+
+修复内容与验证：
+
+1. **同步徽标持久化**：`SyncModel` 新增 `lastUploadAt`（UserDefaults `workoutLastUploadAt`，取每次服务端 accepted 回执的 `acceptedAt`，只前进不后退）；首页徽标逻辑抽为 `ProductCore.ProductSyncBadge.resolve`，重启后不再回到"尚未同步"。模拟器实测：预置该键后首页徽标显示"已上传"（截图 `.local/testing/sim-upload/ui-check/badge-persisted.png`），未预置时如实显示"尚未同步"。
+2. **预期空态不再报错**：`ProductCore.ProductLoadFailures.expectedAbsence = {analysis_not_ready, training_not_found, not_product_activated}`；首页横幅只在存在非预期缺席码时显示"可下拉重试"。模拟器实测 `GET /v2/analysis/athlete` 409 `not_product_activated` 时首页无错误横幅（截图 `.local/testing/sim-upload/ui-check/after-fix-home.png`），身体状态/训练负荷按"暂无数据"空态诚实呈现。
+3. **最近运动行**：无距离数据的 Workout 只显示时长，不再渲染"-- 公里 · --/公里"；距离与配速成对出现（配速无距离时不显示）。实测上轮上传的无距离 Workout 显示"跑步 · 10:00 · 10月27日 09:03"。逻辑在 `ProductWorkout.detailLine`，单测覆盖 4 种形状。
+4. **analysisStatus 快照语义（仅合同澄清）**：`contracts/openapi-v2.yaml` 1.13.2（`rai version` 同步 1.13.2）明确 `GET /v2/sync/workout-ingests/{id}` 的 `analysisStatus`/`analysisJobIDs` 是接收提交时的快照，Worker 完成后不变；实时进度读 `/v2/jobs/{id}`，已发布结果读 `/v2/analysis/workouts/{id}`。服务端回执与 GET 历史语义不变。`contracts/sync-v6.md` 增补同义说明，`contracts/CHANGELOG.md` 记录。
+5. **live 上传测试纳入正式入口**：新增 `scripts/local/sim-upload.sh`（start/status/run/stop/all，`--drop` 连库与凭据一并清理；状态目录按隔离库名隔离于 `.local/testing/sim-upload/<db>/`），`scripts/local/test.sh simupload` 执行 all（自动起栈→跑 `RAITests/WorkoutUploadLiveTests`→停栈）。实测 `test.sh simupload` PASS：3 passed / 0 failed / 0 skipped，91 s（RAI Local Tests / iPhone 12 Pro Max / iOS 26.5，结果包 `.local/testing/sim-upload/rai_sim_upload/simulator.gYnFA3/result.xcresult`）。
+6. **pbxproj 手工注册记录**：`ios/RAI/README.md` 说明新 AppTests 文件需手工登记（PBXBuildFile/PBXFileReference/group/Sources phase 四处），`project.yml` 用目录 glob，重新生成会自动恢复；`WorkoutUploadLiveTests.swift` 即如此注册，重新生成后须核对。
+7. **临时环境清理**：`sim-upload.sh stop [--drop]` 停止 API/Worker（pid 文件），`--drop` 另删隔离库与 0600 凭据。本轮验收结束已执行 `stop --drop`：`rai_sim_v6` 库已删除、凭据已移除、无残留进程。
+
+验证库终态（`rai_sim_v6`，两轮 suite 各接受 2 条 Workout 后）：`workout_ingests` 4 行全部 committed、attempts=1，payload_bytes 1914/2159 与 `octet_length(raw_json)` 一致，commit_revision 1..4；`workouts` 4、`health_samples` 6、`workout_routes` 2、`series_chunks` 2；jobs `analysis.workout` ×4 与 `analysis.training_state` ×6 全 succeeded；`analysis_results` 244。重复 UUID 重放未新增行。库在证据记录完成后已按清理流程删除；截图与 xcresult 保留。
+
+测试与门禁：`xcrun swift test --filter ProductPresentationTests` 8/8；`scripts/local/test.sh swift` PASS（214 tests / 33 suites，3 s）；`scripts/local/test.sh gate` PASS（Go race/vet/依赖边界，15 s）；`scripts/local/test.sh simupload` PASS（3/3，91 s）。仍未验证：真实 HealthKit 读取与来源分类、真实云端部署、真机 UI 手动上传、性能与部署验收。

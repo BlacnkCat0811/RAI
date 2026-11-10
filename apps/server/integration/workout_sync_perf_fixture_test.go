@@ -133,7 +133,6 @@ func perfDenseWorkloadBundle(t *testing.T, f *fixture) syncing.WorkoutBundle {
 	t.Helper()
 	start := time.Date(2026, 10, 31, 8, 0, 0, 0, time.UTC)
 	b, _ := testWorkoutBundle(t, f, 0)
-	b.MetadataRegistryVersion = ptr(syncing.WorkoutMetadataRegistryVersion)
 	b.Workout = perfDenseWorkout(start, perfDenseSeconds)
 	b.WorkoutID = b.Workout.UUID
 	b.Samples = nil

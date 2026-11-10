@@ -23,8 +23,6 @@ type fakeIngestStore struct {
 	accepted    []byte
 	envelope    syncing.WorkoutIngestEnvelope
 	acceptCalls int
-	importCalls int
-	admitCalls  int
 	status      syncing.WorkoutIngestStatus
 	statusErr   error
 	statusCalls int
@@ -35,7 +33,6 @@ func (s *fakeIngestStore) Authenticate(context.Context, string) (syncing.Princip
 }
 
 func (s *fakeIngestStore) Admit(context.Context, syncing.Principal, syncing.AdmissionLane) error {
-	s.admitCalls++
 	return nil
 }
 
@@ -55,20 +52,9 @@ func (s *fakeIngestStore) WorkoutIngest(context.Context, syncing.Principal, stri
 	return s.status, s.statusErr
 }
 
-func (s *fakeIngestStore) ImportWorkoutBundle(context.Context, syncing.Principal, syncing.WorkoutBundle, []byte) (json.RawMessage, error) {
-	s.importCalls++
-	return nil, syncing.Fail(500, "unexpected_import")
-}
-
 func ingestIDs() (string, string, string, string) {
 	return "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222",
 		"33333333-3333-4333-8333-333333333333", "44444444-4444-4444-8444-444444444444"
-}
-
-func ingestPayload(datasetID, datasetEpoch, collectorEpoch, workoutID string) []byte {
-	start := time.Date(2026, 11, 1, 8, 0, 0, 0, time.UTC).UnixMicro()
-	return []byte(fmt.Sprintf(`{"protocolVersion":4,"datasetID":%q,"datasetEpoch":%q,"collectorEpoch":%q,"workoutID":%q,"startUs":%d,"endUs":%d,"source":{"bundleID":"com.apple.health"},"workout":{"activityType":37,"durationUs":60000000},"streams":[],"series":[],"routes":[]}`,
-		datasetID, datasetEpoch, collectorEpoch, workoutID, start, start+60_000_000))
 }
 
 func ingestV6Payload(datasetID, datasetEpoch, collectorEpoch, workoutID string) []byte {
@@ -77,13 +63,8 @@ func ingestV6Payload(datasetID, datasetEpoch, collectorEpoch, workoutID string) 
 		datasetID, datasetEpoch, collectorEpoch, workoutID, start, start+60_000_000))
 }
 
-func ingestHandler(mode syncing.WorkoutIngestMode, store *fakeIngestStore) http.Handler {
-	return ingestHandlerV6(mode, store, false)
-}
-
-func ingestHandlerV6(mode syncing.WorkoutIngestMode, store *fakeIngestStore, payloadV6 bool) http.Handler {
-	return NewWithOptions(store, slog.New(slog.NewJSONHandler(io.Discard, nil)),
-		Options{WorkoutUUIDIngestMode: mode, WorkoutPayloadV6: payloadV6})
+func ingestHandler(store *fakeIngestStore) http.Handler {
+	return New(store, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 }
 
 func authorized(method, target string, body []byte, contentType string) *http.Request {
@@ -110,73 +91,59 @@ func TestWorkoutUUIDIngestHandshakeCapability(t *testing.T) {
 		principal: syncing.Principal{DatasetID: datasetID, DeviceID: collectorEpoch, CanCollect: true},
 		metadata:  syncing.Metadata{DatasetID: datasetID, DatasetEpoch: datasetEpoch, DeviceID: collectorEpoch, DatasetStatus: "active"},
 	}
-	for mode, accepting := range map[syncing.WorkoutIngestMode]bool{
-		syncing.WorkoutIngestLegacy: false,
-		syncing.WorkoutIngestUUID:   true,
-		syncing.WorkoutIngestPaused: false,
-	} {
-		w := httptest.NewRecorder()
-		ingestHandler(mode, store).ServeHTTP(w, authorized("GET", "/v2/handshake", nil, ""))
-		if w.Code != 200 {
-			t.Fatalf("%s handshake status %d", mode, w.Code)
+	w := httptest.NewRecorder()
+	ingestHandler(store).ServeHTTP(w, authorized("GET", "/v2/handshake", nil, ""))
+	if w.Code != 200 {
+		t.Fatalf("handshake status %d", w.Code)
+	}
+	var body struct {
+		ProtocolVersion int            `json:"protocolVersion"`
+		Capabilities    map[string]any `json:"capabilities"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.ProtocolVersion != 3 {
+		t.Fatalf("session protocol shape changed: %d", body.ProtocolVersion)
+	}
+	if body.Capabilities["workoutPayloadVersion"] != float64(6) ||
+		body.Capabilities["bundleGzipPart"] != true {
+		t.Fatalf("workout payload capabilities: %+v", body.Capabilities)
+	}
+	for _, legacy := range []string{"workoutBundles", "bundleProtocolVersion", "bundleObservationVersion", "bundleCompact", "explicitChildDeletions"} {
+		if _, ok := body.Capabilities[legacy]; ok {
+			t.Fatalf("removed capability %s advertised", legacy)
 		}
-		var body struct {
-			Capabilities map[string]any `json:"capabilities"`
-		}
-		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
-			t.Fatal(err)
-		}
-		if body.Capabilities["workoutUUIDIngestVersion"] != float64(1) {
-			t.Fatalf("%s version capability: %v", mode, body.Capabilities["workoutUUIDIngestVersion"])
-		}
-		if body.Capabilities["workoutUUIDIngestAccepting"] != accepting {
-			t.Fatalf("%s accepting capability: %v", mode, body.Capabilities["workoutUUIDIngestAccepting"])
-		}
+	}
+	if body.Capabilities["workoutUUIDIngestVersion"] != float64(1) ||
+		body.Capabilities["workoutUUIDIngestAccepting"] != true {
+		t.Fatalf("UUID ingest capabilities: %+v", body.Capabilities)
 	}
 }
 
-func TestWorkoutUUIDIngestPostModesAndRouting(t *testing.T) {
+func TestWorkoutUUIDIngestAcceptsV6AndRoutes(t *testing.T) {
 	datasetID, datasetEpoch, collectorEpoch, workoutID := ingestIDs()
-	payload := ingestPayload(datasetID, datasetEpoch, collectorEpoch, workoutID)
+	payload := ingestV6Payload(datasetID, datasetEpoch, collectorEpoch, workoutID)
 	store := &fakeIngestStore{principal: syncing.Principal{DatasetID: datasetID, DeviceID: collectorEpoch, CanCollect: true}}
 	multipartBody, media := plainMultipart(payload)
 
-	for mode, want := range map[syncing.WorkoutIngestMode]struct {
-		status int
-		code   string
-	}{
-		syncing.WorkoutIngestLegacy: {409, "workout_uuid_ingest_disabled"},
-		syncing.WorkoutIngestPaused: {503, "workout_uuid_ingest_paused"},
-	} {
-		w := httptest.NewRecorder()
-		ingestHandler(mode, store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+workoutID, multipartBody, media))
-		if w.Code != want.status || errorCode(t, w) != want.code {
-			t.Fatalf("%s: %d %s", mode, w.Code, w.Body.String())
-		}
-	}
-	if store.acceptCalls != 0 || store.admitCalls != 0 {
-		t.Fatalf("disabled modes reached storage: accept=%d admit=%d", store.acceptCalls, store.admitCalls)
-	}
-
 	w := httptest.NewRecorder()
-	ingestHandler(syncing.WorkoutIngestUUID, store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+workoutID, multipartBody, media))
+	ingestHandler(store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+workoutID, multipartBody, media))
 	if w.Code != 200 {
 		t.Fatalf("accept status %d: %s", w.Code, w.Body.String())
 	}
 	if !bytes.Equal(store.accepted, payload) {
 		t.Fatal("accepted raw bytes changed")
 	}
-	if store.envelope.WorkoutID != workoutID || store.envelope.DatasetID != datasetID ||
-		store.envelope.DatasetEpoch != datasetEpoch || store.envelope.CollectorEpoch != collectorEpoch {
+	if store.envelope.ProtocolVersion != 6 || store.envelope.WorkoutID != workoutID ||
+		store.envelope.DatasetID != datasetID || store.envelope.DatasetEpoch != datasetEpoch ||
+		store.envelope.CollectorEpoch != collectorEpoch {
 		t.Fatalf("unexpected envelope: %+v", store.envelope)
-	}
-	if store.admitCalls != 0 {
-		t.Fatal("UUID ingest used the legacy admission budget")
 	}
 
 	other := "55555555-5555-4555-8555-555555555555"
 	w = httptest.NewRecorder()
-	ingestHandler(syncing.WorkoutIngestUUID, store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+other, multipartBody, media))
+	ingestHandler(store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+other, multipartBody, media))
 	if w.Code != 422 || errorCode(t, w) != "workout_ingest_mismatch" {
 		t.Fatalf("mismatch: %d %s", w.Code, w.Body.String())
 	}
@@ -185,13 +152,31 @@ func TestWorkoutUUIDIngestPostModesAndRouting(t *testing.T) {
 	}
 }
 
+func TestWorkoutUUIDIngestRejectsOlderPayloadVersions(t *testing.T) {
+	datasetID, datasetEpoch, collectorEpoch, workoutID := ingestIDs()
+	store := &fakeIngestStore{principal: syncing.Principal{DatasetID: datasetID, DeviceID: collectorEpoch, CanCollect: true}}
+	for _, version := range []int{3, 4, 5} {
+		payload := bytes.Replace(ingestV6Payload(datasetID, datasetEpoch, collectorEpoch, workoutID),
+			[]byte(`"protocolVersion":6`), []byte(fmt.Sprintf(`"protocolVersion":%d`, version)), 1)
+		body, media := plainMultipart(payload)
+		w := httptest.NewRecorder()
+		ingestHandler(store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+workoutID, body, media))
+		if w.Code != 422 || errorCode(t, w) != "unsupported_payload" {
+			t.Fatalf("v%d: %d %s", version, w.Code, w.Body.String())
+		}
+	}
+	if store.acceptCalls != 0 {
+		t.Fatalf("older payloads reached acceptance: %d", store.acceptCalls)
+	}
+}
+
 func TestWorkoutUUIDIngestReadOnlyDeviceCannotPost(t *testing.T) {
 	datasetID, datasetEpoch, collectorEpoch, workoutID := ingestIDs()
-	payload := ingestPayload(datasetID, datasetEpoch, collectorEpoch, workoutID)
+	payload := ingestV6Payload(datasetID, datasetEpoch, collectorEpoch, workoutID)
 	body, media := plainMultipart(payload)
 	store := &fakeIngestStore{principal: syncing.Principal{DatasetID: datasetID, DeviceID: collectorEpoch, CanCollect: false}}
 	w := httptest.NewRecorder()
-	ingestHandler(syncing.WorkoutIngestUUID, store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+workoutID, body, media))
+	ingestHandler(store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+workoutID, body, media))
 	if w.Code != 403 || errorCode(t, w) != "read_only_device" {
 		t.Fatalf("read-only POST: %d %s", w.Code, w.Body.String())
 	}
@@ -208,7 +193,7 @@ func TestWorkoutUUIDIngestStatusAndLimit(t *testing.T) {
 		status: syncing.WorkoutIngestStatus{WorkoutID: workoutID, IngestStatus: "committed",
 			CommitRevision: &revision, AnalysisStatus: "queued", AnalysisJobIDs: []string{"job-1"}},
 	}
-	h := ingestHandler(syncing.WorkoutIngestLegacy, store)
+	h := ingestHandler(store)
 	for i := 0; i < statusBurst; i++ {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, authorized("GET", "/v2/sync/workout-ingests/"+workoutID, nil, ""))
@@ -227,142 +212,36 @@ func TestWorkoutUUIDIngestStatusAndLimit(t *testing.T) {
 
 	fresh := &fakeIngestStore{principal: store.principal, statusErr: syncing.Fail(404, "workout_ingest_not_found")}
 	w = httptest.NewRecorder()
-	ingestHandler(syncing.WorkoutIngestLegacy, fresh).ServeHTTP(w, authorized("GET", "/v2/sync/workout-ingests/"+workoutID, nil, ""))
+	ingestHandler(fresh).ServeHTTP(w, authorized("GET", "/v2/sync/workout-ingests/"+workoutID, nil, ""))
 	if w.Code != 404 || errorCode(t, w) != "workout_ingest_not_found" {
 		t.Fatalf("missing status: %d %s", w.Code, w.Body.String())
 	}
 
 	w = httptest.NewRecorder()
-	ingestHandler(syncing.WorkoutIngestLegacy, fresh).ServeHTTP(w, authorized("GET", "/v2/sync/workout-ingests/not-a-uuid", nil, ""))
+	ingestHandler(fresh).ServeHTTP(w, authorized("GET", "/v2/sync/workout-ingests/not-a-uuid", nil, ""))
 	if w.Code != 422 {
 		t.Fatalf("invalid path id: %d", w.Code)
 	}
 }
 
-func TestLegacyV4BundleEntryIsClosedInUUIDModes(t *testing.T) {
-	datasetID, datasetEpoch, collectorEpoch, workoutID := ingestIDs()
-	payload := ingestPayload(datasetID, datasetEpoch, collectorEpoch, workoutID)
-	body, media := plainMultipart(payload)
-	store := &fakeIngestStore{principal: syncing.Principal{DatasetID: datasetID, DeviceID: collectorEpoch, CanCollect: true}}
-	for mode, want := range map[syncing.WorkoutIngestMode]struct {
-		status int
-		code   string
-	}{
-		syncing.WorkoutIngestUUID:   {409, "workout_uuid_ingest_required"},
-		syncing.WorkoutIngestPaused: {503, "workout_uuid_ingest_paused"},
-	} {
-		w := httptest.NewRecorder()
-		ingestHandler(mode, store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-bundles", body, media))
-		if w.Code != want.status || errorCode(t, w) != want.code {
-			t.Fatalf("%s old v4: %d %s", mode, w.Code, w.Body.String())
-		}
-	}
-	if store.importCalls != 0 {
-		t.Fatalf("old v4 entry reached import: %d", store.importCalls)
-	}
-
-	w := httptest.NewRecorder()
-	ingestHandler(syncing.WorkoutIngestLegacy, store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-bundles", body, media))
-	if w.Code == 409 && errorCode(t, w) == "workout_uuid_ingest_required" {
-		t.Fatal("legacy mode closed the old entry")
-	}
-}
-
-func TestWorkoutPayloadV6HandshakeNegotiation(t *testing.T) {
-	datasetID, datasetEpoch, collectorEpoch, _ := ingestIDs()
-	store := &fakeIngestStore{
-		principal: syncing.Principal{DatasetID: datasetID, DeviceID: collectorEpoch, CanCollect: true},
-		metadata:  syncing.Metadata{DatasetID: datasetID, DatasetEpoch: datasetEpoch, DeviceID: collectorEpoch, DatasetStatus: "active"},
-	}
-	cases := []struct {
-		name    string
-		enabled bool
-		header  string
-		version float64
-		compact bool
-	}{
-		{"disabled falls back to four", false, "6", 4, true},
-		{"enabled advertises six", true, "6", 6, true},
-		{"enabled keeps explicit four", true, "4", 4, true},
-		{"enabled keeps explicit five", true, "5", 5, true},
-		{"no header remains three", true, "", 3, false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			r := authorized("GET", "/v2/handshake", nil, "")
-			if tc.header != "" {
-				r.Header.Set("X-RAI-Sync-Protocol", tc.header)
-			}
-			w := httptest.NewRecorder()
-			ingestHandlerV6(syncing.WorkoutIngestLegacy, store, tc.enabled).ServeHTTP(w, r)
-			if w.Code != 200 {
-				t.Fatalf("status %d", w.Code)
-			}
-			var body struct {
-				Capabilities map[string]any `json:"capabilities"`
-			}
-			if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
-				t.Fatal(err)
-			}
-			if body.Capabilities["workoutPayloadVersion"] != tc.version ||
-				body.Capabilities["bundleProtocolVersion"] != tc.version ||
-				body.Capabilities["bundleCompact"] != tc.compact {
-				t.Fatalf("capabilities: %+v", body.Capabilities)
-			}
-		})
-	}
-}
-
-func TestWorkoutUUIDIngestV6AcceptAndRouting(t *testing.T) {
+func TestRetiredWorkoutBundleEntryIsGone(t *testing.T) {
 	datasetID, datasetEpoch, collectorEpoch, workoutID := ingestIDs()
 	payload := ingestV6Payload(datasetID, datasetEpoch, collectorEpoch, workoutID)
 	body, media := plainMultipart(payload)
 	store := &fakeIngestStore{principal: syncing.Principal{DatasetID: datasetID, DeviceID: collectorEpoch, CanCollect: true}}
-
-	for mode, want := range map[syncing.WorkoutIngestMode]struct {
-		status int
-		code   string
-	}{
-		syncing.WorkoutIngestLegacy: {409, "workout_uuid_ingest_disabled"},
-		syncing.WorkoutIngestPaused: {503, "workout_uuid_ingest_paused"},
+	for _, request := range []*http.Request{
+		authorized("POST", "/v2/sync/workout-bundles", body, media),
+		authorized("GET", "/v2/sync/workout-bundles/"+workoutID, nil, ""),
+		authorized("DELETE", "/v2/sync/workout-bundles/"+workoutID, nil, ""),
 	} {
 		w := httptest.NewRecorder()
-		ingestHandlerV6(mode, store, true).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+workoutID, body, media))
-		if w.Code != want.status || errorCode(t, w) != want.code {
-			t.Fatalf("%s: %d %s", mode, w.Code, w.Body.String())
+		ingestHandler(store).ServeHTTP(w, request)
+		if w.Code != 404 {
+			t.Fatalf("%s %s: %d", request.Method, request.URL.Path, w.Code)
 		}
 	}
 	if store.acceptCalls != 0 {
-		t.Fatalf("disabled modes reached acceptance: %d", store.acceptCalls)
-	}
-
-	w := httptest.NewRecorder()
-	ingestHandlerV6(syncing.WorkoutIngestUUID, store, true).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+workoutID, body, media))
-	if w.Code != 200 {
-		t.Fatalf("v6 accept: %d %s", w.Code, w.Body.String())
-	}
-	if store.envelope.ProtocolVersion != 6 || store.envelope.WorkoutID != workoutID ||
-		store.envelope.DatasetID != datasetID || store.envelope.DatasetEpoch != datasetEpoch ||
-		store.envelope.CollectorEpoch != collectorEpoch {
-		t.Fatalf("v6 envelope: %+v", store.envelope)
-	}
-	if !bytes.Equal(store.accepted, payload) {
-		t.Fatal("v6 raw bytes changed")
-	}
-
-	// Protocol 6 is a UUID-ingest format; the superseded compact entry stays
-	// closed while UUID acceptance is active.
-	w = httptest.NewRecorder()
-	ingestHandlerV6(syncing.WorkoutIngestUUID, store, true).ServeHTTP(w, authorized("POST", "/v2/sync/workout-bundles", body, media))
-	if w.Code != 409 || errorCode(t, w) != "workout_uuid_ingest_required" {
-		t.Fatalf("v6 old entry: %d %s", w.Code, w.Body.String())
-	}
-
-	w = httptest.NewRecorder()
-	ingestHandlerV6(syncing.WorkoutIngestLegacy, &fakeIngestStore{principal: store.principal}, true).
-		ServeHTTP(w, authorized("POST", "/v2/sync/workout-bundles", body, media))
-	if w.Code == 409 && errorCode(t, w) == "workout_uuid_ingest_required" {
-		t.Fatal("legacy mode closed the old entry for v6")
+		t.Fatalf("retired entry reached storage: %d", store.acceptCalls)
 	}
 }
 
@@ -371,8 +250,7 @@ func TestWorkoutUUIDIngestV6PathMismatch(t *testing.T) {
 	body, media := plainMultipart(ingestV6Payload(datasetID, datasetEpoch, collectorEpoch, workoutID))
 	store := &fakeIngestStore{principal: syncing.Principal{DatasetID: datasetID, DeviceID: collectorEpoch, CanCollect: true}}
 	w := httptest.NewRecorder()
-	ingestHandlerV6(syncing.WorkoutIngestUUID, store, true).
-		ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+syncing.NewID(), body, media))
+	ingestHandler(store).ServeHTTP(w, authorized("POST", "/v2/sync/workout-ingests/"+syncing.NewID(), body, media))
 	if w.Code != 422 || errorCode(t, w) != "workout_ingest_mismatch" {
 		t.Fatalf("v6 mismatch: %d %s", w.Code, w.Body.String())
 	}

@@ -11,9 +11,9 @@ enum UserFacingText {
     if code.hasPrefix("unsupported_workout_metadata_types") { return "运动记录包含暂不支持的健康元数据" }
     if code.hasPrefix("unsupported_workout_quantity_types") { return "运动记录包含暂不支持的健康统计类型" }
     return [
-      "device_rate_exceeded": "服务限流，正在等待自动重试",
-      "dataset_rate_exceeded": "私有服务繁忙，正在等待自动重试",
-      "association_unavailable": "关联样本尚未到达，稍后自动重试",
+      "device_rate_exceeded": "服务限流，请稍后再次点击同步",
+      "dataset_rate_exceeded": "私有服务繁忙，请稍后再次点击同步",
+      "association_unavailable": "关联样本尚未到达；本次记录未上传",
       "analysis_not_ready": "分析尚未就绪",
       "training_not_found": "未找到训练计划",
       "connection_unavailable": "无法连接私有服务",
@@ -64,19 +64,20 @@ enum UserFacingText {
       "workout_ingest_mismatch": "服务返回的接收结果与本地记录不一致",
       "workout_ingest_rejected": "服务未能解析这条跑步记录，原始数据已保留在本机",
       "workout_ingest_missing_after_acceptance": "服务端确认接收后又找不到这条记录，需要人工核对",
-      "workout_ingest_backlog_exceeded": "服务端待入库记录较多，正在等待自动重试",
+      "workout_ingest_backlog_exceeded": "服务端待入库记录较多，请稍后再次点击同步",
       "workout_ingest_immutable": "本机已固定的上传文件不能被覆盖",
       "workout_uuid_ingest_required": "服务要求按记录逐条上传，请更新同步",
-      "workout_uuid_ingest_paused": "服务暂时停止接收新的跑步记录，稍后自动重试",
-      "workout_uuid_ingest_disabled": "服务尚未开启逐条接收，稍后自动重试",
+      "workout_uuid_ingest_paused": "服务暂时停止接收新的跑步记录，请稍后再次点击同步",
+      "workout_uuid_ingest_disabled": "服务尚未开启逐条接收，请联系管理员",
       "unsupported_protocol": "服务协议版本不兼容，请更新应用",
+      "protocol_upgrade_required": "旧版上传文件已失效，请重新同步这条记录",
       "payload_corrupt": "本机上传文件已损坏，将重新读取生成",
       "bundle_too_large": "本次上传数据超过安全上限",
       "quantity_series_incomplete": "样本明细读取不完整",
       "sample_deleted": "样本已从 HealthKit 删除",
       "route_deleted": "路线已从 HealthKit 删除",
       "workout_deleted": "这条跑步记录已从 HealthKit 删除",
-      "interrupted": "上次同步被中断，可重试该记录",
+      "interrupted": "本次上传已中断，可再次点击同步",
       "sync_already_running": "已有同步任务在进行",
       "sample_page_limit": "样本分页超过安全上限",
       "association_page_limit": "关联分页超过安全上限",
@@ -88,7 +89,13 @@ enum UserFacingText {
       "workout_enrichment_stale": "补充信息版本已过期",
       "unsupported_workout_metadata_types": "运动元数据类型暂不支持",
       "route_read_or_mapping_failed": "路线读取失败",
+      "route_read_incomplete": "路线读取未完成，本条记录未上传",
+      "invalid_time_range": "记录时间范围无效，本条记录未上传",
+      "unsupported_sample": "记录包含不支持的健康样本，本条记录未上传",
+      "series_type_not_configured": "记录包含未配置的明细类型，本条记录未上传",
+      "nonfinite_quantity": "记录包含无效数值，本条记录未上传",
       "receipt_mismatch": "服务返回结果与请求不一致",
+      "workout_ingest_missing_receipt": "服务端已有这条跑步记录，但缺少原始上传回执，请检查服务端数据一致性",
       "invalid_response": "服务返回结果异常",
       "oversized_response": "服务返回结果过大",
       "invalid_http_response": "服务返回了无效响应",
@@ -227,10 +234,9 @@ final class ProductModel {
     let stateStart = Date()
     data = loaded
     log.info("state_publication_ms=\(Date().timeIntervalSince(stateStart)*1000,privacy:.public)")
-    error =
-      data.failures.values.contains(where: {
-        !["analysis_not_ready", "training_not_found"].contains($0)
-      }) ? "部分数据暂不可用，可下拉重试。" : nil
+    // Only real faults prompt a retry. "The product is not activated yet" is an
+    // expected empty state: retrying cannot change it, so it must not look broken.
+    error = ProductLoadFailures.needsRetry(data.failures) ? "部分数据暂不可用，可下拉重试。" : nil
     log.info("home_load_ms=\(Date().timeIntervalSince(start)*1000,privacy:.public)")
   }
   /// Submits one user-entered model input. The server assigns receipt time and

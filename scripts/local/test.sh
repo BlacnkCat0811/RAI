@@ -6,7 +6,7 @@ umask 077
 
 usage() {
   cat <<'USAGE'
-usage: scripts/local/test.sh [quick|gate|unit|integration|full|syncperf|swift|simulator|e2e|perf] [test arguments]
+usage: scripts/local/test.sh [quick|gate|unit|integration|full|syncperf|swift|simulator|simupload|e2e|perf] [test arguments]
   quick        cached Go unit tests, vet and dependency boundaries (default)
   gate         cached Go race, vet and boundaries; add affected PG tests for transactions
   unit         Go unit tests; accepts -run and package arguments
@@ -14,6 +14,9 @@ usage: scripts/local/test.sh [quick|gate|unit|integration|full|syncperf|swift|si
   full         uncached Go race, vet, build, sqlc, full isolated PG regression
   swift        native Swift package tests; accepts --filter
   simulator    synthetic App XCTest on a dedicated local Simulator
+  simupload    Simulator App upload of protocol-6 Workouts over real TCP to a
+               local Go API + isolated PG18. Starts and stops that stack itself;
+               add --drop to remove the database and credential afterwards.
   e2e          Simulator -> local Go HTTP -> disposable local PG18 (R3 v2)
   perf         synthetic 1/10/100/500-Workout local HTTP/PG throughput
   syncperf     R0 optimized (no -race) build, real loopback TCP HTTP -> production
@@ -87,6 +90,9 @@ case "$rai_profile" in
       "$rai_root/scripts/test-postgres.sh" go test -race -count=1 -tags=integration,ua1rsim -timeout=20m \
         -run '^(TestWorkoutCompletenessSimulatorHTTPPostgres|TestModelStackSimulatorHTTPPostgres)$' -v ./integration
     fi
+    ;;
+  simupload)
+    bash "$rai_root/scripts/local/sim-upload.sh" all "$@"
     ;;
   unit)
     rai_require_toolchain

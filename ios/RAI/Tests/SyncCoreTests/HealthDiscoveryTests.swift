@@ -137,67 +137,6 @@ import Testing
 }
 
 extension HealthDiscoveryTests {
-    @Test func parentDeleteACKCannotReleaseLaterChildDeletionBundle() async throws {
-        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), id = Wire.id()
-        try await store.beginTask(id)
-        let deletion: JSON = .object(["workoutID": .string(id), "ingestStatus": .string("deleted"), "commitRevision": .int(1), "alreadyDeleted": .bool(false)])
-        try await store.acknowledgeWorkoutDeletion(id, receipt: deletion)
-        let file = try await store.savePayload(Data("synthetic-child-delete".utf8)), hash = String(repeating: "a", count: 64)
-        try await store.setDeletedParentBundle(id, file: file, hash: hash, boundary: "test", generation: 1, deletionIDs: [], sampleCount: 1, routeCount: 0)
-        await #expect(throws: (any Error).self) { try await store.releaseBundle(id) }
-        #expect(FileManager.default.fileExists(atPath: dir.appendingPathComponent(file).path))
-        #expect(try await store.claimBundle(id) != nil)
-        #expect(await store.task(id)?.phase == .deleted)
-        await store.endBundleAttempt(id)
-        try await store.failBundle(id, error: UploadError(code: "synthetic_network_error"))
-        #expect(await store.task(id)?.deletionReceipt == deletion)
-        #expect(await store.task(id)?.uploadReceipt == nil)
-    }
-
-    @Test func existingLocalTaskKeepsLateChildChangesSelected() async throws {
-        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), id = Wire.id(), query = DiscoveryQuery(type: "HKWorkoutTypeIdentifier")
-        try await store.beginTask(id)
-        _ = try await store.discoveryFlow(query)
-        let archive = Data("synthetic-existing-workout".utf8), file = try await store.savePayload(archive)
-        let event = DiscoveryEvent(type: query.type, uuid: id, deleted: false, archiveFile: file, archiveHash: Wire.hash(archive))
-        let batch = try await store.stageDiscovery(query, previousAnchor: nil, anchor: Data([1]), events: [event], hasMore: false)
-        try await store.promoteDiscovery(query, batchID: batch)
-        #expect(await store.discoverySnapshot().work[id]?.selected == true)
-    }
-
-    @Test func partialReadACKKeepsCoverageAndRetriesBounded() async throws {
-        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
-        let store = try OutboxStore(directory: dir), id = Wire.id(), type = "HKWorkoutTypeIdentifier"
-        let query = DiscoveryQuery(type: type)
-        _ = try await store.discoveryFlow(query)
-        let archive = Data("synthetic-workout".utf8), archiveFile = try await store.savePayload(archive)
-        let event = DiscoveryEvent(type: type, uuid: id, deleted: false, archiveFile: archiveFile, archiveHash: Wire.hash(archive))
-        let batch = try await store.stageDiscovery(query, previousAnchor: nil, anchor: Data([1]), events: [event], hasMore: false)
-        try await store.promoteDiscovery(query, batchID: batch)
-        try await store.selectDiscoveredWorkout(id)
-        try await store.beginTask(id)
-        var partial = WorkoutCoverage(state: .partial, sampleCount: 2)
-        partial.queryCompleted = true; partial.localPersisted = true
-        try await store.setTaskCoverage(id, coverage: ["route": partial])
-        let bundle = Data("synthetic-partial-bundle".utf8), hash = Wire.hash(bundle)
-        let file = try await store.savePayload(bundle, suffix: "multipart.json")
-        try await store.setBundle(id, file: file, sha256: hash, boundary: "test", discoveryGeneration: 1, pendingReadKeys: ["route"])
-        try await store.acknowledgeBundle(id, receipt: durableWorkoutACK(id, hash))
-        let task = try #require(await store.task(id))
-        let work = try #require(await store.discoverySnapshot().work[id])
-        #expect(task.phase == .acknowledged)
-        #expect(task.coverage["route"]?.serverCommitted == true)
-        #expect(work.error == "partial_read_pending")
-        #expect(work.deliveredGeneration == 0)
-        #expect(work.hasAutomaticDeliveryWork)
-        #expect(work.needsDelivery(now: try #require(work.nextAttemptAt)))
-        #expect(!work.needsDelivery(now: Date.distantPast))
-    }
-}
-
-extension HealthDiscoveryTests {
     @Test func equivalentFactsDoNotCreateWorkWhenArchiveBytesDiffer() async throws {
         let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
         let store = try OutboxStore(directory: dir), parent = Wire.id(), id = Wire.id()
@@ -216,5 +155,17 @@ extension HealthDiscoveryTests {
         #expect(await store.discoverySnapshot().work[parent]?.generation == 1)
         #expect(await store.discoverySnapshot().events.count == 1)
         #expect(await store.discoverySnapshot().events[first.id]?.archiveSHA256 == Wire.hash(a))
+    }
+
+    @Test func existingLocalTaskKeepsLateChildChangesSelected() async throws {
+        let dir = directory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let store = try OutboxStore(directory: dir), id = Wire.id(), query = DiscoveryQuery(type: "HKWorkoutTypeIdentifier")
+        try await store.beginTask(id)
+        _ = try await store.discoveryFlow(query)
+        let archive = Data("synthetic-existing-workout".utf8), file = try await store.savePayload(archive)
+        let event = DiscoveryEvent(type: query.type, uuid: id, deleted: false, archiveFile: file, archiveHash: Wire.hash(archive))
+        let batch = try await store.stageDiscovery(query, previousAnchor: nil, anchor: Data([1]), events: [event], hasMore: false)
+        try await store.promoteDiscovery(query, batchID: batch)
+        #expect(await store.discoverySnapshot().work[id]?.selected == true)
     }
 }

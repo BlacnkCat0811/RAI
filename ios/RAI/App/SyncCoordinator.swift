@@ -12,56 +12,32 @@ enum Metrics {
     static func milliseconds(_ name: String, since: Date) { value(name, Date().timeIntervalSince(since) * 1000) }
 }
 
-/// One HKWorkout = one immutable bundle upload. The exact bundle file is
-/// persisted in the local task before the first HTTP request, so a retry,
-/// relaunch or lost response always reuses the same bytes. There is no page,
-/// batch, stream, series or association loop in this path.
+/// One Workout's foreground result. Success means the server durably accepted
+/// the raw bytes; it does not wait for projection or analysis.
+struct WorkoutUploadOutcome: Sendable, Equatable {
+    let workoutID: String
+    let acceptedAt: Date?
+    let errorCode: String?
+    var succeeded: Bool { errorCode == nil }
+}
+
+/// One HKWorkout = one protocol-6 payload built and sent in the foreground.
+/// There is no local Workout upload queue, status pre-read, automatic retry,
+/// background transfer or analysis polling in this path.
 actor SyncCoordinator {
     let store: OutboxStore
     let health: any HealthKitReading
-    /// Capture producers allowed to run at the same time. Independent quantity
-    /// types overlap; one stream's paging and anchor stay serial.
-    let captureStreams: Int
     private let session: URLSession
     private let sessionStore: SyncSessionStore?
     private let sessionID: String?
     private var running = false
-    /// Workouts currently being prepared/uploaded. Distinct Workouts may
-    /// overlap; the same Workout never runs twice.
-    private var activeWorkouts: Set<String> = []
-    /// Publication checks are asynchronous follow-ups, never part of the wait
-    /// for a Workout's durable acknowledgement.
-    private var analysisRefreshes: [String: Task<Void, Never>] = [:]
-    private var supportsIntegrity = false
-    private var syncProtocolV4 = false
-    /// Raw payload version negotiated for this session: 4 or 6. The UUID
-    /// ingest lane uses it to choose the builder; prepared bytes stay
-    /// authoritative whatever version they were built with.
-    private var syncPayloadVersion = 4
-    /// UUID ingest capabilities of the current handshake. The lane decision is
-    /// made before any HealthKit discovery and never changes mid-session.
-    private var workoutUUIDIngestVersion = 0
+    private var workoutBatchRunning = false
+    /// The handshake may pause new protocol-6 uploads.
     private var workoutUUIDIngestAccepting = false
-    private var uuidIngestEnabled = true
     private var dailyRunning = false
     private var supportsDaily = false
     private var vo2Running = false
-    private var completenessRunning = false
     private var vo2Capabilities: JSON = .null
-    #if DEBUG
-    private var acceptanceDiscoveryQueryCount = 0
-    private var acceptanceAnchoredDiscoveryQueryCount = 0
-    private var acceptanceSourceExcludedCount = 0
-    private var acceptanceSourceUnclassifiedCount = 0
-    private var acceptanceChildQuerySkipCount = 0
-    func discoveryQueryEvidence() -> JSON {
-        .object(["queries": .int(Int64(acceptanceDiscoveryQueryCount)),
-            "queriesUsingCommittedAnchor": .int(Int64(acceptanceAnchoredDiscoveryQueryCount)),
-            "sourceExcludedWorkouts": .int(Int64(acceptanceSourceExcludedCount)),
-            "sourceUnclassifiedWorkouts": .int(Int64(acceptanceSourceUnclassifiedCount)),
-            "skippedDetailedWorkouts": .int(Int64(acceptanceChildQuerySkipCount))])
-    }
-    #endif
 
     /// Observer work is local and bounded. Offline/pending pages keep their
     /// old committed anchor and exact immutable bytes until the server ACK.
@@ -214,83 +190,29 @@ actor SyncCoordinator {
         #endif
     }
 
-    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil, captureConcurrency: Int = CaptureConcurrencyPolicy.standard.streams) {
+    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil) {
         self.store = store; self.health = health; self.session = session
         self.sessionStore = sessionStore; self.sessionID = sessionID
-        self.captureStreams = max(1, captureConcurrency)
     }
 
     func authorize() async throws { try await health.authorize() }
     func recentWorkouts(limit: Int = 100) async throws -> [HealthWorkoutSummary] { try await health.recentWorkouts(limit: limit) }
+    func workoutPage(before: Date? = nil, limit: Int = 100) async throws -> [HealthWorkoutSummary] {
+        try await health.workoutPage(before: before, limit: limit)
+    }
 
-    /// Offline discovery is independent of upload recovery. Queries are
-    /// bounded and checkpointed; foreground/observer wakeups resume anchors.
-    func discoverChanges(workoutIDs: [String]? = nil) async throws {
+    /// Discovery keeps the visible Workout inventory used by the picker. The
+    /// protocol-6 payload is built from one complete HealthKit read per
+    /// Workout; there is no per-sample journal on the delivery path.
+    func discoverChanges() async throws {
         if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
         guard !running else { return }
         running = true; defer { running = false }
-        if workoutIDs == nil {
-            let query = DiscoveryQuery(type: HKObjectType.workoutType().identifier)
-            for _ in 0..<4 {
-                try Task.checkCancellation()
-                if !(try await discoverPage(query: query, type: HKObjectType.workoutType(), workout: nil)) { break }
-            }
-        }
-        // A UUID-ingest session sends one complete raw payload per Workout.
-        // Root list discovery above still feeds the picker; the old per-sample
-        // journal is not on the delivery path and must not read HealthKit.
-        if uuidIngestEnabled, syncProtocolV4, workoutUUIDIngestVersion >= 1 { return }
-        let snapshot = await store.discoverySnapshot()
-        let known = workoutIDs ?? snapshot.workoutArchives.keys.sorted()
-        guard !known.isEmpty else { return }
-        let start = workoutIDs == nil ? snapshot.scanCursor % known.count : 0
-        let ids = (0..<min(known.count, workoutIDs == nil ? 4 : known.count)).map { known[(start + $0) % known.count] }
-        for id in ids {
+        let query = DiscoveryQuery(type: HKObjectType.workoutType().identifier)
+        for _ in 0..<4 {
             try Task.checkCancellation()
-            do {
-                let workoutQuery = DiscoveryQuery(type: HKObjectType.workoutType().identifier, workoutID: id)
-                for _ in 0..<4 {
-                    try Task.checkCancellation()
-                    if !(try await discoverPage(query: workoutQuery, type: HKObjectType.workoutType(), workout: nil)) { break }
-                }
-                var visible = try await health.workout(id)
-                if visible == nil, let file = snapshot.workoutArchives[id] {
-                    visible = try NSKeyedUnarchiver.unarchivedObject(ofClass: HKWorkout.self, from: Data(contentsOf: await store.fileURL(file)))
-                }
-                guard let workout = visible else { continue } // visibility is not deletion
-                // Source policy is decided from the root record, before any
-                // detailed child query. An excluded Workout never starts
-                // quantity/series/route collection; an undecidable one blocks
-                // only itself and stays retryable. A Workout that already has
-                // local work keeps collecting, so an explicit HealthKit
-                // deletion of already-committed facts is never lost.
-                let source = Normalizer.source(workout)
-                let classification = HealthSourcePolicy.classification(source)
-                let outcome = WorkoutSourcePolicy.outcome(classification)
-                try await store.recordSourceClassification(workoutID: id, classification: classification,
-                                                           evidence: WorkoutSourcePolicy.evidence(source))
-                if outcome != WorkoutSourcePolicy.eligible, await store.task(id) == nil {
-                    #if DEBUG
-                    if outcome == WorkoutSourcePolicy.excluded { acceptanceSourceExcludedCount += 1 } else { acceptanceSourceUnclassifiedCount += 1 }
-                    acceptanceChildQuerySkipCount += 1
-                    #endif
-                    continue
-                }
-                for type in HealthKitClient.quantityTypes + [HKSeriesType.workoutRoute()] {
-                    do {
-                        let scoped = DiscoveryQuery(type: type.identifier, workoutID: id)
-                        for _ in 0..<4 {
-                            try Task.checkCancellation()
-                            if !(try await discoverPage(query: scoped, type: type, workout: workout)) { break }
-                        }
-                    }
-                    catch is CancellationError { throw CancellationError() }
-                    catch { /* this stream retains its anchor and error; others proceed */ }
-                }
-            } catch is CancellationError { throw CancellationError() }
-            catch { try await store.discoveryFailure(id, code: "discovery_query_failed") }
+            if !(try await discoverPage(query: query, type: HKObjectType.workoutType(), workout: nil)) { break }
         }
-        if workoutIDs == nil { try await store.discoveryAdvanceCursor(ids.count, total: known.count) }
     }
     @discardableResult private func discoverPage(query requested: DiscoveryQuery, type: HKSampleType, workout: HKWorkout?) async throws -> Bool {
         let query = await store.activeDiscoveryQuery(requested)
@@ -303,10 +225,6 @@ actor SyncCoordinator {
         if flow.error == "invalid_healthkit_anchor" { throw SyncFailure.localState("invalid_healthkit_anchor") }
         do {
             let page: HealthPage
-            #if DEBUG
-            acceptanceDiscoveryQueryCount += 1
-            if flow.anchor != nil { acceptanceAnchoredDiscoveryQueryCount += 1 }
-            #endif
             if type == HKObjectType.workoutType(), let id = query.workoutID { page = try await health.readWorkout(id: id, anchor: flow.anchor) }
             else { page = try await health.read(type: type, anchor: flow.anchor, workout: workout) }
             var events: [DiscoveryEvent] = []
@@ -372,70 +290,26 @@ actor SyncCoordinator {
     }
     func observeDiscovery(_ handler: @escaping @Sendable () async -> Void) async throws { try await health.observeChanges(handler) }
 
-    /// Previously selected Workouts receive later facts through the same
-    /// immutable bundle pipeline. New discoveries still respect user selection.
-    func syncDiscovered(secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
-        guard !running else { return }
-        running = true; defer { running = false }
-        let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
-        let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-        // A UUID-mode session delivers each Workout only through the
-        // status-first lane. This old auto-delivery would re-read or re-upload
-        // a UUID the server already accepted.
-        guard !(uuidIngestEnabled && syncProtocolV4 && workoutUUIDIngestVersion >= 1) else { return }
-        let discovery = await store.discoverySnapshot()
-        for (id, work) in discovery.work.sorted(by: { $0.key < $1.key }) where work.needsDelivery() {
-            try Task.checkCancellation()
-            if await store.task(id)?.ingestMode == OutboxStore.ingestModeUUID { continue }
-            do {
-                if let task = await store.task(id), let file = task.bundleFile,
-                   let boundary = task.bundleBoundary, let url = try? await store.fileURL(file),
-                   FileManager.default.fileExists(atPath: url.path) {
-                    if task.phase == .failed { continue }
-                    if let version = Self.bundleProtocolVersion(url, boundary: boundary),
-                       [4, 6].contains(version), !syncProtocolV4 {
-                        try await store.discardUnreadableBundle(id)
-                    } else {
-                        _ = try await WorkoutBundleDelivery(store: store, api: api).deliver(id)
-                        continue
-                    }
-                }
-                try await store.beginTask(id, resetBundle: true)
-                try await performSync(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: true, recovery: false)
-            } catch is CancellationError { throw CancellationError() }
-            catch { try await store.discoveryFailure(id, code: (error as? SyncFailure).map(code) ?? (error as? UploadError)?.code ?? "discovery_work_failed") }
-        }
-    }
-
     private func context(secret: ClientConfiguration.Secret, transfers: any FileUploader, metrics: SyncMetrics) async throws -> (RAIAPIClient, Scope) {
         let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, session: session, uploader: transfers, metrics: metrics)
-        // v4 is requested explicitly. Protocol 6 is requested only when the
-        // client flag is on; a server with the capability disabled answers 4,
-        // and that answer is the fallback this session uses.
-        let wantsV4 = secret.configuration.v4Enabled
-        let wantsV6 = wantsV4 && secret.configuration.payloadV6Enabled
-        let hello = try await api.call("GET", "/v2/handshake",
-                                       headers: wantsV4 ? ["X-RAI-Sync-Protocol": wantsV6 ? "6" : "4"] : [:])
+        let hello = try await api.call("GET", "/v2/handshake")
         if let sessionStore, let sessionID {
             try await sessionStore.validateActiveHandshake(sessionID, handshake: hello)
         }
         let supported = Set(hello["capabilities"]["sampleTypes"].list.compactMap(\.text))
-        let bundleProtocol = hello["capabilities"]["bundleProtocolVersion"].integer
+        // Protocol 6 is the only Workout payload this client can produce or
+        // deliver. A server that still advertises another version is not
+        // compatible; there is no downgrade and no legacy upload path.
         guard hello["protocolVersion"].integer == 3, let service = hello["serviceID"].text,
               let dataset = hello["datasetID"].text, let epoch = hello["datasetEpoch"].text,
-              hello["capabilities"]["workoutBundles"] == .bool(true),
-              [3, 4, 6].contains(bundleProtocol),
+              hello["datasetStatus"].text == "active",
+              hello["capabilities"]["workoutPayloadVersion"].integer == 6,
+              hello["capabilities"]["workoutUUIDIngestVersion"].integer == 1,
               !supported.isEmpty,
               HealthKitClient.quantityTypes.allSatisfy({ supported.contains($0.identifier) }) else {
             throw SyncFailure.invalid("unsupported_handshake")
         }
-        let negotiated = Self.negotiate(wantsV4: wantsV4, wantsV6: wantsV6, bundleProtocol: bundleProtocol)
-        syncProtocolV4 = negotiated.rawLane && hello["capabilities"]["bundleCompact"] == .bool(true)
-        syncPayloadVersion = negotiated.payloadVersion
-        workoutUUIDIngestVersion = Int(hello["capabilities"]["workoutUUIDIngestVersion"].integer ?? 0)
         workoutUUIDIngestAccepting = hello["capabilities"]["workoutUUIDIngestAccepting"] == .bool(true)
-        uuidIngestEnabled = secret.configuration.uuidIngestEnabled
-        supportsIntegrity = hello["capabilities"]["bundleObservationVersion"].integer == 1 && hello["capabilities"]["explicitChildDeletions"] == .bool(true)
         supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
         vo2Capabilities = hello["capabilities"]
         let scope = Scope(serviceID: service, datasetID: dataset, datasetEpoch: epoch, collectorEpoch: secret.configuration.collectorEpoch)
@@ -443,1082 +317,60 @@ actor SyncCoordinator {
         return (api, scope)
     }
 
-    /// Startup/foreground recovery. It never reads HealthKit and never starts a
-    /// new Workout task: it uploads an already persisted bundle, or asks the
-    /// user to retry when the prepared file is absent.
-    func recoverPending(secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
-        guard !running else { return }
-        running = true; defer { running = false }
-        let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
-        let api: RAIAPIClient, scope: Scope
-        do { (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics) }
-        catch {
-            if error is CancellationError || Task.isCancelled { throw CancellationError() }
-            try await store.deferBundleRecovery(error)
-            throw error
-        }
-        _ = try? await store.purgeLegacyPages()
-        try await store.reconcileTasks()
-        for task in await store.allTasks() {
-            try Task.checkCancellation()
-            if task.ingestMode == OutboxStore.ingestModeUUID {
-                try await recoverIngestTask(task, api: api, scope: scope, transfers: transfers, metrics: metrics)
-                continue
-            }
-            switch task.phase {
-            case .preparing, .uploading:
-                guard task.bundleFile != nil, task.bundleSHA256 != nil, task.bundleBoundary != nil else {
-                    try? await store.updateTask(task.workoutID) {
-                        $0.phase = .failed; $0.errorCode = "interrupted"; $0.updatedAt = Date()
-                    }
-                    continue
-                }
-                do { try await performSync(id: task.workoutID, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: false, recovery: true) }
-                catch is CancellationError { throw CancellationError() }
-                catch { /* task records the retryable failure */ }
-            case .acknowledged, .analyzing:
-                do { try await refreshAnalysis(id: task.workoutID, api: api) }
-                catch is CancellationError { throw CancellationError() }
-                catch { /* analysis failures do not invalidate a durable ACK */ }
-                try? await store.releaseBundle(task.workoutID)
-                if await store.task(task.workoutID)?.phase == .analyzing {
-                    scheduleAnalysisRefresh(id: task.workoutID, api: api)
-                }
-            case .published, .partial, .deleted:
-                try? await store.releaseBundle(task.workoutID)
-            case .failed where task.errorCode == "interrupted":
-                if task.bundleFile != nil {
-                    do { try await performSync(id: task.workoutID, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: false, recovery: true) }
-                    catch is CancellationError { throw CancellationError() }
-                    catch { }
-                }
-            default:
-                break
-            }
-        }
-        try Task.checkCancellation()
-        _ = try? await store.collectGarbage(dryRun: false)
-    }
-
-    /// Recovery for the UUID lane. It never reads HealthKit: an unanswered
-    /// payload is resent from its exact file, a paused lane is retried once the
-    /// server accepts again, and accepted/committed states only refresh.
-    private func recoverIngestTask(_ task: WorkoutSyncTask, api: RAIAPIClient, scope: Scope,
-                                   transfers: any FileUploader, metrics: SyncMetrics) async throws {
-        switch task.phase {
-        case .preparing, .uploading:
-            do { try await syncIngestWorkout(id: task.workoutID, api: api, scope: scope, transfers: transfers, metrics: metrics, recovery: true) }
-            catch is CancellationError { throw CancellationError() }
-            catch { /* the task records its retryable failure */ }
-        case .accepted, .acknowledged, .analyzing:
-            do { try await refreshAnalysis(id: task.workoutID, api: api) }
-            catch is CancellationError { throw CancellationError() }
-            catch { /* status/analysis failures never invalidate an acceptance */ }
-            try? await store.releaseBundle(task.workoutID)
-            if let phase = await store.task(task.workoutID)?.phase, AnalysisFollowup.shouldContinue(phase) {
-                scheduleAnalysisRefresh(id: task.workoutID, api: api)
-            }
-        case .published, .partial, .deleted:
-            try? await store.releaseBundle(task.workoutID)
-        case .failed where ["interrupted", "workout_uuid_ingest_paused", "workout_uuid_ingest_disabled"].contains(task.errorCode ?? ""):
-            do { try await syncIngestWorkout(id: task.workoutID, api: api, scope: scope, transfers: transfers, metrics: metrics, recovery: true) }
-            catch is CancellationError { throw CancellationError() }
-            catch { }
-        default:
-            break
-        }
-    }
-
-    func syncWorkout(id: String, secret: ClientConfiguration.Secret, transfers: any FileUploader, forceNewBundle: Bool) async throws {
-        guard !activeWorkouts.contains(id) else { throw SyncFailure.localState("sync_already_running") }
-        activeWorkouts.insert(id); defer { activeWorkouts.remove(id) }
+    /// Uploads the selected Workouts in the foreground, one after another.
+    /// The handshake happens once per batch; each Workout is read, built and
+    /// sent exactly once. A per-Workout failure is reported through `progress`
+    /// and does not stop the remaining items; only cancellation ends the round
+    /// early. The returned outcomes are exactly the Workouts whose final
+    /// result was reached before the call returned.
+    func uploadWorkouts(_ ids: [String], secret: ClientConfiguration.Secret,
+                        transfers: any FileUploader,
+                        started: @escaping @MainActor @Sendable (String) -> Void = { _ in },
+                        progress: @escaping @MainActor @Sendable (WorkoutUploadOutcome) -> Void = { _ in }) async throws -> [WorkoutUploadOutcome] {
+        guard !ids.isEmpty else { return [] }
+        guard !workoutBatchRunning else { throw SyncFailure.localState("sync_already_running") }
+        workoutBatchRunning = true; defer { workoutBatchRunning = false }
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
         let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-        try await store.selectDiscoveredWorkout(id)
-        // The UUID decision happens before scoped discovery. A task that chose
-        // this lane never falls back to the old bundle upload.
-        if await usesUUIDIngest(id) {
-            try await syncIngestWorkout(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics, recovery: false)
-            return
-        }
-        if !forceNewBundle, await isAlreadyDelivered(id) {
-            // The durable ACK already covers every fact local discovery knows
-            // about, so there is nothing to read, encode or post. A later
-            // discovery generation (new samples, series, routes or an explicit
-            // deletion) re-opens this path; an unchanged repeat sync must not
-            // re-read HealthKit or re-upload an identical bundle.
-            try await store.setTaskMetrics(id, metrics: ["workout_sync_skipped_unchanged": 1])
-            Metrics.value("workout_sync_skipped_unchanged", 1)
-            // An old ACK can still be waiting for publication. Reuse the same
-            // bounded follow-up rather than leaving it to the next recovery.
-            if let task = await store.task(id), task.phase == .analyzing,
-               (task.analysisCheckedAt ?? .distantPast) < Date().addingTimeInterval(-AnalysisFollowup.staleRefreshInterval) {
-                scheduleAnalysisRefresh(id: id, api: api)
-            }
-            return
-        }
-        if !syncProtocolV4 {
-            // The per-sample journal only feeds a bundle this sync builds. A
-            // prepared immutable bundle is retried from its exact bytes, so a
-            // retry must not read HealthKit before delivering them again.
-            if await store.task(id)?.bundleFile == nil {
-                try await discoverChanges(workoutIDs: [id])
-            }
-        }
-        try await store.beginTask(id, resetBundle: forceNewBundle)
-        try await performSync(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics, forceNewBundle: forceNewBundle, recovery: false)
-    }
-
-    /// The UUID lane is chosen before any HealthKit discovery. A completed
-    /// legacy history keeps its skip/refresh path so an upgrade never
-    /// re-uploads an acknowledged UUID; a prepared v4 body is adopted, while a
-    /// prepared v3 body keeps the legacy delivery.
-    private func usesUUIDIngest(_ id: String) async -> Bool {
-        guard uuidIngestEnabled, syncProtocolV4, workoutUUIDIngestVersion >= 1 else { return false }
-        guard let task = await store.task(id) else { return true }
-        if let mode = task.ingestMode { return mode == OutboxStore.ingestModeUUID }
-        guard task.uploadReceipt == nil, task.deletionReceipt == nil,
-              ![.acknowledged, .analyzing, .published, .partial, .deleted].contains(task.phase) else { return false }
-        if let file = task.bundleFile, let boundary = task.bundleBoundary,
-           let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
-            guard let version = Self.bundleProtocolVersion(url, boundary: boundary) else { return false }
-            return [4, 6].contains(version)
-        }
-        return true
-    }
-
-    /// Status first: an accepted or committed UUID never reads HealthKit or
-    /// re-sends bytes. Only a confirmed "not received" may adopt or build one
-    /// payload, and recovery never builds.
-    private func syncIngestWorkout(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
-                                   metrics: SyncMetrics, recovery: Bool) async throws {
-        let started = Date()
-        try await store.beginTask(id, resetBundle: false)
-        try await store.markIngestLane(id)
-        let status = try await WorkoutIngestDelivery.status(id, api: api)
-        if let status {
-            if try await applyIngestStatus(id: id, status: status, api: api) { return }
-        }
-        guard let task = await store.task(id) else { throw SyncFailure.localState("unknown_workout_task") }
-        if status == nil, task.ingestStatus != nil || task.ingestAcceptedAt != nil {
-            // Acceptance is durable server state. A contradictory 404 must be
-            // reported, never repaired by silently uploading again.
-            try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "workout_ingest_missing_after_acceptance" }
-            throw UploadError(code: "workout_ingest_missing_after_acceptance", status: 409)
-        }
         guard workoutUUIDIngestAccepting else {
-            try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "workout_uuid_ingest_paused" }
             throw SyncFailure.localState("workout_uuid_ingest_paused")
         }
-        // A kill between the fixed rename and the state commit leaves a
-        // complete file that recovery reattaches by UUID.
-        var current = task
-        if let file = current.bundleFile, let boundary = current.bundleBoundary,
-           let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
-            if !Self.ingestPayloadCompleted(url, boundary: boundary) {
-                guard !recovery else {
-                    try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "interrupted" }
-                    return
-                }
-                // The prepared bytes are not a legal payload. Drop the exact
-                // identity and allow exactly one rebuild for this explicit sync.
-                try await store.discardIngestPayload(id)
-                current = await store.task(id) ?? current
-            }
-        } else if current.bundleFile != nil {
-            // The recorded file is gone. Drop the dangling reference, then look
-            // for the fixed payload before rebuilding.
-            try? await store.discardIngestPayload(id)
-            current = await store.task(id) ?? current
-        }
-        if current.bundleFile == nil {
-            _ = try? await store.recoverWorkoutIngestPayload(id)
-            current = await store.task(id) ?? current
-        }
-        if current.bundleFile == nil {
-            if recovery {
-                try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "interrupted" }
-                return
-            }
-            try await updateTask(id, phase: .preparing)
-            do {
-                let payloadVersion = syncPayloadVersion
-                let raw: Data
-                if payloadVersion == 6 {
-                    raw = try await RawStreamSyncEngine(store: store, health: health, scope: scope).build(id: id).raw
-                } else {
-                    let bundle = try await V4SyncEngine(store: store, health: health, scope: scope)
-                        .build(id: id, anchor: current.workoutAnchor)
-                    raw = bundle.raw
-                    if let nextAnchor = bundle.nextAnchor { try? await store.setWorkoutAnchor(id, anchor: nextAnchor) }
-                }
-                let boundary = "rai.boundary." + Wire.id()
-                let body = WorkoutBundleAssembler.multipart(bundle: raw, boundary: boundary)
-                try await store.stageWorkoutIngestPayload(id, body: body, payloadVersion: payloadVersion)
-                try await updateTask(id, phase: .uploading,
-                                     metrics: [(payloadVersion == 6 ? "v6_build_ms" : "v4_build_ms"): Date().timeIntervalSince(started) * 1000])
-            } catch {
-                if error is CancellationError || Task.isCancelled { throw CancellationError() }
-                if let latest = await store.task(id), latest.ingestStatus == nil, latest.ingestAcceptedAt == nil {
-                    let value = (error as? UploadError)?.code ?? (error as? SyncFailure).map(code) ?? "sync_failed"
-                    try? await store.updateTask(id) { $0.phase = .failed; $0.errorCode = value }
-                }
-                throw error
-            }
-        }
-        guard try await WorkoutIngestDelivery(store: store, api: api).accept(id, scope: scope) else { return }
-        var timings = (await store.task(id))?.metrics ?? [:]
-        timings["workout_sync_ms"] = Date().timeIntervalSince(started) * 1000
-        try? await store.setTaskMetrics(id, metrics: timings)
-        try? await store.synced()
-        _ = try? await store.collectGarbage(dryRun: false)
-        // Acceptance is visible immediately; publication continues on the
-        // existing bounded follow-up (status first, then analysis).
-        scheduleAnalysisRefresh(id: id, api: api)
-    }
-
-    /// Applies one authoritative status answer. Returns true when this pass has
-    /// nothing left to upload.
-    @discardableResult
-    private func applyIngestStatus(id: String, status: WorkoutIngestStatus, api: RAIAPIClient) async throws -> Bool {
-        _ = try await store.applyWorkoutIngestStatus(id, status: status)
-        switch status.state {
-        case .accepted:
-            scheduleAnalysisRefresh(id: id, api: api)
-            return true
-        case .committed, .alreadyImported:
-            try await refreshAnalysis(id: id, api: api)
-            scheduleAnalysisRefresh(id: id, api: api)
-            return true
-        case .rejected, .deleted:
-            return true
-        }
-    }
-
-    /// The fixed body must close with the same boundary it opened with; a
-    /// truncated file is rebuilt rather than uploaded.
-    private static func ingestPayloadCompleted(_ url: URL, boundary: String) -> Bool {
-        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]), let size = values.fileSize, size > 0 else { return false }
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
-        defer { try? handle.close() }
-        let opener = Data(("--" + boundary + "\r\n").utf8)
-        guard let head = try? handle.read(upToCount: opener.count), head == opener else { return false }
-        let suffix = Data(("\r\n--" + boundary + "--\r\n").utf8)
-        guard size >= suffix.count else { return false }
-        try? handle.seek(toOffset: UInt64(size - suffix.count))
-        guard let tail = try? handle.read(upToCount: suffix.count) else { return false }
-        return tail == suffix
-    }
-
-    /// True when this Workout's durable ACK already covers the local discovery
-    /// state, so an unchanged repeat sync has nothing left to deliver.
-    ///
-    /// The test is deliberately conservative: a receipt for the current
-    /// discovery generation. Anything newer keeps the ordinary prepare path.
-    private func isAlreadyDelivered(_ id: String) async -> Bool {
-        guard let task = await store.task(id), task.uploadReceipt != nil,
-              task.bundleFile == nil,
-              [.acknowledged, .analyzing, .published, .partial].contains(task.phase) else { return false }
-        let snapshot = await store.discoverySnapshot()
-        guard let work = snapshot.work[id] else { return false }
-        return work.generation == work.deliveredGeneration
-    }
-
-    /// Facts the bundle needs for one type.
-    ///
-    /// A scoped discovery stream that is provably exhausted for this Workout
-    /// already captured every fact, so the bundle reuses those records instead
-    /// of repeating an equivalent full read. The predicate lives in
-    /// `OutboxStore.exhaustedDiscoveryFacts` and rejects any stream with a
-    /// staged batch, an error, no committed anchor or a full last page; those
-    /// cases keep the existing complete read, which also captures what it reads.
-    ///
-    /// A normalized record (format 2) is decoded straight into a fact. A format
-    /// 1 record or a legacy single-file archive is the only thing that still
-    /// needs an unarchive, and that call is counted. Reused facts are ordered the
-    /// way the complete read orders them (`startUs`, then uuid) so the bundle
-    /// bytes stay stable.
-    private nonisolated func factsForBundle(id: String, type: HKQuantityType, workout: HKWorkout, forceFresh: Bool = false) async throws
-        -> (facts: [NormalizedFact], reused: Bool) {
-        guard !forceFresh else {
-            return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
-        }
-        guard let stored = await store.exhaustedDiscoveryFacts(workoutID: id, type: type.identifier) else {
-            return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
-        }
-        var facts: [NormalizedFact] = []
-        facts.reserveCapacity(stored.count)
-        for event in stored {
-            if let fact = try await store.discoveryNormalizedFact(event) {
-                facts.append(fact)
-                continue
-            }
-            // Legacy representation: read the archived object once and
-            // normalize it. Any fact that cannot be read back disqualifies the
-            // whole stream, because a silently short bundle is worse than a
-            // full read.
-            guard let data = try await store.discoveryArchiveBytes(event),
-                  let sample = (try? NSKeyedUnarchiver.unarchivedObject(ofClasses: [HKQuantitySample.self], from: data)) as? HKSample else {
-                return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
-            }
-            SampleArchiveMeter.recordUnarchive()
-            facts.append(try Normalizer.normalizedFact(sample, type: type.identifier, workoutID: id))
-        }
-        facts.sort { lhs, rhs in
-            let left = lhs.startUs ?? 0, right = rhs.startUs ?? 0
-            return left == right ? lhs.uuid < rhs.uuid : left < right
-        }
-        // A discovery record written by an older build may decode to a fact
-        // without an event (the sample was captured but not describable at the
-        // time). Such a record can anchor discovery, but it must never be
-        // uploaded as if it were a complete bundle stream; re-read the exact
-        // HealthKit objects instead.
-        guard facts.allSatisfy(\.isBundleUsable) else {
-            return (try await freshFacts(type: type, workout: workout, workoutID: id), false)
-        }
-        return (facts, true)
-    }
-
-    /// The complete HealthKit read for one type, normalized on the way in.
-    private nonisolated func freshFacts(type: HKQuantityType, workout: HKWorkout, workoutID: String) async throws -> [NormalizedFact] {
-        let samples = try await health.bundleSamples(type: type, workout: workout)
-        return try samples.map { try Normalizer.normalizedFact($0, type: type.identifier, workoutID: workoutID) }
-    }
-
-    /// What one quantity stream contributed. Streams finish in any order; the
-    /// merge walks `HealthKitClient.quantityTypes`, so the bundle bytes are the
-    /// same whatever the completion order was.
-    private struct QuantityStreamOutcome: Sendable {
-        var type: String
-        var events: [JSON] = []
-        var provenance: [JSON] = []
-        var series: [JSON] = []
-        var coverage: [String: WorkoutCoverage] = [:]
-        var cursor: Int64 = 0
-        var coveredFacts = 0
-        var coveredEventIDs: Set<String> = []
-        var complete = false
-        var reused = false
-        var fullRead = false
-        var captureWrites = 0
-        var captureMs = 0.0
-        var seriesMs = 0.0
-    }
-
-    private struct RouteStreamOutcome: Sendable {
-        var routes: [JSON] = []
-        var provenance: [JSON] = []
-        var pointCount = 0
-        var complete = false
-        var coverage: [String: WorkoutCoverage] = [:]
-    }
-
-    /// Runs one quantity stream under the capture gate.
-    ///
-    /// The slot is always released, including on cancellation, so a cancelled
-    /// sync hands its budget back instead of starving the next one. Paging and
-    /// the anchor inside a stream are sequential because a stream is a single
-    /// producer; only distinct types overlap.
-    private nonisolated func captureQuantityStream(
-        id: String, type: HKQuantityType, workout: HKWorkout, source: JSON,
-        deletedKeys: Set<String>, gate: CaptureGate, writer: CaptureWriter, forceFresh: Bool
-    ) async throws -> QuantityStreamOutcome {
-        try await gate.enter()
-        do {
-            let outcome = try await captureQuantityBody(id: id, type: type, workout: workout, source: source,
-                                                        deletedKeys: deletedKeys, writer: writer, forceFresh: forceFresh)
-            await gate.exit()
-            return outcome
-        } catch {
-            await gate.exit()
-            throw error
-        }
-    }
-
-    private nonisolated func captureQuantityBody(
-        id: String, type: HKQuantityType, workout: HKWorkout, source: JSON,
-        deletedKeys: Set<String>, writer: CaptureWriter, forceFresh: Bool
-    ) async throws -> QuantityStreamOutcome {
-        var outcome = QuantityStreamOutcome(type: type.identifier)
-        do {
+        let delivery = WorkoutIngestDelivery(api: api)
+        var outcomes: [WorkoutUploadOutcome] = []
+        outcomes.reserveCapacity(ids.count)
+        for id in ids {
             try Task.checkCancellation()
-            let (facts, reused) = try await factsForBundle(id: id, type: type, workout: workout, forceFresh: forceFresh)
-            var events: [JSON] = []
-            if reused {
-                outcome.reused = true
-            } else {
-                outcome.fullRead = true
-                let captureStart = Date()
-                var capturedIDs = Set(await store.discoverySnapshot().events.keys)
-                for start in stride(from: 0, to: facts.count, by: 1000) {
-                    var records: [CapturedFact] = []
-                    for fact in facts[start..<min(start + 1000, facts.count)] {
-                        // No archive: the normalized bytes are the record.
-                        let payload = try fact.encoded()
-                        let eventID = DiscoveryEvent(type: type.identifier, uuid: fact.uuid, deleted: false,
-                                                     archiveHash: Wire.hash(payload), workoutID: id,
-                                                     identityHash: fact.identityHash).id
-                        if capturedIDs.contains(eventID) { continue }
-                        capturedIDs.insert(eventID)
-                        records.append(CapturedFact(type: type.identifier, uuid: fact.uuid, archive: payload,
-                                                    identityHash: fact.identityHash, encoding: .normalized))
-                    }
-                    guard !records.isEmpty else { continue }
-                    // One sealed segment file per batch replaces one atomic file
-                    // per sample; the writer is the only store caller.
-                    let captured = try await writer.append(type: type.identifier, workoutID: id, records: records)
-                    if captured.file != nil { outcome.captureWrites += 1 }
-                }
-                outcome.captureMs += Date().timeIntervalSince(captureStart) * 1000
-            }
-            let associationKeys = facts.map(\.factKey)
-            try await store.associateDiscoveredFacts(workoutID: id, keys: associationKeys)
-            // Pin the type cursor from the journal *as it is now* but only for
-            // the fact keys this bundle actually read. A late sample for this
-            // same type is absent from the read, so it keeps a higher ordinal
-            // and stays pending.
-            let journal = await store.discoverySnapshot()
-            let covered = Set(associationKeys)
-            var highest: Int64 = 0
-            for event in journal.events.values
-            where event.type == type.identifier && event.workoutID == id && !event.deleted && covered.contains(event.factKey) {
-                // Identity is what the ACK may confirm; the cursor is the
-                // evidence of the highest ordinal this stream encoded.
-                outcome.coveredEventIDs.insert(event.id)
-                if let ordinal = event.ordinal, ordinal > highest { highest = ordinal }
-            }
-            outcome.cursor = highest
-            outcome.coveredFacts = facts.count
-            if let root = journal.events.values.first(where: { $0.type == HKObjectType.workoutType().identifier && $0.uuid == id && !$0.deleted }) {
-                outcome.coveredEventIDs.insert(root.id)
-            }
-            var eligible: [NormalizedFact] = []
-            var typeProvenance: [JSON] = []
-            // A fact whose deletion is explicitly carried by this bundle is
-            // deliberately omitted, not missing. Reusing an exhausted discovery
-            // stream can still list the archived upsert of a locally deleted
-            // sample; counting it as an unresolved read marks the whole type
-            // partial and makes the ACK withhold the very deletion the bundle
-            // encoded.
-            let expectedFacts = facts.filter { !deletedKeys.contains($0.factKey) }
-            for fact in expectedFacts {
-                guard let provenance = fact.source, let event = fact.event else {
-                    // Captured but not describable (unsupported metadata). The
-                    // archived path failed here too: the fact stays local and the
-                    // stream is reported failed.
-                    throw SyncFailure.invalid("metadata_requires_review")
-                }
-                if ["apple_watch", "associated_apple_watch"].contains(HealthSourcePolicy.classification(provenance, associatedWorkout: source)) {
-                    events.append(event); eligible.append(fact)
-                    typeProvenance.append(.object(["sampleType": .string(type.identifier), "sampleUUID": .string(fact.uuid), "source": provenance]))
-                }
-            }
-            outcome.events = events
-            outcome.provenance = typeProvenance
-            outcome.coverage[type.identifier] = .result(count: events.count)
-            if eligible.count != expectedFacts.count { outcome.coverage[type.identifier]?.state = .partial; outcome.coverage[type.identifier]?.diagnostics = ["source_policy_pending"] }
-
-            // Series failure must not discard the scalar samples that were
-            // already read for this type. Completeness describes read coverage
-            // only; absent children never prove deletion.
+            await started(id)
+            let buildStarted = Date()
             do {
-                let seriesStart = Date()
-                let seriesBySample = try await health.captureSeries(type: type, workout: workout, store: store)
-                outcome.seriesMs += Date().timeIntervalSince(seriesStart) * 1000
-                var seriesCount = 0
-                var captured: [JSON] = []
-                for fact in eligible {
-                    guard let parent = fact.series, parent.pointCount > 1 else { continue }
-                    guard let points = seriesBySample[parent.parentUUID],
-                          Int64(points.count) == parent.pointCount else {
-                        throw SyncFailure.invalid("quantity_series_incomplete")
-                    }
-                    seriesCount += points.count
-                    captured.append(.object(["sampleType": .string(type.identifier),
-                                             "sampleUUID": .string(parent.parentUUID),
-                                             "points": .array(points)]))
-                }
-                outcome.series = captured
-                outcome.coverage["series:" + type.identifier] = .result(count: seriesCount)
-                if !events.isEmpty && eligible.count == expectedFacts.count { outcome.complete = true }
-            } catch is CancellationError { throw CancellationError() }
-            catch let failure as SyncFailure {
-                outcome.coverage["series:" + type.identifier] = WorkoutCoverage(state: .failed, sampleCount: events.count, errorCode: code(failure))
-                outcome.coverage[type.identifier]?.state = .partial
+                let raw = try await RawStreamSyncEngine(health: health, scope: scope).build(id: id)
+                metrics.value("v6_build_ms", Date().timeIntervalSince(buildStarted) * 1000)
+                let receipt = try await delivery.accept(raw, workoutID: id, scope: scope)
+                metrics.value("workout_sync_ms", Date().timeIntervalSince(buildStarted) * 1000)
+                let outcome = WorkoutUploadOutcome(workoutID: id, acceptedAt: receipt.acceptedAt, errorCode: nil)
+                outcomes.append(outcome)
+                await progress(outcome)
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
-                outcome.coverage["series:" + type.identifier] = WorkoutCoverage(state: .failed, sampleCount: events.count, errorCode: "healthkit_series_read_failed")
-                outcome.coverage[type.identifier]?.state = .partial
+                if Task.isCancelled { throw CancellationError() }
+                let outcome = WorkoutUploadOutcome(workoutID: id, acceptedAt: nil, errorCode: Self.uploadCode(error))
+                outcomes.append(outcome)
+                await progress(outcome)
             }
-        } catch is CancellationError { throw CancellationError() }
-        catch let failure as SyncFailure {
-            outcome.coverage[type.identifier] = WorkoutCoverage(state: .failed, errorCode: code(failure))
-        } catch {
-            outcome.coverage[type.identifier] = WorkoutCoverage(state: .failed, errorCode: "healthkit_read_failed")
         }
-        return outcome
+        return outcomes
     }
 
-    /// Runs the route stream under the same gate.
-    private nonisolated func captureRouteStream(
-        id: String, workout: HKWorkout, source: JSON, routeDeletions: [String], gate: CaptureGate
-    ) async throws -> RouteStreamOutcome {
-        try await gate.enter()
-        do {
-            let outcome = try await captureRouteBody(id: id, workout: workout, source: source, routeDeletions: routeDeletions)
-            await gate.exit()
-            return outcome
-        } catch {
-            await gate.exit()
-            throw error
+    private nonisolated static func uploadCode(_ error: any Error) -> String {
+        if let failure = error as? SyncFailure {
+            switch failure {
+            case .invalid(let code), .localState(let code): return code
+            case .receiptMismatch: return "receipt_mismatch"
+            }
         }
-    }
-
-    private nonisolated func captureRouteBody(
-        id: String, workout: HKWorkout, source: JSON, routeDeletions: [String]
-    ) async throws -> RouteStreamOutcome {
-        var outcome = RouteStreamOutcome()
-        do {
-            try Task.checkCancellation()
-            let read = try await health.captureRoutes(workout: workout, store: store)
-            outcome.coverage.merge(read.coverage) { _, new in new }
-            try await store.associateDiscoveredFacts(workoutID: id, keys: read.routes.map { HKSeriesType.workoutRoute().identifier + ":" + $0.id })
-            for route in read.routes where !routeDeletions.contains(route.id) {
-                guard let provenance = route.provenance, ["apple_watch", "associated_apple_watch"].contains(HealthSourcePolicy.classification(provenance, associatedWorkout: source)) else {
-                    outcome.coverage["route:" + route.id] = WorkoutCoverage(state: .partial, errorCode: "source_policy_pending"); continue
-                }
-                outcome.provenance.append(.object(["routeID": .string(route.id), "source": provenance]))
-                outcome.pointCount += route.points.count
-                outcome.routes.append(.object([
-                    "routeID": .string(route.id),
-                    "source": .object(["bundleID": .string(route.source)]),
-                    "points": .array(route.points.map { point in
-                        var fields: [String: JSON] = ["recordedAtUs": .int(point.recordedAtUs),
-                            "latitude": .number(point.latitude), "longitude": .number(point.longitude)]
-                        for (key, value) in [("altitude", point.altitude), ("horizontalAccuracy", point.horizontalAccuracy),
-                                             ("verticalAccuracy", point.verticalAccuracy), ("speed", point.speed), ("course", point.course)] {
-                            if let value { fields[key] = .number(value) }
-                        }
-                        return .object(fields)
-                    })
-                ]))
-            }
-            outcome.complete = read.enumerationCompleted && (read.routes.isEmpty ? read.coverage.isEmpty :
-                !outcome.routes.isEmpty && read.coverage.values.allSatisfy { $0.queryCompleted == true && $0.state == .complete } && outcome.routes.count == read.routes.count)
-            outcome.coverage["route"] = .result(count: outcome.pointCount, completed: read.enumerationCompleted && (read.routes.isEmpty ? read.coverage.isEmpty : outcome.complete))
-        } catch is CancellationError { throw CancellationError() }
-        catch let failure as SyncFailure { outcome.coverage["route"] = WorkoutCoverage(state: .failed, errorCode: code(failure)) }
-        catch { outcome.coverage["route"] = WorkoutCoverage(state: .failed, errorCode: "route_read_or_mapping_failed") }
-        return outcome
-    }
-
-    /// Reads the exact coverage block that will be validated with the bundle.
-    /// The task projection can be stale after a failed attempt; the payload is
-    /// immutable and therefore authoritative for the upload about to happen.
-    /// A server that answers 4 after a 6 request is a normal fallback: the
-    /// session keeps the raw payload lane and builds v4 bytes. Only the
-    /// advertised version decides what the builder emits.
-    static func negotiate(wantsV4: Bool, wantsV6: Bool, bundleProtocol: Int64?) -> (rawLane: Bool, payloadVersion: Int) {
-        let rawLane = wantsV4 && (bundleProtocol == 4 || bundleProtocol == 6)
-        return (rawLane, rawLane && wantsV6 && bundleProtocol == 6 ? 6 : 4)
-    }
-
-    static func bundleProtocolVersion(_ url: URL, boundary: String) -> Int? {
-        guard let body = try? Data(contentsOf: url, options: .mappedIfSafe),
-              let raw = WorkoutBundleAssembler.multipartPayload(body, boundary: boundary),
-              let header = JSON.topLevelValue("protocolVersion", in: raw),
-              let value = try? JSON.decode(header) else { return nil }
-        return value.integer.map(Int.init)
-    }
-
-    static func coverageFromBundle(_ url: URL, boundary: String) -> [String: WorkoutCoverage]? {
-        // The durable bundle is multipart. Decoding it as bare JSON (or
-        // decoding all samples just to read the header) is exactly the silent
-        // fallback this path must never take again.
-        guard let body = try? Data(contentsOf: url, options: .mappedIfSafe),
-              let raw = WorkoutBundleAssembler.multipartPayload(body, boundary: boundary),
-              let observationData = JSON.topLevelValue("observation", in: raw),
-              let observation = try? JSON.decode(observationData) else { return nil }
-        let fields = observation["coverage"].fields
-        guard !fields.isEmpty else { return nil }
-        var result: [String: WorkoutCoverage] = [:]
-        for (key, value) in fields {
-            guard let state = value["state"].text.flatMap(WorkoutCoverage.State.init(rawValue:)) else { return nil }
-            var coverage = WorkoutCoverage(state: state, sampleCount: Int(value["sampleCount"].integer ?? 0))
-            if case .bool(let completed) = value["queryCompleted"] { coverage.queryCompleted = completed }
-            if case .bool(let persisted) = value["localPersisted"] { coverage.localPersisted = persisted }
-            coverage.expectedCount = value["expectedCount"].integer.map(Int.init)
-            coverage.errorCode = value["errorCode"].text
-            let diagnostics = value["diagnostics"].list.compactMap(\.text)
-            coverage.diagnostics = diagnostics.isEmpty ? nil : diagnostics
-            result[key] = coverage
-        }
-        return result
-    }
-
-    private func performSync(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
-                             metrics: SyncMetrics, forceNewBundle: Bool, recovery: Bool) async throws {
-        let started = Date()
-        var coverage: [String: WorkoutCoverage] = [:]
-        var timings: [String: Double] = [:]
-        do {
-            var existing = await store.task(id)
-            let forceFreshTypes = Set(existing?.pendingReadKeys ?? [])
-            if let task = existing,
-               let file = task.bundleFile, let hash = task.bundleSHA256, let boundary = task.bundleBoundary,
-               let url = try? await store.fileURL(file), FileManager.default.fileExists(atPath: url.path) {
-                let protocolVersion = Self.bundleProtocolVersion(url, boundary: boundary)
-                if let protocolVersion, [4, 6].contains(protocolVersion) {
-                    if !syncProtocolV4 {
-                        // The server no longer advertises v4. Rebuild a v3 bundle
-                        // rather than retrying a permanent 422 forever.
-                        try await store.discardUnreadableBundle(id)
-                        existing = await store.task(id)
-                    } else {
-                        // A v4 bundle is a raw payload with no observation or
-                        // coverage block. The prepared bytes are the upload
-                        // authority, so a resume never re-reads HealthKit.
-                        try await updateTask(id, phase: .uploading)
-                        try await uploadAndAcknowledge(id: id, file: url, bundleHash: hash, boundary: boundary,
-                                                        coverage: [:], timings: task.metrics,
-                                                        started: started, api: api, transfers: transfers)
-                        return
-                    }
-                } else {
-                // A prepared bundle is the durable source of truth for what was
-                // actually read. Earlier failed attempts may have left the
-                // task's live coverage at a stale failed/partial snapshot; the
-                // bundle's observation block is the exact payload the server
-                // will validate. Never upload a complete bundle while telling
-                // the local task it has no samples.
-                if let durableCoverage = Self.coverageFromBundle(url, boundary: boundary) {
-                    try await store.updateTask(id) { task in
-                        task.coverage = durableCoverage
-                        task.pendingReadKeys = durableCoverage.filter { $0.value.needsRetry }
-                            .map(\.key).filter { $0 != "metadata" }
-                    }
-                    try await uploadAndAcknowledge(id: id, file: url, bundleHash: hash, boundary: boundary,
-                                                    coverage: durableCoverage, timings: task.metrics,
-                                                    started: started, api: api, transfers: transfers)
-                    return
-                }
-                Metrics.value("bundle_coverage_parse_failures", 1)
-                // Recovery never reads HealthKit and never rewrites an
-                // unacknowledged identity behind the user's back.
-                guard !recovery, task.uploadReceipt == nil else {
-                    try await store.updateTask(id) { $0.errorCode = "bundle_observation_corrupt" }
-                    throw SyncFailure.localState("bundle_observation_corrupt")
-                }
-                // The prepared bytes are not a legal upload authority. Drop
-                // them and rebuild from the same discovery facts; the old
-                // attempt's stale coverage is never used.
-                try await store.discardUnreadableBundle(id)
-                existing = await store.task(id)
-                }
-            }
-            if recovery {
-                throw SyncFailure.localState("bundle_not_prepared")
-            }
-            if let existing, existing.bundleFile != nil { throw SyncFailure.localState("missing_payload") }
-
-            if syncProtocolV4 {
-                try await syncV4(id: id, api: api, scope: scope, transfers: transfers, metrics: metrics,
-                                 existing: existing, started: started)
-                return
-            }
-            guard supportsIntegrity else { throw SyncFailure.invalid("unsupported_integrity_contract") }
-            try await updateTask(id, phase: .preparing, coverage: coverage)
-
-            // A Workout deletion is never inferred from an absent sample or a
-            // failed read. Only an anchored HKDeletedObject for this exact
-            // UUID can issue the explicit DELETE command. Keep the candidate
-            // anchor until the bundle is acknowledged, so a failed read/upload
-            // does not hide a later deletion.
-            let workoutAnchor = existing?.workoutAnchor
-            timings["workout_query_used_committed_anchor"] = workoutAnchor == nil ? 0 : 1
-            var nextWorkoutAnchor: Data?
-            let rootStart = Date()
-            do {
-                let change = try await health.readWorkout(id: id, anchor: workoutAnchor)
-                nextWorkoutAnchor = change.anchor
-                if change.deleted.contains(where: { $0.uuid.uuidString.lowercased() == id }) {
-                    try await deleteWorkout(id: id, api: api, scope: scope)
-                    return
-                }
-            }
-
-            guard let workout = try await health.workout(id) else { throw SyncFailure.invalid("workout_not_visible") }
-            timings["workout_query_ms"] = Date().timeIntervalSince(rootStart) * 1000
-            let classifyStart = Date()
-            let source = Normalizer.source(workout)
-            let classification = HealthSourcePolicy.classification(source)
-            let outcome = WorkoutSourcePolicy.outcome(classification)
-            try await store.recordSourceClassification(workoutID: id, classification: classification,
-                                                       evidence: WorkoutSourcePolicy.evidence(source))
-            // Entry guard for a source that changed after the list was read, or
-            // for an old queued task. A decided exclusion is terminal for this
-            // task; an undecidable source stays pending instead of guessing.
-            guard outcome == WorkoutSourcePolicy.eligible else {
-                throw SyncFailure.invalid(outcome == WorkoutSourcePolicy.excluded ? "source_policy_excluded" : "source_policy_pending")
-            }
-            let observedWorkout = try Normalizer.integrityEvent(workout)
-            timings["source_classify_ms"] = Date().timeIntervalSince(classifyStart) * 1000
-            let workoutEvent = try await store.originalWorkout(id, event: observedWorkout)
-            let discovery = await store.discoverySnapshot()
-            let generation = discovery.work[id]?.generation ?? 0
-            let deletions = discovery.events.values.filter { $0.workoutID == id && $0.deleted }
-            let sampleDeletions: [JSON] = deletions.filter { $0.type != HKObjectType.workoutType().identifier && $0.type != HKSeriesType.workoutRoute().identifier }.map {
-                .object(["sampleType": .string($0.type), "sampleUUID": .string($0.uuid)])
-            }
-            let routeDeletions = deletions.filter { $0.type == HKSeriesType.workoutRoute().identifier }.map(\.uuid).sorted()
-            let deletedKeys = Set(deletions.map(\.factKey))
-            var sampleProvenance: [JSON] = []
-            var routeProvenance: [JSON] = []
-            coverage["workout"] = .result(count: 1)
-            coverage["metadata"] = .result(count: source.fields.count)
-            let missingSource = ["version", "productType", "operatingSystemVersion", "device"].filter { source[$0] == .null }
-            if !missingSource.isEmpty { coverage["metadata"]?.state = .partial; coverage["metadata"]?.diagnostics = missingSource.map { "missing_" + $0 } }
-            // No native running-cadence type is exposed by this SDK. Elevation
-            // metadata is not a substitute for raw elevation samples.
-            coverage["cadence"] = WorkoutCoverage(state: .unsupported)
-            coverage["elevation_sample"] = WorkoutCoverage(state: .unsupported)
-            for type in HealthKitClient.quantityTypes { coverage[type.identifier] = WorkoutCoverage(state: .notQueried); coverage["series:" + type.identifier] = WorkoutCoverage(state: .notQueried) }
-
-            var samples: [JSON] = []
-            var series: [JSON] = []
-            var completeSampleTypes: [String] = []
-            var reusedReads = 0, fullReads = 0, captureWrites = 0
-            var captureMs = 0.0, seriesMs = 0.0
-            // Serializer accounting for this sync: the normalized path must not
-            // archive or unarchive a single sample.
-            let meterStart = SampleArchiveMeter.snapshot()
-            // R1: what this bundle provably consumes, type by type. A cursor is
-            // the highest journal ordinal among the facts the bundle really
-            // encoded for that type, so work a producer commits later keeps a
-            // higher ordinal and is never confirmed by this receipt.
-            var captureCursors: [String: Int64] = [:]
-            var coveredEventIDs: Set<String> = []
-            var coveredFacts = 0
-            let quantityStart = Date()
-            // R3: independent quantity streams overlap behind one bounded gate,
-            // and their results are merged in the fixed `quantityTypes` order, so
-            // the bytes do not depend on which stream finished first.
-            let gate = CaptureGate(policy: CaptureConcurrencyPolicy(streams: captureStreams))
-            let writer = CaptureWriter(store: store, gate: gate)
-            var outcomes: [String: QuantityStreamOutcome] = [:]
-            try await withThrowingTaskGroup(of: QuantityStreamOutcome.self) { group in
-                for type in HealthKitClient.quantityTypes {
-                    group.addTask {
-                        try await self.captureQuantityStream(id: id, type: type, workout: workout, source: source,
-                                                             deletedKeys: deletedKeys, gate: gate, writer: writer,
-                                                             forceFresh: forceFreshTypes.contains(type.identifier))
-                    }
-                }
-                for try await outcome in group { outcomes[outcome.type] = outcome }
-            }
-            for type in HealthKitClient.quantityTypes {
-                guard let outcome = outcomes[type.identifier] else { continue }
-                samples += outcome.events
-                sampleProvenance += outcome.provenance
-                series += outcome.series
-                for (key, value) in outcome.coverage { coverage[key] = value }
-                captureCursors[type.identifier] = outcome.cursor
-                coveredFacts += outcome.coveredFacts
-                coveredEventIDs.formUnion(outcome.coveredEventIDs)
-                if outcome.complete { completeSampleTypes.append(type.identifier) }
-                if outcome.reused { reusedReads += 1 }
-                if outcome.fullRead { fullReads += 1 }
-                captureWrites += outcome.captureWrites
-                captureMs += outcome.captureMs
-                seriesMs += outcome.seriesMs
-            }
-            let gateTotals = await gate.snapshot()
-            let writerTotals = await writer.totals()
-            timings["capture_max_active_streams"] = Double(gateTotals.maxActive)
-            timings["capture_stream_limit"] = Double(captureStreams)
-            timings["capture_peak_queue_bytes"] = Double(gateTotals.peakReservedBytes)
-            timings["capture_writer_batches"] = Double(writerTotals.batches)
-            timings["capture_writer_records"] = Double(writerTotals.records)
-            timings["healthkit_read_ms"] = Date().timeIntervalSince(quantityStart) * 1000
-            timings["reused_discovery_reads"] = Double(reusedReads)
-            timings["full_sample_reads"] = Double(fullReads)
-            timings["normalized_capture_ms"] = captureMs
-            timings["normalized_segment_writes"] = Double(captureWrites)
-            let meterEnd = SampleArchiveMeter.snapshot()
-            timings["sample_archive_calls"] = Double(meterEnd.archive - meterStart.archive)
-            timings["sample_unarchive_calls"] = Double(meterEnd.unarchive - meterStart.unarchive)
-            timings["object_archive_calls"] = Double(meterEnd.objectArchive - meterStart.objectArchive)
-            timings["series_read_ms"] = seriesMs
-
-            var routes: [JSON] = []
-            var routePointCount = 0
-            var completeRoutes = false
-            let routeStart = Date()
-            // The route stream is a capture producer as well: it takes a stream
-            // slot so routes, series and sample reads share one capture budget.
-            let routeOutcome = try await captureRouteStream(id: id, workout: workout, source: source,
-                                                            routeDeletions: routeDeletions, gate: gate)
-            routes += routeOutcome.routes
-            routeProvenance += routeOutcome.provenance
-            routePointCount += routeOutcome.pointCount
-            completeRoutes = routeOutcome.complete
-            for (key, value) in routeOutcome.coverage { coverage[key] = value }
-            timings["route_read_ms"] = Date().timeIntervalSince(routeStart) * 1000
-            // Batch evidence: flush and synchronization counts must track
-            // batches, not individual points (F15/P11).
-            let batches = await health.captureBatchCounters()
-            timings["series_capture_flushes"] = Double(batches.seriesFlushes)
-            timings["series_capture_synchronizations"] = Double(batches.seriesSynchronizations)
-            timings["series_capture_points"] = Double(batches.seriesPoints)
-            timings["route_capture_flushes"] = Double(batches.routeFlushes)
-            timings["route_capture_synchronizations"] = Double(batches.routeSynchronizations)
-            timings["route_capture_points"] = Double(batches.routePoints)
-
-            guard samples.count <= 50_000, series.count <= 50_000,
-                  series.reduce(0, { $0 + $1["points"].list.count }) <= 1_000_000,
-                  routes.count <= 16,
-                  routes.reduce(0, { $0 + $1["points"].list.count }) <= 1_000_000 else {
-                throw SyncFailure.invalid("bundle_too_large")
-            }
-            for key in coverage.keys { coverage[key]?.localPersisted = true }
-            try await store.setTaskCoverage(id, coverage: coverage)
-            let observation: JSON = .object(["version": .int(1), "observedAtUs": .int(Normalizer.us(Date())),
-                "metadata": observedWorkout["metadata"] == .null ? .object([:]) : observedWorkout["metadata"],
-                "provenance": .object(["workout": source, "samples": .array(sampleProvenance), "routes": .array(routeProvenance)]),
-                "coverage": .object(coverage.mapValues(\.wire))])
-            let encodeStart = Date()
-            var bundle = try WorkoutBundleAssembler.data(scope: scope, workoutID: id, workout: workoutEvent,
-                                                          samples: samples, series: series, routes: routes,
-                                                          completeSampleTypes: completeSampleTypes, completeRoutes: completeRoutes,
-                                                          observation: observation, sampleDeletions: sampleDeletions, routeDeletions: routeDeletions)
-            timings["bundle_encode_ms"] = Date().timeIntervalSince(encodeStart) * 1000
-            let persistStart = Date()
-            if existing?.originalWorkout != nil {
-                var prior: JSON?
-                do {
-                    prior = try await api.call("GET", "/v2/sync/workout-bundles/" + id)
-                } catch is CancellationError { throw CancellationError() }
-                catch {
-                    // Offline/unsupported lookup still stages immutable bytes
-                    // for ordinary delivery; it never manufactures an ACK.
-                    try Task.checkCancellation()
-                }
-                if let prior, let replay = try WorkoutBundleAssembler.exactReplay(rebuilt: bundle, receipt: prior) {
-                    bundle = replay; timings["workout_reused_exact_bundle"] = 1
-                }
-            }
-            guard bundle.count <= 32 * 1_024 * 1_024 else { throw SyncFailure.invalid("bundle_too_large") }
-            let bundleHash = Wire.hash(bundle)
-            let boundary = "rai.boundary." + Wire.id()
-            let multipart = WorkoutBundleAssembler.multipart(bundle: bundle, boundary: boundary)
-            let fileName = try await store.savePayload(multipart, suffix: "multipart.json")
-            let file = try await store.fileURL(fileName)
-            // The delivered generation is the one this bundle covers, which
-            // includes the facts this pass just captured. Reading the snapshot
-            // taken before capture would leave `deliveredGeneration` one
-            // generation behind, so an unchanged repeat sync could never be
-            // recognised as already delivered.
-            // R1: the receipt may only confirm the work this bundle really
-            // carried. The manifest pins the per-type capture cursors and the
-            // exact deletion ids encoded above; the observed generation is kept
-            // as evidence and for the legacy watermark of an old pending task.
-            let manifestGeneration = await store.discoverySnapshot().work[id]?.generation ?? generation
-            let manifest = CaptureManifest(workoutID: id, generation: manifestGeneration, cursors: captureCursors,
-                                           coveredEventIDs: coveredEventIDs.sorted(), deletionEventIDs: deletions.map(\.id),
-                                           completeTypes: completeSampleTypes, coveredFacts: coveredFacts)
-            timings["capture_manifest_facts"] = Double(manifest.coveredFacts)
-            timings["capture_manifest_types"] = Double(manifest.cursors.count)
-            timings["capture_manifest_deletions"] = Double(manifest.deletionEventIDs.count)
-            try await store.setBundle(id, file: fileName, sha256: bundleHash, boundary: boundary, sampleDeletions: sampleDeletions.count, routeDeletions: routeDeletions.count, discoveryGeneration: manifestGeneration, deletionEventIDs: deletions.map(\.id), pendingReadKeys: coverage.filter { $0.value.needsRetry }.map(\.key).filter { $0 != "metadata" }, manifest: manifest)
-            timings["bundle_bytes"] = Double(bundle.count)
-            timings["bundle_persist_ms"] = Date().timeIntervalSince(persistStart) * 1000
-            timings["bundle_build_ms"] = Date().timeIntervalSince(started) * 1000
-            try await updateTask(id, phase: .uploading, coverage: coverage, metrics: timings)
-            try await uploadAndAcknowledge(id: id, file: file, bundleHash: bundleHash, boundary: boundary,
-                                            coverage: coverage, timings: timings, started: started,
-                                            api: api, transfers: transfers)
-            if let nextWorkoutAnchor { try? await store.setWorkoutAnchor(id, anchor: nextWorkoutAnchor) }
-        } catch {
-            // Delivery owns durable retry state; analysis cannot downgrade ACK.
-            if let task = await store.task(id), task.uploadReceipt == nil, task.lastUploadError == nil {
-                let value = (error as? UploadError)?.code ?? (error as? SyncFailure).map(code) ?? "sync_failed"
-                try? await store.updateTask(id) { $0.phase = .failed; $0.errorCode = value }
-            }
-            throw error
-        }
-    }
-
-    /// Protocol v4 path: one complete HealthKit read per stream, one raw
-    /// bundle, one immutable file. It shares only the delivery/ACK machinery
-    /// with v3: no capture pages, no deletion sidecar, no completeness proof.
-    private func syncV4(id: String, api: RAIAPIClient, scope: Scope, transfers: any FileUploader,
-                        metrics: SyncMetrics, existing: WorkoutSyncTask?, started: Date) async throws {
-        let buildStart = Date()
-        do {
-            try await updateTask(id, phase: .preparing)
-            let engine = V4SyncEngine(store: store, health: health, scope: scope)
-            let bundle = try await engine.build(id: id, anchor: existing?.workoutAnchor)
-            let boundary = "rai.boundary." + Wire.id()
-            let body = WorkoutBundleAssembler.multipart(bundle: bundle.raw, boundary: boundary)
-            let file = try await store.savePayload(body, suffix: "multipart.json")
-            let hash = Wire.hash(bundle.raw)
-            try await store.setBundle(id, file: file, sha256: hash, boundary: boundary)
-            try await updateTask(id, phase: .uploading)
-            let timings = ["v4_build_ms": Date().timeIntervalSince(buildStart) * 1_000]
-            try await uploadAndAcknowledge(id: id, file: try await store.fileURL(file), bundleHash: hash,
-                                           boundary: boundary, coverage: [:], timings: timings,
-                                           started: started, api: api, transfers: transfers)
-            if let nextAnchor = bundle.nextAnchor { try? await store.setWorkoutAnchor(id, anchor: nextAnchor) }
-        } catch {
-            if let task = await store.task(id), task.uploadReceipt == nil, task.lastUploadError == nil {
-                let value = (error as? UploadError)?.code ?? (error as? SyncFailure).map(code) ?? "sync_failed"
-                try? await store.updateTask(id) { $0.phase = .failed; $0.errorCode = value }
-            }
-            throw error
-        }
-    }
-
-    private func uploadAndAcknowledge(id: String, file: URL, bundleHash: String, boundary: String,
-                                      coverage: [String: WorkoutCoverage], timings: [String: Double], started: Date,
-                                      api: RAIAPIClient, transfers: any FileUploader) async throws {
-        let uploadStart = Date()
-        guard try await WorkoutBundleDelivery(store: store, api: api).deliver(id) else { return }
-        var timings = (await store.task(id))?.metrics.merging(timings) { _, new in new } ?? timings
-        timings["upload_ms"] = Date().timeIntervalSince(uploadStart) * 1000
-        timings["workout_sync_ms"] = Date().timeIntervalSince(started) * 1000
-        try await store.setTaskMetrics(id, metrics: timings)
-        try? await store.synced()
-        _ = try? await store.collectGarbage(dryRun: false)
-        // A durable ACK is this Workout's completion point. Publication of the
-        // analysis is a separate, asynchronous state: the next upload must not
-        // wait for it, and a slow or missing publication never downgrades the
-        // acknowledgement.
-        scheduleAnalysisRefresh(id: id, api: api)
-    }
-
-    /// Refreshes the analysis state of one Workout without extending the
-    /// user's wait. A newer refresh for the same Workout replaces the pending
-    /// one; failures stay recorded on the task and never touch the ACK.
-    ///
-    /// A single refresh was too short for a slow publication and left the task
-    /// at `analyzing` until the next recovery. This loop is bounded by
-    /// `AnalysisFollowup`: it stops at the first final phase, on cancellation
-    /// (background/user switch) and after the documented budget, then records
-    /// `analysis_followup_exhausted` for the changefeed or the next recovery.
-    private func scheduleAnalysisRefresh(id: String, api: RAIAPIClient) {
-        analysisRefreshes[id]?.cancel()
-        analysisRefreshes[id] = Task { [api, store] in
-            for attempt in 0...AnalysisFollowup.delays.count {
-                if Task.isCancelled { return }
-                if attempt > 0 {
-                    guard let delay = AnalysisFollowup.delay(forAttempt: attempt - 1) else { break }
-                    do { try await Task.sleep(for: .seconds(delay)) } catch { return }
-                }
-                try? await refreshAnalysis(id: id, api: api)
-                guard let task = await store.task(id), AnalysisFollowup.shouldContinue(task.phase) else { return }
-            }
-            if Task.isCancelled { return }
-            Metrics.value("analysis_followup_exhausted", 1)
-        }
-    }
-    /// Backgrounding cancels publication follow-ups. The durable ACK and the
-    /// last observed analysis state stay untouched.
-    func stopAnalysisFollowups() {
-        for task in analysisRefreshes.values { task.cancel() }
-        analysisRefreshes.removeAll()
-    }
-
-    private func deleteWorkout(id: String, api: RAIAPIClient, scope: Scope) async throws {
-        let receipt = try await api.deleteWorkoutBundle(workoutID: id, scope: scope)
-        try await store.acknowledgeWorkoutDeletion(id, receipt: receipt)
-        try? await store.synced()
-        _ = try? await store.collectGarbage(dryRun: false)
-    }
-
-    func checkAnalysis(id: String, secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
-        let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
-        let (api, _) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-        if let task = await store.task(id) {
-            var uuidLane = task.ingestMode == OutboxStore.ingestModeUUID
-            if !uuidLane { uuidLane = await usesUUIDIngest(id) }
-            if uuidLane {
-                try await store.markIngestLane(id)
-                try await refreshAnalysis(id: id, api: api)
-                if let phase = await store.task(id)?.phase, AnalysisFollowup.shouldContinue(phase) {
-                    scheduleAnalysisRefresh(id: id, api: api)
-                }
-                return
-            }
-            if task.bundleFile != nil, task.uploadReceipt == nil {
-                guard let hash = task.bundleSHA256 else { throw SyncFailure.localState("bundle_not_prepared") }
-                // An older analysis publication is not proof for this exact bundle.
-                let receipt = try await api.call("GET", "/v2/sync/workout-bundles/" + id, query: ["sha256": hash])
-                try WorkoutBundleACK.validate(receipt, workoutID: id, bundleHash: hash, sampleDeletions: task.submittedSampleDeletions ?? 0, routeDeletions: task.submittedRouteDeletions ?? 0)
-                try await store.acknowledgeBundle(id, receipt: receipt)
-                _ = try? await store.collectGarbage(dryRun: false)
-            }
-        } else {
-            try await store.beginTask(id, resetBundle: false)
-            if uuidIngestEnabled, syncProtocolV4, workoutUUIDIngestVersion >= 1 {
-                try await store.markIngestLane(id)
-                try await refreshAnalysis(id: id, api: api)
-                return
-            }
-            try await store.updateTask(id) { $0.phase = .acknowledged; $0.acknowledgedAt = Date() }
-        }
-        try await refreshAnalysis(id: id, api: api)
-    }
-
-    private func refreshAnalysis(id: String, api: RAIAPIClient) async throws {
-        if let task = await store.task(id), task.ingestMode == OutboxStore.ingestModeUUID {
-            // Accepted/committed is decided by the ingest status, not by the
-            // old bundle receipt. Only a committed import has analysis to read.
-            let status = try await WorkoutIngestDelivery.status(id, api: api)
-            guard let status else {
-                if task.ingestStatus != nil || task.ingestAcceptedAt != nil {
-                    try await store.updateTask(id) { $0.phase = .failed; $0.errorCode = "workout_ingest_missing_after_acceptance" }
-                } else if task.bundleFile == nil {
-                    try await store.updateTask(id) { $0.phase = .notSynced; $0.errorCode = nil }
-                }
-                try await store.updateTask(id) { $0.analysisCheckedAt = Date() }
-                return
-            }
-            _ = try await store.applyWorkoutIngestStatus(id, status: status)
-            try await store.updateTask(id) { $0.analysisCheckedAt = Date() }
-            guard status.state == .committed || status.state == .alreadyImported else { return }
-        } else if let task = await store.task(id), task.bundleFile != nil, task.uploadReceipt == nil { return }
-        do {
-            let value = try await api.call("GET", "/v2/analysis/workouts/" + id)
-            let metrics = value["metrics"].list
-            let partialMetric = metrics.contains { ($0["quality"].text ?? "") != "available" }
-            let missingCoverage = !(await store.task(id)?.missing.isEmpty ?? true)
-            var timings: [String: Double] = [:]
-            if let ack = await store.task(id)?.acknowledgedAt { timings["publication_ms"] = Date().timeIntervalSince(ack) * 1000 }
-            try await updateTask(id, phase: metrics.isEmpty ? .analyzing : ((partialMetric || missingCoverage) ? .partial : .published), metrics: timings)
-        } catch let error as UploadError where error.status == 404 && error.code == "analysis_not_ready" {
-            try await updateTask(id, phase: .analyzing)
-        } catch let error as UploadError where error.status == 404 && error.code == "workout_not_found" {
-            try await updateTask(id, phase: .failed, error: "workout_not_found")
-        } catch let error as UploadError where error.status == 409 && ["sample_deleted", "route_deleted", "workout_deleted"].contains(error.code) {
-            try await updateTask(id, phase: .partial, error: error.code)
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            // Analysis is asynchronous; a transient read failure must not
-            // downgrade a durable ACK. The user can re-check later.
-        }
-        try await store.updateTask(id) { $0.analysisCheckedAt = Date() }
-    }
-
-    private func updateTask(_ id: String, phase: WorkoutSyncPhase, coverage: [String: WorkoutCoverage]? = nil,
-                            error: String? = nil, metrics: [String: Double] = [:]) async throws {
-        try await store.updateTask(id) { task in
-            task.phase = phase
-            if let coverage { task.coverage = coverage }
-            task.errorCode = error
-            if !metrics.isEmpty { task.metrics.merge(metrics) { _, new in new } }
-            if [.acknowledged, .analyzing, .published, .partial].contains(phase), task.acknowledgedAt == nil { task.acknowledgedAt = Date() }
-            task.missing = task.coverage.filter { $0.value.needsRetry }.keys.sorted()
-        }
+        if let failure = error as? UploadError { return failure.code }
+        return "sync_failed"
     }
 
     private nonisolated func code(_ failure: SyncFailure) -> String {
@@ -1528,204 +380,6 @@ actor SyncCoordinator {
 
 
 extension SyncCoordinator {
-    /// A separate control-plane cycle. Pending exact manifests recover without
-    /// HealthKit reads; committed anchors move only after the final receipt.
-    func syncWorkoutCompleteness(secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
-        guard !completenessRunning else { throw SyncFailure.localState("completeness_already_running") }
-        completenessRunning = true; defer { completenessRunning = false }
-        do {
-            let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
-            let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-            guard vo2Capabilities["workoutStreamSetVersion"].integer == 1 else { throw SyncFailure.invalid("unsupported_completeness_capability") }
-            // v2 is the reviewed contract: visible inventory is explained as
-            // eligible (receipts) plus explicit source-policy exclusions.
-            let reviewed = vo2Capabilities["workoutSyncCompletenessV2Version"].integer == 2
-            guard reviewed || vo2Capabilities["workoutSyncCompletenessVersion"].integer == 1 else { throw SyncFailure.invalid("unsupported_completeness_capability") }
-            let contract = reviewed ? WorkoutCompleteness.v2Contract : WorkoutCompleteness.contract
-            let initial = try await store.beginWorkoutCompleteness(contract: contract)
-            if initial.cycle?.pendingFile != nil {
-                try await WorkoutCompletenessDelivery(store: store, api: api).deliver(); return
-            }
-            try await captureCompletenessStream(type: HKObjectType.workoutType(), workout: nil)
-            let roots = await store.snapshot().workoutCompleteness?.cycle?.deletedRoots ?? []
-            for id in roots { try Task.checkCancellation(); try await deleteWorkout(id: id, api: api, scope: scope) }
-            let inventory = await store.snapshot().workoutCompleteness?.cycle?.inventory ?? []
-            // P0-3: one Workout's metadata/capture failure is recorded against
-            // that Workout and never aborts the rest of the inventory. Only a
-            // round in which every eligible Workout has a proof may stage a
-            // manifest; completed proofs are never discarded.
-            for id in inventory {
-                try Task.checkCancellation()
-                let snapshot = await store.snapshot()
-                guard let flow = snapshot.workoutCompleteness, let cycle = flow.cycle else {
-                    throw SyncFailure.localState("completeness_cycle_missing")
-                }
-                if cycle.completedWorkouts.contains(id) { continue }
-                let nowUs = try VO2Max.microseconds(Date())
-                if let blocked = flow.blocked?[id], !blocked.isDue(nowUs: nowUs) {
-                    metrics.value("completeness_blocked_deferred", 1)
-                    continue
-                }
-                if reusableCompletenessExclusion(id: id, cycle: cycle, reviewed: reviewed) { continue }
-                let previousProof = flow.proofs[id]
-                var failedType: String?
-                do {
-                    failedType = "workout"
-                    guard let workout = try await health.workout(id) else { throw SyncFailure.localState("completeness_workout_not_visible") }
-                    if reviewed {
-                        // Classification is evidence, not a filter: an excluded
-                        // Workout leaves a durable exclusion entry and no receipt.
-                        failedType = "classification"
-                        let source = Normalizer.source(workout)
-                        let classification = HealthSourcePolicy.classification(source)
-                        let outcome = WorkoutSourcePolicy.outcome(classification)
-                        try await store.completenessClassify(id, classification: classification,
-                            evidence: WorkoutSourcePolicy.evidence(source))
-                        if outcome == WorkoutSourcePolicy.excluded { continue }
-                        guard outcome == WorkoutSourcePolicy.eligible else { throw SyncFailure.invalid("inventory_unclassified") }
-                    }
-                    for type in HealthKitClient.quantityTypes + [HKSeriesType.workoutRoute()] {
-                        failedType = type.identifier
-                        try await captureCompletenessStream(type: type, workout: workout)
-                    }
-                    let captured = await store.snapshot()
-                    guard let capturedFlow = captured.workoutCompleteness, let capturedCycle = capturedFlow.cycle else {
-                        throw SyncFailure.localState("completeness_cycle_missing")
-                    }
-                    let rootChanged = (capturedCycle.captures["workouts"] ?? []).contains {
-                        $0.page["additions"].list.contains(.string(id))
-                    }
-                    let childrenChanged = (WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType]).contains { type in
-                        (capturedCycle.captures[WorkoutCompleteness.key(type: type, workoutID: id)] ?? []).contains {
-                            !$0.page["additions"].list.isEmpty || !$0.page["deletions"].list.isEmpty
-                        }
-                    }
-                    let task = captured.tasks?[id]
-                    let work = captured.discovery?.work[id]
-                    let undelivered = (work?.generation ?? 0) > (work?.deliveredGeneration ?? 0)
-                    let structuralChange = rootChanged || childrenChanged || undelivered ||
-                        task?.uploadReceipt == nil || !(task?.pendingReadKeys ?? []).isEmpty
-                    let previousSeries = previousProof?["series"].list ?? []
-                    failedType = "series"
-                    var series: [JSON] = []
-                    var rebuild = structuralChange
-                    var needsRefresh = structuralChange
-                    if !structuralChange {
-                        // No structural change: one series read decides whether
-                        // the stored proof still describes the same data.
-                        series = try await completenessSeries(workout)
-                        needsRefresh = series.contains { current in
-                            !previousSeries.contains {
-                                $0["sampleType"] == current["sampleType"] && $0["sha256"] == current["sha256"] &&
-                                    $0["pointCount"] == current["pointCount"]
-                            }
-                        }
-                        rebuild = needsRefresh
-                    }
-                    if needsRefresh {
-                        // Existing discovery owns explicit child deletion facts;
-                        // drain its bounded pages before using the unchanged v3 path.
-                        failedType = "discovery"
-                        var drained = false
-                        for _ in 0..<64 {
-                            try await discoverChanges(workoutIDs: [id])
-                            let discovery = await store.discoverySnapshot()
-                            let flows = discovery.flows.values.filter { $0.query.workoutID == id }
-                            if flows.contains(where: { $0.error != nil }) { throw SyncFailure.localState("completeness_discovery_pending") }
-                            if flows.allSatisfy({ !$0.hasMore }) { drained = true; break }
-                            try Task.checkCancellation()
-                        }
-                        guard drained else { throw SyncFailure.localState("completeness_discovery_pending") }
-                        failedType = "bundle"
-                        do { try await syncWorkout(id: id, secret: secret, transfers: transfers, forceNewBundle: rebuild) }
-                        catch let failure as UploadError where failure.code == "workout_deleted" {
-                            try await store.completenessExcludeDeletedWorkout(id); continue
-                        }
-                        failedType = "series"
-                        series = try await completenessSeries(workout)
-                    }
-                    failedType = "proof"
-                    guard let committed = await store.task(id), committed.uploadReceipt != nil, let hash = committed.bundleSHA256 else { throw SyncFailure.localState("completeness_fact_not_durable") }
-                    for type in WorkoutCompleteness.quantities + [WorkoutCompleteness.routeType] {
-                        let key = type == WorkoutCompleteness.routeType ? "route" : type
-                        guard let coverage = committed.coverage[key], coverage.queryCompleted == true,
-                              coverage.serverCommitted == true, [.complete, .noRecordsObserved].contains(coverage.state) else { throw SyncFailure.localState("completeness_stream_pending") }
-                        if type != WorkoutCompleteness.routeType {
-                            guard let coverage = committed.coverage["series:" + type], coverage.queryCompleted == true,
-                                  coverage.serverCommitted == true, [.complete, .noRecordsObserved].contains(coverage.state) else { throw SyncFailure.localState("completeness_series_pending") }
-                        }
-                    }
-                    let route = committed.coverage["route"]!
-                    let proof: JSON = .object(["workoutID": .string(id), "bundleSHA256": .string(hash),
-                        "routeState": .string(route.sampleCount == 0 ? "absent" : "present"), "series": .array(series)])
-                    try await store.completenessProof(id, proof: proof)
-                } catch is CancellationError {
-                    throw CancellationError()
-                } catch let failure as UploadError where failure.code == "workout_deleted" {
-                    try await store.completenessExcludeDeletedWorkout(id)
-                } catch {
-                    let code = (error as? UploadError)?.code ?? (error as? SyncFailure).map(self.code) ?? "completeness_failed"
-                    try await store.blockWorkoutCompleteness(id, code: code, failedType: failedType)
-                    metrics.value("completeness_blocked", 1)
-                }
-            }
-            let blocked = try await store.recordWorkoutCompletenessBlockedSummary()
-            if let blocked {
-                metrics.value("completeness_blocked_count", Double(blocked["count"].integer ?? 0))
-                throw SyncFailure.localState("completeness_blocked")
-            }
-            try await store.stageWorkoutCompleteness()
-            try await WorkoutCompletenessDelivery(store: store, api: api).deliver()
-        } catch {
-            if error is CancellationError || Task.isCancelled { throw CancellationError() }
-            try? await store.workoutCompletenessFailure(error); throw error
-        }
-    }
-    private func completenessRootAdditions(_ cycle: WorkoutCompletenessCycle) -> Set<String> {
-        Set((cycle.captures["workouts"] ?? []).flatMap { $0.page["additions"].list.compactMap(\.text) })
-    }
-    /// An excluded Workout keeps its committed evidence and needs no HealthKit
-    /// lookup or child query while the root stream does not re-add it.
-    private func reusableCompletenessExclusion(id: String, cycle: WorkoutCompletenessCycle, reviewed: Bool) -> Bool {
-        guard reviewed, let classification = cycle.classification?[id],
-              WorkoutSourcePolicy.outcome(classification) == WorkoutSourcePolicy.excluded,
-              cycle.exclusions?[id] != nil else { return false }
-        return !completenessRootAdditions(cycle).contains(id) && !cycle.deletedRoots.contains(id)
-    }
-    private func captureCompletenessStream(type: HKSampleType, workout: HKWorkout?) async throws {
-        let query = WorkoutCompletenessQuery(type: type.identifier, workoutID: workout?.uuid.uuidString.lowercased())
-        for _ in 0..<8192 {
-            try Task.checkCancellation()
-            let cursor = try await store.completenessCursor(query)
-            if cursor.exhausted { return }
-            guard let from = await store.snapshot().workoutCompleteness?.windowFromUs else { throw SyncFailure.localState("completeness_cycle_missing") }
-            let started = Date()
-            let page = try await health.readCompleteness(type: type, workout: workout, anchor: cursor.anchor,
-                from: Date(timeIntervalSince1970: Double(from) / 1_000_000))
-            let completed = Date()
-            let archive = try NSKeyedArchiver.archivedData(withRootObject: (page.samples as [NSObject]) + (page.deleted as [NSObject]), requiringSecureCoding: true)
-            // Whole-page archive: the completeness and VO2 streams still store
-            // one blob per page. Counted apart from the per-sample meter.
-            SampleArchiveMeter.recordObjectArchive()
-            try await store.captureCompletenessPage(query, previousAnchor: cursor.anchor, candidateAnchor: page.anchor,
-                additions: page.samples.map { $0.uuid.uuidString.lowercased() }, deletions: page.deleted.map { $0.uuid.uuidString.lowercased() },
-                hasMore: page.isFull, startedAt: started, completedAt: completed, archive: archive)
-        }
-        throw SyncFailure.localState("completeness_page_limit")
-    }
-    private func completenessSeries(_ workout: HKWorkout) async throws -> [JSON] {
-        var witnesses: [JSON] = []
-        for type in HealthKitClient.quantityTypes {
-            try Task.checkCancellation()
-            let points = try await health.bundleSeries(type: type, workout: workout)
-            let completed = try VO2Max.microseconds(Date()), capture = try WorkoutCompleteness.seriesCapture(points)
-            try await store.persistCompletenessSeries(capture.data)
-            witnesses.append(.object(["sampleType": .string(type.identifier), "sha256": .string(Wire.hash(capture.data)),
-                "pointCount": .int(Int64(capture.count)), "queryCompletedAtUs": .int(completed)]))
-        }
-        return witnesses
-    }
-
     func syncVO2Only(secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
         guard !dailyRunning else { throw SyncFailure.localState("sync_already_running") }
         dailyRunning = true; defer { dailyRunning = false }

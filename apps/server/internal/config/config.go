@@ -7,8 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"rai/server/internal/syncing"
 )
 
 // DatabaseURL accepts a mounted secret without exposing it in command arguments.
@@ -32,24 +30,6 @@ func DatabaseURL() (string, error) {
 		return "", errors.New("database URL must specify PostgreSQL host, user and database")
 	}
 	return value, nil
-}
-
-// WorkoutUUIDIngestMode selects the single Workout entry for this deployment.
-// The default keeps the existing upload path until UUID ingest is explicitly
-// enabled.
-func WorkoutUUIDIngestMode() (syncing.WorkoutIngestMode, error) {
-	value := os.Getenv("RAI_WORKOUT_UUID_INGEST_MODE")
-	if value == "" {
-		value = string(syncing.WorkoutIngestLegacy)
-	}
-	return syncing.ParseWorkoutIngestMode(value)
-}
-
-// WorkoutPayloadV6 enables protocol-6 negotiation for UUID ingest. It stays
-// off unless the deployment explicitly opts in, so a server never advertises a
-// payload format its operator has not chosen.
-func WorkoutPayloadV6() bool {
-	return os.Getenv("RAI_WORKOUT_PAYLOAD_V6") == "1"
 }
 
 // ListenAddr validates the address before opening any network listener.

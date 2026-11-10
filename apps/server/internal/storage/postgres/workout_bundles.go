@@ -46,7 +46,7 @@ func (s *Store) ImportWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 func (s *Store) importWorkoutBundle(ctx context.Context, p syncing.Principal, bundle syncing.WorkoutBundle, raw []byte, after importWorkoutBundleHook) (json.RawMessage, error) {
 	defer syncing.PhaseTimer(ctx, "import_total")()
 	// Deletion-only bundles commit child deletions through their own nested
-	// transaction, which cannot join an ingest commit. The v4 worker never
+	// transaction, which cannot join an ingest commit. The v6 worker never
 	// produces one.
 	if after != nil && bundle.DeletionOnly {
 		return nil, syncing.Fail(422, "unsupported_payload")
@@ -66,6 +66,10 @@ func (s *Store) importWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 	}
 	digestText := syncing.BundleDigest(raw)
 	digest, _ := hex.DecodeString(digestText)
+	importJSON, err := workoutImportJSON(bundle, raw)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	transactionDone := syncing.PhaseTimer(ctx, "import_transaction")
@@ -355,7 +359,7 @@ func (s *Store) importWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 	if _, err = tx.Exec(ctx, `INSERT INTO workout_imports(dataset_id,workout_uuid,bundle_sha256,payload,receipt)
 		VALUES($1,$2,$3,$4::jsonb,$5)
 		ON CONFLICT(dataset_id,workout_uuid,bundle_sha256) DO NOTHING`,
-		p.DatasetID, bundle.WorkoutID, digest, string(raw), body); err != nil {
+		p.DatasetID, bundle.WorkoutID, digest, string(importJSON), body); err != nil {
 		return nil, err
 	}
 	receiptDone()

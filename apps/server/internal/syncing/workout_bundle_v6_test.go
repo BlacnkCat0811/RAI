@@ -8,6 +8,14 @@ import (
 	"testing"
 )
 
+const v4TestSourceBundle = "com.apple.health"
+
+// v4TestSource mirrors the Swift source descriptor. The server classifies it;
+// the label itself is not trusted.
+func v4TestSource() map[string]any {
+	return map[string]any{"bundleID": v4TestSourceBundle, "version": "11.0", "productType": "Watch7,1"}
+}
+
 type v6Fixture struct {
 	payload   map[string]any
 	start     int64
@@ -147,7 +155,7 @@ func TestDecodeWorkoutBundleV6RawRoundTrip(t *testing.T) {
 	if source, ok := bundle.SourceTable.RouteSource(routeID); !ok || source.BundleID != v4TestSourceBundle {
 		t.Fatalf("route source not inherited: %+v", source)
 	}
-	table, err := WorkoutBundlePayloadSourceTable(raw)
+	table, err := WorkoutPayloadSourceTable(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,6 +167,54 @@ func TestDecodeWorkoutBundleV6RawRoundTrip(t *testing.T) {
 	}
 	if err := ValidateWorkoutBundle(bundle); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDecodeWorkoutBundleV6ActivitiesWithoutClientUUIDs(t *testing.T) {
+	f := validV6Payload(t)
+	activity := func(start, end int64) map[string]any {
+		return map[string]any{
+			"startUs": start, "endUs": end, "durationUs": end - start,
+			"configuration": map[string]any{"activityType": 37, "locationType": 3, "swimmingLocationType": 0},
+			"events":        []any{map[string]any{"type": 7, "startUs": start, "endUs": end}},
+		}
+	}
+	first := activity(f.start, f.start+30_000_000)
+	second := activity(f.start+30_000_000, f.start+60_000_000)
+	f.payload["workout"].(map[string]any)["activities"] = []any{nil, first, second}
+	raw := f.marshal(t)
+	if bytes.Contains(raw, []byte(`"uuid"`)) || bytes.Count(raw, []byte(f.workoutID)) != 1 {
+		t.Fatal("fixture must carry only the top-level HealthKit Workout UUID")
+	}
+	bundle, err := DecodeWorkoutBundleV6JSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	activities := bundle.Workout.Workout.Activities
+	if len(activities) != 2 {
+		t.Fatalf("activities without UUIDs were lost: %d", len(activities))
+	}
+	for index, activity := range activities {
+		want := V6FactUUID(f.datasetID, f.workoutID, "", "activity", index+1)
+		if activity.UUID != want || len(activity.Events) != 1 || *activity.StartUs != f.start+int64(index)*30_000_000 {
+			t.Fatalf("activity %d lost its wire position or details: %+v", index, activity)
+		}
+		if activity.UUID == V6FactUUID(f.datasetID, f.workoutID, "", "route", index+1) {
+			t.Fatal("activity and route identities collided")
+		}
+	}
+	// A producer's extra UUID is an uninterpreted extension, even with a
+	// non-string value. It cannot replace the server's activity identity.
+	first["uuid"] = map[string]any{"unknown": true}
+	second["uuid"] = NewID()
+	again, err := DecodeWorkoutBundleV6JSON(f.marshal(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, _ := json.Marshal(activities)
+	got, _ := json.Marshal(again.Workout.Workout.Activities)
+	if !bytes.Equal(got, want) {
+		t.Fatal("client activity UUIDs changed projected activities")
 	}
 }
 
@@ -210,6 +266,46 @@ func TestV6FactUUIDVectorAndDeterminism(t *testing.T) {
 	}
 	if first.Series[0].SampleUUID != second.Series[0].SampleUUID {
 		t.Fatal("series parent identity changed")
+	}
+}
+
+func TestV6UnknownNumbersAndNestedMetadataDoNotDiscardKnownDetails(t *testing.T) {
+	f := validV6Payload(t)
+	metadata := json.RawMessage(`{"HKIndoorWorkout":true,"safeInteger":9007199254740993,"future":{"nul":"\u0000","huge":1e400,"ok":"retained"},"array":["\u0000",1]}`)
+	f.payload["metadata"] = metadata
+	w := f.payload["workout"].(map[string]any)
+	w["events"] = []any{map[string]any{"type": 1, "startUs": f.start, "endUs": f.start, "metadata": metadata}}
+	w["activities"] = []any{map[string]any{
+		"startUs": f.start, "endUs": f.end, "durationUs": f.end - f.start,
+		"configuration": map[string]any{"activityType": 37, "locationType": 3, "swimmingLocationType": 0},
+		"metadata":      metadata, "events": w["events"],
+	}}
+	f.payload["future"] = json.RawMessage(`1e400`)
+	raw := f.marshal(t)
+	if _, err := DecodeWorkoutIngestEnvelope(raw); err != nil {
+		t.Fatal("unknown number blocked envelope", err)
+	}
+	b, err := DecodeWorkoutPayloadJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(b.Workout.Workout.Events) != 1 || len(b.Workout.Workout.Activities) != 1 || len(b.Workout.Workout.Activities[0].Events) != 1 {
+		t.Fatal("metadata extensions discarded known event/activity")
+	}
+	for _, m := range []map[string]any{b.Workout.Metadata, b.Workout.Workout.Events[0].Metadata, b.Workout.Workout.Activities[0].Metadata, b.Workout.Workout.Activities[0].Events[0].Metadata} {
+		if m["safeInteger"] != json.Number("9007199254740993") || m["HKIndoorWorkout"] != true {
+			t.Fatal("known metadata or integer precision lost")
+		}
+		future := m["future"].(map[string]any)
+		if _, exists := future["nul"]; exists {
+			t.Fatal("non-JSONB string leaked into facts")
+		}
+		if _, exists := future["huge"]; exists {
+			t.Fatal("non-finite downstream number leaked into facts")
+		}
+		if future["ok"] != "retained" || m["array"].([]any)[0] != nil {
+			t.Fatal("safe siblings/array positions changed")
+		}
 	}
 }
 

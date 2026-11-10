@@ -236,12 +236,6 @@ extension OutboxStore {
         guard changed else { commitSkippedNoop += 1; return }
         next.discovery = discovery; try commit(next)
     }
-    public func discoveryPrepared(_ id: String, generation: Int64) throws {
-        var next = state
-        if var work = next.discovery?.work[id] { work.preparedGeneration = generation; next.discovery?.work[id] = work }
-        if var task = next.tasks?[id] { task.discoveryGeneration = generation; next.tasks?[id] = task }
-        try commit(next)
-    }
     public func discoveryFailure(_ id: String, code: String) throws {
         var next = state
         if var work = next.discovery?.work[id] {

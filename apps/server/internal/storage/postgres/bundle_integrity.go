@@ -312,14 +312,14 @@ func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout
 			return err
 		}
 		var stored struct {
-			ProtocolVersion int                        `json:"protocolVersion"`
-			Observation     *syncing.BundleObservation `json:"observation"`
+			ProtocolVersion int             `json:"protocolVersion"`
+			Observation     json.RawMessage `json:"observation"`
 		}
 		if json.Unmarshal(payloadRaw, &stored) != nil {
 			return analysis.Invalid()
 		}
-		if stored.ProtocolVersion >= 4 {
-			table, err := syncing.WorkoutBundlePayloadSourceTable(payloadRaw)
+		if stored.ProtocolVersion == 6 {
+			table, err := workoutImportSources(payloadRaw)
 			if err != nil {
 				return analysis.Invalid()
 			}
@@ -342,8 +342,12 @@ func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout
 					delete(needed, key)
 				}
 			}
-		} else if stored.Observation != nil {
-			provenance := stored.Observation.Provenance
+		} else if len(stored.Observation) > 0 && string(stored.Observation) != "null" {
+			var observation syncing.BundleObservation
+			if json.Unmarshal(stored.Observation, &observation) != nil {
+				return analysis.Invalid()
+			}
+			provenance := observation.Provenance
 			if provenance.Workout.Classification(nil) != "apple_watch" {
 				continue
 			}

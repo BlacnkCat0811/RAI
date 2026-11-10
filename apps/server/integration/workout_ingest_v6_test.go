@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -154,6 +155,58 @@ func TestWorkoutUUIDIngestV6CommitReplayDelete(t *testing.T) {
 	}
 }
 
+func TestWorkoutUUIDIngestV6ActivitiesWithoutClientUUIDs(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	workoutID := syncing.NewID()
+	var payload map[string]any
+	if err := json.Unmarshal(ingestV6Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch,
+		f.enrollment.CollectorEpoch, workoutID, 121), &payload); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Date(2026, 11, 1, 8, 0, 0, 0, time.UTC).UnixMicro()
+	activities := []any{nil}
+	for index := 0; index < 2; index++ {
+		activities = append(activities, map[string]any{
+			"startUs": start + int64(index)*30_000_000, "endUs": start + int64(index+1)*30_000_000,
+			"durationUs":    30_000_000,
+			"configuration": map[string]any{"activityType": 37, "locationType": 3, "swimmingLocationType": 0},
+		})
+	}
+	payload["workout"].(map[string]any)["activities"] = activities
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(raw, []byte(`"uuid"`)) || bytes.Count(raw, []byte(workoutID)) != 1 {
+		t.Fatal("fixture must carry only the top-level HealthKit Workout UUID")
+	}
+	receipt := acceptIngest(t, f, f.p, raw)
+	if outcome := processIngest(t, f.s); outcome.Status != "committed" {
+		t.Fatalf("worker outcome: %+v", outcome)
+	}
+	for index := 0; index < 2; index++ {
+		var id string
+		var duration int64
+		if err := f.s.Pool.QueryRow(ctx, `SELECT activity_uuid::text,duration_us FROM workout_activities
+			WHERE dataset_id=$1 AND workout_uuid=$2 AND ordinal=$3`, f.p.DatasetID, workoutID, index).
+			Scan(&id, &duration); err != nil {
+			t.Fatal(err)
+		}
+		if id != syncing.V6FactUUID(f.p.DatasetID, workoutID, "", "activity", index+1) || duration != 30_000_000 {
+			t.Fatalf("activity %d lost identity or duration", index)
+		}
+	}
+	replay := acceptIngest(t, f, f.p, raw)
+	if !replay.AcceptedAt.Equal(receipt.AcceptedAt) || count(t, f, "workout_activities") != 2 {
+		t.Fatal("duplicate upload changed the receipt or added activities")
+	}
+	stored, state, _, _ := ingestRow(t, f.s, f.p.DatasetID, workoutID)
+	if state != "committed" || !bytes.Equal(stored, raw) {
+		t.Fatal("projection changed the original bytes or commit state")
+	}
+}
+
 func TestWorkoutUUIDIngestV6RejectsBodyMismatch(t *testing.T) {
 	f := setup(t)
 	workoutID := syncing.NewID()
@@ -215,12 +268,10 @@ func TestWorkoutUUIDIngestV6CannotUseCompactEntry(t *testing.T) {
 	if count(t, f, "workout_samples") != 3 {
 		t.Fatal("direct v6 import did not write facts")
 	}
-	// The same Workout UUID is now already imported; UUID ingest returns that
-	// terminal answer without creating a row.
-	receipt := acceptIngest(t, f, f.p, raw)
-	if receipt.IngestStatus != "already_imported" {
-		t.Fatalf("already imported v6: %+v", receipt)
-	}
+	// Existing facts without the immutable acceptance are an inconsistency,
+	// never a success receipt or a reason to create a replacement raw payload.
+	_, err = f.s.AcceptWorkoutIngest(context.Background(), f.p, ingestEnvelope(t, raw), raw)
+	requireSyncCode(t, err, "workout_ingest_missing_receipt")
 	if ingestRowCount(t, f.s, f.p.DatasetID) != 0 {
 		t.Fatal("already imported v6 created an ingest row")
 	}

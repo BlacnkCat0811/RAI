@@ -77,9 +77,8 @@ func TestP7RealLoginBoundariesAndRevocation(t *testing.T) {
 	if _, e = f.s.Pool.Exec(ctx, `INSERT INTO devices(dataset_id,id,token_sha256,can_collect) VALUES($1,$2,$3,false)`, other, device, h[:]); e != nil {
 		t.Fatal(e)
 	}
-	handler := httpapi.New(api, analysisLog)
-	if code, body := uploadBundleHTTP(t, handler, f.enrollment.Token, raw); code != 200 {
-		t.Fatalf("restricted runtime bundle import status=%d body=%s", code, body)
+	if _, e := api.ImportWorkoutBundle(ctx, f.p, bundle, raw); e != nil {
+		t.Fatalf("restricted runtime bundle import: %v", e)
 	}
 	runOne(t, f, "analysis.workout")
 	runOne(t, f, "analysis.training_state")
@@ -98,7 +97,8 @@ func TestP7RealLoginBoundariesAndRevocation(t *testing.T) {
 	if _, e = api.CurrentTrainingState(ctx, f.p); e == nil {
 		t.Fatal("restricted deletion left stale Training State current")
 	}
-	request := httptest.NewRequest("GET", "/v2/sync/workout-bundles/"+bundle.WorkoutID, nil)
+	handler := httpapi.New(api, analysisLog)
+	request := httptest.NewRequest("GET", "/v2/sync/workout-ingests/"+bundle.WorkoutID, nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, request)

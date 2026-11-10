@@ -2,6 +2,7 @@ import XCTest
 import ObjectiveC
 import HealthKit
 import SyncCore
+import Synchronization
 @testable import RAI
 
 /// The list walk is bounded: it keeps paging while eligible records are still
@@ -24,18 +25,25 @@ private func pagingWorkout(_ bundleID: String, _ productType: String?, at start:
     return workout
 }
 
-/// One synthetic history, newest first, served exactly the way HealthKit
-/// serves it: strictly older than the cursor, at most `limit` rows.
-private actor PagingHistory {
+/// Evaluate the actual query predicate against synthetic HealthKit objects;
+/// the boundary expansion deliberately uses an unlimited query for one date.
+private final class PagingHistory: Sendable {
     let workouts: [HKWorkout]
-    private(set) var pages = 0
-    private(set) var cursors: [Date?] = []
+    private let evidence = Mutex((pages: 0, predicates: [String]()))
+    var pages: Int { evidence.withLock { $0.pages } }
+    var predicates: [String] { evidence.withLock { $0.predicates } }
     init(_ workouts: [HKWorkout]) { self.workouts = workouts }
-    func page(before cursor: Date?, limit: Int) -> [HKWorkout] {
-        pages += 1
-        cursors.append(cursor)
-        let eligible = workouts.filter { cursor == nil || $0.startDate < cursor! }
-        return Array(eligible.prefix(limit))
+    func page(matching predicate: NSPredicate, limit: Int) -> [HKWorkout] {
+        // HealthKit's workout-type predicate uses a store key that HKWorkout
+        // does not expose through KVC. Supply the same query fields explicitly
+        // while evaluating the production predicate, including both dates.
+        let eligible = workouts.filter { workout in
+            predicate.evaluate(with: [HKPredicateKeyPathStartDate: workout.startDate,
+                                      HKPredicateKeyPathEndDate: workout.endDate,
+                                      HKPredicateKeyPathWorkoutType: workout.workoutActivityType.rawValue])
+        }.sorted { $0.startDate > $1.startDate }
+        evidence.withLock { $0.pages += 1; $0.predicates.append(predicate.predicateFormat) }
+        return limit == HKObjectQueryNoLimit ? eligible : Array(eligible.prefix(limit))
     }
 }
 
@@ -55,7 +63,7 @@ final class WorkoutListPagingTests: XCTestCase {
         workouts.append(native)
         let source = PagingHistory(workouts)
         let client = HealthKitClient()
-        await client.setWorkoutPageSource { before, limit in await source.page(before: before, limit: limit) }
+        await client.setWorkoutPageSource { predicate, limit in source.page(matching: predicate, limit: limit) }
 
         let list = try await client.recentWorkouts(limit: 100)
 
@@ -63,7 +71,7 @@ final class WorkoutListPagingTests: XCTestCase {
         XCTAssertEqual(list.count, 101)
         // Two pages: the first is full of excluded rows, the second is short
         // and ends the walk.
-        let pages = await source.pages
+        let pages = source.pages
         XCTAssertEqual(pages, 2)
         let evidence = await client.workoutListEvidence()
         XCTAssertEqual(evidence["excludedWorkouts"], .int(100))
@@ -74,13 +82,13 @@ final class WorkoutListPagingTests: XCTestCase {
     func testScanStaysBoundedWhenEverythingIsExcluded() async throws {
         let source = PagingHistory(history(count: 1_000, bundleID: "com.example.thirdparty", productType: nil, newest: newest))
         let client = HealthKitClient()
-        await client.setWorkoutPageSource { before, limit in await source.page(before: before, limit: limit) }
+        await client.setWorkoutPageSource { predicate, limit in source.page(matching: predicate, limit: limit) }
 
         let list = try await client.recentWorkouts(limit: 100)
 
         XCTAssertTrue(list.allSatisfy(\.isExcluded))
         XCTAssertLessThanOrEqual(list.count, 400)
-        let pages = await source.pages
+        let pages = source.pages
         XCTAssertLessThanOrEqual(pages, 4)
         let evidence = await client.workoutListEvidence()
         XCTAssertEqual(evidence["eligibleWorkouts"], .int(0))
@@ -90,28 +98,66 @@ final class WorkoutListPagingTests: XCTestCase {
     func testCursorAdvancesStrictlyAndNeverRepeatsARecord() async throws {
         let source = PagingHistory(history(count: 250, bundleID: "com.example.thirdparty", productType: nil, newest: newest))
         let client = HealthKitClient()
-        await client.setWorkoutPageSource { before, limit in await source.page(before: before, limit: limit) }
+        await client.setWorkoutPageSource { predicate, limit in source.page(matching: predicate, limit: limit) }
 
         let list = try await client.recentWorkouts(limit: 100)
 
         XCTAssertEqual(Set(list.map(\.id)).count, list.count, "a record was returned twice")
         let starts = list.map(\.start)
         XCTAssertEqual(starts, starts.sorted(by: >), "the list is not newest-first")
-        let cursors = await source.cursors
-        XCTAssertNil(cursors.first ?? nil)
-        XCTAssertEqual(cursors.compactMap { $0 }.count, cursors.count - 1, "a page was fetched without a cursor after the first")
+        let predicates = source.predicates
+        XCTAssertFalse(predicates[0].contains("startDate <"))
+        XCTAssertTrue(predicates.dropFirst().allSatisfy { $0.contains("startDate <") })
     }
 
     func testShortFirstPageEndsTheWalk() async throws {
         let source = PagingHistory(history(count: 10, bundleID: "com.apple.health", productType: "Watch7,1", newest: newest))
         let client = HealthKitClient()
-        await client.setWorkoutPageSource { before, limit in await source.page(before: before, limit: limit) }
+        await client.setWorkoutPageSource { predicate, limit in source.page(matching: predicate, limit: limit) }
 
         let list = try await client.recentWorkouts(limit: 100)
 
         XCTAssertEqual(list.count, 10)
         XCTAssertTrue(list.allSatisfy(\.isEligible))
-        let pages = await source.pages
+        let pages = source.pages
         XCTAssertEqual(pages, 1)
+    }
+
+    func testManualPageIncludesOverlappingWorkoutsByStartDate() async throws {
+        let recent = pagingWorkout("com.apple.health", "Watch7,1", at: newest)
+        let boundary = pagingWorkout("com.apple.health", "Watch7,1", at: newest.addingTimeInterval(-10))
+        // This starts before the cursor but ends after it. An end-date filter
+        // silently omitted this eligible record on the next page.
+        let overlapping = pagingWorkout("com.apple.health", "Watch7,1", at: newest.addingTimeInterval(-20))
+        let source = PagingHistory([recent, boundary, overlapping])
+        let client = HealthKitClient()
+        await client.setWorkoutPageSource { predicate, limit in source.page(matching: predicate, limit: limit) }
+        let first = try await client.workoutPage(before: nil, limit: 2)
+        let second = try await client.workoutPage(before: first.last?.start, limit: 2)
+        XCTAssertEqual(first.count, 2)
+        XCTAssertEqual(second.map(\.id), [overlapping.uuid.uuidString.lowercased()])
+    }
+
+    func testManualHistoryKeepsAllTimestampTiesAcrossPageBoundaries() async throws {
+        var workouts = history(count: 99, bundleID: "com.apple.health", productType: "Watch7,1", newest: newest)
+        let tiedAt = newest.addingTimeInterval(-60 * 100)
+        workouts += (0..<205).map { _ in pagingWorkout("com.apple.health", "Watch7,1", at: tiedAt) }
+        let oldest = pagingWorkout("com.apple.health", "Watch7,1", at: tiedAt.addingTimeInterval(-60))
+        workouts.append(oldest)
+        let source = PagingHistory(workouts)
+        let client = HealthKitClient()
+        await client.setWorkoutPageSource { predicate, limit in source.page(matching: predicate, limit: limit) }
+        var cursor: Date?, all: [HealthWorkoutSummary] = [], pageSizes: [Int] = []
+        for _ in 0..<4 {
+            let page = try await client.workoutPage(before: cursor, limit: 100)
+            all.append(contentsOf: page); pageSizes.append(page.count)
+            if page.count < 100 { break }
+            cursor = page.last?.start
+        }
+        XCTAssertEqual(pageSizes, [304, 1])
+        XCTAssertEqual(Set(all.map(\.id)), Set(workouts.map { $0.uuid.uuidString.lowercased() }))
+        XCTAssertEqual(all.count, workouts.count)
+        let tiedIDs = all.filter { $0.start == tiedAt }.map(\.id)
+        XCTAssertEqual(tiedIDs, tiedIDs.sorted())
     }
 }

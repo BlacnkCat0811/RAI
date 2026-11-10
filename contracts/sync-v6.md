@@ -4,10 +4,15 @@
 不复制其字段名或身份规则。客户端提交 HealthKit 观察到的原始 Workout、标量序列、
 series 分组和 route；服务端只解释已知字段，未知字段与坏点保留或跳过，不阻断整包。
 运行时以 `GET /v2/handshake` 返回的 `workoutPayloadVersion=6`、
-`bundleProtocolVersion=6`、`bundleCompact=true` 和实际限额为准。协议 3、4、5 继续
-保留给未升级客户端。
+`workoutUUIDIngestVersion=1` 和实际限额为准。v6 是唯一支持的 Workout 同步协议；
+v3/v4/v5 的构建器、解码器与兼容入口已删除，旧客户端必须升级。
 
-## 1. 设计目标与与 v4/v5 的差异
+Workout v6 采用前台手动上传：只有用户显式触发“同步”才读取 HealthKit 并发送；
+启动、回到前台、健康数据变化都不自动上传。每轮先完成一次握手，然后逐条 Workout
+读取、组装、发送并展示本轮回执结果。客户端没有 Workout 上传队列、Outbox 恢复、
+后台 URLSession、自动重试或分析轮询。
+
+## 1. 设计目标（历史差异说明）
 
 RQrun 的打包过程是：读一次 Workout，按 series 循环，每个点只写 `heart_rate`、
 `start_time`、`end_time`，追加到数组，顶层写一次设备/来源，最后序列化。它是单遍、
@@ -15,12 +20,15 @@ RQrun 的打包过程是：读一次 Workout，按 series 循环，每个点只�
 
 - **逐样本 UUID 不再上传**：服务端用 Workout UUID + 类型 + 事实种类 + 线上数组下标
   生成确定性 UUIDv5。相同字节重放得到相同事实身份。
+- **HealthKit 对象 UUID 只在顶层记录一次**：`workoutID` 是唯一上传的 HealthKit 对象
+  标识。Workout 核心、活动分段、标量、series 父组与点、路线与轨迹点不携带对象 UUID，
+  也不重复 `workoutID`。`datasetID`、`datasetEpoch`、`collectorEpoch` 是独立的会话身份字段。
 - **逐样本 metadata / source 不再上传**：一个 Workout 只有一个顶层 `source`，所有
   投影事实继承它。混源（Watch + iPhone）不再逐样本区分来源。
 - **不做 series 父 UUID 关联**：series 分组内嵌在 stream 中，父样本的 start/end/value
   就是组头；组头本身不再出现在 `samples` 数组里。
-- **不做删除同步**：v6 客户端不上传删除，服务端不根据快照缺席推断删除；既有删除
-  能力仍只属于 v3 与管理路径。
+- **不做删除同步**：客户端不上传删除，服务端不根据快照缺席推断删除；删除能力只
+  保留在服务端管理路径。
 - **不携带 observation / coverage / completeness / 锚点 / CaptureManifest**：v6 是
   原始序列载荷，不是采集证明。
 
@@ -30,26 +38,46 @@ series 父引用；时间增量、三元素点数组和顶层来源仍然保留�
 
 ## 2. 传输与协商
 
-v6 与 v4/v5 使用同一传输：
+v6 只有一个接收入口：
 
-- `POST /v2/sync/workout-ingests/{workoutID}`（UUID 一次接收通道），或
-  `POST /v2/sync/workout-bundles`；
-- multipart 恰好一个 `file` part，`application/json` 或带 gzip 协商的
-  `application/gzip`；
+- `POST /v2/sync/workout-ingests/{workoutID}`：首次成功接收的原始字节是该 UUID 的
+  唯一权威副本。客户端在用户显式同步时每 Workout 发送一次；返回 200 就表示原始
+  载荷已被持久接收，成功与否只取决于该响应，不等待事实投影或分析完成；
+- `GET` 同路径只用于显式读取服务端状态，不属于上传流程：上传前不查、成功后不轮询；
+- multipart 恰好一个 `file` part，`application/json`，或按握手 `bundleGzipPart`
+  发送 `application/gzip`；
 - wire body 上限 32 MiB + 64 KiB；decoded JSON 上限 32 MiB；gzip 文件上限 8 MiB；
   解压比上限 100:1 + 64 KiB 启动余量；
 - UTF-8、重复对象键、深度 > 128 拒绝；未知顶层字段忽略并保留在原始载荷中；
-- 相同 Workout UUID + 相同文件字节重试返回原回执，不增加 revision/job。
+- 相同 Workout UUID 的重复接收只重放首次 `acceptedAt`，不增加 revision/job，也
+  不替换原字节。
+- POST 只将带有效 `acceptedAt` 的 `accepted` 回执视为成功。已有 Workout、没有接收行
+  时返回 409 `workout_ingest_missing_receipt`；GET 的旧 `already_imported` 状态不代表
+  本次原始字节已可靠接收。
 
-客户端发送 `X-RAI-Sync-Protocol: 6` 请求 v6。服务端只有在
-`RAI_WORKOUT_PAYLOAD_V6=1` 时才返回
-`workoutPayloadVersion=6`、`bundleProtocolVersion=6`、`bundleCompact=true`；
-否则同一个请求返回 v4。客户端看到 4 时必须回退 v4 构建器，不得把 v6 字节发给
-只支持 v4 的服务端。服务端默认关闭 v6。
+GET 的 `commitRevision`、`analysisStatus` 与 `analysisJobIDs` 是接收提交那一刻的快照：
+`analysisStatus=queued` 只表示提交时已入队分析任务，Worker 完成后该字段不会改变。需要
+实时进度或结果时读取 `/v2/jobs/{id}` 与 `/v2/analysis/workouts/{id}`；不要把快照当作
+当前分析状态，也不要为等待分析而轮询该状态端点（上传流程本来就不轮询）。
 
-v6 字节仍进入“原始载荷落库、服务端只解释已知字段、未知字段保留不丢”的 UUID
-接收通道：首次成功接收的字节是唯一权威副本，后续重复 UUID 即使字节不同也只重放
-首次 `acceptedAt`。
+客户端不因重复 UUID 重新上传已成功的 Workout；服务端重放保证同一 UUID 再次提交
+也不会产生新事实或新分析任务。客户端不保存待上传 Workout 状态，也不在上传中断后
+自动恢复：本轮中断即结束，下一次用户点击同步会重新读取 HealthKit 并重新构建 v6
+字节，服务端按 UUID 去重。
+
+服务端无条件声明 `workoutPayloadVersion=6` 与 `workoutUUIDIngestVersion=1`；没有
+版本协商、回退开关或旧协议构建器。客户端握手缺少这两个能力（或返回其他载荷版本）
+时立即失败，绝不把 v6 字节发给其他协议，也绝不生成 v3/v4/v5 字节。
+
+v6 字节仍遵循“原始载荷落库、服务端只解释已知字段、未知字段保留不丢”的 UUID
+接收通道。`workoutUUIDIngestAccepting=false` 时新上传暂停（`workout_uuid_ingest_paused`），
+已接收 UUID 的状态读取与重放不受影响。
+
+原始 JSON 字节保存在 `workout_ingests.raw_json`，其 digest 始终来自原文。
+`workout_imports.payload` 对新 v6 记录只保存服务端内部来源/事实身份投影，
+不把原文强转 JSONB；未知扩展、超出后续数值解释范围的数值和 JSONB 不支持的
+字符串转义仍完整保留在原文，不阻断其他已知事实。该内部投影不是上传线格式。
+读取既有 v6 JSONB 历史时也不按旧 observation 类型解释扩展。
 
 ## 3. 线格式
 
@@ -91,8 +119,9 @@ v6 字节仍进入“原始载荷落库、服务端只解释已知字段、未�
 `rai.workout.source_policy.apple_watch_only/v1` 分类为 `apple_watch`。被排除或无法
 分类的 Workout 整包拒绝（`source_policy_excluded` / `source_policy_pending`）。
 
-`workout` 是 v4 相同的 Workout 核心：至少包含合法的 `activityType` 与
-`durationUs`；未知字段保留在原始载荷中。
+`workout` 至少包含合法的 `activityType` 与 `durationUs`；未知字段保留在原始载荷中。
+可选 `activities` 保留分段的时间、时长、configuration、统计和事件，但不携带 `uuid`。
+服务端按原数组下标生成活动的内部身份；额外传入的活动 `uuid` 仅保留在原文，不参与投影。
 
 ### 3.2 标量 stream
 
@@ -170,7 +199,9 @@ v6 字节仍进入“原始载荷落库、服务端只解释已知字段、未�
   `[recordedAtDeltaUs, latitude, longitude, altitude?, horizontalAccuracy?,
   verticalAccuracy?, speed?, course?]`。尾部不可用值可省略；中间不可用值写
   `null`。经纬度必须有限；可选值出现时必须有限。
-- 空 route 不投影。route 读取失败时客户端可上传空 `routes`，不阻断 Workout。
+- 空 route 不投影。室内或没有路线的 Workout 上传空 `routes`/省略 `routes` 是合法的；
+  但客户端已经开始读取路线后发生错误或中断，必须让该 Workout 上传失败，不得用空
+  `routes` 掩盖读取缺失。
 
 ## 4. 服务端投影与事实身份
 
@@ -190,6 +221,7 @@ c9f3e2a1-7b64-5d8e-9a0b-1c2d3e4f5a6b
 rai/v1|<datasetID>|<workoutID>|<sampleType>|sample|<ordinal>
 rai/v1|<datasetID>|<workoutID>|<sampleType>|series|<ordinal>
 rai/v1|<datasetID>|<workoutID>|route|<ordinal>
+rai/v1|<datasetID>|<workoutID>|activity|<ordinal>
 ```
 
 - `ordinal` 是该事实在客户端线上数组中的下标（从 0 开始）。
@@ -248,8 +280,9 @@ rai/v1|<datasetID>|<workoutID>|route|<ordinal>
 - 非法 route 点、空 route；
 - 未知顶层字段（保留在原始载荷中，不报错）。
 
-客户端可在 `status=partial` / `failed` 和 `error` 中记录本端跳过的原因；这些诊断
-不改变服务端对已知字段的解释。
+客户端可在 `status=partial` 和 `error` 中记录本端跳过的坏点/坏组；这些诊断不改变
+服务端对已知字段的解释。查询级失败（已开始的类型读取报错、route 读取中断、超过
+限额）不是软跳过：该 Workout 不上传，客户端报告失败原因。
 
 ## 6. 来源、混源与删除
 
@@ -259,48 +292,69 @@ rai/v1|<datasetID>|<workoutID>|route|<ordinal>
 - v6 不上传 sample/route 删除，服务端不根据缺失条目推断删除。
 - 根 Workout 删除仍优先：删除屏障、tombstone 和管理删除路径保持既有语义；v6
   重放不能复活已删除 UUID。
-- 既有 v3 删除能力、v4 封存包原字节上传和 v5 兼容路径均保留。
+- 服务端删除接口只供管理路径使用；客户端没有删除上传，旧上传也不能复活已删除 UUID。
 
-## 7. 客户端构建规则（iOS）
+## 7. 客户端构建与上传规则（iOS）
 
+- Workout 上传只由用户在同步页面显式点击触发。启动、回到前台、HealthKit 观察回调、
+  后台任务完成都不自动读取或上传 Workout；日常事实/VO2 的自动路径与本协议无关。
+- 每轮同步先完成一次握手，然后逐条 Workout 依次执行“读取 → 组装 → 发送 → 记录本轮回执”。
+  用户可中途取消；取消后不再开始下一条，已完成条目的结果保留。
+- 关闭发起上传的列表页/详情页或进入后台时取消本轮；关闭其他详情页不影响列表页
+  已发起的批量操作。取消覆盖尚未开始的所选项，最终计为上传失败。
+- 历史列表按开始时间分页，边界时间相同的记录全部纳入同页（因此页数可超过请求
+  条数）；下一页只查询更早的开始时间，不按结束时间筛选。
 - 每个 Workout 只读一次 `HKWorkout`；顶层 source 只取一次。
+- `HKWorkout.uuid` 只序列化为顶层 `workoutID`；`HKWorkoutActivity.uuid`、样本 UUID、
+  series 父 UUID 和路线 UUID 均不序列化，明细也不重复写入 Workout UUID。活动只保留
+  时间、时长、configuration、统计、事件与 metadata。
 - 先用既有 `WorkoutSourcePolicy` 做来源门禁；被排除或被判定 pending 的 Workout
-  不进行任何 quantity/series/route 读取。
+  不进行任何 quantity/series/route 读取，直接记录该条失败原因。
 - 标量类型各执行一次 sample 查询，输出三元素数组。
 - series 类型各执行一次 `HKQuantitySeriesSampleQueryDescriptor`（含父样本），在内存中
   按父 UUID 分组；父 UUID 只作内存键，绝不序列化。组头取父样本自己的 start/end/
   quantity。当前 series 类型至少包括 RunningPower、RunningGroundContactTime、
   RunningStrideLength、RunningVerticalOscillation；RunningSpeed 按既有 fixture
   保持标量。
+- 路线读取一次；室内或没有路线的 Workout 允许空 `routes`。
 - 不做逐样本查询、不落盘往返、不生成逐样本 UUID/来源/元数据，不调用
   `Normalizer.source(sample)`。
 - 排序确定：streams 按 type；samples 按 start/end/value；series 组按 start/end/
-  value；组内点与 route 点按 start/end。相同输入必须得到相同字节。
-- 单个 metric 查询失败只标记该 stream 的 `status:"failed"` 与 `error`，其余 stream
-  继续。series 组失败不阻断其他组；route 读取失败上传空 routes。
-- 一次组装 JSON、一次序列化；最终字节写入 Outbox 后，重试必须复用同一文件，不得
-  重新读取 HealthKit 生成不同字节。
-- 传输沿用 multipart `file` + gzip 协商 + 后台传输。投递前先查
-  `GET /v2/sync/workout-ingests/{uuid}`：`accepted`/`committed` 不再读取或重发；
-  只有 `not_found` 才读取一次并冻结字节。
-- 任务记录 payload 版本（4 或 6），投递时不得把 v6 字节按 v4 校验或反向混淆。
+  value；组内点与 route 点按 start/end。相同输入得到相同字节；确定性用于服务端事实
+  身份稳定和测试，不是客户端重试复用字节的依赖。
+- 已开始的任一 metric 查询报错、route 读取报错/中断或任一限额超限，该 Workout 本轮
+  失败，不上传部分结果；未知字段、未知 stream、已知坏点仍按第 3、5 节处理。合法空
+  stream、室内无路线可以上传。
+- 一次组装 JSON、一次序列化；gzip 与明文在发送前只选择一次，发送后不在本轮内换用
+  另一种表示。每个 Workout 只发一次 POST；不预先 `GET` 状态、不自动重试、不轮询、
+  不使用后台 URLSession、不写 Outbox。
+- 成功只表示服务端 200 持久接收（首次接收或同 UUID 重放）；不等待事实投影或分析完成。
+  失败显示服务端错误或本端读取/构建原因。批量同步只统计本轮成功/失败条数，不保存
+  跨轮待办；训练详情如需分析结果，另行读取服务端数据。
+- 不生成 sample/route/Workout 删除；客户端没有删除上传。
 
-## 8. 兼容与回退
+## 8. 硬切与旧状态处理
 
-- v3：旧 Outbox/capture/completeness/删除路径不变。
-- v4：既有原始载荷、封存字节和投递逻辑不变；v6 客户端回退时构建 v4 字节。
-- v5：未提交的 v5 编码和合同保持原样；v6 不修改 v5 文件。
-- v6 不新增锚点、删除状态、完整性清单或迁移；旧的 v4 任务字段仍可解码，已封存
-  的 v4 包按原字节上传。
-- 服务端 v6 默认关闭（`RAI_WORKOUT_PAYLOAD_V6=1` 才在握手声明 6）。客户端
-  `v6Enabled` 默认关闭；只有握手返回 6 才使用 v6。
+- 服务端只解码 `protocolVersion=6`；v3/v4/v5 解码器、旧 bundle 入口和
+  `RAI_WORKOUT_PAYLOAD_V6` 开关均已删除。
+- iOS 只构建 v6；握手不满足 v6 能力时以 `unsupported_handshake` 失败。
+- 旧版本遗留的 Workout 上传任务、冻结载荷、Outbox 恢复与后台传输不再续传或自动
+  上传；重建索引时释放这些载荷。用户再次显式同步时从 HealthKit 重新读取并构建 v6，
+  服务端按 UUID 重放首次接收，不产生重复事实。
+- 旧版本已确认的任务与回执保留为只读历史；客户端不重新上传该 Workout 的旧字节，
+  也不自动读取其分析状态。
+- 新流程没有成功后的状态恢复路径，也不在任何失败路径上回退到 v3/v4/v5。
+- completion/completeness 控制面与日常事实/VO2 是独立协议；它们不属于 Workout
+  v6 载荷，也不恢复客户端删除或快照缺失推断。
 
 ## 9. 验收与测试入口
 
 - 服务端单元测试：`apps/server/internal/syncing/workout_bundle_v6_test.go`；
-  HTTP 协商测试：`apps/server/internal/httpapi/workout_ingest_test.go`；
+  HTTP 能力与入口测试：`apps/server/internal/httpapi/workout_ingest_test.go`；
   真实隔离 PostgreSQL 集成测试：`apps/server/integration/workout_ingest_v6_test.go`。
-- iOS SwiftPM：`ios/RAI/Tests/SyncCoreTests/WorkoutBundleV6Tests.swift`；
-  App XCTest：`ios/RAI/AppTests/RawStreamSyncEngineTests.swift`。
+- iOS SwiftPM：`ios/RAI/Tests/SyncCoreTests/WorkoutBundleV6Tests.swift` 与
+  `ios/RAI/Tests/SyncCoreTests/WorkoutIngestTests.swift`（前台单次 POST、gzip/明文
+  回退、回执校验、无状态查询/重试）；
+- App XCTest：`ios/RAI/AppTests/RawStreamSyncEngineTests.swift`；
 - 本机入口：`scripts/local/test.sh swift` 与 `scripts/local/test.sh simulator`。
 - 全部测试只使用合成数据；不得读取生产数据库、真实健康值或凭证，不得自动部署。

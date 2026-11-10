@@ -7,13 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"rai/server/internal/httpapi"
 	"rai/server/internal/storage/postgres"
 	"rai/server/internal/syncing"
 )
@@ -34,7 +31,7 @@ func phase1Snapshot(t *testing.T, f *fixture) map[string][]byte {
 }
 
 func bundleDeleteRequest(f *fixture, id string) syncing.WorkoutDeleteRequest {
-	return syncing.WorkoutDeleteRequest{ProtocolVersion: 3, DatasetID: f.p.DatasetID,
+	return syncing.WorkoutDeleteRequest{DatasetID: f.p.DatasetID,
 		DatasetEpoch: f.enrollment.DatasetEpoch, CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: id}
 }
 
@@ -433,35 +430,6 @@ func TestWorkoutDeleteRollbackIncludingCommitFailure(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestHTTPWorkoutDeleteBeforeUploadAndRetry(t *testing.T) {
-	f := setup(t)
-	bundle, raw := testWorkoutBundle(t, f, 1)
-	handler := httpapi.New(f.s, analysisLog)
-	body, _ := json.Marshal(bundleDeleteRequest(f, bundle.WorkoutID))
-	request := httptest.NewRequest(http.MethodDelete, "/v2/sync/workout-bundles/"+bundle.WorkoutID, bytes.NewReader(body))
-	request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	request.Header.Set("Content-Type", "application/json")
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusOK {
-		t.Fatalf("unknown delete status=%d body=%s", response.Code, response.Body.Bytes())
-	}
-	// Replay through storage to preserve the real two-request upload-lane burst
-	// for DELETE + POST, without resetting operational rate-limit state.
-	retry, err := f.s.DeleteWorkoutBundle(context.Background(), f.p, bundleDeleteRequest(f, bundle.WorkoutID))
-	if err != nil || !bytes.Equal(retry, bytes.TrimSpace(response.Body.Bytes())) {
-		t.Fatal("HTTP deletion ACK changed", err)
-	}
-	status, payload := uploadBundleHTTP(t, handler, f.enrollment.Token, raw)
-	var failure struct{ Code string }
-	if err := json.Unmarshal(payload, &failure); err != nil || status != http.StatusConflict || failure.Code != "workout_deleted" {
-		t.Fatalf("late HTTP upload status=%d body=%s err=%v", status, payload, err)
-	}
-	if count(t, f, "entity_tombstones") != 1 || count(t, f, "change_events") != 1 || count(t, f, "workouts") != 0 {
-		t.Fatal("HTTP delete did not create exactly one durable barrier")
 	}
 }
 

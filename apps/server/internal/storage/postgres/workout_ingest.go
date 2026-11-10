@@ -30,7 +30,7 @@ func (s *Store) lockIngestDataset(dataset string) func() {
 	return lock.Unlock
 }
 
-// AcceptWorkoutIngest stores the first raw protocol-4 payload for a UUID. It
+// AcceptWorkoutIngest stores the first raw protocol-6 payload for a UUID. It
 // intentionally does not decode facts and never takes the dataset row lock.
 // The worker owns semantic validation and all fact writes.
 func (s *Store) AcceptWorkoutIngest(ctx context.Context, p syncing.Principal, envelope syncing.WorkoutIngestEnvelope, raw []byte) (json.RawMessage, error) {
@@ -104,14 +104,8 @@ func (s *Store) AcceptWorkoutIngest(ctx context.Context, p syncing.Principal, en
 		return body, nil
 	}
 	if imported {
-		body, err := json.Marshal(map[string]string{"workoutID": envelope.WorkoutID, "ingestStatus": "already_imported"})
-		if err != nil {
-			return nil, err
-		}
-		if err = tx.Commit(ctx); err != nil {
-			return nil, err
-		}
-		return body, nil
+		// A fact row is not proof that this immutable raw upload was accepted.
+		return nil, syncing.Fail(409, "workout_ingest_missing_receipt")
 	}
 
 	var pending int
@@ -349,7 +343,7 @@ func (s *Store) ProcessNextWorkoutIngest(ctx context.Context) (syncing.WorkoutIn
 // fact transaction committed and the ingest row is already committed.
 func (s *Store) processWorkoutIngest(ctx context.Context, claim workoutIngestClaim) (string, bool) {
 	decodeStart := time.Now()
-	bundle, err := syncing.DecodeWorkoutBundlePayloadJSON(claim.raw)
+	bundle, err := syncing.DecodeWorkoutPayloadJSON(claim.raw)
 	if err != nil {
 		return ingestErrorCode(err), true
 	}

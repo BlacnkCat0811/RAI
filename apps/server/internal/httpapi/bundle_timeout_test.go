@@ -21,21 +21,22 @@ import (
 
 type transportStore struct {
 	syncing.Store
-	imports atomic.Int32
+	accepts atomic.Int32
 }
 
 func (s *transportStore) Authenticate(context.Context, string) (syncing.Principal, error) {
 	return syncing.Principal{DatasetID: "11111111-1111-4111-8111-111111111111", DeviceID: "22222222-2222-4222-8222-222222222222", CanCollect: true}, nil
 }
-func (s *transportStore) Admit(context.Context, syncing.Principal, syncing.AdmissionLane) error {
-	return nil
+func (s *transportStore) AcceptWorkoutIngest(context.Context, syncing.Principal, syncing.WorkoutIngestEnvelope, []byte) (json.RawMessage, error) {
+	s.accepts.Add(1)
+	return json.RawMessage(`{"ingestStatus":"accepted"}`), nil
 }
-func (s *transportStore) ImportWorkoutBundle(context.Context, syncing.Principal, syncing.WorkoutBundle, []byte) (json.RawMessage, error) {
-	s.imports.Add(1)
-	return json.RawMessage(`{"ingestStatus":"committed"}`), nil
-}
+
+const transportWorkoutID = "44444444-4444-4444-8444-444444444444"
+const transportPath = "/v2/sync/workout-ingests/" + transportWorkoutID
+
 func transportFixture() []byte {
-	return []byte(`{"protocolVersion":3,"datasetID":"11111111-1111-4111-8111-111111111111","datasetEpoch":"22222222-2222-4222-8222-222222222222","collectorEpoch":"33333333-3333-4333-8333-333333333333","workoutID":"44444444-4444-4444-8444-444444444444","workout":{"op":"upsert","kind":"workout","type":"HKWorkoutTypeIdentifier","uuid":"44444444-4444-4444-8444-444444444444","startUs":1793433600000000,"endUs":1793433601000000,"source":{"bundleID":"synthetic.test"},"workout":{"activityType":37,"durationUs":1000000}},"samples":[]}`)
+	return []byte(`{"protocolVersion":6,"datasetID":"11111111-1111-4111-8111-111111111111","datasetEpoch":"22222222-2222-4222-8222-222222222222","collectorEpoch":"33333333-3333-4333-8333-333333333333","workoutID":"44444444-4444-4444-8444-444444444444","startUs":1793433600000000,"endUs":1793433601000000,"source":{"bundleID":"com.apple.health"},"workout":{"activityType":37,"durationUs":1000000},"streams":[]}`)
 }
 func realProductionServer(t *testing.T, h http.Handler) *httptest.Server {
 	t.Helper()
@@ -68,7 +69,7 @@ func TestBundleProductionServerSlowUpload(t *testing.T) {
 			_ = mw.Close()
 			body, media := wire.Bytes(), mw.FormDataContentType()
 			reader, writer := io.Pipe()
-			req, _ := http.NewRequest("POST", server.URL+"/v2/sync/workout-bundles", reader)
+			req, _ := http.NewRequest("POST", server.URL+transportPath, reader)
 			req.Header.Set("Authorization", "Bearer "+strings.Repeat("x", 64))
 			req.Header.Set("Content-Type", media)
 			req.ContentLength = int64(len(body))
@@ -92,7 +93,7 @@ func TestBundleProductionServerSlowUpload(t *testing.T) {
 			if err = <-done; err != nil {
 				t.Fatal(err)
 			}
-			if response.StatusCode != 200 || store.imports.Load() != 1 {
+			if response.StatusCode != 200 || store.accepts.Load() != 1 {
 				t.Fatal("legitimate paced upload rejected", response.StatusCode)
 			}
 		})
@@ -105,7 +106,7 @@ func TestBundleTimeoutAndCancellationClassification(t *testing.T) {
 		// Exercise the same production handler and socket controller with a short
 		// phase deadline so CI need not hold a malicious connection for 180s.
 		h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/v2/sync/workout-bundles" {
+			if strings.HasPrefix(r.URL.Path, "/v2/sync/workout-ingests/") {
 				r.Body = &deadlineBody{ReadCloser: r.Body, w: w}
 			}
 			api.ServeHTTP(w, r)
@@ -114,7 +115,7 @@ func TestBundleTimeoutAndCancellationClassification(t *testing.T) {
 		body, media := plainMultipart(transportFixture())
 		reader, writer := io.Pipe()
 		defer writer.Close()
-		req, _ := http.NewRequest("POST", server.URL+"/v2/sync/workout-bundles", reader)
+		req, _ := http.NewRequest("POST", server.URL+transportPath, reader)
 		req.Header.Set("Authorization", "Bearer "+strings.Repeat("x", 64))
 		req.Header.Set("Content-Type", media)
 		go func() { _, _ = writer.Write(body[:len(body)/2]) }()
@@ -124,7 +125,7 @@ func TestBundleTimeoutAndCancellationClassification(t *testing.T) {
 		}
 		raw, _ := io.ReadAll(response.Body)
 		_ = response.Body.Close()
-		if response.StatusCode != 408 || !bytes.Contains(raw, []byte("upload_read_timeout")) || store.imports.Load() != 0 {
+		if response.StatusCode != 408 || !bytes.Contains(raw, []byte("upload_read_timeout")) || store.accepts.Load() != 0 {
 			t.Fatalf("timeout classification status=%d", response.StatusCode)
 		}
 	})
@@ -135,11 +136,11 @@ func TestBundleTimeoutAndCancellationClassification(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, _ = io.WriteString(conn, "POST /v2/sync/workout-bundles HTTP/1.1\r\nHost: test\r\nAuthorization: Bearer "+strings.Repeat("x", 64)+"\r\nContent-Type: multipart/form-data; boundary=x\r\nContent-Length: 10000\r\n\r\n--x\r\n")
+		_, _ = io.WriteString(conn, "POST "+transportPath+" HTTP/1.1\r\nHost: test\r\nAuthorization: Bearer "+strings.Repeat("x", 64)+"\r\nContent-Type: multipart/form-data; boundary=x\r\nContent-Length: 10000\r\n\r\n--x\r\n")
 		_ = conn.Close()
 		server.Close()
-		if store.imports.Load() != 0 {
-			t.Fatal("cancel entered import")
+		if store.accepts.Load() != 0 {
+			t.Fatal("cancel entered acceptance")
 		}
 	})
 }
@@ -166,7 +167,7 @@ func TestBundleProductionBodyBudget(t *testing.T) {
 			body, media := plainMultipart(transportFixture())
 			reader, writer := io.Pipe()
 			defer writer.Close()
-			req, _ := http.NewRequest("POST", server.URL+"/v2/sync/workout-bundles", reader)
+			req, _ := http.NewRequest("POST", server.URL+transportPath, reader)
 			req.Header.Set("Authorization", "Bearer "+strings.Repeat("x", 64))
 			req.Header.Set("Content-Type", media)
 			req.ContentLength = int64(len(body))
@@ -196,44 +197,14 @@ func TestBundleProductionBodyBudget(t *testing.T) {
 			raw, _ := io.ReadAll(response.Body)
 			_ = response.Body.Close()
 			if over {
-				if response.StatusCode != 408 || !bytes.Contains(raw, []byte("upload_read_timeout")) || store.imports.Load() != 0 {
+				if response.StatusCode != 408 || !bytes.Contains(raw, []byte("upload_read_timeout")) || store.accepts.Load() != 0 {
 					t.Fatal("body deadline failed", response.StatusCode)
 				}
-			} else if response.StatusCode != 200 || store.imports.Load() != 1 {
+			} else if response.StatusCode != 200 || store.accepts.Load() != 1 {
 				t.Fatal("near deadline legitimate upload", response.StatusCode)
 			}
 			t.Logf("production_body_budget=%s actual_elapsed=%s status=%d", BundleBodyBudget, time.Since(start), response.StatusCode)
 		})
-	}
-}
-
-type delayedACKWriter struct{ http.ResponseWriter }
-
-func (w delayedACKWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
-func (w delayedACKWriter) Write(p []byte) (int, error) {
-	timer := time.NewTimer(ACKWriteBudget + time.Second)
-	<-timer.C
-	return w.ResponseWriter.Write(p)
-}
-func TestBundleACKWriteDeadlineAfterCommit(t *testing.T) {
-	if os.Getenv("RAI_PHASE4_SLOW") == "" {
-		t.Skip("explicit 6s ACK write deadline test")
-	}
-	store := &transportStore{}
-	var logs bytes.Buffer
-	api := New(store, slog.New(slog.NewJSONHandler(&logs, nil)))
-	server := realProductionServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(delayedACKWriter{w}, r) }))
-	body, media := plainMultipart(transportFixture())
-	req, _ := http.NewRequest("POST", server.URL+"/v2/sync/workout-bundles", bytes.NewReader(body))
-	req.Header.Set("Authorization", "Bearer "+strings.Repeat("x", 64))
-	req.Header.Set("Content-Type", media)
-	resp, err := server.Client().Do(req)
-	if err == nil {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-	}
-	if store.imports.Load() != 1 || !strings.Contains(logs.String(), "ack_write_failed") {
-		t.Fatal("ACK deadline did not preserve committed outcome")
 	}
 }
 
@@ -262,7 +233,7 @@ func TestBundleProductionThrottledUpload(t *testing.T) {
 			server := realProductionServer(t, New(store, slog.New(slog.NewTextHandler(io.Discard, nil))))
 			raw := append(transportFixture(), bytes.Repeat([]byte(" "), 256<<10)...)
 			body, media := plainMultipart(raw)
-			req, _ := http.NewRequest("POST", server.URL+"/v2/sync/workout-bundles", &pacedBody{bytes.NewReader(body), 4096, interval})
+			req, _ := http.NewRequest("POST", server.URL+transportPath, &pacedBody{bytes.NewReader(body), 4096, interval})
 			req.Header.Set("Authorization", "Bearer "+strings.Repeat("x", 64))
 			req.Header.Set("Content-Type", media)
 			resp, err := server.Client().Do(req)
@@ -271,7 +242,7 @@ func TestBundleProductionThrottledUpload(t *testing.T) {
 			}
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
-			if resp.StatusCode != 200 || store.imports.Load() != 1 {
+			if resp.StatusCode != 200 || store.accepts.Load() != 1 {
 				t.Fatal("throttled body rejected", resp.StatusCode)
 			}
 		})

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -110,13 +111,13 @@ func assertOldIdentityFenced(t *testing.T, target *fixture, old *fixture, raw []
 		t.Fatal(e)
 	}
 	before := datasetSnapshot(t, target, target.p.DatasetID)
-	for _, method := range []string{"GET", "POST", "DELETE"} {
-		q := httptest.NewRequest(method, "/v2/sync/workout-bundles/"+syncing.NewID(), bytes.NewReader(raw))
-		if method == "POST" {
-			q = httptest.NewRequest(method, "/v2/sync/workout-bundles", bytes.NewReader(raw))
-		}
+	for _, method := range []string{"GET", "POST"} {
+		var q *http.Request
 		if method == "GET" {
 			q = httptest.NewRequest(method, "/v2/handshake", nil)
+		} else {
+			q = httptest.NewRequest(method, "/v2/sync/workout-ingests/"+syncing.NewID(), bytes.NewReader(raw))
+			q.Header.Set("Content-Type", "application/json")
 		}
 		q.Header.Set("Authorization", "Bearer "+old.enrollment.Token)
 		w := httptest.NewRecorder()
@@ -125,29 +126,12 @@ func assertOldIdentityFenced(t *testing.T, target *fixture, old *fixture, raw []
 			t.Fatalf("unknown old token %s status=%d", method, w.Code)
 		}
 	}
-	for index, token := range []string{old.enrollment.Token, target.enrollment.Token} {
-		status, _ := uploadBundleHTTP(t, handler, token, raw)
-		expected := []int{401, 403}[index]
-		if status != expected {
-			t.Fatalf("old bundle status=%d", status)
-		}
-	}
-	// Outer metadata can never override the identities in the JSON part.
-	body := &bytes.Buffer{}
-	boundary := "recovery-synthetic"
-	for key, value := range map[string]string{"datasetID": target.enrollment.DatasetID, "datasetEpoch": target.enrollment.DatasetEpoch, "collectorEpoch": target.enrollment.CollectorEpoch} {
-		body.WriteString("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + key + "\"\r\n\r\n" + value + "\r\n")
-	}
-	body.WriteString("--" + boundary + "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"bundle.json\"\r\nContent-Type: application/json\r\n\r\n")
-	body.Write(raw)
-	body.WriteString("\r\n--" + boundary + "--\r\n")
-	q := httptest.NewRequest("POST", "/v2/sync/workout-bundles", body)
+	q := httptest.NewRequest("GET", "/v2/sync/workout-ingests/"+syncing.NewID(), nil)
 	q.Header.Set("Authorization", "Bearer "+target.enrollment.Token)
-	q.Header.Set("Content-Type", "multipart/form-data; boundary="+boundary)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, q)
-	if (w.Code != 422 && w.Code != 403) || (!bytes.Contains(w.Body.Bytes(), []byte("unsupported_payload")) && !bytes.Contains(w.Body.Bytes(), []byte("dataset_forbidden"))) {
-		t.Fatal("multipart metadata did not fail closed at payload/identity validation", w.Code, w.Body.String())
+	if w.Code != 404 {
+		t.Fatalf("recovered token ingest status=%d body=%s", w.Code, w.Body.String())
 	}
 	after := datasetSnapshot(t, target, target.p.DatasetID)
 	for table, rows := range before {

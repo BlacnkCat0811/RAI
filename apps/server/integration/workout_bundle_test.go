@@ -6,15 +6,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log/slog"
-	"mime/multipart"
-	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"rai/server/internal/httpapi"
 	"rai/server/internal/syncing"
 )
 
@@ -56,28 +50,6 @@ func testWorkoutBundle(t *testing.T, f *fixture, sampleCount int) (syncing.Worko
 		t.Fatal(err)
 	}
 	return bundle, raw
-}
-
-func uploadBundleHTTP(t *testing.T, handler http.Handler, token string, raw []byte) (int, []byte) {
-	t.Helper()
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	part, err := writer.CreateFormFile("file", "workout.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = part.Write(raw); err != nil {
-		t.Fatal(err)
-	}
-	if err = writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-	request, _ := http.NewRequest(http.MethodPost, "/v2/sync/workout-bundles", &body)
-	request.Header.Set("Authorization", "Bearer "+token)
-	request.Header.Set("Content-Type", writer.FormDataContentType())
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	return response.Code, response.Body.Bytes()
 }
 
 func TestWorkoutBundleOneRequestAtomicImport(t *testing.T) {
@@ -186,44 +158,6 @@ func TestWorkoutBundleLateSampleAndConflicts(t *testing.T) {
 	conflictRaw, _ := json.Marshal(bundle)
 	_, err = f.s.ImportWorkoutBundle(context.Background(), f.p, bundle, conflictRaw)
 	requireCode(t, err, "sample_identity_conflict")
-}
-
-func TestWorkoutBundleHTTPMultipartAndStatus(t *testing.T) {
-	f := setup(t)
-	bundle, raw := testWorkoutBundle(t, f, 1)
-	handler := httpapi.New(f.s, slog.Default())
-	status, payload := uploadBundleHTTP(t, handler, f.enrollment.Token, raw)
-	if status != 200 {
-		t.Fatalf("upload status=%d body=%s", status, payload)
-	}
-	var receipt syncing.WorkoutImportReceipt
-	if err := json.Unmarshal(payload, &receipt); err != nil {
-		t.Fatal(err)
-	}
-	if receipt.WorkoutID != bundle.WorkoutID || receipt.IngestStatus != "committed" {
-		t.Fatalf("receipt=%+v", receipt)
-	}
-
-	request := httptest.NewRequest(http.MethodGet, "/v2/sync/workout-bundles/"+bundle.WorkoutID, nil)
-	request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != 200 {
-		t.Fatalf("status=%d", response.Code)
-	}
-	if !bytes.Equal(payload, response.Body.Bytes()) {
-		t.Fatalf("status payload mismatch")
-	}
-
-	// The old per-sample endpoint is no longer registered.
-	request = httptest.NewRequest(http.MethodPost, "/v2/sync/associations", strings.NewReader("{}"))
-	request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	request.Header.Set("Content-Type", "application/json")
-	response = httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusNotFound {
-		t.Fatalf("old endpoint status=%d", response.Code)
-	}
 }
 
 func TestWorkoutBundleScaleFiveThousand(t *testing.T) {
@@ -387,7 +321,7 @@ func TestWorkoutDeleteBundleIsExplicitAndIdempotent(t *testing.T) {
 	if err = json.Unmarshal(body, &receipt); err != nil {
 		t.Fatal(err)
 	}
-	req := syncing.WorkoutDeleteRequest{ProtocolVersion: 3, DatasetID: f.p.DatasetID,
+	req := syncing.WorkoutDeleteRequest{DatasetID: f.p.DatasetID,
 		DatasetEpoch: f.enrollment.DatasetEpoch, CollectorEpoch: f.enrollment.CollectorEpoch,
 		WorkoutID: bundle.WorkoutID}
 	if _, err = f.s.DeleteWorkoutBundle(context.Background(), f.p, req); err != nil {
@@ -406,46 +340,5 @@ func TestWorkoutDeleteBundleIsExplicitAndIdempotent(t *testing.T) {
 	}
 	if _, err = f.s.DeleteWorkoutBundle(context.Background(), f.p, req); err != nil {
 		t.Fatal("idempotent delete failed", err)
-	}
-}
-
-func TestHTTPWorkoutBundleStatusByHashAndExplicitDelete(t *testing.T) {
-	f := setup(t)
-	_, raw := testWorkoutBundle(t, f, 2)
-	handler := httpapi.New(f.s, slog.Default())
-	code, body := uploadBundleHTTP(t, handler, f.enrollment.Token, raw)
-	if code != 200 {
-		t.Fatalf("upload status=%d body=%s", code, body)
-	}
-	var receipt syncing.WorkoutImportReceipt
-	if err := json.Unmarshal(body, &receipt); err != nil {
-		t.Fatal(err)
-	}
-	request, _ := http.NewRequest(http.MethodGet,
-		"/v2/sync/workout-bundles/"+receipt.WorkoutID+"?sha256="+receipt.BundleSHA256, nil)
-	request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != 200 || !bytes.Equal(response.Body.Bytes(), body) {
-		t.Fatalf("status by hash=%d body=%s", response.Code, response.Body.Bytes())
-	}
-
-	requestBody, _ := json.Marshal(syncing.WorkoutDeleteRequest{ProtocolVersion: 3,
-		DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
-		CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: receipt.WorkoutID})
-	request, _ = http.NewRequest(http.MethodDelete, "/v2/sync/workout-bundles/"+receipt.WorkoutID, bytes.NewReader(requestBody))
-	request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	request.Header.Set("Content-Type", "application/json")
-	response = httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != 200 {
-		t.Fatalf("delete status=%d body=%s", response.Code, response.Body.Bytes())
-	}
-	request, _ = http.NewRequest(http.MethodGet, "/v2/sync/workout-bundles/"+receipt.WorkoutID, nil)
-	request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	response = httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code != 404 {
-		t.Fatalf("deleted status=%d body=%s", response.Code, response.Body.Bytes())
 	}
 }

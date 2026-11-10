@@ -13,12 +13,57 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"rai/server/internal/httpapi"
 	"rai/server/internal/syncing"
 )
+
+// nearestRank returns the nearest-rank percentile of an unsorted sample.
+func nearestRank(values []float64, percentile float64) float64 {
+	if len(values) == 0 {
+		return 0
+	}
+	sorted := append([]float64(nil), values...)
+	sort.Float64s(sorted)
+	index := int(float64(len(sorted))*percentile+0.999999) - 1
+	if index < 0 {
+		index = 0
+	}
+	if index >= len(sorted) {
+		index = len(sorted) - 1
+	}
+	return sorted[index]
+}
+
+func perfPercentile(values []float64, percentile float64) float64 {
+	return nearestRank(values, percentile)
+}
+
+func perfEnvInt(t *testing.T, name string, fallback int) int {
+	t.Helper()
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < 1 {
+		t.Fatalf("%s must be a positive integer, got %q", name, raw)
+	}
+	return value
+}
+
+func perfEnvString(name, fallback string) string {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		return fallback
+	}
+	return raw
+}
 
 // ingestWire builds the production wire shape: one gzip file part whose
 // filename and media type match the iOS client.
@@ -68,8 +113,7 @@ func ingestRequest(t *testing.T, method, url, token, contentType string, body io
 // not queue behind it.
 func TestWorkoutUUIDIngestLockIndependence(t *testing.T) {
 	f := setup(t)
-	server := httptest.NewServer(httpapi.NewWithOptions(f.s, slog.New(slog.NewJSONHandler(io.Discard, nil)),
-		httpapi.Options{WorkoutUUIDIngestMode: syncing.WorkoutIngestUUID}))
+	server := httptest.NewServer(httpapi.New(f.s, slog.New(slog.NewJSONHandler(io.Discard, nil))))
 	defer server.Close()
 	client := server.Client()
 
@@ -97,7 +141,7 @@ func TestWorkoutUUIDIngestLockIndependence(t *testing.T) {
 	}
 
 	id := syncing.NewID()
-	raw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, id, 121)
+	raw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, id, 121)
 	body, contentType := ingestWire(t, raw)
 	postDone := make(chan int, 1)
 	postStart := time.Now()
@@ -153,8 +197,7 @@ func TestWorkoutUUIDIngestPerf(t *testing.T) {
 		t.Fatalf("need at least 10 iterations, got %d", iterations)
 	}
 	f := setup(t)
-	server := httptest.NewServer(httpapi.NewWithOptions(f.s, slog.New(slog.NewJSONHandler(io.Discard, nil)),
-		httpapi.Options{WorkoutUUIDIngestMode: syncing.WorkoutIngestUUID}))
+	server := httptest.NewServer(httpapi.New(f.s, slog.New(slog.NewJSONHandler(io.Discard, nil))))
 	defer server.Close()
 	client := server.Client()
 	client.Timeout = 30 * time.Second
@@ -167,7 +210,7 @@ func TestWorkoutUUIDIngestPerf(t *testing.T) {
 	}
 	build := func(value float64) wire {
 		id := syncing.NewID()
-		raw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, id, value)
+		raw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, id, value)
 		body, contentType := ingestWire(t, raw)
 		return wire{id: id, body: body, contentType: contentType, payload: len(raw)}
 	}

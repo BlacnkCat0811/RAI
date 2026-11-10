@@ -8,17 +8,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"rai/server/internal/httpapi"
 	"rai/server/internal/syncing"
 )
 
@@ -182,35 +177,6 @@ func TestWorkoutBundleStoreValidationIsSinglePass(t *testing.T) {
 		})
 	}
 
-	// The HTTP boundary keeps the wire contract and surfaces the same failure.
-	t.Run("http_boundary_reports_same_contract", func(t *testing.T) {
-		handler := httpapi.New(f.s, slog.Default())
-		bundle, _ := bundleWithSamples(t, f, 2)
-		bundle.Samples[1].Quantity.Unit = "kg"
-		badRaw, _ := json.Marshal(bundle)
-		status, payload := uploadBundleHTTP(t, handler, f.enrollment.Token, badRaw)
-		var failure syncing.Error
-		if err := json.Unmarshal(payload, &failure); err != nil {
-			t.Fatal(err)
-		}
-		if status != http.StatusUnprocessableEntity || failure.Code != "unsupported_payload" ||
-			failure.Field != "samples[1].quantity.unit" || failure.Reason != "unsupported_unit" {
-			t.Fatalf("status=%d body=%s", status, payload)
-		}
-		if count(t, f, "workout_imports") != 0 || count(t, f, "health_samples") != 0 {
-			t.Fatal("rejected HTTP upload persisted facts")
-		}
-		// An unknown field is still a wire-layer rejection.
-		unknown := bytes.Replace(badRaw, []byte(`"protocolVersion"`), []byte(`"unknownField":1,"protocolVersion"`), 1)
-		status, payload = uploadBundleHTTP(t, handler, f.enrollment.Token, unknown)
-		if err := json.Unmarshal(payload, &failure); err != nil {
-			t.Fatal(err)
-		}
-		if status != http.StatusUnprocessableEntity || failure.Code != "unsupported_payload" ||
-			failure.Field != "unknownField" || failure.Reason != "unknown_field" {
-			t.Fatalf("unknown field status=%d body=%s", status, payload)
-		}
-	})
 }
 
 // TestWorkoutBundleDeletionSetBasedSemantics keeps the explicit deletion path
@@ -561,11 +527,10 @@ func TestWorkoutBundleSetBasedPhaseTimings(t *testing.T) {
 func TestWorkoutBundleLargeBatchImportSurvivesConnectionStatementTimeout(t *testing.T) {
 	f := setup(t)
 	const sampleCount = 20000
-	_, raw := bundleWithSamples(t, f, sampleCount)
-	handler := httpapi.New(f.s, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	status, body := uploadBundleHTTP(t, handler, f.enrollment.Token, raw)
-	if status != http.StatusOK {
-		t.Fatalf("large bundle status=%d body=%s", status, body)
+	bundle, raw := bundleWithSamples(t, f, sampleCount)
+	body, err := importBundle(t, f, bundle, raw)
+	if err != nil {
+		t.Fatal(err)
 	}
 	var receipt syncing.WorkoutImportReceipt
 	if err := json.Unmarshal(body, &receipt); err != nil {
@@ -578,76 +543,11 @@ func TestWorkoutBundleLargeBatchImportSurvivesConnectionStatementTimeout(t *test
 		t.Fatal("facts missing after large import")
 	}
 	// The same bytes must replay to the identical receipt without new work.
-	status, replay := uploadBundleHTTP(t, handler, f.enrollment.Token, raw)
-	if status != http.StatusOK || string(replay) != string(body) {
-		t.Fatalf("replay status=%d identical=%t body=%s", status, string(replay) == string(body), replay)
+	replay, err := importBundle(t, f, bundle, raw)
+	if err != nil || string(replay) != string(body) {
+		t.Fatalf("replay identical=%t body=%s err=%v", string(replay) == string(body), replay, err)
 	}
 	if count(t, f, "health_samples") != sampleCount || count(t, f, "jobs") != 1 || count(t, f, "workout_imports") != 1 {
 		t.Fatal("replay created work")
 	}
-}
-
-// TestWorkoutBundleS240ImportPhaseCapture records one S240-scale import (26,382
-// samples, the largest payload the sync contract requires) as a phase breakdown
-// for the P07 evidence. It is opt-in because a single run decodes and imports a
-// multi-megabyte bundle; it is not a percentile measurement.
-func TestWorkoutBundleS240ImportPhaseCapture(t *testing.T) {
-	if os.Getenv("RAI_SYNC_SPEED_PHASE_CAPTURE") == "" {
-		t.Skip("set RAI_SYNC_SPEED_PHASE_CAPTURE=1 to record the S240 phase breakdown")
-	}
-	f := setup(t)
-	const sampleCount = 26382
-	_, raw := bundleWithSamples(t, f, sampleCount)
-	var lines []string
-	var mu sync.Mutex
-	handler := slog.NewTextHandler(&syncWriter{mu: &mu, lines: &lines}, &slog.HandlerOptions{Level: slog.LevelInfo})
-	api := httpapi.New(f.s, slog.New(handler))
-	start := time.Now()
-	status, body := uploadBundleHTTP(t, api, f.enrollment.Token, raw)
-	total := time.Since(start)
-	if status != http.StatusOK {
-		t.Fatalf("S240 status=%d body=%s", status, body)
-	}
-	var receipt syncing.WorkoutImportReceipt
-	if err := json.Unmarshal(body, &receipt); err != nil {
-		t.Fatalf("receipt: %v body=%s", err, body)
-	}
-	if receipt.Counts.SamplesInserted != sampleCount {
-		t.Fatalf("counts: %+v", receipt.Counts)
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	dir := filepath.Join("..", "..", "..", "docs", "evidence", "workout-sync-speed", "phase-timings")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	runID := time.Now().UTC().Format("20060102T150405Z") + "-" + fmt.Sprintf("%08x", time.Now().UnixNano()&0xffffffff)
-	path := filepath.Join(dir, runID+"-s240-import-phases.txt")
-	out := []string{
-		fmt.Sprintf("run_id=%s", runID),
-		fmt.Sprintf("samples=%d", sampleCount),
-		fmt.Sprintf("ack_total_ms=%.3f", float64(total.Microseconds())/1000),
-	}
-	for _, line := range lines {
-		if strings.Contains(line, "workout_import_phase") || strings.Contains(line, "workout_bundle_transport") {
-			out = append(out, line)
-		}
-	}
-	if err := os.WriteFile(path, []byte(strings.Join(out, "\n")+"\n"), 0o644); err != nil {
-		t.Fatalf("write: %v", err)
-	}
-	t.Logf("phase capture: %s", path)
-}
-
-// syncWriter collects log lines so the phase capture can persist them.
-type syncWriter struct {
-	mu    *sync.Mutex
-	lines *[]string
-}
-
-func (w *syncWriter) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	*w.lines = append(*w.lines, strings.TrimRight(string(p), "\n"))
-	return len(p), nil
 }

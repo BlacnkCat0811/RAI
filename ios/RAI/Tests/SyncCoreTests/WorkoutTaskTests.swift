@@ -96,44 +96,6 @@ struct WorkoutTaskTests {
         #expect(task.coverage["cadence"]?.isSatisfied == true)
     }
 
-    @Test func acknowledgementReleasesCaptureScaffoldingAndKeepsReceiptIdentity() async throws {
-        let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
-        let store = try OutboxStore(directory: directory)
-        try await store.beginTask(workoutA)
-        let file = try await store.savePayload(Data("multipart".utf8))
-        let hash = String(repeating: "a", count: 64)
-        let covered = (0..<200).map { _ in Wire.id() }
-        let manifest = CaptureManifest(workoutID: workoutA, generation: 9, cursors: ["heart": 200],
-                                       coveredEventIDs: covered, deletionEventIDs: [Wire.id()],
-                                       completeTypes: ["heart"], coveredFacts: 200)
-        try await store.setBundle(workoutA, file: file, sha256: hash, boundary: "test", sampleDeletions: 0,
-                                  routeDeletions: 0, discoveryGeneration: 9, deletionEventIDs: [Wire.id()],
-                                  pendingReadKeys: [], manifest: manifest)
-        let before = try JSONEncoder().encode(try #require(await store.task(workoutA))).count
-        let receipt: JSON = .object(["workoutID": .string(workoutA), "bundleSHA256": .string(hash),
-            "ingestStatus": .string("committed"), "commitRevision": .int(1),
-            "counts": .object(["workoutInserted": .bool(true), "samplesInserted": .int(0),
-                "samplesUnchanged": .int(0), "samplesDeleted": .int(0), "associationsInserted": .int(0),
-                "associationsUnchanged": .int(0), "associationsDeleted": .int(0), "seriesInserted": .int(0),
-                "seriesUnchanged": .int(0), "routesInserted": .int(0), "routesUnchanged": .int(0),
-                "routesDeleted": .int(0)]),
-            "analysisStatus": .string("not_required"), "analysisJobIDs": .array([])])
-        try await store.acknowledgeBundle(workoutA, receipt: receipt)
-        let acknowledged = try #require(await store.task(workoutA))
-        #expect(acknowledged.uploadReceipt == receipt)
-        #expect(acknowledged.captureManifest == nil)
-        #expect(acknowledged.bundleDeletionEventIDs == nil)
-        #expect(acknowledged.pendingReadKeys == nil)
-        #expect(acknowledged.bundleSHA256 == hash)
-        #expect(acknowledged.phase == .acknowledged)
-        let after = try JSONEncoder().encode(acknowledged).count
-        #expect(after < before, "ACK kept capture scaffolding instead of releasing it")
-        // A retried upload must reconcile to the exact original receipt, not a
-        // rebuilt identity.
-        try await store.acknowledgeBundle(workoutA, receipt: receipt)
-        #expect(await store.task(workoutA)?.uploadReceipt == receipt)
-    }
-
     @Test func analysisFollowupIsBoundedAndStopsOnFinalPhase() {
         #expect(AnalysisFollowup.delays == [2, 5, 15, 30, 60, 120, 300])
         #expect(AnalysisFollowup.totalBudget <= 600)
@@ -165,33 +127,7 @@ struct WorkoutTaskTests {
         #expect(task.metrics["workout_read_ms"] == 12.5)
     }
 
-    @Test func stagedTaskAcknowledgesOnlyAfterAllPagesDeliver() async throws {
-        let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
-        let store = try OutboxStore(directory: directory)
-        try await store.beginTask(workoutA)
-        let operation = RequestOperation(method: "POST", path: "/v2/synthetic", expected: ["ingestStatus": .string("committed")])
-        let page = PendingPage(anchorKey: "synthetic-task-page", candidateAnchor: Data([9]), operations: [.request(operation)], taskID: workoutA)
-        try await store.stage(page)
-        try await store.updateTask(workoutA) { $0.stagedAll = true }
-        try await store.acknowledge(page.id, cursor: 0, receipt: .object(operation.expected))
-        let task = try #require(await store.task(workoutA))
-        #expect(task.phase == .acknowledged)
-        #expect(task.acknowledgedAt != nil)
-    }
-
-    @Test func earlyPageCannotMarkWholeTaskAcknowledged() async throws {
-        let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
-        let store = try OutboxStore(directory: directory)
-        try await store.beginTask(workoutA)
-        let operation = RequestOperation(method: "POST", path: "/v2/synthetic", expected: ["ingestStatus": .string("committed")])
-        let page = PendingPage(anchorKey: "synthetic-early-page", candidateAnchor: Data([9]), operations: [.request(operation)], taskID: workoutA)
-        try await store.stage(page)
-        try await store.acknowledge(page.id, cursor: 0, receipt: .object(operation.expected))
-        let task = try #require(await store.task(workoutA))
-        #expect(task.phase == .preparing)
-    }
-
-    @Test func permanentlyRejectedTaskPageSettlesAsFailed() async throws {
+    @Test func unacknowledgedLegacyTaskReconciliationRequiresProtocolUpgrade() async throws {
         let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
         let store = try OutboxStore(directory: directory)
         try await store.beginTask(workoutA)
@@ -202,18 +138,18 @@ struct WorkoutTaskTests {
         try await store.reconcileTasks()
         let task = try #require(await store.task(workoutA))
         #expect(task.phase == .failed)
-        #expect(task.errorCode == "sample_identity_conflict")
+        #expect(task.errorCode == "protocol_upgrade_required")
         #expect(await store.pages(taskID: workoutA).count == 1)
     }
 
-    @Test func interruptedPreparationBecomesRetryableFailure() async throws {
+    @Test func interruptedLegacyPreparationRequiresProtocolUpgrade() async throws {
         let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
         let store = try OutboxStore(directory: directory)
         try await store.beginTask(workoutA)
         try await store.reconcileTasks()
         let task = try #require(await store.task(workoutA))
         #expect(task.phase == .failed)
-        #expect(task.errorCode == "interrupted")
+        #expect(task.errorCode == "protocol_upgrade_required")
     }
 
     @Test func rejectedIdentityPageCanBeDiscardedBeforeItsBatchCommits() async throws {
@@ -277,24 +213,26 @@ struct WorkoutTaskTests {
     }
 }
 
-    @Test func bundleFileIsDurableAndReclaimedAfterAck() async throws {
+    @Test func ingestPayloadFileIsDurableAndReclaimedAfterAcceptance() async throws {
         let directory = try temporaryDirectory(); defer { try? FileManager.default.removeItem(at: directory) }
         let store = try OutboxStore(directory: directory)
         try await store.beginTask(workoutA)
-        let file = try await store.savePayload(Data("multipart".utf8), suffix: "multipart.json")
-        try await store.setBundle(workoutA, file: file, sha256: String(repeating: "a", count: 64), boundary: "b")
-        let task = try #require(await store.task(workoutA))
-        #expect(task.bundleFile == file)
-        let url = try await store.fileURL(file)
+        try await store.markIngestLane(workoutA)
+        let staged = try await store.stageWorkoutIngestPayload(workoutA,
+            body: WorkoutPayloadTransport.multipart(bundle: Data("payload".utf8), boundary: "rai.test"))
+        #expect(await store.task(workoutA)?.bundleFile == staged.file)
+        let url = try await store.fileURL(staged.file)
         #expect(FileManager.default.fileExists(atPath: url.path))
         _ = try await store.collectGarbage(dryRun: false)
         #expect(FileManager.default.fileExists(atPath: url.path))
-        do { try await store.releaseBundle(workoutA); Issue.record("unacknowledged bundle released") } catch { }
+        do { try await store.releaseBundle(workoutA); Issue.record("unacknowledged payload released") } catch { }
         #expect(FileManager.default.fileExists(atPath: url.path))
-        try await store.acknowledgeBundle(workoutA, receipt: durableWorkoutACK(workoutA, String(repeating: "a", count: 64)))
+        try await store.acknowledgeWorkoutIngest(workoutA, receipt: .object([
+            "workoutID": .string(workoutA), "ingestStatus": .string("accepted"),
+            "acceptedAt": .string("2026-11-09T10:00:00Z")]))
+        #expect(await store.task(workoutA)?.bundleFile == nil)
         _ = try await store.collectGarbage(dryRun: false)
         #expect(!FileManager.default.fileExists(atPath: url.path))
-        #expect(await store.task(workoutA)?.bundleFile == nil)
     }
 
     @Test func legacyPagesArePurgedWithTheirFiles() async throws {

@@ -23,11 +23,13 @@ func TestBundleRejectsBeforeReadingBodyWhenDeviceSlotBusy(t *testing.T) {
 		DeviceID: "22222222-2222-4222-8222-222222222222", CanCollect: true}
 	a := &API{store: admissionStore{}, log: slog.Default(), uploads: make(chan struct{}, 2),
 		devices: map[uploadDevice]bool{{p.DatasetID, p.DeviceID}: true}}
+	workoutID := "44444444-4444-4444-8444-444444444444"
 	body := &countingBody{}
-	request := httptest.NewRequest("POST", "/v2/sync/workout-bundles", body)
+	request := httptest.NewRequest("POST", "/v2/sync/workout-ingests/"+workoutID, body)
+	request.SetPathValue("workoutID", workoutID)
 	request.Header.Set("Content-Type", "multipart/form-data; boundary=test")
 	response := httptest.NewRecorder()
-	err := a.importWorkoutBundle(response, request, p)
+	err := a.acceptWorkoutIngest(response, request, p)
 	if err == nil {
 		t.Fatal("expected busy device admission error")
 	}

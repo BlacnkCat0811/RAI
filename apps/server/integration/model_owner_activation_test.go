@@ -43,9 +43,8 @@ func TestOwnerAuthorizedRealDatasetActivationAndRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wire, contentType := multipartBundleBytes(t, body)
-	if code, _ := postBundle(t, server, f.enrollment.Token, "", wire, contentType); code != http.StatusOK {
-		t.Fatalf("upload status=%d", code)
+	if _, err = api.ImportWorkoutBundle(ctx, f.p, bundle, body); err != nil {
+		t.Fatalf("upload: %v", err)
 	}
 	stack := modelmanifest.StackID()
 	manifest, err := modelmanifest.CurrentHash()

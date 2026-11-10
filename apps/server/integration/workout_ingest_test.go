@@ -24,23 +24,23 @@ import (
 	"rai/server/internal/syncing"
 )
 
-// ingestV4Raw builds the exact raw protocol-4 bytes a client would upload.
-func ingestV4Raw(t *testing.T, datasetID, datasetEpoch, collectorEpoch, workoutID string, value float64) []byte {
+// ingestRaw builds the exact raw protocol-6 bytes a client would upload.
+func ingestRaw(t *testing.T, datasetID, datasetEpoch, collectorEpoch, workoutID string, value float64) []byte {
 	t.Helper()
 	start := time.Date(2026, 11, 1, 8, 0, 0, 0, time.UTC)
-	startUs, endUs := start.UnixMicro(), start.Add(500*time.Millisecond).UnixMicro()
+	startUs := start.UnixMicro()
 	source := `{"bundleID":"com.apple.health","productType":"Watch7,1"}`
 	return []byte(fmt.Sprintf(`{
-		"protocolVersion":4,
+		"protocolVersion":6,
 		"datasetID":%q,"datasetEpoch":%q,"collectorEpoch":%q,"workoutID":%q,
 		"startUs":%d,"endUs":%d,
 		"source":%s,
 		"workout":{"activityType":37,"durationUs":60000000},
-		"streams":[{"type":%q,"unit":"count/min","status":"complete","error":null,
-			"samples":[{"uuid":%q,"startUs":%d,"endUs":%d,"value":%g,"source":%s}]}],
-		"series":[],"routes":[]
+		"streams":[{"type":%q,"unit":"count/min","status":"complete",
+			"samples":[[0,500000,%g]]}],
+		"routes":[]
 	}`, datasetID, datasetEpoch, collectorEpoch, workoutID,
-		startUs, start.Add(time.Minute).UnixMicro(), source, kind, syncing.NewID(), startUs, endUs, value, source))
+		startUs, start.Add(time.Minute).UnixMicro(), source, kind, value))
 }
 
 func ingestEnvelope(t *testing.T, raw []byte) syncing.WorkoutIngestEnvelope {
@@ -138,7 +138,7 @@ func countFor(t *testing.T, s *postgres.Store, table, dataset, workoutID string)
 func TestWorkoutUUIDIngestAcceptCommitReplay(t *testing.T) {
 	f := setup(t)
 	workoutID := syncing.NewID()
-	raw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
+	raw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
 
 	receipt := acceptIngest(t, f, f.p, raw)
 	if receipt.WorkoutID != workoutID || receipt.IngestStatus != "accepted" || receipt.AcceptedAt.IsZero() {
@@ -172,7 +172,7 @@ func TestWorkoutUUIDIngestAcceptCommitReplay(t *testing.T) {
 
 	// Different bytes for the same UUID replay the first acceptance and never
 	// replace the stored payload.
-	raw2 := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 199)
+	raw2 := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 199)
 	replay := acceptIngest(t, f, f.p, raw2)
 	if replay.IngestStatus != "accepted" || !replay.AcceptedAt.Equal(receipt.AcceptedAt) {
 		t.Fatalf("replay changed acceptance: %+v", replay)
@@ -192,9 +192,8 @@ func TestWorkoutUUIDIngestAcceptCommitReplay(t *testing.T) {
 func TestWorkoutUUIDIngestHTTPAcceptAndStatus(t *testing.T) {
 	f := setup(t)
 	workoutID := syncing.NewID()
-	raw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
-	server := httpapi.NewWithOptions(f.s, slog.New(slog.NewJSONHandler(io.Discard, nil)),
-		httpapi.Options{WorkoutUUIDIngestMode: syncing.WorkoutIngestUUID})
+	raw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
+	server := httpapi.New(f.s, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 
 	post := func(id string, body []byte) *httptest.ResponseRecorder {
 		var wire bytes.Buffer
@@ -236,7 +235,7 @@ func TestWorkoutUUIDIngestHTTPAcceptAndStatus(t *testing.T) {
 		accepted.IngestStatus != "accepted" || accepted.WorkoutID != workoutID {
 		t.Fatalf("acceptance body: %v %s", err, first.Body.String())
 	}
-	if replay := post(workoutID, ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch,
+	if replay := post(workoutID, ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch,
 		f.enrollment.CollectorEpoch, workoutID, 199)); replay.Code != 200 {
 		t.Fatalf("replay POST: %d %s", replay.Code, replay.Body.String())
 	} else {
@@ -280,17 +279,39 @@ func TestWorkoutUUIDIngestAlreadyImported(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	workoutID := syncing.NewID()
-	raw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
-	bundle, err := syncing.DecodeWorkoutBundleV4JSON(raw)
+	raw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
+	bundle, err := syncing.DecodeWorkoutPayloadJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = f.s.ImportWorkoutBundle(ctx, f.p, bundle, raw); err != nil {
 		t.Fatal(err)
 	}
-	receipt := acceptIngest(t, f, f.p, raw)
-	if receipt.IngestStatus != "already_imported" || receipt.WorkoutID != workoutID {
-		t.Fatalf("legacy import accepted again: %+v", receipt)
+	_, err = f.s.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, raw), raw)
+	requireSyncCode(t, err, "workout_ingest_missing_receipt")
+	server := httpapi.New(f.s, analysisLog)
+	var wire bytes.Buffer
+	writer := multipart.NewWriter(&wire)
+	part, err := writer.CreatePart(textproto.MIMEHeader{
+		"Content-Disposition": {`form-data; name="file"; filename="workout.json"`},
+		"Content-Type":        {"application/json"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = part.Write(raw); err != nil {
+		t.Fatal(err)
+	}
+	if err = writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest("POST", "/v2/sync/workout-ingests/"+workoutID, &wire)
+	request.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, request)
+	if response.Code != 409 || !bytes.Contains(response.Body.Bytes(), []byte(`"code":"workout_ingest_missing_receipt"`)) {
+		t.Fatalf("missing acceptance did not return the consistency error: status=%d", response.Code)
 	}
 	if status := ingestStatus(t, f.s, f.p, workoutID); status.IngestStatus != "already_imported" {
 		t.Fatalf("already imported status: %+v", status)
@@ -307,7 +328,7 @@ func TestWorkoutUUIDIngestDatasetScoped(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	workoutID := syncing.NewID()
-	rawA := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
+	rawA := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
 	acceptIngest(t, f, f.p, rawA)
 	if outcome := processIngest(t, f.s); outcome.Status != "committed" {
 		t.Fatalf("dataset A worker: %+v", outcome)
@@ -332,7 +353,7 @@ func TestWorkoutUUIDIngestDatasetScoped(t *testing.T) {
 	}
 	// The same UUID is a fresh identity in dataset B, not an already-imported
 	// duplicate of dataset A.
-	rawB := ingestV4Raw(t, b.DatasetID, credential.DatasetEpoch, credential.CollectorEpoch, workoutID, 144)
+	rawB := ingestRaw(t, b.DatasetID, credential.DatasetEpoch, credential.CollectorEpoch, workoutID, 144)
 	receipt := acceptIngest(t, f, b, rawB)
 	if receipt.IngestStatus != "accepted" {
 		t.Fatalf("dataset B acceptance: %+v", receipt)
@@ -361,7 +382,7 @@ func TestWorkoutUUIDIngestDeleteOrdering(t *testing.T) {
 	deletedBeforeProcess := syncing.NewID()
 	deletedAfterProcess := syncing.NewID()
 
-	afterRaw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, deletedAfterProcess, 121)
+	afterRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, deletedAfterProcess, 121)
 	acceptIngest(t, f, f.p, afterRaw)
 	if outcome := processIngest(t, f.s); outcome.Status != "committed" {
 		t.Fatalf("worker: %+v", outcome)
@@ -382,7 +403,7 @@ func TestWorkoutUUIDIngestDeleteOrdering(t *testing.T) {
 		requireSyncCode(t, err, "workout_deleted")
 	}
 
-	beforeRaw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, deletedBeforeProcess, 133)
+	beforeRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, deletedBeforeProcess, 133)
 	acceptIngest(t, f, f.p, beforeRaw)
 	if _, err := f.s.DeleteWorkoutBundle(ctx, f.p, bundleDeleteRequest(f, deletedBeforeProcess)); err != nil {
 		t.Fatal(err)
@@ -407,7 +428,7 @@ func TestWorkoutUUIDIngestDeleteOrdering(t *testing.T) {
 	if _, err := f.s.DeleteWorkoutBundle(ctx, f.p, bundleDeleteRequest(f, unknown)); err != nil {
 		t.Fatal(err)
 	}
-	unknownRaw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, unknown, 128)
+	unknownRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, unknown, 128)
 	if _, err := f.s.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, unknownRaw), unknownRaw); err == nil {
 		t.Fatal("tombstoned unknown UUID accepted")
 	} else {
@@ -419,7 +440,7 @@ func TestWorkoutUUIDIngestLeaseRecoveryAndInvalidRaw(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	leased := syncing.NewID()
-	acceptIngest(t, f, f.p, ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, leased, 121))
+	acceptIngest(t, f, f.p, ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, leased, 121))
 
 	if _, err := f.s.Pool.Exec(ctx, `UPDATE workout_ingests SET attempts=1,
 		lease_until=clock_timestamp()+interval '1 hour' WHERE dataset_id=$1 AND workout_uuid=$2`,
@@ -446,9 +467,9 @@ func TestWorkoutUUIDIngestLeaseRecoveryAndInvalidRaw(t *testing.T) {
 	}
 
 	invalidID := syncing.NewID()
-	invalidRaw := []byte(`{"protocolVersion":4}`)
+	invalidRaw := []byte(`{"protocolVersion":6}`)
 	envelope := syncing.WorkoutIngestEnvelope{DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
-		CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: invalidID, ProtocolVersion: 4}
+		CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: invalidID, ProtocolVersion: 6}
 	if _, err := f.s.AcceptWorkoutIngest(ctx, f.p, envelope, invalidRaw); err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +485,7 @@ func TestWorkoutUUIDIngestLeaseRecoveryAndInvalidRaw(t *testing.T) {
 	}
 
 	mismatched := syncing.NewID()
-	foreignRaw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, syncing.NewID(), 121)
+	foreignRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, syncing.NewID(), 121)
 	mismatchEnvelope := ingestEnvelope(t, foreignRaw)
 	mismatchEnvelope.WorkoutID = mismatched
 	if _, err := f.s.AcceptWorkoutIngest(ctx, f.p, mismatchEnvelope, foreignRaw); err != nil {
@@ -483,7 +504,7 @@ func TestWorkoutUUIDIngestWorkerFenced(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	workoutID := syncing.NewID()
-	acceptIngest(t, f, f.p, ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121))
+	acceptIngest(t, f, f.p, ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121))
 	if _, err := f.s.Pool.Exec(ctx, `UPDATE collector_leases SET collector_epoch=gen_random_uuid()
 		WHERE dataset_id=$1 AND device_id=$2`, f.p.DatasetID, f.p.DeviceID); err != nil {
 		t.Fatal(err)
@@ -552,7 +573,7 @@ func TestWorkoutUUIDIngestRestrictedRuntimeRoles(t *testing.T) {
 	ctx := context.Background()
 	api, worker, _ := runtimeRoles(t, f)
 	workoutID := syncing.NewID()
-	raw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
+	raw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, workoutID, 121)
 	body, err := api.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, raw), raw)
 	if err != nil {
 		t.Fatalf("API role acceptance: %v", err)
@@ -576,7 +597,7 @@ func TestWorkoutUUIDIngestRestrictedRuntimeRoles(t *testing.T) {
 		t.Fatal("restricted worker facts missing")
 	}
 	fresh := syncing.NewID()
-	freshRaw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, fresh, 122)
+	freshRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, fresh, 122)
 	if _, err = worker.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, freshRaw), freshRaw); err == nil {
 		t.Fatal("worker role accepted a new ingest")
 	}
@@ -588,7 +609,7 @@ func TestWorkoutUUIDIngestTransientRetryExhaustion(t *testing.T) {
 	api, worker, workerRole := runtimeRoles(t, f)
 	_ = api
 	failing := syncing.NewID()
-	raw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, failing, 121)
+	raw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, failing, 121)
 	if _, err := f.s.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, raw), raw); err != nil {
 		t.Fatal(err)
 	}
@@ -627,7 +648,7 @@ func TestWorkoutUUIDIngestTransientRetryExhaustion(t *testing.T) {
 	}
 
 	recovered := syncing.NewID()
-	recoveredRaw := ingestV4Raw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, recovered, 131)
+	recoveredRaw := ingestRaw(t, f.p.DatasetID, f.enrollment.DatasetEpoch, f.enrollment.CollectorEpoch, recovered, 131)
 	if _, err := f.s.AcceptWorkoutIngest(ctx, f.p, ingestEnvelope(t, recoveredRaw), recoveredRaw); err != nil {
 		t.Fatal(err)
 	}

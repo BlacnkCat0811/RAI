@@ -3,7 +3,6 @@
 package integration
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -122,9 +121,8 @@ func TestManagedModelStackPublishesWorkoutDetailAndWithdrawsOnDelete(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	wire, contentType := multipartBundleBytes(t, body)
-	if code, _ := postBundle(t, server, f.enrollment.Token, "", wire, contentType); code != http.StatusOK {
-		t.Fatalf("upload status=%d", code)
+	if _, err = api.ImportWorkoutBundle(ctx, f.p, bundle, body); err != nil {
+		t.Fatalf("upload: %v", err)
 	}
 	if _, err = f.s.Pool.Exec(ctx, `UPDATE datasets SET synthetic_test=true WHERE id=$1`, f.p.DatasetID); err != nil {
 		t.Fatal(err)
@@ -159,24 +157,10 @@ func TestManagedModelStackPublishesWorkoutDetailAndWithdrawsOnDelete(t *testing.
 		t.Fatal("active detail missing", err)
 	}
 
-	body, err = json.Marshal(syncing.WorkoutDeleteRequest{ProtocolVersion: 3, DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
-		CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: bundle.WorkoutID, Reason: "synthetic_delete"})
-	if err != nil {
+	if _, err = f.s.DeleteWorkoutBundle(ctx, f.p, syncing.WorkoutDeleteRequest{
+		DatasetID: f.p.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch,
+		CollectorEpoch: f.enrollment.CollectorEpoch, WorkoutID: bundle.WorkoutID, Reason: "synthetic_delete"}); err != nil {
 		t.Fatal(err)
-	}
-	del, err := http.NewRequest(http.MethodDelete, server.URL+"/v2/sync/workout-bundles/"+bundle.WorkoutID, bytes.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	del.Header.Set("Authorization", "Bearer "+f.enrollment.Token)
-	del.Header.Set("Content-Type", "application/json")
-	response, err := http.DefaultClient.Do(del)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("delete status=%d", response.StatusCode)
 	}
 	var count int
 	if err := api.Pool.QueryRow(ctx, `SELECT count(*) FROM analysis_published_artifacts WHERE dataset_id=$1`, f.p.DatasetID).Scan(&count); err != nil || count != 0 {

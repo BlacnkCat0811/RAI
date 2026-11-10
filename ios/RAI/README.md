@@ -17,9 +17,26 @@ xcodebuild -project RAI.xcodeproj -scheme RAI -destination 'generic/platform=iOS
 xcodebuild -project RAI.xcodeproj -scheme RAI -destination 'platform=iOS Simulator,id=<SIMULATOR_UUID>' test
 ```
 
+A new file under `AppTests/` is not picked up by the checked-in project on its own: `project.yml` declares the
+directory (`sources: [AppTests]`), so `xcodegen generate` reproduces the registration, but until the project is
+regenerated the file must be registered in `project.pbxproj` by hand (a `PBXBuildFile`, a `PBXFileReference`, the
+`AppTests` group entry and the `RAITests` Sources phase entry). `AppTests/WorkoutUploadLiveTests.swift` was added
+that way; after any regeneration, confirm it is still in the `RAITests` target's Sources phase, otherwise the live
+upload suite silently disappears.
+
 `swift test` runs the Swift Testing suites, including 108 Go-generated route vectors. Its initial XCTest discovery may print zero; the final Swift Testing test count is the relevant result. The Xcode tests exercise synthetic HealthKit quantity conversions on a simulator. An unsigned iPhone build does not prove signing, installation or real-device operation.
 
 For signing, copy `Config/Developer.xcconfig.example` to the ignored `Config/Developer.xcconfig`, supply an Apple Development Team, then build for a connected, unlocked, trusted iPhone. The HealthKit entitlement is read only; there is no HealthKit save/delete call or write authorization request.
+
+## Simulated-cloud upload acceptance
+
+`scripts/local/sim-upload.sh start|status|run|stop|all` runs the real App upload code inside a local Simulator
+against a local Go API and an isolated PostgreSQL 18 database (`scripts/local/test.sh simupload` does
+`all` and stops the stack afterwards; add `--drop` to remove the database and credential). Only synthetic
+Workouts are uploaded: the Simulator has no HealthKit data and `simctl` has no health service, so the suite
+supplies an in-process synthetic HealthKit reader and exercises everything else for real — protocol-6
+building, gzip multipart, TCP, acceptance, projection and Worker analysis. This is not real-device or
+real-cloud acceptance.
 
 ## Isolated development configuration
 

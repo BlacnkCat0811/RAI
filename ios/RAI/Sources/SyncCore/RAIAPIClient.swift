@@ -1,33 +1,6 @@
 import Foundation
 import Synchronization
 
-/// What the server declared about the WorkoutBundle gzip transport in its
-/// handshake. `unknown` means no handshake was observed by this client process,
-/// so the declaration is simply not known yet; `declared(false)` means a
-/// handshake ran and did not advertise `capabilities.bundleGzipPart`.
-public enum BundleGzipCapability: Sendable, Equatable {
-    case unknown
-    case declared(Bool)
-}
-
-/// Handshake capabilities observed by one client instance. The API client is a
-/// value type, so the declaration is held in a shared box that survives copies
-/// and the single 401 refresh re-creation.
-public final class HandshakeCapabilities: Sendable {
-    private let box = Mutex<JSON?>(nil)
-    public init() {}
-    /// Records the `capabilities` object of an observed handshake response.
-    public func record(_ handshake: JSON) { box.withLock { $0 = handshake["capabilities"] } }
-    public var declared: JSON? { box.withLock { $0 } }
-    /// A handshake that ran without `bundleGzipPart` is a hard "not declared",
-    /// never a silent downgrade to a plaintext part.
-    public var bundleGzipPart: BundleGzipCapability {
-        guard let capabilities = declared else { return .unknown }
-        if case .bool(let value) = capabilities["bundleGzipPart"] { return .declared(value) }
-        return .declared(false)
-    }
-}
-
 public struct UploadResponse: Sendable {
     public let data: Data
     public let status: Int
@@ -71,28 +44,8 @@ public struct RAIAPIClient: Sendable {
     private let uploader: (any FileUploader)?
     let metrics: SyncMetrics
     private let refreshToken: (@Sendable () async throws -> String)?
-    /// Handshake-declared capabilities of this client instance. The bundle lane
-    /// reads `bundleGzipCapability` before it derives any wire artifact.
-    let capabilities: HandshakeCapabilities
-    public init(baseURL: URL, token: String, session: URLSession = RAIAPIClient.defaultSession, uploader: (any FileUploader)? = nil, metrics: SyncMetrics = .init(), refreshToken: (@Sendable () async throws -> String)? = nil, capabilities: HandshakeCapabilities = HandshakeCapabilities()) {
-        self.baseURL = baseURL; self.token = token; self.session = session; self.uploader = uploader; self.metrics = metrics; self.refreshToken = refreshToken; self.capabilities = capabilities
-    }
-    /// `unknown` until a handshake is observed; see `BundleGzipCapability`.
-    public var bundleGzipCapability: BundleGzipCapability { capabilities.bundleGzipPart }
-    /// Only a validated durable deletion ACK can complete a local deletion.
-    /// A 404 remains a failed command for an explicit retry by the caller.
-    public func deleteWorkoutBundle(workoutID: String, scope: Scope) async throws -> JSON {
-        var fields = scope.bundleFields
-        fields["workoutID"] = .string(workoutID)
-        let receipt = try await call("DELETE", "/v2/sync/workout-bundles/" + workoutID,
-                                     body: JSON.object(fields).data())
-        guard receipt["workoutID"].text == workoutID,
-              receipt["ingestStatus"].text == "deleted",
-              let revision = receipt["commitRevision"].integer, revision > 0,
-              case .bool = receipt["alreadyDeleted"] else {
-            throw SyncFailure.receiptMismatch
-        }
-        return receipt
+    public init(baseURL: URL, token: String, session: URLSession = RAIAPIClient.defaultSession, uploader: (any FileUploader)? = nil, metrics: SyncMetrics = .init(), refreshToken: (@Sendable () async throws -> String)? = nil) {
+        self.baseURL = baseURL; self.token = token; self.session = session; self.uploader = uploader; self.metrics = metrics; self.refreshToken = refreshToken
     }
 
     public func call(_ method: String, _ path: String, body: Data? = nil, file: URL? = nil,
@@ -106,7 +59,7 @@ public struct RAIAPIClient: Sendable {
             // and let the existing configuration/Keychain flow replace it.
             guard let refreshToken else { throw error }
             let refreshed = try await refreshToken()
-            let client = RAIAPIClient(baseURL: baseURL, token: refreshed, session: session, uploader: uploader, metrics: metrics, capabilities: capabilities)
+            let client = RAIAPIClient(baseURL: baseURL, token: refreshed, session: session, uploader: uploader, metrics: metrics)
             return try await client.call(method, path, body: body, file: file, mediaType: mediaType, gzip: gzip, identity: identity, query: query, headers: headers)
         }
     }
@@ -122,7 +75,7 @@ public struct RAIAPIClient: Sendable {
     private func performCall(_ method: String, _ path: String, body: Data?, file: URL?,
                              mediaType: String, gzip: Bool, identity: String, query: [String: String],
                              headers: [String: String] = [:]) async throws -> JSON {
-        let durableACK = path.hasPrefix("/v2/sync/workout-bundles") || path.hasPrefix("/v2/sync/workout-ingests") || path == "/v2/sync/workout-completeness" || path == "/v2/sync/daily-facts" || path == "/v2/sync/vo2max-facts"
+        let durableACK = path.hasPrefix("/v2/sync/workout-ingests") || path == "/v2/sync/daily-facts" || path == "/v2/sync/vo2max-facts"
         let networkStart = Date()
         defer {
             metrics.elapsed("network_ms", since: networkStart)
@@ -133,7 +86,7 @@ public struct RAIAPIClient: Sendable {
         guard !path.contains("?"), !path.contains("#") else { throw SyncFailure.invalid("invalid_api_path") }
         components.path = path; components.queryItems = query.isEmpty ? nil : query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }; components.fragment = nil
         guard let url = components.url else { throw SyncFailure.invalid("invalid_api_url") }
-        var request = URLRequest(url: url, timeoutInterval: method == "POST" && (path == "/v2/sync/workout-bundles" || path.hasPrefix("/v2/sync/workout-ingests/")) ? 270 : 60)
+        var request = URLRequest(url: url, timeoutInterval: method == "POST" && path.hasPrefix("/v2/sync/workout-ingests/") ? 270 : 60)
         request.httpMethod = method; request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         request.setValue(mediaType, forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -165,9 +118,6 @@ public struct RAIAPIClient: Sendable {
             let decodeStart = Date()
             let json = try JSON.decode(data)
             metrics.elapsed("response_decode_ms", since: decodeStart)
-            // The bundle lane needs the declared gzip capability before it
-            // derives any wire artifact; record the declaration once observed.
-            if path == "/v2/handshake", method == "GET" { capabilities.record(json) }
             return json
         } catch let error as UploadError { throw error }
         catch let error as URLError {

@@ -26,8 +26,6 @@ type API struct {
 	uploadMu sync.Mutex
 	devices  map[uploadDevice]bool
 
-	ingestMode    syncing.WorkoutIngestMode
-	payloadV6     bool
 	statusSlots   chan struct{}
 	statusMu      sync.Mutex
 	statusBuckets map[uploadDevice]statusBudget
@@ -54,22 +52,9 @@ const (
 	maxStatusBuckets       = 1024
 )
 
-type Options struct {
-	WorkoutUUIDIngestMode syncing.WorkoutIngestMode
-	WorkoutPayloadV6      bool
-}
-
 func New(store syncing.Store, log *slog.Logger) http.Handler {
-	return NewWithOptions(store, log, Options{WorkoutUUIDIngestMode: syncing.WorkoutIngestLegacy})
-}
-
-func NewWithOptions(store syncing.Store, log *slog.Logger, options Options) http.Handler {
-	mode := options.WorkoutUUIDIngestMode
-	if mode == "" {
-		mode = syncing.WorkoutIngestLegacy
-	}
 	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool),
-		ingestMode: mode, payloadV6: options.WorkoutPayloadV6, statusSlots: make(chan struct{}, ProcessStatusSlots), statusBuckets: make(map[uploadDevice]statusBudget)}
+		statusSlots: make(chan struct{}, ProcessStatusSlots), statusBuckets: make(map[uploadDevice]statusBudget)}
 	m := http.NewServeMux()
 	live := func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) }
 	ready := func(w http.ResponseWriter, r *http.Request) {
@@ -93,9 +78,6 @@ func NewWithOptions(store syncing.Store, log *slog.Logger, options Options) http
 	m.Handle("GET /v2/sync/vo2max-facts/coverage", a.auth(syncing.ReadLane, a.vo2Coverage))
 	m.Handle("POST /v2/sync/daily-facts", a.auth(syncing.UploadLane, a.dailyUpload))
 	m.Handle("GET /v2/sync/daily-facts/coverage", a.auth(syncing.ReadLane, a.dailyCoverage))
-	m.Handle("POST /v2/sync/workout-bundles", a.auth(syncing.UploadLane, a.importWorkoutBundle))
-	m.Handle("GET /v2/sync/workout-bundles/{id}", a.auth(syncing.ReadLane, a.workoutBundle))
-	m.Handle("DELETE /v2/sync/workout-bundles/{id}", a.auth(syncing.UploadLane, a.deleteWorkoutBundle))
 	// UUID ingest skips Admit: its request budget has a foreign key into
 	// datasets, and acceptance must proceed while a fact import holds that row.
 	m.Handle("POST /v2/sync/workout-ingests/{workoutID}", a.ingestAuth(syncing.UploadLane, a.acceptWorkoutIngest))
@@ -363,145 +345,17 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 		types = append(types, k)
 	}
 	sort.Strings(types)
-	payloadVersion := 3
-	bundleCompact := false
-	// v4/v5/v6 are negotiated per client. A v3 client that does not send the
-	// header keeps receiving the exact v3 capability set. Protocol 6 is only
-	// advertised when the deployment enables it; requesting it while disabled
-	// falls back to the v4 raw builder.
-	switch r.Header.Get("X-RAI-Sync-Protocol") {
-	case "4":
-		payloadVersion = 4
-		bundleCompact = true
-	case "5":
-		payloadVersion = 5
-		bundleCompact = true
-	case "6":
-		payloadVersion = 4
-		bundleCompact = true
-		if a.payloadV6 {
-			payloadVersion = 6
-		}
-	}
+	// Protocol 6 is the only raw Workout payload. The session protocol itself
+	// stays at version 3; it versions the handshake shape, not the payload.
 	respond(w, 200, map[string]any{"protocolVersion": 3, "deviceID": m.DeviceID, "collectorEpoch": m.CollectorEpoch, "datasetStatus": m.DatasetStatus, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
 		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": ProcessUploadSlots, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
-		"capabilities": map[string]any{"workoutSyncCompletenessVersion": 1, "workoutSyncCompletenessV2Version": 2, "workoutStreamSetVersion": 1, "workoutSourcePolicyVersion": syncing.WorkoutSourcePolicyVersion, "workoutUUIDIngestVersion": 1, "workoutUUIDIngestAccepting": a.ingestMode.Accepting(), "vo2maxFactsVersion": 1, "vo2maxMetadataRegistryVersion": 1, "vo2maxMaxChanges": syncing.MaxVO2Changes, "vo2maxMaxBytes": syncing.MaxVO2Bytes, "dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": payloadVersion, "workoutBundles": true, "bundleGzipPart": true, "bundleProtocolVersion": payloadVersion, "bundleObservationVersion": 1, "bundleCompact": bundleCompact, "explicitChildDeletions": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
-	return nil
-}
-func (a *API) importWorkoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
-	start := time.Now()
-	stage := "admission"
-	var read bundleReadMetrics
-	var decodeTime, validationTime, importTime, writeTime time.Duration
-	defer func() {
-		a.log.Info("workout_bundle_transport", "wire_bytes", read.WireBytes, "file_bytes", read.FileBytes, "decoded_bytes", read.DecodedBytes, "multipart_ms", float64(read.Multipart.Microseconds())/1000, "decompression_ms", float64(read.Decompression.Microseconds())/1000, "json_decode_ms", float64(decodeTime.Microseconds())/1000, "validation_ms", float64(validationTime.Microseconds())/1000, "import_ms", float64(importTime.Microseconds())/1000, "ack_write_ms", float64(writeTime.Microseconds())/1000, "ack_total_ms", float64(time.Since(start).Microseconds())/1000, "stage", stage)
-	}()
-	release, err := a.acquireUpload(p)
-	if err != nil {
-		return err
-	}
-	defer release()
-	stage = "body"
-	raw, read, err := readBundleBody(w, r)
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), BundleProcessingBudget)
-	ctx = syncing.WithPhaseBudget(ctx, syncing.PhaseSemanticValidation, syncing.SemanticValidationBudget)
-	ctx = syncing.ObservePhases(ctx, func(name string, d time.Duration) {
-		if name == syncing.PhaseSemanticValidation {
-			validationTime = d
-		}
-		a.log.Info("workout_import_phase", "phase", name, "duration_ms", float64(d.Microseconds())/1000)
-	})
-	defer cancel()
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(BundleProcessingBudget + ACKWriteBudget))
-	var bundle syncing.WorkoutBundle
-	stage = "json_decode"
-	s := time.Now()
-	var version struct {
-		ProtocolVersion int `json:"protocolVersion"`
-	}
-	if err := json.Unmarshal(raw, &version); err != nil {
-		return syncing.Fail(422, "unsupported_payload")
-	}
-	// v3 remains routable for older clients; the superseded compact entries are
-	// isolated once this dataset uses the UUID rule.
-	if version.ProtocolVersion == 4 || version.ProtocolVersion == 5 || version.ProtocolVersion == 6 {
-		switch a.ingestMode {
-		case syncing.WorkoutIngestUUID:
-			stage = "mode"
-			return syncing.WorkoutUUIDIngestRequired()
-		case syncing.WorkoutIngestPaused:
-			stage = "mode"
-			return syncing.WorkoutUUIDIngestPaused()
-		}
-	}
-	if version.ProtocolVersion == 4 || version.ProtocolVersion == 5 || version.ProtocolVersion == 6 {
-		bundle, err = syncing.DecodeWorkoutBundlePayloadJSON(raw)
-	} else {
-		err = syncing.DecodeWorkoutBundleJSON(raw, &bundle)
-	}
-	decodeTime = time.Since(s)
-	if err != nil {
-		return err
-	}
-	if decodeTime > 15*time.Second {
-		return syncing.Fail(503, "json_decode_timeout")
-	}
-	// Semantic validation is deliberately not repeated here. This boundary keeps
-	// only the wire contract (UTF-8, unknown/duplicate/missing fields, JSON shape
-	// and types) and the Store import entry point runs the one semantic pass, so
-	// a direct Store caller cannot bypass it. Its duration arrives above as the
-	// semantic_validation phase and still feeds validation_ms.
-	stage = "import"
-	s = time.Now()
-	receipt, err := a.store.ImportWorkoutBundle(ctx, p, bundle, raw)
-	importTime = time.Since(s)
-	if err != nil {
-		return err
-	}
-	stage = "ack_write"
-	s = time.Now()
-	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(ACKWriteBudget))
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	err = json.NewEncoder(w).Encode(json.RawMessage(receipt))
-	if err == nil {
-		err = http.NewResponseController(w).Flush()
-	}
-	writeTime = time.Since(s)
-	if err != nil {
-		a.log.Warn("ack_write_failed", "code", "ack_write_timeout_or_disconnect")
-		return nil
-	}
-	stage = "complete"
+		"capabilities": map[string]any{"workoutSyncCompletenessVersion": 1, "workoutSyncCompletenessV2Version": 2, "workoutStreamSetVersion": 1, "workoutSourcePolicyVersion": syncing.WorkoutSourcePolicyVersion, "workoutUUIDIngestVersion": 1, "workoutUUIDIngestAccepting": true, "vo2maxFactsVersion": 1, "vo2maxMetadataRegistryVersion": 1, "vo2maxMaxChanges": syncing.MaxVO2Changes, "vo2maxMaxBytes": syncing.MaxVO2Bytes, "dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 6, "bundleGzipPart": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
 	return nil
 }
 
-func (a *API) workoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
-	id := r.PathValue("id")
-	sha := r.URL.Query().Get("sha256")
-	if sha != "" && !syncing.ValidDigest(sha) {
-		return syncing.Fail(422, "unsupported_payload")
-	}
-	receipt, err := a.store.WorkoutImport(r.Context(), p, id, sha)
-	if err != nil {
-		return err
-	}
-	respond(w, 200, json.RawMessage(receipt))
-	return nil
-}
-
-// acceptWorkoutIngest stores the first raw protocol-4 snapshot for this UUID.
+// acceptWorkoutIngest stores the first raw protocol-6 snapshot for this UUID.
 // The receipt is returned only after the acceptance transaction commits.
 func (a *API) acceptWorkoutIngest(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
-	if !a.ingestMode.Accepting() {
-		if a.ingestMode == syncing.WorkoutIngestPaused {
-			return syncing.WorkoutUUIDIngestPaused()
-		}
-		return syncing.WorkoutUUIDIngestDisabled()
-	}
 	workoutID := r.PathValue("workoutID")
 	if !syncing.ValidID(workoutID) {
 		return syncing.Fail(422, "unsupported_payload")
@@ -548,23 +402,6 @@ func (a *API) workoutIngestStatus(w http.ResponseWriter, r *http.Request, p sync
 		return err
 	}
 	respond(w, 200, status)
-	return nil
-}
-
-func (a *API) deleteWorkoutBundle(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
-	id := r.PathValue("id")
-	var req syncing.WorkoutDeleteRequest
-	if err := readJSON(r, &req); err != nil {
-		return err
-	}
-	if req.WorkoutID != id {
-		return syncing.Fail(422, "unsupported_payload")
-	}
-	receipt, err := a.store.DeleteWorkoutBundle(r.Context(), p, req)
-	if err != nil {
-		return err
-	}
-	respond(w, 200, json.RawMessage(receipt))
 	return nil
 }
 

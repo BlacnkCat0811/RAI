@@ -6,7 +6,7 @@ private func recoveryDescriptor() -> SyncSessionDescriptor {
     .init(datasetID: Wire.id(), serviceID: Wire.id(), datasetEpoch: Wire.id(), deviceID: Wire.id(), collectorEpoch: Wire.id(), baseURL: URL(string: "https://synthetic.invalid")!)
 }
 private func recoveryHello(_ d: SyncSessionDescriptor) -> JSON {
-    .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "serviceID": .string(d.serviceID), "datasetEpoch": .string(d.datasetEpoch), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3)])])
+    .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "serviceID": .string(d.serviceID), "datasetEpoch": .string(d.datasetEpoch), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch), "datasetStatus": .string("active"), "capabilities": .object(["workoutPayloadVersion": .int(6), "workoutUUIDIngestVersion": .int(1)])])
 }
 @Suite struct RecoverySessionTests {
     @Test func OldSessionBecomesRecoveryRequiredAndOnlyExplicitIdentityProofTriggersIt() async throws {
@@ -45,7 +45,7 @@ private func recoveryHello(_ d: SyncSessionDescriptor) -> JSON {
             let directory = try SyncSessionStore.directory(root: root, sessionID: d.sessionID)
             let store = try OutboxStore(directory: directory)
             let state = await store.snapshot()
-            #expect(state.receipts.isEmpty && state.deletedWorkouts.isEmpty && state.tombstones.isEmpty && state.localAnchors.isEmpty && state.tasks == nil && state.retainedBundles == nil)
+            #expect(state.receipts.isEmpty && state.deletedWorkouts.isEmpty && state.tombstones.isEmpty && state.localAnchors.isEmpty && state.tasks == nil)
             #expect(try await store.discoveryFlow(query).anchor == nil)
             for (path, bytes) in previous { #expect(try Data(contentsOf: path) == bytes) }
             // The same currently visible workout is rediscovered despite the old ACK/GC.
@@ -57,15 +57,18 @@ private func recoveryHello(_ d: SyncSessionDescriptor) -> JSON {
             try await reopened.promoteDiscovery(query, batchID: page)
             #expect(await reopened.discoverySnapshot().work[workout]?.generation == 1)
             try await reopened.beginTask(workout)
-            let bundle = Data("synthetic-new-session-bundle-\(index)".utf8), hash = Wire.hash(bundle)
-            let file = try await reopened.savePayload(bundle)
-            try await reopened.setBundle(workout, file: file, sha256: hash, boundary: "synthetic")
+            let payload = Data("synthetic-new-session-bundle-\(index)".utf8)
+            try await reopened.markIngestLane(workout)
+            let body = WorkoutPayloadTransport.multipart(bundle: payload, boundary: "synthetic")
+            let staged = try await reopened.stageWorkoutIngestPayload(workout, body: body)
             let pending = try OutboxStore(directory: directory) // Kill F
-            #expect(await pending.task(workout)?.bundleSHA256 == hash)
-            #expect(try Data(contentsOf: pending.directory.appendingPathComponent(file)) == bundle)
-            try await pending.acknowledgeBundle(workout, receipt: durableWorkoutACK(workout, hash))
+            #expect(await pending.task(workout)?.bundleFile == staged.file)
+            #expect(try Data(contentsOf: pending.directory.appendingPathComponent(staged.file)) == body)
+            try await pending.acknowledgeWorkoutIngest(workout, receipt: .object([
+                "workoutID": .string(workout), "ingestStatus": .string("accepted"),
+                "acceptedAt": .string("2026-11-09T10:00:00Z")]))
             _ = try await pending.collectGarbage(dryRun: false)
-            #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent(file).path))
+            #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent(staged.file).path))
             var dirty = await pending.snapshot(); dirty.receipts["synthetic"] = .string("ack"); dirty.deletedWorkouts = [workout]; dirty.tombstones = [workout]; dirty.localAnchors["synthetic"] = Data([99]); try await pending.commit(dirty)
             let path = directory.appendingPathComponent("state.json"); previous.append((path, try Data(contentsOf: path)))
             #expect(try keys.load(sessionID: d.sessionID) == "synthetic-\(index)")

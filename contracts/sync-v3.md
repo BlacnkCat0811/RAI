@@ -1,6 +1,6 @@
 # RAI Sync Protocol 3 — 单 Workout Bundle 上传
 
-状态：实现合同。运行时以 `GET /v2/handshake` 返回的 `protocolVersion=3`、`workoutBundles=true` 和实际限额为准。
+状态：已撤回（2026-11-10）。Workout 同步只保留 protocol 6（`contracts/sync-v6.md`）；运行时的 session handshake 仍使用 `protocolVersion=3`，但本文描述的 v3 Workout bundle 上传、删除上传与 `workoutBundles` 能力均已删除。本文仅保留历史线格式与语义记录，服务端不再接受该版本，iOS 也不再构建。
 
 ## 1. 设计目标
 

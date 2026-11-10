@@ -1,24 +1,25 @@
 openapi: 3.1.0
 info:
   title: RAI native delta API
-  version: 1.11.0
+  version: 1.13.2
   description: >-
-    Protocol 3 HealthKit Workout Bundle import: one multipart request carries one
-    immutable Workout, all its scalar samples, multi-point quantity series and
-    routes. The server validates and atomically commits facts, association
-    membership, route/series projections, receipt, change log, dirty scope and
-    one Workout analysis job. Legacy page/batch/association upload endpoints are not registered.
-    The runtime handshake is authoritative for enabled capabilities and numeric
-    limits. A partial change notification endpoint exists; complete changefeed
-    is not supported yet. Versioned asynchronous analysis and current-result queries are supported.
+    Protocol 6 HealthKit Workout upload: foreground, user-initiated only. Each
+    explicit sync performs one handshake, then per selected Workout one
+    HealthKit read, one protocol-6 JSON document and one POST. Launch,
+    foreground return and HealthKit changes never upload automatically. A 200
+    from the ingest endpoint is durable acceptance of the raw bytes; the client
+    does not pre-read status, retry, poll analysis or use a persistent Workout
+    upload queue. The runtime handshake is authoritative for enabled
+    capabilities and numeric limits. A partial change notification endpoint
+    exists; complete changefeed is not supported yet. Versioned asynchronous
+    analysis and current-result queries are supported.
     Phase 5 adds immutable training bases, persistent field overrides, Effective Plan
     versions, frozen executions and deterministic feedback. All mutation command IDs
     are immutable and replayable; manual edits survive recalculation.
-    Protocol 4 clients may opt into per-Workout-UUID raw ingestion, where the
-    first accepted payload is authoritative and later duplicates replay it.
-    Protocol 6 clients may send RQrun-style raw scalar triples, series groups
+    Protocol 6 clients send RQrun-style raw scalar triples, series groups
     and routes without per-sample UUID, metadata or source; the server owns
-    deterministic fact identity. Protocol 6 is advertised only when enabled.
+    deterministic fact identity. Protocol 6 is the only supported Workout
+    synchronization protocol.
   license: {name: Proprietary, identifier: LicenseRef-Proprietary}
 servers:
   - url: http://127.0.0.1:8080
@@ -105,9 +106,9 @@ paths:
                         - HKQuantityTypeIdentifierStepCount
                       workouts: true
                       workoutType: HKWorkoutTypeIdentifier
-                      workoutPayloadVersion: 3
-                      workoutBundles: true
-                      bundleProtocolVersion: 3
+                      workoutPayloadVersion: 6
+                      workoutUUIDIngestVersion: 1
+                      workoutUUIDIngestAccepting: true
                       routes: true
                       sampleWorkoutAssociations: true
                       changefeed: false
@@ -242,94 +243,6 @@ paths:
         '401': {$ref: '#/components/responses/Error'}
         '429': {$ref: '#/components/responses/RateLimited'}
         default: {$ref: '#/components/responses/Error'}
-  /v2/sync/workout-bundles:
-    post:
-      summary: Upload one complete Workout bundle in one multipart request
-      operationId: importWorkoutBundle
-      description: >-
-        RQrun-style import unit. The multipart field is `file`, filename
-        `workout.json` (application/json) or `workout.json.gz` (application/gzip).
-        Hash identity always uses the original decoded JSON bytes. Whole wire
-        body is limited to 32 MiB + 64 KiB, gzip file 8 MiB, decoded JSON 32 MiB. The document contains the
-        Workout event, all scalar samples (membership is the association), all
-        multi-point quantity series, and all routes. Validation and all fact,
-        receipt, change-log, dirty-scope and analysis-job writes happen in one
-        transaction. Missing Sample/Route entries never imply deletion;
-        completeSampleTypes and completeRoutes describe read coverage only.
-        Permanent deletion barriers are checked before returning an old import
-        receipt, so late bundles cannot resurrect deleted identities.
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file]
-              properties:
-                file:
-                  type: string
-                  format: binary
-                  description: Complete WorkoutBundle JSON or gzip JSON; decoded max 32 MiB; gzip max 8 MiB.
-                  contentSchema: {$ref: '#/components/schemas/WorkoutBundle'}
-      responses:
-        '200':
-          description: Original immutable bundle receipt, or the exact prior receipt for an identical bundle
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/WorkoutImportReceipt'}
-        '401': {$ref: '#/components/responses/Error'}
-        '409': {$ref: '#/components/responses/Error'}
-        '413': {$ref: '#/components/responses/Error'}
-        '415': {$ref: '#/components/responses/Error'}
-        '422': {$ref: '#/components/responses/Error'}
-        '429': {$ref: '#/components/responses/RateLimited'}
-        default: {$ref: '#/components/responses/Error'}
-  /v2/sync/workout-bundles/{id}:
-    parameters: [{$ref: '#/components/parameters/ID'}]
-    get:
-      summary: Read an immutable Workout bundle receipt
-      description: A 404 is an inconclusive lookup, never a deletion ACK. Retain the original bundle and retry the same bytes after durable backoff.
-      operationId: getWorkoutBundle
-      parameters:
-        - in: query
-          name: sha256
-          required: false
-          schema: {type: string, pattern: '^[0-9a-f]{64}$'}
-          description: Exact bundle hash to read; omitted returns the newest receipt for the Workout.
-      responses:
-        '200':
-          description: Immutable import receipt and queued analysis job identity
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/WorkoutImportReceipt'}
-        '401': {$ref: '#/components/responses/Error'}
-        '404': {$ref: '#/components/responses/Error'}
-        '422': {$ref: '#/components/responses/Error'}
-        '429': {$ref: '#/components/responses/RateLimited'}
-        default: {$ref: '#/components/responses/Error'}
-    delete:
-      summary: Explicitly delete a Workout and its routes
-      operationId: deleteWorkoutBundle
-      description: Explicit deletion only. Even an unknown Workout creates a permanent dataset-scoped tombstone. The dataset lock and epoch/collector fencing precede barrier lookup. Known Workouts retain their former time range and invalidate Workout analysis and Training State in the same transaction. COMMIT precedes ACK; retries return the original receipt/revision. A 404 is never durable deletion evidence.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/WorkoutDeleteRequest'}
-      responses:
-        '200':
-          description: Durable deletion receipt
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/WorkoutDeleteReceipt'}
-        '401': {$ref: '#/components/responses/Error'}
-        '403': {$ref: '#/components/responses/Error'}
-        '404': {$ref: '#/components/responses/Error'}
-        '409': {$ref: '#/components/responses/Error'}
-        '415': {$ref: '#/components/responses/Error'}
-        '422': {$ref: '#/components/responses/Error'}
-        '429': {$ref: '#/components/responses/RateLimited'}
-        default: {$ref: '#/components/responses/Error'}
   /v2/sync/workout-ingests/{workoutID}:
     parameters:
       - in: path
@@ -337,23 +250,25 @@ paths:
         required: true
         schema: {$ref: '#/components/schemas/ID'}
     post:
-      summary: Accept one raw protocol-4, 5 or 6 Workout payload by UUID
+      summary: Accept one raw protocol-6 Workout payload by UUID
       operationId: acceptWorkoutIngest
       description: >-
         First successful reception of an HKWorkout UUID in this dataset is
-        authoritative. The multipart field is `file` with the raw protocol-4,
-        protocol-5 or protocol-6 JSON document (or its gzip form) exactly as
-        specified by contracts/sync-v4.md, contracts/sync-v5.md or
-        contracts/sync-v6.md. Only the wire envelope (identity, epochs,
-        protocolVersion, UTF-8, duplicate keys, nesting, size) is validated
-        before the acceptance transaction; samples, streams and routes are
-        parsed by the Worker. The 200 response is written only after the
-        acceptance row commits. A duplicate UUID replays the original
-        acceptedAt even when its bytes differ, and never replaces the stored
-        payload. A Workout that already exists without an ingest row returns
-        already_imported. A root tombstone returns 409 workout_deleted.
-        The endpoint is enabled only while the runtime handshake reports
-        workoutUUIDIngestAccepting=true.
+        authoritative. The multipart field is `file` with the raw protocol-6
+        JSON document exactly as specified by contracts/sync-v6.md. Only the
+        wire envelope (identity, epochs, protocolVersion 6, UTF-8, duplicate
+        keys, nesting, size) is validated before the acceptance transaction;
+        samples, streams and routes are parsed by the Worker. The 200 response
+        is written only after the acceptance row commits. Clients send this
+        request only during an explicit foreground sync: one request per
+        Workout, no status pre-read, automatic retry, background transfer or
+        analysis polling. A 200 is the final upload result. A duplicate UUID
+        replays the original acceptedAt even when its bytes differ, and never
+        replaces the stored payload. A Workout that already exists without an
+        ingest row returns 409 workout_ingest_missing_receipt, never a successful
+        upload receipt. A root tombstone returns 409
+        workout_deleted. The endpoint is enabled only while the runtime
+        handshake reports workoutUUIDIngestAccepting=true.
       requestBody:
         required: true
         content:
@@ -365,10 +280,10 @@ paths:
                 file:
                   type: string
                   format: binary
-                  description: Exactly one raw v4/v5/v6 JSON or gzip file part; wire/decoded/gzip limits match POST /v2/sync/workout-bundles. Protocol-specific shape is defined by contracts/sync-v4.md, sync-v5.md and sync-v6.md.
+                  description: Exactly one raw protocol-6 JSON file part; shape is defined by contracts/sync-v6.md.
       responses:
         '200':
-          description: Durable acceptance receipt, or already_imported for a pre-existing Workout
+          description: Durable first acceptance receipt, or its immutable replay
           content:
             application/json:
               schema: {$ref: '#/components/schemas/WorkoutIngestReceipt'}
@@ -389,7 +304,11 @@ paths:
         accepted/committed/rejected (ingest row) > already_imported (Workout
         facts only) > 404 workout_ingest_not_found. committed includes
         commitRevision, analysisStatus and analysisJobIDs; rejected includes
-        errorCode. A 404 is never deletion evidence.
+        errorCode. analysisStatus and analysisJobIDs are the snapshot taken when
+        the acceptance committed, so analysisStatus stays queued after the Worker
+        finishes; read /v2/jobs/{id} for a job's live state and
+        /v2/analysis/workouts/{id} for published analysis. A 404 is never
+        deletion evidence.
       responses:
         '200':
           description: Current ingest status for this dataset
@@ -700,7 +619,7 @@ components:
     HandshakeCapabilities:
       type: object
       additionalProperties: false
-      required: [sampleTypes, workouts, workoutType, workoutPayloadVersion, workoutBundles, bundleProtocolVersion, routes, sampleWorkoutAssociations, changefeed, analysis]
+      required: [sampleTypes, workouts, workoutType, workoutPayloadVersion, workoutUUIDIngestVersion, routes, sampleWorkoutAssociations, changefeed, analysis]
       description: Explicit capability boundary for this deployment. Unsupported source fields must remain local; clients must not truncate them to fit.
       properties:
         workoutSyncCompletenessVersion: {const: 1}
@@ -723,15 +642,10 @@ components:
           items: {type: string, minLength: 1}
         workouts: {const: true}
         workoutType: {const: HKWorkoutTypeIdentifier}
-        workoutPayloadVersion: {enum: [3, 4, 5, 6], description: Highest Workout bundle payload version negotiated for this request}
-        bundleGzipPart: {type: boolean}
-        workoutBundles: {const: true, description: "One multipart request carries one complete Workout, samples, series and routes"}
-        bundleProtocolVersion: {enum: [3, 4, 5, 6]}
-        bundleObservationVersion: {const: 1, description: Optional Phase 3 observation contract}
-        bundleCompact: {type: boolean, description: "Protocol 4/5/6 compact bundle capability; present only when negotiated"}
+        workoutPayloadVersion: {const: 6, description: The only raw Workout payload version this deployment accepts}
+        bundleGzipPart: {const: true, description: Protocol-6 JSON part may be sent gzip-compressed}
         workoutUUIDIngestVersion: {const: 1, description: Workout UUID ingest contract version}
         workoutUUIDIngestAccepting: {type: boolean, description: True only while POST /v2/sync/workout-ingests accepts new raw payloads; status reads and replays remain available in every mode}
-        explicitChildDeletions: {const: true, description: Optional Phase 3 explicit deletion arrays in the same bundle}
         routes: {const: true, description: Routes are embedded in the bundle and published atomically}
         sampleWorkoutAssociations: {const: true, description: Bundle sample membership is the association; no per-sample call is exposed}
         changefeed: {const: false}
@@ -758,84 +672,8 @@ components:
       properties:
         perMinute: {type: integer, minimum: 1}
         burst: {type: integer, minimum: 1}
-    BundleMetadataValue: {"oneOf":[{"type":"string"},{"type":"number","description":"Finite source value, including zero. No clinical filtering of raw scalar values."},{"type":"boolean"},{"type":"array","items":{"$ref":"#/components/schemas/BundleMetadataValue"}},{"type":"object","additionalProperties":{"$ref":"#/components/schemas/BundleMetadataValue"}}]}
-    BundleSource: {"type":"object","additionalProperties":false,"required":["bundleID"],"properties":{"bundleID":{"type":"string","minLength":1,"maxLength":255}}}
-    BundleQuantity: {"type":"object","additionalProperties":false,"required":["value","unit"],"properties":{"value":{"type":"number","description":"Finite source value, including zero. No clinical filtering of raw scalar values."},"unit":{"type":"string","enum":["1","W","count","count/min","kcal","kg","m","m/s","mL/kg/min","ms"]}}}
-    BundleWorkoutConfiguration: {"type":"object","additionalProperties":false,"required":["activityType","locationType","swimmingLocationType"],"properties":{"activityType":{"type":"integer","minimum":1,"maximum":2147483647},"locationType":{"type":"integer","minimum":0,"maximum":2147483647},"swimmingLocationType":{"type":"integer","minimum":0,"maximum":2147483647},"lapLength":{"$ref":"#/components/schemas/BundleQuantity"}}}
-    BundleWorkoutEvent: {"type":"object","additionalProperties":false,"required":["type","startUs","endUs"],"properties":{"type":{"type":"integer","minimum":1,"maximum":2147483647},"startUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"endUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"metadata":{"type":"object","additionalProperties":{"$ref":"#/components/schemas/BundleMetadataValue"}}}}
-    BundleWorkoutStatistic: {"type":"object","additionalProperties":false,"required":["type","startUs","endUs"],"properties":{"type":{"type":"string"},"startUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"endUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"sum":{"$ref":"#/components/schemas/BundleQuantity"},"average":{"$ref":"#/components/schemas/BundleQuantity"},"minimum":{"$ref":"#/components/schemas/BundleQuantity"},"maximum":{"$ref":"#/components/schemas/BundleQuantity"}},"anyOf":[{"required":["sum"]},{"required":["average"]},{"required":["minimum"]},{"required":["maximum"]}]}
-    BundleWorkoutActivity: {"type":"object","additionalProperties":false,"required":["uuid","startUs","durationUs","configuration"],"properties":{"uuid":{"$ref":"#/components/schemas/ID"},"startUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"endUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"durationUs":{"type":"integer","minimum":0},"configuration":{"$ref":"#/components/schemas/BundleWorkoutConfiguration"},"metadata":{"type":"object","additionalProperties":{"$ref":"#/components/schemas/BundleMetadataValue"}},"statistics":{"type":"array","items":{"$ref":"#/components/schemas/BundleWorkoutStatistic"},"maxItems":128},"events":{"type":"array","items":{"$ref":"#/components/schemas/BundleWorkoutEvent"},"maxItems":256}}}
-    BundleWorkoutPayload: {"type":"object","additionalProperties":false,"required":["activityType","durationUs"],"properties":{"activityType":{"type":"integer","minimum":1,"maximum":2147483647},"durationUs":{"type":"integer","minimum":0},"totalDistance":{"$ref":"#/components/schemas/BundleQuantity"},"totalEnergyBurned":{"$ref":"#/components/schemas/BundleQuantity"},"statistics":{"type":"array","items":{"$ref":"#/components/schemas/BundleWorkoutStatistic"},"maxItems":128},"events":{"type":"array","items":{"$ref":"#/components/schemas/BundleWorkoutEvent"},"maxItems":256},"activities":{"type":"array","items":{"$ref":"#/components/schemas/BundleWorkoutActivity"},"maxItems":128}}}
-    BundleFact: {"type":"object","additionalProperties":false,"required":["op","kind","type","uuid","startUs","endUs","source"],"properties":{"op":{"const":"upsert"},"kind":{"enum":["workout","sample"]},"type":{"type":"string"},"uuid":{"$ref":"#/components/schemas/ID"},"startUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"endUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"source":{"$ref":"#/components/schemas/BundleSource"},"metadata":{"type":"object","additionalProperties":{"$ref":"#/components/schemas/BundleMetadataValue"}},"quantity":{"$ref":"#/components/schemas/BundleQuantity"},"category":{"type":"integer","minimum":0,"maximum":5},"workout":{"$ref":"#/components/schemas/BundleWorkoutPayload"}},"allOf":[{"if":{"properties":{"type":{"const":"HKWorkoutTypeIdentifier"}}},"then":{"required":["workout"],"properties":{"workout":{"$ref":"#/components/schemas/BundleWorkoutPayload"}}}},{"if":{"properties":{"type":{"const":"HKCategoryTypeIdentifierSleepAnalysis"}}},"then":{"required":["category"],"properties":{"category":{"type":"integer","minimum":0,"maximum":5}}}},{"if":{"properties":{"type":{"not":{"enum":["HKWorkoutTypeIdentifier","HKCategoryTypeIdentifierSleepAnalysis"]}}}},"then":{"required":["quantity"],"properties":{"quantity":{"$ref":"#/components/schemas/BundleQuantity"}}}}],"description":"Original core facts remain immutable. With observation v1, allowlisted Sample metadata enrichment is retained in append-only bundle history without rewriting the original Sample row/hash or old receipts; time, value, unit, category and source conflicts remain rejected. Sample metadata allows HKTimeZone, HKIndoorWorkout and integer enum SDK keys HKMetadataKeyHeartRateMotionContext, HKMetadataKeyHeartRateSensorLocation, HKMetadataKeyUserMotionContext, HKMetadataKeyDevicePlacementSide (0..10). Legacy clients retain original identity rules."}
-    BundleSeriesPoint: {"type":"object","additionalProperties":false,"required":["startUs","endUs","value","unit"],"properties":{"startUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"endUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"value":{"type":"number","description":"Finite source value, including zero. No clinical filtering of raw scalar values."},"unit":{"type":"string","enum":["1","W","count","count/min","kcal","kg","m","m/s","mL/kg/min","ms"]}}}
-    BundleSeries: {"type":"object","additionalProperties":false,"required":["sampleType","sampleUUID","points"],"properties":{"sampleType":{"type":"string"},"sampleUUID":{"$ref":"#/components/schemas/ID"},"points":{"type":"array","items":{"$ref":"#/components/schemas/BundleSeriesPoint"},"minItems":1,"maxItems":1000000}}}
-    BundleRoutePoint: {"type":"object","additionalProperties":false,"required":["recordedAtUs","latitude","longitude"],"properties":{"recordedAtUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999,"description":"Original Unix microseconds; no server time repair."},"latitude":{"type":"number","minimum":-90,"maximum":90},"longitude":{"type":"number","minimum":-180,"maximum":180},"altitude":{"type":"number","description":"Finite source value, including zero. No clinical filtering of raw scalar values."},"horizontalAccuracy":{"type":"number","minimum":0},"verticalAccuracy":{"type":"number","minimum":0},"speed":{"type":"number","minimum":0},"course":{"type":"number","minimum":0,"exclusiveMaximum":360}}}
-    BundleRoute: {"type":"object","additionalProperties":false,"required":["routeID","source","points"],"properties":{"routeID":{"$ref":"#/components/schemas/ID"},"source":{"$ref":"#/components/schemas/BundleSource"},"points":{"type":"array","items":{"$ref":"#/components/schemas/BundleRoutePoint"},"minItems":1,"maxItems":1000000}}}
     HealthKitDevice: {"type":"object","additionalProperties":false,"required":[],"properties":{"manufacturer":{"type":"string","maxLength":255},"model":{"type":"string","maxLength":255},"hardwareVersion":{"type":"string","maxLength":255},"firmwareVersion":{"type":"string","maxLength":255},"softwareVersion":{"type":"string","maxLength":255}}}
     HealthKitSource: {"type":"object","additionalProperties":false,"required":["bundleID"],"properties":{"bundleID":{"type":"string","minLength":1,"maxLength":255},"name":{"type":"string","maxLength":255},"version":{"type":"string","maxLength":255},"productType":{"type":"string","maxLength":255},"operatingSystemVersion":{"type":"string","maxLength":255},"device":{"$ref":"#/components/schemas/HealthKitDevice"}}}
-    WorkoutCoverage: {"type":"object","additionalProperties":false,"required":["state","sampleCount","queryCompleted","localPersisted"],"properties":{"state":{"enum":["not_queried","observed","no_records_observed","partial","complete","failed","unsupported","unknown"]},"sampleCount":{"type":"integer","minimum":0,"maximum":1000000},"queryCompleted":{"type":"boolean"},"localPersisted":{"type":"boolean"},"expectedCount":{"type":"integer","minimum":0},"errorCode":{"type":"string","maxLength":128},"diagnostics":{"type":"array","items":{"type":"string","maxLength":128},"maxItems":16}},"description":"Visible query/process scope only. Empty results prove neither read denial nor absolute absence. Complete requires query completion, durable local capture, nonzero count and any declared count match. Never deletion authority."}
-    BundleProvenance: {"type":"object","additionalProperties":false,"required":["workout","samples","routes"],"properties":{"workout":{"$ref":"#/components/schemas/HealthKitSource"},"samples":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["sampleType","sampleUUID","source"],"properties":{"sampleType":{"type":"string"},"sampleUUID":{"$ref":"#/components/schemas/ID"},"source":{"$ref":"#/components/schemas/HealthKitSource"}}},"maxItems":50000},"routes":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["routeID","source"],"properties":{"routeID":{"$ref":"#/components/schemas/ID"},"source":{"$ref":"#/components/schemas/HealthKitSource"}}},"maxItems":16}}}
-    BundleObservation: {"type":"object","additionalProperties":false,"required":["version","observedAtUs","provenance","coverage"],"properties":{"version":{"const":1},"observedAtUs":{"type":"integer","minimum":-62135596800000000,"maximum":253402300799999999},"metadata":{"type":"object","maxProperties":64,"propertyNames":{"enum":["HKTimeZone","HKIndoorWorkout","HKAverageMETs","HKElevationAscended","HKElevationDescended","HKWeatherHumidity","HKWeatherTemperature","HKAverageSpeed","HKMaximumSpeed"]},"additionalProperties":{"$ref":"#/components/schemas/BundleMetadataValue"}},"provenance":{"$ref":"#/components/schemas/BundleProvenance"},"coverage":{"type":"object","maxProperties":128,"additionalProperties":{"$ref":"#/components/schemas/WorkoutCoverage"}}},"description":"RAI observation time and query coverage, HealthKit source fields and allowlisted metadata. Append-only in workout_imports. No source/device fabrication; server recomputes Apple Watch eligibility. Missing fields are omitted."}
-    BundleObservationSummary: {"type":"object","additionalProperties":false,"required":["version","observedAtUs","sha256","workoutSource","coverage"],"properties":{"version":{"const":1},"observedAtUs":{"type":"integer"},"sha256":{"type":"string","pattern":"^[0-9a-f]{64}$"},"workoutSource":{"$ref":"#/components/schemas/HealthKitSource"},"metadata":{"type":"object","maxProperties":64,"propertyNames":{"enum":["HKTimeZone","HKIndoorWorkout","HKAverageMETs","HKElevationAscended","HKElevationDescended","HKWeatherHumidity","HKWeatherTemperature","HKAverageSpeed","HKMaximumSpeed"]},"additionalProperties":{"$ref":"#/components/schemas/BundleMetadataValue"}},"coverage":{"type":"object","maxProperties":128,"additionalProperties":{"$ref":"#/components/schemas/WorkoutCoverage"}}}}
-    BundleSampleDeletion: {"type":"object","additionalProperties":false,"required":["sampleType","sampleUUID"],"properties":{"sampleType":{"type":"string"},"sampleUUID":{"$ref":"#/components/schemas/ID"}}}
-    WorkoutBundle: {"type":"object","additionalProperties":false,"required":["protocolVersion","datasetID","datasetEpoch","collectorEpoch","workoutID","workout","samples"],"properties":{"protocolVersion":{"const":3},"datasetID":{"$ref":"#/components/schemas/ID"},"datasetEpoch":{"$ref":"#/components/schemas/ID"},"collectorEpoch":{"$ref":"#/components/schemas/ID"},"workoutID":{"$ref":"#/components/schemas/ID"},"workout":{"$ref":"#/components/schemas/BundleFact"},"samples":{"type":"array","items":{"$ref":"#/components/schemas/BundleFact"},"maxItems":50000},"series":{"type":"array","items":{"$ref":"#/components/schemas/BundleSeries"},"maxItems":50000},"routes":{"type":"array","items":{"$ref":"#/components/schemas/BundleRoute"},"maxItems":16},"completeSampleTypes":{"type":"array","items":{"type":"string"},"uniqueItems":true},"completeRoutes":{"type":"boolean"},"observation":{"$ref":"#/components/schemas/BundleObservation"},"sampleDeletions":{"type":"array","items":{"$ref":"#/components/schemas/BundleSampleDeletion"},"maxItems":50000},"routeDeletions":{"type":"array","items":{"$ref":"#/components/schemas/ID"},"maxItems":16,"uniqueItems":true},"deletionOnly":{"type":"boolean","description":"Optional explicit child cleanup after a durable parent Workout barrier. Requires nonempty deletions and no upserts/series/routes/observation. Never recreates the parent. Its POST ACK is separate from the parent DELETE ACK."}},"description":"One logical Workout bundle. Required fields reject missing/null; optional fields use omission. Source point array order is preserved independently of timestamp order. Series times remain within parent samples. Coverage never authorizes deletion. Observation is optional and history is immutable. Explicit child deletions cannot target a known child of another Workout."}
-    WorkoutImportReceipt:
-      type: object
-      additionalProperties: false
-      required: [workoutID, bundleSHA256, ingestStatus, commitRevision, counts, analysisStatus, analysisJobIDs]
-      description: HTTP 200 application/json only, after COMMIT. All fields must be present and correctly typed. Verify exact Workout UUID and bundle hash; queued requires job IDs, not_required requires an empty job array. Immutable receipt for one Workout bundle. A Workout may retain multiple bundle receipts by exact byte hash; identical retries return these bytes without a new revision or job.
-      properties:
-        workoutID: {$ref: '#/components/schemas/ID'}
-        bundleSHA256: {type: string, pattern: '^[0-9a-f]{64}$'}
-        ingestStatus: {const: committed}
-        commitRevision: {type: integer, minimum: 1}
-        counts:
-          type: object
-          additionalProperties: false
-          required: [workoutInserted, samplesInserted, samplesUnchanged, samplesDeleted, associationsInserted, associationsUnchanged, associationsDeleted, seriesInserted, seriesUnchanged, routesInserted, routesUnchanged, routesDeleted]
-          properties:
-            workoutInserted: {type: boolean}
-            samplesInserted: {type: integer, minimum: 0}
-            samplesUnchanged: {type: integer, minimum: 0}
-            samplesDeleted: {type: integer, minimum: 0}
-            associationsInserted: {type: integer, minimum: 0}
-            associationsUnchanged: {type: integer, minimum: 0}
-            associationsDeleted: {type: integer, minimum: 0}
-            seriesInserted: {type: integer, minimum: 0}
-            seriesUnchanged: {type: integer, minimum: 0}
-            routesInserted: {type: integer, minimum: 0}
-            routesUnchanged: {type: integer, minimum: 0}
-            routesDeleted: {type: integer, minimum: 0}
-        analysisStatus: {enum: [queued, not_required]}
-        analysisJobIDs: {type: array, items: {$ref: '#/components/schemas/ID'}}
-        sourceClassification: {enum: [apple_watch, source_unknown], description: Missing provenance is never Apple Watch proof; legacy imports are preserved but formal analysis waits for source evidence.}
-        sourceObservation: {$ref: '#/components/schemas/BundleObservationSummary'}
-        routeDiagnostics:
-          type: object
-          additionalProperties:
-            type: array
-            items: {enum: [timestamp_equal, timestamp_regression, before_workout, after_workout]}
-    WorkoutDeleteRequest:
-      type: object
-      additionalProperties: false
-      required: [protocolVersion, datasetID, datasetEpoch, collectorEpoch, workoutID]
-      properties:
-        protocolVersion: {const: 3}
-        datasetID: {$ref: '#/components/schemas/ID'}
-        datasetEpoch: {$ref: '#/components/schemas/ID'}
-        collectorEpoch: {$ref: '#/components/schemas/ID'}
-        workoutID: {$ref: '#/components/schemas/ID'}
-        reason: {type: string, maxLength: 128}
-    WorkoutDeleteReceipt:
-      type: object
-      description: Original durable deletion ACK, replayed unchanged. alreadyDeleted describes the original command, not whether this HTTP call is a retry.
-      additionalProperties: false
-      required: [workoutID, ingestStatus, alreadyDeleted, commitRevision]
-      properties:
-        workoutID: {$ref: '#/components/schemas/ID'}
-        ingestStatus: {const: deleted}
-        alreadyDeleted: {type: boolean}
-        commitRevision: {type: integer, minimum: 1}
     WorkoutIngestReceipt:
       type: object
       additionalProperties: false
@@ -843,11 +681,12 @@ components:
       description: >-
         Durable acceptance ACK. The first successful reception freezes these
         values; later committed/rejected transitions replay the same
-        acceptedAt. already_imported responses omit acceptedAt and are not an
-        ingest row.
+        acceptedAt. A pre-existing Workout without an ingest row fails with 409
+        workout_ingest_missing_receipt. already_imported is only a legacy GET
+        status and is never a POST acceptance receipt.
       properties:
         workoutID: {$ref: '#/components/schemas/ID'}
-        ingestStatus: {enum: [accepted, already_imported]}
+        ingestStatus: {enum: [accepted]}
         acceptedAt: {type: string, format: date-time}
     WorkoutIngestStatus:
       type: object
@@ -861,7 +700,9 @@ components:
         ingestStatus: {enum: [deleted, accepted, committed, rejected, already_imported]}
         acceptedAt: {type: string, format: date-time}
         commitRevision: {type: integer, minimum: 1}
-        analysisStatus: {enum: [queued, not_required]}
+        analysisStatus:
+          enum: [queued, not_required]
+          description: Acceptance-time snapshot (queued means "jobs were enqueued"), not live progress; it does not change when the Worker completes.
         analysisJobIDs:
           type: array
           items: {$ref: '#/components/schemas/ID'}

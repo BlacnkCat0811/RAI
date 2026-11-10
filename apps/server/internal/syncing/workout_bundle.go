@@ -3,7 +3,6 @@ package syncing
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"sort"
 )
 
@@ -24,20 +23,15 @@ const (
 // scalar samples, and all routes in one immutable JSON document. Membership in
 // Samples is the association; there is no separate per-sample request.
 type WorkoutBundle struct {
-	ProtocolVersion int `json:"protocolVersion"`
-	// MetadataRegistryVersion declares which Workout metadata registry produced
-	// this payload. Absent means registry version 1 (the original nine-key
-	// allowlist). A server that does not know the declared version rejects the
-	// bundle; it never drops the metadata it cannot read.
-	MetadataRegistryVersion *int                  `json:"metadataRegistryVersion,omitempty"`
-	DatasetID               string                `json:"datasetID"`
-	DatasetEpoch            string                `json:"datasetEpoch"`
-	CollectorEpoch          string                `json:"collectorEpoch"`
-	WorkoutID               string                `json:"workoutID"`
-	Workout                 Event                 `json:"workout"`
-	Samples                 []Event               `json:"samples"`
-	Series                  []WorkoutBundleSeries `json:"series,omitempty"`
-	Routes                  []WorkoutBundleRoute  `json:"routes,omitempty"`
+	ProtocolVersion int                   `json:"protocolVersion"`
+	DatasetID       string                `json:"datasetID"`
+	DatasetEpoch    string                `json:"datasetEpoch"`
+	CollectorEpoch  string                `json:"collectorEpoch"`
+	WorkoutID       string                `json:"workoutID"`
+	Workout         Event                 `json:"workout"`
+	Samples         []Event               `json:"samples"`
+	Series          []WorkoutBundleSeries `json:"series,omitempty"`
+	Routes          []WorkoutBundleRoute  `json:"routes,omitempty"`
 	// CompleteSampleTypes describes the client's read coverage only. Snapshot
 	// absence, even after a successful read, is never a deletion event.
 	CompleteSampleTypes []string `json:"completeSampleTypes,omitempty"`
@@ -47,14 +41,12 @@ type WorkoutBundle struct {
 	Observation     *BundleObservation `json:"observation,omitempty"`
 	SampleDeletions []SampleDeletion   `json:"sampleDeletions,omitempty"`
 	RouteDeletions  []string           `json:"routeDeletions,omitempty"`
-	// SourceTable holds inline source descriptors from a protocol 4 payload.
-	// The wire keeps them next to each fact instead of repeating them in an
-	// observation; the import and analysis paths read them from here.
+	// SourceTable holds the top-level source attribution projected from a
+	// protocol-6 payload; the import and analysis paths read it from here.
 	SourceTable *BundleSourceTable `json:"-"`
 }
 
-// BundleSourceTable is the per-fact source attribution of a protocol 4 bundle.
-// v3 carries the same descriptors in its observation provenance arrays.
+// BundleSourceTable is the per-fact source attribution of a protocol-6 bundle.
 type BundleSourceTable struct {
 	Workout HealthKitSource            `json:"workout"`
 	Samples map[string]HealthKitSource `json:"samples"`
@@ -114,14 +106,14 @@ func (p WorkoutBundlePoint) ToRoutePoint(sequence int64) RoutePoint {
 
 func (b WorkoutBundle) Validate() error {
 	bad := func() error { return Fail(422, "unsupported_payload") }
-	if (b.ProtocolVersion != 3 && b.ProtocolVersion != 4 && b.ProtocolVersion != 5 && b.ProtocolVersion != 6) || !ValidID(b.DatasetID) || !ValidID(b.DatasetEpoch) ||
+	// The wire boundary (DecodeWorkoutPayloadJSON) accepts protocol 6 only.
+	// The store still materializes historical bundle shapes for management
+	// paths, so this internal validator accepts their version tags.
+	if b.ProtocolVersion < 3 || b.ProtocolVersion > 6 || !ValidID(b.DatasetID) || !ValidID(b.DatasetEpoch) ||
 		!ValidID(b.CollectorEpoch) || !ValidID(b.WorkoutID) || !ValidID(b.Workout.UUID) ||
 		b.Workout.UUID != b.WorkoutID || len(b.Samples) > MaxWorkoutBundleEvents ||
 		len(b.Routes) > MaxBundleRoutes {
 		return bad()
-	}
-	if err := b.validateMetadataRegistryVersion(); err != nil {
-		return err
 	}
 	if err := b.Workout.Validate(WorkoutType); err != nil {
 		return bundleValidationContext(err, "workout", "invalid_workout")
@@ -236,40 +228,6 @@ func (b WorkoutBundle) Validate() error {
 func BundleDigest(raw []byte) string {
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
-}
-
-// RejectNulls is used at the bundle boundary. Optional values are represented
-// by omission; an explicit null would otherwise be indistinguishable from a
-// missing source field after decoding.
-func RejectNulls(raw []byte) error {
-	var value any
-	if json.Unmarshal(raw, &value) != nil {
-		return Fail(422, "unsupported_payload")
-	}
-	if hasNull(value) {
-		return Fail(422, "unsupported_payload")
-	}
-	return nil
-}
-
-func hasNull(value any) bool {
-	switch v := value.(type) {
-	case nil:
-		return true
-	case []any:
-		for _, item := range v {
-			if hasNull(item) {
-				return true
-			}
-		}
-	case map[string]any:
-		for _, item := range v {
-			if hasNull(item) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // SortedSampleTypes is a receipt convenience; it never changes payload order.

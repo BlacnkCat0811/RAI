@@ -103,24 +103,25 @@ private actor V6Health: HealthKitReading {
 }
 
 final class RawStreamSyncEngineTests: XCTestCase {
-    private var directory: URL!
-    private var store: OutboxStore!
     private var scope: Scope!
 
     override func setUp() async throws {
-        directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        store = try OutboxStore(directory: directory)
         scope = Scope(serviceID: UUID().uuidString.lowercased(), datasetID: UUID().uuidString.lowercased(),
                       datasetEpoch: UUID().uuidString.lowercased(), collectorEpoch: UUID().uuidString.lowercased())
-        try await store.bind(scope)
-    }
-
-    override func tearDown() async throws {
-        try? FileManager.default.removeItem(at: directory)
     }
 
     func testBuildEmitsProtocolSixWithoutPerSampleIdentity() async throws {
         let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000))
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = .running
+        configuration.locationType = .indoor
+        let activities = [
+            HKWorkoutActivity(workoutConfiguration: configuration, start: workout.startDate,
+                              end: workout.startDate.addingTimeInterval(30), metadata: nil),
+            HKWorkoutActivity(workoutConfiguration: configuration, start: workout.startDate.addingTimeInterval(30),
+                              end: workout.endDate, metadata: nil),
+        ]
+        workout.setValue(activities, forKey: "subActivities")
         let health = V6Health(workout: workout)
         let heart = v6Quantity(workout, type: .heartRate, unit: HKUnit.count().unitDivided(by: .minute()),
                                value: 120, offset: 0)
@@ -135,9 +136,9 @@ final class RawStreamSyncEngineTests: XCTestCase {
                                                           longitude: 121.4, altitude: 10, speed: 3)])
         await health.setRoutes([route])
 
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
+        let engine = RawStreamSyncEngine(health: health, scope: scope)
         let built = try await engine.build(id: workout.uuid.uuidString.lowercased())
-        let json = try JSON.decode(built.raw)
+        let json = try JSON.decode(built)
         XCTAssertEqual(json["protocolVersion"].integer, 6)
         XCTAssertEqual(json["workoutID"].text, workout.uuid.uuidString.lowercased())
         XCTAssertEqual(json["source"]["bundleID"].text, "com.apple.health")
@@ -169,12 +170,28 @@ final class RawStreamSyncEngineTests: XCTestCase {
         XCTAssertEqual(encodedRoute.fields.keys.sorted(), ["points"])
         XCTAssertTrue(encodedRoute.fields["routeID"] == nil)
         XCTAssertTrue(encodedRoute.fields["source"] == nil)
+
+        let encodedActivities = json["workout"]["activities"].list
+        XCTAssertEqual(encodedActivities.count, 2)
+        for (index, activity) in encodedActivities.enumerated() {
+            XCTAssertNil(activity.fields["uuid"])
+            XCTAssertEqual(activity["startUs"].integer, startUs + Int64(index) * 30_000_000)
+            XCTAssertEqual(activity["endUs"].integer, startUs + Int64(index + 1) * 30_000_000)
+            XCTAssertEqual(activity["durationUs"].integer, 30_000_000)
+            XCTAssertEqual(activity["configuration"]["activityType"].integer, 37)
+        }
+        let text = String(decoding: built, as: UTF8.self)
+        XCTAssertEqual(text.components(separatedBy: workout.uuid.uuidString.lowercased()).count - 1, 1)
+        XCTAssertFalse(text.contains("\"uuid\""))
+        XCTAssertFalse(text.contains(heart.uuid.uuidString.lowercased()))
+        XCTAssertFalse(text.contains(route.id))
+        for activity in activities { XCTAssertFalse(text.contains(activity.uuid.uuidString.lowercased())) }
     }
 
     func testEachTypeIsReadOnceAndSeriesTypesUseOneSeriesQuery() async throws {
         let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000))
         let health = V6Health(workout: workout)
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
+        let engine = RawStreamSyncEngine(health: health, scope: scope)
         _ = try await engine.build(id: workout.uuid.uuidString.lowercased())
         let counts = await health.counters()
         XCTAssertEqual(counts.workouts, 1)
@@ -190,36 +207,45 @@ final class RawStreamSyncEngineTests: XCTestCase {
         }
     }
 
-    func testSingleSeriesFailureDoesNotBlockOtherStreams() async throws {
+    func testAnySampleOrSeriesQueryFailureFailsTheWholeWorkout() async throws {
         let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000))
-        let health = V6Health(workout: workout)
-        await health.setSampleFailure(SyncFailure.invalid("healthkit_query_failed"), for: .stepCount)
-        await health.setSeriesFailure(SyncFailure.invalid("series_query_failed"), for: .runningPower)
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
-        let built = try await engine.build(id: workout.uuid.uuidString.lowercased())
-        let streams = try JSON.decode(built.raw)["streams"].list
-        let failedSample = try XCTUnwrap(streams.first { $0["type"].text == HKQuantityTypeIdentifier.stepCount.rawValue })
-        XCTAssertEqual(failedSample["status"].text, "failed")
-        XCTAssertEqual(failedSample["error"].text, "healthkit_query_failed")
-        let failedSeries = try XCTUnwrap(streams.first { $0["type"].text == HKQuantityTypeIdentifier.runningPower.rawValue })
-        XCTAssertEqual(failedSeries["status"].text, "failed")
-        XCTAssertEqual(failedSeries["error"].text, "series_query_failed")
-        let healthy = try XCTUnwrap(streams.first { $0["type"].text == HKQuantityTypeIdentifier.heartRate.rawValue })
-        XCTAssertEqual(healthy["status"].text, "complete")
+        let sampleFailure = V6Health(workout: workout)
+        await sampleFailure.setSampleFailure(SyncFailure.invalid("healthkit_query_failed"), for: .stepCount)
+        do {
+            _ = try await RawStreamSyncEngine(health: sampleFailure, scope: scope)
+                .build(id: workout.uuid.uuidString.lowercased())
+            XCTFail("a started sample query error must fail this Workout")
+        } catch let failure as SyncFailure {
+            XCTAssertEqual(failure, .invalid("healthkit_query_failed"))
+        }
+
+        let seriesFailure = V6Health(workout: workout)
+        await seriesFailure.setSeriesFailure(SyncFailure.invalid("series_query_failed"), for: .runningPower)
+        do {
+            _ = try await RawStreamSyncEngine(health: seriesFailure, scope: scope)
+                .build(id: workout.uuid.uuidString.lowercased())
+            XCTFail("a started series query error must fail this Workout")
+        } catch let failure as SyncFailure {
+            XCTAssertEqual(failure, .invalid("series_query_failed"))
+        }
     }
 
-    func testRouteFailureStillUploadsTheRun() async throws {
+    func testRouteFailureFailsTheWholeWorkoutInsteadOfSendingAnEmptyRouteList() async throws {
         let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000))
         let health = V6Health(workout: workout)
         await health.setRouteFailure(SyncFailure.invalid("route_query_failed"))
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
-        let built = try await engine.build(id: workout.uuid.uuidString.lowercased())
-        let json = try JSON.decode(built.raw)
-        XCTAssertEqual(json["routes"].list.count, 0)
-        XCTAssertTrue(json["streams"].list.allSatisfy { $0["status"].text == "complete" })
+        do {
+            _ = try await RawStreamSyncEngine(health: health, scope: scope)
+                .build(id: workout.uuid.uuidString.lowercased())
+            XCTFail("a started route read error must fail this Workout")
+        } catch let failure as SyncFailure {
+            XCTAssertEqual(failure, .invalid("route_query_failed"))
+        }
+        let counts = await health.counters()
+        XCTAssertEqual(counts.routes, 1)
     }
 
-    func testIncompleteRouteReadUploadsNoRoutes() async throws {
+    func testIncompleteRouteReadFailsTheWorkout() async throws {
         let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000))
         let health = V6Health(workout: workout)
         let startUs = Normalizer.us(workout.startDate)
@@ -230,10 +256,23 @@ final class RawStreamSyncEngineTests: XCTestCase {
             points: [RoutePoint(recordedAtUs: startUs + 1_000_000, latitude: 31.2, longitude: 121.4)],
             coverage: coverage)
         await health.setRoutes([route])
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
-        let built = try await engine.build(id: workout.uuid.uuidString.lowercased())
-        let json = try JSON.decode(built.raw)
+        do {
+            _ = try await RawStreamSyncEngine(health: health, scope: scope)
+                .build(id: workout.uuid.uuidString.lowercased())
+            XCTFail("an incomplete route read must not be treated as no route")
+        } catch let failure as SyncFailure {
+            XCTAssertEqual(failure, .invalid("route_query_failed"))
+        }
+    }
+
+    func testIndoorRunWithoutRoutesAndEmptyStreamsIsUploadable() async throws {
+        let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000))
+        let health = V6Health(workout: workout)
+        let built = try await RawStreamSyncEngine(health: health, scope: scope)
+            .build(id: workout.uuid.uuidString.lowercased())
+        let json = try JSON.decode(built)
         XCTAssertEqual(json["routes"].list.count, 0)
+        XCTAssertEqual(json["streams"].list.count, HealthKitClient.quantityTypes.count)
         XCTAssertTrue(json["streams"].list.allSatisfy { $0["status"].text == "complete" })
     }
 
@@ -243,43 +282,13 @@ final class RawStreamSyncEngineTests: XCTestCase {
         let category = HKCategorySample(type: HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
                                         value: 0, start: workout.startDate, end: workout.endDate)
         await health.setSamples([category], for: .heartRate)
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
-        let built = try await engine.build(id: workout.uuid.uuidString.lowercased())
-        let stream = try XCTUnwrap(try JSON.decode(built.raw)["streams"].list
+        let built = try await RawStreamSyncEngine(health: health, scope: scope)
+            .build(id: workout.uuid.uuidString.lowercased())
+        let stream = try XCTUnwrap(try JSON.decode(built)["streams"].list
             .first { $0["type"].text == HKQuantityTypeIdentifier.heartRate.rawValue })
         XCTAssertEqual(stream["status"].text, "partial")
         XCTAssertEqual(stream["error"].text, "unsupported_sample")
         XCTAssertEqual(stream["samples"].list.count, 0)
-    }
-
-    func testRetryReusesTheStagedBytesWithoutRebuilding() async throws {
-        let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000))
-        let health = V6Health(workout: workout)
-        await health.setSamples([v6Quantity(workout, type: .heartRate,
-                                           unit: HKUnit.count().unitDivided(by: .minute()),
-                                           value: 120, offset: 0)], for: .heartRate)
-        let id = workout.uuid.uuidString.lowercased()
-        try await store.beginTask(id)
-        try await store.markIngestLane(id)
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
-        let built = try await engine.build(id: id)
-        let boundary = "rai.test." + UUID().uuidString
-        let staged = try await store.stageWorkoutIngestPayload(
-            id, body: WorkoutBundleAssembler.multipart(bundle: built.raw, boundary: boundary),
-            payloadVersion: 6)
-        let stagedVersion = await store.task(id)?.payloadVersion
-        XCTAssertEqual(stagedVersion, 6)
-
-        // A relaunch replays the persisted file, not a fresh HealthKit read.
-        await health.setSamples([], for: .heartRate)
-        let reopened = try OutboxStore(directory: directory)
-        let reopenedTask = await reopened.task(id)
-        let task = try XCTUnwrap(reopenedTask)
-        XCTAssertEqual(task.bundleFile, staged.file)
-        XCTAssertEqual(task.bundleBoundary, boundary)
-        XCTAssertEqual(task.payloadVersion, 6)
-        let url = try await reopened.fileURL(staged.file)
-        XCTAssertEqual(try Data(contentsOf: url), WorkoutBundleAssembler.multipart(bundle: built.raw, boundary: boundary))
     }
 
     func testBuildBytesAreDeterministic() async throws {
@@ -291,11 +300,11 @@ final class RawStreamSyncEngineTests: XCTestCase {
             v6Quantity(workout, type: .heartRate, unit: HKUnit.count().unitDivided(by: .minute()),
                        value: 120, offset: 0),
         ], for: .heartRate)
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
+        let engine = RawStreamSyncEngine(health: health, scope: scope)
         let first = try await engine.build(id: workout.uuid.uuidString.lowercased())
         let second = try await engine.build(id: workout.uuid.uuidString.lowercased())
-        XCTAssertEqual(first.raw, second.raw)
-        let samples = try JSON.decode(first.raw)["streams"].list
+        XCTAssertEqual(first, second)
+        let samples = try JSON.decode(first)["streams"].list
             .first { $0["type"].text == HKQuantityTypeIdentifier.heartRate.rawValue }?["samples"].list
         XCTAssertEqual(samples?.map { $0.list[0].integer }, [0, 2_000_000])
     }
@@ -334,9 +343,9 @@ final class RawStreamSyncEngineTests: XCTestCase {
         }
         await health.setRoutes([HealthRouteBundle(id: UUID().uuidString.lowercased(),
                                                   source: "com.apple.health", points: routePoints)])
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
-        let built = try await engine.build(id: workout.uuid.uuidString.lowercased())
-        let json = try JSON.decode(built.raw)
+        let built = try await RawStreamSyncEngine(health: health, scope: scope)
+            .build(id: workout.uuid.uuidString.lowercased())
+        let json = try JSON.decode(built)
         let streams = json["streams"].list
         let heartStream = try XCTUnwrap(streams.first { $0["type"].text == HKQuantityTypeIdentifier.heartRate.rawValue })
         XCTAssertEqual(heartStream["samples"].list.count, 2_400)
@@ -346,8 +355,8 @@ final class RawStreamSyncEngineTests: XCTestCase {
             let stream = try XCTUnwrap(streams.first { $0["type"].text == type.rawValue })
             XCTAssertEqual(stream["series"].list[0]["points"].list.count, 600)
         }
-        XCTAssertLessThan(built.raw.count, WorkoutBundleV6.maxBytes)
-        print("v6 40-minute builder payload bytes=\(built.raw.count)")
+        XCTAssertLessThan(built.count, WorkoutBundleV6.maxBytes)
+        print("v6 40-minute builder payload bytes=\(built.count)")
     }
 
     func testRouteCountOverLimitThrowsWithoutTruncation() async throws {
@@ -356,9 +365,9 @@ final class RawStreamSyncEngineTests: XCTestCase {
         let route = HealthRouteBundle(id: UUID().uuidString.lowercased(), source: "com.apple.health",
                                       points: [RoutePoint(recordedAtUs: 1, latitude: 31.2, longitude: 121.4)])
         await health.setRoutes(Array(repeating: route, count: WorkoutBundleV6.maxRoutes + 1))
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
         do {
-            _ = try await engine.build(id: workout.uuid.uuidString.lowercased())
+            _ = try await RawStreamSyncEngine(health: health, scope: scope)
+                .build(id: workout.uuid.uuidString.lowercased())
             XCTFail("over-limit routes must not be truncated")
         } catch let failure as SyncFailure {
             XCTAssertEqual(failure, .invalid("bundle_too_large"))
@@ -368,9 +377,9 @@ final class RawStreamSyncEngineTests: XCTestCase {
     func testThirdPartySourceIsExcludedBeforeAnyRead() async throws {
         let workout = v6Workout(Date(timeIntervalSince1970: 1_800_000_000), bundleID: "com.example.thirdparty")
         let health = V6Health(workout: workout)
-        let engine = RawStreamSyncEngine(store: store, health: health, scope: scope)
         do {
-            _ = try await engine.build(id: workout.uuid.uuidString.lowercased())
+            _ = try await RawStreamSyncEngine(health: health, scope: scope)
+                .build(id: workout.uuid.uuidString.lowercased())
             XCTFail("third-party workout must not be uploaded")
         } catch let failure as SyncFailure {
             XCTAssertEqual(failure, .invalid("source_policy_excluded"))
@@ -380,18 +389,5 @@ final class RawStreamSyncEngineTests: XCTestCase {
         XCTAssertEqual(counts.routes, 0)
         XCTAssertTrue(counts.samples.isEmpty)
         XCTAssertTrue(counts.series.isEmpty)
-    }
-
-    func testHandshakeFallsBackToV4WhenServerAdvertisesFour() {
-        let fallback = SyncCoordinator.negotiate(wantsV4: true, wantsV6: true, bundleProtocol: 4)
-        XCTAssertTrue(fallback.rawLane)
-        XCTAssertEqual(fallback.payloadVersion, 4)
-        let negotiated = SyncCoordinator.negotiate(wantsV4: true, wantsV6: true, bundleProtocol: 6)
-        XCTAssertEqual(negotiated.payloadVersion, 6)
-        XCTAssertEqual(SyncCoordinator.negotiate(wantsV4: true, wantsV6: false, bundleProtocol: 6).payloadVersion, 4)
-        let legacy = SyncCoordinator.negotiate(wantsV4: false, wantsV6: true, bundleProtocol: 6)
-        XCTAssertFalse(legacy.rawLane)
-        XCTAssertEqual(legacy.payloadVersion, 4)
-        XCTAssertFalse(SyncCoordinator.negotiate(wantsV4: true, wantsV6: true, bundleProtocol: 3).rawLane)
     }
 }

@@ -114,42 +114,6 @@ private struct MockUploader: FileUploader {
 
 @Suite(.serialized)
 struct APITests {
-    @Test func workoutDeletionRequiresDurableACK() async throws {
-        let (_, directory, api, _) = try await setup(lostAfterCommit: false)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let id = Wire.id()
-        let scope = Scope(serviceID: Wire.id(), datasetID: Wire.id(), datasetEpoch: Wire.id(), collectorEpoch: Wire.id())
-        MockProtocol.state.withLock { $0.controlStatus = 404; $0.controlCode = "workout_not_found" }
-        do {
-            _ = try await api.deleteWorkoutBundle(workoutID: id, scope: scope)
-            Issue.record("404 was accepted as a durable deletion")
-        } catch let failure as UploadError {
-            #expect(failure.status == 404 && failure.code == "workout_not_found")
-        }
-
-        let path = "/v2/sync/workout-bundles/" + id
-        let ack: [String: JSON] = ["workoutID": .string(id), "ingestStatus": .string("deleted"),
-                                   "alreadyDeleted": .bool(false), "commitRevision": .int(7)]
-        // A successful HTTP response with an invalid/mismatched receipt also
-        // cannot confirm deletion or authorize releasing the staged bundle.
-        for invalid in [JSON.object([:]), .object(ack.merging(["workoutID": .string(Wire.id())]) { _, new in new }),
-                        .object(ack.merging(["ingestStatus": .string("committed")]) { _, new in new }),
-                        .object(ack.merging(["commitRevision": .int(0)]) { _, new in new }),
-                        .object(ack.merging(["alreadyDeleted": .null]) { _, new in new })] {
-            MockProtocol.state.withLock { $0.controlStatus = 200; $0.replies[path] = invalid }
-            do {
-                _ = try await api.deleteWorkoutBundle(workoutID: id, scope: scope)
-                Issue.record("invalid deletion ACK was accepted")
-            } catch SyncFailure.receiptMismatch { }
-        }
-        for alreadyDeleted in [false, true] {
-            let expected = JSON.object(ack.merging(["alreadyDeleted": .bool(alreadyDeleted)]) { _, new in new })
-            MockProtocol.state.withLock { $0.replies[path] = expected }
-            let result = try await api.deleteWorkoutBundle(workoutID: id, scope: scope)
-            #expect(result == expected)
-        }
-    }
-
     private func setup(lostAfterCommit: Bool) async throws -> (OutboxStore, URL, RAIAPIClient, PendingPage) {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("rai-api-test-" + Wire.id())
         let store = try OutboxStore(directory: directory)
@@ -418,37 +382,6 @@ private final class HeaderRecordingUploader: FileUploader, Sendable {
 }
 
 extension APITests {
-    /// The handshake declares `bundleGzipPart`; the client must remember it so
-    /// the bundle lane can fail diagnosably when a server cannot accept gzip.
-    @Test func handshakeRecordsBundleGzipCapability() async throws {
-        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [MockProtocol.self]
-        let api = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic-test-token",
-                               session: URLSession(configuration: config))
-        // Before any handshake the capability is unknown, not "unsupported".
-        #expect(api.bundleGzipCapability == .unknown)
-
-        MockProtocol.state.withLock { state in
-            state = MockState()
-            state.replies["/v2/handshake"] = .object(["capabilities": .object([
-                "workoutBundles": .bool(true), "bundleProtocolVersion": .int(3), "bundleGzipPart": .bool(true)])])
-        }
-        let hello = try await api.call("GET", "/v2/handshake")
-        #expect(hello["capabilities"]["bundleGzipPart"] == .bool(true))
-        #expect(api.bundleGzipCapability == .declared(true))
-        #expect(api.capabilities.declared?["workoutBundles"] == .bool(true))
-
-        // A handshake that ran but omits the key is a declared "no".
-        let other = RAIAPIClient(baseURL: URL(string: "https://synthetic.invalid")!, token: "synthetic-test-token",
-                                 session: URLSession(configuration: config))
-        MockProtocol.state.withLock { state in
-            state = MockState()
-            state.replies["/v2/handshake"] = .object(["capabilities": .object(["workoutBundles": .bool(true)])])
-        }
-        _ = try await other.call("GET", "/v2/handshake")
-        #expect(other.bundleGzipCapability == .declared(false))
-        MockProtocol.state.withLock { $0 = MockState() }
-    }
-
     /// `Content-Encoding: gzip` belongs to the batch lane only; a bundle POST
     /// carries multipart framing and compresses inside the file part, because
     /// the server rejects a top-level Content-Encoding with 415.

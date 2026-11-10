@@ -102,11 +102,9 @@ public struct LocalState: Codable, Sendable {
     public var tasks: [String: WorkoutSyncTask]?
     public var discovery: DiscoveryState?
     public var routeCaptures: [String: RouteCaptureCheckpoint]?
-    public var retainedBundles: [String: WorkoutSyncTask]?
     public var factCaptureFiles: [String]?
     public var daily: [String: DailyFlow]?
     public var vo2: VO2Flow?
-    public var workoutCompleteness: WorkoutCompletenessState?
     public var vo2WakeGeneration: Int64?
     public var dailyWakePending: Bool?
     public var dailyWakeGeneration: Int64?
@@ -121,7 +119,6 @@ public actor OutboxStore {
     public nonisolated let directory: URL
     var state: LocalState
     private var activeBundleAttempts: Set<String> = []
-    var activeCompletenessManifest: String?
     var vo2OrphansReconciled = false
     /// Observable no-op guard for state writes that a producer may repeat.
     var commitSkippedNoop = 0
@@ -326,12 +323,12 @@ public actor OutboxStore {
                 tasks[id] = task
             } else {
                 // Unacknowledged source bytes survive even an explicit rescan.
-                if task.bundleFile == nil, resetBundle { task.uploadReceipt = nil; task.bundleSHA256 = nil }
+                if task.bundleFile == nil, resetBundle { task.uploadReceipt = nil }
                 if task.bundleFile != nil {
                     task.phase = .uploading
                     if task.lastUploadError?.retryable == false { task.lastUploadError = nil; task.errorCode = nil }
                 } else {
-                    task.phase = .preparing; task.errorCode = nil; task.stagedAll = false
+                    task.phase = .preparing; task.errorCode = nil
                 }
                 task.updatedAt = Date()
                 tasks[id] = task
@@ -341,71 +338,23 @@ public actor OutboxStore {
         }
         next.tasks = tasks; try commit(next)
     }
-    public func setBundle(_ id: String, file: String, sha256: String, boundary: String, sampleDeletions: Int = 0, routeDeletions: Int = 0, discoveryGeneration: Int64? = nil, deletionEventIDs: [String] = [], pendingReadKeys: [String] = [], manifest: CaptureManifest? = nil) throws {
-        guard let task = state.tasks?[id], task.phase != .deleted, task.ingestMode != Self.ingestModeUUID,
-              task.bundleFile == nil || (task.bundleFile == file && task.bundleSHA256 == sha256 && task.bundleBoundary == boundary) else {
-            throw SyncFailure.localState("pending_bundle_immutable")
-        }
-        try updateTask(id) { task in
-            task.bundleFile = file; task.bundleSHA256 = sha256; task.bundleBoundary = boundary
-            task.submittedSampleDeletions = sampleDeletions; task.submittedRouteDeletions = routeDeletions; task.discoveryGeneration = discoveryGeneration
-            task.bundleDeletionEventIDs = deletionEventIDs; task.pendingReadKeys = pendingReadKeys
-            task.captureManifest = manifest
-            task.uploadReceipt = nil; task.acknowledgedAt = nil; task.stagedAll = false
-            task.attemptCount = nil; task.nextAttemptAt = nil; task.lastUploadError = nil
-        }
-    }
-    public func setBundleWire(_ id: String, bundleHash: String, file: String, sha256: String, wireBytes: Int = 0, gzipMS: Double = 0) throws {
-        guard let task = state.tasks?[id], task.ingestMode != Self.ingestModeUUID, task.bundleFile != nil, task.bundleSHA256 == bundleHash,
-              task.uploadReceipt == nil else { throw SyncFailure.localState("bundle_not_prepared") }
-        var next = state
-        if let old = task.bundleWireFile, old != file { next.reclaimFiles = Array(Set((next.reclaimFiles ?? []) + [old])).sorted() }
-        next.tasks?[id]?.bundleWireFile = file; next.tasks?[id]?.bundleWireSHA256 = sha256
-        next.tasks?[id]?.metrics["gzip_multipart_bytes"] = Double(wireBytes)
-        next.tasks?[id]?.metrics["gzip_ms"] = gzipMS
-        try commit(next)
-    }
-    public func setDeletedParentBundle(_ id: String, file: String, hash: String, boundary: String, generation: Int64, deletionIDs: [String], sampleCount: Int, routeCount: Int) throws {
-        guard let task = state.tasks?[id], task.phase == .deleted, let deletion = task.deletionReceipt, task.bundleFile == nil, sampleCount + routeCount > 0 else { throw SyncFailure.localState("deleted_parent_bundle_not_allowed") }
-        try Self.validateDeletion(deletion, id: id)
-        guard FileManager.default.fileExists(atPath: try fileURL(file).path) else { throw SyncFailure.localState("missing_payload") }
-        try updateTask(id) {
-            $0.bundleFile = file; $0.bundleSHA256 = hash; $0.bundleBoundary = boundary; $0.childDeletionOnly = true
-            $0.uploadReceipt = nil; $0.discoveryGeneration = generation; $0.bundleDeletionEventIDs = deletionIDs
-            $0.submittedSampleDeletions = sampleCount; $0.submittedRouteDeletions = routeCount
-            $0.attemptCount = nil; $0.nextAttemptAt = nil; $0.lastUploadError = nil; $0.errorCode = nil; $0.pendingReadKeys = []
-        }
-    }
-    /// Drops a prepared bundle whose own observation block cannot be read. It
-    /// was never a legal upload authority: keeping it would either upload
-    /// coverage that disagrees with the bytes or wedge recovery forever. The
-    /// caller rebuilds from discovery facts under a new immutable identity.
-    public func discardUnreadableBundle(_ id: String) throws {
-        var next = state
-        var tasks = next.tasks ?? [:]
-        guard var task = tasks[id], task.ingestMode != Self.ingestModeUUID, task.uploadReceipt == nil, task.bundleFile != nil else {
-            throw SyncFailure.localState("bundle_not_prepared")
-        }
-        releaseBundleFile(&task, in: &next)
-        task.captureManifest = nil; task.pendingReadKeys = nil; task.bundleDeletionEventIDs = nil
-        task.phase = .preparing; task.errorCode = nil; task.lastUploadError = nil
-        task.attemptCount = nil; task.nextAttemptAt = nil; task.stagedAll = false
-        tasks[id] = task; next.tasks = tasks
-        try commit(next)
-    }
-    // MARK: - UUID ingest lane (protocol 4, one payload per Workout)
+    // MARK: - UUID ingest lane (protocol 6, one payload per Workout)
 
     /// Persist the lane marker before the first status query. A Workout that
-    /// already has a bundle receipt is history: it stays on the legacy skip
-    /// path and is never re-uploaded under the UUID rule.
+    /// already has a receipt is history and is never re-uploaded. A prepared
+    /// protocol-3 bundle is not a protocol-6 payload, so it is released rather
+    /// than kept as upload authority.
     public func markIngestLane(_ id: String) throws {
         var next = state
         var tasks = next.tasks ?? [:]
         if var task = tasks[id] {
             guard task.phase != .deleted, task.errorCode != "workout_deleted" else { throw SyncFailure.localState("workout_deleted") }
             guard task.ingestMode == nil else { return }
-            guard task.uploadReceipt == nil, task.deletionReceipt == nil,
+            guard task.uploadReceipt == nil,
                   ![.acknowledged, .analyzing, .published, .partial].contains(task.phase) else { return }
+            if let file = task.bundleFile, file != Self.ingestPayloadName(id) {
+                releaseBundleFile(&task, in: &next)
+            }
             task.ingestMode = Self.ingestModeUUID
             task.updatedAt = Date()
             tasks[id] = task
@@ -450,14 +399,14 @@ public actor OutboxStore {
         if task.bundleFile != file {
             if let old = task.bundleFile { reclaim.append(old) }
             if let wire = task.bundleWireFile { reclaim.append(wire) }
-            task.bundleWireFile = nil; task.bundleWireSHA256 = nil
+            task.bundleWireFile = nil
         }
         task.ingestMode = Self.ingestModeUUID
         if let payloadVersion { task.payloadVersion = payloadVersion }
-        task.bundleFile = file; task.bundleBoundary = boundary; task.bundleSHA256 = nil
+        task.bundleFile = file; task.bundleBoundary = boundary
         task.uploadReceipt = nil; task.acknowledgedAt = nil
         task.attemptCount = nil; task.nextAttemptAt = nil; task.lastUploadError = nil
-        task.errorCode = nil; task.stagedAll = false; task.childDeletionOnly = nil
+        task.errorCode = nil
         task.phase = .uploading
         // The fixed name may still be queued for reclamation from an earlier
         // release. It is authority again in this very commit, so GC must not
@@ -489,7 +438,7 @@ public actor OutboxStore {
         }
         releaseBundleFile(&task, in: &next)
         task.phase = .preparing; task.errorCode = nil; task.lastUploadError = nil
-        task.attemptCount = nil; task.nextAttemptAt = nil; task.stagedAll = false
+        task.attemptCount = nil; task.nextAttemptAt = nil
         tasks[id] = task; next.tasks = tasks; try commit(next)
     }
     /// A cached gzip artifact is reused without re-hashing the payload; the
@@ -598,158 +547,35 @@ public actor OutboxStore {
         guard var task = tasks[id] else { return }
         if task.ingestMode == Self.ingestModeUUID {
             guard task.ingestStatus != nil || task.ingestAcceptedAt != nil else { throw SyncFailure.localState("bundle_not_acknowledged") }
-            releaseBundleFile(&task, in: &next)
-            tasks[id] = task
-            next.tasks = tasks
-            try commit(next)
-            return
+        } else {
+            // A protocol-3 receipt or deletion is server history. Its file is
+            // no longer upload authority and can be reclaimed.
+            guard task.uploadReceipt != nil || task.phase == .deleted else { throw SyncFailure.localState("bundle_not_acknowledged") }
         }
-        if task.childDeletionOnly == true && task.bundleFile != nil && task.uploadReceipt == nil { throw SyncFailure.localState("bundle_not_acknowledged") }
-        if let receipt = task.uploadReceipt, let hash = task.bundleSHA256 {
-            try WorkoutBundleACK.validate(receipt, workoutID: id, bundleHash: hash, sampleDeletions: task.submittedSampleDeletions ?? 0, routeDeletions: task.submittedRouteDeletions ?? 0)
-        } else if let receipt = task.deletionReceipt {
-            try Self.validateDeletion(receipt, id: id)
-        } else { throw SyncFailure.localState("bundle_not_acknowledged") }
         releaseBundleFile(&task, in: &next)
         tasks[id] = task
         next.tasks = tasks
         try commit(next)
     }
-    /// Claim and retry time commit before network I/O. In-process claims are
-    /// shared by all workers; restart releases claims but preserves the delay.
-    public func claimBundle(_ id: String, now: Date = Date()) throws -> WorkoutSyncTask? {
-        guard let task = state.tasks?[id], task.ingestMode != Self.ingestModeUUID, task.bundleFile != nil, task.bundleSHA256 != nil,
-              task.bundleBoundary != nil, task.uploadReceipt == nil, (task.deletionReceipt == nil || task.childDeletionOnly == true),
-              (task.phase != .deleted || task.childDeletionOnly == true), task.phase != .failed,
-              task.childDeletionOnly != true || task.lastUploadError?.retryable != false,
-              !activeBundleAttempts.contains(id), (task.nextAttemptAt ?? .distantPast) <= now else { return nil }
-        try updateTask(id) {
-            $0.phase = $0.childDeletionOnly == true ? .deleted : .uploading; $0.attemptCount = min(($0.attemptCount ?? 0) + 1, 1_000_000)
-            $0.nextAttemptAt = now.addingTimeInterval(60)
-        }
-        activeBundleAttempts.insert(id)
-        return state.tasks?[id]
-    }
     public func endBundleAttempt(_ id: String) { activeBundleAttempts.remove(id) }
-    public func failBundle(_ id: String, error: UploadError, now: Date = Date()) throws {
-        guard let task = state.tasks?[id], task.ingestMode != Self.ingestModeUUID, task.uploadReceipt == nil, (task.deletionReceipt == nil || task.childDeletionOnly == true), (task.phase != .deleted || task.childDeletionOnly == true) else { return }
-        try updateTask(id) { task in
-            task.phase = task.childDeletionOnly == true ? .deleted : (error.retryable ? .uploading : .failed)
-            task.errorCode = error.code; task.lastUploadError = error
-            let delay = min(900, pow(2, Double(min(max((task.attemptCount ?? 1) - 1, 0), 10))))
-            task.nextAttemptAt = now.addingTimeInterval(max(delay, error.retryAfter ?? 0))
-        }
-    }
     /// Handshake/authentication can fail before a per-task claim. Persist that
     /// shared failure too, so foreground/relaunch does not bypass backoff.
     public func deferBundleRecovery(_ error: any Error, now: Date = Date()) throws {
-        let failure = WorkoutBundleDelivery.failure(error)
+        let failure = WorkoutPayloadTransport.failure(error)
         var next = state
-        for (id, var task) in next.tasks ?? [:] where task.bundleFile != nil && task.uploadReceipt == nil && (task.deletionReceipt == nil || task.childDeletionOnly == true) && task.phase != .failed && (task.phase != .deleted || task.childDeletionOnly == true) {
+        for (id, var task) in next.tasks ?? [:] where task.ingestMode == Self.ingestModeUUID
+            && task.bundleFile != nil && task.ingestStatus == nil && task.ingestAcceptedAt == nil
+            && task.phase != .failed && task.phase != .deleted {
             task.attemptCount = min((task.attemptCount ?? 0) + 1, 1_000_000)
             let delay = min(900, pow(2, Double(min(max((task.attemptCount ?? 1) - 1, 0), 10))))
             task.nextAttemptAt = max(task.nextAttemptAt ?? .distantPast, now.addingTimeInterval(max(delay, failure.retryAfter ?? 0)))
-            task.phase = task.childDeletionOnly == true ? .deleted : (failure.retryable ? .uploading : .failed)
+            task.phase = .uploading
             task.errorCode = failure.code; task.lastUploadError = failure; task.updatedAt = now
             next.tasks?[id] = task
         }
         Self.deferDaily(&next, error: error, now: now)
         Self.deferVO2(&next, error: error, now: now)
         try commit(next)
-    }
-    public func acknowledgeBundle(_ id: String, receipt: JSON) throws {
-        guard let task = state.tasks?[id], task.ingestMode != Self.ingestModeUUID, let hash = task.bundleSHA256 else { throw SyncFailure.receiptMismatch }
-        if task.childDeletionOnly == true {
-            guard let deletion = task.deletionReceipt, task.phase == .deleted else { throw SyncFailure.receiptMismatch }
-            try Self.validateDeletion(deletion, id: id)
-        } else {
-            guard task.deletionReceipt == nil, task.phase != .deleted, task.errorCode != "workout_deleted" else { throw SyncFailure.receiptMismatch }
-        }
-        try WorkoutBundleACK.validate(receipt, workoutID: id, bundleHash: hash, sampleDeletions: task.submittedSampleDeletions ?? 0, routeDeletions: task.submittedRouteDeletions ?? 0)
-        if let saved = task.uploadReceipt {
-            guard saved == receipt else { throw SyncFailure.receiptMismatch }
-            return
-        }
-        // Receipt, acknowledged phase and GC authorization commit atomically.
-        var next = state; var acknowledged = task
-        acknowledged.phase = task.childDeletionOnly == true ? .deleted : .acknowledged; acknowledged.uploadReceipt = receipt
-        acknowledged.acknowledgedAt = Date(); acknowledged.updatedAt = Date()
-        acknowledged.stagedAll = true; acknowledged.errorCode = nil
-        acknowledged.lastUploadError = nil; acknowledged.nextAttemptAt = nil
-        releaseBundleFile(&acknowledged, in: &next)
-        if var work = next.discovery?.work[id] {
-            if (task.pendingReadKeys ?? []).isEmpty {
-                // R1: a receipt confirms only the work this bundle provably
-                // carried. The old rule compared every event's generation with
-                // the newest generation read *after* capture, so a fact a
-                // producer committed while the bundle was being built was
-                // marked delivered without ever being encoded — a lost child
-                // deletion then resurrects a sample on the server. The manifest
-                // covers per-type ordinals pinned during capture plus the exact
-                // deletion ids the bundle listed, so concurrent work stays
-                // pending and the watermark stops below it.
-                let manifest = task.captureManifest
-                var lowestUncovered: Int64?
-                for (eventID, var event) in next.discovery?.events ?? [:] where event.workoutID == id {
-                    let covered = manifest?.covers(event)
-                        ?? ((event.generation ?? 0) <= (task.discoveryGeneration ?? 0))
-                    if covered {
-                        if event.status != "delivered" { event.status = "delivered"; next.discovery?.events[eventID] = event }
-                    } else if event.status != "delivered" {
-                        lowestUncovered = min(lowestUncovered ?? Int64.max, event.generation ?? 0)
-                    }
-                }
-                if let lowest = lowestUncovered {
-                    work.deliveredGeneration = max(work.deliveredGeneration, lowest - 1)
-                } else {
-                    work.deliveredGeneration = max(work.deliveredGeneration, work.generation)
-                }
-                work.error = nil; work.attempt = 0; work.nextAttemptAt = nil
-            } else {
-                work.error = "partial_read_pending"; work.attempt += 1
-                work.nextAttemptAt = Date().addingTimeInterval(min(900, 30 * pow(2, Double(min(work.attempt, 5)))))
-            }
-            next.discovery?.work[id] = work
-        }
-        for key in acknowledged.coverage.keys { acknowledged.coverage[key]?.serverCommitted = true }
-        // The receipt is the durable proof now. The manifest, deletion ids and
-        // an empty pending-read list are capture-time scaffolding; keeping the
-        // manifest's coveredEventIDs alone retained a large per-Workout array
-        // after every ACK. Non-empty pending reads stay so the next pass knows
-        // exactly which types are still owed.
-        acknowledged.captureManifest = nil
-        acknowledged.bundleDeletionEventIDs = nil
-        if (acknowledged.pendingReadKeys ?? []).isEmpty { acknowledged.pendingReadKeys = nil }
-        next.tasks?[id] = acknowledged; next.lastACK = Date()
-        try commit(next)
-    }
-    private static func validateDeletion(_ receipt: JSON, id: String) throws {
-        guard receipt["workoutID"].text == id, receipt["ingestStatus"].text == "deleted",
-              let revision = receipt["commitRevision"].integer, revision > 0,
-              case .bool = receipt["alreadyDeleted"] else { throw SyncFailure.receiptMismatch }
-    }
-    public func acknowledgeWorkoutDeletion(_ id: String, receipt: JSON) throws {
-        try Self.validateDeletion(receipt, id: id)
-        var next = state
-        var task = next.tasks?[id] ?? WorkoutSyncTask(workoutID: id)
-        if next.tasks == nil { next.tasks = [:] }
-        task.phase = .deleted; task.deletionReceipt = receipt; task.errorCode = nil
-        task.uploadReceipt = nil; task.acknowledgedAt = nil; task.updatedAt = Date()
-        releaseBundleFile(&task, in: &next)
-        next.tasks?[id] = task; next.deletedWorkouts.insert(id)
-        if var work = next.discovery?.work[id] {
-            let childDeletes = (next.discovery?.events ?? [:]).values.contains { $0.workoutID == id && $0.deleted && $0.type != "HKWorkoutTypeIdentifier" && $0.status != "delivered" }
-            if childDeletes { work.selected = true }
-            else { work.deliveredGeneration = work.generation }
-            next.discovery?.work[id] = work
-            for (eventID,var event) in next.discovery?.events ?? [:] where event.workoutID == id && (!event.deleted || event.type == "HKWorkoutTypeIdentifier") {
-                event.status = event.deleted ? "delivered" : "suppressed_by_workout_delete"; next.discovery?.events[eventID] = event
-            }
-        }
-        try commit(next)
-    }
-    public func setWorkoutAnchor(_ id: String, anchor: Data?) throws {
-        try updateTask(id) { $0.workoutAnchor = anchor }
     }
     private func releaseBundleFile(_ task: inout WorkoutSyncTask, in next: inout LocalState) {
         guard let file = task.bundleFile else { return }
@@ -759,7 +585,7 @@ public actor OutboxStore {
         next.reclaimFiles = Array(Set(reclaim)).sorted()
         task.bundleFile = nil
         task.bundleBoundary = nil
-        task.bundleWireFile = nil; task.bundleWireSHA256 = nil
+        task.bundleWireFile = nil
     }
     /// Protocol 3 has no page queue. Any pages left by a pre-bundle client
     /// cannot be drained through the removed legacy endpoints; retain this
@@ -799,11 +625,9 @@ public actor OutboxStore {
     public func setTaskMetrics(_ id: String, metrics: [String: Double]) throws {
         try updateTask(id) { $0.metrics.merge(metrics) { _, new in new } }
     }
-    /// Startup reconciliation: a task with no durable page left and never
+    /// Startup reconciliation: a task with no durable payload left and never
     /// reached the server is not silently treated as synced. It becomes a
-    /// retryable failure so the user can explicitly retry. A task whose only
-    /// remaining pages are permanently rejected (for example 409) is settled
-    /// as FAILED instead of being projected as "uploading" forever.
+    /// retryable failure so the user can explicitly retry.
     public func reconcileTasks() throws {
         guard var tasks = state.tasks else { return }
         var changed = false
@@ -824,7 +648,7 @@ public actor OutboxStore {
                    FileManager.default.fileExists(atPath: url.path),
                    let boundary = Self.ingestPayloadBoundary(file: url) {
                     reclaim?.removeAll { $0 == name }; reclaimChanged = true
-                    task.bundleFile = name; task.bundleBoundary = boundary; task.bundleSHA256 = nil
+                    task.bundleFile = name; task.bundleBoundary = boundary
                     task.phase = .uploading; task.errorCode = nil; task.lastUploadError = nil
                     task.attemptCount = nil; task.nextAttemptAt = nil
                     task.updatedAt = Date(); tasks[id] = task; changed = true
@@ -836,45 +660,28 @@ public actor OutboxStore {
             }
             // An upgraded task killed after the fixed rename but before the
             // lane marker commit is adopted without re-reading HealthKit.
-            if task.ingestMode == nil, task.uploadReceipt == nil, task.deletionReceipt == nil,
-               [.preparing, .uploading].contains(task.phase), task.bundleFile == nil,
+            if task.uploadReceipt == nil, [.preparing, .uploading].contains(task.phase), task.bundleFile == nil,
                let name = Self.ingestPayloadName(id), let url = try? fileURL(name),
                FileManager.default.fileExists(atPath: url.path),
                let boundary = Self.ingestPayloadBoundary(file: url) {
                 reclaim?.removeAll { $0 == name }; reclaimChanged = true
                 task.ingestMode = Self.ingestModeUUID
-                task.bundleFile = name; task.bundleBoundary = boundary; task.bundleSHA256 = nil
+                task.bundleFile = name; task.bundleBoundary = boundary
                 task.phase = .uploading; task.errorCode = nil; task.lastUploadError = nil
                 task.attemptCount = nil; task.nextAttemptAt = nil; task.updatedAt = Date()
                 tasks[id] = task; changed = true
                 continue
             }
-            if task.bundleFile != nil, task.uploadReceipt == nil, task.deletionReceipt == nil,
-               (task.phase != .failed || ["interrupted", "workout_import_not_found", "receipt_mismatch", "invalid_response"].contains(task.errorCode ?? "")), task.phase != .deleted {
-                task.phase = .uploading; tasks[id] = task; changed = true
-            }
-            guard [.preparing, .uploading].contains(task.phase) else { continue }
-            let pages = state.pages.filter { $0.taskID == id }
-            if let failure = pages.compactMap(\.error).first(where: { !$0.retryable }) {
-                task.phase = .failed; task.errorCode = failure.code; task.updatedAt = Date()
-                tasks[id] = task; changed = true
-                continue
-            }
-            if !pages.isEmpty { continue }
-            // Protocol 3 tasks are resumable only if their exact bundle file
-            // survived. Without it, do not silently read HealthKit on recovery.
-            if task.bundleFile == nil || task.bundleSHA256 == nil {
-                task.phase = .failed
-                task.errorCode = "interrupted"
-                task.updatedAt = Date()
-                tasks[id] = task
-                changed = true
-            } else if task.phase == .preparing {
-                task.phase = .uploading
-                task.updatedAt = Date()
-                tasks[id] = task
-                changed = true
-            }
+            // Every remaining protocol-3 task is history. A receipt or deletion
+            // stays untouched; an unacknowledged payload is released and needs
+            // one explicit sync to rebuild it as protocol 6.
+            guard task.uploadReceipt == nil, task.phase != .deleted else { continue }
+            if let file = task.bundleFile { reclaim?.append(file); reclaimChanged = true }
+            if let wire = task.bundleWireFile { reclaim?.append(wire); reclaimChanged = true }
+            task.bundleFile = nil; task.bundleBoundary = nil; task.bundleWireFile = nil
+            task.phase = .failed; task.errorCode = "protocol_upgrade_required"
+            task.lastUploadError = nil; task.nextAttemptAt = nil; task.attemptCount = nil
+            task.updatedAt = Date(); tasks[id] = task; changed = true
         }
         if changed {
             var next = state; next.tasks = tasks
@@ -901,7 +708,6 @@ public actor OutboxStore {
         if next.pages[index].cursor == page.operations.count {
             finish(page, in: &next); next.pages.remove(at: index)
             markDelivered(page, in: &next)
-            completeTaskIfStaged(page.taskID, in: &next)
             // An explicit HealthKit Workout deletion invalidates its pending
             // routes and associations. Preserve files; do not send stale work.
             for id in page.deletedWorkouts {
@@ -955,15 +761,6 @@ public actor OutboxStore {
         guard page.operations.isEmpty else { throw SyncFailure.localState("nonempty_page") }
         var next = state; finish(page, in: &next); try commit(next)
     }
-    private func completeTaskIfStaged(_ taskID: String?, in next: inout LocalState) {
-        guard let taskID, var task = next.tasks?[taskID], task.stagedAll == true,
-              [.preparing, .uploading].contains(task.phase),
-              !next.pages.contains(where: { $0.taskID == taskID }) else { return }
-        task.phase = .acknowledged
-        if task.acknowledgedAt == nil { task.acknowledgedAt = Date() }
-        task.updatedAt = Date()
-        next.tasks?[taskID] = task
-    }
     private func markDelivered(_ page: PendingPage, in next: inout LocalState) {
         var marked = next.reclaimFiles ?? []
         for (cursor, operation) in page.operations.enumerated() {
@@ -996,11 +793,6 @@ public actor OutboxStore {
         referenced.formUnion(state.factCaptureFiles ?? [])
         referenced.formUnion((state.daily ?? [:]).values.compactMap { $0.pending?.file })
         referenced.formUnion([state.vo2?.pending?.file, state.vo2?.blocked?.file].compactMap { $0 })
-        referenced.formUnion([state.workoutCompleteness?.cycle?.pendingFile].compactMap { $0 })
-        referenced.formUnion(state.workoutCompleteness?.cycle?.seriesFiles.keys.map { $0 } ?? [])
-        for captures in state.workoutCompleteness?.cycle?.captures.values ?? Dictionary<String, [WorkoutCompletenessCapture]>().values {
-            referenced.formUnion(captures.map(\.archiveFile))
-        }
         for capture in (state.routeCaptures ?? [:]).values { referenced.insert(capture.file) }
         for event in (state.discovery?.events ?? [:]).values {
             if let file = event.archiveFile { referenced.insert(file) }
@@ -1008,7 +800,7 @@ public actor OutboxStore {
             // record in it alive, so a shared segment is never partially swept.
             if let file = event.segmentFile { referenced.insert(file) }
         }
-        for task in Array((state.tasks ?? [:]).values) + Array((state.retainedBundles ?? [:]).values) {
+        for task in (state.tasks ?? [:]).values {
             if let file = task.bundleFile { referenced.insert(file) }
             if let file = task.bundleWireFile { referenced.insert(file) }
         }

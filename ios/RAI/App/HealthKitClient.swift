@@ -51,6 +51,9 @@ protocol HealthKitReading: Sendable {
     func route(_ route: HKWorkoutRoute, directory: URL) async throws -> PreparedRoute
     func series(_ sample: HKQuantitySample, scope: Scope, store: OutboxStore) async throws -> [OutboxOperation]
     func recentWorkouts(limit: Int) async throws -> [HealthWorkoutSummary]
+    /// Newest first, strictly older by start date than `before`. A page includes
+    /// every row tied at its oldest start date and can exceed the requested limit.
+    func workoutPage(before: Date?, limit: Int) async throws -> [HealthWorkoutSummary]
     func readWorkout(id: String, anchor: Data?) async throws -> HealthPage
     func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample]
     func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]]
@@ -62,7 +65,6 @@ protocol HealthKitReading: Sendable {
     func captureRoutes(workout: HKWorkout, store: OutboxStore) async throws -> HealthRouteRead
     func observeChanges(_ handler: @escaping @Sendable () async -> Void) async throws
     func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
-    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage
     func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage
     func observeDaily(_ handler: @escaping @Sendable () async -> Void) async throws
@@ -78,7 +80,6 @@ extension HealthKitReading {
                                           routeFlushes: Int, routeSynchronizations: Int, routePoints: Int) {
         (0, 0, 0, 0, 0, 0)
     }
-    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage { throw SyncFailure.invalid("unsupported_completeness_query") }
     func readVO2(anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func observeVO2(_ handler: @escaping @Sendable () async -> Void) async throws {}
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
@@ -91,6 +92,7 @@ extension HealthKitReading {
     }
     // Test doubles that only drain saved Outbox pages do not need HealthKit.
     func recentWorkouts(limit: Int) async throws -> [HealthWorkoutSummary] { throw SyncFailure.invalid("healthkit_unavailable") }
+    func workoutPage(before: Date?, limit: Int) async throws -> [HealthWorkoutSummary] { throw SyncFailure.invalid("healthkit_unavailable") }
     func readWorkout(id: String, anchor: Data?) async throws -> HealthPage { throw SyncFailure.invalid("healthkit_unavailable") }
     func bundleSamples(type: HKQuantityType, workout: HKWorkout) async throws -> [HKSample] { throw SyncFailure.invalid("healthkit_unavailable") }
     func bundleSeries(type: HKQuantityType, workout: HKWorkout) async throws -> [String: [JSON]] { throw SyncFailure.invalid("healthkit_unavailable") }
@@ -125,8 +127,8 @@ actor HealthKitClient: HealthKitReading {
     /// Test seam for the bounded list walk: when set, `recentWorkouts` reads
     /// its pages from here instead of HealthKit. Only compiled in DEBUG, and
     /// the app never sets it, so the shipped list path is unchanged.
-    private var workoutPageSource: (@Sendable (Date?, Int) async throws -> [HKWorkout])?
-    func setWorkoutPageSource(_ source: (@Sendable (Date?, Int) async throws -> [HKWorkout])?) {
+    private var workoutPageSource: (@Sendable (NSPredicate, Int) throws -> [HKWorkout])?
+    func setWorkoutPageSource(_ source: (@Sendable (NSPredicate, Int) throws -> [HKWorkout])?) {
         workoutPageSource = source
     }
     func workoutListEvidence() -> JSON {
@@ -219,22 +221,6 @@ actor HealthKitClient: HealthKitReading {
         let query = HKSampleQueryDescriptor(predicates: [.workout(HKQuery.predicateForObject(with: uuid))], sortDescriptors: [], limit: 1)
         return try await query.result(for: health).first
     }
-    func readCompleteness(type: HKSampleType, workout: HKWorkout?, anchor: Data?, from: Date) async throws -> HealthPage {
-        let previous = try Self.decodeAnchor(anchor)
-        let predicate: NSPredicate
-        if type == HKObjectType.workoutType(), workout == nil {
-            predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [HKQuery.predicateForWorkouts(with: .running),
-                HKQuery.predicateForSamples(withStart: from, end: nil, options: [])])
-        } else {
-            guard let workout, (Self.quantityTypes + [HKSeriesType.workoutRoute()]).contains(type) else { throw SyncFailure.invalid("unsupported_completeness_query") }
-            predicate = HKQuery.predicateForObjects(from: workout)
-        }
-        let limit = type == HKObjectType.workoutType() ? 25 : 1000
-        let query = HKAnchoredObjectQueryDescriptor(predicates: [.sample(type: type, predicate: predicate)], anchor: previous, limit: limit)
-        let result = try await query.result(for: health)
-        return HealthPage(samples: result.addedSamples, deleted: result.deletedObjects,
-            anchor: try NSKeyedArchiver.archivedData(withRootObject: result.newAnchor, requiringSecureCoding: true), limit: limit)
-    }
     func readDaily(type: HKSampleType, anchor: Data?, start: Date, limit: Int) async throws -> HealthPage {
         guard Self.dailyTypes.contains(type), (1...DailyHealth.maxChanges).contains(limit) else { throw SyncFailure.invalid("unsupported_type") }
         let previous = try Self.decodeAnchor(anchor)
@@ -306,18 +292,9 @@ actor HealthKitClient: HealthKitReading {
             if let cursor {
                 // Strictly older than the previous page: no duplicates and no
                 // reordering while the user scrolls.
-                predicates.append(HKQuery.predicateForSamples(withStart: nil, end: cursor, options: .strictEndDate))
+                predicates.append(NSPredicate(format: "%K < %@", HKPredicateKeyPathStartDate, cursor as NSDate))
             }
-            let workouts: [HKWorkout]
-            #if DEBUG
-            if let workoutPageSource {
-                workouts = try await workoutPageSource(cursor, want)
-            } else {
-                workouts = try await runningWorkoutPage(predicates: predicates, limit: want)
-            }
-            #else
-            workouts = try await runningWorkoutPage(predicates: predicates, limit: want)
-            #endif
+            let workouts = try await runningWorkoutPage(predicates: predicates, limit: want)
             pages += 1
             summaries.append(contentsOf: workouts.map(Self.summary))
             guard workouts.count == want, let last = workouts.last else { break }
@@ -333,11 +310,54 @@ actor HealthKitClient: HealthKitReading {
         #endif
         return summaries
     }
-    /// One page of the running-workout list: strictly older than `before` when
-    /// a cursor is supplied, newest first, never more than `limit` rows.
+    /// A date cursor is safe only when all rows at the boundary are included.
+    /// Expand that one timestamp, then sort ties by UUID in memory. No sample
+    /// detail is read here and overlapping end dates never affect membership.
+    func workoutPage(before: Date?, limit: Int = 100) async throws -> [HealthWorkoutSummary] {
+        let bounded = min(max(limit, 1), 200)
+        var predicates = [HKQuery.predicateForWorkouts(with: .running)]
+        if let before {
+            predicates.append(NSPredicate(format: "%K < %@", HKPredicateKeyPathStartDate, before as NSDate))
+        }
+        var workouts = try await runningWorkoutPage(predicates: predicates, limit: bounded)
+        #if DEBUG
+        var queries = 1
+        #endif
+        if workouts.count == bounded, let oldest = workouts.last?.startDate {
+            try Task.checkCancellation()
+            let ties = try await runningWorkoutPage(predicates: [
+                HKQuery.predicateForWorkouts(with: .running),
+                NSPredicate(format: "%K == %@", HKPredicateKeyPathStartDate, oldest as NSDate),
+            ], limit: HKObjectQueryNoLimit)
+            #if DEBUG
+            queries += 1
+            #endif
+            var seen = Set(workouts.map(\.uuid))
+            workouts.append(contentsOf: ties.filter { seen.insert($0.uuid).inserted })
+        }
+        workouts.sort {
+            $0.startDate == $1.startDate ? $0.uuid.uuidString < $1.uuid.uuidString : $0.startDate > $1.startDate
+        }
+        let summaries = workouts.map(Self.summary)
+        #if DEBUG
+        acceptanceWorkoutListQueries += queries
+        acceptanceWorkoutListScanned += summaries.count
+        acceptanceWorkoutListEligible += summaries.filter(\.isEligible).count
+        acceptanceWorkoutListExcluded += summaries.filter(\.isExcluded).count
+        acceptanceWorkoutListUnclassified += summaries.filter(\.isUnclassified).count
+        acceptanceWorkoutListScanLimit = bounded
+        #endif
+        return summaries
+    }
+    /// One running-workout query, newest first. Boundary expansion uses
+    /// HKObjectQueryNoLimit so no rows sharing that start date are omitted.
     private func runningWorkoutPage(predicates: [NSPredicate], limit: Int) async throws -> [HKWorkout] {
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        #if DEBUG
+        if let workoutPageSource { return try workoutPageSource(predicate, limit) }
+        #endif
         let query = HKSampleQueryDescriptor(
-            predicates: [.workout(NSCompoundPredicate(andPredicateWithSubpredicates: predicates))],
+            predicates: [.workout(predicate)],
             sortDescriptors: [SortDescriptor(\HKWorkout.startDate, order: .reverse)], limit: limit)
         return try await query.result(for: health)
     }
@@ -1355,7 +1375,7 @@ enum Normalizer {
         return .object(object)
     }
 
-    /// Protocol 4 workout object: the core stays exact, optional details are
+    /// Protocol 6 workout object: the core stays exact, optional details are
     /// dropped individually. One unknown statistic or unencodable aggregate
     /// never discards the run.
     static func rawWorkout(_ w: HKWorkout) -> JSON {
@@ -1414,8 +1434,7 @@ enum Normalizer {
            let encoded = try? quantity(length, type: HKQuantityTypeIdentifier.distanceWalkingRunning.rawValue) {
             config["lapLength"] = encoded
         }
-        var object: [String: JSON] = ["uuid": .string(activity.uuid.uuidString.lowercased()),
-                                      "startUs": .int(us(activity.startDate)),
+        var object: [String: JSON] = ["startUs": .int(us(activity.startDate)),
                                       "durationUs": .int(Int64((activity.duration * 1_000_000).rounded())),
                                       "configuration": .object(config)]
         if let end = activity.endDate { object["endUs"] = .int(us(end)) }

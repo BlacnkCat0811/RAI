@@ -13,7 +13,7 @@ func validBundle() WorkoutBundle {
 	sample := Event{Op: "upsert", Kind: "sample", Type: "HKQuantityTypeIdentifierHeartRate", UUID: NewID(),
 		StartUs: &start, EndUs: &end, Source: &Source{BundleID: "synthetic.test"},
 		Quantity: &Quantity{Value: 120, Unit: "count/min"}}
-	return WorkoutBundle{ProtocolVersion: 3, DatasetID: NewID(), DatasetEpoch: NewID(), CollectorEpoch: NewID(),
+	return WorkoutBundle{ProtocolVersion: 6, DatasetID: NewID(), DatasetEpoch: NewID(), CollectorEpoch: NewID(),
 		WorkoutID: workout.UUID, Workout: workout, Samples: []Event{sample},
 		Series: []WorkoutBundleSeries{{SampleType: sample.Type, SampleUUID: sample.UUID,
 			Points: []SeriesPoint{{StartUs: start, EndUs: start, Value: 1, Unit: "count/min"}}}},
@@ -26,17 +26,14 @@ func TestWorkoutBundleValidation(t *testing.T) {
 	if err := bundle.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := json.Marshal(bundle)
-	if err := RejectNulls(raw); err != nil {
+	if _, err := json.Marshal(bundle); err != nil {
 		t.Fatal(err)
-	}
-	if err := RejectNulls([]byte(`{"protocolVersion":3,"x":null}`)); err == nil {
-		t.Fatal("null accepted")
 	}
 }
 
 func TestWorkoutBundleRejectsBrokenMembership(t *testing.T) {
 	cases := map[string]func(*WorkoutBundle){
+		"unknown protocol":    func(b *WorkoutBundle) { b.ProtocolVersion = 2 },
 		"workout id mismatch": func(b *WorkoutBundle) { b.WorkoutID = NewID() },
 		"duplicate sample":    func(b *WorkoutBundle) { b.Samples = append(b.Samples, b.Samples[0]) },
 		"series without parent": func(b *WorkoutBundle) {

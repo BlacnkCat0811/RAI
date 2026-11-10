@@ -2,18 +2,11 @@ import Foundation
 import HealthKit
 import SyncCore
 
-/// One Workout's prepared protocol-6 payload. The bytes are immutable so a
-/// retry uploads the same file instead of re-reading HealthKit.
-struct PreparedV6Bundle: Sendable {
-    let raw: Data
-}
-
-/// Builds the protocol-6 raw payload: one read per metric type, a top-level
-/// source inherited by every fact, scalar triples, series groups with a parent
-/// header, and routes without IDs. There is no per-sample UUID, metadata or
-/// source in the payload and no completeness, anchor or deletion machinery.
+/// Builds one protocol-6 payload from one complete HealthKit read: one query
+/// per metric type, a top-level source inherited by every fact, scalar triples,
+/// series groups with a parent header, and routes without IDs. There is no
+/// per-sample UUID, metadata or source, no Outbox staging and no retry bytes.
 struct RawStreamSyncEngine: Sendable {
-    let store: OutboxStore
     let health: any HealthKitReading
     let scope: Scope
 
@@ -41,15 +34,13 @@ struct RawStreamSyncEngine: Sendable {
         }
     }
 
-    func build(id: String) async throws -> PreparedV6Bundle {
+    func build(id: String) async throws -> Data {
         guard let workout = try await health.workout(id) else {
             throw SyncFailure.invalid("workout_not_visible")
         }
         let source = Normalizer.source(workout)
         let classification = HealthSourcePolicy.classification(source)
         let outcome = WorkoutSourcePolicy.outcome(classification)
-        try await store.recordSourceClassification(workoutID: id, classification: classification,
-                                                   evidence: WorkoutSourcePolicy.evidence(source))
         guard outcome == WorkoutSourcePolicy.eligible else {
             throw SyncFailure.invalid(outcome == WorkoutSourcePolicy.excluded ? "source_policy_excluded" : "source_policy_pending")
         }
@@ -60,7 +51,7 @@ struct RawStreamSyncEngine: Sendable {
         var streams: [StreamRead] = []
         try await withThrowingTaskGroup(of: StreamRead.self) { group in
             for type in streamTypes {
-                group.addTask { try await self.readStream(type: type, workout: workout, startUs: startUs) }
+                group.addTask { try await self.readStream(type: type, workout: workout) }
             }
             for try await stream in group { streams.append(stream) }
         }
@@ -77,43 +68,28 @@ struct RawStreamSyncEngine: Sendable {
             throw SyncFailure.invalid("bundle_too_large")
         }
 
+        // A route read that was started must finish. Empty routes are legal only
+        // when HealthKit reports none (indoor run, no route attached).
+        let read = try await health.bundleRoutes(workout: workout)
+        guard read.count <= WorkoutBundleV6.maxRoutes else { throw SyncFailure.invalid("bundle_too_large") }
+        var routePoints = 0
         var routes: [[RoutePoint]] = []
-        do {
-            let read = try await health.bundleRoutes(workout: workout)
-            guard read.count <= WorkoutBundleV6.maxRoutes else { throw SyncFailure.invalid("bundle_too_large") }
-            var routePoints = 0
-            var incomplete = false
-            var ordered: [[RoutePoint]] = []
-            for route in read.sorted(by: { $0.id < $1.id }) {
-                routePoints += route.points.count
-                guard routePoints <= WorkoutBundleV6.maxRoutePoints else {
-                    throw SyncFailure.invalid("bundle_too_large")
-                }
-                // v6 has no per-route coverage field, so a partially read route
-                // would be silent truncation. Any incomplete route read drops
-                // all routes instead of uploading a shorter path as complete.
-                if let coverage = route.coverage,
-                   coverage.queryCompleted == false || coverage.errorCode != nil {
-                    incomplete = true
-                    break
-                }
-                guard !route.points.isEmpty else { continue }
-                ordered.append(route.points)
+        for route in read.sorted(by: { $0.id < $1.id }) {
+            if let coverage = route.coverage,
+               coverage.queryCompleted == false || coverage.errorCode != nil {
+                throw SyncFailure.invalid(coverage.errorCode ?? "route_read_incomplete")
             }
-            routes = incomplete ? [] : ordered
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch let failure as SyncFailure {
-            if case .invalid("bundle_too_large") = failure { throw failure }
-            // Routes are optional: a failed route read does not block the run.
-            routes = []
-        } catch {
-            routes = []
+            routePoints += route.points.count
+            guard routePoints <= WorkoutBundleV6.maxRoutePoints else {
+                throw SyncFailure.invalid("bundle_too_large")
+            }
+            guard !route.points.isEmpty else { continue }
+            routes.append(route.points)
         }
 
         // v6 clients send no metadata; the optional top-level field exists for
         // other producers and server-side diagnostics.
-        let raw = try WorkoutBundleV6.data(
+        return try WorkoutBundleV6.data(
             scope: scope, workoutID: id, startUs: startUs, endUs: endUs,
             source: source, metadata: nil,
             workout: Normalizer.rawWorkout(workout),
@@ -122,48 +98,33 @@ struct RawStreamSyncEngine: Sendable {
                                 error: stream.error, samples: stream.samples, series: stream.series)
             },
             routes: routes)
-        return PreparedV6Bundle(raw: raw)
     }
 
-    private func readStream(type: HKQuantityType, workout: HKWorkout, startUs: Int64) async throws -> StreamRead {
+    private func readStream(type: HKQuantityType, workout: HKWorkout) async throws -> StreamRead {
         let unit = Normalizer.units[type.identifier] ?? ""
         var stream = StreamRead(type: type.identifier, unit: unit)
         if Self.seriesTypes.contains(type.identifier) {
-            do {
-                let groups = try await health.bundleSeriesGroups(type: type, workout: workout)
-                for group in groups {
-                    var points: [WorkoutSampleV6] = []
-                    points.reserveCapacity(group.points.count)
-                    for point in group.points {
-                        guard point.value.isFinite, point.startUs <= point.endUs,
-                              point.startUs >= group.startUs, point.endUs <= group.endUs else {
-                            stream.incomplete("invalid_series_point")
-                            continue
-                        }
-                        points.append(WorkoutSampleV6(startUs: point.startUs, endUs: point.endUs, value: point.value))
+            let groups = try await health.bundleSeriesGroups(type: type, workout: workout)
+            for group in groups {
+                var points: [WorkoutSampleV6] = []
+                points.reserveCapacity(group.points.count)
+                for point in group.points {
+                    guard point.value.isFinite, point.startUs <= point.endUs,
+                          point.startUs >= group.startUs, point.endUs <= group.endUs else {
+                        stream.incomplete("invalid_series_point")
+                        continue
                     }
-                    guard !points.isEmpty else { continue }
-                    guard group.value.isFinite else { stream.incomplete("invalid_series_parent"); continue }
-                    stream.series.append(WorkoutSeriesGroupV6(startUs: group.startUs, endUs: group.endUs,
-                                                              value: group.value, points: points))
+                    points.append(WorkoutSampleV6(startUs: point.startUs, endUs: point.endUs, value: point.value))
                 }
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                stream.status = "failed"; stream.error = Self.code(error)
+                guard !points.isEmpty else { continue }
+                guard group.value.isFinite else { stream.incomplete("invalid_series_parent"); continue }
+                stream.series.append(WorkoutSeriesGroupV6(startUs: group.startUs, endUs: group.endUs,
+                                                          value: group.value, points: points))
             }
             return stream
         }
 
-        let samples: [HKSample]
-        do {
-            samples = try await health.bundleSamples(type: type, workout: workout)
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            stream.status = "failed"; stream.error = Self.code(error)
-            return stream
-        }
+        let samples = try await health.bundleSamples(type: type, workout: workout)
         stream.samples.reserveCapacity(samples.count)
         for sample in samples {
             try Task.checkCancellation()

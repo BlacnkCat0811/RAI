@@ -67,7 +67,8 @@ func decodeV6Envelope(raw []byte) (v6Envelope, error) {
 		return zero, errBundleV6
 	}
 	lexical := json.NewDecoder(bytes.NewReader(raw))
-	if err := walkV4JSON(lexical, 0); err != nil {
+	lexical.UseNumber() // Unknown JSON numbers need not fit a float64.
+	if err := walkRawJSON(lexical, 0); err != nil {
 		return zero, errBundleV6
 	}
 	if _, err := lexical.Token(); err != io.EOF {
@@ -87,7 +88,7 @@ func decodeV6Envelope(raw []byte) (v6Envelope, error) {
 		!ValidID(*wire.CollectorEpoch) || !ValidID(*wire.WorkoutID) {
 		return zero, errBundleV6
 	}
-	if !validV4Range(*wire.StartUs, *wire.EndUs) {
+	if !validTimeRange(*wire.StartUs, *wire.EndUs) {
 		return zero, errBundleV6
 	}
 	return wire, nil
@@ -99,8 +100,8 @@ func decodeV6Envelope(raw []byte) (v6Envelope, error) {
 // uses randomness, time, sequences or global counters.
 func V6FactUUID(datasetID, workoutID, sampleType, kind string, ordinal int) string {
 	name := fmt.Sprintf("rai/v1|%s|%s|%s|%s|%d", datasetID, workoutID, sampleType, kind, ordinal)
-	if kind == "route" {
-		name = fmt.Sprintf("rai/v1|%s|%s|route|%d", datasetID, workoutID, ordinal)
+	if kind == "route" || kind == "activity" {
+		name = fmt.Sprintf("rai/v1|%s|%s|%s|%d", datasetID, workoutID, kind, ordinal)
 	}
 	h := sha1.New()
 	_, _ = h.Write(v6Namespace[:])
@@ -114,11 +115,11 @@ func V6FactUUID(datasetID, workoutID, sampleType, kind string, ordinal int) stri
 }
 
 func v6Triple(raw json.RawMessage, base int64) (start, end int64, value float64, ok bool) {
-	return v5Triple(raw, base)
+	return decodeTriple(raw, base)
 }
 
 func v6RoutePoint(raw json.RawMessage, base int64) (WorkoutBundlePoint, bool) {
-	return v5RoutePoint(raw, base)
+	return decodeRoutePoint(raw, base)
 }
 
 func v6SeriesHeader(raw json.RawMessage, base int64) (start, end int64, value float64, ok bool) {
@@ -154,7 +155,7 @@ func v6SeriesPointCounts(stream v6Stream) int {
 // when one bad point is ignored.
 func projectV6Streams(bundle *WorkoutBundle, table *BundleSourceTable, raw json.RawMessage,
 	source HealthKitSource, base int64) error {
-	streams, ok := v4Array(raw)
+	streams, ok := rawArray(raw)
 	if !ok {
 		return nil
 	}
@@ -236,7 +237,7 @@ func projectV6Streams(bundle *WorkoutBundle, table *BundleSourceTable, raw json.
 // route ID and no source: both are server-owned.
 func projectV6Routes(bundle *WorkoutBundle, table *BundleSourceTable, raw json.RawMessage,
 	source HealthKitSource, base int64) error {
-	items, ok := v4Array(raw)
+	items, ok := rawArray(raw)
 	if !ok {
 		return nil
 	}
@@ -286,7 +287,7 @@ func DecodeWorkoutBundleV6JSON(raw []byte) (WorkoutBundle, error) {
 	if err != nil {
 		return WorkoutBundle{}, errBundleV6
 	}
-	workoutSource, ok := v4HealthSource(wire.Source)
+	workoutSource, ok := rawHealthSource(wire.Source)
 	if !ok {
 		return WorkoutBundle{}, errBundleV6
 	}
@@ -294,7 +295,7 @@ func DecodeWorkoutBundleV6JSON(raw []byte) (WorkoutBundle, error) {
 		return WorkoutBundle{}, Fail(422, "source_policy_excluded")
 	}
 	start, end := *wire.StartUs, *wire.EndUs
-	workout, err := decodeV4Workout(wire.Workout, start, end)
+	workout, err := decodeWorkoutCore(wire.Workout, start, end, *wire.DatasetID, *wire.WorkoutID)
 	if err != nil {
 		return WorkoutBundle{}, bundleValidationContext(err, "workout", "invalid_workout")
 	}
@@ -304,7 +305,7 @@ func DecodeWorkoutBundleV6JSON(raw []byte) (WorkoutBundle, error) {
 		Source:  &Source{BundleID: workoutSource.BundleID},
 		Workout: &workout,
 	}
-	if metadata, ok := v4MetadataValue(wire.Metadata); ok {
+	if metadata, ok := rawMetadataValue(wire.Metadata); ok {
 		delete(metadata, VO2Reserved)
 		if len(metadata) > 0 {
 			workoutEvent.Metadata = metadata
@@ -336,6 +337,18 @@ func DecodeWorkoutBundleV6JSON(raw []byte) (WorkoutBundle, error) {
 	return bundle, nil
 }
 
+// DecodeWorkoutPayloadJSON decodes the only accepted raw Workout protocol.
+// Stored payloads that still carry an older version fail this boundary.
+func DecodeWorkoutPayloadJSON(raw []byte) (WorkoutBundle, error) {
+	return DecodeWorkoutBundleV6JSON(raw)
+}
+
+// WorkoutPayloadSourceTable extracts the source attribution from an already
+// stored protocol-6 payload.
+func WorkoutPayloadSourceTable(raw []byte) (*BundleSourceTable, error) {
+	return WorkoutBundleV6SourceTable(raw)
+}
+
 // WorkoutBundleV6SourceTable rebuilds the top-level source attribution from an
 // already stored protocol-6 payload. Every projected fact inherits the same
 // source, so the table only needs the identities the projection could create.
@@ -344,7 +357,7 @@ func WorkoutBundleV6SourceTable(raw []byte) (*BundleSourceTable, error) {
 	if err != nil {
 		return nil, errBundleV6
 	}
-	workoutSource, ok := v4HealthSource(wire.Source)
+	workoutSource, ok := rawHealthSource(wire.Source)
 	if !ok {
 		return nil, errBundleV6
 	}
@@ -353,7 +366,7 @@ func WorkoutBundleV6SourceTable(raw []byte) (*BundleSourceTable, error) {
 		Samples: make(map[string]HealthKitSource),
 		Routes:  make(map[string]HealthKitSource),
 	}
-	streams, _ := v4Array(wire.Streams)
+	streams, _ := rawArray(wire.Streams)
 	for _, rawStream := range streams {
 		var stream v6Stream
 		if json.Unmarshal(rawStream, &stream) != nil || stream.Type == nil {
@@ -370,7 +383,7 @@ func WorkoutBundleV6SourceTable(raw []byte) (*BundleSourceTable, error) {
 			table.Samples[sampleType+":"+V6FactUUID(*wire.DatasetID, *wire.WorkoutID, sampleType, "series", index)] = workoutSource
 		}
 	}
-	routes, _ := v4Array(wire.Routes)
+	routes, _ := rawArray(wire.Routes)
 	for index := range routes {
 		table.Routes[V6FactUUID(*wire.DatasetID, *wire.WorkoutID, "", "route", index)] = workoutSource
 	}

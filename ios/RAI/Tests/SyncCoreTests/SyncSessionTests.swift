@@ -14,7 +14,7 @@ private func descriptor() -> SyncSessionDescriptor {
 private func handshake(_ d: SyncSessionDescriptor) -> JSON {
     .object(["protocolVersion": .int(3), "datasetID": .string(d.datasetID), "serviceID": .string(d.serviceID),
         "datasetEpoch": .string(d.datasetEpoch), "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch),
-        "datasetStatus": .string("active"), "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(3)])])
+        "datasetStatus": .string("active"), "capabilities": .object(["workoutPayloadVersion": .int(6), "workoutUUIDIngestVersion": .int(1)])])
 }
 @Suite struct SyncSessionTests {
     func root() -> URL { FileManager.default.temporaryDirectory.appendingPathComponent("rai-session-test-" + Wire.id()) }
@@ -24,7 +24,7 @@ private func handshake(_ d: SyncSessionDescriptor) -> JSON {
             "serviceID": .string(d.serviceID), "datasetEpoch": .string(d.datasetEpoch),
             "deviceID": .string(d.deviceID), "collectorEpoch": .string(d.collectorEpoch),
             "datasetStatus": .string("active"),
-            "capabilities": .object(["workoutBundles": .bool(true), "bundleProtocolVersion": .int(6)])])
+            "capabilities": .object(["workoutPayloadVersion": .int(6), "workoutUUIDIngestVersion": .int(1)])])
         try d.validateHandshake(hello)
     }
     @Test func newSessionUsesIndependentDirectoryKeychainAndEmptyOutbox() async throws {
@@ -36,8 +36,9 @@ private func handshake(_ d: SyncSessionDescriptor) -> JSON {
         let old = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: a.sessionID))
         let workout = Wire.id(), q = DiscoveryQuery(type: "HKWorkoutTypeIdentifier")
         try await old.beginTask(workout)
-        let file = try await old.savePayload(Data("synthetic-old-bundle".utf8))
-        try await old.setBundle(workout, file: file, sha256: String(repeating: "a", count: 64), boundary: "old")
+        try await old.markIngestLane(workout)
+        _ = try await old.stageWorkoutIngestPayload(workout,
+            body: WorkoutPayloadTransport.multipart(bundle: Data("synthetic-old-bundle".utf8), boundary: "rai.old.boundary"))
         var state = await old.snapshot()
         state.receipts["old"] = .string("synthetic-receipt"); state.localAnchors["old"] = Data([9])
         state.deletedWorkouts = [workout]; state.tombstones = [workout]
@@ -52,11 +53,11 @@ private func handshake(_ d: SyncSessionDescriptor) -> JSON {
         #expect(old.directory != fresh.directory)
         #expect(try credentials.load(sessionID: a.sessionID) == "synthetic-old")
         #expect(try credentials.load(sessionID: b.sessionID) == "synthetic-new")
-        #expect(next.tasks == nil && next.retainedBundles == nil && next.receipts.isEmpty && next.pages.isEmpty)
+        #expect(next.tasks == nil && next.receipts.isEmpty && next.pages.isEmpty)
         #expect(next.deletedWorkouts.isEmpty && next.tombstones.isEmpty && next.localAnchors.isEmpty)
         #expect(next.discovery == nil && next.scope == b.scope)
         #expect(try await fresh.discoveryFlow(q).anchor == nil)
-        #expect(!FileManager.default.fileExists(atPath: fresh.directory.appendingPathComponent(file).path))
+        #expect(!FileManager.default.fileExists(atPath: fresh.directory.appendingPathComponent("workout-ingest." + workout + ".multipart.json").path))
         #expect(try Data(contentsOf: old.directory.appendingPathComponent("state.json")) == oldBytes)
         #expect(try await sessions.snapshot().sessions[a.sessionID]?.status == .retired)
         await #expect(throws: (any Error).self) { try await sessions.requireActive(a.sessionID) }
@@ -125,26 +126,6 @@ private func handshake(_ d: SyncSessionDescriptor) -> JSON {
         #expect(next.events.count == 1 && next.workoutArchives[workout] != nil)
         #expect(await old.discoverySnapshot().flows[query.key]?.anchor == Data([99]))
         #expect(await fresh.snapshot().deletedWorkouts.isEmpty)
-    }
-    @Test func oldBundleCannotUploadInNewSessionAndNewACKIsScopedByBundleHash() async throws {
-        let root = root(); defer { try? FileManager.default.removeItem(at: root) }
-        let credentials = SyntheticSessionCredentials(), a = descriptor(), b = descriptor(), workout = Wire.id()
-        let sessions = try SyncSessionStore(root: root, credentials: credentials)
-        _ = try await sessions.prepare(a, token: "old"); _ = try await sessions.prepare(b, token: "new")
-        let fresh = try OutboxStore(directory: SyncSessionStore.directory(root: root, sessionID: b.sessionID))
-        var fields = a.scope.bundleFields; fields["workoutID"] = .string(workout)
-        let raw = try JSON.object(fields).data(), hash = Wire.hash(raw)
-        try await fresh.beginTask(workout)
-        let file = try await fresh.savePayload(WorkoutBundleAssembler.multipart(bundle: raw, boundary: "test"))
-        try await fresh.setBundle(workout, file: file, sha256: hash, boundary: "test")
-        let api = RAIAPIClient(baseURL: b.baseURL, token: "new")
-        do { _ = try await WorkoutBundleDelivery(store: fresh, api: api).deliver(workout); Issue.record("old bundle accepted") }
-        catch let error as UploadError { #expect(error.code == "bundle_session_mismatch") }
-        var newFields = b.scope.bundleFields; newFields["workoutID"] = .string(workout)
-        let newHash = Wire.hash(try JSON.object(newFields).data())
-        #expect(newHash != hash)
-        #expect(throws: (any Error).self) { try WorkoutBundleACK.validate(durableWorkoutACK(workout, hash), workoutID: workout, bundleHash: newHash) }
-        try WorkoutBundleACK.validate(durableWorkoutACK(workout, newHash), workoutID: workout, bundleHash: newHash)
     }
     @Test func failedOutboxInitializationResumesSamePreparedIdentity() async throws {
         let root = root(); defer { try? FileManager.default.removeItem(at: root) }

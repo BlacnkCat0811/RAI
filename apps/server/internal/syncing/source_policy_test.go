@@ -96,6 +96,53 @@ func TestWorkoutSourcePolicyGoldenVectors(t *testing.T) {
 	}
 }
 
+func TestDeviceScopedAppleHealthSourceRequiresRealWatchEvidence(t *testing.T) {
+	source := HealthKitSource{BundleID: "com.apple.health." + NewID(), ProductType: "Watch8,3", Version: "1", Device: &HealthKitDevice{Manufacturer: "Apple Inc.", Model: "Watch"}}
+	if source.Classification(nil) != "apple_watch" {
+		t.Fatal("device scoped Watch evidence not recognized")
+	}
+	child := source
+	child.Device = nil
+	if child.Classification(nil) != "source_unknown" || child.Classification(&source) != "associated_apple_watch" {
+		t.Fatal("missing child device fabricated or association lost")
+	}
+	child = source
+	child.ProductType = "iPhone13,4"
+	if child.Classification(&source) != "associated_apple_watch" {
+		t.Fatal("paired iPhone child not associated with Watch parent")
+	}
+	child = source
+	child.ProductType = "iPhone13,4"
+	child.Version = "2"
+	if child.Classification(&source) != "source_unknown" {
+		t.Fatal("version mismatch hidden by parent")
+	}
+	child = source
+	child.BundleID = "com.apple.health.not-a-device-uuid"
+	if child.Classification(nil) != "source_unknown" {
+		t.Fatal("arbitrary prefix accepted")
+	}
+}
+
+func TestWorkoutCoreEqualityIgnoresMetadataButBindsMicroseconds(t *testing.T) {
+	b := validBundle()
+	start, end, duration := int64(253402300799999899), int64(253402300799999999), int64(0)
+	b.Workout.StartUs = &start
+	b.Workout.EndUs = &end
+	b.Workout.Workout.DurationUs = &duration
+	same := b.Workout
+	same.Metadata = map[string]any{"HKIndoorWorkout": false}
+	if !WorkoutCoreEqual(b.Workout, same) {
+		t.Fatal("metadata-only change rejected")
+	}
+	changed := same
+	changedStart := start + 1
+	changed.StartUs = &changedStart
+	if WorkoutCoreEqual(b.Workout, changed) {
+		t.Fatal("metadata comparison rounded away an immutable microsecond change")
+	}
+}
+
 func TestWorkoutSourcePolicyEvidenceIsBoundedAndCanonical(t *testing.T) {
 	e := SourcePolicyEvidence{BundleID: "com.strava.Strava", ProductType: "iPhone14,5"}
 	if e.Classification() != "third_party" {
