@@ -70,7 +70,10 @@ type ModelStackHealth struct {
 	DailyHealth DailyHealthFacts           `json:"dailyHealthDryRun"`
 }
 
-var healthArtifacts = []string{"load_state", "physiological_recovery", "training_readiness", "performance_state_v2", "vo2max_submax", "vo2max_external_projection"}
+// healthArtifacts spans both product schemas: the six v2 families plus the
+// three families introduced by the schema3 stack, so an activated schema3
+// channel reports the same before/after coverage as a v2 one.
+var healthArtifacts = []string{"load_state", "physiological_recovery", "training_readiness", "performance_state_v2", "vo2max_submax", "vo2max_external_projection", "session_recovery", "running_ability_estimate", "load_focus"}
 
 func coverageBucket(v float64) string {
 	switch {
@@ -170,7 +173,7 @@ func publishedHealth(ctx context.Context, tx pgx.Tx, out *ModelStackHealth, data
  FROM analysis_publications p
  JOIN analysis_artifacts a ON a.dataset_id=p.dataset_id AND a.run_id=p.published_run_id AND a.artifact_key=ANY($3)
  WHERE p.dataset_id=$1 AND p.scope_key='model/'||$2::text||'/athlete/day/v2/'||p.day::text
- AND p.metric_family='model_product_v2/'||a.artifact_key AND p.day BETWEEN $4::date AND $5::date`,
+ AND p.metric_family IN ('model_product_v2/'||a.artifact_key,'model_product_v3/'||a.artifact_key) AND p.day BETWEEN $4::date AND $5::date`,
 		dataset, stack, healthArtifacts, first.Format(time.DateOnly), today.Format(time.DateOnly))
 	if err != nil {
 		return err
