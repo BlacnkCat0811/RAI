@@ -106,102 +106,149 @@ func CalculateLoadState(in StateInput) (StateResult, error) {
 }
 
 func calculateLoadState(in StateInput, bounded bool) (StateResult, error) {
-	out := StateResult{Schema: StateSchema, DatasetID: in.DatasetID, Generation: in.Generation, Model: StateAlgorithm, Version: Version, ConfigHash: ConfigHash(), Scope: ScopeName, Unit: Unit + "/day", TrendUnit: Unit + "/day²", Days: []DailyState{}}
+	out, _, err := runLoadState(in, bounded, nil)
+	return out, err
+}
+
+type dayAggregate struct {
+	known      float64
+	unknown, n int
+	partial    bool
+}
+
+// stateRun is the carried state of a load-state computation: both kernels and
+// the 7-day ring of chronic values behind Trend7.
+type stateRun struct {
+	Acute    Kernel         `json:"acute"`
+	Chronic  Kernel         `json:"chronic"`
+	Prior    [7]KernelValue `json:"prior"`
+	PriorSet [7]bool        `json:"priorSet"`
+	Index    int            `json:"index"`
+}
+
+func newStateRun(bounded bool) stateRun {
+	r := stateRun{Acute: Kernel{Tau: 7}, Chronic: Kernel{Tau: 42}}
+	if bounded {
+		r.Acute.MaxUnknownMass, r.Chronic.MaxUnknownMass = AcuteUnknownMassMax, ChronicUnknownMassMax
+	}
+	return r
+}
+
+func (r *stateRun) advance(d, history time.Time, v dayAggregate) DailyState {
+	date := d.Format("2006-01-02")
+	input := DailyInput{v.known, v.unknown > 0, v.partial}
+	av, cv := r.Acute.Advance(input), r.Chronic.Advance(input)
+	ds := DailyState{Day: date, KnownRecordedLoad: v.known, UnknownWorkouts: v.unknown, RecordedWorkouts: v.n, Acute: av, Chronic: cv, Quality: "complete", InitialState: "zero_before_recorded_history"}
+	if !d.Before(history) {
+		// Counting calendar dates also handles 23/25-hour days exactly.
+		a := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
+		b := time.Date(history.Year(), history.Month(), history.Day(), 0, 0, 0, 0, time.UTC)
+		ds.HistoryDaysObserved = int(a.Sub(b).Hours()/24) + 1
+	}
+	if v.unknown == 0 {
+		ds.RecordedLoad = ptr(v.known)
+	}
+	if av.Value == nil || cv.Value == nil {
+		ds.Quality = "insufficient"
+	} else {
+		ds.Balance = ptr(*cv.Value - *av.Value)
+		if *cv.Value > 1 {
+			ds.Ratio = ptr(*av.Value / *cv.Value)
+		}
+		if ds.HistoryDaysObserved <= 42 || r.Acute.PartialDays > 0 || r.Chronic.PartialDays > 0 {
+			ds.Quality = "partial"
+		}
+		if av.ImputedContribution > 0 || cv.ImputedContribution > 0 {
+			ds.Imputed = true
+			ds.Quality = "partial"
+		}
+	}
+	slot := r.Index % 7
+	if r.PriorSet[slot] && cv.Value != nil && r.Prior[slot].Value != nil {
+		ds.Trend7 = ptr((*cv.Value - *r.Prior[slot].Value) / 7)
+	}
+	r.Prior[slot] = cv
+	r.PriorSet[slot] = true
+	r.Index++
+	return ds
+}
+
+type parsedState struct {
+	loc                    *time.Location
+	from, through, history time.Time
+	loads                  map[string]dayAggregate
+}
+
+func parseState(in StateInput) (parsedState, error) {
+	var p parsedState
 	loc, err := resolvedCalendar(in.Timezone, in.Calendar)
 	if err != nil {
-		return out, invalid()
+		return p, invalid()
 	}
-	from, err := time.ParseInLocation("2006-01-02", in.From, loc)
-	if err != nil {
-		return out, invalid()
+	p.loc = loc
+	if p.from, err = time.ParseInLocation("2006-01-02", in.From, loc); err != nil {
+		return p, invalid()
 	}
-	through, err := time.ParseInLocation("2006-01-02", in.Through, loc)
-	if err != nil || through.Before(from) || through.After(from.AddDate(0, 0, MaxRecomputeDays-1)) {
-		return out, invalid()
+	p.through, err = time.ParseInLocation("2006-01-02", in.Through, loc)
+	if err != nil || p.through.Before(p.from) || p.through.After(p.from.AddDate(0, 0, MaxRecomputeDays-1)) {
+		return p, invalid()
 	}
-	history, err := time.ParseInLocation("2006-01-02", in.HistoryFrom, loc)
-	if err != nil {
-		return out, invalid()
+	if p.history, err = time.ParseInLocation("2006-01-02", in.HistoryFrom, loc); err != nil {
+		return p, invalid()
 	}
-	type aggregate struct {
-		known      float64
-		unknown, n int
-		partial    bool
-	}
-	loads := map[string]aggregate{}
+	p.loads = map[string]dayAggregate{}
 	seen := map[string]bool{}
 	for _, x := range in.Loads {
 		stamp, e := time.ParseInLocation("2006-01-02", x.Day, loc)
-		if e != nil || stamp.Before(from.AddDate(0, 0, -186)) || stamp.After(through) {
-			return out, invalid()
+		if e != nil || stamp.Before(p.from.AddDate(0, 0, -186)) || stamp.After(p.through) {
+			return p, invalid()
 		}
 		key := x.WorkoutID + ":" + x.Day
 		if seen[key] {
-			return out, invalid()
+			return p, invalid()
 		}
 		seen[key] = true
-		v := loads[x.Day]
+		v := p.loads[x.Day]
 		v.n++
 		if x.Load == nil {
 			v.unknown++
 		} else {
 			if !finite(*x.Load) || *x.Load < 0 {
-				return out, invalid()
+				return p, invalid()
 			}
 			v.known += *x.Load
 		}
 		if x.Quality != "complete" {
 			v.partial = true
 		}
-		loads[x.Day] = v
+		p.loads[x.Day] = v
 	}
-	acute, chronic := Kernel{Tau: 7}, Kernel{Tau: 42}
-	if bounded {
-		acute.MaxUnknownMass, chronic.MaxUnknownMass = AcuteUnknownMassMax, ChronicUnknownMassMax
+	return p, nil
+}
+
+// runLoadState computes the state; from a seed run it advances only the days
+// after seedDay, otherwise from 186 days before From.
+func runLoadState(in StateInput, bounded bool, seed *StateCheckpoint) (StateResult, stateRun, error) {
+	out := StateResult{Schema: StateSchema, DatasetID: in.DatasetID, Generation: in.Generation, Model: StateAlgorithm, Version: Version, ConfigHash: ConfigHash(), Scope: ScopeName, Unit: Unit + "/day", TrendUnit: Unit + "/day²", Days: []DailyState{}}
+	p, err := parseState(in)
+	if err != nil {
+		return out, stateRun{}, err
 	}
-	var prior [7]KernelValue
-	var priorSet [7]bool
-	index := 0
-	for d := from.AddDate(0, 0, -186); !d.After(through); d = d.AddDate(0, 0, 1) {
-		date := d.Format("2006-01-02")
-		v := loads[date]
-		input := DailyInput{v.known, v.unknown > 0, v.partial}
-		av, cv := acute.Advance(input), chronic.Advance(input)
-		ds := DailyState{Day: date, KnownRecordedLoad: v.known, UnknownWorkouts: v.unknown, RecordedWorkouts: v.n, Acute: av, Chronic: cv, Quality: "complete", InitialState: "zero_before_recorded_history"}
-		if !d.Before(history) {
-			// Counting calendar dates also handles 23/25-hour days exactly.
-			a := time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
-			b := time.Date(history.Year(), history.Month(), history.Day(), 0, 0, 0, 0, time.UTC)
-			ds.HistoryDaysObserved = int(a.Sub(b).Hours()/24) + 1
+	run := newStateRun(bounded)
+	start := p.from.AddDate(0, 0, -186)
+	if seed != nil {
+		run = seed.Run
+		day, err := time.ParseInLocation("2006-01-02", seed.Day, p.loc)
+		if err != nil {
+			return out, stateRun{}, invalid()
 		}
-		if v.unknown == 0 {
-			ds.RecordedLoad = ptr(v.known)
-		}
-		if av.Value == nil || cv.Value == nil {
-			ds.Quality = "insufficient"
-		} else {
-			ds.Balance = ptr(*cv.Value - *av.Value)
-			if *cv.Value > 1 {
-				ds.Ratio = ptr(*av.Value / *cv.Value)
-			}
-			if ds.HistoryDaysObserved <= 42 || acute.PartialDays > 0 || chronic.PartialDays > 0 {
-				ds.Quality = "partial"
-			}
-			if av.ImputedContribution > 0 || cv.ImputedContribution > 0 {
-				ds.Imputed = true
-				ds.Quality = "partial"
-			}
-		}
-		slot := index % 7
-		if priorSet[slot] && cv.Value != nil && prior[slot].Value != nil {
-			ds.Trend7 = ptr((*cv.Value - *prior[slot].Value) / 7)
-		}
-		prior[slot] = cv
-		priorSet[slot] = true
-		index++
-		if !d.Before(from) {
+		start = day.AddDate(0, 0, 1)
+	}
+	for d := start; !d.After(p.through); d = d.AddDate(0, 0, 1) {
+		ds := run.advance(d, p.history, p.loads[d.Format("2006-01-02")])
+		if !d.Before(p.from) {
 			out.Days = append(out.Days, ds)
 		}
 	}
-	return out, nil
+	return out, run, nil
 }

@@ -8,8 +8,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // sampleRow carries one bundle sample with its canonical bytes and content
@@ -307,26 +308,18 @@ func (s *Store) importWorkoutBundle(ctx context.Context, p syncing.Principal, bu
 		receipt.SourceClassification = bundle.SourceTable.Workout.Classification(nil)
 	}
 	if changed {
-		jobID := syncing.NewID()
 		scope := "workout:" + syncing.WorkoutType + ":" + bundle.WorkoutID
-		var generation int64
-		if err = tx.QueryRow(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through)
+		if _, err = tx.Exec(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through)
 			VALUES($1,$2,1,$3,$4)
 			ON CONFLICT(dataset_id,scope_key) DO UPDATE SET generation=dirty_scopes.generation+1,
 				dirty_from=LEAST(dirty_scopes.dirty_from,EXCLUDED.dirty_from),
-				dirty_through=GREATEST(dirty_scopes.dirty_through,EXCLUDED.dirty_through)
-			RETURNING generation`, p.DatasetID, scope,
-			time.UnixMicro(*bundle.Workout.StartUs).UTC(), time.UnixMicro(*bundle.Workout.EndUs).UTC()).Scan(&generation); err != nil {
+				dirty_through=GREATEST(dirty_scopes.dirty_through,EXCLUDED.dirty_through)`, p.DatasetID, scope,
+			time.UnixMicro(*bundle.Workout.StartUs).UTC(), time.UnixMicro(*bundle.Workout.EndUs).UTC()); err != nil {
 			return nil, err
 		}
-		jobPayload, _ := json.Marshal(map[string]any{"inputRevision": nextRev, "bundleSHA256": digestText,
-			"sampleCount": len(rows), "routeCount": len(bundle.Routes)})
-		if _, err = tx.Exec(ctx, `INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,payload)
-			VALUES($1,$2,'analysis.workout',$3,$4,$5)`, jobID, p.DatasetID, scope, generation, jobPayload); err != nil {
-			return nil, err
-		}
+		// The bumped fact generation invalidates the v2 model stack (its dirty
+		// trigger) and the per-Workout cache; no legacy analysis job is queued.
 		receipt.AnalysisStatus = "queued"
-		receipt.AnalysisJobIDs = []string{jobID}
 		if _, err = tx.Exec(ctx, `UPDATE datasets SET commit_rev=$2 WHERE id=$1`, p.DatasetID, nextRev); err != nil {
 			return nil, err
 		}

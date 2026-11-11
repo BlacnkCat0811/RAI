@@ -15,11 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"rai/server/internal/syncing"
+	"rai/server/migrations"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
-	"rai/server/internal/syncing"
-	"rai/server/migrations"
 )
 
 // Only explicitly reviewed migrations may be rolled back. Each future entry

@@ -272,3 +272,108 @@ func TestBoundedStateRebuildEqualsFresh(t *testing.T) {
 		t.Fatal("property never exercised imputation")
 	}
 }
+
+// 1.4: an HR-less run is approximated from pace with the athlete's own
+// calibration; without calibration or v60 it stays unknown.
+func TestPaceApproximation(t *testing.T) {
+	s := watchTrace(3600, steady(150))
+	s.Distance = ptr(3600 * 3.2)
+	hr := boundedLoad(t, s, reference(50, 190))
+	noHR := watchTrace(3600, func(int) (float64, bool) { return 0, false })
+	noHR.Distance = ptr(3600 * 3.2)
+	r := boundedLoad(t, noHR, reference(50, 190))
+	if r.Load != nil || !slices.Contains(r.ReasonCodes, "missing_hr") {
+		t.Fatalf("fixture: %v", r.ReasonCodes)
+	}
+	f := input(t, noHR).Feature
+	intensity, ok := PaceIntensity(input(t, s).Feature, 4)
+	if !ok {
+		t.Fatal("intensity")
+	}
+	ratios := []float64{}
+	for i := 0; i < 5; i++ {
+		ratios = append(ratios, *hr.Load/intensity)
+	}
+	if _, ok := CalibratePace(ratios[:4]); ok {
+		t.Fatal("four calibration runs must not suffice")
+	}
+	k, ok := CalibratePace(ratios)
+	if !ok || !ApplyPaceApproximation(&r, f, 4, k) {
+		t.Fatal("approximation not applied")
+	}
+	close(t, *r.Load, *hr.Load, 1e-6)
+	if r.QualityTier != TierApproximate || r.Quality != "partial" || r.Confidence != PaceConfidence || r.Status != "available" {
+		t.Fatalf("approximation identity %+v", r)
+	}
+	sum := 0.0
+	for _, d := range r.Days {
+		sum += *d.Load
+	}
+	close(t, sum, *r.Load, 1e-9)
+	// A reference problem is never papered over by pace.
+	missingRef, _ := CalculateTrainingLoadV2(V2Input{WorkoutInput: input(t, noHR)}, 1)
+	if ApplyPaceApproximation(&missingRef, f, 4, k) {
+		t.Fatal("reference_missing approximated")
+	}
+}
+
+// Day-by-day incremental state equals a fresh rebuild for every day, and the
+// incremental path is taken whenever the past ledger did not change.
+func TestIncrementalLoadStateMatchesRebuild(t *testing.T) {
+	rng := rand.New(rand.NewSource(11))
+	start := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	loads := map[int]*float64{}
+	for d := 0; d < 420; d++ {
+		switch rng.Intn(4) {
+		case 0:
+		case 1:
+			loads[d] = nil
+		default:
+			loads[d] = ptr(20 + rng.Float64()*100)
+		}
+	}
+	ledgerFor := func(day int) StateInput {
+		date := start.AddDate(0, 0, day).Format(time.DateOnly)
+		in := StateInput{DatasetID: "synthetic", Generation: 1, Timezone: "UTC", From: date, Through: date, HistoryFrom: "2025-01-01"}
+		for d, v := range loads {
+			if d >= day-186 && d <= day {
+				in.Loads = append(in.Loads, LedgerLoad{WorkoutID: fmt.Sprint(d), Day: start.AddDate(0, 0, d).Format(time.DateOnly), Load: v, Quality: "complete"})
+			}
+		}
+		return in
+	}
+	var cp *StateCheckpoint
+	incremental := 0
+	for day := 200; day < 420; day++ {
+		if day == 300 {
+			loads[250] = ptr(999) // an old Workout changes: next day must rebuild
+		}
+		r, next, used, err := CalculateLoadStateV2Incremental(ledgerFor(day), cp)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if used {
+			incremental++
+		}
+		if day == 300 && used {
+			t.Fatal("changed ledger used the stale checkpoint")
+		}
+		fresh, err := CalculateLoadStateV2(ledgerFor(day))
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, b := r.Days[0], fresh.Days[0]
+		if (a.Acute.Value == nil) != (b.Acute.Value == nil) || (a.Chronic.Value == nil) != (b.Chronic.Value == nil) || (a.Trend7 == nil) != (b.Trend7 == nil) || a.Quality != b.Quality {
+			t.Fatalf("day %d availability differs: %+v vs %+v", day, a, b)
+		}
+		for _, x := range [][2]*float64{{a.Acute.Value, b.Acute.Value}, {a.Chronic.Value, b.Chronic.Value}, {a.Trend7, b.Trend7}, {a.Balance, b.Balance}} {
+			if x[0] != nil {
+				close(t, *x[0], *x[1], 1e-9)
+			}
+		}
+		cp = &next
+	}
+	if incremental < 200 {
+		t.Fatalf("incremental path used only %d times", incremental)
+	}
+}

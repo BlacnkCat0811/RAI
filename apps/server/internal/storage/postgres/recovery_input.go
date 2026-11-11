@@ -6,12 +6,13 @@ import (
 	"time"
 	_ "time/tzdata"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"rai/server/internal/analysis"
 	rc "rai/server/internal/recovery"
 	"rai/server/internal/storage/postgres/dbgen"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type recoveryAssignment struct {
@@ -19,38 +20,6 @@ type recoveryAssignment struct {
 	ID       string `json:"assignmentID"`
 	Timezone string `json:"timezone"`
 	Prefix   string `json:"scopePrefix"`
-}
-
-func (s *Store) loadRecoveryInput(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf time.Time) error {
-	var a recoveryAssignment
-	var raw []byte
-	var tz, epoch, collector string
-	var capture time.Time
-	var valid bool
-	err := tx.QueryRow(ctx, `SELECT d.timezone,d.epoch::text,COALESCE(c.collector_epoch::text,''),clock_timestamp(),m.extension_configs->$2,
- NOT EXISTS(SELECT 1 FROM collector_leases c LEFT JOIN devices v ON v.dataset_id=c.dataset_id AND v.id=c.device_id WHERE c.dataset_id=d.id AND (v.id IS NULL OR NOT v.can_collect OR v.revoked_at IS NOT NULL))
- FROM datasets d JOIN analysis_model_channels m ON m.dataset_id=d.id AND m.channel='candidate' LEFT JOIN collector_leases c ON c.dataset_id=d.id WHERE d.id=$1 AND d.retired_at IS NULL`, l.DatasetID, rc.Model).Scan(&tz, &epoch, &collector, &capture, &raw, &valid)
-	if err != nil {
-		return err
-	}
-	if !valid {
-		return &analysis.Failure{Code: "analysis_dependency_pending", Retryable: true}
-	}
-	if json.Unmarshal(raw, &a) != nil || a.Timezone != tz || a.Hash != rc.DefaultConfig(tz).Hash() || !syncing.ValidID(a.ID) || a.Prefix != rc.Scope(tz, "") {
-		return analysis.Invalid()
-	}
-	if len(l.ScopeKey) != len(a.Prefix)+10 || l.ScopeKey[:len(a.Prefix)] != a.Prefix {
-		return analysis.Invalid()
-	}
-	loc, err := time.LoadLocation(a.Timezone)
-	if err != nil {
-		return analysis.Invalid()
-	}
-	day, err := time.ParseInLocation("2006-01-02", l.ScopeKey[len(a.Prefix):], loc)
-	if err != nil || day.After(asOf) {
-		return analysis.Invalid()
-	}
-	return loadRecoveryFacts(ctx, tx, l, in, asOf, capture, day, epoch, collector, a.ID)
 }
 
 func loadRecoveryFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf, capture, day time.Time, epoch, collector, assignment string) error {
@@ -124,6 +93,7 @@ func loadRecoveryFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Sna
 			Source    syncing.HealthKitSource
 			Algorithm json.RawMessage
 		}{source.StableIdentity(), meta["HKAlgorithmVersion"]})
+		f.SourceRank = map[string]int{"apple_watch": 0, "associated_apple_watch": 0, "source_unknown": 1, "third_party": 2, "user_entered": 3}[source.Classification(nil)]
 		if m, ok := meta["HKMetadataKeySyncIdentifier"]; ok {
 			f.SyncKey = rc.Hash(struct {
 				Bundle, Type string
@@ -206,6 +176,3 @@ func loadRecoveryFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Sna
 
 // Past live rows cannot reconstruct withdrawals and old coverage. Original
 // immutable run artifacts are the only supported historical audit surface.
-func (s *Store) LoadHistoricalRecovery(context.Context, string, time.Time) error {
-	return rc.ErrHistorical
-}

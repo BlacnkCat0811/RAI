@@ -9,12 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
+	tl "rai/server/internal/trainingload"
 	"rai/server/internal/workoutdetail"
 	wf "rai/server/internal/workoutfeatures"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Detail and series reads are deliberately one bounded snapshot: a page that
@@ -52,7 +54,9 @@ type workoutDetailData struct {
 	AnalysisAvailable bool
 
 	Parameters *analysis.Parameters
-	Execution  *executionRow
+	// HR zone bounds: the effective HR reference, else the legacy set.
+	ZoneRestHR, ZoneMaxHR float64
+	Execution             *executionRow
 
 	Batches     int
 	LastBatchAt time.Time
@@ -316,59 +320,39 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		return nil, err
 	}
 
-	rows, err = tx.Query(ctx, `SELECT a.job_id::text,p.published_at,a.algorithm_name,a.algorithm_version,r.metric,r.algorithm_name,r.algorithm_version,r.value,r.unit,r.quality,r.details
-		FROM analysis_publications p
-		JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
-		JOIN analysis_published_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day
-		JOIN dirty_scopes x ON x.dataset_id=p.dataset_id AND x.scope_key=p.scope_key AND x.generation=x.clean_generation
-		WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family='workout'
-		  AND p.generation=x.generation
-		  AND (COALESCE((a.lineage->>'parameterVersion')::bigint,0)=COALESCE((SELECT max(version) FROM analysis_parameter_sets WHERE dataset_id=$1),0))
-		ORDER BY r.metric`, p.DatasetID, "workout:"+syncing.WorkoutType+":"+id)
-	if err != nil {
+	// The v2 model stack's latest day release records this Workout's load in
+	// model_workout_results; that row is the Workout's published analysis.
+	var loadJSON []byte
+	var updated time.Time
+	err = tx.QueryRow(ctx, `SELECT r.load,r.updated_at FROM model_workout_results r
+ JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
+ WHERE r.dataset_id=$1 AND r.workout_uuid=$2 AND r.load IS NOT NULL`, p.DatasetID, id).Scan(&loadJSON, &updated)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		d.AnalysisStatus = "pending"
+	case err != nil:
 		return nil, err
-	}
-	for rows.Next() {
-		var runID string
-		var publishedAt time.Time
-		var algorithm, algorithmVersion string
-		var m analysis.Metric
-		var details []byte
-		if err = rows.Scan(&runID, &publishedAt, &algorithm, &algorithmVersion, &m.Name, &m.Algorithm, &m.Version, &m.Value, &m.Unit, &m.Quality, &details); err != nil {
-			rows.Close()
-			return nil, err
+	default:
+		var load tl.Result
+		if json.Unmarshal(loadJSON, &load) != nil {
+			return nil, analysis.Invalid()
 		}
-		_ = json.Unmarshal(details, &m.Details)
-		d.Published = append(d.Published, m)
-		d.PublishedAt = publishedAt
-		d.AnalysisJobID = runID
-	}
-	if err = rows.Err(); err != nil {
-		rows.Close()
-		return nil, err
-	}
-	rows.Close()
-	d.AnalysisAvailable = len(d.Published) > 0
-	if d.AnalysisAvailable {
-		d.AnalysisStatus = "published"
-	} else {
-		var status string
-		var jobID *string
-		var finished *time.Time
-		err = tx.QueryRow(ctx, `SELECT id::text,status,finished_at FROM analysis_runs WHERE dataset_id=$1 AND scope_key=$2 ORDER BY created_at DESC LIMIT 1`, p.DatasetID, "workout:"+syncing.WorkoutType+":"+id).Scan(&jobID, &status, &finished)
+		m := analysis.Metric{Name: "workout_load", Algorithm: load.Model, Version: load.ModelVersion, Value: load.Load, Unit: load.Unit, Quality: "insufficient", Details: map[string]any{"qualityTier": load.QualityTier, "method": load.Method}}
 		switch {
-		case errors.Is(err, pgx.ErrNoRows):
-			d.AnalysisStatus = "pending"
-		case err != nil:
-			return nil, err
-		case status == "FAILED":
-			d.AnalysisStatus = "failed"
-			d.AnalysisJobID = *jobID
+		case load.Load != nil && load.QualityTier == tl.TierComplete:
+			m.Quality = "available"
+		case load.Load != nil:
+			m.Quality = "partial"
 		default:
-			d.AnalysisStatus = "pending"
-			d.AnalysisJobID = *jobID
+			reasons := make([]any, 0, len(load.ReasonCodes))
+			for _, r := range load.ReasonCodes {
+				reasons = append(reasons, r)
+			}
+			m.Details["missingComponents"] = reasons
 		}
-		_ = finished
+		d.Published = []analysis.Metric{m}
+		d.PublishedAt = updated
+		d.AnalysisAvailable, d.AnalysisStatus = true, "published"
 	}
 
 	var version int64
@@ -377,8 +361,21 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 	err = tx.QueryRow(ctx, `SELECT version,resting_hr,max_hr,coefficient_a,coefficient_b,provenance FROM analysis_parameter_sets WHERE dataset_id=$1 ORDER BY version DESC LIMIT 1`, p.DatasetID).Scan(&version, &rest, &maxHR, &a, &b, &provenance)
 	if err == nil {
 		d.Parameters = &analysis.Parameters{Version: version, RestHR: rest, MaxHR: maxHR, A: a, B: b, Provenance: provenance}
+		d.ZoneRestHR, d.ZoneMaxHR = rest, maxHR
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
+	}
+	// HR zones use the same HR reference as the model stack when one is
+	// effective at the Workout start; the legacy TRIMP set is only a fallback.
+	ref, err := hrReferenceAt(ctx, tx, p.DatasetID, d.Start)
+	if err != nil {
+		return nil, err
+	}
+	if ref != nil {
+		d.ZoneMaxHR = ref.MaxHR
+		if ref.RestingHR != nil {
+			d.ZoneRestHR = *ref.RestingHR
+		}
 	}
 
 	var snapshot []byte
@@ -776,8 +773,8 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	} else if d.AnalysisAvailable && durationS > 0 && d.Execution != nil {
 		out.TrainingLoad = d.fallbackLoad(durationS, &workoutdetail.TrainingLoad{Source: "session_type_fallback/v1", StimulusType: "unclassified", MissingReasons: d.missingReasons()})
 	}
-	if d.AnalysisAvailable && d.Parameters != nil {
-		out.ZoneSummary = workoutdetail.BuildHRZones(d.Start.UnixMicro(), d.End.UnixMicro(), elapsed, obsByType(d.Observations, workoutdetail.HeartRate), d.Parameters.RestHR, d.Parameters.MaxHR)
+	if d.AnalysisAvailable && d.ZoneMaxHR > 0 && d.ZoneRestHR > 0 {
+		out.ZoneSummary = workoutdetail.BuildHRZones(d.Start.UnixMicro(), d.End.UnixMicro(), elapsed, obsByType(d.Observations, workoutdetail.HeartRate), d.ZoneRestHR, d.ZoneMaxHR)
 		if out.ZoneSummary != nil {
 			if d.Execution != nil {
 				workoutdetail.ApplyStimulusScores(out.ZoneSummary, d.planContext(), out.ZoneSummary.HeartRateCoverage, elapsed)

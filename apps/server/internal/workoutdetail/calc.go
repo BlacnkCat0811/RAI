@@ -646,9 +646,7 @@ func GradeAdjustedPace(paceSPerKm, gradePercent float64) (float64, []string) {
 	return paceSPerKm * (gradeCost(0) / cost), reason
 }
 
-func gradeCost(grade float64) float64 {
-	return 155.4*math.Pow(grade, 5) - 30.86*math.Pow(grade, 4) - 43.3*math.Pow(grade, 3) + 46.3*math.Pow(grade, 2) + 19.5*grade + 3.6
-}
+func gradeCost(grade float64) float64 { return workoutdomain.GradeCost(grade) }
 
 func routePointAt(route []RouteSample, at int64) (RouteSample, bool) {
 	if len(route) == 0 {

@@ -7,8 +7,54 @@ import (
 	"time"
 )
 
-func Calculate(in Input) (Result, error) {
-	es, err := Extract(in)
+// calcOptions separates the frozen v1 demonstrated fit from the v2 one:
+// grade-adjusted evidence, only the top TopK workouts per duration (the
+// upper envelope of what was shown), and a median fit through that envelope.
+type calcOptions struct {
+	gap             bool
+	topK            int
+	quantile, lower float64
+}
+
+var v1Options = calcOptions{quantile: .8, lower: .2}
+
+func Calculate(in Input) (Result, error) { return calculate(in, v1Options) }
+
+// envelope keeps weight only on the TopK fastest qualified workouts at each
+// duration; slower efforts stay listed as "below_envelope" evidence.
+func envelope(pool []WeightedEvidence, k int) []WeightedEvidence {
+	if k <= 0 {
+		return pool
+	}
+	byDuration := map[int][]int{}
+	for i, e := range pool {
+		if e.Weight > 0 {
+			byDuration[e.Duration] = append(byDuration[e.Duration], i)
+		}
+	}
+	out := append([]WeightedEvidence{}, pool...)
+	for _, idx := range byDuration {
+		sort.Slice(idx, func(a, b int) bool {
+			x, y := pool[idx[a]], pool[idx[b]]
+			if x.MeanSpeed != y.MeanSpeed {
+				return x.MeanSpeed > y.MeanSpeed
+			}
+			return x.WorkoutID < y.WorkoutID
+		})
+		for _, i := range idx[min(k, len(idx)):] {
+			out[i].Weight = 0
+			out[i].State = "below_envelope"
+		}
+	}
+	return out
+}
+
+func calculate(in Input, o calcOptions) (Result, error) {
+	extractor := Extract
+	if o.gap {
+		extractor = ExtractGradeAdjusted
+	}
+	es, err := extractor(in)
 	if err != nil {
 		return Result{}, err
 	}
@@ -70,6 +116,7 @@ func Calculate(in Input) (Result, error) {
 		if !newEvidence {
 			continue
 		}
+		pool = envelope(pool, o.topK)
 		t := Target{Day: d, View: in.View, Status: "collecting", Support: s}
 		switch {
 		case s.LongestDuration < 2400 || s.LongWorkouts < 2:
@@ -79,7 +126,7 @@ func Calculate(in Input) (Result, error) {
 		case s.LatestEvidence == 0 || h.AddDate(0, 0, 1).UnixMicro()-s.LatestEvidence > 14*86400e6:
 			t.Status = "insufficient_data"
 		default:
-			t.Curve, t.Status = fitCurve(pool, true)
+			t.Curve, t.Status = fitCurveQuantile(pool, true, o.quantile, o.lower)
 		}
 		r.Targets = append(r.Targets, t)
 		if t.Status == "available" {

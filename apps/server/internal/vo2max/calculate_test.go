@@ -81,10 +81,16 @@ func TestEvaluateRejectsShortPauseGapEnvironmentDistance(t *testing.T) {
 		t.Fatalf("gap should leave 3 windows: %+v", ev)
 	}
 	w = workout("w", 0, 30, 154, 2.6)
-	w.TemperatureC = f(30)
+	w.TemperatureC = f(31)
 	ev, _ = EvaluateWorkout(w, ref())
 	if ev.Qualified {
-		t.Fatal("hot environment must reject")
+		t.Fatal("hot environment beyond 30 C must reject")
+	}
+	w = workout("w", 0, 30, 154, 2.6)
+	w.TemperatureC, w.HumidityPct = f(28), f(90)
+	ev, _ = EvaluateWorkout(w, ref())
+	if !ev.Qualified || math.Abs(ev.Quality-.7*.8) > 1e-12 {
+		t.Fatalf("warm humid run must stay at reduced weight: %+v", ev)
 	}
 	w = workout("w", 0, 30, 154, 2.6)
 	w.HumidityPct = nil
@@ -227,5 +233,30 @@ func TestAggregateNoEvidenceAndStale(t *testing.T) {
 func TestSubmaxScopeCarriesStack(t *testing.T) {
 	if got := ScopeFor("synthetic-v2"); got != "model/synthetic-v2/athlete/vo2_submax" {
 		t.Fatalf("scope=%s", got)
+	}
+}
+
+// Hills up to 5% are converted with the Minetti cost instead of excluded.
+func TestEvaluateGradeAdjusted(t *testing.T) {
+	flat, err := EvaluateWorkout(workout("flat", 0, 30, 141, 2.6), ref())
+	if err != nil || !flat.Qualified {
+		t.Fatal(err, flat.Reasons)
+	}
+	w := workout("hill", 0, 30, 141, 2.6)
+	w.Samples = sampleSeries(0, 30, 141, 2.6, .03, true, true)
+	hill, err := EvaluateWorkout(w, ref())
+	if err != nil || !hill.Qualified {
+		t.Fatalf("3%% grade must qualify: %v %v", err, hill.Reasons)
+	}
+	cost := func(g float64) float64 {
+		return 155.4*math.Pow(g, 5) - 30.86*math.Pow(g, 4) - 43.3*math.Pow(g, 3) + 46.3*g*g + 19.5*g + 3.6
+	}
+	want := 3.5 + (*flat.CandidateV-3.5)*cost(.03)/cost(0)
+	if math.Abs(*hill.CandidateV-want) > 1e-9 {
+		t.Fatalf("hill V=%v want %v", *hill.CandidateV, want)
+	}
+	w.Samples = sampleSeries(0, 30, 141, 2.6, .08, true, true)
+	if steep, _ := EvaluateWorkout(w, ref()); steep.Qualified {
+		t.Fatal("8% grade must not qualify")
 	}
 }

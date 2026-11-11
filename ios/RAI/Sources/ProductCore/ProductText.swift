@@ -6,6 +6,16 @@ public enum ProductReasonText {
     return "恢复偏低：训练建议将保持保守，不会自动改写已排训练。"
   }
 
+  /// Three-step presentation of the recovery deviation from the personal baseline.
+  public static func recoveryLevel(_ level: String?) -> String? {
+    switch level {
+    case "normal": return "与个人基线一致"
+    case "mild_deviation": return "轻度偏离基线"
+    case "marked_deviation": return "明显偏离基线"
+    default: return nil
+    }
+  }
+
   public static func text(for code: String?, state: String? = nil) -> String {
     if let code {
       switch code {

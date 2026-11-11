@@ -65,7 +65,7 @@ func ProjectRecovery(r rc.Result, updated, at int64) Metric[RecoveryValue] {
 	if r.Status == "stale" {
 		fresh = "stale"
 	}
-	v := &RecoveryValue{Score: r.Score, Unit: "score_0_100", BaselineState: r.BaselineState, HRV: component(r.SDNNFreshness, r.SDNNDeviation, "below_baseline"), RHR: component(r.RHRFreshness, r.RHRDeviation, "above_baseline"), Sleep: component(r.SleepFreshness, r.SleepDeviation, "below_baseline")}
+	v := &RecoveryValue{Score: r.Score, Unit: "score_0_100", BaselineState: r.BaselineState, DeviationLevel: r.DeviationLevel, HRV: component(r.SDNNFreshness, r.SDNNDeviation, "below_baseline"), RHR: component(r.RHRFreshness, r.RHRDeviation, "above_baseline"), Sleep: component(r.SleepFreshness, r.SleepDeviation, "below_baseline")}
 	m := Metric[RecoveryValue]{Envelope: NewEnvelope("physiologicalRecovery", r.ModelVersion, r.Schema, r.Status, r.Quality, fresh, &r.Confidence, &r.AsOf, &updated, at, r.Reasons, []string{"RAI-derived", "Apple Health"}), Value: v, Trend: NoTrend("no_comparable_valid_daily_results")}
 	facts := []Fact{{"recovery.score", r.Score, "score_0_100"}}
 	for _, c := range []struct {

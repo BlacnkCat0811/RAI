@@ -40,11 +40,15 @@ type V2Input struct {
 	Annotations []EffortAnnotation `json:"annotations"`
 }
 
+// v2Options: grade-adjusted evidence, the top 3 workouts per duration, and a
+// median fit through them.
+var v2Options = calcOptions{gap: true, topK: 3, quantile: .5, lower: .5}
+
 func ConfigHashV2() string {
 	return Hash(struct {
 		Policy string
 		V      string
-	}{"window90;quantile.8;gamma.7-1;step.001;recency45;residual.06;outlier.10;confirmation.05;loo.05;cap.55;maximal.50;cap.7;stable-source-key;annotation-known-at/v2.1", VersionV2})
+	}{"window90;quantile.8;gamma.7-1;step.001;recency45;residual.06;outlier.10;confirmation.05;loo.05;cap.55;maximal.50;cap.7;stable-source-key;annotation-known-at;grade-adjusted-minetti.08;envelope-top3-median/v2.2", VersionV2})
 }
 
 func annotate(es []FeatureRef, annotations []EffortAnnotation, at int64, maximal bool) ([]FeatureRef, []string) {
@@ -104,7 +108,7 @@ func CalculateV2(in V2Input) (Result, error) {
 	if in.Mode == ModeMaximalV2 {
 		return calculateMaximal(in)
 	}
-	r, err := Calculate(in.Input)
+	r, err := calculate(in.Input, v2Options)
 	if err != nil {
 		return Result{}, err
 	}
@@ -118,7 +122,7 @@ func calculateMaximal(in V2Input) (Result, error) {
 		Status: "collecting", Freshness: "unknown", Stability: "not_evaluated", Targets: []Target{}, Evidence: []WeightedEvidence{}, ReasonCodes: []string{}}
 	filtered := in.Input
 	filtered.Features, _ = annotate(in.Features, in.Annotations, in.AsOf, true)
-	evidence, err := Extract(filtered)
+	evidence, err := ExtractGradeAdjusted(filtered)
 	if err != nil {
 		return Result{}, err
 	}

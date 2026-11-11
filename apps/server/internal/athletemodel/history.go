@@ -16,6 +16,9 @@ type HistoryPoint struct {
 	EvidenceAt     *int64   `json:"evidenceAt,omitempty"`
 	AsOf           int64    `json:"asOf"`
 	ReasonCodes    []string `json:"reasonCodes"`
+	// Components carries the other known scalars of a multi-valued metric
+	// (trainingLoad: chronic, balance, dailyLoad). Unknown values are omitted.
+	Components map[string]float64 `json:"components,omitempty"`
 }
 
 // HistoryTrend is a descriptive difference between two real published points

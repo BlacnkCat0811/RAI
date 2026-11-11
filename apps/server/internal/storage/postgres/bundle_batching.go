@@ -6,8 +6,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Set-based bundle storage.

@@ -159,6 +159,8 @@ type StateResult struct {
 	Unit       string       `json:"unit"`
 	TrendUnit  string       `json:"trendUnit"`
 	Days       []DailyState `json:"days"`
+	// Checkpoint (v2 day releases) lets the next day advance incrementally.
+	Checkpoint *StateCheckpoint `json:"checkpoint,omitempty"`
 }
 
 // Calendar is resolved at the I/O boundary. UTC needs no external calendar.

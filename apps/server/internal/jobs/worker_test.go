@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"rai/server/internal/analysis"
+	"rai/server/internal/modelmanifest"
 	"sync"
 	"testing"
 	"time"
@@ -193,6 +194,7 @@ type renewalQueue struct {
 	renewed   chan struct{}
 	lose      bool
 	published bool
+	failed    string
 }
 
 func (q *renewalQueue) Renew(ctx context.Context, _ analysis.Lease) error {
@@ -206,26 +208,21 @@ func (q *renewalQueue) Renew(ctx context.Context, _ analysis.Lease) error {
 	}
 	return nil
 }
-func (q *renewalQueue) LoadAnalysis(ctx context.Context, _ analysis.Lease, _ time.Time) (analysis.Snapshot, error) {
+func (q *renewalQueue) ProcessModelStack(ctx context.Context, _ analysis.Lease, _ time.Time) (string, error) {
 	select {
 	case <-ctx.Done():
-		return analysis.Snapshot{}, ctx.Err()
+		return "", ctx.Err()
 	case <-q.renewed:
 	}
 	if q.lose {
 		<-ctx.Done()
-		return analysis.Snapshot{}, ctx.Err()
+		return "", ctx.Err()
 	}
-	return analysis.Snapshot{Generation: 1, InputVersion: "synthetic", Workout: &analysis.WorkoutInput{Deleted: true}}, nil
-}
-func (q *renewalQueue) StartAnalysisRun(context.Context, analysis.Lease, analysis.Snapshot) (string, error) {
-	return "synthetic-run", nil
-}
-func (q *renewalQueue) PublishAnalysis(context.Context, analysis.Lease, string, analysis.Snapshot, []analysis.Metric) (string, error) {
 	q.published = true
 	return "SUCCEEDED", nil
 }
-func (q *renewalQueue) FailAnalysis(context.Context, analysis.Lease, string, string, bool) error {
+func (q *renewalQueue) FailAnalysis(_ context.Context, _ analysis.Lease, _ string, code string, _ bool) error {
+	q.failed = code
 	return nil
 }
 func TestRenewalAndLostLeaseCancellation(t *testing.T) {
@@ -233,10 +230,24 @@ func TestRenewalAndLostLeaseCancellation(t *testing.T) {
 	for _, lost := range []bool{false, true} {
 		q := &renewalQueue{renewed: make(chan struct{}), lose: lost}
 		ctx, c := context.WithTimeout(context.Background(), time.Second)
-		processWithRenewal(ctx, q, analysis.Lease{Kind: "analysis.workout", TargetGeneration: 1}, slog.New(slog.NewJSONHandler(io.Discard, nil)), time.Millisecond, asOf)
+		processWithRenewal(ctx, q, analysis.Lease{Kind: modelmanifest.StackJobKind, TargetGeneration: 1}, slog.New(slog.NewJSONHandler(io.Discard, nil)), time.Millisecond, asOf)
 		c()
 		if q.published == lost {
 			t.Fatal("renewal/lost lease publication mismatch")
+		}
+	}
+}
+
+// Retired legacy kinds are never processed: a stray lease fails explicitly.
+func TestRetiredLegacyKindFails(t *testing.T) {
+	q := &renewalQueue{renewed: make(chan struct{})}
+	processWithRenewal(context.Background(), q, analysis.Lease{Kind: "analysis.workout", TargetGeneration: 1}, slog.New(slog.NewJSONHandler(io.Discard, nil)), time.Hour, time.Now())
+	if q.published || q.failed == "" {
+		t.Fatalf("retired kind processed: published=%v failed=%q", q.published, q.failed)
+	}
+	for _, k := range kinds {
+		if k != "training.plan" && k != modelmanifest.StackJobKind {
+			t.Fatalf("worker still claims %s", k)
 		}
 	}
 }

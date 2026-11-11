@@ -7,9 +7,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"rai/server/internal/modelinput"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (s *Store) CommitModelInput(ctx context.Context, p syncing.Principal, req modelinput.Request) (modelinput.Receipt, error) {

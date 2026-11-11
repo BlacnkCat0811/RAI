@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // All children and the full validated source payload share the parent fact's

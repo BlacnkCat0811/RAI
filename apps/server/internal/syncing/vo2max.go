@@ -377,6 +377,25 @@ func VO2Canonical(value any) []byte {
 	return out
 }
 func (p VO2Provenance) EpochID() string { return "sha256:" + DailyDigest(VO2Canonical(p)) }
+
+// StableEpochID identifies the recording app and device across software
+// updates: bundle, product type and hardware, without app/OS/firmware/software
+// versions or the user-editable names. The v2 stack matches the user's VO2
+// source selection by this identity, so a watchOS update keeps the selection.
+func (p VO2Provenance) StableEpochID() string {
+	type device struct {
+		Manufacturer, Model, HardwareVersion *string
+	}
+	id := struct {
+		Bundle      string
+		ProductType *string
+		Device      *device
+	}{p.SourceRevision.Source.BundleIdentifier, p.SourceRevision.ProductType, nil}
+	if p.Device != nil {
+		id.Device = &device{p.Device.Manufacturer, p.Device.Model, p.Device.HardwareVersion}
+	}
+	return "sha256:" + DailyDigest(VO2Canonical(id))
+}
 func (f VO2Fact) Context() map[string]any {
 	return map[string]any{"schemaVersion": VO2FactSchema, "provenance": f.Provenance, "sourceEpochID": f.Provenance.EpochID(), "typedMetadata": f.Metadata}
 }

@@ -108,7 +108,10 @@ type Fact struct {
 	// StableEpoch is the loader's software-version-free source identity. It
 	// is not part of the frozen v1 input hash; the v2 stack substitutes it for
 	// Epoch so baselines survive watchOS updates.
-	StableEpoch                   string `json:"-"`
+	StableEpoch string `json:"-"`
+	// SourceRank orders sources for the v2 per-night choice: 0 Apple Watch,
+	// 1 other Apple device, 2 third-party app, 3 manual. Not in the v1 hash.
+	SourceRank                    int `json:"-"`
 	Start, End, KnownAt, Revision int64
 	Value                         *float64
 	Category                      *int
@@ -228,6 +231,9 @@ type Result struct {
 	Quality        string    `json:"quality"`
 	BaselineState  string    `json:"baselineState"`
 	Score          *float64  `json:"score"`
+	// DeviationLevel (v2 only) presents the adverse burden in three steps:
+	// normal, mild_deviation or marked_deviation. The score itself is unchanged.
+	DeviationLevel string `json:"deviationLevel,omitempty"`
 	// AutonomicOnly is a differently named partial reference, never the full score.
 	AutonomicOnly        *float64   `json:"autonomicOnly"`
 	SDNNDeviation        *Deviation `json:"sdnnDeviation"`

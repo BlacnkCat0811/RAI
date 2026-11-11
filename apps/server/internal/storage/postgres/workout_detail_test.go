@@ -15,7 +15,7 @@ func detailProjectionFixture() *workoutDetailData {
 	d := &workoutDetailData{ID: syncing.NewID(), Start: start, End: start.Add(600 * time.Second), DurationUs: 600e6, ActivityType: 37,
 		Payload: syncing.Event{Workout: &syncing.Workout{TotalDistance: &syncing.Quantity{Value: 2000, Unit: "m"}}, Metadata: map[string]any{
 			"HKWeatherTemperature": map[string]any{"value": 30.0, "unit": "degC"}, "HKWeatherHumidity": map[string]any{"value": .8, "unit": "1"},
-		}}, Parameters: &analysis.Parameters{RestHR: 50, MaxHR: 200},
+		}}, Parameters: &analysis.Parameters{RestHR: 50, MaxHR: 200}, ZoneRestHR: 50, ZoneMaxHR: 200,
 		Execution: &executionRow{Snapshot: training.Session{Type: "EASY", Effort: 3, DurationS: 600, Modified: true}},
 	}
 	for _, spec := range []struct {

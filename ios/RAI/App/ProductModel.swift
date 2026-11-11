@@ -238,6 +238,7 @@ final class ProductModel {
     let path: String
     switch kind {
     case "hr_reference": path = "/v2/model-inputs/hr-references"
+    case "workout_effort": path = "/v2/model-inputs/workout-efforts"
     case "sleep_target": path = "/v2/model-inputs/sleep-targets"
     case "vo2max_source_selection": path = "/v2/model-inputs/vo2max-source-selections"
     case "trimp_parameters": path = "/v2/model-inputs/trimp-parameters"
@@ -272,13 +273,32 @@ final class ProductModel {
       return "提交结果待确认，重试会使用原提交身份。"
     }
   }
-  /// Latest append-only TRIMP parameter set, or nil when none was saved yet.
-  func loadAnalysisParameters() async -> JSON? {
-    guard let api else { return nil }
-    guard let response = try? await api.get("/v2/analysis/parameters"),
-      case .object = response["parameters"]
+  /// Apple VO₂ sources of the last year, one per device/app.
+  func loadVO2Sources() async -> [VO2SourceOption] {
+    guard let api, let response = try? await api.get("/v2/analysis/vo2max-sources") else { return [] }
+    return response["sources"].list.compactMap { item in
+      guard let epoch = item["sourceEpoch"].text else { return nil }
+      return VO2SourceOption(
+        sourceEpoch: epoch, bundleIdentifier: item.string("bundleIdentifier"),
+        productType: item.string("productType"), latestDate: item.string("latestDate"),
+        samples: Int(item["samples"].integer ?? 0))
+    }
+  }
+  /// Suggestion only: the highest 30 s HR of the last year, or nil.
+  func loadObservedMaxHR() async -> JSON? {
+    guard let api,
+      let response = try? await api.get("/v2/analysis/parameters"),
+      case .object = response["observedMaxHR"]
     else { return nil }
-    return response["parameters"]
+    return response["observedMaxHR"]
+  }
+  /// The HR reference effective now (`hr_reference/2`), or nil.
+  func loadHRReference() async -> JSON? {
+    guard let api,
+      let response = try? await api.get("/v2/analysis/parameters"),
+      case .object = response["hrReference"]
+    else { return nil }
+    return response["hrReference"]
   }
   /// Own flag on purpose: this must never flip the shared `loading`, which
   /// drives the home spinner and makes `submit()` / `refresh()` bail out.
@@ -297,6 +317,14 @@ final class ProductModel {
     } catch {
       // Network or decoding trouble keeps the last good value on screen.
     }
+  }
+  /// v2 athlete-model training-load history for the load card and page.
+  var trainingLoadPoints: [TrainingLoadPoint] = []
+  func loadTrainingLoadHistory() async {
+    guard data.athlete?.supportsPresentation == true,
+      let page = try? await loadAthleteHistory(metric: "trainingLoad")
+    else { return }
+    trainingLoadPoints = TrainingLoadSeries.points(fromAthlete: page.points)
   }
   func loadAthleteHistory(metric: String) async throws -> AthleteHistoryPage {
     guard let api else { throw SyncFailure.invalid("configure_development_api_first") }
@@ -584,4 +612,8 @@ final class ProductModel {
         ]))
     await refresh()
   }
+}
+
+struct VO2SourceOption: Equatable {
+  var sourceEpoch: String, bundleIdentifier: String, productType: String, latestDate: String, samples: Int
 }

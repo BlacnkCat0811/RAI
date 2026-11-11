@@ -116,7 +116,7 @@ func ComputeNormalized(ctx context.Context, s RawWorkoutSnapshot) (WorkoutFeatur
 		f.State = s.Fact.State
 		f.Reasons = []Reason{WorkoutDeleted}
 		q := qual(f.Reasons, nil)
-		f.Qualification = Qualifications{q, q, q, q, q}
+		f.Qualification = Qualifications{Load: q, VO2: q, Performance: q, CS: q, Endurance: q}
 		return f, nil
 	}
 	t := BuildTimeline(s)
@@ -210,6 +210,28 @@ func ComputeNormalized(ctx context.Context, s RawWorkoutSnapshot) (WorkoutFeatur
 	}
 	cs = append(cs, common...)
 	f.Qualification.Performance = qual(performance, []Reason{EffortUnconfirmed})
+	// Grade-adjusted counterpart: the same gates except that hills within
+	// MaxGradeAdjusted are converted per window instead of failing the run.
+	gap := []Reason{}
+	hasGAP := false
+	for _, w := range f.Windows {
+		if w.GAP != nil && w.GAP.Qualification.Status != "ineligible" {
+			hasGAP = true
+		}
+	}
+	if !hasGAP {
+		gap = append(gap, SpeedGap)
+		if f.Timing.Elapsed < 1200 {
+			gap = append(gap, DurationTooShort)
+		}
+	}
+	for _, r := range common {
+		if r != RouteAccuracyLow {
+			gap = append(gap, r)
+		}
+	}
+	gapQ := qual(gap, []Reason{EffortUnconfirmed})
+	f.Qualification.PerformanceGAP = &gapQ
 	f.Qualification.CS = qual(cs, []Reason{EffortUnconfirmed, CrossWorkoutEvidenceRequired})
 	vo2 := append([]Reason{}, t.Pause.Reasons...)
 	if f.Distance.RouteDifferenceRatio != nil && *f.Distance.RouteDifferenceRatio > .05 {
@@ -280,12 +302,19 @@ func ComputeNormalized(ctx context.Context, s RawWorkoutSnapshot) (WorkoutFeatur
 		f.Qualification.Performance = reject(f.Qualification.Performance)
 		f.Qualification.CS = reject(f.Qualification.CS)
 		f.Qualification.Endurance = reject(f.Qualification.Endurance)
+		if f.Qualification.PerformanceGAP != nil {
+			q := reject(*f.Qualification.PerformanceGAP)
+			f.Qualification.PerformanceGAP = &q
+		}
 		for i := range f.Windows {
 			if f.Windows[i].Best != nil {
 				f.Windows[i].Best.Qualification = reject(f.Windows[i].Best.Qualification)
 			}
 			if f.Windows[i].Backup != nil {
 				f.Windows[i].Backup.Qualification = reject(f.Windows[i].Backup.Qualification)
+			}
+			if f.Windows[i].GAP != nil {
+				f.Windows[i].GAP.Qualification = reject(f.Windows[i].GAP.Qualification)
 			}
 		}
 		for i := range f.Steady {

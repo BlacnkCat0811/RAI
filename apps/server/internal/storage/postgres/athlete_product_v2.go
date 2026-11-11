@@ -7,7 +7,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/modelmanifest"
 	pf "rai/server/internal/performance"
@@ -17,6 +16,8 @@ import (
 	tl "rai/server/internal/trainingload"
 	vo2 "rai/server/internal/vo2max"
 	ve "rai/server/internal/vo2maxexternal"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type publishedModelArtifact struct {
@@ -410,6 +411,14 @@ func historyPoint(metric, day, algorithm, version, schema string, publishedAt ti
 				if d.Day == day {
 					point.Value = d.Acute.Value
 					point.Unit = v.Unit + "/day"
+					for key, x := range map[string]*float64{"chronic": d.Chronic.Value, "balance": d.Balance, "dailyLoad": d.RecordedLoad} {
+						if x != nil {
+							if point.Components == nil {
+								point.Components = map[string]float64{}
+							}
+							point.Components[key] = *x
+						}
+					}
 					point.ConfigHash = v.ConfigHash
 					status = d.Quality
 					break

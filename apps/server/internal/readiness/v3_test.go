@@ -1,6 +1,7 @@
 package readiness
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -111,7 +112,7 @@ func TestV3UnknownBurdenIsDecayed(t *testing.T) {
 	near(t, *r.Score, *base.Score)
 	threeDays := withLoad(v2Fixture(), "older-unknown", v2Fixture().AsOf-72*Hour, nil, "insufficient", false)
 	r, _ = CalculateV3(threeDays)
-	if r.Score == nil || *r.Score >= *base.Score || !r.Terms[len(r.Terms)-1].Imputed || r.Confidence >= base.Confidence {
+	if r.Score == nil || *r.Burden <= *base.Burden || !r.Terms[len(r.Terms)-1].Imputed || r.Confidence >= base.Confidence {
 		t.Fatalf("three-day-old unknown must be imputed at the typical load: %+v", r)
 	}
 	recent := withLoad(v2Fixture(), "recent-unknown", v2Fixture().AsOf-2*Hour, nil, "insufficient", false)
@@ -128,5 +129,36 @@ func TestV3UnknownBurdenIsDecayed(t *testing.T) {
 	r, _ = CalculateV3(oldConflict)
 	if r.Score == nil || r.Status != "available" {
 		t.Fatalf("old conflict vetoed readiness: %+v", r)
+	}
+}
+
+// E7: a habitual daily runner with full recovery is not penalized for training
+// often; a burden well above the habit still is.
+func TestV3HabitualBurdenCalibration(t *testing.T) {
+	daily := func(extra float64) ReadinessSnapshot {
+		in := v2Fixture()
+		in.Loads = nil
+		in.Recovery.Score = ptr(100)
+		for k := 1; k <= 42; k++ {
+			d := in.Days[42-k]
+			au := 60.
+			if k <= 3 {
+				au *= extra
+			}
+			in.Loads = append(in.Loads, WorkoutLoad{ID: fmt.Sprint("run", k), End: d.Start + 19*Hour, Model: LoadModelV2, AU: ptr(au), Quality: "complete", Compatible: true, Days: []DailyLoad{{d.Date, ptr(au), "complete"}}})
+		}
+		return in
+	}
+	r, err := CalculateV3(daily(1))
+	if err != nil || r.Score == nil || r.HabitualBurden == nil {
+		t.Fatalf("daily runner: %v %+v", err, r.Reasons)
+	}
+	if *r.Score < 95 {
+		t.Fatalf("habitual daily training penalized: score=%v ratio=%v", *r.Score, *r.BurdenRatio)
+	}
+	t.Logf("daily runner score=%.1f ratio=%.2f", *r.Score, *r.BurdenRatio)
+	r, _ = CalculateV3(daily(3))
+	if r.Score == nil || *r.Score > 60 || *r.Score < 35 {
+		t.Fatalf("three days at triple load: score=%v ratio=%v", *r.Score, *r.BurdenRatio)
 	}
 }

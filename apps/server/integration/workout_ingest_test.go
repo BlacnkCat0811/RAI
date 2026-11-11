@@ -169,13 +169,18 @@ func TestWorkoutUUIDIngestAcceptCommitReplay(t *testing.T) {
 		t.Fatalf("worker outcome: %+v", outcome)
 	}
 	status := ingestStatus(t, f.s, f.p, workoutID)
-	if status.IngestStatus != "committed" || status.AnalysisStatus != "queued" || len(status.AnalysisJobIDs) != 1 ||
+	if status.IngestStatus != "committed" || status.AnalysisStatus != "queued" || len(status.AnalysisJobIDs) != 0 ||
 		status.CommitRevision == nil || *status.CommitRevision < 1 {
 		t.Fatalf("committed status: %+v", status)
 	}
 	if count(t, f, "health_samples") != 1 || count(t, f, "workout_samples") != 1 || count(t, f, "workouts") != 1 {
 		t.Fatalf("facts missing: samples=%d associations=%d workouts=%d",
 			count(t, f, "health_samples"), count(t, f, "workout_samples"), count(t, f, "workouts"))
+	}
+	var retired, dirty int
+	if err := f.s.Pool.QueryRow(context.Background(), `SELECT (SELECT count(*) FROM jobs WHERE kind LIKE 'analysis.%' AND kind<>'analysis.model_stack_v2'),
+		(SELECT count(*) FROM dirty_scopes WHERE scope_key LIKE 'workout:%' AND generation>clean_generation)`).Scan(&retired, &dirty); err != nil || retired != 0 || dirty != 1 {
+		t.Fatalf("schema 53 ingest: retired jobs=%d dirty workout scopes=%d err=%v", retired, dirty, err)
 	}
 	stored, state, _, _ = ingestRow(t, f.s, f.p.DatasetID, workoutID)
 	if state != "committed" || !bytes.Equal(stored, raw) {
@@ -400,7 +405,7 @@ func TestWorkoutUUIDIngestHTTPAcceptAndStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	if committed.IngestStatus != "committed" || committed.AnalysisStatus != "queued" ||
-		len(committed.AnalysisJobIDs) != 1 || committed.CommitRevision == nil {
+		len(committed.AnalysisJobIDs) != 0 || committed.CommitRevision == nil {
 		t.Fatalf("committed status: %+v", committed)
 	}
 	missing := status(syncing.NewID())
@@ -615,7 +620,7 @@ func TestWorkoutUUIDIngestRestrictedRuntimeRoles(t *testing.T) {
 		t.Fatalf("worker role process: %+v %v", outcome, err)
 	}
 	status, err := api.WorkoutIngest(ctx, f.p, workoutID)
-	if err != nil || status.IngestStatus != "committed" || len(status.AnalysisJobIDs) != 1 {
+	if err != nil || status.IngestStatus != "committed" || len(status.AnalysisJobIDs) != 0 {
 		t.Fatalf("API status: %+v %v", status, err)
 	}
 	if count(t, f, "health_samples") != 1 || count(t, f, "workout_samples") != 1 || count(t, f, "workouts") != 1 {

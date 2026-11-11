@@ -19,11 +19,15 @@ func fixtureRef(id int, end time.Time, v20, gamma float64, ds ...int) FeatureRef
 	}
 	start := end.Add(-90 * time.Minute).UnixMicro()
 	q := wf.Qualification{Status: "conditional", Reasons: []wf.Reason{wf.EffortUnconfirmed}}
-	f := wf.WorkoutFeatures{Schema: wf.Schema, Algorithm: wf.Algorithm, Version: wf.Version, StackID: wf.StackID(), DatasetID: "synthetic", WorkoutID: fmt.Sprintf("workout-%04d", id), Generation: 1, State: wf.Present, ActivityType: 37, Timing: wf.Timing{Start: start, End: end.UnixMicro()}, Qualification: wf.Qualifications{Performance: q}, Distance: wf.DistanceChoice{DifferenceRatio: ptr(0)}}
+	gapQ := q
+	f := wf.WorkoutFeatures{Schema: wf.Schema, Algorithm: wf.Algorithm, Version: wf.Version, StackID: wf.StackID(), DatasetID: "synthetic", WorkoutID: fmt.Sprintf("workout-%04d", id), Generation: 1, State: wf.Present, ActivityType: 37, Timing: wf.Timing{Start: start, End: end.UnixMicro()}, Qualification: wf.Qualifications{Performance: q, PerformanceGAP: &gapQ}, Distance: wf.DistanceChoice{DifferenceRatio: ptr(0)}}
 	for _, d := range ds {
 		dist := v20 * 1200 * math.Pow(float64(d)/1200, gamma)
 		w := &wf.Window{Start: start, End: start + int64(d)*1e6, Duration: d, Distance: dist, MeanSpeed: dist / float64(d), Coverage: 1, Quality: "supported", SourceEpoch: "synthetic-watch-epoch", Evidence: "M1-synthetic", Qualification: q}
-		f.Windows = append(f.Windows, wf.WindowCandidates{Duration: d, Best: w})
+		// Flat synthetic route: the grade-adjusted window equals the raw one.
+		g := *w
+		g.GAPDistance, g.GAPSpeed = ptr(dist), ptr(dist/float64(d))
+		f.Windows = append(f.Windows, wf.WindowCandidates{Duration: d, Best: w, GAP: &g})
 	}
 	return FeatureRef{Feature: f, RunID: fmt.Sprintf("feature-%04d", id), KnownAt: end.UnixMicro(), FirstReceivedAt: end.UnixMicro()}
 }

@@ -5,16 +5,18 @@ import (
 	"net/http"
 
 	"rai/server/internal/analysis"
+	"rai/server/internal/modelinput"
 	"rai/server/internal/syncing"
+	ve "rai/server/internal/vo2maxexternal"
 )
-
-type analysisReader interface {
-	CurrentWorkoutAnalysis(context.Context, syncing.Principal, string) (analysis.Current, error)
-	CurrentTrainingState(context.Context, syncing.Principal) (analysis.Current, error)
-}
 
 type analysisParametersReader interface {
 	LatestAnalysisParameters(context.Context, syncing.Principal) (*analysis.Parameters, error)
+}
+
+type hrReferenceReader interface {
+	CurrentHRReference(context.Context, syncing.Principal) (*modelinput.HRReference, error)
+	ObservedMaxHR(context.Context, syncing.Principal) (*modelinput.ObservedMaxHR, error)
 }
 
 func (a *API) analysisParameters(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
@@ -29,37 +31,40 @@ func (a *API) analysisParameters(w http.ResponseWriter, r *http.Request, p synci
 	if err != nil {
 		return err
 	}
-	respond(w, 200, map[string]any{"parameters": v})
+	out := map[string]any{"parameters": v}
+	if hr, ok := a.store.(hrReferenceReader); ok {
+		ref, err := hr.CurrentHRReference(r.Context(), p)
+		if err != nil {
+			return err
+		}
+		out["hrReference"] = ref
+		observed, err := hr.ObservedMaxHR(r.Context(), p)
+		if err != nil {
+			return err
+		}
+		out["observedMaxHR"] = observed
+	}
+	respond(w, 200, out)
 	return nil
 }
 
-func (a *API) workoutAnalysis(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
-	if len(r.URL.Query()) > 0 {
-		return syncing.Fail(422, "invalid_analysis_query")
-	}
-	store, ok := a.store.(analysisReader)
-	if !ok {
-		return syncing.Fail(503, "analysis_unavailable")
-	}
-	v, err := store.CurrentWorkoutAnalysis(r.Context(), p, r.PathValue("id"))
-	if err != nil {
-		return err
-	}
-	respond(w, 200, v)
-	return nil
+type vo2SourceReader interface {
+	VO2Sources(context.Context, syncing.Principal) ([]ve.Source, error)
 }
-func (a *API) trainingState(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
+
+// vo2Sources lists the Apple VO2 sources the user can select.
+func (a *API) vo2Sources(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
 	if len(r.URL.Query()) > 0 {
 		return syncing.Fail(422, "invalid_analysis_query")
 	}
-	store, ok := a.store.(analysisReader)
+	store, ok := a.store.(vo2SourceReader)
 	if !ok {
 		return syncing.Fail(503, "analysis_unavailable")
 	}
-	v, err := store.CurrentTrainingState(r.Context(), p)
+	v, err := store.VO2Sources(r.Context(), p)
 	if err != nil {
 		return err
 	}
-	respond(w, 200, v)
+	respond(w, 200, map[string]any{"sources": v})
 	return nil
 }

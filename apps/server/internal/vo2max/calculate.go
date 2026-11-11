@@ -2,21 +2,24 @@ package vo2max
 
 import (
 	"math"
+	"rai/server/internal/workoutdomain"
 	"sort"
 	"time"
 )
 
 const (
-	minWorkoutUs   = int64(25 * 60 * 1e6)
-	warmupUs       = int64(10 * 60 * 1e6)
-	windowUs       = int64(5 * 60 * 1e6)
-	pauseAfterUs   = int64(3 * 60 * 1e6)
-	minCoverage    = 0.95
-	maxPauseFrac   = 0.02
-	maxSpeedCV     = 0.05
-	maxHRTrend     = 1.0
-	maxEFDrift     = 0.05
-	maxGrade       = 0.01
+	minWorkoutUs = int64(25 * 60 * 1e6)
+	warmupUs     = int64(10 * 60 * 1e6)
+	windowUs     = int64(5 * 60 * 1e6)
+	pauseAfterUs = int64(3 * 60 * 1e6)
+	minCoverage  = 0.95
+	maxPauseFrac = 0.02
+	maxSpeedCV   = 0.05
+	maxHRTrend   = 1.0
+	maxEFDrift   = 0.05
+	// maxGrade is the steepest mean grade a window may have; its cost is
+	// converted with the Minetti model shared with running ability.
+	maxGrade       = 0.05
 	minGradeCover  = 0.90
 	maxDistanceErr = 0.05
 )
@@ -124,7 +127,7 @@ func valueAt(samples []Sample, hr bool, t int64) (float64, bool) {
 
 type stats struct {
 	meanHR, meanSpeed, speedCV, hrTrend, efDrift, gradeCover float64
-	commonSec                                                float64
+	commonSec, meanGrade                                     float64
 }
 
 func windowStats(w Workout, a, b int64) (stats, string) {
@@ -144,7 +147,7 @@ func windowStats(w Workout, a, b int64) (stats, string) {
 	}
 	var sumHR, sumSp, sumSp2, sumT, sumT2, sumHT float64
 	var n float64
-	gradeSec := 0.0
+	gradeSec, gradeSum := 0.0, 0.0
 	for _, seg := range common {
 		breaks := []int64{seg.a, seg.b}
 		for _, s := range w.Samples {
@@ -181,6 +184,7 @@ func windowStats(w Workout, a, b int64) (stats, string) {
 			n += dt
 			if g, ok := gradeAt(w.Samples, mid); ok && math.Abs(g) <= maxGrade {
 				gradeSec += dt
+				gradeSum += g * dt
 			}
 		}
 	}
@@ -199,6 +203,9 @@ func windowStats(w Workout, a, b int64) (stats, string) {
 	}
 	st.speedCV = math.Sqrt(variance) / st.meanSpeed
 	st.gradeCover = gradeSec / commonSec
+	if gradeSec > 0 {
+		st.meanGrade = gradeSum / gradeSec
+	}
 	den := sumT2 - sumT*sumT/n
 	if den > 0 {
 		st.hrTrend = (sumHT - sumT*sumHR/n) / den
@@ -343,13 +350,21 @@ func EvaluateWorkout(w Workout, ref Reference) (WorkoutEvidence, error) {
 	envKnown := w.TemperatureC != nil && w.HumidityPct != nil
 	ev.EnvironmentKnown = envKnown
 	ev.Support.EnvironmentKnown = envKnown
-	if w.TemperatureC != nil && (*w.TemperatureC < 5 || *w.TemperatureC > 25) {
+	// Heat and humidity raise heart rate at a given speed, biasing the estimate
+	// low. Outside the neutral 5-25 C / <=85% band the evidence is kept at a
+	// reduced weight; only beyond 0-30 C is it excluded.
+	envFactor := 1.0
+	if w.TemperatureC != nil && (*w.TemperatureC < 0 || *w.TemperatureC > 30) {
 		ev.Reasons = append(ev.Reasons, "environment_out_of_range")
 		return ev, nil
 	}
+	if w.TemperatureC != nil && (*w.TemperatureC < 5 || *w.TemperatureC > 25) {
+		envFactor *= .7
+		ev.Reasons = append(ev.Reasons, "environment_temperature_weighted")
+	}
 	if w.HumidityPct != nil && *w.HumidityPct > 85 {
-		ev.Reasons = append(ev.Reasons, "environment_out_of_range")
-		return ev, nil
+		envFactor *= .8
+		ev.Reasons = append(ev.Reasons, "environment_humidity_weighted")
 	}
 	if w.DistanceM == nil || w.RecordedDistanceM == nil || *w.DistanceM <= 0 || *w.RecordedDistanceM <= 0 {
 		ev.Reasons = append(ev.Reasons, "distance_unverified")
@@ -402,7 +417,9 @@ func EvaluateWorkout(w Workout, ref Reference) (WorkoutEvidence, error) {
 			reasons["speed_domain"]++
 			continue
 		}
-		v := 3.5 + 0.2*vmin/r
+		// ACSM level running cost, scaled to the window's mean grade with the
+		// Minetti cost ratio, then %HRR ~ %VO2R.
+		v := 3.5 + 0.2*vmin*workoutdomain.GradeAdjustment(st.meanGrade)/r
 		if !finite(v) || v < 15 || v > 90 {
 			reasons["outside_domain"]++
 			continue
@@ -443,6 +460,7 @@ func EvaluateWorkout(w Workout, ref Reference) (WorkoutEvidence, error) {
 	if !envKnown && ev.Quality > 0.7 {
 		ev.Quality = 0.7
 	}
+	ev.Quality *= envFactor
 	ev.ContentHash = Hash(ev)
 	return ev, nil
 }

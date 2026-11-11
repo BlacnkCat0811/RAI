@@ -5,9 +5,10 @@ import (
 	"errors"
 	"rai/server/internal/analysis"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/storage/postgres/dbgen"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type Lease = analysis.Lease

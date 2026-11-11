@@ -8,11 +8,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/backfill"
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 var ErrBackfillConflict = errors.New("backfill_operation_conflict")

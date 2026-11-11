@@ -180,7 +180,9 @@ func Resolve(in Input) (Snapshot, error) {
 		if !effective(r, in.WorkoutStart) {
 			continue
 		}
-		if r.HRMax != nil && within(*r.HRMax, in.WorkoutStart, HRMaxDays) && (in.SourceEpoch == "" || r.SourceEpoch == in.SourceEpoch) {
+		// HRmax does not expire: a measurement before the Workout stays usable,
+		// and one older than HRMaxDays only asks for a review.
+		if r.HRMax != nil && r.HRMax.MeasuredAt <= in.WorkoutStart && (in.SourceEpoch == "" || r.SourceEpoch == in.SourceEpoch) {
 			maxCandidates = append(maxCandidates, r)
 		}
 		if r.RestingHR != nil && within(*r.RestingHR, in.WorkoutStart, RHRDays) && (in.SourceEpoch == "" || r.SourceEpoch == in.SourceEpoch) {
@@ -188,6 +190,9 @@ func Resolve(in Input) (Snapshot, error) {
 		}
 	}
 	out.HRMax = pick(maxCandidates, true)
+	if out.HRMax != nil && !within(Measurement{MeasuredAt: out.HRMax.MeasuredAt}, in.WorkoutStart, HRMaxDays) {
+		out.Reasons = append(out.Reasons, "hrmax_review_due")
+	}
 	if out.HRMax == nil {
 		if len(maxCandidates) > 0 {
 			out.Reasons = append(out.Reasons, "hrmax_reference_conflict")
@@ -216,34 +221,35 @@ func Resolve(in Input) (Snapshot, error) {
 	return out, nil
 }
 
+// pick resolves the effective explicit value. References are append-only and
+// the app never sends supersedesID, so a newer entry must override an older
+// one from its own effective date on: the latest EffectiveFrom wins, then the
+// latest KnownAt. Only candidates tied on both with different values are a
+// conflict, which fails closed.
 func pick(rs []Reference, isMax bool) *Resolved {
 	if len(rs) == 0 {
 		return nil
 	}
 	sort.Slice(rs, func(i, j int) bool {
-		a, b := measurement(rs[i], isMax), measurement(rs[j], isMax)
-		if a.Value == b.Value {
-			if a.MeasuredAt == b.MeasuredAt {
-				return rs[i].ID < rs[j].ID
-			}
-			return a.MeasuredAt > b.MeasuredAt
+		if rs[i].EffectiveFrom != rs[j].EffectiveFrom {
+			return rs[i].EffectiveFrom > rs[j].EffectiveFrom
 		}
-		return a.Value < b.Value
+		if rs[i].KnownAt != rs[j].KnownAt {
+			return rs[i].KnownAt > rs[j].KnownAt
+		}
+		return rs[i].ID < rs[j].ID
 	})
-	lo, hi := measurement(rs[0], isMax).Value, measurement(rs[len(rs)-1], isMax).Value
-	if hi-lo > 1e-9 {
-		return nil // conflict: more than one distinct explicit value
+	top := rs[0]
+	for _, r := range rs[1:] {
+		if r.EffectiveFrom != top.EffectiveFrom || r.KnownAt != top.KnownAt {
+			break
+		}
+		if math.Abs(measurement(r, isMax).Value-measurement(top, isMax).Value) > 1e-9 {
+			return nil // conflict: one instant, more than one distinct explicit value
+		}
 	}
-	// Identical values: prefer the latest measurement, then stable id.
-	sort.Slice(rs, func(i, j int) bool {
-		a, b := measurement(rs[i], isMax), measurement(rs[j], isMax)
-		if a.MeasuredAt == b.MeasuredAt {
-			return rs[i].ID < rs[j].ID
-		}
-		return a.MeasuredAt > b.MeasuredAt
-	})
-	m := measurement(rs[0], isMax)
-	return &Resolved{Value: m.Value, ReferenceID: rs[0].ID, Method: m.Method, MeasuredAt: m.MeasuredAt, RecordedAt: m.RecordedAt, Lineage: []Lineage{{ID: rs[0].ID, MeasuredAt: m.MeasuredAt}}}
+	m := measurement(top, isMax)
+	return &Resolved{Value: m.Value, ReferenceID: top.ID, Method: m.Method, MeasuredAt: m.MeasuredAt, RecordedAt: m.RecordedAt, Lineage: []Lineage{{ID: top.ID, MeasuredAt: m.MeasuredAt}}}
 }
 
 func measurement(r Reference, isMax bool) Measurement {

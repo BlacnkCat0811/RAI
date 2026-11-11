@@ -83,9 +83,12 @@ type Fact struct {
 	SupportHash   string  `json:"supportHash"`
 	SemanticHash  string  `json:"semanticHash"`
 	SyncKey       string  `json:"syncKey"` // hash of source-scoped identifier, never raw text
-	TestType      *int64  `json:"testType"`
-	Calibrated    *bool   `json:"calibrated"`
-	Supported     bool    `json:"supported"`
+	// StableEpoch is the software-version-free source identity; the v2 stack
+	// substitutes it for Epoch. Not part of the frozen v1 input.
+	StableEpoch string `json:"-"`
+	TestType    *int64 `json:"testType"`
+	Calibrated  *bool  `json:"calibrated"`
+	Supported   bool   `json:"supported"`
 }
 type Tombstone struct {
 	ID       string `json:"id"`
@@ -94,6 +97,8 @@ type Tombstone struct {
 	End      *int64 `json:"endUs"`
 	Revision int64  `json:"revision"`
 	Origin   string `json:"originClass"`
+	// StableEpoch: see Fact.StableEpoch.
+	StableEpoch string `json:"-"`
 }
 type Selection struct {
 	ID               string `json:"id"`
@@ -199,4 +204,14 @@ type Evidence struct {
 	TombstoneCount int    `json:"tombstoneCount"`
 	SelectionCount int    `json:"selectionCount"`
 	Laboratory     string `json:"laboratory"`
+}
+
+// Source is one Apple VO2 source as the app's picker lists it: one entry per
+// stable source, named by its latest full epoch (what a selection stores).
+type Source struct {
+	SourceEpoch string `json:"sourceEpoch"`
+	Bundle      string `json:"bundleIdentifier"`
+	ProductType string `json:"productType,omitempty"`
+	LatestDate  string `json:"latestDate"`
+	Samples     int    `json:"samples"`
 }

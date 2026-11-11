@@ -13,9 +13,10 @@ import (
 	"rai/server/migrations"
 	"strings"
 
+	"rai/server/internal/syncing"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"rai/server/internal/syncing"
 )
 
 func validateRecoveryOrigin(raw string) error {

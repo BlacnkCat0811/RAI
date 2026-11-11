@@ -6,34 +6,31 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/modelmanifest"
+	pf "rai/server/internal/performance"
 	"rai/server/internal/readiness"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
 	tl "rai/server/internal/trainingload"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Only current, clean publications supply features; raw rows filter identity and
 // running activity, but no raw measurements are read by the coach.
-// The aggregate LATERAL lookup is parameterized by each selected Workout.
-// Historical publication/dirty rows are reached by identity, not scanned first.
-const trainingWorkoutsSelect = `SELECT w.workout_uuid::text,p.published_run_id::text,p.generation,
- (w.event_start AT TIME ZONE $2)::date::text,p.duration,p.distance,p.load,p.metrics
- FROM workouts w JOIN LATERAL (
- SELECT p.published_run_id,p.generation,
- max(r.value) FILTER(WHERE r.metric='duration' AND r.quality IN ('available','partial') AND r.algorithm_name='workout.features') duration,
- max(r.value) FILTER(WHERE r.metric='distance' AND r.quality IN ('available','partial') AND r.algorithm_name='workout.features') distance,
- max(r.value) FILTER(WHERE r.metric='workout_load' AND r.quality IN ('available','partial') AND r.algorithm_name='training_load.trimp') load,
- jsonb_agg(jsonb_build_object('runID',p.published_run_id::text,'generation',p.generation,'day',(w.event_start AT TIME ZONE $2)::date::text,'metric',r.metric,'algorithm',r.algorithm_name,'algorithmVersion',r.algorithm_version,'quality',r.quality,'value',r.value) ORDER BY r.metric) metrics
- FROM analysis_publications p
- JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
- JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND ((r.algorithm_name='workout.features' AND r.algorithm_version IN ('v1','v2','v3')) OR (r.algorithm_name='training_load.trimp' AND r.algorithm_version='v1')) AND r.metric IN ('duration','distance','workout_load')
- JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation AND d.generation=p.generation
- WHERE p.dataset_id=$1 AND p.metric_family='workout' AND p.scope_key='workout:HKWorkoutTypeIdentifier:'||w.workout_uuid::text
- AND COALESCE((a.lineage->>'parameterVersion')::bigint,0)=COALESCE((SELECT max(version) FROM analysis_parameter_sets WHERE dataset_id=$1),0)
- GROUP BY p.published_run_id,p.generation
- ) p ON true WHERE w.dataset_id=$1 AND w.activity_type=37 `
+// Workout facts for the plan come from the active model stack's per-Workout
+// results: active duration and preferred distance from the cached features,
+// load from the latest v2 day release.
+const trainingWorkoutsSelect = `SELECT w.workout_uuid::text,COALESCE(r.feature->'evidence'->>'inputHash',''),r.fact_generation,
+ (w.event_start AT TIME ZONE $2)::date::text,(r.feature->'timing'->>'activeSeconds')::float8,
+ (r.feature->'distance'->>'preferredDistanceM')::float8,(r.load->>'load')::float8,
+ jsonb_build_array(jsonb_build_object('runID',COALESCE(r.feature->'evidence'->>'inputHash',''),'generation',r.fact_generation,
+  'day',(w.event_start AT TIME ZONE $2)::date::text,'metric','workout_load','algorithm',COALESCE(r.load->>'model',''),
+  'algorithmVersion',COALESCE(r.load->>'modelVersion',''),'quality',COALESCE(r.load->>'quality','insufficient'),'value',(r.load->>'load')::float8))
+ FROM workouts w
+ JOIN model_workout_results r ON r.dataset_id=w.dataset_id AND r.workout_uuid=w.workout_uuid
+ JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
+ WHERE w.dataset_id=$1 AND w.activity_type=37 `
 
 const TrainingWorkoutsSQL = trainingWorkoutsSelect + `AND w.event_start >= $3 AND w.event_start < $4
  ORDER BY w.event_start,w.workout_uuid LIMIT 4097`
@@ -150,40 +147,12 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 	for _, w := range c.Workouts {
 		out.Workouts[w.ID] = w
 	}
-	rows, e := tx.Query(ctx, `SELECT p.published_run_id::text,p.generation,r.day::text,r.metric,r.algorithm_name,r.algorithm_version,r.quality,r.value
- FROM analysis_publications p JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
- JOIN analysis_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day
- JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation
- WHERE p.dataset_id=$1 AND p.metric_family='state' AND p.day=$2::date AND r.details->>'timezone'=$3 ORDER BY r.metric`, l.DatasetID, c.AsOf, p.Timezone)
-	if e != nil {
-		return out, e
-	}
-	for rows.Next() {
-		var sig training.Signal
-		if e = rows.Scan(&sig.RunID, &sig.Generation, &sig.Day, &sig.Name, &sig.Algorithm, &sig.Version, &sig.Quality, &sig.Value); e != nil {
-			rows.Close()
-			return out, e
-		}
-		c.Signals = append(c.Signals, sig)
-	}
-	e = rows.Err()
-	rows.Close()
-	if e != nil {
-		return out, e
-	}
 	binding, e := loadTrainingModelBinding(ctx, tx, l.DatasetID)
 	if e != nil {
 		return out, e
 	}
 	c.ObservedModelBinding = &binding
 	if binding.Adapter == "schema2-v2" {
-		kept := c.Signals[:0]
-		for _, old := range c.Signals {
-			if old.Name != "readiness" && old.Name != "fitness" && old.Name != "fatigue" {
-				kept = append(kept, old)
-			}
-		}
-		c.Signals = kept
 		sig, ok, err := loadTrainingReadinessSignal(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
 		if err != nil {
 			return out, err
@@ -196,8 +165,13 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 			return out, err
 		}
 		c.Signals = append(c.Signals, signals...)
+		signals, err = loadTrainingTargetSignals(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
+		if err != nil {
+			return out, err
+		}
+		c.Signals = append(c.Signals, signals...)
 	}
-	rows, e = tx.Query(ctx, `SELECT id::text FROM training_executions WHERE dataset_id=$1 AND plan_id=$2 AND status IN ('completed','skipped') ORDER BY id LIMIT 4097`, l.DatasetID, p.ID)
+	rows, e := tx.Query(ctx, `SELECT id::text FROM training_executions WHERE dataset_id=$1 AND plan_id=$2 AND status IN ('completed','skipped') ORDER BY id LIMIT 4097`, l.DatasetID, p.ID)
 	if e != nil {
 		return out, e
 	}
@@ -274,7 +248,7 @@ func loadTrainingLoadSignals(ctx context.Context, q trainingDB, dataset, stack, 
 		return nil, syncing.Fail(503, "training_load_invalid")
 	}
 	for _, x := range state.Days {
-		if x.Day == day && x.Quality == "complete" && x.Acute.Value != nil && x.Chronic.Value != nil {
+		if x.Day == day && (x.Quality == "complete" || x.Quality == "partial") && x.Acute.Value != nil && x.Chronic.Value != nil {
 			acute := training.Signal{RunID: a.RunID, Generation: a.Generation, Day: day, Algorithm: a.Algorithm, Version: a.Version, Quality: x.Quality, Name: "acute", Value: x.Acute.Value}
 			chronic := acute
 			chronic.Name, chronic.Value = "chronic", x.Chronic.Value
@@ -282,4 +256,44 @@ func loadTrainingLoadSignals(ctx context.Context, q trainingDB, dataset, stack, 
 		}
 	}
 	return nil, nil
+}
+
+// loadTrainingTargetSignals supplies session targets: the published running
+// ability v60 (fresh, available) and the HR reference effective at the plan
+// day. A missing value simply leaves sessions without that target.
+func loadTrainingTargetSignals(ctx context.Context, q trainingDB, dataset, stack, tz, day string, at time.Time) ([]training.Signal, error) {
+	out := []training.Signal{}
+	scope := pf.ScopeFor(stack)
+	if stack == modelmanifest.StackID() {
+		scope = modelmanifest.DayScope(stack, day)
+	}
+	var a publishedModelArtifact
+	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text
+ FROM analysis_publications p
+ JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
+ JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=$4
+ JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day<=$3::date ORDER BY p.day DESC LIMIT 1`, dataset, scope, day, pf.ArtifactKeyV2).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+	if err == nil && validHistoryArtifact("runningAbility", dataset, tz, a) {
+		var r pf.Result
+		if json.Unmarshal(a.Payload, &r) == nil {
+			if v := pf.Freshen(r, at.UnixMicro()); v.Ability != nil && v.Status == "available" {
+				out = append(out, training.Signal{RunID: a.RunID, Generation: a.Generation, Day: day, Name: "v60", Algorithm: pf.AbilityModel, Version: pf.VersionV2, Quality: "complete", Value: &v.Ability.V60})
+			}
+		}
+	}
+	ref, err := hrReferenceAt(ctx, q, dataset, at)
+	if err != nil {
+		return nil, err
+	}
+	if ref != nil {
+		out = append(out, training.Signal{RunID: ref.ID, Day: day, Name: "hr_max", Algorithm: "hr_reference", Version: "v2", Quality: "complete", Value: &ref.MaxHR})
+		if ref.RestingHR != nil {
+			out = append(out, training.Signal{RunID: ref.ID, Day: day, Name: "hr_rest", Algorithm: "hr_reference", Version: "v2", Quality: "complete", Value: ref.RestingHR})
+		}
+	}
+	return out, nil
 }

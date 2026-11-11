@@ -11,7 +11,6 @@ import (
 type productReader interface {
 	ProductWorkouts(context.Context, syncing.Principal, string, int, string) (product.Page, error)
 	ProductOverview(context.Context, syncing.Principal) (product.Overview, error)
-	ProductHistory(context.Context, syncing.Principal, int) (product.History, error)
 }
 
 func (a *API) product(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
@@ -21,7 +20,7 @@ func (a *API) product(w http.ResponseWriter, r *http.Request, p syncing.Principa
 	}
 	q := r.URL.Query()
 	for k, v := range q {
-		allowed := r.Pattern == "GET /v2/workouts" && (k == "before" || k == "limit") || r.Pattern == "GET /v2/analysis/history" && k == "days"
+		allowed := r.Pattern == "GET /v2/workouts" && (k == "before" || k == "limit")
 		if !allowed || len(v) != 1 || v[0] == "" {
 			return syncing.Fail(422, "invalid_product_query")
 		}
@@ -40,15 +39,6 @@ func (a *API) product(w http.ResponseWriter, r *http.Request, p syncing.Principa
 		out, err = s.ProductWorkouts(r.Context(), p, q.Get("before"), limit, r.PathValue("id"))
 	case "GET /v2/product/overview":
 		out, err = s.ProductOverview(r.Context(), p)
-	case "GET /v2/analysis/history":
-		days := 14
-		if q.Has("days") {
-			days, err = strconv.Atoi(q.Get("days"))
-			if err != nil {
-				return syncing.Fail(422, "invalid_analysis_query")
-			}
-		}
-		out, err = s.ProductHistory(r.Context(), p, days)
 	}
 	if err != nil {
 		return err

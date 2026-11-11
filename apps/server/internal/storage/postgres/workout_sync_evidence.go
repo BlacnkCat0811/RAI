@@ -3,9 +3,10 @@ package postgres
 import (
 	"context"
 
+	rd "rai/server/internal/readiness"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	rd "rai/server/internal/readiness"
 )
 
 // workoutSyncEvidence reports the positive upload evidence readiness consumes:

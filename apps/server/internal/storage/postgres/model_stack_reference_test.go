@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"rai/server/internal/hrref"
+	ve "rai/server/internal/vo2maxexternal"
 )
 
 func TestDoseReferenceIdentityIgnoresRollingRestingBaseline(t *testing.T) {
@@ -41,5 +42,20 @@ func TestDoseReferenceIdentityIgnoresRollingRestingBaseline(t *testing.T) {
 	c := doseReference(resolve(30, explicit))
 	if c == nil || c.Baseline || c.Hash == a.Hash || c.RestHR != 48 {
 		t.Fatalf("explicit resting HR is part of the reference identity: %+v", c)
+	}
+}
+
+func TestStableExternalInputKeepsSelectionAcrossUpdates(t *testing.T) {
+	in := &ve.ExternalVO2Snapshot{
+		Facts:      []ve.Fact{{ID: "a", Epoch: "sha256:old", StableEpoch: "sha256:watch"}, {ID: "b", Epoch: "sha256:new", StableEpoch: "sha256:watch"}},
+		Tombstones: []ve.Tombstone{{ID: "c", Epoch: "sha256:other", StableEpoch: "sha256:app"}},
+		Selections: []ve.Selection{{ID: "s", Epoch: "sha256:old"}, {ID: "u", Epoch: "sha256:unknown"}},
+	}
+	stableExternalInput(in)
+	if in.Facts[0].Epoch != "sha256:watch" || in.Facts[1].Epoch != "sha256:watch" || in.Tombstones[0].Epoch != "sha256:app" {
+		t.Fatalf("facts not stable: %+v %+v", in.Facts, in.Tombstones)
+	}
+	if in.Selections[0].Epoch != "sha256:watch" || in.Selections[1].Epoch != "sha256:unknown" {
+		t.Fatalf("selection: %+v", in.Selections)
 	}
 }

@@ -118,7 +118,8 @@ func TestSyntheticHistoriesAndMissingInputs(t *testing.T) {
 				in.Workouts = append(in.Workouts, w)
 			}
 			if tc.low {
-				in.Signals = []Signal{{Name: "readiness", Algorithm: "readiness", Version: "v1", Quality: "partial", Value: Ptr(40)}}
+				in.ObservedModelBinding = &ModelBinding{Adapter: "schema2-v2"}
+				in.Signals = []Signal{{Name: "readiness", Algorithm: "rai.readiness.training", Version: "v2", Quality: "complete", Value: Ptr(40)}}
 			}
 			if tc.feedback {
 				in.Feedback = []Feedback{{Status: "skipped", Date: "2026-10-26"}}
@@ -129,10 +130,8 @@ func TestSyntheticHistoriesAndMissingInputs(t *testing.T) {
 			}
 			checkConstraints(t, b, in)
 			if tc.low {
-				for _, s := range b.Sessions[:7] {
-					if s.Type == "TEMPO" || s.Type == "INTERVAL" {
-						t.Fatal("low readiness hard session")
-					}
+				if hardSession(b.Sessions[0].Type) {
+					t.Fatal("low readiness hard session today")
 				}
 			}
 		})
@@ -385,9 +384,16 @@ func TestGeneratorConsumesV2ReadinessSignal(t *testing.T) {
 	if !containsString(low.Recommendations, "load_only_advisory") {
 		t.Fatal("v2 advice missing")
 	}
-	for i, s := range low.Sessions {
-		if s.Type != base.Sessions[i].Type || containsString(s.Reasons, "readiness_adjustment") {
-			t.Fatal("v2 readiness changed the schedule")
+	// Low readiness reschedules only today's slot (and the day it moves to).
+	if hardSession(low.Sessions[0].Type) {
+		t.Fatal("low v2 readiness kept a hard session today")
+	}
+	if hardSession(base.Sessions[0].Type) && !containsString(low.Sessions[0].Reasons, "daily_readiness_reschedule") {
+		t.Fatal("reschedule reason missing")
+	}
+	for i := 7; i < len(low.Sessions); i++ {
+		if !reflect.DeepEqual(low.Sessions[i], base.Sessions[i]) {
+			t.Fatal("v2 readiness changed weeks after the first")
 		}
 	}
 	in.Signals[0].Quality = "partial"
@@ -405,4 +411,71 @@ func containsString(xs []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func TestGeneratorTargetsAndRampGuard(t *testing.T) {
+	in := syntheticContext()
+	in.Config.BaselineWeeklyM = Ptr(30000)
+	in.Config.PreviousLongM = Ptr(12000)
+	in.ObservedModelBinding = &ModelBinding{Adapter: "schema2-v2"}
+	in.Signals = []Signal{
+		{Name: "v60", Algorithm: "rai.running_ability", Version: "v2", Quality: "complete", Value: Ptr(4)},
+		{Name: "hr_max", Algorithm: "hr_reference", Version: "v2", Quality: "complete", Value: Ptr(190)},
+		{Name: "hr_rest", Algorithm: "hr_reference", Version: "v2", Quality: "complete", Value: Ptr(50)},
+		{Name: "acute", Algorithm: "rai.load_state.exp_finite", Version: "v2", Quality: "partial", Value: Ptr(70)},
+		{Name: "chronic", Algorithm: "rai.load_state.exp_finite", Version: "v2", Quality: "partial", Value: Ptr(50)},
+	}
+	b, e := Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	seen := map[string]bool{}
+	for _, s := range b.Sessions {
+		if s.Type == "REST" {
+			if s.PaceSPerKM != nil || s.TargetHR != nil {
+				t.Fatal("rest day got a target")
+			}
+			continue
+		}
+		if s.PaceSPerKM == nil || s.TargetHR == nil {
+			t.Fatalf("%s without targets", s.Type)
+		}
+		seen[s.Type] = true
+		if s.Type == "EASY" && (*s.PaceSPerKM != 338 || *s.TargetHR != 148) {
+			t.Fatalf("easy targets %v %v", *s.PaceSPerKM, *s.TargetHR)
+		}
+		if s.Type == "TEMPO" && *s.PaceSPerKM >= 260 {
+			t.Fatalf("tempo pace %v not near threshold", *s.PaceSPerKM)
+		}
+	}
+	if !seen["EASY"] || !containsString(b.Recommendations, "load_ramp_guard") {
+		t.Fatalf("targets/ramp: %v %v", seen, b.Recommendations)
+	}
+	for _, s := range b.Sessions {
+		if s.Slot >= 7 && s.Slot < 14 && s.Type != "REST" && (containsString(s.Reasons, "weekly_progression") || !containsString(s.Reasons, "load_ramp_guard")) {
+			t.Fatalf("week 2 progressed under ramp guard: %v", s.Reasons)
+		}
+	}
+}
+
+func TestRescheduleTodayMovesHardSession(t *testing.T) {
+	week := []Session{
+		{ID: "a", Slot: 0, Date: "2026-10-26", Type: "TEMPO", Effort: 6, DistanceM: 8000, Origin: "generated", Status: "scheduled", Reasons: []string{"goal_specific_tempo"}},
+		{ID: "b", Slot: 1, Date: "2026-10-27", Type: "REST", Origin: "generated", Status: "scheduled", Reasons: []string{"minimum_recovery"}},
+		{ID: "c", Slot: 2, Date: "2026-10-28", Type: "EASY", Effort: 3, DistanceM: 6000, Origin: "generated", Status: "scheduled", Reasons: []string{"aerobic_base"}},
+		{ID: "d", Slot: 3, Date: "2026-10-29", Type: "REST", Origin: "generated", Status: "scheduled", Reasons: []string{"minimum_recovery"}},
+	}
+	if e := rescheduleToday(week, 0, Ptr(4.0), Ptr(190.0), Ptr(50.0)); e != nil {
+		t.Fatal(e)
+	}
+	if week[0].Type != "RECOVERY" || week[0].DistanceM != 6000 || week[0].ID != "a" || week[0].PaceSPerKM == nil {
+		t.Fatalf("today not recovery: %+v", week[0])
+	}
+	if week[2].Type != "TEMPO" || week[2].DistanceM != 8000 || week[2].ID != "c" || week[2].Date != "2026-10-28" || !containsString(week[2].Reasons, "daily_readiness_reschedule") {
+		t.Fatalf("tempo not moved: %+v", week[2])
+	}
+	easyToday := []Session{{ID: "x", Slot: 0, Date: "2026-10-26", Type: "EASY", Effort: 3, DistanceM: 5000, Origin: "generated", Status: "scheduled", Reasons: []string{"aerobic_base"}}}
+	if e := rescheduleToday(easyToday, 0, nil, nil, nil); e != nil || easyToday[0].Type != "EASY" {
+		t.Fatal("easy day changed")
+	}
 }

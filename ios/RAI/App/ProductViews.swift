@@ -71,7 +71,7 @@ struct HomeView: View {
           if let athlete = model.data.athlete, athlete.supportsPresentation {
             AthleteModelCard(snapshot: athlete, summary: true)
           } else {
-            BodyStatusCard(data: model.data)
+            EmptyCard(title: "运动模型", detail: model.configured ? "运动模型尚未激活。激活后这里显示准备度、跑力和生理恢复。" : "连接私有服务后查看运动模型。")
           }
         }.buttonStyle(RAIPressStyle())
           .accessibilityIdentifier(model.data.athlete?.supportsPresentation == true ? "model.home.active" : "home.status")
@@ -198,94 +198,6 @@ func prescription(_ s: ProductSession) -> String {
   if s.distance > 0 { parts.append(ProductFormat.distance(s.distance) + " 公里") }
   if s.duration > 0 { parts.append(ProductFormat.decimal(s.duration / 60) + " 分钟") }
   return parts.joined(separator: " · ")
-}
-struct BodyStatusCard: View {
-  let data: ProductSnapshot
-  @Environment(\.dynamicTypeSize) private var size
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      CardHeading(title: "身体状态", icon: "waveform.path.ecg")
-      ViewThatFits(in: .horizontal) {
-        HStack(spacing: 20) {
-          ReadinessRing(value: data.metric("readiness")).frame(
-            width: size.isAccessibilitySize ? 210 : 118,
-            height: size.isAccessibilitySize ? 210 : 118)
-          metrics.frame(minWidth: 140)
-        }
-        VStack(spacing: 16) {
-          ReadinessRing(value: data.metric("readiness")).frame(
-            width: size.isAccessibilitySize ? 210 : 138,
-            height: size.isAccessibilitySize ? 210 : 138)
-          metrics
-        }
-      }
-      Text("负荷状态估算 · 体能与疲劳：负荷单位/日，同尺度").font(.caption2).foregroundStyle(RAITheme.secondary)
-    }.padding(18).raiGlass().foregroundStyle(.white)
-  }
-  private func relative(_ name: String) -> Double? {
-    guard let value = data.metric(name) else { return nil }
-    let scale = [data.metric("fitness"), data.metric("fatigue")].compactMap { $0 }.max() ?? value
-    return scale > 0 ? value / scale : 0
-  }
-  private var metrics: some View {
-    VStack(spacing: 12) {
-      MetricBar(
-        name: "体能", symbol: "figure.run", value: data.metric("fitness"),
-        color: RAITheme.orange, ratio: relative("fitness"))
-      MetricBar(
-        name: "疲劳", symbol: "moon.zzz", value: data.metric("fatigue"), color: RAITheme.purple,
-        ratio: relative("fatigue"))
-      MetricBar(
-        name: "恢复", symbol: "leaf", value: data.metric("recovery").map { $0 * 100 },
-        color: RAITheme.green, ratio: data.metric("recovery"))
-    }
-  }
-}
-struct ReadinessRing: View {
-  let value: Double?
-  var body: some View {
-    ZStack {
-      Circle().stroke(.white.opacity(0.16), lineWidth: 9)
-      if let value {
-        Circle().trim(from: 0, to: max(0, min(value / 100, 1))).stroke(
-          AngularGradient(
-            colors: [RAITheme.blue, RAITheme.orange, RAITheme.amber], center: .center,
-            startAngle: .degrees(0), endAngle: .degrees(300)),
-          style: StrokeStyle(lineWidth: 9, lineCap: .round)
-        ).rotationEffect(.degrees(-90))
-      }
-      VStack(spacing: 1) {
-        Text(ProductFormat.decimal(value)).font(
-          .system(.largeTitle, design: .rounded, weight: .bold)
-        ).monospacedDigit()
-        Text(value == nil ? "暂无数据" : "准备度").font(.caption)
-      }
-    }.padding(6).accessibilityElement(children: .ignore).accessibilityLabel(
-      "准备度 \(ProductFormat.decimal(value))，训练负荷估算")
-  }
-}
-struct MetricBar: View {
-  let name: String, symbol: String, value: Double?, color: Color, ratio: Double?
-  @ScaledMetric(relativeTo: .title3) private var symbolWidth = 25.0
-  var body: some View {
-    HStack(spacing: 8) {
-      Image(systemName: symbol).foregroundStyle(color).font(.title3).frame(width: symbolWidth)
-      VStack(spacing: 4) {
-        HStack {
-          Text(name).font(.caption)
-          Spacer()
-          Text(ProductFormat.decimal(value)).font(.subheadline.weight(.semibold)).monospacedDigit()
-        }
-        GeometryReader { g in
-          Capsule().fill(.white.opacity(0.12)).overlay(alignment: .leading) {
-            if let ratio {
-              Capsule().fill(color.gradient).frame(width: g.size.width * max(0, min(ratio, 1)))
-            }
-          }
-        }.frame(height: 4).accessibilityHidden(true)
-      }
-    }
-  }
 }
 struct WeeklyCard: View {
   @Environment(\.dynamicTypeSize) private var typeSize
@@ -419,12 +331,10 @@ struct AnalysisView: View {
   var body: some View {
     ScrollView {
       VStack(spacing: 16) {
-        BodyStatusCard(data: model.data)
         NavigationLink {
           TrainingLoadDetailView(model: model)
         } label: {
-          TrainingLoadEntryCard(
-            data: model.data, points: TrainingLoadSeries.points(from: model.data.history))
+          TrainingLoadEntryCard(points: model.trainingLoadPoints)
         }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("trainingLoad.entry")
         NavigationLink {
           RunningAbilityDetailView(model: model)
@@ -443,21 +353,13 @@ struct AnalysisView: View {
         }
         .buttonStyle(RAIPressStyle())
         .disabled(!model.configured)
-        .accessibilityHint("填写静息心率、最大心率或睡眠目标；保存为服务器上的追加式个人输入")
-        ForEach(["daily_load", "fitness", "fatigue", "recovery", "readiness"], id: \.self) { name in
-          NavigationLink {
-            MetricDetail(model: model, name: name)
-          } label: {
-            VStack(alignment: .leading, spacing: 12) {
-              CardHeading(title: metricTitle(name), icon: "chart.xyaxis.line")
-              TrendChart(metrics: model.data.history["metrics"].list, name: name).frame(height: 120)
-            }.padding(20).raiGlass()
-          }.buttonStyle(RAIPressStyle())
-        }
+        .accessibilityHint("填写睡眠目标或 Apple VO₂ 来源；心率在「我的 → 静息与最大心率」填写")
         Text("模型结果来自已发布的分析快照；缺失、过期或同步未完成保持空白，不补零。RAI VO₂ 为实验性次最大强度估计，Apple 外部估计独立展示，二者不相加或互相校准。").font(.footnote)
           .foregroundStyle(RAITheme.secondary)
       }.padding(18)
-    }.navigationTitle("分析").raiScreen().refreshable { await model.refresh() }
+    }.navigationTitle("分析").raiScreen()
+      .refreshable { await model.refresh(); await model.loadTrainingLoadHistory() }
+      .task { await model.loadTrainingLoadHistory() }
       .accessibilityIdentifier("screen.analysis")
       .sheet(isPresented: $showingModelInput) { ModelInputSheet(model: model) }
   }
@@ -466,11 +368,10 @@ struct AnalysisView: View {
 private struct ModelInputSheet: View {
   @Bindable var model: ProductModel
   @Environment(\.dismiss) private var dismiss
-  @State private var kind = "hr_reference"
-  @State private var maxHR = ""
-  @State private var restingHR = ""
+  @State private var kind = "sleep_target"
   @State private var sleepHours = "8"
   @State private var sourceEpoch = ""
+  @State private var vo2Sources: [VO2SourceOption] = []
   @State private var selectionRevoked = false
   @State private var effectiveDate = Date()
   @State private var busy = false
@@ -481,22 +382,12 @@ private struct ModelInputSheet: View {
       Form {
         Section("输入类型") {
           Picker("类型", selection: $kind) {
-            Text("心率参考").tag("hr_reference")
             Text("睡眠目标").tag("sleep_target")
             Text("VO₂ 来源").tag("vo2max_source_selection")
           }.pickerStyle(.segmented)
         }
         Section("生效日期") { DatePicker("日期", selection: $effectiveDate, displayedComponents: .date) }
-        if kind == "hr_reference" {
-          Section("心率参考（bpm）") {
-            TextField("最大心率", text: $maxHR)
-            TextField("静息心率（可选）", text: $restingHR)
-            Text("只接受 30–219 bpm；最大心率必须高于静息心率。不会按年龄推断。")
-              .font(.caption).foregroundStyle(RAITheme.secondary)
-            Text("这里的心率参考只用于能力模型。训练负荷（TRIMP）请在「我的 → 个人设置 → 静息与最大心率」填写。")
-              .font(.caption).foregroundStyle(RAITheme.secondary)
-          }
-        } else if kind == "sleep_target" {
+        if kind == "sleep_target" {
           Section("睡眠目标（小时）") {
             TextField("目标睡眠时长", text: $sleepHours)
             Text("必须在 0–24 小时之间；用于恢复模型的睡眠目标组件。")
@@ -504,11 +395,18 @@ private struct ModelInputSheet: View {
           }
         } else {
           Section("Apple 外部 VO₂ 来源") {
-            TextField("来源 epoch（sha256:…）", text: $sourceEpoch)
-              .textInputAutocapitalization(.never)
-              .autocorrectionDisabled()
-            Toggle("追加撤销（不再选择该来源）", isOn: $selectionRevoked)
-            Text("只能追加显式来源选择；同一时间仅有一个有效来源，多个有效选择会保持冲突而不自动挑选。")
+            if vo2Sources.isEmpty {
+              Text("近一年没有同步到 Apple VO₂ 估计。先在「同步与诊断」同步 VO₂。")
+                .font(.caption).foregroundStyle(RAITheme.secondary)
+            } else {
+              Picker("来源", selection: $sourceEpoch) {
+                ForEach(vo2Sources, id: \.sourceEpoch) { source in
+                  Text(vo2SourceLabel(source)).tag(source.sourceEpoch)
+                }
+              }.pickerStyle(.inline)
+            }
+            Toggle("撤销该来源", isOn: $selectionRevoked)
+            Text("同一设备升级系统后仍是同一来源，无需重新选择。")
               .font(.caption).foregroundStyle(RAITheme.secondary)
           }
         }
@@ -527,25 +425,27 @@ private struct ModelInputSheet: View {
             .disabled(busy || !valid)
         }
       }
+      .task {
+        vo2Sources = await model.loadVO2Sources()
+        if sourceEpoch.isEmpty { sourceEpoch = vo2Sources.first?.sourceEpoch ?? "" }
+      }
       .navigationTitle("个人参考与目标")
       .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } } }
     }
   }
 
   private var valid: Bool {
-    if kind == "hr_reference" {
-      guard let max = Double(maxHR), max >= 30, max < 220 else { return false }
-      if !restingHR.isEmpty {
-        guard let rest = Double(restingHR), rest >= 30, rest < max else { return false }
-      }
-      return true
-    }
     if kind == "vo2max_source_selection" {
       return trimmedSourceEpoch.range(
         of: "^sha256:[0-9a-f]{64}$", options: .regularExpression) != nil
     }
     guard let hours = Double(sleepHours) else { return false }
     return hours > 0 && hours <= 24
+  }
+
+  private func vo2SourceLabel(_ source: VO2SourceOption) -> String {
+    let device = source.productType.hasPrefix("Watch") ? "Apple Watch" : (source.productType.isEmpty ? source.bundleIdentifier : source.productType)
+    return "\(device) · 最近 \(source.latestDate) · \(source.samples) 次"
   }
 
   private var trimmedSourceEpoch: String {
@@ -557,19 +457,7 @@ private struct ModelInputSheet: View {
     message = nil
     Task {
       let payload: [String: JSON]
-      if kind == "hr_reference" {
-        var fields: [String: JSON] = [
-          "maxHR": .number(Double(maxHR) ?? 0),
-          "method": .string("user_entered"),
-          "measuredAt": .string(ISO8601DateFormatter().string(from: effectiveDate)),
-          "unit": .string("bpm"),
-        ]
-        if let rest = Double(restingHR), rest > 0 {
-          fields["restingHR"] = .number(rest)
-          fields["restingMeasuredAt"] = .string(ISO8601DateFormatter().string(from: effectiveDate))
-        }
-        payload = fields
-      } else if kind == "vo2max_source_selection" {
+      if kind == "vo2max_source_selection" {
         payload = [
           "sourceEpoch": .string(trimmedSourceEpoch),
           "revoked": .bool(selectionRevoked),
@@ -583,35 +471,6 @@ private struct ModelInputSheet: View {
         busy = false
         if let failure { message = failure } else { dismiss() }
       }
-    }
-  }
-}
-func metricTitle(_ name: String) -> String {
-  [
-    "daily_load": "训练负荷", "fitness": "体能", "fatigue": "疲劳",
-    "recovery": "负荷恢复", "readiness": "准备度",
-  ][name] ?? "训练指标"
-}
-struct TrendChart: View {
-  let metrics: [JSON], name: String
-  var body: some View {
-    let points = metrics.filter { $0.string("metric") == name }
-    if points.contains(where: { $0.number("value") != nil }) {
-      if !RAIRenderer.metalAvailable {
-        RecordedBars(
-          values: points.map { (String($0.string("day").suffix(2)), $0.number("value")) },
-          color: name == "fatigue" ? RAITheme.purple : RAITheme.orange)
-      } else {
-        Chart(Array(points.enumerated()), id: \.offset) { index, m in
-          if let value = m.number("value") {
-            PointMark(x: .value("日期", m.string("day")), y: .value("值", value)).foregroundStyle(
-              name == "fatigue" ? RAITheme.purple : RAITheme.orange)
-          }
-        }.chartXAxis(.hidden).chartYAxis { AxisMarks(position: .leading) }.accessibilityLabel(
-          metricTitle(name) + "，已发布历史趋势")
-      }
-    } else {
-      ContentUnavailableView("暂无已发布趋势", systemImage: "chart.xyaxis.line").font(.caption)
     }
   }
 }
@@ -630,6 +489,10 @@ struct AthleteModelCard: View {
       row("跑力", value: snapshot.runningAbility.value?.score, unit: "分", metric: snapshot.runningAbility.envelope, digits: 0)
       if !summary {
       row("生理恢复", value: snapshot.physiologicalRecovery.value?.score, unit: "分", metric: snapshot.physiologicalRecovery.envelope, digits: 0)
+      if snapshot.physiologicalRecovery.envelope.presentationValueAvailable,
+         let level = ProductReasonText.recoveryLevel(snapshot.physiologicalRecovery.value?.deviationLevel) {
+        Text(level).font(.caption).foregroundStyle(RAITheme.secondary).accessibilityIdentifier("model.recovery.level")
+      }
       row("急性负荷", value: snapshot.trainingLoad.value?.acute, unit: "AU", metric: snapshot.trainingLoad.envelope, digits: 0)
       if let rai = snapshot.raiVO2Max {
         row(rai.value?.experimental == true ? "RAI VO₂（" + ProductReasonText.experimentalLabel + "）" : "RAI VO₂", value: rai.value?.value, unit: "mL/kg/min", metric: rai.envelope, digits: 1)
@@ -718,22 +581,6 @@ struct AthleteHistoryView: View {
   }
 }
 
-struct MetricDetail: View {
-  @Bindable var model: ProductModel
-  let name: String
-  var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 20) {
-        MetricText(
-          value: ProductFormat.decimal(model.data.metric(name)),
-          unit: name == "recovery" ? "比例" : "")
-        TrendChart(metrics: model.data.history["metrics"].list, name: name).frame(height: 220)
-        Text("基于已发布的训练负荷。缺失值不补零；恢复与准备度并非医疗诊断。算法与质量标记随服务器发布结果返回。").foregroundStyle(
-          RAITheme.secondary)
-      }.padding(22).raiGlass().padding(18)
-    }.navigationTitle(metricTitle(name)).raiScreen()
-  }
-}
 struct ProfileView: View {
   @Environment(\.accessibilityReduceMotion) private var reduced
   @Environment(\.accessibilityReduceTransparency) private var opaque
@@ -750,7 +597,7 @@ struct ProfileView: View {
       } header: {
         Text("个人设置")
       } footer: {
-        Text("用于训练负荷（TRIMP）的个人心率与系数；只追加新版本，不推断年龄或性别。")
+        Text("训练负荷、准备度、VO₂ 和心率区间共用的最大/静息心率；只追加新版本，不推断年龄或性别。")
       }
       Section {
         NavigationLink("健康数据同步") { WorkoutSyncView(model: sync) }.accessibilityIdentifier("profile.workout-sync")
@@ -806,55 +653,59 @@ struct HeartRateSettingsView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var restingHR = ""
   @State private var maxHR = ""
-  @State private var coefficientA = "0.64"
-  @State private var coefficientB = "1.92"
-  @State private var effectiveDate = Date()
+  /// Defaults half a year back so the reference covers the synced history the
+  /// models evaluate; a later entry overrides it from its own date on.
+  @State private var effectiveDate = Calendar.current.date(byAdding: .day, value: -180, to: Date()) ?? Date()
   @State private var current: JSON?
+  @State private var observed: JSON?
+  @State private var method = "user_entered"
   @State private var loading = true
   @State private var busy = false
   @State private var message: String?
 
+  /// The observed 30 s HR maximum, when it exceeds (or replaces a missing)
+  /// saved maximum. Only a suggestion: nothing is saved until the user does.
+  private var suggestion: Double? {
+    guard let value = observed?.number("value") else { return nil }
+    if let saved = current?.number("maxHR"), value <= saved { return nil }
+    return value
+  }
+
   var body: some View {
     Form {
-      Section("当前已保存") {
+      if let suggestion {
+        Section("建议") {
+          Text("你在 \(observed?.string("date") ?? "") 的跑步中持续 30 秒心率达到 \(Int(suggestion)) bpm，高于当前最大心率设置。")
+            .font(.footnote)
+          Button("使用 \(Int(suggestion)) bpm 作为最大心率") {
+            maxHR = String(Int(suggestion))
+            method = "wearable_estimate"
+          }.accessibilityIdentifier("hr-settings.use-observed")
+        }
+      }
+      Section("当前生效") {
         if let current {
-          LabeledContent("参数版本", value: "#\(current["version"].integer ?? 0)")
-          LabeledContent("静息心率", value: bpm(current.number("restingHR")))
           LabeledContent("最大心率", value: bpm(current.number("maxHR")))
-          LabeledContent("系数 A / B", value: coefficients(current))
-          if !current.string("provenance").isEmpty {
-            LabeledContent("来源", value: current.string("provenance"))
-          }
+          LabeledContent("静息心率", value: current.number("restingHR") == nil ? "按近 28 天自动计算" : bpm(current.number("restingHR")))
+          LabeledContent("生效日期", value: String(current.string("effectiveFrom").prefix(10)))
         } else if loading {
           ProgressView()
         } else {
-          Text("尚未保存个人参数，训练负荷会保持不足。").font(.footnote)
+          Text("尚未填写最大心率，训练负荷、准备度和 VO₂ 都无法计算。").font(.footnote)
             .foregroundStyle(RAITheme.secondary)
         }
       }
       Section {
-        TextField("静息心率", text: $restingHR)
-          .keyboardType(.numberPad)
-          .accessibilityIdentifier("hr-settings.resting")
         TextField("最大心率", text: $maxHR)
           .keyboardType(.numberPad)
           .accessibilityIdentifier("hr-settings.max")
+        TextField("静息心率（可选）", text: $restingHR)
+          .keyboardType(.numberPad)
+          .accessibilityIdentifier("hr-settings.resting")
       } header: {
         Text("心率（bpm）")
       } footer: {
-        Text("两项都必须在 30–219 bpm 之间，且最大心率高于静息心率。只使用你明确填写的数值，不会按年龄或性别推断。")
-      }
-      Section {
-        TextField("系数 A", text: $coefficientA)
-          .keyboardType(.decimalPad)
-          .accessibilityIdentifier("hr-settings.coefficient-a")
-        TextField("系数 B", text: $coefficientB)
-          .keyboardType(.decimalPad)
-          .accessibilityIdentifier("hr-settings.coefficient-b")
-      } header: {
-        Text("TRIMP 系数（高级）")
-      } footer: {
-        Text("Banister 系数 A、B 必须显式填写，范围 (0, 10]。界面显示的 0.64 / 1.92 是常用起点，请按个人情况确认；服务端不会补默认值。")
+        Text("30–219 bpm，最大心率高于静息心率。静息心率留空时按 Apple 健康近 28 天的静息心率中位数自动计算。不按年龄推断。")
       }
       Section {
         DatePicker("生效日期", selection: $effectiveDate, displayedComponents: .date)
@@ -872,11 +723,11 @@ struct HeartRateSettingsView: View {
           }.disabled(busy)
         }
         if let message { Text(message).foregroundStyle(.red).font(.footnote) }
-        Button(busy ? "保存中…" : "保存并重算最近跑步") { submit() }
+        Button(busy ? "保存中…" : "保存") { submit() }
           .disabled(busy || !valid)
           .accessibilityIdentifier("hr-settings.save")
       } footer: {
-        Text("保存后服务端会追加一个新参数版本，并重新排队最近 179 天的跑步分析（最多 1000 条）；历史参数不会被改写。")
+        Text("训练负荷、准备度、VO₂ 和训练详情的心率区间都使用这里的数值。生效日期之后的训练（包括已同步的历史）按新值计算；之前的训练保留旧值。")
       }
     }
     .navigationTitle("静息与最大心率")
@@ -886,11 +737,9 @@ struct HeartRateSettingsView: View {
   }
 
   private var valid: Bool {
-    guard let rest = Double(restingHR), let max = Double(maxHR),
-      rest >= 30, rest < 220, max >= 30, max < 220, max > rest,
-      let a = Double(coefficientA), let b = Double(coefficientB),
-      a > 0, a <= 10, b > 0, b <= 10
-    else { return false }
+    guard let max = Double(maxHR), max >= 30, max < 220 else { return false }
+    if restingHR.isEmpty { return true }
+    guard let rest = Double(restingHR), rest >= 30, rest < max else { return false }
     return true
   }
 
@@ -899,22 +748,14 @@ struct HeartRateSettingsView: View {
     return String(format: "%.0f bpm", value)
   }
 
-  private func coefficients(_ value: JSON) -> String {
-    guard let a = value.number("coefficientA"), let b = value.number("coefficientB") else {
-      return "--"
-    }
-    return String(format: "%.2f / %.2f", a, b)
-  }
-
   private func reload() async {
     loading = true
-    let loaded = await model.loadAnalysisParameters()
+    let loaded = await model.loadHRReference()
     current = loaded
+    observed = await model.loadObservedMaxHR()
     if let loaded {
-      restingHR = text(loaded.number("restingHR"))
       maxHR = text(loaded.number("maxHR"))
-      if loaded.number("coefficientA") != nil { coefficientA = text(loaded.number("coefficientA")) }
-      if loaded.number("coefficientB") != nil { coefficientB = text(loaded.number("coefficientB")) }
+      restingHR = text(loaded.number("restingHR"))
     }
     loading = false
   }
@@ -925,26 +766,23 @@ struct HeartRateSettingsView: View {
   }
 
   private func submit() {
-    guard valid, let rest = Double(restingHR), let max = Double(maxHR),
-      let a = Double(coefficientA), let b = Double(coefficientB)
-    else { return }
+    guard valid, let max = Double(maxHR) else { return }
     busy = true
     message = nil
+    let measured = ISO8601DateFormatter().string(from: effectiveDate)
+    var payload: [String: JSON] = [
+      "maxHR": .number(max), "method": .string(method),
+      "measuredAt": .string(measured), "unit": .string("bpm"),
+    ]
+    if let rest = Double(restingHR) {
+      payload["restingHR"] = .number(rest)
+      payload["restingMeasuredAt"] = .string(measured)
+    }
     Task {
-      let failure = await model.submitModelInput(
-        kind: "trimp_parameters",
-        payload: [
-          "restingHR": .number(rest), "maxHR": .number(max),
-          "coefficientA": .number(a), "coefficientB": .number(b),
-        ],
-        effectiveFrom: effectiveDate)
+      let failure = await model.submitModelInput(kind: "hr_reference", payload: payload, effectiveFrom: effectiveDate)
       await MainActor.run {
         busy = false
-        if let failure {
-          message = failure
-        } else {
-          dismiss()
-        }
+        if let failure { message = failure } else { dismiss() }
       }
     }
   }
@@ -1445,9 +1283,23 @@ struct RunningAbilityDetailView: View {
       .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
   }
 
+  /// Zones and projections prefer the experimental maximal ability (built
+  /// only from runs the user marked as all-out); otherwise the demonstrated
+  /// ability, which is usually slower than race capacity.
+  private func projectionBasis(_ value: RunningAbilityValue) -> (v60: Double?, gamma: Double?, maximal: Bool) {
+    if let maximal = model.diagnostics?.items.compactMap(\.maximal).first, let v60 = maximal.v60 {
+      return (v60, maximal.gamma, true)
+    }
+    return (value.speedUnit.rawValue == "m/s" ? value.v60 : nil, value.gamma, false)
+  }
+
+  private func basisNote(_ maximal: Bool) -> String {
+    maximal ? "依据：你标记为全力的跑步（实验）。" : "依据：日常训练表现，通常慢于比赛能力；在跑步详情中标记全力跑可改用全力表现。"
+  }
+
   private func paceZones(_ value: RunningAbilityValue) -> some View {
-    let zones = value.speedUnit.rawValue == "m/s"
-      ? RunningAbilityMath.paceZones(v60: value.v60) : []
+    let basis = projectionBasis(value)
+    let zones = RunningAbilityMath.paceZones(v60: basis.v60)
     return VStack(alignment: .leading, spacing: 12) {
       CardHeading(title: "配速区间", icon: "speedometer")
       if zones.isEmpty {
@@ -1470,14 +1322,15 @@ struct RunningAbilityDetailView: View {
             Text("/km").font(.caption2).foregroundStyle(RAITheme.secondary)
           }.padding(.vertical, 2)
         }
+        Text(basisNote(basis.maximal)).font(.caption2).foregroundStyle(RAITheme.secondary)
       }
     }.padding(18).raiGlass()
       .accessibilityIdentifier("runningAbility.zones")
   }
 
   private func racePredictions(_ value: RunningAbilityValue) -> some View {
-    let items = value.speedUnit.rawValue == "m/s"
-      ? RunningAbilityMath.racePredictions(v60: value.v60) : []
+    let basis = projectionBasis(value)
+    let items = RunningAbilityMath.racePredictions(v60: basis.v60, gamma: basis.gamma)
     return VStack(alignment: .leading, spacing: 12) {
       CardHeading(title: "成绩预测", icon: "flag.checkered")
       if items.isEmpty {
@@ -1494,7 +1347,7 @@ struct RunningAbilityDetailView: View {
           }
         }
       }
-      Text("按 Riegel 耐力模型由 V60 外推；距离越远，误差越大。")
+      Text("按你的耐力指数 γ 由 V60 外推（γ 缺失时用 Riegel 1.06）；距离越远，误差越大。" + basisNote(basis.maximal))
         .font(.caption2).foregroundStyle(RAITheme.secondary)
     }.padding(18).raiGlass()
       .accessibilityIdentifier("runningAbility.predictions")
@@ -1767,7 +1620,6 @@ private func runningZoneColor(_ code: String) -> Color {
 // MARK: - 训练负荷
 
 struct TrainingLoadEntryCard: View {
-  let data: ProductSnapshot
   let points: [TrainingLoadPoint]
 
   var body: some View {
@@ -1776,7 +1628,6 @@ struct TrainingLoadEntryCard: View {
       VStack(alignment: .leading, spacing: 6) {
         HStack(spacing: 6) {
           Text("训练负荷").font(.headline)
-          Text("legacy v2").font(.caption2).foregroundStyle(RAITheme.secondary)
         }
         if let latest {
           HStack(spacing: 16) {
@@ -1805,9 +1656,7 @@ struct TrainingLoadEntryCard: View {
 struct TrainingLoadDetailView: View {
   @Bindable var model: ProductModel
 
-  private var points: [TrainingLoadPoint] {
-    TrainingLoadSeries.points(from: model.data.history)
-  }
+  private var points: [TrainingLoadPoint] { model.trainingLoadPoints }
 
   var body: some View {
     ScrollView {
@@ -1822,10 +1671,12 @@ struct TrainingLoadDetailView: View {
         }
         weekly
         Text(
-          "体能（CTL）为 42 天指数核，疲劳（ATL）为 7 天指数核，平衡=体能−疲劳；负荷缺失日不补零。数据来自现行 training_state.bundle/v2，不代表新模型的候选结果。"
+          "体能（CTL）为 42 天指数核，疲劳（ATL）为 7 天指数核，平衡=体能−疲劳；来自 RAI 运动模型（v2）已发布的每日结果，少量未知负荷按典型训练日估算并标注。"
         ).font(.caption2).foregroundStyle(RAITheme.secondary)
       }.padding(18)
-    }.navigationTitle("训练负荷").raiScreen().refreshable { await model.refresh() }
+    }.navigationTitle("训练负荷").raiScreen()
+      .refreshable { await model.refresh(); await model.loadTrainingLoadHistory() }
+      .task { await model.loadTrainingLoadHistory() }
       .accessibilityIdentifier("screen.trainingLoad")
   }
 

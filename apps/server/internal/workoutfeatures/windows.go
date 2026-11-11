@@ -2,20 +2,27 @@ package workoutfeatures
 
 import "math"
 
+// MaxGradeAdjusted is the steepest 100 m grade the grade-adjusted (v2)
+// performance windows convert to flat-equivalent speed with the Minetti cost.
+const MaxGradeAdjusted = .08
+
 type prefix struct {
 	gradeMeters, flatMeters                                   []float64
+	modestMeters, gapMeters                                   []float64
 	speed, speed2, hr, hrTime, moment, grade, gradeTime, flat []float64
 	bad, hrBad                                                []int
 }
 
 func prefixes(t AnalysisTimeline) prefix {
 	n := len(t.Cells) + 1
-	p := prefix{speed: make([]float64, n), speed2: make([]float64, n), hr: make([]float64, n), hrTime: make([]float64, n), moment: make([]float64, n), grade: make([]float64, n), gradeTime: make([]float64, n), flat: make([]float64, n), gradeMeters: make([]float64, n), flatMeters: make([]float64, n), bad: make([]int, n), hrBad: make([]int, n)}
+	p := prefix{modestMeters: make([]float64, n), gapMeters: make([]float64, n), speed: make([]float64, n), speed2: make([]float64, n), hr: make([]float64, n), hrTime: make([]float64, n), moment: make([]float64, n), grade: make([]float64, n), gradeTime: make([]float64, n), flat: make([]float64, n), gradeMeters: make([]float64, n), flatMeters: make([]float64, n), bad: make([]int, n), hrBad: make([]int, n)}
 	for i, c := range t.Cells {
 		j := i + 1
 		p.speed[j] = p.speed[i] + c.speed
 		p.gradeMeters[j] = p.gradeMeters[i] + c.gradedMeters
 		p.flatMeters[j] = p.flatMeters[i] + c.flatMeters
+		p.modestMeters[j] = p.modestMeters[i] + c.modestMeters
+		p.gapMeters[j] = p.gapMeters[i] + c.gapMeters
 		p.speed2[j] = p.speed2[i] + c.speed2
 		p.hr[j] = p.hr[i] + c.hr
 		p.hrTime[j] = p.hrTime[i] + c.hrTime
@@ -76,6 +83,28 @@ func performanceQual(p prefix, a, b int, base []Reason) Qualification {
 	}
 	return qual(hard, []Reason{EffortUnconfirmed})
 }
+
+// gapQual is the grade-adjusted counterpart of performanceQual: hills up to
+// MaxGradeAdjusted are converted, not excluded; only unknown or steeper terrain
+// over more than a tenth of the distance disqualifies the window.
+func gapQual(p prefix, a, b int, base []Reason) Qualification {
+	hard := append([]Reason{}, base...)
+	d := p.speed[b] - p.speed[a]
+	if d <= 0 || (p.gradeMeters[b]-p.gradeMeters[a])/d < .9 {
+		hard = append(hard, GradeUnknown)
+	} else if (p.modestMeters[b]-p.modestMeters[a])/d < .9 {
+		hard = append(hard, RouteAccuracyLow)
+	}
+	return qual(hard, []Reason{EffortUnconfirmed})
+}
+
+// gapDistance is the flat-equivalent distance: graded metres within
+// MaxGradeAdjusted are converted, the remainder counts as run.
+func gapDistance(p prefix, a, b int) float64 {
+	d := p.speed[b] - p.speed[a]
+	return p.gapMeters[b] - p.gapMeters[a] + d - (p.modestMeters[b] - p.modestMeters[a])
+}
+
 func ExtractWindows(t AnalysisTimeline, check DistanceChoice, env Environment, evidence string) []WindowCandidates {
 	p := prefixes(t)
 	nativeBad := make([]int, len(t.Cells)+1)
@@ -131,6 +160,29 @@ func ExtractWindows(t AnalysisTimeline, check DistanceChoice, env Environment, e
 		c.Best = search(false)
 		if c.Best != nil {
 			c.Backup = search(true)
+		}
+		if d >= 1200 {
+			// Grade-adjusted best (v2 running ability): the fastest
+			// flat-equivalent window, preferring qualifying windows.
+			var best *Window
+			bestGood := false
+			for a := 0; a+d <= len(t.Cells); a++ {
+				b := a + d
+				if !p.continuous(t, a, b) || nativeBad[b] != nativeBad[a] || p.speed[b]-p.speed[a] <= 0 {
+					continue
+				}
+				q := gapQual(p, a, b, base)
+				good := q.Status != "ineligible"
+				gap := gapDistance(p, a, b)
+				if best != nil && !(good && !bestGood || good == bestGood && gap > *best.GAPDistance) {
+					continue
+				}
+				w := rangeWindow(t, p, a, d, evidence)
+				w.Qualification = q
+				w.GAPDistance, w.GAPSpeed = ptr(gap), ptr(gap/float64(d))
+				best, bestGood = &w, good
+			}
+			c.GAP = best
 		}
 		out = append(out, c)
 	}

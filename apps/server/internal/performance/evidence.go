@@ -13,7 +13,14 @@ func duration(d int) bool               { return d == 1200 || d == 1800 || d == 
 // Extract accepts only M1's best qualified windows. Backup and short diagnostic
 // windows never become independent athlete evidence. Conflicting duplicate run
 // identities are rejected instead of silently choosing a database order.
-func Extract(in Input) ([]Evidence, error) {
+func Extract(in Input) ([]Evidence, error) { return extract(in, false) }
+
+// ExtractGradeAdjusted reads the grade-adjusted windows instead: hills within
+// the feature's MaxGradeAdjusted are converted to flat-equivalent speed, so a
+// rolling route is evidence instead of being excluded (v2 running ability).
+func ExtractGradeAdjusted(in Input) ([]Evidence, error) { return extract(in, true) }
+
+func extract(in Input, gap bool) ([]Evidence, error) {
 	if in.Calendar == nil || in.DatasetID == "" || in.Generation < 1 || in.AsOf <= 0 || (in.View != "revised" && in.View != "as_known") {
 		return nil, invalid()
 	}
@@ -47,12 +54,27 @@ func Extract(in Input) ([]Evidence, error) {
 		if len(seen) > MaxWorkouts {
 			return nil, errorsLimit()
 		}
-		if f.State == wf.Deleted || f.State == wf.Missing || !qualified(f.Qualification.Performance) {
+		workoutQ := f.Qualification.Performance
+		if gap {
+			if f.Qualification.PerformanceGAP == nil {
+				continue
+			}
+			workoutQ = *f.Qualification.PerformanceGAP
+		}
+		if f.State == wf.Deleted || f.State == wf.Missing || !qualified(workoutQ) {
 			continue
 		}
 		byDuration := map[int]Evidence{}
 		for _, c := range f.Windows {
 			w := c.Best
+			if gap {
+				w = nil
+				if c.GAP != nil && c.GAP.GAPDistance != nil && c.GAP.GAPSpeed != nil {
+					x := *c.GAP
+					x.Distance, x.MeanSpeed = *c.GAP.GAPDistance, *c.GAP.GAPSpeed
+					w = &x
+				}
+			}
 			if w == nil || !duration(c.Duration) || !qualified(w.Qualification) {
 				continue
 			}
@@ -73,11 +95,15 @@ func Extract(in Input) ([]Evidence, error) {
 			if w.Quality != "supported" {
 				q.Gap = .8
 			}
-			if w.Qualification.Status == "conditional" || f.Qualification.Performance.Status == "conditional" {
+			if w.Qualification.Status == "conditional" || workoutQ.Status == "conditional" {
 				q.Qualification = .9
 			}
 			q.Q = q.Coverage * q.DistanceAgreement * q.Terrain * q.Source * q.Gap * q.Qualification
-			e := Evidence{f.WorkoutID, w.Duration, w.Distance, w.MeanSpeed, w.Start, w.End, f.Timing.End, ref.KnownAt, f.Algorithm + "/" + f.Version, ref.RunID, f.Generation, w.SourceEpoch, "M1_qualified_comparable_flat", q, w.Qualification, Mode, w.Evidence}
+			terrain := "M1_qualified_comparable_flat"
+			if gap {
+				terrain = "M1_qualified_grade_adjusted"
+			}
+			e := Evidence{f.WorkoutID, w.Duration, w.Distance, w.MeanSpeed, w.Start, w.End, f.Timing.End, ref.KnownAt, f.Algorithm + "/" + f.Version, ref.RunID, f.Generation, w.SourceEpoch, terrain, q, w.Qualification, Mode, w.Evidence}
 			if old, ok := byDuration[w.Duration]; !ok || e.MeanSpeed > old.MeanSpeed || (e.MeanSpeed == old.MeanSpeed && e.StartedAt < old.StartedAt) {
 				byDuration[w.Duration] = e
 			}

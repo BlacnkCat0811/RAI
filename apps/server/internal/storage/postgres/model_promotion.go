@@ -8,9 +8,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/modelmanifest"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type AssignmentAudit struct {

@@ -13,9 +13,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"rai/server/internal/syncing"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"rai/server/internal/syncing"
 )
 
 type NewDatasetRequest struct {

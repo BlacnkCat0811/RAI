@@ -204,6 +204,20 @@ func TestModelStackDayIsolatesWorkoutsAndKeepsSourceAcrossUpdates(t *testing.T) 
 	if len(epochs) != 3 || epochs[runs[0].id] == "" || epochs[runs[0].id] != epochs[runs[2].id] {
 		t.Fatalf("source epochs split across a software update: %v", epochs)
 	}
+	// Settings readers: the effective reference, the observed 30 s maximum
+	// (a suggestion only) and the VO2 source list.
+	ref, err := f.s.CurrentHRReference(ctx, f.p)
+	if err != nil || ref == nil || ref.MaxHR != 190 || ref.RestingHR == nil || *ref.RestingHR != 50 {
+		t.Fatalf("current HR reference: %+v %v", ref, err)
+	}
+	observed, err := f.s.ObservedMaxHR(ctx, f.p)
+	if err != nil || observed == nil || observed.Value != 150 {
+		t.Fatalf("observed max HR: %+v %v", observed, err)
+	}
+	sources, err := f.s.VO2Sources(ctx, f.p)
+	if err != nil || len(sources) != 0 {
+		t.Fatalf("vo2 sources: %+v %v", sources, err)
+	}
 }
 
 // A Workout whose stored facts cannot be evaluated is an unknown load on that
@@ -263,5 +277,136 @@ func TestModelStackDayRestingBaselineCoversHistory(t *testing.T) {
 	artifact("training_readiness", &ready)
 	if ready.KnownLoads != 3 || ready.UnknownLoads != 0 {
 		t.Fatalf("historical Workouts lost their resting baseline: known=%d unknown=%d", ready.KnownLoads, ready.UnknownLoads)
+	}
+}
+
+// processStackJobs releases every queued v2 day and returns the successes.
+func processStackJobs(t *testing.T, f *fixture) int {
+	t.Helper()
+	ctx := context.Background()
+	succeeded := 0
+	for i := 0; i < 10; i++ {
+		l, err := f.s.Claim(ctx, []string{modelmanifest.StackJobKind})
+		if errors.Is(err, pgx.ErrNoRows) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		status, err := f.s.ProcessModelStack(ctx, l, time.Now())
+		if err != nil {
+			t.Fatalf("day release failed: %v", err)
+		}
+		if status == "SUCCEEDED" {
+			succeeded++
+		}
+	}
+	return succeeded
+}
+
+// Schema 53: each running Workout's feature, HR exposure and v2 load are kept
+// per stack and fact generation. A later release of the same day reuses the
+// cached feature until the Workout's facts change; the product readers serve
+// the active stack's load; no retired analysis job is ever queued.
+func TestModelStackDayCachesWorkoutResults(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	runs := []stackDayRun{
+		{syncing.NewID(), -2, "11.0", steadyHR},
+		{syncing.NewID(), -1, "11.0", steadyHR},
+	}
+	today, artifact := runStackDay(t, f, runs, stackDayOptions{})
+	stack := modelmanifest.StackID()
+	var state tl.StateResult
+	artifact("load_state", &state)
+	if state.Checkpoint == nil || state.Checkpoint.Day != today.Format(time.DateOnly) || state.Checkpoint.LedgerHash == "" {
+		t.Fatalf("load state checkpoint: %+v", state.Checkpoint)
+	}
+	type cached struct {
+		generation, scope int64
+		load              *float64
+		max               float64
+	}
+	read := func(id string) cached {
+		t.Helper()
+		var c cached
+		if err := f.s.Pool.QueryRow(ctx, `SELECT r.fact_generation,d.generation,(r.load->>'load')::float8,(r.feature->'heartRate'->>'robustMax30sMedian')::float8
+ FROM model_workout_results r JOIN dirty_scopes d ON d.dataset_id=r.dataset_id AND d.scope_key='workout:HKWorkoutTypeIdentifier:'||r.workout_uuid::text
+ WHERE r.dataset_id=$1 AND r.stack_id=$2 AND r.workout_uuid=$3`, f.p.DatasetID, stack, id).Scan(&c.generation, &c.scope, &c.load, &c.max); err != nil {
+			t.Fatalf("cached result %s: %v", id, err)
+		}
+		return c
+	}
+	for _, r := range runs {
+		c := read(r.id)
+		if c.generation != c.scope || c.load == nil || *c.load <= 0 || c.max != 150 {
+			t.Fatalf("cached result %s: %+v", r.id, c)
+		}
+	}
+	// Mark the cached feature; a new release of the same day must reuse it.
+	marker := func(id string) {
+		if _, err := f.s.Pool.Exec(ctx, `UPDATE model_workout_results SET feature=jsonb_set(feature,'{heartRate,robustMax30sMedian}','151')
+ WHERE dataset_id=$1 AND stack_id=$2 AND workout_uuid=$3`, f.p.DatasetID, stack, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	marker(runs[0].id)
+	if _, err := f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,now())`, f.p.DatasetID, stack, today.Format(time.DateOnly)); err != nil {
+		t.Fatal(err)
+	}
+	if processStackJobs(t, f) == 0 {
+		t.Fatal("second release did not succeed")
+	}
+	if c := read(runs[0].id); c.max != 151 || c.load == nil {
+		t.Fatalf("unchanged Workout was recomputed: %+v", c)
+	}
+	// A fact change bumps the Workout's generation and invalidates the cache.
+	if _, err := f.s.Pool.Exec(ctx, `SELECT rai_analysis_dirty($1,$2,'analysis.workout',now()-interval '2 days',now()-interval '2 days')`,
+		f.p.DatasetID, "workout:HKWorkoutTypeIdentifier:"+runs[0].id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,now())`, f.p.DatasetID, stack, today.Format(time.DateOnly)); err != nil {
+		t.Fatal(err)
+	}
+	if processStackJobs(t, f) == 0 {
+		t.Fatal("third release did not succeed")
+	}
+	if c := read(runs[0].id); c.max != 150 || c.generation != c.scope || c.load == nil {
+		t.Fatalf("changed Workout kept a stale cache: %+v", c)
+	}
+	var retired int
+	if err := f.s.Pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE dataset_id=$1 AND kind LIKE 'analysis.%' AND kind<>$2`, f.p.DatasetID, modelmanifest.StackJobKind).Scan(&retired); err != nil || retired != 0 {
+		t.Fatalf("retired analysis jobs queued: %d %v", retired, err)
+	}
+	// Product readers follow the active channel only.
+	page, err := f.s.ProductWorkouts(ctx, f.p, "", 10, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range page.Items {
+		if len(w.Metrics) != 0 {
+			t.Fatalf("candidate-only load leaked to the product list: %+v", w)
+		}
+	}
+	if _, err := f.s.Pool.Exec(ctx, `INSERT INTO analysis_model_channels SELECT (jsonb_populate_record(NULL::analysis_model_channels, to_jsonb(c)||'{"channel":"active"}')).*
+ FROM analysis_model_channels c WHERE c.dataset_id=$1 AND c.channel='candidate'
+ ON CONFLICT (dataset_id,channel) DO UPDATE SET stack_id=EXCLUDED.stack_id`, f.p.DatasetID); err != nil {
+		t.Fatal(err)
+	}
+	page, err = f.s.ProductWorkouts(ctx, f.p, "", 10, "")
+	if err != nil || len(page.Items) != 2 {
+		t.Fatalf("product list: %+v %v", page, err)
+	}
+	for _, w := range page.Items {
+		want := read(w.ID).load
+		if len(w.Metrics) != 1 || w.Metrics[0].Name != "workout_load" || w.Metrics[0].Value == nil || *w.Metrics[0].Value != *want || w.AnalysisStatus != "published" {
+			b, _ := json.Marshal(w)
+			t.Fatalf("product workout: %s", b)
+		}
+	}
+	d, err := f.s.WorkoutDetail(ctx, f.p, runs[1].id)
+	if err != nil || d.TrainingLoad == nil || d.TrainingLoad.Load == nil || *d.TrainingLoad.Load != *read(runs[1].id).load {
+		b, _ := json.Marshal(d.TrainingLoad)
+		t.Fatalf("workout detail load: %s %v", b, err)
 	}
 }

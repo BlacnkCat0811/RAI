@@ -8,22 +8,22 @@ import (
 	"strings"
 	"time"
 
-	"rai/server/internal/analysis"
 	"rai/server/internal/product"
 	"rai/server/internal/syncing"
 )
 
 // Read raw summary facts and only clean, published derived metrics. No raw
 // payloads, HR series, pending routes or unpublished runs leave this projection.
+// The per-Workout derived metric is the v2 load the active model stack's
+// latest day release recorded in model_workout_results.
 const productWorkoutFrom = ` FROM workouts w
  LEFT JOIN LATERAL (SELECT total_distance_m FROM workout_enrichments e WHERE e.dataset_id=w.dataset_id AND e.workout_uuid=w.workout_uuid AND total_distance_m IS NOT NULL ORDER BY observed_at_us DESC,source_version DESC LIMIT 1) e ON true
- LEFT JOIN LATERAL (SELECT jsonb_agg(jsonb_build_object('metric',r.metric,'value',r.value,'unit',r.unit,'quality',r.quality,'algorithm',r.algorithm_name,'algorithmVersion',r.algorithm_version,'details',r.details) ORDER BY r.metric) metrics,
- max(r.value) FILTER(WHERE r.metric='workout_load') load
- FROM analysis_publications p JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED'
- JOIN analysis_published_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day
- JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation AND d.generation=p.generation
- WHERE p.dataset_id=w.dataset_id AND p.scope_key='workout:HKWorkoutTypeIdentifier:'||w.workout_uuid::text AND p.metric_family='workout'
- AND COALESCE((a.lineage->>'parameterVersion')::bigint,0)=COALESCE((SELECT max(version) FROM analysis_parameter_sets WHERE dataset_id=w.dataset_id),0)) m ON true `
+ LEFT JOIN LATERAL (SELECT jsonb_build_array(jsonb_build_object('metric','workout_load','value',(r.load->>'load')::float8,'unit','RAI_AU',
+ 'quality',r.load->>'quality','algorithm',r.load->>'model','algorithmVersion',r.load->>'modelVersion',
+ 'details',jsonb_build_object('qualityTier',r.load->>'qualityTier','method',r.load->>'method'))) metrics,
+ (r.load->>'load')::float8 load
+ FROM model_workout_results r JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
+ WHERE r.dataset_id=w.dataset_id AND r.workout_uuid=w.workout_uuid AND r.load IS NOT NULL) m ON true `
 const productDistance = `COALESCE((w.payload->'workout'->'totalDistance'->>'value')::float8,e.total_distance_m)`
 
 func (s *Store) ProductWorkouts(ctx context.Context, p syncing.Principal, before string, limit int, id string) (product.Page, error) {
@@ -108,29 +108,6 @@ func (s *Store) ProductOverview(ctx context.Context, p syncing.Principal) (produ
 			d.Load = nil
 		}
 		out.Days = append(out.Days, d)
-	}
-	return out, rows.Err()
-}
-func (s *Store) ProductHistory(ctx context.Context, p syncing.Principal, days int) (product.History, error) {
-	out := product.History{Metrics: []analysis.Metric{}}
-	if days < 1 || days > 90 {
-		return out, syncing.Fail(422, "invalid_analysis_query")
-	}
-	rows, e := s.Pool.Query(ctx, `SELECT r.day::text,r.metric,r.algorithm_name,r.algorithm_version,r.value,r.unit,r.quality,r.details FROM analysis_publications p JOIN analysis_runs a ON a.dataset_id=p.dataset_id AND a.id=p.published_run_id AND a.status='SUCCEEDED' JOIN analysis_published_results r ON r.dataset_id=p.dataset_id AND r.run_id=p.published_run_id AND r.day=p.day JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=d.clean_generation JOIN datasets x ON x.id=p.dataset_id WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family='state' AND p.day BETWEEN (clock_timestamp() AT TIME ZONE x.timezone)::date-($3::int-1) AND (clock_timestamp() AT TIME ZONE x.timezone)::date ORDER BY r.day,r.metric`, p.DatasetID, analysis.StateScope, days)
-	if e != nil {
-		return out, e
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var m analysis.Metric
-		var b []byte
-		if e = rows.Scan(&m.Day, &m.Name, &m.Algorithm, &m.Version, &m.Value, &m.Unit, &m.Quality, &b); e != nil {
-			return out, e
-		}
-		if e = json.Unmarshal(b, &m.Details); e != nil {
-			return out, e
-		}
-		out.Metrics = append(out.Metrics, m)
 	}
 	return out, rows.Err()
 }

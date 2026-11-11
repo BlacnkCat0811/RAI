@@ -11,6 +11,9 @@ struct WorkoutDetail: View {
   let workout: ProductWorkout
   @Environment(\.scenePhase) private var scenePhase
   @State private var summaryExpanded = false
+  @State private var effortMessage: String?
+  @State private var effortBusy = false
+  @State private var confirmEffort = false
 
   private var detail: WorkoutDetailResponse? {
     guard model.workoutDetail?.workout.workoutID == workout.id else { return nil }
@@ -67,6 +70,7 @@ struct WorkoutDetail: View {
           segmentsOrSplits(detail: detail, series: series)
           if let dynamics = series?.dynamics { dynamicsPanel(dynamics) }
           qualityPanel(detail)
+          effortPanel()
           if let override = detail.override { overridePanel(override) }
         }.padding(.horizontal, 18).padding(.vertical, 14).padding(.bottom, 24)
       } else if let error = model.workoutDetailError {
@@ -90,6 +94,37 @@ struct WorkoutDetail: View {
     }
     .refreshable { await model.loadWorkoutDetail(workout.id) }
     .accessibilityIdentifier("screen.workout.detail")
+  }
+
+  /// Marks this run as an all-out effort (race or time trial). Only marked runs
+  /// feed the experimental maximal ability, which zones and race projections
+  /// prefer over everyday training.
+  private func effortPanel() -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      CardHeading(title: "努力程度", icon: "flame")
+      Text("如果这是比赛或全力测试，标记后跑力会用它估算比赛能力；日常训练不要标记。")
+        .font(.caption).foregroundStyle(RAITheme.secondary)
+      if let effortMessage {
+        Text(effortMessage).font(.caption).foregroundStyle(RAITheme.secondary)
+          .accessibilityIdentifier("workout.effort.message")
+      }
+      Button(effortBusy ? "正在提交…" : "标记为全力跑 / 比赛") { confirmEffort = true }
+        .disabled(effortBusy)
+        .accessibilityIdentifier("workout.effort.mark")
+    }.padding(16).raiGlass()
+      .confirmationDialog("确认这次是全力跑或比赛？", isPresented: $confirmEffort, titleVisibility: .visible) {
+        Button("确认标记") {
+          effortBusy = true
+          Task {
+            let failure = await model.submitModelInput(
+              kind: "workout_effort",
+              payload: ["workoutID": .string(workout.id.lowercased()), "mode": .string("maximal_supported"), "userConfirmed": .bool(true)],
+              effectiveFrom: Date())
+            effortMessage = failure ?? "已标记。下次模型更新后生效。"
+            effortBusy = false
+          }
+        }
+      }
   }
 
   private func pollFreshness() async {

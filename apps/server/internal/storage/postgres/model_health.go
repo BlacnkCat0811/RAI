@@ -7,10 +7,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // HealthCounts is a count per status, tier or reason code. It never carries a

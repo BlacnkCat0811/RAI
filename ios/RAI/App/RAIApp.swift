@@ -615,8 +615,9 @@ final class SyncModel {
             self.apply(await store.snapshot())
         }
     }
-    /// Launch, foreground return and HealthKit observer callbacks only scan and
-    /// journal local changes. They never start a Workout or daily upload.
+    /// Launch, foreground return and HealthKit observer callbacks scan local
+    /// changes and then deliver pending daily health (HRV, resting HR, sleep),
+    /// so recovery and readiness stay current without a manual sync.
     func scanHealthChanges(newWake: Bool = false) {
         #if DEBUG
         if DailyDeviceDiagnostics.enabled {
@@ -655,8 +656,14 @@ final class SyncModel {
             try await coordinator.discoverDaily()
             apply(await store.snapshot())
             status = "健康变化已记录"
+            if pendingChanges > 0, let transfers, let secret = try ClientConfiguration.load() {
+                status = "同步日常健康"
+                try await coordinator.syncDaily(secret: secret, transfers: transfers)
+                apply(await store.snapshot())
+                status = pendingChanges > 0 ? "日常健康仍待交付；稍后自动重试" : "日常健康已同步"
+            }
         } catch is CancellationError { status = "已暂停；同步位置已保留" }
-        catch { self.error = "日常健康变化扫描尚未完成；同步位置已保留。" }
+        catch { self.error = "日常健康同步尚未完成；稍后自动重试。" }
         if !Task.isCancelled { scheduleDiscoveryScan(await store.snapshot()) }
         // The scan holds the scheduler; the automatic Workout round starts once
         // it has finished and released it.
@@ -666,9 +673,11 @@ final class SyncModel {
             await self?.autoSyncWorkouts()
         }
     }
+    /// A HealthKit observer wake for HRV, resting HR or sleep: record it and
+    /// run the same scan-and-deliver round as a foreground return.
     func dailyWake() {
-        guard let store else { return }
-        Task { self.apply(await store.snapshot()) }
+        guard store != nil else { return }
+        scanHealthChanges(newWake: true)
     }
     /// Only a due daily discovery or the 15-minute foreground scan is
     /// scheduled. No pending delivery, Workout task or VO2 upload is timed.

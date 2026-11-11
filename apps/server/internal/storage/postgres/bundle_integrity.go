@@ -6,12 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"rai/server/internal/analysis"
 	"rai/server/internal/syncing"
 	"sort"
-	"strings"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // validateBundleDeletionEvidence makes explicit child deletions conditional on
@@ -262,116 +261,6 @@ func bundleObservationChanged(ctx context.Context, tx pgx.Tx, dataset string, b 
 		return false, nil
 	}
 	return string(observationBytes(prior)) != string(observationBytes(b)), nil
-}
-
-// A later eligible Workout cannot confer provenance on retained legacy
-// children. Reuse positive evidence from immutable observation history, but
-// never infer a child's source/device from its time or from the Workout alone.
-func validateAnalysisProvenance(ctx context.Context, tx pgx.Tx, dataset, workout string) error {
-	needed := map[string]string{}
-	rows, err := tx.Query(ctx, `SELECT 'sample:'||s.sample_type||':'||s.sample_uuid::text,s.source_bundle_id
-        FROM health_samples s JOIN workout_samples ws USING(dataset_id,sample_type,sample_uuid)
-        WHERE ws.dataset_id=$1 AND ws.workout_uuid=$2
-        UNION ALL SELECT 'route:'||route_uuid::text,source_bundle_id FROM workout_routes
-        WHERE dataset_id=$1 AND workout_uuid=$2 AND state='sealed'`, dataset, workout)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var key, source string
-		if err = rows.Scan(&key, &source); err != nil {
-			rows.Close()
-			return err
-		}
-		needed[key] = source
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return err
-	}
-	if len(needed) == 0 {
-		return nil
-	}
-	// Both protocols are immutable history: v3 carries an observation, v4 keeps
-	// the source inline next to every fact. Either can establish provenance.
-	rows, err = tx.Query(ctx, `SELECT payload FROM workout_imports
-        WHERE dataset_id=$1 AND workout_uuid=$2
-        ORDER BY imported_at DESC,bundle_sha256 DESC`, dataset, workout)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	eligible := func(source syncing.HealthKitSource, parent *syncing.HealthKitSource) bool {
-		value := source.Classification(parent)
-		return value == "apple_watch" || value == "associated_apple_watch"
-	}
-	for rows.Next() {
-		var payloadRaw []byte
-		if err = rows.Scan(&payloadRaw); err != nil {
-			return err
-		}
-		var stored struct {
-			ProtocolVersion int             `json:"protocolVersion"`
-			Observation     json.RawMessage `json:"observation"`
-		}
-		if json.Unmarshal(payloadRaw, &stored) != nil {
-			return analysis.Invalid()
-		}
-		if stored.ProtocolVersion == 6 {
-			table, err := workoutImportSources(payloadRaw)
-			if err != nil {
-				return analysis.Invalid()
-			}
-			if table.Workout.Classification(nil) != "apple_watch" {
-				continue
-			}
-			for key, expected := range needed {
-				var source syncing.HealthKitSource
-				var ok bool
-				switch {
-				case strings.HasPrefix(key, "sample:"):
-					sampleType, uuid, found := strings.Cut(strings.TrimPrefix(key, "sample:"), ":")
-					if found {
-						source, ok = table.SampleSource(sampleType, uuid)
-					}
-				case strings.HasPrefix(key, "route:"):
-					source, ok = table.RouteSource(strings.TrimPrefix(key, "route:"))
-				}
-				if ok && expected == source.BundleID && eligible(source, &table.Workout) {
-					delete(needed, key)
-				}
-			}
-		} else if len(stored.Observation) > 0 && string(stored.Observation) != "null" {
-			var observation syncing.BundleObservation
-			if json.Unmarshal(stored.Observation, &observation) != nil {
-				return analysis.Invalid()
-			}
-			provenance := observation.Provenance
-			if provenance.Workout.Classification(nil) != "apple_watch" {
-				continue
-			}
-			for _, sample := range provenance.Samples {
-				key := "sample:" + sample.SampleType + ":" + sample.SampleUUID
-				if source, ok := needed[key]; ok && source == sample.Source.BundleID && eligible(sample.Source, &provenance.Workout) {
-					delete(needed, key)
-				}
-			}
-			for _, route := range provenance.Routes {
-				key := "route:" + route.RouteID
-				if source, ok := needed[key]; ok && source == route.Source.BundleID && eligible(route.Source, &provenance.Workout) {
-					delete(needed, key)
-				}
-			}
-		}
-		if len(needed) == 0 {
-			return nil
-		}
-	}
-	if err = rows.Err(); err != nil {
-		return err
-	}
-	return &analysis.Failure{Code: "analysis_source_unclassified"}
 }
 
 // The existing UNIQUE event_id index supplies receipt identity after the parent

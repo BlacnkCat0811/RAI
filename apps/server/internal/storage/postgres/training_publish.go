@@ -5,9 +5,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func (s *Store) StartTrainingRun(ctx context.Context, l Lease, in training.Input) (string, error) {

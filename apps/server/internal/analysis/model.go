@@ -1,46 +1,17 @@
-// Package analysis contains deterministic algorithms and their input contracts.
-// It has no database, HTTP, filesystem or wall-clock dependency.
+// Package analysis holds the shared job and input contracts of the v2 model
+// stack worker. The legacy workout-bundle / training_state algorithms were
+// retired with schema 53. No database, HTTP, filesystem or wall-clock access.
 package analysis
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
-	pf "rai/server/internal/performance"
-	rd "rai/server/internal/readiness"
-	rc "rai/server/internal/recovery"
-	tl "rai/server/internal/trainingload"
-	ve "rai/server/internal/vo2maxexternal"
-	"rai/server/internal/workoutdomain"
-	wf "rai/server/internal/workoutfeatures"
-	"strings"
 	"time"
-)
 
-const (
-	WorkoutAlgorithm    = "workout.bundle"
-	StateAlgorithm      = "training_state.bundle"
-	DependencyAlgorithm = "dependency.invalidate"
-	Version             = "v1"
-	WorkoutVersion      = "v3"
-	StateVersion        = "v2"
-	StateScope          = "athlete/default"
-	WindowDays          = 180
+	"rai/server/internal/modelmanifest"
+	rc "rai/server/internal/recovery"
+	ve "rai/server/internal/vo2maxexternal"
+	wf "rai/server/internal/workoutfeatures"
 )
-
-func BundleVersion(kind string) string {
-	if kind == wf.JobKind {
-		return wf.Version
-	}
-	if kind == "analysis.workout" {
-		return WorkoutVersion
-	}
-	if kind == "analysis.training_state" {
-		return StateVersion
-	}
-	return Version
-}
 
 type Lease struct {
 	ID               string
@@ -51,6 +22,8 @@ type Lease struct {
 	FencingToken     int64
 	Payload          []byte
 }
+
+// Metric is a named scalar as product readers expose it.
 type Metric struct {
 	Day       string         `json:"day,omitempty"`
 	Name      string         `json:"metric"`
@@ -61,47 +34,19 @@ type Metric struct {
 	Quality   string         `json:"quality"`
 	Details   map[string]any `json:"details"`
 }
-type Snapshot struct {
-	ReadinessInput      *rd.ReadinessSnapshot   `json:"readinessInput,omitempty"`
-	ReadinessArtifact   *rd.Result              `json:"-"`
-	RecoveryInput       *rc.Input               `json:"recoveryInput,omitempty"`
-	RecoveryArtifact    *rc.Bundle              `json:"-"`
-	ExternalInput       *ve.ExternalVO2Snapshot `json:"externalInput,omitempty"`
-	ExternalArtifact    *ve.Result              `json:"-"`
-	PerformanceInput    *pf.Input               `json:"performanceInput,omitempty"`
-	PerformanceArtifact *pf.Result              `json:"-"`
-	Generation          int64                   `json:"generation"`
-	Revision            int64                   `json:"revision"`
-	From                time.Time               `json:"from"`
-	Through             time.Time               `json:"through"`
-	InputVersion        string                  `json:"inputVersion"`
-	Workout             *WorkoutInput           `json:"workout,omitempty"`
-	State               *StateInput             `json:"state,omitempty"`
-	LoadInput           *tl.WorkoutInput        `json:"loadInput,omitempty"`
-	LoadArtifact        *tl.Result              `json:"-"`
-	LoadStateInput      *tl.StateInput          `json:"loadStateInput,omitempty"`
-	LoadStateArtifact   *tl.StateResult         `json:"-"`
-	ExposureRequired    bool                    `json:"exposureRequired,omitempty"`
-	ExposureArtifact    *wf.HRExposure          `json:"-"`
-	FeatureInput        *wf.RawWorkoutSnapshot  `json:"featureInput,omitempty"`
-	FeatureArtifact     *wf.WorkoutFeatures     `json:"-"`
-	Dependencies        []string                `json:"dependencies,omitempty"`
-}
 
-func (s Snapshot) Hash() ([]byte, error) {
-	if s.FeatureInput != nil {
-		return hex.DecodeString(s.FeatureInput.Hash())
-	}
-	s.Revision = 0
-	s.Generation = 0
-	b, err := json.Marshal(s)
-	if err != nil {
-		return nil, err
-	}
-	h := sha256.Sum256(b)
-	return h[:], nil
+// Snapshot carries the bounded fact inputs the model stack loads in one
+// repeatable-read transaction.
+type Snapshot struct {
+	RecoveryInput *rc.Input               `json:"recoveryInput,omitempty"`
+	ExternalInput *ve.ExternalVO2Snapshot `json:"externalInput,omitempty"`
+	FeatureInput  *wf.RawWorkoutSnapshot  `json:"featureInput,omitempty"`
+	Generation    int64                   `json:"generation"`
+	Revision      int64                   `json:"revision"`
+	From          time.Time               `json:"from"`
+	Through       time.Time               `json:"through"`
+	InputVersion  string                  `json:"inputVersion"`
 }
-func Hex(b []byte) string { return hex.EncodeToString(b) }
 
 type Failure struct {
 	Code      string
@@ -110,68 +55,11 @@ type Failure struct {
 
 func (e *Failure) Error() string { return e.Code }
 func Invalid() error             { return &Failure{Code: "analysis_invalid_input"} }
-func ValidateMetrics(ms []Metric) error {
-	seen := map[string]bool{}
-	for _, m := range ms {
-		key := m.Day + ":" + m.Name
-		if _, e := time.Parse("2006-01-02", m.Day); e != nil {
-			return Invalid()
-		}
-		if seen[key] || m.Name == "" || m.Algorithm == "" || m.Version == "" || m.Unit == "" {
-			return Invalid()
-		}
-		seen[key] = true
-		if m.Quality != "available" && m.Quality != "partial" && m.Quality != "insufficient" {
-			return Invalid()
-		}
-		if m.Value == nil && m.Quality != "insufficient" {
-			return Invalid()
-		}
-		if m.Value != nil {
-			v := *m.Value
-			if (strings.HasSuffix(m.Name, "_coverage") || m.Name == "recovery") && (v < 0 || v > 1) {
-				return Invalid()
-			}
-			if m.Name == "readiness" && (v < 0 || v > 100) {
-				return Invalid()
-			}
-			if m.Name != "balance" && m.Name != "load_trend7" && v < 0 {
-				return Invalid()
-			}
-		}
-		if m.Value != nil && !Finite(*m.Value) {
-			return Invalid()
-		}
-		if _, e := json.Marshal(m.Details); e != nil {
-			return Invalid()
-		}
-	}
-	return nil
-}
-func Finite(v float64) bool  { return workoutdomain.Finite(v) }
-func Ptr(v float64) *float64 { return &v }
+
+// Algorithm names the handler of a job kind; retired kinds are unsupported.
 func Algorithm(kind string) (string, error) {
-	switch kind {
-	case rd.JobKind:
-		return rd.Algorithm, nil
-	case rc.JobKind:
-		return rc.Algorithm, nil
-	case ve.JobKind:
-		return ve.Algorithm, nil
-	case pf.JobKind:
-		return pf.CurveModel, nil
-	case tl.JobKind:
-		return tl.Algorithm, nil
-	case tl.StateJobKind:
-		return tl.StateAlgorithm, nil
-	case wf.JobKind:
-		return wf.Algorithm, nil
-	case "analysis.workout":
-		return WorkoutAlgorithm, nil
-	case "analysis.training_state":
-		return StateAlgorithm, nil
-	case "analysis.sample", "analysis.series":
-		return DependencyAlgorithm, nil
+	if kind == modelmanifest.StackJobKind {
+		return "rai.model_stack", nil
 	}
 	return "", &Failure{Code: "analysis_unsupported_algorithm"}
 }

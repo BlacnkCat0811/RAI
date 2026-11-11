@@ -45,6 +45,12 @@ type Config struct {
 	// training days, that unknown Workouts may contribute when valued at the
 	// typical training-day load. Zero keeps the frozen v1 fail-closed rule.
 	UnknownBurdenMax float64 `json:"unknownBurdenMax,omitempty"`
+	// Habitual-burden calibration (v3 only; zero keeps the v1 single-day
+	// baseline). The load multiplier compares today's decayed burden with its
+	// own median at the same clock time over the last HabitDays days.
+	HabitDays       int     `json:"habitDays,omitempty"`
+	HabitFloorDays  float64 `json:"habitFloorTypicalDays,omitempty"`
+	MultiplierFloor float64 `json:"multiplierFloor,omitempty"`
 }
 
 func DefaultConfig(tz string) Config {
@@ -190,6 +196,7 @@ type Result struct {
 	KnownLoads               int               `json:"knownLoads"`
 	UnknownLoads             int               `json:"unknownLoads"`
 	UnknownBurden            *float64          `json:"unknownBurdenInTypicalDays,omitempty"`
+	HabitualBurden           *float64          `json:"habitualBurden,omitempty"`
 	Terms                    []Term            `json:"loadTerms"`
 	Refs                     []Ref             `json:"inputRefs"`
 	TailBound                float64           `json:"omittedTailUpperBoundAU"`

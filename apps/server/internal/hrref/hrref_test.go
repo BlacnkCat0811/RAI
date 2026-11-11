@@ -36,8 +36,8 @@ func TestResolveExactBoundariesAndConflict(t *testing.T) {
 	}
 	in.References = []Reference{ref("edge", m(190, start-365*day-1, start-10*day), m(50, start-20*day, start-19*day), start-400*day)}
 	s, _ = Resolve(in)
-	if s.HRMax != nil || len(s.Reasons) == 0 || s.Reasons[0] != "hrmax_missing" {
-		t.Fatalf("expired hrmax: %+v", s)
+	if s.HRMax == nil || s.HRMax.Value != 190 || len(s.Reasons) != 1 || s.Reasons[0] != "hrmax_review_due" {
+		t.Fatalf("old hrmax must stay usable with a review reason: %+v", s)
 	}
 	// Conflicting explicit values never select one.
 	in.References = []Reference{ref("a", m(190, start-10*day, start-9*day), nil, start-30*day), ref("b", m(196, start-8*day, start-7*day), nil, start-30*day)}
@@ -206,5 +206,24 @@ func TestResolveRevisedViewUsesLaterEntry(t *testing.T) {
 	// Still never visible before it was known.
 	if _, e = Resolve(Input{AsOf: entered - day, WorkoutStart: workout, SourceEpoch: "e1", References: []Reference{r}}); e != ErrInvalid {
 		t.Fatalf("unknown-at-asOf reference used: %v", e)
+	}
+}
+
+// A later entry overrides an earlier one from its effective date on; it is not
+// a conflict. Workouts before the new effective date keep the old value.
+func TestResolveLatestEffectiveEntryWins(t *testing.T) {
+	start := base
+	old := ref("old", m(185, start-200*day, start-200*day), nil, start-200*day)
+	updated := ref("new", m(192, start-20*day, start-10*day), nil, start-20*day)
+	updated.KnownAt = start - 10*day
+	in := Input{AsOf: start, WorkoutStart: start - day, SourceEpoch: "e1", References: []Reference{old, updated}}
+	s, err := Resolve(in)
+	if err != nil || s.HRMax == nil || s.HRMax.Value != 192 {
+		t.Fatalf("latest entry must win: %+v %v", s, err)
+	}
+	in.WorkoutStart = start - 30*day
+	s, _ = Resolve(in)
+	if s.HRMax == nil || s.HRMax.Value != 185 {
+		t.Fatalf("earlier workout keeps the old value: %+v", s)
 	}
 }

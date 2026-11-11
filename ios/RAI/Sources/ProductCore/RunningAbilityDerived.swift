@@ -23,7 +23,7 @@ public struct RunningPaceZone: Identifiable, Equatable, Sendable {
   }
 }
 
-/// A race-time projection derived from v60 with Riegel's endurance model.
+/// A race-time projection derived from v60 and the fitted endurance exponent.
 public struct RunningRacePrediction: Identifiable, Equatable, Sendable {
   public var id: String { name }
   public let name: String
@@ -47,16 +47,18 @@ public enum RunningAbilityMath {
     return 1000 / v60
   }
 
-  /// Five pace bands. Speed fractions of v60 are converted to pace so the
-  /// bands remain monotonic even when v60 is close to zero.
+  /// Five pace bands. v60 is the speed sustainable for 60 minutes, which is
+  /// close to threshold pace; band multipliers are speed fractions of v60
+  /// (E 0.68–0.80, M 0.90–0.94, T 0.97–1.02, I 1.06–1.11, R 1.15–1.21),
+  /// converted to pace so the bands stay monotonic.
   public static func paceZones(v60: Double?) -> [RunningPaceZone] {
     guard let v60, v60.isFinite, v60 > 0 else { return [] }
     let specs: [(String, String, String, Double, Double)] = [
-      ("E", "轻松跑", "有氧基础与恢复", 0.60, 0.75),
-      ("M", "马拉松配速", "比赛专项耐力", 0.78, 0.85),
-      ("T", "阈值跑", "提升乳酸阈", 0.87, 0.92),
-      ("I", "间歇跑", "提升最大摄氧", 0.95, 1.00),
-      ("R", "冲刺跑", "速度与跑步经济性", 1.03, 1.10),
+      ("E", "轻松跑", "有氧基础与恢复", 0.68, 0.80),
+      ("M", "马拉松配速", "比赛专项耐力", 0.90, 0.94),
+      ("T", "阈值跑", "提升乳酸阈", 0.97, 1.02),
+      ("I", "间歇跑", "提升最大摄氧", 1.06, 1.11),
+      ("R", "冲刺跑", "速度与跑步经济性", 1.15, 1.21),
     ]
     return specs.map { code, name, purpose, slow, fast in
       RunningPaceZone(
@@ -66,12 +68,20 @@ public enum RunningAbilityMath {
     }
   }
 
-  /// Standard race distances projected from the 60-minute effort using
-  /// Riegel's exponent 1.06. Distances shorter than the base effort are
-  /// intentionally included: they are the races most runners compare first.
-  public static func racePredictions(v60: Double?) -> [RunningRacePrediction] {
+  /// The endurance exponent used for projections: the athlete's fitted γ
+  /// (distance ∝ time^γ), clamped to [0.88, 0.97]; Riegel's 1.06 (γ ≈ 0.943)
+  /// when the server provided none.
+  public static func projectionGamma(_ gamma: Double?) -> Double {
+    guard let gamma, gamma.isFinite else { return 1 / 1.06 }
+    return min(0.97, max(0.88, gamma))
+  }
+
+  /// Standard race distances projected from the 60-minute effort with the
+  /// power law the ability model fitted: t = 3600 · (D / D60)^(1/γ).
+  public static func racePredictions(v60: Double?, gamma: Double? = nil) -> [RunningRacePrediction] {
     guard let v60, v60.isFinite, v60 > 0 else { return [] }
     let baseDistance = v60 * 3600
+    let exponent = 1 / projectionGamma(gamma)
     let races: [(String, Double)] = [
       ("5 公里", 5_000),
       ("10 公里", 10_000),
@@ -79,7 +89,7 @@ public enum RunningAbilityMath {
       ("马拉松", 42_195),
     ]
     return races.map { name, distance in
-      let seconds = 3600 * pow(distance / baseDistance, 1.06)
+      let seconds = 3600 * pow(distance / baseDistance, exponent)
       return RunningRacePrediction(name: name, distanceM: distance, seconds: seconds)
     }
   }

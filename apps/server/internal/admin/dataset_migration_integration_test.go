@@ -5,9 +5,10 @@ package admin
 import (
 	"context"
 	"database/sql"
-	"github.com/pressly/goose/v3"
 	"rai/server/migrations"
 	"testing"
+
+	"github.com/pressly/goose/v3"
 )
 
 func TestDatasetMigration17To18AndRepeatedMigrate(t *testing.T) {

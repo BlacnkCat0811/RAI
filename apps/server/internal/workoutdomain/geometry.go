@@ -16,3 +16,12 @@ func Finite(v float64) bool { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 
 // CadenceProxy names the derived StepCount/time quantity honestly.
 func CadenceProxy(count, seconds float64) float64 { return count / (seconds / 60) }
+
+// GradeCost is the Minetti et al. (2002) energy cost of running, J/kg/m, for a
+// fractional grade. Valid for |grade| <= 0.45.
+func GradeCost(grade float64) float64 {
+	return 155.4*math.Pow(grade, 5) - 30.86*math.Pow(grade, 4) - 43.3*math.Pow(grade, 3) + 46.3*math.Pow(grade, 2) + 19.5*grade + 3.6
+}
+
+// GradeAdjustment converts metres run at grade into equal-cost flat metres.
+func GradeAdjustment(grade float64) float64 { return GradeCost(grade) / GradeCost(0) }

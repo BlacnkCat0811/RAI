@@ -6,13 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
 	"rai/server/internal/syncing"
 	wf "rai/server/internal/workoutfeatures"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func featureJSON(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
@@ -39,26 +39,6 @@ func featureFailure(err error) error {
 
 // loadFeatureInput is called inside LoadAnalysis's single REPEATABLE READ
 // transaction. It never replays facts from historical import bundles.
-func (s *Store) loadFeatureInput(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf time.Time) error {
-	// Clock is captured after the transaction's initial generation/revision read,
-	// so it describes this stable snapshot. Historical snapshot reconstruction is
-	// not implied by a caller's older wall-clock timestamp.
-	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&asOf); err != nil {
-		return err
-	}
-	id := strings.TrimPrefix(l.ScopeKey, "model/"+wf.StackID()+"/workout/")
-	if !syncing.ValidID(id) || l.ScopeKey != wf.Scope(id) {
-		return analysis.Invalid()
-	}
-	var enabled bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM analysis_model_channels WHERE dataset_id=$1 AND channel='candidate' AND stack_id=$2 AND config_sha256=decode($3,'hex'))`, l.DatasetID, wf.StackID(), wf.DefaultPolicy().Hash()).Scan(&enabled); err != nil {
-		return err
-	}
-	if !enabled {
-		return &analysis.Failure{Code: "analysis_unsupported_algorithm"}
-	}
-	return loadWorkoutFeatureFacts(ctx, tx, l, in, asOf, id, true)
-}
 
 // loadWorkoutFeatureFacts reads one Workout's facts. legacyCandidate keeps the
 // frozen v1 candidate input: legacy HR parameters and source epochs over the

@@ -11,7 +11,7 @@ const (
 	InputSchemaV3   = "rai.readiness.input/3"
 	LoadModelV2     = "rai.training_load.hrr_integral/v2"
 	RecoveryModelV2 = "rai.recovery.physiological/v2"
-	PolicyV3        = "recorded-running;known-day-median;finite-tail-certified;allowlist-load-v2-recovery-v2;decayed-unknown-burden/v3.1"
+	PolicyV3        = "recorded-running;known-day-median;finite-tail-certified;allowlist-load-v2-recovery-v2;decayed-unknown-burden;habitual-burden-28d/v3.2"
 	// UnknownBurdenMaxV3 bounds the decayed burden of unknown Workouts, in
 	// typical training days. With a 36 h tau a typical unknown run is below it
 	// after about 2.8 days, so old gaps no longer veto today's score.
@@ -24,7 +24,38 @@ func DefaultV3Config(tz string) Config {
 	c := DefaultConfig(tz)
 	c.Policy = PolicyV3
 	c.UnknownBurdenMax = UnknownBurdenMaxV3
+	c.HabitDays, c.HabitFloorDays, c.MultiplierFloor = 28, .5, .35
 	return c
+}
+
+// habitualBurden is the median decayed burden at the same clock time on each
+// of the previous HabitDays days, floored at HabitFloorDays typical training
+// days so a return from a break is not compared with an empty habit. A daily
+// runner therefore sits at a multiplier near 1 instead of being permanently
+// penalized for training often.
+func habitualBurden(terms []Term, at int64, c Config, typical float64) float64 {
+	vals := make([]float64, 0, c.HabitDays)
+	for k := 1; k <= c.HabitDays; k++ {
+		vals = append(vals, DecayedBurden(terms, at-int64(k)*24*Hour, c))
+	}
+	sort.Float64s(vals)
+	n := len(vals)
+	h := vals[n/2]
+	if n%2 == 0 {
+		h = vals[n/2-1]/2 + vals[n/2]/2
+	}
+	return math.Max(h, c.HabitFloorDays*typical)
+}
+
+// evaluateV3 applies the habitual-burden multiplier: no penalty at or below
+// the habit, halving for each habit above it, never below MultiplierFloor.
+func evaluateV3(r *Result, at int64) {
+	d := DecayedBurden(r.Terms, at, r.Config)
+	h := *r.HabitualBurden
+	r.Burden = ptr(d)
+	r.BurdenRatio = ptr(d / h)
+	r.Penalty = ptr(math.Max(r.Config.MultiplierFloor, math.Exp2(-math.Max(0, d/h-1))))
+	r.Score = ptr(*r.RecoveryScore * *r.Penalty)
 }
 
 // knownLoad is the v3 knownness rule: a lineage-compatible v2 load with a
@@ -256,7 +287,8 @@ func CalculateV3(input ReadinessSnapshot) (Result, error) {
 		if r.UnknownBurden != nil {
 			r.Confidence *= 1 - math.Min(1, *r.UnknownBurden)
 		}
-		evaluate(&r, in.AsOf)
+		r.HabitualBurden = ptr(habitualBurden(r.Terms, in.AsOf, c, *r.Baseline.Value))
+		evaluateV3(&r, in.AsOf)
 	}
 	sort.Strings(r.Reasons)
 	return r, nil
@@ -282,7 +314,11 @@ func FreshenV3(anchor Result, at int64) (Result, error) {
 		r.Status = "superseded"
 		return r, nil
 	}
-	evaluate(&r, at)
+	if r.HabitualBurden == nil {
+		evaluate(&r, at)
+		return r, nil
+	}
+	evaluateV3(&r, at)
 	return r, nil
 }
 

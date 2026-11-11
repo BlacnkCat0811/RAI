@@ -139,6 +139,8 @@ public struct RecoveryComponentState: Codable, Equatable, Sendable { public var 
 public struct RecoveryValue: Codable, Equatable, Sendable {
   public var score: Double?, unit: ProductUnit, baselineState: ProductCode
   public var hrv: RecoveryComponentState, rhr: RecoveryComponentState, sleep: RecoveryComponentState
+  /// normal / mild_deviation / marked_deviation; absent without a score.
+  public var deviationLevel: String?
 }
 public struct ReadinessValue: Codable, Equatable, Sendable {
   public var score: Double?, recoveryScore: Double?, loadMultiplier: Double?, recentRecordedLoad: Double?
@@ -166,6 +168,8 @@ public struct AthleteHistoryPoint: Codable, Equatable, Sendable, Identifiable {
   public var date: String, metric: String, state: String, unit: String, modelVersion: String, payloadVersion: String
   public var value: Double?
   public var reasonCodes: [String]
+  /// Other known scalars of the metric (trainingLoad: chronic, balance, dailyLoad).
+  public var components: [String: Double]?
   public var id: String { date }
 }
 public struct AthleteHistoryPage: Codable, Equatable, Sendable {

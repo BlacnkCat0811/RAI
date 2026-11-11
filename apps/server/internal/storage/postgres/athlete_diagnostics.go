@@ -7,13 +7,14 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	am "rai/server/internal/athletemodel"
 	diag "rai/server/internal/diagnostics"
 	"rai/server/internal/modelmanifest"
 	pf "rai/server/internal/performance"
 	"rai/server/internal/syncing"
 	tl "rai/server/internal/trainingload"
+
+	"github.com/jackc/pgx/v5"
 )
 
 var researchProductKeys = []string{

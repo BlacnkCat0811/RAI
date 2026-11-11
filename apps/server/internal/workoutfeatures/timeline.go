@@ -2,6 +2,7 @@ package workoutfeatures
 
 import (
 	"math"
+	"rai/server/internal/workoutdomain"
 	"sort"
 )
 
@@ -16,6 +17,7 @@ type AnalysisTimeline struct {
 }
 type cell struct {
 	gradedMeters, flatMeters                                        float64
+	modestMeters, gapMeters                                         float64
 	speedGap                                                        float64
 	speed, speed2, hr, hrTime, hrMoment, grade, gradeTime, flatTime float64
 	epoch, hrEpoch                                                  string
@@ -114,6 +116,10 @@ func BuildAnalysisIndex(s RawWorkoutSnapshot, p PauseTimeline, hr, speed Signal,
 				t.Cells[i].gradedMeters += meters
 				if math.Abs(g.V0) <= .01 {
 					t.Cells[i].flatMeters += meters
+				}
+				if math.Abs(g.V0) <= MaxGradeAdjusted {
+					t.Cells[i].modestMeters += meters
+					t.Cells[i].gapMeters += meters * workoutdomain.GradeAdjustment(g.V0)
 				}
 				a = end
 			}

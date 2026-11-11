@@ -357,3 +357,21 @@ func ReceiptFor(c Canonical, accepted time.Time, jobs []string) Receipt {
 	}
 	return Receipt{InputID: c.ID, Schema: c.Schema, ContentHash: c.ContentHash, AcceptedAtUS: accepted.UnixMicro(), AnalysisStatus: "pending", JobIDs: jobs}
 }
+
+// HRReference is the user's effective HR reference (hr_reference/2) as shown in
+// settings: the user's own entries, not model output.
+type HRReference struct {
+	ID            string   `json:"id"`
+	MaxHR         float64  `json:"maxHR"`
+	RestingHR     *float64 `json:"restingHR,omitempty"`
+	Method        string   `json:"method"`
+	EffectiveFrom string   `json:"effectiveFrom"`
+	MeasuredAt    string   `json:"measuredAt"`
+}
+
+// ObservedMaxHR is a suggestion only: the highest 30 s median HR of the last
+// year, shown for the user to confirm as an HR reference.
+type ObservedMaxHR struct {
+	Value float64 `json:"value"`
+	Date  string  `json:"date"`
+}

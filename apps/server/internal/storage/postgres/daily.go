@@ -9,8 +9,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // CommitDaily owns the same dataset -> stream -> upload-slot lock order as

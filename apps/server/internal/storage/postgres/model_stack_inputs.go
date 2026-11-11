@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"rai/server/internal/analysis"
 	"rai/server/internal/hrref"
+	"rai/server/internal/modelmanifest"
 	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
@@ -21,6 +21,9 @@ import (
 	vo2 "rai/server/internal/vo2max"
 	ve "rai/server/internal/vo2maxexternal"
 	wf "rai/server/internal/workoutfeatures"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type stackInput struct {
@@ -78,18 +81,23 @@ func effectiveStackInputs(inputs []stackInput, effective, known time.Time) []sta
 }
 
 type stackWorkout struct {
-	feature  wf.WorkoutFeatures
-	exposure wf.HRExposure
-	raw      *wf.RawWorkoutSnapshot
-	known    time.Time
-	id       string
-	dataset  string
-	factHash string
-	start    int64
-	end      int64
+	feature     wf.WorkoutFeatures
+	exposure    wf.HRExposure
+	raw         *wf.RawWorkoutSnapshot
+	known       time.Time
+	id          string
+	dataset     string
+	factHash    string
+	sourceEpoch string
+	start       int64
+	end         int64
 	// failure is set when this Workout's own facts could not be evaluated. The
 	// Workout stays in the day as an unknown load; it never fails the release.
 	failure string
+	// factGeneration is the generation of the Workout's fact dirty scope; it
+	// keys the per-Workout cache. cached marks feature/exposure read from it.
+	factGeneration int64
+	cached         bool
 }
 
 // workoutFailure reports whether err is confined to one Workout's input. Storage,
@@ -102,19 +110,34 @@ func workoutFailure(err error) (string, bool) {
 	return "", false
 }
 
+// stackRawRetention: only Workouts that can still feed VO2 evidence keep their
+// raw snapshot after features are computed; older ones release it at once, so
+// memory and the point budget track the VO2 window instead of 186 days.
+const stackRawRetentionDays = 76
+
 func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start, at, captured time.Time, revision int64) ([]stackWorkout, error) {
-	rows, err := tx.Query(ctx, `SELECT workout_uuid::text,first_received_at,event_start,event_end,encode(content_sha256,'hex') FROM workouts
- WHERE dataset_id=$1 AND event_end>=$2 AND event_end<=$3 AND activity_type=37
- ORDER BY event_end,workout_uuid LIMIT $4`, l.DatasetID, start, at, vo2.MaxWorkouts+1)
+	retainAfter := at.AddDate(0, 0, -stackRawRetentionDays).UnixMicro()
+	rows, err := tx.Query(ctx, `SELECT w.workout_uuid::text,w.first_received_at,w.event_start,w.event_end,encode(w.content_sha256,'hex'),
+ COALESCE(d.generation,0),c.fact_generation,COALESCE(c.source_epoch,''),c.feature,c.exposure
+ FROM workouts w
+ LEFT JOIN dirty_scopes d ON d.dataset_id=w.dataset_id AND d.scope_key='workout:HKWorkoutTypeIdentifier:'||w.workout_uuid::text
+ LEFT JOIN model_workout_results c ON c.dataset_id=w.dataset_id AND c.stack_id=$5 AND c.workout_uuid=w.workout_uuid
+ WHERE w.dataset_id=$1 AND w.event_end>=$2 AND w.event_end<=$3 AND w.activity_type=37
+ ORDER BY w.event_end,w.workout_uuid LIMIT $4`, l.DatasetID, start, at, vo2.MaxWorkouts+1, stack)
 	if err != nil {
 		return nil, err
 	}
-	ids, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (stackWorkout, error) {
-		var x stackWorkout
+	type candidate struct {
+		w                 stackWorkout
+		cachedGen         *int64
+		feature, exposure []byte
+	}
+	ids, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (candidate, error) {
+		var x candidate
 		var from, through time.Time
-		err := row.Scan(&x.id, &x.known, &from, &through, &x.factHash)
-		x.dataset = l.DatasetID
-		x.start, x.end = from.UnixMicro(), through.UnixMicro()
+		err := row.Scan(&x.w.id, &x.w.known, &from, &through, &x.w.factHash, &x.w.factGeneration, &x.cachedGen, &x.w.sourceEpoch, &x.feature, &x.exposure)
+		x.w.dataset = l.DatasetID
+		x.w.start, x.w.end = from.UnixMicro(), through.UnixMicro()
 		return x, err
 	})
 	if err != nil {
@@ -124,12 +147,23 @@ func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start,
 		return nil, &analysis.Failure{Code: "analysis_input_limit"}
 	}
 	out := make([]stackWorkout, 0, len(ids))
-	totalPoints := 0
-	for _, w := range ids {
-		in := analysis.Snapshot{Generation: l.TargetGeneration, Revision: revision}
-		featureLease := l
-		featureLease.ScopeKey = "model/" + stack + "/workout/" + w.id
-		if err := loadWorkoutFeatureFacts(ctx, tx, featureLease, &in, captured, w.id, false); err != nil {
+	points := 0
+	for _, c := range ids {
+		w := c.w
+		// Cache hit: same fact generation and the current feature contract.
+		if c.cachedGen != nil && *c.cachedGen == w.factGeneration {
+			var f wf.WorkoutFeatures
+			var e wf.HRExposure
+			if json.Unmarshal(c.feature, &f) == nil && json.Unmarshal(c.exposure, &e) == nil && f.WorkoutID == w.id && e.WorkoutID == w.id &&
+				f.Schema == wf.Schema && f.StackID == wf.StackID() && e.Schema == wf.ExposureSchema {
+				w.feature, w.exposure, w.cached = f, e, true
+				out = append(out, w)
+				continue
+			}
+		}
+		w.sourceEpoch = ""
+		n, err := stackRaw(ctx, tx, l, stack, w.id, captured, revision)
+		if err != nil {
 			code, isolated := workoutFailure(err)
 			if !isolated {
 				return nil, err
@@ -138,17 +172,7 @@ func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start,
 			out = append(out, w)
 			continue
 		}
-		n := in.FeatureInput
-		totalPoints += len(n.Quantities)
-		for _, x := range n.Series {
-			totalPoints += len(x.Points)
-		}
-		for _, x := range n.Routes {
-			totalPoints += len(x.Points)
-		}
-		if totalPoints > 2_000_000 {
-			return nil, &analysis.Failure{Code: "analysis_input_limit"}
-		}
+		w.sourceEpoch = n.WorkoutSourceEpoch
 		f, err := wf.ComputeNormalized(ctx, *n)
 		if err == nil {
 			w.feature = f
@@ -162,14 +186,41 @@ func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start,
 			out = append(out, w)
 			continue
 		}
-		w.raw = n
+		if w.end > retainAfter {
+			if points += rawPoints(n); points > 2_000_000 {
+				return nil, &analysis.Failure{Code: "analysis_input_limit"}
+			}
+			w.raw = n
+		}
 		out = append(out, w)
 	}
 	return out, nil
 }
 
+// stackRaw loads one Workout's facts as the v2 stack reads them.
+func stackRaw(ctx context.Context, tx pgx.Tx, l Lease, stack, id string, captured time.Time, revision int64) (*wf.RawWorkoutSnapshot, error) {
+	in := analysis.Snapshot{Generation: l.TargetGeneration, Revision: revision}
+	featureLease := l
+	featureLease.ScopeKey = "model/" + stack + "/workout/" + id
+	if err := loadWorkoutFeatureFacts(ctx, tx, featureLease, &in, captured, id, false); err != nil {
+		return nil, err
+	}
+	return in.FeatureInput, nil
+}
+
+func rawPoints(n *wf.RawWorkoutSnapshot) int {
+	total := len(n.Quantities)
+	for _, x := range n.Series {
+		total += len(x.Points)
+	}
+	for _, x := range n.Routes {
+		total += len(x.Points)
+	}
+	return total
+}
+
 func workoutReference(w stackWorkout, inputs []stackInput, captured time.Time, daily []hrref.DailyRHR) (hrref.Snapshot, error) {
-	start := time.UnixMicro(w.raw.Start)
+	start := time.UnixMicro(w.start)
 	var refs []hrref.Reference
 	for _, row := range effectiveStackInputs(inputs, start, captured) {
 		if row.Kind != "hr_reference" {
@@ -186,11 +237,11 @@ func workoutReference(w stackWorkout, inputs []stackInput, captured time.Time, d
 		if json.Unmarshal(row.Payload, &x) != nil || x.MaxAt.IsZero() {
 			continue // pre-registry inputs without measurements cannot establish a reference
 		}
-		epoch := w.raw.WorkoutSourceEpoch
+		epoch := w.sourceEpoch
 		if epoch == "" {
 			continue
 		}
-		r := hrref.Reference{Schema: hrref.Schema, ID: row.ID, DatasetID: w.raw.DatasetID, SubjectKey: "athlete", EffectiveFrom: row.From.UnixMicro(),
+		r := hrref.Reference{Schema: hrref.Schema, ID: row.ID, DatasetID: w.dataset, SubjectKey: "athlete", EffectiveFrom: row.From.UnixMicro(),
 			KnownAt: row.Known.UnixMicro(), SourceEpoch: epoch, Provenance: row.Provenance, ContentHash: row.Hash,
 			HRMax: &hrref.Measurement{Value: x.Max, MeasuredAt: x.MaxAt.UnixMicro(), RecordedAt: row.Known.UnixMicro(), Method: x.Method, Unit: x.Unit}}
 		if x.Rest > 0 && !x.RestAt.IsZero() {
@@ -198,7 +249,7 @@ func workoutReference(w stackWorkout, inputs []stackInput, captured time.Time, d
 		}
 		refs = append(refs, r)
 	}
-	return hrref.Resolve(hrref.Input{AsOf: captured.UnixMicro(), WorkoutStart: w.raw.Start, SourceEpoch: w.raw.WorkoutSourceEpoch, References: refs, DailyRHR: daily})
+	return hrref.Resolve(hrref.Input{AsOf: captured.UnixMicro(), WorkoutStart: w.start, SourceEpoch: w.sourceEpoch, References: refs, DailyRHR: daily})
 }
 
 // stackRestingHRFacts loads the daily resting-HR facts behind every Workout's
@@ -280,6 +331,8 @@ func stackAnnotations(inputs []stackInput, asOf time.Time) ([]pf.EffortAnnotatio
 		case "workout_effort":
 			var x pf.EffortAnnotation
 			if json.Unmarshal(row.Payload, &x) == nil && x.UserConfirmed {
+				// Workout UUIDs are stored lowercase; HealthKit prints them uppercase.
+				x.WorkoutID = strings.ToLower(x.WorkoutID)
 				x.ID, x.AnnotatedAt, x.KnownAt = row.ID, row.From.UnixMicro(), row.Known.UnixMicro()
 				efforts = append(efforts, x)
 			}
@@ -349,6 +402,12 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	var features []pf.FeatureRef
 	loc := date.Location()
 	fromDay := from.Format(time.DateOnly)
+	type pendingLoad struct {
+		w stackWorkout
+		r stackLoad
+	}
+	var pending []pendingLoad
+	vo2Points := 0
 	for _, workout := range workouts {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -358,7 +417,92 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 			continue
 		}
 		r := stackWorkoutLoad(workout, inputs, captured, restingHR, loc, stack, generation, ambiguous[id])
-		row := rd.WorkoutLoad{ID: id, End: end.UnixMicro(), FactHash: workout.factHash, Hash: tl.Hash(r.load), Model: rd.LoadModelV2,
+		pending = append(pending, pendingLoad{workout, r})
+		if r.failure != "" || ambiguous[id] {
+			continue
+		}
+		if end.After(date.AddDate(0, 0, -145)) && (source == "" || workout.sourceEpoch == source) {
+			features = append(features, pf.FeatureRef{Feature: workout.feature, RunID: workout.feature.Evidence.InputHash, KnownAt: workout.known.UnixMicro(), FirstReceivedAt: workout.known.UnixMicro()})
+		}
+		if r.doseRef != nil && end.After(at.AddDate(0, 0, -76)) && (source == "" || r.doseRef.SourceEpoch == source) &&
+			workout.feature.Environment.Indoor != nil && !*workout.feature.Environment.Indoor {
+			// Cached Workouts load their raw facts only when VO2 needs them.
+			if workout.raw == nil {
+				n, err := stackRaw(ctx, tx, l, stack, workout.id, captured, revision)
+				if err != nil {
+					if _, isolated := workoutFailure(err); !isolated {
+						return nil, err
+					}
+				} else if vo2Points += rawPoints(n); vo2Points > 2_000_000 {
+					return nil, &analysis.Failure{Code: "analysis_input_limit"}
+				} else {
+					workout.raw = n
+				}
+			}
+			// A Workout VO2 evaluation error stays with that Workout: no evidence.
+			if workout.raw != nil {
+				if v, err := stackVO2Evidence(workout, *r.doseRef, r.ref, loc); err == nil && v != nil {
+					evidence = append(evidence, *v)
+				}
+				workout.raw = nil
+			}
+		}
+	}
+	if source == "" && len(features) > 0 {
+		latestEpoch := features[len(features)-1].Feature.Evidence.SourceEpochs
+		features = slices.DeleteFunc(features, func(f pf.FeatureRef) bool { return !slices.Equal(f.Feature.Evidence.SourceEpochs, latestEpoch) })
+	}
+	abilityInput := pf.V2Input{Input: pf.Input{Calendar: date.Location(), Timezone: date.Location().String(), DatasetID: l.DatasetID,
+		Generation: generation, AsOf: at.UnixMicro(), View: "revised", Features: features}, Annotations: efforts}
+	ability, err := pf.CalculateV2(abilityInput)
+	if err != nil {
+		return nil, analysis.Invalid()
+	}
+	// 1.4: HR-less runs get a pace-based load, calibrated on the athlete's own
+	// complete HR loads of the last 90 days, when the running ability exists.
+	if ability.Ability != nil {
+		v60 := ability.Ability.V60
+		var ratios []float64
+		for _, p := range pending {
+			if p.r.failure == "" && p.r.load.QualityTier == tl.TierComplete && p.r.load.Load != nil && time.UnixMicro(p.w.end).After(at.AddDate(0, 0, -90)) {
+				if x, ok := tl.PaceIntensity(p.w.feature, v60); ok {
+					ratios = append(ratios, *p.r.load.Load/x)
+				}
+			}
+		}
+		if k, ok := tl.CalibratePace(ratios); ok {
+			for i := range pending {
+				p := &pending[i]
+				if p.r.failure == "" && !ambiguous[p.w.id] && tl.ApplyPaceApproximation(&p.r.load, p.w.feature, v60, k) {
+					p.r.load.Scope = tl.ScopeV2For(p.w.id, stack)
+				}
+			}
+		}
+	}
+	// Per-Workout results: newly computed features/exposures fill the cache,
+	// and today's release records each Workout's v2 load for product readers.
+	var results []stackArtifact
+	writeLoad := date.Format(time.DateOnly) == captured.In(loc).Format(time.DateOnly)
+	for _, p := range pending {
+		if p.r.failure != "" {
+			continue
+		}
+		row := workoutResultRow{id: p.w.id, generation: p.w.factGeneration, epoch: p.w.sourceEpoch}
+		if !p.w.cached {
+			f, e := p.w.feature, p.w.exposure
+			row.feature, row.exposure = &f, &e
+		}
+		if writeLoad {
+			load := p.r.load
+			row.load = &load
+		}
+		if row.feature != nil || row.load != nil {
+			results = append(results, stackArtifact{key: workoutResultKey, value: row})
+		}
+	}
+	for _, p := range pending {
+		id, r := p.w.id, p.r
+		row := rd.WorkoutLoad{ID: id, End: p.w.end, FactHash: p.w.factHash, Hash: tl.Hash(r.load), Model: rd.LoadModelV2,
 			ConfigHash: r.load.ConfigHash, AU: r.load.Load, Quality: r.load.Quality, Compatible: !ambiguous[id], Conflict: ambiguous[id]}
 		for _, d := range r.load.Days {
 			v := d.Load
@@ -374,18 +518,6 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 			row.ParameterID = r.doseRef.ID
 		}
 		loads = append(loads, row)
-		if r.failure != "" || ambiguous[id] {
-			continue
-		}
-		if end.After(date.AddDate(0, 0, -145)) && (source == "" || workout.raw.WorkoutSourceEpoch == source) {
-			features = append(features, pf.FeatureRef{Feature: workout.feature, RunID: workout.feature.Evidence.InputHash, KnownAt: workout.known.UnixMicro(), FirstReceivedAt: workout.known.UnixMicro()})
-		}
-		if r.doseRef != nil && end.After(at.AddDate(0, 0, -76)) && (source == "" || r.doseRef.SourceEpoch == source) {
-			// A Workout VO2 evaluation error stays with that Workout: no evidence.
-			if v, err := stackVO2Evidence(workout, *r.doseRef, r.ref, loc); err == nil && v != nil {
-				evidence = append(evidence, *v)
-			}
-		}
 	}
 	upload, err := workoutSyncEvidence(ctx, tx, l.DatasetID)
 	if err != nil {
@@ -394,21 +526,16 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	day := date.Format(time.DateOnly)
 	stateInput := tl.StateInput{Calendar: date.Location(), Timezone: date.Location().String(), DatasetID: l.DatasetID,
 		Generation: generation, From: day, Through: day, HistoryFrom: from.Format(time.DateOnly), Loads: ledger}
-	state, err := tl.CalculateLoadStateV2(stateInput)
+	previous, err := previousLoadCheckpoint(ctx, tx, l.DatasetID, stack, date.AddDate(0, 0, -1).Format(time.DateOnly))
+	if err != nil {
+		return nil, err
+	}
+	state, checkpoint, _, err := tl.CalculateLoadStateV2Incremental(stateInput, previous)
 	if err != nil {
 		return nil, analysis.Invalid()
 	}
+	state.Checkpoint = &checkpoint
 	state.Scope = tl.ScopeStateV2For(stack)
-	if source == "" && len(features) > 0 {
-		latestEpoch := features[len(features)-1].Feature.Evidence.SourceEpochs
-		features = slices.DeleteFunc(features, func(f pf.FeatureRef) bool { return !slices.Equal(f.Feature.Evidence.SourceEpochs, latestEpoch) })
-	}
-	abilityInput := pf.V2Input{Input: pf.Input{Calendar: date.Location(), Timezone: date.Location().String(), DatasetID: l.DatasetID,
-		Generation: generation, AsOf: at.UnixMicro(), View: "revised", Features: features}, Annotations: efforts}
-	ability, err := pf.CalculateV2(abilityInput)
-	if err != nil {
-		return nil, analysis.Invalid()
-	}
 	maximalInput := abilityInput
 	maximalInput.Mode = pf.ModeMaximalV2
 	maximal, err := pf.CalculateV2(maximalInput)
@@ -437,6 +564,7 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	if err := loadExternalFacts(ctx, tx, l, &in, at, captured, epoch, collector, l.ID); err != nil {
 		return nil, err
 	}
+	stableExternalInput(in.ExternalInput)
 	external, err := ve.Calculate(*in.ExternalInput)
 	if err != nil {
 		return nil, analysis.Invalid()
@@ -466,6 +594,7 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		{key: "training_readiness", schema: rd.SchemaV3, algorithm: rd.Algorithm, version: "v3", value: ready, inputHash: ready.InputHash},
 	}
 	artifacts = append(artifacts, modelResearchArtifacts(workouts, state, ready, l.DatasetID, generation, stack, at.UnixMicro())...)
+	artifacts = append(artifacts, results...)
 	if date.Format(time.DateOnly) == captured.In(date.Location()).Format(time.DateOnly) {
 		for _, w := range workouts {
 			if w.failure != "" {
@@ -491,8 +620,8 @@ func stackWorkoutLoad(w stackWorkout, inputs []stackInput, captured time.Time, r
 	if w.failure != "" {
 		return stackLoad{load: failedStackLoad(w, loc, stack, generation, w.failure), failure: w.failure}
 	}
-	start, end := time.UnixMicro(w.raw.Start), time.UnixMicro(w.raw.End)
-	ref, err := workoutReference(w, inputs, captured, dailyRHRFacts(restingHR, w.raw.Start, w.raw.WorkoutSourceEpoch, loc))
+	start, end := time.UnixMicro(w.start), time.UnixMicro(w.end)
+	ref, err := workoutReference(w, inputs, captured, dailyRHRFacts(restingHR, w.start, w.sourceEpoch, loc))
 	conflict := errors.Is(err, hrref.ErrConflict)
 	invalidRef := err != nil && !conflict && !errors.Is(err, hrref.ErrNotEffective)
 	var doseRef *tl.Reference
@@ -662,4 +791,55 @@ func stackVO2Evidence(w stackWorkout, dose tl.Reference, ref hrref.Snapshot, loc
 
 func spanValue(s wf.Span, at int64) float64 {
 	return s.V0 + (s.V1-s.V0)*float64(at-s.Start)/float64(s.End-s.Start)
+}
+
+const workoutResultKey = "model_workout_result"
+
+// workoutResultRow is one model_workout_results write: feature/exposure only
+// when newly computed (cache fill), load only from today's release.
+type workoutResultRow struct {
+	id, epoch  string
+	generation int64
+	feature    *wf.WorkoutFeatures
+	exposure   *wf.HRExposure
+	load       *tl.Result
+}
+
+func writeWorkoutResult(ctx context.Context, tx pgx.Tx, dataset, stack string, r workoutResultRow) error {
+	var load []byte
+	if r.load != nil {
+		load = featureJSON(r.load)
+	}
+	if r.feature != nil {
+		_, err := tx.Exec(ctx, `INSERT INTO model_workout_results(dataset_id,stack_id,workout_uuid,fact_generation,source_epoch,feature,exposure,load)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+ ON CONFLICT(dataset_id,stack_id,workout_uuid) DO UPDATE SET fact_generation=EXCLUDED.fact_generation,source_epoch=EXCLUDED.source_epoch,
+ feature=EXCLUDED.feature,exposure=EXCLUDED.exposure,load=COALESCE(EXCLUDED.load,model_workout_results.load),updated_at=clock_timestamp()`,
+			dataset, stack, r.id, r.generation, r.epoch, featureJSON(r.feature), featureJSON(r.exposure), load)
+		return err
+	}
+	_, err := tx.Exec(ctx, `UPDATE model_workout_results SET load=$4,updated_at=clock_timestamp()
+ WHERE dataset_id=$1 AND stack_id=$2 AND workout_uuid=$3`, dataset, stack, r.id, load)
+	return err
+}
+
+// previousLoadCheckpoint reads the checkpoint of the previous day's published
+// load state of this stack, if any. A missing or unreadable one only means a
+// full rebuild.
+func previousLoadCheckpoint(ctx context.Context, tx pgx.Tx, dataset, stack, day string) (*tl.StateCheckpoint, error) {
+	var payload []byte
+	err := tx.QueryRow(ctx, `SELECT a.payload->'checkpoint' FROM analysis_publications p
+ JOIN analysis_artifacts a ON a.dataset_id=p.dataset_id AND a.run_id=p.published_run_id AND a.artifact_key='load_state'
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family='model_product_v2/load_state'`, dataset, modelmanifest.DayScope(stack, day)).Scan(&payload)
+	if errors.Is(err, pgx.ErrNoRows) || len(payload) == 0 || string(payload) == "null" {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var cp tl.StateCheckpoint
+	if json.Unmarshal(payload, &cp) != nil {
+		return nil, nil
+	}
+	return &cp, nil
 }

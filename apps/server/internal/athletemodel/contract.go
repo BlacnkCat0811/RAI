@@ -184,6 +184,9 @@ type RecoveryValue struct {
 	HRV           ComponentState `json:"hrv"`
 	RHR           ComponentState `json:"rhr"`
 	Sleep         ComponentState `json:"sleep"`
+	// DeviationLevel: normal, mild_deviation or marked_deviation; omitted when
+	// the model published no score.
+	DeviationLevel string `json:"deviationLevel,omitempty"`
 }
 type ReadinessValue struct {
 	Score              *float64 `json:"score"`

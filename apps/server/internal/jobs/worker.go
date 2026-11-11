@@ -5,27 +5,18 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
-	ve "rai/server/internal/vo2maxexternal"
 	"time"
 
 	"rai/server/internal/analysis"
 	"rai/server/internal/modelmanifest"
-	pf "rai/server/internal/performance"
-	rd "rai/server/internal/readiness"
-	rc "rai/server/internal/recovery"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
-	tl "rai/server/internal/trainingload"
-	wf "rai/server/internal/workoutfeatures"
 )
 
 type Queue interface {
 	RequeueExpired(context.Context) (int, error)
 	Claim(context.Context, []string) (analysis.Lease, error)
 	Renew(context.Context, analysis.Lease) error
-	LoadAnalysis(context.Context, analysis.Lease, time.Time) (analysis.Snapshot, error)
-	StartAnalysisRun(context.Context, analysis.Lease, analysis.Snapshot) (string, error)
-	PublishAnalysis(context.Context, analysis.Lease, string, analysis.Snapshot, []analysis.Metric) (string, error)
 	FailAnalysis(context.Context, analysis.Lease, string, string, bool) error
 	AdvanceAnalysisDay(context.Context, time.Time) error
 }
@@ -34,7 +25,10 @@ type Queue interface {
 // advanced. It is a variable only so tests can shorten it.
 var recoveryInterval = 15 * time.Second
 
-var kinds = []string{"analysis.workout", "analysis.sample", "analysis.series", "analysis.training_state", "training.plan", wf.JobKind, tl.JobKind, tl.StateJobKind, pf.JobKind, ve.JobKind, rc.JobKind, rd.JobKind, modelmanifest.StackJobKind}
+// The worker claims only the v2 model stack and training plans. The legacy
+// analysis kinds (workout bundle, training_state, v1 candidate models) are
+// retired: schema 53 no longer queues them.
+var kinds = []string{"training.plan", modelmanifest.StackJobKind}
 
 // Run uses one processing slot. The short poll waits on cancellation and the
 // independent renewal loop cancels calculation immediately after lease loss.
@@ -262,97 +256,18 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_hash", logIdentity(trainingPlanFromScope(l.ScopeKey)), "generation", l.TargetGeneration, "base_hash", logIdentity(baseID), "effective_hash", logIdentity(effectiveID), "job_hash", logIdentity(l.ID), "run_hash", logIdentity(id), "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", elapsed().Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
 		return
 	}
+	code := "analysis_unsupported_algorithm"
 	if algorithmErr != nil {
-		code, retryable := analysis.ErrorCode(algorithmErr)
-		failCtx, stop := context.WithTimeout(ctx, 5*time.Second)
-		if failErr := q.FailAnalysis(failCtx, l, "", code, retryable); failErr != nil && ctx.Err() == nil {
-			log.Warn("analysis_failure_record_failed", "reason", "database_unavailable")
-		}
-		stop()
-		cancel()
-		<-renewalDone
-		log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", code, "job_hash", logIdentity(l.ID), "scope_hash", logIdentity(l.ScopeKey), "generation", l.TargetGeneration, "algorithm", "", "algorithm_version", analysis.BundleVersion(l.Kind), "run_hash", "", "duration_ms", elapsed().Milliseconds(), "status", "FAILED", "result_status", "FAILED")
-		return
+		code, _ = analysis.ErrorCode(algorithmErr)
 	}
-	snapshotStart := elapsed()
-	in, err := q.LoadAnalysis(runCtx, l, at)
-	snapshotDuration := elapsed() - snapshotStart
-	id := ""
-	if err != nil && in.Generation > 0 {
-		in.InputVersion += "/incomplete"
-		var startErr error
-		id, startErr = q.StartAnalysisRun(runCtx, l, in)
-		if startErr != nil && ctx.Err() == nil {
-			log.Warn("analysis_run_start_failed", "reason", "database_unavailable")
-		}
+	failCtx, stop := context.WithTimeout(ctx, 5*time.Second)
+	if failErr := q.FailAnalysis(failCtx, l, "", code, false); failErr != nil && ctx.Err() == nil {
+		log.Warn("analysis_failure_record_failed", "reason", "database_unavailable")
 	}
-	status := "FAILED"
-	if err == nil {
-		id, err = q.StartAnalysisRun(runCtx, l, in)
-	}
-	var ms []analysis.Metric
-	publicationDuration := time.Duration(0)
-	algorithmDuration := time.Duration(0)
-	if err == nil && in.Generation == l.TargetGeneration {
-		algorithmStart := elapsed()
-		if l.Kind == rd.JobKind {
-			ms, err = analysis.CalculateCandidateReadiness(&in)
-		} else if l.Kind == rc.JobKind {
-			ms, err = analysis.CalculateCandidateRecovery(&in)
-		} else if l.Kind == ve.JobKind {
-			ms, err = analysis.CalculateCandidateVO2External(&in)
-		} else if l.Kind == pf.JobKind {
-			ms, err = analysis.CalculateCandidatePerformance(&in)
-		} else if l.Kind == tl.JobKind || l.Kind == tl.StateJobKind {
-			ms, err = analysis.CalculateCandidateLoad(&in, l.Kind)
-		} else if l.Kind == wf.JobKind {
-			if in.FeatureInput == nil {
-				err = analysis.Invalid()
-			} else {
-				var f wf.WorkoutFeatures
-				f, err = wf.ComputeNormalized(runCtx, *in.FeatureInput)
-				if err != nil {
-					err = &analysis.Failure{Code: mapFeatureError(err)}
-				} else {
-					in.FeatureArtifact = &f
-					if in.ExposureRequired {
-						var exposure wf.HRExposure
-						exposure, err = wf.BuildHRExposure(*in.FeatureInput)
-						if err != nil {
-							err = &analysis.Failure{Code: mapFeatureError(err)}
-						} else {
-							in.ExposureArtifact = &exposure
-						}
-					}
-					ms = featureMetrics(f)
-				}
-			}
-		} else {
-			ms, err = analysis.Analyze(runCtx, l.Kind, in)
-		}
-		algorithmDuration = elapsed() - algorithmStart
-	}
-	if err == nil {
-		publicationStart := elapsed()
-		status, err = q.PublishAnalysis(runCtx, l, id, in, ms)
-		publicationDuration = elapsed() - publicationStart
-	}
+	stop()
 	cancel()
 	<-renewalDone
-	if err != nil && ctx.Err() == nil {
-		status = "FAILED"
-		code, retryable := analysis.ErrorCode(err)
-		failCtx, c := context.WithTimeout(ctx, 5*time.Second)
-		if failErr := q.FailAnalysis(failCtx, l, id, code, retryable); failErr != nil && ctx.Err() == nil {
-			log.Warn("analysis_failure_record_failed", "reason", "database_unavailable")
-		}
-		c()
-	}
-	errorCode := ""
-	if err != nil {
-		errorCode, _ = analysis.ErrorCode(err)
-	}
-	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", errorCode, "job_hash", logIdentity(l.ID), "scope_hash", logIdentity(l.ScopeKey), "generation", l.TargetGeneration, "algorithm", name, "algorithm_version", analysis.BundleVersion(l.Kind), "snapshot_ms", float64(snapshotDuration.Microseconds())/1000, "algorithm_ms", float64(algorithmDuration.Microseconds())/1000, "run_hash", logIdentity(id), "duration_ms", elapsed().Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status, "result_status", status)
+	log.Info("analysis_execution", "component", "worker", "operation", "analysis", "error_code", code, "job_hash", logIdentity(l.ID), "scope_hash", logIdentity(l.ScopeKey), "generation", l.TargetGeneration, "algorithm", name, "duration_ms", elapsed().Milliseconds(), "status", "FAILED", "result_status", "FAILED")
 }
 
 // TrainingQueue extends the same queue with a distinct domain handler.
@@ -369,19 +284,6 @@ func trainingPlanFromScope(scope string) string {
 		return scope[5:]
 	}
 	return ""
-}
-
-func mapFeatureError(err error) string {
-	if wf.ErrorCode(err) == "input_limit" || wf.ErrorCode(err) == "feature_artifact_limit" {
-		return "analysis_input_limit"
-	}
-	return "analysis_invalid_input"
-}
-func featureMetrics(f wf.WorkoutFeatures) []analysis.Metric {
-	if f.State == wf.Deleted || f.State == wf.Missing {
-		return nil
-	}
-	return []analysis.Metric{{Day: analysis.WorkoutDay, Name: "feature_active_seconds", Algorithm: wf.Algorithm, Version: wf.Version, Value: f.Timing.Active, Unit: "s", Quality: map[bool]string{true: "insufficient", false: "partial"}[f.Timing.Active == nil], Details: map[string]any{"artifactKey": wf.ArtifactKey}}, {Day: analysis.WorkoutDay, Name: "feature_preferred_distance", Algorithm: wf.Algorithm, Version: wf.Version, Value: f.Distance.Preferred, Unit: "m", Quality: map[bool]string{true: "insufficient", false: "partial"}[f.Distance.Preferred == nil], Details: map[string]any{"artifactKey": wf.ArtifactKey}}}
 }
 
 func logIdentity(value string) string {

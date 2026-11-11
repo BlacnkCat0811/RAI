@@ -7,8 +7,9 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/pressly/goose/v3"
 	"rai/server/migrations"
+
+	"github.com/pressly/goose/v3"
 )
 
 func TestRecoveryMigration18To19AndRepeatedMigrate(t *testing.T) {

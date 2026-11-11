@@ -257,6 +257,9 @@ type Qualifications struct {
 	Performance Qualification `json:"performance"`
 	CS          Qualification `json:"cs"`
 	Endurance   Qualification `json:"endurance"`
+	// PerformanceGAP admits hilly routes through grade adjustment instead of
+	// requiring 90% flat distance (v2 running ability).
+	PerformanceGAP *Qualification `json:"performanceGradeAdjusted,omitempty"`
 }
 type Timing struct {
 	Start             int64    `json:"startUs"`
@@ -314,11 +317,17 @@ type Window struct {
 	SourceEpoch   string        `json:"sourceEpoch"`
 	Evidence      string        `json:"evidence"`
 	Qualification Qualification `json:"qualification"`
+	// Grade-adjusted (Minetti) flat-equivalent distance and speed; set only on
+	// WindowCandidates.GAP windows.
+	GAPDistance *float64 `json:"gradeAdjustedDistanceM,omitempty"`
+	GAPSpeed    *float64 `json:"gradeAdjustedSpeedMPS,omitempty"`
 }
 type WindowCandidates struct {
 	Duration int     `json:"durationSeconds"`
 	Best     *Window `json:"best"`
 	Backup   *Window `json:"nonOverlapBackup"`
+	// GAP is the best grade-adjusted window (durations >= 20 min).
+	GAP *Window `json:"gradeAdjustedBest,omitempty"`
 }
 type SteadySegment struct {
 	Window             Window        `json:"window"`

@@ -115,13 +115,14 @@ public enum ProductSnapshotCache {
 public actor ProductAPI {
   public let client: RAIAPIClient
   public init(client: RAIAPIClient) { self.client = client }
-  /// The six home reads are independent, so they run concurrently. The result
-  /// is assembled in a fixed order after all of them finish.
+  /// The four home reads are independent, so they run concurrently. The result
+  /// is assembled in a fixed order after all of them finish. The legacy
+  /// training-state endpoints were removed from the server; the v2 athlete
+  /// model replaces them.
   public func load() async -> ProductSnapshot {
     let reads = [
-      ("plan", "/v2/training/plans/current"), ("state", "/v2/analysis/state"),
-      ("overview", "/v2/product/overview"), ("workouts", "/v2/workouts"),
-      ("history", "/v2/analysis/history"), ("athlete", "/v2/analysis/athlete"),
+      ("plan", "/v2/training/plans/current"), ("overview", "/v2/product/overview"),
+      ("workouts", "/v2/workouts"), ("athlete", "/v2/analysis/athlete"),
     ]
     var results: [String: Result<JSON, any Error>] = [:]
     await withTaskGroup(of: (String, Result<JSON, any Error>).self) { group in

@@ -8,9 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type trainingDB interface {

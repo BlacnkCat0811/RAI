@@ -10,7 +10,7 @@ const (
 	ModelV2       = "rai.recovery.physiological/v2"
 	SchemaV2      = "rai.recovery.physiological/2"
 	InputSchemaV2 = "rai.recovery.input/2"
-	PolicyV2      = "night-sdnn-00-06-sleep-context;ln-median;sleep-regularity-circular-medoid;typed-target;persistent-3d;stable-source-key/v2.1"
+	PolicyV2      = "night-sdnn-asleep-20-12;ln-median;sleep-regularity-circular-medoid;typed-target;persistent-3d;stable-source-key;source-priority;deviation-levels/v2.2"
 )
 
 type SleepTarget struct {
@@ -88,31 +88,40 @@ func circularDeltaHours(a, b float64) float64 {
 	return d
 }
 
+// nightSDNN is the ln-median SDNN of samples recorded while asleep in the night
+// window around day d: from 20:00 the evening before to 12:00. A sample counts
+// only if it overlaps a sleep interval, so late sleepers and early risers keep
+// their night and daytime spot checks never enter it.
 func nightSDNN(fs []Fact, d Day) Component {
 	out := missing("night_sdnn")
-	ctxEnd := d.ClockBuckets[1]
-	hasContext := false
+	from, to := d.Start-4*Hour, d.Start+12*Hour
+	type span struct{ a, b int64 }
+	var sleep []span
 	for _, f := range fs {
-		if f.Type != Sleep || f.End <= f.Start {
+		if f.Type != Sleep || f.End <= f.Start || f.Category == nil || *f.Category == 2 {
 			continue
 		}
-		if f.End > d.Start && f.Start < ctxEnd {
-			hasContext = true
-			break
+		if f.End > from && f.Start < to {
+			sleep = append(sleep, span{f.Start, f.End})
 		}
 	}
-	if !hasContext {
+	if len(sleep) == 0 {
 		out.Reasons = []string{"night_context_missing"}
 		return out
+	}
+	asleep := func(f Fact) bool {
+		for _, s := range sleep {
+			if f.Start < s.b && f.End > s.a {
+				return true
+			}
+		}
+		return false
 	}
 	epochs := map[string]bool{}
 	uniq := map[string]Fact{}
 	var values []float64
 	for _, f := range fs {
-		if f.Type != HRV || f.End <= f.Start {
-			continue
-		}
-		if f.End < d.Start || f.Start >= ctxEnd {
+		if f.Type != HRV || f.End <= f.Start || f.End < from || f.End >= to || !asleep(f) {
 			continue
 		}
 		epochs[f.Epoch] = true
@@ -152,6 +161,100 @@ func nightSDNN(fs []Fact, d Day) Component {
 	out.Quality = "complete"
 	out.Reasons = []string{}
 	return out
+}
+
+// prioritize keeps, for each fact type and night, only the facts of the most
+// trusted source (Apple Watch, then other Apple devices, then third-party
+// apps; ties go to the source with more facts, then a stable order), and only
+// the latest resting HR of that night. Another wearable or a sleep app no
+// longer turns the whole day into a source conflict.
+func prioritize(fs []Fact, days []Day) ([]Fact, bool) {
+	night := func(f Fact) int {
+		// SDNN belongs to the night window ending at noon (see nightSDNN);
+		// resting HR and sleep stay on the civil day of their end.
+		at := f.End
+		if f.Type == HRV {
+			at += 4 * Hour
+		}
+		i := sort.Search(len(days), func(i int) bool { return days[i].End > at })
+		if i < len(days) && days[i].Start <= at {
+			return i
+		}
+		return -1
+	}
+	type key struct {
+		typ string
+		day int
+	}
+	type choice struct {
+		epoch string
+		rank  int
+		n     int
+	}
+	counts := map[key]map[string]int{}
+	ranks := map[string]int{}
+	for _, f := range fs {
+		k := key{f.Type, night(f)}
+		if counts[k] == nil {
+			counts[k] = map[string]int{}
+		}
+		counts[k][f.Epoch]++
+		ranks[f.Epoch] = f.SourceRank
+	}
+	chosen := map[key]string{}
+	dropped := false
+	for k, byEpoch := range counts {
+		var best *choice
+		for epoch, n := range byEpoch {
+			c := choice{epoch, ranks[epoch], n}
+			if best == nil || c.rank < best.rank || c.rank == best.rank && (c.n > best.n || c.n == best.n && c.epoch < best.epoch) {
+				best = &c
+			}
+		}
+		chosen[k] = best.epoch
+		dropped = dropped || len(byEpoch) > 1
+	}
+	latest := map[key]Fact{}
+	out := []Fact{}
+	for _, f := range fs {
+		k := key{f.Type, night(f)}
+		if f.Epoch != chosen[k] {
+			continue
+		}
+		if f.Type == RHR {
+			if old, ok := latest[k]; ok {
+				dropped = true
+				if old.End > f.End || old.End == f.End && (old.KnownAt > f.KnownAt || old.KnownAt == f.KnownAt && old.ID > f.ID) {
+					continue
+				}
+			}
+			latest[k] = f
+			continue
+		}
+		out = append(out, f)
+	}
+	for _, f := range latest {
+		out = append(out, f)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Type+out[i].ID < out[j].Type+out[j].ID })
+	return out, dropped
+}
+
+// deviationLevel is the three-step presentation of the adverse-only burden:
+// normal, mild or marked deviation from the personal baseline. A deviation
+// persisting for three nights moves it one step up.
+func deviationLevel(burden float64, persistent bool) string {
+	level := 0
+	switch {
+	case burden >= .25:
+		level = 2
+	case burden >= .05:
+		level = 1
+	}
+	if persistent && level < 2 {
+		level++
+	}
+	return []string{"normal", "mild_deviation", "marked_deviation"}[level]
 }
 
 func selectSleepTarget(ts []SleepTarget, asOf int64) (SleepTarget, bool) {
@@ -308,7 +411,7 @@ func CalculateV2(in V2Input) (V2Result, error) {
 		return V2Result{}, ErrInvalid
 	}
 	in.Input = canonical(in.Input)
-	fs := eligible(in.Input)
+	fs, deprioritized := prioritize(eligible(in.Input), in.Days)
 	c := in.Config
 	coverageComplete := v2CoverageComplete(in.Input, c)
 	inputDeleted := len(in.Input.Tombstones) > 0
@@ -486,6 +589,15 @@ func CalculateV2(in V2Input) (V2Result, error) {
 	}
 	if r.Score != nil && (!finite(*r.Score) || *r.Score < 0 || *r.Score > 100) {
 		return V2Result{}, ErrInvalid
+	}
+	if deprioritized {
+		r.Reasons = append(r.Reasons, "source_deprioritized")
+	}
+	persistent := len(r.PersistentDeviation) > 0
+	if r.Score != nil && r.TotalBurden != nil {
+		r.DeviationLevel = deviationLevel(*r.TotalBurden, persistent)
+	} else if r.AutonomicOnlyV2 != nil && r.AutonomicBurden != nil {
+		r.DeviationLevel = deviationLevel(*r.AutonomicBurden, persistent)
 	}
 	// Deduplicate and sort reason codes.
 	seen := map[string]bool{}

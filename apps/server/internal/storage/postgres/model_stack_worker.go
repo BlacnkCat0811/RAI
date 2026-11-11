@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/syncing"
 	wf "rai/server/internal/workoutfeatures"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ProcessModelStack computes a single bounded civil-day release. Readers see
@@ -127,6 +128,12 @@ func (s *Store) publishModelStackDay(ctx context.Context, l Lease, stack, day, m
 	status := "SUPERSEDED"
 	if current && len(artifacts) >= modelProductSlots {
 		for _, a := range artifacts {
+			if r, ok := a.value.(workoutResultRow); ok {
+				if err := writeWorkoutResult(ctx, tx, l.DatasetID, stack, r); err != nil {
+					return "", err
+				}
+				continue
+			}
 			if f, ok := a.value.(wf.WorkoutFeatures); ok {
 				if err := writeStackWorkout(ctx, tx, l, stack, manifest, revision, day, a, f); err != nil {
 					return "", err
@@ -139,6 +146,19 @@ func (s *Store) publishModelStackDay(ctx context.Context, l Lease, stack, day, m
 		}
 		if _, err := tx.Exec(ctx, `UPDATE dirty_scopes SET clean_generation=generation WHERE dataset_id=$1 AND scope_key=$2`, l.DatasetID, l.ScopeKey); err != nil {
 			return "", err
+		}
+		// Today's release of the active stack (new readiness, load or Workout)
+		// regenerates active training plans so today's session can follow it.
+		var activeToday bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM analysis_model_channels m JOIN datasets ds ON ds.id=m.dataset_id
+ WHERE m.dataset_id=$1 AND m.channel='active' AND m.stack_id=$2 AND (clock_timestamp() AT TIME ZONE ds.timezone)::date=$3::date)`,
+			l.DatasetID, stack, day).Scan(&activeToday); err != nil {
+			return "", err
+		}
+		if activeToday {
+			if err := dirtyTrainingPlans(ctx, tx, l.DatasetID); err != nil {
+				return "", err
+			}
 		}
 		status = "SUCCEEDED"
 	} else if current {

@@ -129,3 +129,8 @@ GRANT EXECUTE ON FUNCTION rai_readiness_dirty(uuid) TO rai_worker;
 GRANT EXECUTE ON FUNCTION rai_commit_typed_model_input(uuid,uuid,uuid,text,timestamptz,timestamptz,uuid,uuid,text,bytea,jsonb,text) TO rai_api;
 GRANT EXECUTE ON FUNCTION rai_model_stack_tick(uuid,timestamptz) TO rai_worker;
 GRANT EXECUTE ON FUNCTION rai_backfill_progress(uuid,uuid,boolean),rai_backfill_job_allowed(uuid,uuid) TO rai_worker;
+
+-- Schema 53: per-Workout model results (cache + v2 load for product readers);
+-- settings/detail read the user's own HR reference entries.
+GRANT SELECT, INSERT, UPDATE ON model_workout_results TO rai_worker;
+GRANT SELECT ON model_workout_results, athlete_model_inputs TO rai_api;

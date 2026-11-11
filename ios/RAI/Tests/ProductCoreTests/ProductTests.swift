@@ -276,3 +276,34 @@ struct ProductTests {
     #expect(ProductReasonText.lowReadinessNotice(score: 40)?.contains("不会自动改写") == true)
   }
 }
+
+@Suite struct RecoveryLevelTextTests {
+  @Test func threeLevelsAndUnknown() {
+    #expect(ProductReasonText.recoveryLevel("normal") == "与个人基线一致")
+    #expect(ProductReasonText.recoveryLevel("mild_deviation") == "轻度偏离基线")
+    #expect(ProductReasonText.recoveryLevel("marked_deviation") == "明显偏离基线")
+    #expect(ProductReasonText.recoveryLevel(nil) == nil)
+    #expect(ProductReasonText.recoveryLevel("other") == nil)
+  }
+
+  @Test func decodesOptionalDeviationLevel() throws {
+    let base = #"{"score":82,"unit":"score_0_100","baselineState":"established","hrv":{"availability":"fresh","relativeToBaseline":"no_adverse_deviation"},"rhr":{"availability":"fresh","relativeToBaseline":"no_adverse_deviation"},"sleep":{"availability":"fresh","relativeToBaseline":"below_baseline"}"#
+    let with = try JSONDecoder().decode(RecoveryValue.self, from: Data((base + #","deviationLevel":"mild_deviation"}"#).utf8))
+    let without = try JSONDecoder().decode(RecoveryValue.self, from: Data((base + "}").utf8))
+    #expect(with.deviationLevel == "mild_deviation")
+    #expect(without.deviationLevel == nil)
+  }
+}
+
+@Suite struct AthleteTrainingLoadHistoryTests {
+  @Test func mapsAcuteValueAndComponents() throws {
+    let raw = #"{"metric":"trainingLoad","view":"revised","points":[{"date":"2026-11-02","metric":"trainingLoad","state":"available","unit":"RAI_AU/day","modelVersion":"m","payloadVersion":"p","value":52,"reasonCodes":[],"components":{"chronic":55.5,"balance":3.5,"dailyLoad":60}},{"date":"2026-11-01","metric":"trainingLoad","state":"unavailable","unit":"RAI_AU/day","modelVersion":"m","payloadVersion":"p","value":null,"reasonCodes":[]}],"nextCursor":null,"assignment":{"stackID":"s","version":1}}"#
+    struct Points: Decodable { let points: [AthleteHistoryPoint] }
+    let page = try JSONDecoder().decode(Points.self, from: Data(raw.utf8))
+    let points = TrainingLoadSeries.points(fromAthlete: page.points)
+    #expect(points.map(\.day) == ["2026-11-01", "2026-11-02"])
+    #expect(points[1].fatigue == 52 && points[1].fitness == 55.5 && points[1].balance == 3.5 && points[1].dailyLoad == 60)
+    #expect(points[0].hasLoad == false)
+    #expect(TrainingLoadSeries.latest(points)?.day == "2026-11-02")
+  }
+}

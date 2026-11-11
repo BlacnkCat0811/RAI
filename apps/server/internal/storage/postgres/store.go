@@ -6,16 +6,16 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"fmt"
 	neturl "net/url"
 	"sync"
 	"time"
 
+	"rai/server/internal/storage/postgres/dbgen"
+	"rai/server/internal/syncing"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"rai/server/internal/storage/postgres/dbgen"
-	"rai/server/internal/syncing"
 )
 
 type Store struct {
@@ -344,9 +344,10 @@ func applyEvent(ctx context.Context, tx pgx.Tx, dataset, batch string, e syncing
 	if err != nil {
 		return false, "", err
 	}
-	job := syncing.NewID()
-	_, err = tx.Exec(ctx, `INSERT INTO jobs(id,dataset_id,kind,scope_key,target_generation,payload) VALUES($1,$2,$3,$4,$5,$6)`, job, dataset, "analysis."+e.Kind, scope, generation, fmt.Sprintf(`{"inputRevision":%d}`, rev))
-	return true, job, err
+	// The bumped generation drives the v2 model stack invalidation; the
+	// retired per-entity analysis job is no longer queued.
+	_ = generation
+	return true, "", nil
 }
 
 // lockActiveDataset is the first business lock for worker/training mutations.

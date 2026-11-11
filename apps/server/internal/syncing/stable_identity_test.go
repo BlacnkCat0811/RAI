@@ -23,3 +23,15 @@ func TestStableIdentityIgnoresSoftwareVersions(t *testing.T) {
 		t.Fatal("a device with only version fields must carry no device identity")
 	}
 }
+
+func TestVO2StableEpochIgnoresVersions(t *testing.T) {
+	product, model := "Watch7,1", "Watch"
+	v1, v2 := "11.1", "11.2"
+	a := VO2Provenance{SchemaVersion: "x", SourceRevision: VO2Revision{Source: VO2Source{BundleIdentifier: "com.apple.health.x", Name: "Watch"}, Version: &v1, ProductType: &product, OperatingSystemVersion: VO2OS{11, 1, 0}}, Device: &VO2Device{Model: &model, SoftwareVersion: &v1}}
+	b := a
+	b.SourceRevision.Version, b.SourceRevision.OperatingSystemVersion = &v2, VO2OS{11, 2, 0}
+	b.Device = &VO2Device{Model: &model, SoftwareVersion: &v2}
+	if a.EpochID() == b.EpochID() || a.StableEpochID() != b.StableEpochID() {
+		t.Fatal("stable VO2 epoch must ignore versions while the full epoch keeps them")
+	}
+}

@@ -1,8 +1,8 @@
 import Foundation
 import SyncCore
 
-/// One day of the legacy `training_state.bundle/v2` history. The server may
-/// publish each metric as a separate row, so the client merges rows by day.
+/// One day of training-load history: fatigue (ATL, 7 d), fitness (CTL, 42 d),
+/// balance (CTL − ATL) and the day's recorded load.
 public struct TrainingLoadPoint: Identifiable, Equatable, Sendable {
   public var id: String { day }
   public let day: String
@@ -31,6 +31,7 @@ public struct TrainingLoadPoint: Identifiable, Equatable, Sendable {
 /// authority for whether a value may be shown; this only shapes rows that the
 /// server already returned.
 public enum TrainingLoadSeries {
+  /// Legacy `training_state.bundle/v2` rows (no longer fetched by the app).
   public static func points(from history: JSON) -> [TrainingLoadPoint] {
     var byDay: [String: TrainingLoadPoint] = [:]
     for item in history["metrics"].list {
@@ -48,6 +49,16 @@ public enum TrainingLoadSeries {
       byDay[day] = point
     }
     return byDay.values.sorted { $0.day < $1.day }
+  }
+
+  /// Maps the v2 athlete-model `trainingLoad` history: the point value is the
+  /// acute load, the components carry chronic, balance and the daily load.
+  public static func points(fromAthlete history: [AthleteHistoryPoint]) -> [TrainingLoadPoint] {
+    history.filter { $0.metric == "trainingLoad" }.map { point in
+      TrainingLoadPoint(
+        day: point.date, fitness: point.components?["chronic"], fatigue: point.value,
+        balance: point.components?["balance"], dailyLoad: point.components?["dailyLoad"])
+    }.sorted { $0.day < $1.day }
   }
 
   public static func latest(_ points: [TrainingLoadPoint]) -> TrainingLoadPoint? {

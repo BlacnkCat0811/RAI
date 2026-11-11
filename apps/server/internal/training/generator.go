@@ -64,52 +64,44 @@ func Generate(in Context) (Base, error) {
 		out.Recommendations = append(out.Recommendations, "cold_start_conservative")
 	}
 	p := in.Parameters
-	fitness, fatigue, readiness := (*float64)(nil), (*float64)(nil), (*float64)(nil)
-	var v2Readiness, acute, chronic *float64
+	var v2Readiness, acute, chronic, v60, hrMax, hrRest *float64
 	v2 := in.ObservedModelBinding != nil && in.ObservedModelBinding.Adapter == "schema2-v2"
 	for _, s := range in.Signals {
-		if s.Value == nil || !Finite(*s.Value) {
+		// Only the v2 model stack feeds the plan; legacy signals were retired.
+		if !v2 || s.Value == nil || !Finite(*s.Value) || s.Version != "v2" {
 			continue
 		}
-		if v2 {
-			if s.Quality != "complete" || s.Version != "v2" {
-				continue
-			}
-			switch {
-			case s.Name == "readiness" && s.Algorithm == "rai.readiness.training":
-				v2Readiness = s.Value
-			case s.Name == "acute" && s.Algorithm == "rai.load_state.exp_finite":
-				acute = s.Value
-			case s.Name == "chronic" && s.Algorithm == "rai.load_state.exp_finite":
-				chronic = s.Value
-			}
+		// Load state values may be partial (imputed or short history);
+		// readiness is consumed only when complete.
+		if s.Quality != "complete" && !(s.Quality == "partial" && s.Algorithm == "rai.load_state.exp_finite") {
 			continue
 		}
-		supported := s.Version == "v1" || (s.Algorithm == "fitness_fatigue" && s.Version == "v2")
-		if !supported || (s.Quality != "available" && s.Quality != "partial") {
-			continue
-		}
-		switch s.Name {
-		case "fitness":
-			if s.Algorithm == "fitness_fatigue" {
-				fitness = s.Value
-			}
-		case "fatigue":
-			if s.Algorithm == "fitness_fatigue" {
-				fatigue = s.Value
-			}
-		case "readiness":
-			if s.Algorithm == "readiness" {
-				readiness = s.Value
-			}
+		switch {
+		case s.Name == "readiness" && s.Algorithm == "rai.readiness.training":
+			v2Readiness = s.Value
+		case s.Name == "v60" && s.Algorithm == "rai.running_ability":
+			v60 = s.Value
+		case s.Name == "hr_max" && s.Algorithm == "hr_reference":
+			hrMax = s.Value
+		case s.Name == "hr_rest" && s.Algorithm == "hr_reference":
+			hrRest = s.Value
+		case s.Name == "acute" && s.Algorithm == "rai.load_state.exp_finite":
+			acute = s.Value
+		case s.Name == "chronic" && s.Algorithm == "rai.load_state.exp_finite":
+			chronic = s.Value
 		}
 	}
-	low := (readiness != nil && *readiness < p.LowReadiness) || (fitness != nil && fatigue != nil && *fitness > 0 && *fatigue > *fitness*1.5)
-	advisory := v2 && ((v2Readiness != nil && *v2Readiness < p.LowReadiness) || (acute != nil && chronic != nil && *chronic > 0 && *acute > *chronic*1.5))
-	if low || advisory {
+	// Today's readiness (or an acute spike) reschedules only today's slot.
+	lowToday := (v2Readiness != nil && *v2Readiness < p.LowReadiness) || (acute != nil && chronic != nil && *chronic > 0 && *acute > *chronic*1.5)
+	if lowToday {
 		out.Recommendations = append(out.Recommendations, "load_only_advisory")
 	}
-	if readiness == nil && v2Readiness == nil {
+	// Ramp guard: acute well above chronic holds next week's progression.
+	ramp := v2 && acute != nil && chronic != nil && *chronic > 0 && *acute > *chronic*RampGuardRatio
+	if ramp {
+		out.Recommendations = append(out.Recommendations, "load_ramp_guard")
+	}
+	if v2Readiness == nil {
 		out.Recommendations = append(out.Recommendations, "readiness_unavailable")
 	}
 	goalDay, _ := time.ParseInLocation("2006-01-02", in.Config.Goal.Date, loc)
@@ -163,18 +155,16 @@ func Generate(in Context) (Base, error) {
 	weekly := baseline
 	for week := 0; week < in.Config.Weeks; week++ {
 		reasons := []string{"weekly_load_constraint"}
-		if week > 0 {
+		if week > 0 && !(week == 1 && ramp) {
 			weekly *= 1 + p.Progression
 			reasons = append(reasons, "weekly_progression")
+		} else if week == 1 {
+			reasons = append(reasons, "load_ramp_guard")
 		}
 		if week%4 == 3 {
 			weekly /= 1 + p.Progression
 			weekly *= p.Deload
 			reasons = append(reasons, "recovery_week")
-		}
-		if week == 0 && low {
-			weekly *= p.ReadinessFactor
-			reasons = append(reasons, "readiness_adjustment")
 		}
 		if week == feedbackWeek {
 			weekly *= p.FeedbackFactor
@@ -208,24 +198,85 @@ func Generate(in Context) (Base, error) {
 						s.Steps = []Step{{Kind: "warmup", DurationS: 600, Effort: 2}, {Kind: "repeat", DurationS: 300, Effort: 7, Repeats: 4, RecoveryS: 120}, {Kind: "cooldown", DurationS: 600, Effort: 2}}
 						s.Reasons = append(s.Reasons, "goal_specific_interval")
 					}
-					if low && week == 0 {
-						s.Type = "RECOVERY"
-						s.Effort = 2
-						s.DurationS = 0
-						s.Steps = nil
-						s.Reasons = append(s.Reasons, "readiness_adjustment")
-					}
 				} else if day == (longDay+1)%7 || day == (hardDay+1)%7 && hardDay >= 0 {
 					s.Type = "RECOVERY"
 					s.Effort = 2
 					s.Reasons = append(s.Reasons, "recovery_after_hard_session")
 				}
 			}
+			setTargets(&s, v60, hrMax, hrRest)
 			if err := ValidateSession(s); err != nil {
 				return Base{}, err
 			}
 			out.Sessions = append(out.Sessions, s)
 		}
 	}
+	if lowToday {
+		if e := rescheduleToday(out.Sessions, int(asOf.Sub(start).Hours()/24+.5), v60, hrMax, hrRest); e != nil {
+			return Base{}, e
+		}
+	}
 	return out, nil
+}
+
+func hardSession(t string) bool { return t == "TEMPO" || t == "INTERVAL" || t == "LONG" }
+
+// rescheduleToday turns a hard session planned for today into recovery. Its
+// content moves to the next EASY day of the same week whose following day is
+// not hard; that EASY day's distance becomes today's recovery run. Slot ids,
+// indices and dates stay put. Without such a day the hard content is dropped.
+func rescheduleToday(sessions []Session, today int, v60, hrMax, hrRest *float64) error {
+	if today < 0 || today >= len(sessions) || !hardSession(sessions[today].Type) {
+		return nil
+	}
+	t := &sessions[today]
+	recovery := t.DistanceM
+	for j := today + 1; j < len(sessions) && j/7 == today/7; j++ {
+		c := &sessions[j]
+		if c.Type != "EASY" || (j+1 < len(sessions) && hardSession(sessions[j+1].Type)) {
+			continue
+		}
+		recovery = c.DistanceM
+		moved := *t
+		moved.ID, moved.Slot, moved.Date = c.ID, c.Slot, c.Date
+		moved.PaceSPerKM, moved.TargetHR = nil, nil
+		moved.Reasons = append(append([]string(nil), t.Reasons...), "daily_readiness_reschedule")
+		*c = moved
+		setTargets(c, v60, hrMax, hrRest)
+		if e := ValidateSession(*c); e != nil {
+			return e
+		}
+		break
+	}
+	t.Type, t.Effort, t.DurationS, t.Steps, t.DistanceM = "RECOVERY", 2, 0, nil, recovery
+	t.PaceSPerKM, t.TargetHR = nil, nil
+	t.Reasons = append(append([]string(nil), t.Reasons...), "daily_readiness_reschedule")
+	setTargets(t, v60, hrMax, hrRest)
+	return ValidateSession(*t)
+}
+
+// RampGuardRatio: acute load this far above chronic holds the next week's
+// progression (an ACWR-style guard on the v2 load state).
+const RampGuardRatio = 1.3
+
+// Target intensities per session type: speed as a fraction of the 60-minute
+// ability v60 (pace zones E/T/I), and heart rate as a fraction of heart-rate
+// reserve. Rest days get none.
+var sessionTargets = map[string]struct{ speed, hrr float64 }{
+	"EASY": {.74, .70}, "LONG": {.76, .72}, "RECOVERY": {.68, .62}, "TEMPO": {.97, .85}, "INTERVAL": {1.08, .90},
+}
+
+// setTargets adds a pace target from the running ability and a heart-rate
+// target from the HR reference when they exist; it never invents either.
+func setTargets(s *Session, v60, hrMax, hrRest *float64) {
+	t, ok := sessionTargets[s.Type]
+	if !ok {
+		return
+	}
+	if v60 != nil && Finite(*v60) && *v60 > 0 {
+		s.PaceSPerKM = Ptr(math.Round(1000 / (*v60 * t.speed)))
+	}
+	if hrMax != nil && hrRest != nil && Finite(*hrMax) && Finite(*hrRest) && *hrMax > *hrRest && *hrRest > 0 {
+		s.TargetHR = Ptr(math.Round(*hrRest + t.hrr*(*hrMax-*hrRest)))
+	}
 }

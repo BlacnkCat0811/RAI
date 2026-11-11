@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/syncing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // lockIngestDataset serializes quota accounting and the insert for one

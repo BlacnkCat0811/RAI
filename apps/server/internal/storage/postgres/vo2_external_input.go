@@ -6,38 +6,12 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"rai/server/internal/analysis"
 	"rai/server/internal/syncing"
 	ve "rai/server/internal/vo2maxexternal"
-)
 
-func (s *Store) loadVO2ExternalInput(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf time.Time) error {
-	if l.ScopeKey != ve.Scope {
-		return analysis.Invalid()
-	}
-	a := &ve.ExternalVO2Snapshot{Config: ve.DefaultConfig()}
-	var entry []byte
-	var capture time.Time
-	var invalidSession bool
-	err := tx.QueryRow(ctx, `SELECT d.epoch::text,COALESCE(c.collector_epoch::text,''),clock_timestamp(),m.extension_configs->$2,EXISTS(SELECT 1 FROM collector_leases l WHERE l.dataset_id=d.id AND NOT EXISTS(SELECT 1 FROM devices v WHERE v.dataset_id=l.dataset_id AND v.id=l.device_id AND v.can_collect AND v.revoked_at IS NULL))
- FROM datasets d LEFT JOIN collector_leases c ON c.dataset_id=d.id AND EXISTS(SELECT 1 FROM devices v WHERE v.dataset_id=c.dataset_id AND v.id=c.device_id AND v.can_collect AND v.revoked_at IS NULL) JOIN analysis_model_channels m ON m.dataset_id=d.id AND m.channel='candidate' WHERE d.id=$1 AND d.retired_at IS NULL`, l.DatasetID, ve.Model).Scan(&a.DatasetEpoch, &a.Collector, &capture, &entry, &invalidSession)
-	if err != nil {
-		return err
-	}
-	a.CapturedAt = capture.UnixMicro()
-	if invalidSession {
-		return &analysis.Failure{Code: "analysis_dependency_pending", Retryable: true}
-	}
-	var assignment struct {
-		Hash string `json:"configHash"`
-		ID   string `json:"assignmentID"`
-	}
-	if json.Unmarshal(entry, &assignment) != nil || assignment.Hash != a.Config.Hash() || !syncing.ValidID(assignment.ID) {
-		return analysis.Invalid()
-	}
-	return loadExternalFacts(ctx, tx, l, in, asOf, capture, a.DatasetEpoch, a.Collector, assignment.ID)
-}
+	"github.com/jackc/pgx/v5"
+)
 
 func loadExternalFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf, capture time.Time, epoch, collector, assignment string) error {
 	a := &ve.ExternalVO2Snapshot{Dataset: l.DatasetID, Generation: in.Generation, AsOf: asOf.UnixMicro(), KnownThroughRevision: in.Revision, Config: ve.DefaultConfig(), View: "revised", Facts: []ve.Fact{}, Tombstones: []ve.Tombstone{}, Selections: []ve.Selection{}}
@@ -179,7 +153,7 @@ func loadExternalFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Sna
 					rows.Close()
 					return analysis.Invalid()
 				}
-				f.Epoch = c.Epoch
+				f.Epoch, f.StableEpoch = c.Epoch, c.Provenance.StableEpochID()
 				fact := syncing.VO2Fact{UUID: f.ID, StartUs: f.Start, EndUs: f.End, Quantity: syncing.Quantity{Value: f.Value, Unit: unit}, Provenance: c.Provenance, Metadata: c.Metadata}
 				f.Origin, f.OriginReason = fact.Origin()
 				f.Supported = true
@@ -296,7 +270,7 @@ func loadExternalTombstones(rows pgx.Rows, a *ve.ExternalVO2Snapshot) error {
 			if json.Unmarshal(raw, &c) != nil || c.Epoch != c.Provenance.EpochID() {
 				return analysis.Invalid()
 			}
-			t.Epoch = c.Epoch
+			t.Epoch, t.StableEpoch = c.Epoch, c.Provenance.StableEpochID()
 			t.Origin, _ = (syncing.VO2Fact{Provenance: c.Provenance, Metadata: c.Metadata}).Origin()
 		}
 		t.Hash = ve.Hash(struct {
@@ -313,9 +287,6 @@ func loadExternalTombstones(rows pgx.Rows, a *ve.ExternalVO2Snapshot) error {
 }
 
 // Explicitly unavailable: current live raw cannot reconstruct deleted history.
-func (s *Store) LoadHistoricalVO2External(context.Context, string, int64) error {
-	return ve.ErrHistorical
-}
 
 func hasExternalSync(fs []ve.Fact) bool {
 	for _, f := range fs {
@@ -324,4 +295,83 @@ func hasExternalSync(fs []ve.Fact) bool {
 		}
 	}
 	return false
+}
+
+// stableExternalInput rewrites a loaded external VO2 input to stable source
+// identities (v2 stack only): facts and tombstones use their StableEpoch, and
+// a selection naming any version of a source selects the whole source.
+func stableExternalInput(in *ve.ExternalVO2Snapshot) {
+	stable := map[string]string{}
+	for _, f := range in.Facts {
+		if f.StableEpoch != "" {
+			stable[f.Epoch] = f.StableEpoch
+		}
+	}
+	for _, t := range in.Tombstones {
+		if t.StableEpoch != "" {
+			stable[t.Epoch] = t.StableEpoch
+		}
+	}
+	for i := range in.Facts {
+		if in.Facts[i].StableEpoch != "" {
+			in.Facts[i].Epoch = in.Facts[i].StableEpoch
+		}
+	}
+	for i := range in.Tombstones {
+		if in.Tombstones[i].StableEpoch != "" {
+			in.Tombstones[i].Epoch = in.Tombstones[i].StableEpoch
+		}
+	}
+	for i := range in.Selections {
+		if s, ok := stable[in.Selections[i].Epoch]; ok {
+			in.Selections[i].Epoch = s
+		}
+	}
+}
+
+// VO2Sources lists the VO2 sources of the last year, one per stable source,
+// each named by its latest full epoch (what a selection stores).
+func (s *Store) VO2Sources(ctx context.Context, p syncing.Principal) ([]ve.Source, error) {
+	if !syncing.ValidID(p.DatasetID) {
+		return nil, syncing.Fail(409, "dataset_unavailable")
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT event_end,metadata->'RAI:vo2maxFactV1' FROM health_samples
+ WHERE dataset_id=$1 AND sample_type='HKQuantityTypeIdentifierVO2Max' AND event_end>now()-interval '365 days'
+ AND metadata ? 'RAI:vo2maxFactV1' ORDER BY event_end DESC LIMIT 2000`, p.DatasetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byStable := map[string]*ve.Source{}
+	order := []string{}
+	for rows.Next() {
+		var end time.Time
+		var raw []byte
+		if err := rows.Scan(&end, &raw); err != nil {
+			return nil, err
+		}
+		var c struct {
+			Provenance syncing.VO2Provenance `json:"provenance"`
+			Epoch      string                `json:"sourceEpochID"`
+		}
+		if json.Unmarshal(raw, &c) != nil || c.Epoch == "" {
+			continue
+		}
+		key := c.Provenance.StableEpochID()
+		if x, ok := byStable[key]; ok {
+			x.Samples++
+			continue
+		}
+		x := &ve.Source{SourceEpoch: c.Epoch, Bundle: c.Provenance.SourceRevision.Source.BundleIdentifier, LatestDate: end.UTC().Format(time.DateOnly), Samples: 1}
+		if c.Provenance.SourceRevision.ProductType != nil {
+			x.ProductType = *c.Provenance.SourceRevision.ProductType
+		}
+		byStable[key] = x
+		order = append(order, key)
+	}
+	out := []ve.Source{}
+	for _, k := range order {
+		out = append(out, *byStable[k])
+	}
+	return out, rows.Err()
 }

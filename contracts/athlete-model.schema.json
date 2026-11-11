@@ -516,6 +516,14 @@
         },
         "sleep": {
           "$ref": "#/$defs/RecoveryComponentState"
+        },
+        "deviationLevel": {
+          "enum": [
+            "normal",
+            "mild_deviation",
+            "marked_deviation"
+          ],
+          "description": "Three-step presentation of the adverse deviation from the personal baseline; omitted without a score."
         }
       },
       "description": "Physiological recovery pressure proxy from HRV SDNN/RHR/sleep relative to personal baseline. Component states only, no raw values or z-scores."
