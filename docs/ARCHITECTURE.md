@@ -897,3 +897,28 @@ scripts/local/test.sh gate
 `collecting`/`insufficient_data` 是预期状态，不代表模型无效也不代表已验证。
 以上结果只证明工程正确性与合成场景行为，不构成医学准确性或优于佳明／高驰的证据。
 临时测试库、集群与基线 worktree 已清理。
+
+### 部署记录 — rai-coach-20261108（2026-11-11，镜像 6badbc3）
+
+用户要求“提交所有改动到远程仓库，不要进行任何测试，然后部署到远程服务器，激活所有功能”。按此执行，未运行任何
+Go/Swift/集成测试。
+
+- 源码与提交：工作树 23 项改动（运动详情 `distanceDistribution`（`distance-zones/v1`）、iOS 统计 Tab 与极简界面、
+  合同与文档）提交为 `6badbc3` 并推送 `28a4a8d..6badbc3`。
+- 构建：Go 1.27.3 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`，`-trimpath -buildvcs=false -ldflags='-s -w -X main.sourceCommit=6badbc3'`，
+  二进制 SHA-256 `acceffa478f8a1ea94004db72d2e25e190c8983764daa6262dd5e225e48d786f`（16,629,920 B），
+  上传后服务器 `sha256sum` 一致。镜像 `rai-coach:20261111-6badbc3`（scratch 构建，ID `6bbbdf17d304`）。
+- 备份：部署前 `pg_dump -Fc` 到 `/opt/rai-coach-20261108/backup-before-6badbc3-20261111-220808.dump`（85,102,248 B，
+  640 个 TOC 项，容器内 `pg_restore -l` 校验通过）；保留 `rai.bak-2cbc7f8` 与 `environment.bak-2cbc7f8`。
+- 迁移：无新 migration（仍到 `00056_model_optimization_v3.sql`，`RequiredSchemaVersion=56`）；`admin migrate` 无变更，
+  `migrate-status` 56 份全部 `applied`。
+- 运行态：`environment` 的 `RAI_RELEASE_IMAGE` 改为 `rai-coach:20261111-6badbc3`，`./dc up -d --wait api worker` 后
+  api/worker 均 healthy；容器内 `probe --ready`、`worker-ready` 退出码 0；`rai version` 报告 `schema=56`、
+  `source_commit=6badbc3`、`openapi=1.13.3`、`sync_protocol=3`、`model_stack=rai-v2-4b9264855a47255d`。
+  公网 `GET https://www.tpandmr.xyz/ready` 200、`/health` 200；重启窗口内 API/Worker 日志无 WARN/ERROR。
+- 功能激活：本次未改动 `modelmanifest`，stack 与 manifest 哈希不变（`rai-v2-4b9264855a47255d`），因此无需新栈切换；
+  `analysis model-stack health --channel active` 显示 `channelStackIsCurrentCode=true`，九个 family（load_focus、load_state、
+  performance_state_v2、physiological_recovery、running_ability_estimate、session_recovery、training_readiness、
+  vo2max_external_projection、vo2max_submax）各有当日发布。`distanceDistribution` 为读取侧投影，随镜像自动生效。
+- 未验证：按用户要求未运行任何测试；未用真实 iPhone 验证统计页、分区距离或详情渲染；未重建或安装 iOS 包（由用户自行安装）；
+  未读取或改动真实数据。部署与激活不代表真机、模型或产品验收。
