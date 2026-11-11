@@ -1,0 +1,53 @@
+{
+  "manifest": "e58051bacdee98c98c88a013db1a94ed132338e1e93fb1fd9a5d53e80da82d4f",
+  "artifacts": [
+    {
+      "metric": "trainingLoad",
+      "schema": "rai.load_state/2",
+      "algorithm": "rai.load_state.exp_finite",
+      "version": "v2",
+      "hash": "6ab058388860816ce1820d551afdb11c53c6f266f0bce2f48285e52ec6a26e68",
+      "payload": "{\"schemaVersion\":\"rai.load_state/2\",\"datasetID\":\"00000000-0000-4000-8000-000000000001\",\"generation\":1,\"model\":\"rai.load_state.exp_finite\",\"modelVersion\":\"v2\",\"configHash\":\"6301b03c8471ab57b2d8cae484e334c1ecd11b8057c70f1570fb3908570a057c\",\"scope\":\"\",\"unit\":\"RAI_AU\",\"trendUnit\":\"\",\"days\":[{\"day\":\"2026-11-11\",\"recordedLoad\":null,\"knownRecordedLoad\":0,\"unknownWorkouts\":0,\"recordedWorkouts\":0,\"quality\":\"complete\",\"acute\":{\"value\":12,\"knownContribution\":0,\"unknownWeightMass\":0},\"chronic\":{\"value\":null,\"knownContribution\":0,\"unknownWeightMass\":0},\"balance\":null,\"ratio\":null,\"trend7\":null,\"historyDaysObserved\":0,\"initialState\":\"\"}]}"
+    },
+    {
+      "metric": "runningAbility",
+      "schema": "rai.performance/2",
+      "algorithm": "rai.performance_curve",
+      "version": "v2",
+      "hash": "82a72663be0b0cc86e59081b3eaa07e50261ae889d81f62de5aff9e47c114fa1",
+      "payload": "{\"schemaVersion\":\"rai.performance/2\",\"datasetID\":\"00000000-0000-4000-8000-000000000001\",\"generation\":1,\"model\":\"rai.running_ability\",\"modelVersion\":\"v2\",\"configHash\":\"214122831eb26e099e0e365f6378722a68ea678d4c16e6384f6966f659fd30e0\",\"asOfUs\":1794398400000000,\"view\":\"\",\"evidenceMode\":\"\",\"maximalSupported\":\"\",\"status\":\"insufficient_data\",\"freshness\":\"\",\"stability\":\"\",\"confidence\":0,\"support\":{\"independentWorkoutCount\":0,\"shortGroupWorkouts\":0,\"longGroupWorkouts\":0,\"durationCoverage\":null,\"sourceEpochs\":null,\"historySpanDays\":0,\"nEff\":0,\"qualitySupport\":0,\"latestEvidenceUs\":0,\"longestDurationSeconds\":0},\"anchorDay\":\"\",\"targets\":null,\"validTargetDays\":0,\"curve\":null,\"ability\":null,\"evidence\":null,\"reasonCodes\":null,\"trend\":null}"
+    },
+    {
+      "metric": "physiologicalRecovery",
+      "schema": "rai.recovery.physiological/2",
+      "algorithm": "rai.recovery.physiological",
+      "version": "v2",
+      "hash": "03b5b749075991dd9e6f35b8a723e91c35ac7c337965df9b7a1df3eab03db261",
+      "payload": "{\"sdnnFreshness\":{\"lastEventUs\":null,\"ageUs\":null,\"limitUs\":0,\"state\":\"\"},\"rhrFreshness\":{\"lastEventUs\":null,\"ageUs\":null,\"limitUs\":0,\"state\":\"\"},\"sleepFreshness\":{\"lastEventUs\":null,\"ageUs\":null,\"limitUs\":0,\"state\":\"\"},\"schemaVersion\":\"rai.recovery.physiological/2\",\"datasetID\":\"00000000-0000-4000-8000-000000000001\",\"datasetGeneration\":\"\",\"collectorEpoch\":\"\",\"assignmentID\":\"\",\"date\":\"\",\"timezone\":\"UTC\",\"calendarHash\":\"\",\"view\":\"\",\"status\":\"collecting\",\"quality\":\"insufficient\",\"baselineState\":\"\",\"score\":null,\"autonomicOnly\":null,\"sdnnDeviation\":null,\"rhrDeviation\":null,\"sleepDeviation\":null,\"sdnnContribution\":null,\"rhrContribution\":null,\"sleepContribution\":null,\"autonomicBurden\":null,\"sleepBurden\":null,\"totalBurden\":null,\"componentCoverage\":0,\"confidence\":0,\"confidenceMeaning\":\"\",\"modelVersion\":\"rai.recovery.physiological/v2\",\"configHash\":\"526d23a380401252394aed1cd00613c27075ee8305ef7c13c474b2caf438dec6\",\"generation\":1,\"asOf\":1794398400000000,\"capturedAt\":0,\"knownThroughRevision\":0,\"factRefs\":null,\"tombstoneRefs\":null,\"coverage\":null,\"inputHash\":\"\",\"reasonCodes\":null,\"sleepRegularity\":{\"midpointHours\":0,\"baselineMidpointHours\":0,\"deviationHours\":0,\"matureNights\":0,\"recentNights\":0,\"quality\":\"\",\"ambiguous\":false,\"reasonCodes\":null},\"sleepTarget\":{\"hours\":0,\"source\":\"\",\"relativeToHabit\":false,\"targetUnavailable\":false,\"reasonCodes\":null},\"persistentDeviationComponents\":null,\"contextShift\":false}"
+    },
+    {
+      "metric": "trainingReadiness",
+      "schema": "rai.readiness.training/3",
+      "algorithm": "rai.readiness.training",
+      "version": "v3",
+      "hash": "cac31d3da464f22dabe0aa0fbb702e8160a84d3a9ffbf49322cde46493548605",
+      "payload": "{\"date\":\"\",\"schemaVersion\":\"rai.readiness.training/3\",\"datasetID\":\"00000000-0000-4000-8000-000000000001\",\"generation\":1,\"modelVersion\":\"rai.readiness.training/v3\",\"configHash\":\"c861f1938f5854773d8fd862281ef70f5d56fae54ef91ea39b07b23d9368e8fa\",\"config\":{\"timezone\":\"UTC\",\"policy\":\"recorded-running;complete-day-median;finite-tail-certified;allowlist-load-v2-recovery-v2/v3\",\"tauLoadUs\":129600000000,\"lookbackUs\":15552000000000,\"baselineDays\":42,\"minimumTrainingDays\":5,\"minimumSpanDays\":14,\"baselineFreshDays\":14,\"baselineFloorAU\":1,\"confidenceCap\":0.55,\"maxWorkoutAU\":10000},\"inputHash\":\"\",\"calendarHash\":\"\",\"asOf\":1794398400000000,\"evaluationAt\":0,\"capturedAt\":0,\"validBefore\":1794441600000000,\"status\":\"available\",\"quality\":\"complete\",\"score\":80,\"recoveryScore\":80,\"recoveryContribution\":null,\"recoveryInput\":null,\"recentLoadBurden\":null,\"loadBaseline\":{\"value\":12,\"median\":null,\"trainingDays\":0,\"knownZeroDays\":0,\"unknownDays\":0,\"spanDays\":0,\"latestAgeDays\":0,\"floorApplied\":false,\"state\":\"\"},\"loadPenalty\":null,\"burdenInTypicalDays\":null,\"confidence\":0,\"loadSupportConfidence\":0,\"confidenceMeaning\":\"\",\"workoutSync\":{\"committedWorkouts\":0,\"lastCommitAtUs\":0},\"knownLoads\":0,\"unknownLoads\":0,\"loadTerms\":null,\"inputRefs\":null,\"omittedTailUpperBoundAU\":0,\"maxScoreTailError\":0,\"reasonCodes\":null,\"candidateOnly\":false,\"physiologicallyValidated\":false,\"scope\":\"\"}"
+    },
+    {
+      "metric": "raiVO2Max",
+      "schema": "rai.vo2max.submax/1",
+      "algorithm": "rai.vo2max.submax",
+      "version": "v1",
+      "hash": "bce2f37cd165bc3023a53fd3c5696e2fd48a594837dc234bd8cd0e75bf2c8e6b",
+      "payload": "{\"schemaVersion\":\"rai.vo2max.submax/1\",\"model\":\"rai.vo2max.submax\",\"modelVersion\":\"v1\",\"datasetID\":\"00000000-0000-4000-8000-000000000001\",\"generation\":1,\"asOfUs\":1794398400000000,\"computedAtUs\":0,\"evidenceAtUs\":null,\"referenceHash\":\"\",\"sourceEpoch\":\"\",\"status\":\"collecting\",\"quality\":\"\",\"freshness\":\"\",\"experimental\":true,\"unit\":\"mL/kg/min\",\"value\":null,\"targetLog\":null,\"sensitivity\":{\"range\":null,\"cornerCount\":0,\"relativeWidth\":null,\"unbounded\":false,\"reasonCodes\":null},\"leaveOneOut\":{\"range\":null,\"folds\":0,\"supportSufficient\":false,\"reasonCodes\":null},\"confidence\":0,\"confidenceMeaning\":\"\",\"effectiveEvidence\":0,\"qualityAggregate\":0,\"support\":{\"hrCoverage\":0,\"speedCoverage\":0,\"commonSupportSeconds\":0,\"flatGradeCoverage\":0,\"pauseFraction\":0,\"distanceError\":0,\"environmentKnown\":false},\"independentWorkouts\":0,\"stability\":\"\",\"spanDays\":0,\"daysSinceLatestEvidence\":0,\"evidence\":null,\"reasonCodes\":null,\"candidateOnly\":false,\"physiologicallyValidated\":false}"
+    },
+    {
+      "metric": "externalVO2Max",
+      "schema": "rai.vo2max.external_projection/1",
+      "algorithm": "rai.vo2max.external_projection",
+      "version": "v1",
+      "hash": "c97ee8cfc34191b79e6faad197b172a45db79b9b461f6c345106bbcdc6572de5",
+      "payload": "{\"modelIdentity\":\"\",\"datasetCommitRevision\":0,\"sourceLineage\":{\"originRule\":\"\",\"sourceEpoch\":null,\"selectionInputID\":null},\"evidence\":{\"factCount\":0,\"tombstoneCount\":0,\"selectionCount\":0,\"laboratory\":\"\"},\"schemaVersion\":\"rai.vo2max.external_projection/1\",\"datasetID\":\"00000000-0000-4000-8000-000000000001\",\"datasetGeneration\":\"\",\"collectorEpoch\":\"\",\"value\":null,\"unit\":\"mL/kg/min\",\"method\":\"\",\"provider\":\"\",\"originClass\":null,\"status\":\"no_sample\",\"confidence\":null,\"quality\":\"\",\"parameterVersion\":null,\"featureVersion\":null,\"modelVersion\":\"rai.vo2max.external_projection/v1\",\"inputSchemaVersion\":\"\",\"configHash\":\"57d3669445dce4037c06b5ea6af5ec18862c5e559cfcf49d61d986dbf1016830\",\"inputGeneration\":1,\"asOf\":1794398400000000,\"calculatedAt\":0,\"evaluationAt\":0,\"knownThroughRevision\":0,\"view\":\"\",\"sourceEpoch\":null,\"sourceSelectionInputID\":null,\"assignmentID\":\"\",\"coverage\":{\"streamID\":\"\",\"queryFingerprint\":\"\",\"sequence\":0,\"bootstrapStartUs\":null,\"queryCompletedAtUs\":null,\"complete\":false,\"hash\":\"\"},\"selectedSample\":null,\"factRefs\":null,\"tombstoneRefs\":null,\"selectionRefs\":null,\"reasonCodes\":null,\"excluded\":null}"
+    }
+  ]
+}

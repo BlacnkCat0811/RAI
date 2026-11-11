@@ -29,6 +29,11 @@ func TestRAIVO2ProjectionIsIndependentAndExperimental(t *testing.T) {
 
 func TestProjectedResponseStateIsTruthful(t *testing.T) {
 	s := NewSnapshotV2(1, 1, "UTC", "2026-01-01", Assignment{Channel: "active", StackID: "s", Version: 1})
+	for _, e := range []Envelope{s.TrainingLoad.Envelope, s.RunningAbility.Envelope, s.ExternalVO2Max.Envelope, s.PhysiologicalRecovery.Envelope, s.TrainingReadiness.Envelope, s.RAIVO2Max.Envelope} {
+		if e.ModelStatus != "pending" || len(e.ProductReasonCodes) != 1 || e.ProductReasonCodes[0] != "model_result_pending" || e.MappingVersion != MappingVersion2 {
+			t.Fatal("active model without publications must not claim it is unactivated", e)
+		}
+	}
 	SetProjectedResponseState(&s)
 	if s.ResponseState != "unavailable_response" {
 		t.Fatalf("empty=%s", s.ResponseState)

@@ -9,6 +9,7 @@ import (
 
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/modelmanifest"
+	"rai/server/internal/modelrelease"
 	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
@@ -31,6 +32,7 @@ type publishedModelArtifact struct {
 	Generation  int64
 	PublishedAt time.Time
 	FinishedAt  *time.Time
+	ManifestSHA string
 }
 
 func stampArtifact[T any](m *am.Metric[T], a publishedModelArtifact) {
@@ -75,40 +77,42 @@ func (s *Store) ReadAthleteProduct(ctx context.Context, p syncing.Principal, at 
 // readPublishedModelStack projects the newest clean day-stack publication of
 // every product slot. The caller owns the transaction and assignment channel.
 func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, stack string, out am.AthleteModelSnapshot, c modelReadContext, at time.Time) (am.AthleteModelSnapshot, error) {
+	release, supported := modelrelease.Lookup(stack, c.configHash, c.timezone)
+	if !supported {
+		am.SetMissingMetricsV2(&out, "unsupported")
+		am.SetProjectedResponseState(&out)
+		return out, nil
+	}
+	var assignedManifest string
+	if json.Unmarshal(c.extensions[modelmanifest.Schema], &assignedManifest) != nil || assignedManifest != c.configHash {
+		return out, ErrModelProjection
+	}
 	loc, err := time.LoadLocation(c.timezone)
 	if err != nil {
 		return am.AthleteModelSnapshot{}, ErrModelProjection
 	}
 	day := at.In(loc).Format("2006-01-02")
-	scopes := map[string]string{
-		"loadState": tl.ScopeStateV2For(stack),
-		"ability":   pf.ScopeFor(stack),
-		"vo2":       ve.ScopeFor(stack),
-		"raiVO2":    vo2.ScopeFor(stack),
-		"recovery":  rc.ScopeV2For(stack, day),
-		"readiness": rd.ScopeV3For(stack),
+	if stack != modelmanifest.StackID() {
+		// Only the current release can be computed by this worker. Retained
+		// clean artifacts remain readable; absent ones require an upgrade.
+		am.SetMissingMetricsV2(&out, "model_update_required")
 	}
 	// One bounded batch read for all six slots keeps the product request at a
 	// fixed SELECT count and avoids N+1 artifact lookups.
 	artifactKeys := map[string]string{"loadState": "load_state", "ability": pf.ArtifactKeyV2, "vo2": ve.ArtifactKey, "raiVO2": vo2.ArtifactKey, "recovery": "physiological_recovery", "readiness": "training_readiness"}
-	byKey := make(map[string]string, len(scopes))
-	keys := make([]string, 0, len(scopes))
-	for name := range scopes {
-		key := artifactKeys[name]
+	byKey := make(map[string]string, len(artifactKeys))
+	keys := make([]string, 0, len(artifactKeys))
+	for name, key := range artifactKeys {
 		keys = append(keys, key)
 		byKey[key] = name
 	}
 	sort.Strings(keys)
 	scopeNames := make([]string, 0, len(keys))
-	for _, key := range keys {
-		scope := scopes[byKey[key]]
-		if stack == modelmanifest.StackID() {
-			scope = modelmanifest.DayScope(stack, day)
-		}
-		scopeNames = append(scopeNames, scope)
+	for range keys {
+		scopeNames = append(scopeNames, modelmanifest.DayScope(stack, day))
 	}
 	rows := map[string]publishedModelArtifact{}
-	query := `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at
+	query := `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at,r.lineage->>'manifestSHA256'
 FROM unnest($2::text[], $4::text[]) expected(scope, key)
 JOIN analysis_publications p ON p.scope_key=expected.scope
 JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
@@ -121,7 +125,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 		// The product view deliberately hides candidate/previous channels. An
 		// administrative preview reads the same clean publications from the base
 		// tables with an explicit channel binding.
-		query = `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at
+		query = `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at,r.lineage->>'manifestSHA256'
 FROM unnest($2::text[], $4::text[]) expected(scope, key)
 JOIN analysis_publications p ON p.scope_key=expected.scope AND p.dataset_id=$1
 JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
@@ -139,7 +143,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 	for qrows.Next() {
 		var key string
 		var a publishedModelArtifact
-		if err = qrows.Scan(&key, &a.Payload, &a.ContentHash, &a.Schema, &a.Key, &a.Algorithm, &a.Version, &a.RunID, &a.Generation, &a.PublishedAt, &a.FinishedAt); err != nil {
+		if err = qrows.Scan(&key, &a.Payload, &a.ContentHash, &a.Schema, &a.Key, &a.Algorithm, &a.Version, &a.RunID, &a.Generation, &a.PublishedAt, &a.FinishedAt, &a.ManifestSHA); err != nil {
 			qrows.Close()
 			return am.AthleteModelSnapshot{}, err
 		}
@@ -152,9 +156,20 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 		return am.AthleteModelSnapshot{}, err
 	}
 	qrows.Close()
+	if len(rows) == 0 && stack == modelmanifest.StackID() {
+		var failed bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j JOIN dirty_scopes d USING(dataset_id,scope_key)
+ WHERE j.dataset_id=$1 AND j.scope_key=$2 AND j.target_generation=d.generation
+ AND j.kind='analysis.model_stack_v2' AND j.state='failed')`, dataset, modelmanifest.DayScope(stack, day)).Scan(&failed); err != nil {
+			return out, err
+		}
+		if failed {
+			am.SetMissingMetricsV2(&out, "technical_failure")
+		}
+	}
 	if a, ok := rows["loadState"]; ok {
 		var r tl.StateResult
-		if !validHistoryArtifact("trainingLoad", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifactForRelease("trainingLoad", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
 			out.TrainingLoad = am.Missing[am.TrainingLoadValue]("trainingLoad", at.UnixMicro(), "technical_failure")
 		} else {
 			var daily *tl.DailyState
@@ -174,7 +189,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 	}
 	if a, ok := rows["ability"]; ok {
 		var r pf.Result
-		if !validHistoryArtifact("runningAbility", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifactForRelease("runningAbility", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
 			out.RunningAbility = am.Missing[am.RunningAbilityValue]("runningAbility", at.UnixMicro(), "technical_failure")
 		} else {
 			v := pf.Freshen(r, at.UnixMicro())
@@ -184,7 +199,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 	}
 	if a, ok := rows["vo2"]; ok {
 		var r ve.Result
-		if !validHistoryArtifact("externalVO2Max", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifactForRelease("externalVO2Max", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
 			out.ExternalVO2Max = am.Missing[am.ExternalVO2Value]("externalVO2Max", at.UnixMicro(), "technical_failure")
 		} else {
 			v, e := ve.Freshen(r, at.UnixMicro())
@@ -198,7 +213,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 	}
 	if a, ok := rows["raiVO2"]; ok {
 		var r vo2.Result
-		if !validHistoryArtifact("raiVO2Max", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifactForRelease("raiVO2Max", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
 			m := am.Missing[am.RAIVO2Value]("raiVO2Max", at.UnixMicro(), "technical_failure")
 			out.RAIVO2Max = &m
 		} else {
@@ -209,7 +224,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 	}
 	if a, ok := rows["recovery"]; ok {
 		var r rc.V2Result
-		if !validHistoryArtifact("physiologicalRecovery", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifactForRelease("physiologicalRecovery", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
 			out.PhysiologicalRecovery = am.Missing[am.RecoveryValue]("physiologicalRecovery", at.UnixMicro(), "technical_failure")
 		} else {
 			v, e := rc.Freshen(r.Result, at.UnixMicro())
@@ -223,10 +238,10 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 	}
 	if a, ok := rows["readiness"]; ok {
 		var r rd.Result
-		if !validHistoryArtifact("trainingReadiness", dataset, c.timezone, a) || json.Unmarshal(a.Payload, &r) != nil {
+		if !validHistoryArtifactForRelease("trainingReadiness", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
 			out.TrainingReadiness = am.Missing[am.ReadinessValue]("trainingReadiness", at.UnixMicro(), "technical_failure")
 		} else {
-			v, e := rd.FreshenV3(r, at.UnixMicro())
+			v, e := rd.FreshenV3ForConfig(r, at.UnixMicro(), release.ReadinessConfig)
 			if e != nil {
 				out.TrainingReadiness = am.Missing[am.ReadinessValue]("trainingReadiness", at.UnixMicro(), "technical_failure")
 			} else {
@@ -263,13 +278,15 @@ func (s *Store) ReadAthleteHistory(ctx context.Context, p syncing.Principal, met
 		return page, am.ErrHistoricalInputUnavailable
 	}
 	page.Assignment = c.assignment
-	if stack == modelmanifest.StackID() {
-		manifest, err := modelmanifest.CurrentHash()
-		if err != nil || c.configHash != manifest {
-			return page, ErrModelProjection
-		}
-		page.ManifestSHA = manifest
+	release, supported := modelrelease.Lookup(stack, c.configHash, c.timezone)
+	if !supported {
+		return page, am.ErrUnsupportedRelease
 	}
+	var assignedManifest string
+	if json.Unmarshal(c.extensions[modelmanifest.Schema], &assignedManifest) != nil || assignedManifest != c.configHash {
+		return page, ErrModelProjection
+	}
+	page.ManifestSHA = c.configHash
 	if to == "" {
 		to = snapshot.CalendarDate
 	}
@@ -295,34 +312,28 @@ func (s *Store) ReadAthleteHistory(ctx context.Context, p syncing.Principal, met
 		}
 		cursorDate = cur.Date
 	}
-	var scopes []string
 	var key string
 	switch metric {
 	case "trainingLoad":
-		scopes, key = []string{tl.ScopeStateV2For(stack)}, "load_state"
+		key = "load_state"
 	case "runningAbility":
-		scopes, key = []string{pf.ScopeFor(stack)}, pf.ArtifactKeyV2
+		key = pf.ArtifactKeyV2
 	case "physiologicalRecovery":
 		key = "physiological_recovery"
-		for day := firstDay; !day.After(lastDay); day = day.AddDate(0, 0, 1) {
-			scopes = append(scopes, rc.ScopeV2For(stack, day.Format(time.DateOnly)))
-		}
 	case "trainingReadiness":
-		scopes, key = []string{rd.ScopeV3For(stack)}, "training_readiness"
+		key = "training_readiness"
 	case "externalVO2Max":
-		scopes, key = []string{ve.ScopeFor(stack)}, ve.ArtifactKey
+		key = ve.ArtifactKey
 	case "raiVO2Max":
-		scopes, key = []string{vo2.ScopeFor(stack)}, vo2.ArtifactKey
+		key = vo2.ArtifactKey
 	default:
 		return page, ErrModelProjection
 	}
-	if stack == modelmanifest.StackID() {
-		scopes = scopes[:0]
-		for date := firstDay; !date.After(lastDay); date = date.AddDate(0, 0, 1) {
-			scopes = append(scopes, modelmanifest.DayScope(stack, date.Format(time.DateOnly)))
-		}
+	var scopes []string
+	for date := firstDay; !date.After(lastDay); date = date.AddDate(0, 0, 1) {
+		scopes = append(scopes, modelmanifest.DayScope(stack, date.Format(time.DateOnly)))
 	}
-	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (p.day) p.day::text,p.generation,encode(a.content_sha256,'hex'),a.payload,a.schema_version,r.algorithm_name,r.algorithm_version,p.published_at
+	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (p.day) p.day::text,p.generation,encode(a.content_sha256,'hex'),a.payload,a.schema_version,r.algorithm_name,r.algorithm_version,p.published_at,r.lineage->>'manifestSHA256'
 FROM analysis_publications p
 JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
 JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=$7
@@ -337,7 +348,7 @@ ORDER BY p.day DESC,p.published_at DESC,p.published_run_id LIMIT $5`, p.DatasetI
 	for rows.Next() {
 		var day string
 		var a publishedModelArtifact
-		if err = rows.Scan(&day, &a.Generation, &a.ContentHash, &a.Payload, &a.Schema, &a.Algorithm, &a.Version, &a.PublishedAt); err != nil {
+		if err = rows.Scan(&day, &a.Generation, &a.ContentHash, &a.Payload, &a.Schema, &a.Algorithm, &a.Version, &a.PublishedAt, &a.ManifestSHA); err != nil {
 			return page, err
 		}
 		if len(page.Points) == limit {
@@ -346,7 +357,7 @@ ORDER BY p.day DESC,p.published_at DESC,p.published_run_id LIMIT $5`, p.DatasetI
 			page.NextCursor = &next
 			break
 		}
-		if !validHistoryArtifact(metric, p.DatasetID, c.timezone, a) {
+		if !validHistoryArtifactForRelease(metric, p.DatasetID, c.timezone, a, release) {
 			return page, ErrModelProjection
 		}
 		page.Points = append(page.Points, historyPoint(metric, day, a.Algorithm, a.Version, a.Schema, a.PublishedAt, a.Payload))
@@ -359,28 +370,37 @@ ORDER BY p.day DESC,p.published_at DESC,p.published_run_id LIMIT $5`, p.DatasetI
 	return page, tx.Commit(ctx)
 }
 
-func validHistoryArtifact(metric, dataset, tz string, a publishedModelArtifact) bool {
+func validHistoryArtifactForStack(metric, dataset, tz, stack string, a publishedModelArtifact) bool {
+	release, ok := modelrelease.Lookup(stack, a.ManifestSHA, tz)
+	return ok && validHistoryArtifactForRelease(metric, dataset, tz, a, release)
+}
+
+func validHistoryArtifactForRelease(metric, dataset, tz string, a publishedModelArtifact, release modelrelease.Release) bool {
+	manifest, err := modelmanifest.Hash(release.Manifest)
+	if err != nil || a.ManifestSHA != manifest {
+		return false
+	}
 	switch metric {
 	case "trainingLoad":
 		var r tl.StateResult
 		return a.Schema == tl.StateSchemaV2 && a.Algorithm == tl.StateAlgorithmV2 && a.Version == tl.VersionV2 &&
 			json.Unmarshal(a.Payload, &r) == nil && r.DatasetID == dataset && r.Generation == a.Generation &&
-			r.Schema == a.Schema && r.ConfigHash == tl.ConfigHashV2() && tl.Hash(r) == a.ContentHash
+			r.Schema == a.Schema && r.ConfigHash == release.LoadConfigHash && tl.Hash(r) == a.ContentHash
 	case "runningAbility":
 		var r pf.Result
 		return a.Schema == pf.SchemaV2 && a.Algorithm == pf.CurveModel && a.Version == pf.VersionV2 &&
 			json.Unmarshal(a.Payload, &r) == nil && r.DatasetID == dataset && r.Generation == a.Generation &&
-			r.Schema == a.Schema && r.ConfigHash == pf.ConfigHashV2() && pf.Hash(r) == a.ContentHash
+			r.Schema == a.Schema && r.ConfigHash == release.AbilityConfigHash && pf.Hash(r) == a.ContentHash
 	case "physiologicalRecovery":
 		var r rc.V2Result
 		return a.Schema == rc.SchemaV2 && a.Algorithm == rc.Algorithm && a.Version == "v2" &&
 			json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation &&
-			r.Schema == a.Schema && r.ConfigHash == rc.DefaultV2Config(tz).Hash() && rc.Hash(r) == a.ContentHash
+			r.Schema == a.Schema && r.Timezone == tz && r.ConfigHash == release.RecoveryConfig.Hash() && rc.Hash(r) == a.ContentHash
 	case "trainingReadiness":
 		var r rd.Result
 		return a.Schema == rd.SchemaV3 && a.Algorithm == rd.Algorithm && a.Version == "v3" &&
 			json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation &&
-			r.Schema == a.Schema && r.ConfigHash == rd.DefaultV3Config(tz).Hash() && rd.Hash(r) == a.ContentHash
+			r.Schema == a.Schema && r.Config.Timezone == tz && r.Config == release.ReadinessConfig && r.ConfigHash == release.ReadinessConfig.Hash() && rd.Hash(r) == a.ContentHash
 	case "externalVO2Max":
 		var r ve.Result
 		return a.Schema == ve.Schema && a.Algorithm == ve.Algorithm && a.Version == "v1" &&

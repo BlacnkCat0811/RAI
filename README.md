@@ -25,6 +25,15 @@ scripts/local/test.sh integration    # 隔离 PG18 集成测试（改 SQL/事务
 scripts/local/test.sh gate           # 完成门禁：race + vet + 边界 + admin 迁移
 ```
 
+模型发布兼容性回归（全部使用合成数据，在本机隔离 PostgreSQL 18 执行）：
+
+```bash
+scripts/local/test.sh integration -run '^TestModel(Release|StackDay)' ./integration
+scripts/local/test.sh swift --filter 'AthleteRefreshTests|AthleteModel'
+```
+
+上述定向检查不替代 `gate`，也不代表已完成真机或线上验收。
+
 本机起一个后端用于手机/模拟器联调：`scripts/local/stack.sh`（见该脚本头部说明）。
 
 ## 把手机连上服务器
@@ -42,6 +51,11 @@ python3 scripts/connect-link.py /绝对路径/凭证文件.json
 「同步状态」页点「补传历史记录」。
 
 ## 部署
+
+更新后端镜像不会自动激活新模型栈。模型升级需先准备并验证候选栈，再按既有授权流程切换；支持的旧栈结果按冻结发布版本读取。
+版本范围、激活与回滚约束见 [模型发布兼容性](docs/ARCHITECTURE.md#模型发布兼容性)。
+“结果尚未就绪”“模型需要更新”“模型版本需升级”均有各自的判定条件，不能据此判断模型未激活；详见
+[运动模型状态](docs/API.md#运动模型状态)。
 
 发布模板在 `deploy/release/`（compose：postgres + api + worker + admin），本机/NAS 自部署说明见
 `deploy/local/README.md`。`rai` 二进制模式：`api` / `worker` / `migrate` / `init` / `admin` / `ops`。

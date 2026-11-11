@@ -10,6 +10,7 @@ import (
 
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/modelmanifest"
+	"rai/server/internal/modelrelease"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -321,6 +322,10 @@ func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manif
 	if err := tx.QueryRow(ctx, `SELECT (clock_timestamp() AT TIME ZONE timezone)::date::text,timezone FROM datasets WHERE id=$1`, dataset).Scan(&day, &tz); err != nil {
 		return err
 	}
+	release, supported := modelrelease.Lookup(stack, manifest, tz)
+	if !supported {
+		return am.ErrGateClosed
+	}
 	rows, err := tx.Query(ctx, `SELECT a.artifact_key,a.schema_version,encode(a.content_sha256,'hex'),a.payload,r.algorithm_name,r.algorithm_version,r.target_generation,p.published_at
  FROM analysis_model_channels m
  JOIN dirty_scopes d ON d.dataset_id=m.dataset_id AND d.scope_key=$3 AND d.generation=d.clean_generation
@@ -342,7 +347,8 @@ func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manif
 			return err
 		}
 		metric := modelProductMetric(a.Key)
-		if seen[a.Key] || !validHistoryArtifact(metric, dataset, tz, a) {
+		a.ManifestSHA = manifest // The SQL binds this to both assignment and run.
+		if seen[a.Key] || !validHistoryArtifactForRelease(metric, dataset, tz, a, release) {
 			return am.ErrGateClosed
 		}
 		seen[a.Key] = true

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"rai/server/internal/modelmanifest"
+	"rai/server/internal/modelrelease"
 	pf "rai/server/internal/performance"
 	"rai/server/internal/readiness"
 	"rai/server/internal/syncing"
@@ -85,18 +86,13 @@ func loadTrainingWorkouts(ctx context.Context, q trainingDB, dataset, zone, day,
 }
 func loadTrainingReadinessSignal(ctx context.Context, q trainingDB, dataset, stack, tz, day string, at time.Time) (training.Signal, bool, error) {
 	var sig training.Signal
-	var payload []byte
-	var hash, algorithm, version, runID string
-	var generation int64
-	scope, family := readiness.ScopeV3For(stack), "model_product_v2"
-	if stack == modelmanifest.StackID() {
-		scope, family = modelmanifest.DayScope(stack, day), "model_product_v2/training_readiness"
-	}
-	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text
+	var a publishedModelArtifact
+	scope, family := modelmanifest.DayScope(stack, day), "model_product_v2/training_readiness"
+	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text,r.lineage->>'manifestSHA256'
 FROM analysis_publications p JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.status='SUCCEEDED'
 JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key='training_readiness'
 JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
-WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$3 AND p.day=$4::date`, dataset, scope, family, day).Scan(&payload, &hash, &algorithm, &version, &generation, &runID)
+WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$3 AND p.day=$4::date`, dataset, scope, family, day).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID, &a.ManifestSHA)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return sig, false, nil
 	}
@@ -104,12 +100,20 @@ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$3 AND p.day=$4::da
 		return sig, false, err
 	}
 	var r readiness.Result
-	if json.Unmarshal(payload, &r) != nil || readiness.Hash(r) != hash || r.Dataset != dataset || r.Date != day || r.Schema != readiness.SchemaV3 || r.ModelVersion != readiness.ModelV3 || r.Generation != generation || r.ConfigHash != readiness.DefaultV3Config(tz).Hash() {
+	release, supported := modelrelease.Lookup(stack, a.ManifestSHA, tz)
+	if !supported {
+		return sig, false, nil
+	}
+	if !validHistoryArtifactForRelease("trainingReadiness", dataset, tz, a, release) || json.Unmarshal(a.Payload, &r) != nil || r.Date != day {
 		return sig, false, syncing.Fail(503, "training_readiness_invalid")
 	}
-	sig = training.Signal{RunID: runID, Generation: generation, Day: r.Date, Name: "readiness", Algorithm: algorithm, Version: version, Quality: r.Quality}
+	sig = training.Signal{RunID: a.RunID, Generation: a.Generation, Day: r.Date, Name: "readiness", Algorithm: a.Algorithm, Version: a.Version, Quality: r.Quality}
 	if r.Score != nil && r.Status == "available" && r.Quality == "complete" && r.AsOf <= at.UnixMicro() && at.UnixMicro() < r.ValidBefore {
-		sig.Value = r.Score
+		fresh, err := readiness.FreshenV3ForConfig(r, at.UnixMicro(), release.ReadinessConfig)
+		if err != nil {
+			return sig, false, syncing.Fail(503, "training_readiness_invalid")
+		}
+		sig.Value = fresh.Score
 	}
 	return sig, true, nil
 }
@@ -226,17 +230,14 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 }
 
 func loadTrainingLoadSignals(ctx context.Context, q trainingDB, dataset, stack, tz, day string) ([]training.Signal, error) {
-	scope := tl.ScopeStateV2For(stack)
-	if stack == modelmanifest.StackID() {
-		scope = modelmanifest.DayScope(stack, day)
-	}
+	scope := modelmanifest.DayScope(stack, day)
 	var a publishedModelArtifact
-	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text
+	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text,r.lineage->>'manifestSHA256'
  FROM analysis_publications p
  JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
  JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key='load_state'
  JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
- WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day=$3::date`, dataset, scope, day).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID)
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day=$3::date`, dataset, scope, day).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID, &a.ManifestSHA)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -244,7 +245,7 @@ func loadTrainingLoadSignals(ctx context.Context, q trainingDB, dataset, stack, 
 		return nil, err
 	}
 	var state tl.StateResult
-	if !validHistoryArtifact("trainingLoad", dataset, tz, a) || json.Unmarshal(a.Payload, &state) != nil {
+	if !validHistoryArtifactForStack("trainingLoad", dataset, tz, stack, a) || json.Unmarshal(a.Payload, &state) != nil {
 		return nil, syncing.Fail(503, "training_load_invalid")
 	}
 	for _, x := range state.Days {
@@ -263,21 +264,18 @@ func loadTrainingLoadSignals(ctx context.Context, q trainingDB, dataset, stack, 
 // day. A missing value simply leaves sessions without that target.
 func loadTrainingTargetSignals(ctx context.Context, q trainingDB, dataset, stack, tz, day string, at time.Time) ([]training.Signal, error) {
 	out := []training.Signal{}
-	scope := pf.ScopeFor(stack)
-	if stack == modelmanifest.StackID() {
-		scope = modelmanifest.DayScope(stack, day)
-	}
+	scope := modelmanifest.DayScope(stack, day)
 	var a publishedModelArtifact
-	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text
+	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text,r.lineage->>'manifestSHA256'
  FROM analysis_publications p
  JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
  JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=$4
  JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
- WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day<=$3::date ORDER BY p.day DESC LIMIT 1`, dataset, scope, day, pf.ArtifactKeyV2).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID)
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day<=$3::date ORDER BY p.day DESC LIMIT 1`, dataset, scope, day, pf.ArtifactKeyV2).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID, &a.ManifestSHA)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	if err == nil && validHistoryArtifact("runningAbility", dataset, tz, a) {
+	if err == nil && validHistoryArtifactForStack("runningAbility", dataset, tz, stack, a) {
 		var r pf.Result
 		if json.Unmarshal(a.Payload, &r) == nil {
 			if v := pf.Freshen(r, at.UnixMicro()); v.Ability != nil && v.Status == "available" {

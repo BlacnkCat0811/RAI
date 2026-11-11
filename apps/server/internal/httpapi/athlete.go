@@ -115,6 +115,9 @@ func (a *API) athleteHistory(w http.ResponseWriter, r *http.Request, p syncing.P
 		if err == am.ErrHistoricalInputUnavailable {
 			return syncing.Fail(409, "historical_input_unavailable")
 		}
+		if err == am.ErrUnsupportedRelease {
+			return syncing.Fail(409, "model_version_unsupported")
+		}
 		if err == am.ErrNotActivated {
 			return syncing.Fail(409, "not_product_activated")
 		}

@@ -60,7 +60,11 @@ func MapReasons(status string, reasons []string) []ProductReasonCode {
 			out = append(out, "not_enough_history")
 		case "insufficient_data":
 			out = append(out, "insufficient_evidence")
-		case "sync_incomplete", "load_sync_incomplete", "daily_coverage_incomplete", "candidate_superseded", "pending":
+		case "pending":
+			out = append(out, "model_result_pending")
+		case "model_update_required":
+			out = append(out, "model_update_required")
+		case "sync_incomplete", "load_sync_incomplete", "daily_coverage_incomplete", "candidate_superseded":
 			out = append(out, "data_sync_incomplete")
 		case "source_conflict", "hrv_source_conflict", "rhr_source_conflict", "sleep_source_conflict", "parameter_conflict", "load_parameter_conflict", "recovery_source_conflict":
 			out = append(out, "source_conflict")

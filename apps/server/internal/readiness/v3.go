@@ -295,7 +295,14 @@ func CalculateV3(input ReadinessSnapshot) (Result, error) {
 }
 
 func FreshenV3(anchor Result, at int64) (Result, error) {
-	if at < anchor.AsOf || anchor.ModelVersion != ModelV3 || anchor.Config != DefaultV3Config(anchor.Config.Timezone) {
+	return FreshenV3ForConfig(anchor, at, DefaultV3Config(anchor.Config.Timezone))
+}
+
+// FreshenV3ForConfig projects a validated publication using its frozen release
+// configuration. The caller supplies a trusted release descriptor; this does
+// not allow calculating new results with a retired policy.
+func FreshenV3ForConfig(anchor Result, at int64, expected Config) (Result, error) {
+	if at < anchor.AsOf || anchor.ModelVersion != ModelV3 || anchor.Config != expected {
 		return Result{}, ErrInvalid
 	}
 	r := anchor

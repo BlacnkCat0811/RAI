@@ -50,6 +50,13 @@ public struct ProductSnapshot: Sendable {
   public var workouts: [ProductWorkout] = []
   public var next = ""
   public var failures: [String: String] = [:]
+  public var athleteAbsenceText: String {
+    if failures["athlete"] == "not_product_activated" { return "尚未启用" }
+    return failures["athlete"] == nil ? "结果尚未就绪" : "模型结果读取失败，请稍后重试"
+  }
+  public var athleteRefreshFailed: Bool {
+    failures["athlete"].map { $0 != "not_product_activated" } ?? false
+  }
   public init() {}
   public var effective: JSON { plan["effective"] }
   public var sessions: [ProductSession] { effective["sessions"].list.map(ProductSession.init) }
@@ -82,7 +89,8 @@ extension ProductSnapshot {
       case "state": out.state = previous.state
       case "overview": out.overview = previous.overview
       case "history": out.history = previous.history
-      case "athlete": out.athlete = previous.athlete
+      case "athlete":
+        if failures[key] != "not_product_activated" { out.athlete = previous.athlete }
       case "workouts": out.workouts = previous.workouts; out.next = previous.next
       default: break
       }
@@ -138,7 +146,14 @@ public actor ProductAPI {
       switch results[key] {
       case .success(let value):
         switch key {
-        case "athlete": out.athlete = try? JSONDecoder().decode(AthleteModelSnapshot.self, from: value.data())
+        case "athlete":
+          do {
+            let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: value.data())
+            guard snapshot.supportsPresentation else { throw SyncFailure.invalid("unsupported_athlete_schema") }
+            out.athlete = snapshot
+          } catch {
+            out.failures[key] = "athlete_response_invalid"
+          }
         case "plan": out.plan = value
         case "state": out.state = value
         case "overview": out.overview = value

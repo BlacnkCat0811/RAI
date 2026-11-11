@@ -62,7 +62,8 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
   }
   public func reasonLocalizationKey(_ reason: ProductCode) -> String {
     let known = ["not_enough_history", "insufficient_evidence", "data_sync_incomplete", "source_conflict", "source_selection_required", "data_stale",
-      "missing_heart_rate", "recovery_data_incomplete", "training_load_unknown", "no_sample", "deleted", "not_product_activated"]
+      "missing_heart_rate", "recovery_data_incomplete", "training_load_unknown", "no_sample", "deleted", "not_product_activated",
+      "model_result_pending", "model_update_required", "unsupported", "technical_failure"]
     return "athlete_model.reason." + (known.contains(reason.rawValue) ? reason.rawValue : "generic")
   }
 }

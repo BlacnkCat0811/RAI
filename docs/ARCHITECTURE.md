@@ -78,6 +78,40 @@
 - **可用性统计**：`rai analysis model-stack health --dataset <id> [--days 90] [--channel active|candidate]`
   只输出各产物的发布天数、状态/原因码计数，以及按当前代码对窗口内训练和日健康的试算计数，不输出任何健康数值或标识。
 
+### 模型发布兼容性
+
+发布读取配置保存在 `internal/modelrelease/releases.json`，通过 `modelrelease.Lookup` 按完整 manifest 哈希与
+StackID 匹配。当前注册范围如下；注册表之外的版本明确返回不支持，不会尝试套用最新配置。
+
+| 来源提交 | StackID | 读取能力 |
+|---|---|---|
+| `caca7f4` | `rai-v2-e58051bacdee98c9` | 冻结配置读取 |
+| `975b912` | `rai-v2-654b005210f66d0e` | 冻结配置读取 |
+| `ccbe328` | `rai-v2-4a543690d2c37290` | 当前构建的计算配置及读取 |
+
+产品当前值、历史和训练输入按 active stack 的 `model/<stack>/athlete/day/v2/<date>` 路径定位产物，校验
+该发布的真实计算配置、manifest、dataset、generation 和内容哈希。只读取发布指针与脏范围代数一致的干净结果；
+已失效的发布不能继续提供数值。当前值读取当天日发布，历史读取指定日期范围；当天产物缺失不会自动用前一天冒充。
+准备度投影使用对应版本的配置和有效期，旧结果不改标为新模型。注册表冻结的是读取契约，Worker 仍只计算当前构建的栈；
+旧栈缺失或失效的产物提示 `model_update_required`，不能用新算法写回旧栈。
+
+部署镜像不改变 active assignment。模型升级沿用以下管理路径，均不由 App 或 API 自动执行：
+
+1. 用 `rai analysis model-stack identity` 获取当前构建的 StackID 与完整 manifest 哈希。
+2. 经既有数据集、栈及 manifest 绑定的所有者授权，用 `prepare-real` 注册候选栈并排队当天日模型任务。
+3. 等待负荷状态、跑力、RAI VO₂、外部 VO₂、生理恢复、训练准备度六项产物发布；即使某项证据不足，也必须有真实计算结果。
+4. 用 `activate-real` 走现有授权与确认参数。事务内验证候选产物及重建状态，再原子切换 active 并保留 previous；
+   未就绪或计算失败时拒绝切换，候选产物不能提前进入产品读取。
+5. `rollback-real` 同样需要授权，并按目标旧版本校验当天干净产物。保留 previous 不代表它永远满足回滚条件。
+
+候选计算独立于同步，不要求客户端重传已提交事实。新增配置必须增加新的不可变发布描述，保留已支持条目；
+`modelrelease` 测试约束当前 manifest 与实际计算配置一致。旧提交生成的合成载荷夹具验证 JSONB 重排后的哈希兼容性；
+真实隔离 PostgreSQL 回归覆盖候选隔离、未就绪拒绝激活、切换、旧栈回滚及训练输入读取。
+
+已激活模型的缺失、失败与不支持状态见 [API 状态表](API.md#运动模型状态)。iOS 先展示缓存再刷新；
+网络、解析或未知顶层 schema 导致的刷新失败保留上次成功结果，并显示该结果的时间和重试提示。
+明确的 `not_product_activated` 会清除缓存模型，避免重启后恢复已撤销的展示。上述自动化回归不代替真机与线上验收。
+
 ## 日常健康与 VO2
 
 HRV、静息心率、睡眠、VO2 走 HealthKit 锚点 + 本地 Outbox（`OutboxStore`）。启动、回前台、HealthKit 观察者唤醒时

@@ -273,7 +273,7 @@ func readBackfillSnapshot(ctx context.Context, tx pgx.Tx, dataset, id string) (b
 		return out, err
 	}
 	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (r.scope_key,a.artifact_key)
- r.lineage->>'date',a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.finished_at
+ r.lineage->>'date',a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.finished_at,r.lineage->>'manifestSHA256'
  FROM analysis_runs r JOIN jobs j ON j.dataset_id=r.dataset_id AND j.id=r.job_id
  JOIN analysis_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id
  WHERE r.dataset_id=$1 AND r.scope_key BETWEEN $3 AND $4 AND r.status='SUCCEEDED'
@@ -292,11 +292,11 @@ func readBackfillSnapshot(ctx context.Context, tx pgx.Tx, dataset, id string) (b
 	for rows.Next() {
 		var a publishedModelArtifact
 		var day string
-		if err := rows.Scan(&day, &a.Key, &a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.PublishedAt); err != nil {
+		if err := rows.Scan(&day, &a.Key, &a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.PublishedAt, &a.ManifestSHA); err != nil {
 			return out, err
 		}
 		metric := modelProductMetric(a.Key)
-		if len(out.Observations) >= 366*modelProductSlots || !validHistoryArtifact(metric, dataset, tz, a) {
+		if len(out.Observations) >= 366*modelProductSlots || !validHistoryArtifactForStack(metric, dataset, tz, stack, a) {
 			return out, ErrBackfillConflict
 		}
 		point := historyPoint(metric, day, a.Algorithm, a.Version, a.Schema, a.PublishedAt, a.Payload)

@@ -71,10 +71,11 @@ struct HomeView: View {
           if let athlete = model.data.athlete, athlete.supportsPresentation {
             AthleteModelCard(snapshot: athlete, summary: true)
           } else {
-            EmptyCard(title: "运动模型", detail: model.configured ? "运动模型尚未激活。激活后这里显示准备度、跑力和生理恢复。" : "连接私有服务后查看运动模型。")
+            EmptyCard(title: "运动模型", detail: model.configured ? model.data.athleteAbsenceText : "连接私有服务后查看运动模型。")
           }
         }.buttonStyle(RAIPressStyle())
           .accessibilityIdentifier(model.data.athlete?.supportsPresentation == true ? "model.home.active" : "home.status")
+        AthleteRefreshNotice(snapshot: model.data)
         WeeklyCard(overview: model.data.overview)
         VStack(alignment: .leading, spacing: 14) {
           HStack {
@@ -339,12 +340,13 @@ struct AnalysisView: View {
         NavigationLink {
           RunningAbilityDetailView(model: model)
         } label: {
-          RunningAbilityEntryCard(snapshot: model.data.athlete)
+          RunningAbilityEntryCard(snapshot: model.data.athlete, absenceText: model.data.athleteAbsenceText)
         }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("runningAbility.entry")
         if let athlete = model.data.athlete, athlete.supportsPresentation {
           AthleteModelCard(snapshot: athlete)
           NavigationLink("运动模型历史") { AthleteHistoryView(model: model) }.accessibilityIdentifier("model.history.link")
         }
+        AthleteRefreshNotice(snapshot: model.data)
         Button {
           showingModelInput = true
         } label: {
@@ -474,6 +476,21 @@ private struct ModelInputSheet: View {
     }
   }
 }
+struct AthleteRefreshNotice: View {
+  let snapshot: ProductSnapshot
+  var body: some View {
+    if snapshot.athleteRefreshFailed {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("运动模型刷新失败，可下拉重试。")
+        if let athlete = snapshot.athlete {
+          Text("当前显示上次结果：" + Date(timeIntervalSince1970: Double(athlete.evaluationAt) / 1_000_000).formatted(date: .abbreviated, time: .shortened))
+        }
+      }.font(.caption).foregroundStyle(RAITheme.secondary)
+        .accessibilityIdentifier("model.refresh.failure")
+    }
+  }
+}
+
 struct AthleteModelCard: View {
   let snapshot: AthleteModelSnapshot
   var summary = false
@@ -1112,6 +1129,7 @@ struct WorkoutSyncDetail: View {
 
 struct RunningAbilityEntryCard: View {
   let snapshot: AthleteModelSnapshot?
+  var absenceText = "结果尚未就绪"
 
   var body: some View {
     let metric = snapshot?.runningAbility
@@ -1130,7 +1148,7 @@ struct RunningAbilityEntryCard: View {
       VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 6) {
           Text("跑力").font(.headline)
-          Text(runningAbilityStateText(metric?.envelope))
+          Text(metric.map { runningAbilityStateText($0.envelope) } ?? absenceText)
             .font(.caption2)
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(.white.opacity(0.10), in: Capsule())
@@ -1164,6 +1182,7 @@ struct RunningAbilityDetailView: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
+        AthleteRefreshNotice(snapshot: model.data)
         if let snapshot = model.data.athlete, snapshot.supportsPresentation {
           let metric = snapshot.runningAbility
           hero(metric)
@@ -1185,9 +1204,9 @@ struct RunningAbilityDetailView: View {
           }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("runningAbility.history")
         } else {
           EmptyCard(
-            title: "跑力尚未启用",
+            title: "跑力暂不可用",
             detail: model.configured
-              ? "当前服务已连接，但运动模型尚未激活。完成产品激活门禁后，跑力会自动出现在这里。"
+              ? model.data.athleteAbsenceText
               : "请先在「我的 → 同步与诊断」连接私有服务。")
         }
         Text("跑力由 60 分钟临界速度与耐力保持能力构成；配速区间与成绩预测为训练参考，不是比赛保证。")
@@ -1552,7 +1571,7 @@ private func runningRetentionText(_ value: Double?) -> String {
 }
 
 private func runningAbilityStateText(_ envelope: MetricEnvelope?) -> String {
-  guard let envelope else { return "待激活" }
+  guard let envelope else { return "结果尚未就绪" }
   switch envelope.presentationState.rawValue {
   case "available": return "可用"
   case "limited": return "有限"

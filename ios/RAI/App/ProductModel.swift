@@ -211,7 +211,7 @@ final class ProductModel {
     await configure()
     guard let api else { return }
     let loaded = await api.load().keepingLastGood(from: data)
-    if loaded.failures.isEmpty, let url = Self.cacheURL(), let bytes = ProductSnapshotCache.encode(loaded) {
+    if !ProductLoadFailures.needsRetry(loaded.failures), let url = Self.cacheURL(), let bytes = ProductSnapshotCache.encode(loaded) {
       try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
     let stateStart = Date()
@@ -310,12 +310,26 @@ final class ProductModel {
     do {
       let json = try await api.get("/v2/analysis/athlete")
       let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: json.data())
-      if !Task.isCancelled { data.athlete = snapshot }
+      guard snapshot.supportsPresentation else { throw SyncFailure.invalid("unsupported_athlete_schema") }
+      if !Task.isCancelled {
+        data.athlete = snapshot
+        data.failures.removeValue(forKey: "athlete")
+      }
     } catch let failure as UploadError where failure.code == "not_product_activated" {
       // The only case that really means "no athlete model": clear the card.
-      if !Task.isCancelled { data.athlete = nil }
+      if !Task.isCancelled {
+        data.athlete = nil
+        data.failures["athlete"] = failure.code
+      }
+    } catch let failure as UploadError {
+      if !Task.isCancelled { data.failures["athlete"] = failure.code }
     } catch {
       // Network or decoding trouble keeps the last good value on screen.
+      if !Task.isCancelled { data.failures["athlete"] = "athlete_response_invalid" }
+    }
+    if !Task.isCancelled, !data.athleteRefreshFailed,
+      let url = Self.cacheURL(), let bytes = ProductSnapshotCache.encode(data) {
+      try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
   }
   /// v2 athlete-model training-load history for the load card and page.

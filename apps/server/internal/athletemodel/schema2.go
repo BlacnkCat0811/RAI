@@ -34,14 +34,25 @@ type MetricV2[T any] struct {
 func NewSnapshotV2(at, revision int64, tz, date string, a Assignment) AthleteModelSnapshot {
 	s := NewSnapshot(at, revision, tz, date, a)
 	s.SchemaVersion = Schema2
-	for _, e := range []*Envelope{&s.TrainingLoad.Envelope, &s.RunningAbility.Envelope, &s.ExternalVO2Max.Envelope, &s.PhysiologicalRecovery.Envelope, &s.TrainingReadiness.Envelope} {
+	// Activation was checked by the reader. An empty publication is pending,
+	// including when an active release has been invalidated by new facts.
+	SetMissingMetricsV2(&s, "pending")
+	s.PresentationOrder = []string{"trainingReadiness", "physiologicalRecovery", "trainingLoad", "runningAbility", "raiVO2Max", "externalVO2Max"}
+	return s
+}
+
+func SetMissingMetricsV2(s *AthleteModelSnapshot, status string) {
+	at := s.EvaluationAt
+	s.TrainingLoad = Missing[TrainingLoadValue]("trainingLoad", at, status)
+	s.RunningAbility = Missing[RunningAbilityValue]("runningAbility", at, status)
+	s.ExternalVO2Max = Missing[ExternalVO2Value]("externalVO2Max", at, status)
+	s.PhysiologicalRecovery = Missing[RecoveryValue]("physiologicalRecovery", at, status)
+	s.TrainingReadiness = Missing[ReadinessValue]("trainingReadiness", at, status)
+	v := Missing[RAIVO2Value]("raiVO2Max", at, status)
+	s.RAIVO2Max = &v
+	for _, e := range []*Envelope{&s.TrainingLoad.Envelope, &s.RunningAbility.Envelope, &s.ExternalVO2Max.Envelope, &s.PhysiologicalRecovery.Envelope, &s.TrainingReadiness.Envelope, &s.RAIVO2Max.Envelope} {
 		e.MappingVersion = MappingVersion2
 	}
-	s.PresentationOrder = []string{"trainingReadiness", "physiologicalRecovery", "trainingLoad", "runningAbility", "raiVO2Max", "externalVO2Max"}
-	v := Missing[RAIVO2Value]("raiVO2Max", at, "collecting")
-	v.Envelope.MappingVersion = MappingVersion2
-	s.RAIVO2Max = &v
-	return s
 }
 
 func NewEnvelopeV2(metric, model, payload, status, quality, freshness string, confidence *float64, asOf, updated *int64, at int64, reasons, sources []string) Envelope {
@@ -95,6 +106,7 @@ func ProjectRAIVO2(r vo2max.Result, updated, at int64) Metric[RAIVO2Value] {
 }
 
 var ErrNotActivated = errors.New("athlete_model_not_activated")
+var ErrUnsupportedRelease = errors.New("athlete_model_release_unsupported")
 
 // SetProjectedResponseState records whether any model slot could be projected.
 // A syntactically complete schema2 document is not a complete response when
