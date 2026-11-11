@@ -13,7 +13,7 @@ struct ExecutionView: View {
         VStack(alignment: .leading, spacing: 14) {
           Text(statusText(model.execution.string("status"))).font(.subheadline).foregroundStyle(
             RAITheme.amber)
-          Text(session.title).font(.largeTitle.bold())
+          Text(session.title).font(.system(.largeTitle, design: .rounded, weight: .bold))
           Text(prescription(session)).font(.title2).monospacedDigit()
           Text("已冻结的训练处方").font(.caption).foregroundStyle(RAITheme.secondary)
           if model.execution.string("status") == "started" {
@@ -30,7 +30,7 @@ struct ExecutionView: View {
           let index = min(currentStep, steps.count - 1)
           let step = steps[index]
           VStack(alignment: .leading, spacing: 12) {
-            Text("当前步骤 · 手动切换").font(.caption).foregroundStyle(RAITheme.secondary)
+            Text("当前步骤 · 手动切换").font(.subheadline).foregroundStyle(RAITheme.secondary)
             Text(stepTitle(step.string("kind"))).font(.title.bold())
             Text(
               "目标 \(ProductFormat.duration(step.number("durationS"))) · 自感用力 \(Int(step.number("effort") ?? 0))"

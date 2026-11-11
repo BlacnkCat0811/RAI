@@ -10,6 +10,7 @@ struct WorkoutDetail: View {
   @Bindable var model: ProductModel
   let workout: ProductWorkout
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.accessibilityReduceMotion) private var reducedMotion
   @State private var summaryExpanded = false
   @State private var effortMessage: String?
   @State private var effortBusy = false
@@ -224,7 +225,7 @@ struct WorkoutDetail: View {
       }
       if let env = detail.environment { environmentSummary(env) }
       if summaryExpanded {
-        Divider().overlay(.white.opacity(0.12))
+        Divider().overlay(RAITheme.primary.opacity(0.12))
         Text("全部训练指标").font(.subheadline.weight(.medium))
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), alignment: .leading)], alignment: .leading, spacing: 14) {
           summaryMetric("经过时间", ProductFormat.duration(w.elapsedS))
@@ -263,7 +264,7 @@ struct WorkoutDetail: View {
         }
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
-      .contentShape(Rectangle()).onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { summaryExpanded.toggle() } }
+      .contentShape(Rectangle()).onTapGesture { withAnimation(reducedMotion ? nil : .easeInOut(duration: 0.2)) { summaryExpanded.toggle() } }
       .accessibilityElement(children: .contain)
       .accessibilityAddTraits(.isButton)
       .accessibilityValue(summaryExpanded ? "已展开" : "已收起")
@@ -366,7 +367,7 @@ struct WorkoutDetail: View {
               segmentMetric("平均步频", value(segment.averageCadenceSpm, digits: 0, unit: "spm"))
             }
           }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 18))
+            .background(RAITheme.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 18))
         }
         if let plan = series.segmentPlan {
           DisclosureGroup("分段来源") {
@@ -408,7 +409,7 @@ struct WorkoutDetail: View {
             HStack(spacing: 8) {
               Text(split.distanceM < 999.5 ? "尾段" : "\(split.index) km").font(.subheadline.weight(.semibold)).frame(width: 52, alignment: .leading)
               GeometryReader { g in
-                Capsule().fill(.white.opacity(0.10)).frame(height: 6).overlay(alignment: .leading) {
+                Capsule().fill(RAITheme.primary.opacity(0.10)).frame(height: 6).overlay(alignment: .leading) {
                   Capsule().fill(RAITheme.orange).frame(width: max(4, g.size.width * min(1, split.averagePaceSPerKm / maxPace)), height: 6)
                 }
               }.frame(height: 6)
@@ -418,7 +419,7 @@ struct WorkoutDetail: View {
             if let grade = split.grade?.gradePercent {
               Text("坡度 \(num(grade, digits: 1))%").font(.caption2.monospacedDigit()).foregroundStyle(RAITheme.secondary)
             }
-          }.padding(.vertical, 7).overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.08)).frame(height: 1) }
+          }.padding(.vertical, 7).overlay(alignment: .bottom) { Rectangle().fill(RAITheme.primary.opacity(0.08)).frame(height: 1) }
         }
       }
     }.padding(18).raiGlass().accessibilityIdentifier("workout.splits")
@@ -519,7 +520,7 @@ struct WorkoutDetail: View {
       .padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass().accessibilityIdentifier("workout.override")
   }
 
-  private func summaryMetric(_ title: String, _ value: String, accent: Color = .white) -> some View {
+  private func summaryMetric(_ title: String, _ value: String, accent: Color = RAITheme.primary) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       Text(value).font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(accent).fixedSize(horizontal: false, vertical: true)
       Text(title).font(.caption2).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
@@ -545,7 +546,7 @@ struct WorkoutDetail: View {
   }
   private func badge(_ text: String) -> some View {
     Text(text).font(.caption2.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 3)
-      .background(.white.opacity(0.10), in: Capsule())
+      .background(RAITheme.primary.opacity(0.10), in: Capsule())
   }
   private func segmentTint(_ purpose: String) -> Color {
     switch purpose {
@@ -684,7 +685,7 @@ struct WorkoutRouteMap: View {
         ForEach(route.kilometerMarkers) { marker in
           Annotation("\(marker.kilometer) 公里", coordinate: CLLocationCoordinate2D(latitude: marker.latitude, longitude: marker.longitude)) {
             Text("\(marker.kilometer)").font(.system(size: 9, weight: .bold)).foregroundStyle(.black)
-              .frame(width: 17, height: 17).background(RAITheme.amber, in: Circle())
+              .frame(width: 17, height: 17).background(RAITheme.lemon, in: Circle())
           }
         }
       }
@@ -699,13 +700,13 @@ struct WorkoutRouteMap: View {
       if interactive {
         Button { interactive = false } label: {
           Label("锁定", systemImage: "lock.fill").font(.caption.weight(.semibold))
-            .padding(.horizontal, 10).padding(.vertical, 7).background(.black.opacity(0.55), in: Capsule())
+            .padding(.horizontal, 10).padding(.vertical, 7).foregroundStyle(RAITheme.primary).background(RAITheme.surface, in: Capsule())
         }.padding(8).accessibilityLabel("锁定地图，恢复上下滑动翻页")
       }
     }
     .frame(height: 230)
     .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(.white.opacity(0.18), lineWidth: 1))
+    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(RAITheme.primary.opacity(0.18), lineWidth: 1))
     .accessibilityValue("公里标记：\(route.kilometerMarkers.map { "\($0.kilometer) 公里" }.joined(separator: "、"))")
   }
 }
@@ -766,15 +767,15 @@ struct WorkoutSeriesChart: View {
           }
           if let selectedPoint {
             RuleMark(x: .value("分钟", selectedPoint.minutes)).foregroundStyle(RAITheme.secondary).lineStyle(StrokeStyle(lineWidth: 1, dash: [4]))
-            PointMark(x: .value("分钟", selectedPoint.minutes), y: .value(metric.title, selectedPoint.value)).foregroundStyle(.white).symbolSize(38)
+            PointMark(x: .value("分钟", selectedPoint.minutes), y: .value(metric.title, selectedPoint.value)).foregroundStyle(RAITheme.primary).symbolSize(38)
           }
         }
         .chartXScale(domain: 0...max(1.0 / 60, durationSeconds.isFinite ? durationSeconds / 60 : 0, series.points.last?.minutes ?? 0))
         .chartYScale(domain: .automatic(includesZero: false, reversed: metric == .pace))
-        .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { AxisValueLabel().foregroundStyle(RAITheme.secondary); AxisGridLine().foregroundStyle(.white.opacity(0.08)) } }
+        .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { AxisValueLabel().foregroundStyle(RAITheme.secondary); AxisGridLine().foregroundStyle(RAITheme.primary.opacity(0.08)) } }
         .chartYAxis { AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { axis in
           AxisValueLabel { if let v = axis.as(Double.self) { Text(display(v)).foregroundStyle(RAITheme.secondary) } }
-          AxisGridLine().foregroundStyle(.white.opacity(0.08))
+          AxisGridLine().foregroundStyle(RAITheme.primary.opacity(0.08))
         } }
         .chartXAxisLabel("min").chartYAxisLabel(metric == .pace ? "min/km" : metric.unit)
         .frame(height: height)
@@ -862,7 +863,7 @@ struct WorkoutStatLine: View {
       }
       if let fraction {
         GeometryReader { g in
-          Capsule().fill(.white.opacity(0.10)).frame(height: 4).overlay(alignment: .leading) {
+          Capsule().fill(RAITheme.primary.opacity(0.10)).frame(height: 4).overlay(alignment: .leading) {
             Capsule().fill(RAITheme.blue).frame(width: max(2, g.size.width * min(1, max(0, fraction))), height: 4)
           }
         }.frame(height: 4)

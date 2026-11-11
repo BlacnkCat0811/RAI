@@ -10,7 +10,7 @@ struct RootContent: View {
         if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" {
             VStack(spacing: 16) { Text("RAI 本机独立验收").font(.headline); Text(model.status) }
         } else if DailyDeviceDiagnostics.enabled {
-            NavigationStack { SyncView(model: model) }.tint(RAITheme.orange).preferredColorScheme(.dark)
+            NavigationStack { SyncView(model: model) }.tint(RAITheme.orange).preferredColorScheme(.light)
         } else {
             ProductTabs(sync: model)
         }

@@ -36,7 +36,7 @@ final class ProductUITests: XCTestCase {
     guard XCTWaiter.wait(for: [ready], timeout: 20) == .completed else {
       throw UIFlowFailure.disabled(id)
     }
-    if !e.isHittable { app.swipeUp() }
+    for _ in 0..<5 where !e.isHittable { app.swipeUp() }
     guard e.isHittable else { throw UIFlowFailure.missing(id + ": not hittable") }
     let start = Date()
     e.tap()
@@ -88,7 +88,8 @@ final class ProductUITests: XCTestCase {
     tab("运动")
     XCTAssertTrue(element("screen.activities").exists)
     try screen("Activities")
-    tab("分析")
+    tab("统计")
+    try tap("statistics.analysis")
     XCTAssertTrue(element("screen.analysis").exists)
     try screen("Analysis")
     tab("训练")
@@ -200,10 +201,10 @@ final class ProductUITests: XCTestCase {
     scroll("screen.home")
     try auditVisibleText()
     try screen("HomeAccessibilityScrolled")
-    let weekly = app.staticTexts["本周概览"].firstMatch
+    let weekly = app.staticTexts["本周跑量"].firstMatch
     for _ in 0..<8 {
       if weekly.isHittable { break }
-      scroll("screen.home")
+      scroll("screen.home", up: false)
     }
     XCTAssertTrue(
       weekly.isHittable, "Weekly heading must be visible, not only present in the hierarchy")
@@ -218,7 +219,8 @@ final class ProductUITests: XCTestCase {
     tab("运动")
     try auditVisibleText()
     try screen("ActivitiesAccessibility")
-    tab("分析")
+    tab("统计")
+    try tap("statistics.analysis")
     try auditVisibleText()
     try screen("AnalysisAccessibility")
     scroll("screen.analysis")
@@ -488,9 +490,13 @@ final class ModelStackLiveUITests: XCTestCase {
     app.launch()
     let model = app.descendants(matching: .any).matching(identifier: "model.home.active").firstMatch
     XCTAssertTrue(model.waitForExistence(timeout: 35))
-    let tab = app.tabBars.buttons["分析"]
+    let tab = app.tabBars.buttons["统计"]
     XCTAssertTrue(tab.waitForExistence(timeout: 10))
     tab.tap()
+    let analysis = app.descendants(matching: .any).matching(identifier: "statistics.analysis").firstMatch
+    for _ in 0..<5 where !analysis.isHittable { app.swipeUp() }
+    XCTAssertTrue(analysis.waitForExistence(timeout: 10))
+    analysis.tap()
     let history = app.descendants(matching: .any).matching(identifier: "model.history.link").firstMatch
     for _ in 0..<4 where !history.isHittable { app.swipeUp() }
     XCTAssertTrue(history.waitForExistence(timeout: 10))
@@ -537,5 +543,42 @@ final class ModelStackLiveUITests: XCTestCase {
     XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
     let switched = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: model)
     XCTAssertEqual(XCTWaiter.wait(for: [switched], timeout: 10), .completed)
+  }
+}
+
+
+/// Runs without an account, backend, HealthKit authorization or fixture data.
+@MainActor
+final class SportStyleOfflineUITests: XCTestCase {
+  func testOfflineStatisticsAndAnalysisNavigation() throws {
+    continueAfterFailure = false
+    let app = XCUIApplication()
+    app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    app.launch()
+    let home = app.descendants(matching: .any).matching(identifier: "screen.home").firstMatch
+    XCTAssertTrue(home.waitForExistence(timeout: 20))
+    saveScreenshot(app, name: "Sport-Home")
+    app.tabBars.buttons["统计"].tap()
+    let statistics = app.descendants(matching: .any).matching(identifier: "screen.statistics").firstMatch
+    XCTAssertTrue(statistics.waitForExistence(timeout: 10))
+    let period = app.segmentedControls["statistics.period"]
+    XCTAssertTrue(period.waitForExistence(timeout: 10))
+    period.buttons["月"].tap()
+    XCTAssertTrue(period.buttons["月"].isSelected)
+    period.buttons["周"].tap()
+    XCTAssertTrue(period.buttons["周"].isSelected)
+    saveScreenshot(app, name: "Sport-Statistics")
+    let analysis = app.descendants(matching: .any).matching(identifier: "statistics.analysis").firstMatch
+    for _ in 0..<6 where !analysis.isHittable { app.swipeUp() }
+    XCTAssertTrue(analysis.isHittable)
+    analysis.tap()
+    XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "screen.analysis").firstMatch.waitForExistence(timeout: 10))
+    saveScreenshot(app, name: "Sport-Analysis")
+  }
+  private func saveScreenshot(_ app: XCUIApplication, name: String) {
+    let attachment = XCTAttachment(screenshot: app.screenshot())
+    attachment.name = name
+    attachment.lifetime = .keepAlways
+    add(attachment)
   }
 }

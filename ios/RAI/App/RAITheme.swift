@@ -15,54 +15,32 @@ enum RAIRenderer {
   }()
 }
 enum RAITheme {
-  static let orange = Color(red: 1, green: 0.48, blue: 0.10)
-  static let amber = Color(red: 1, green: 0.70, blue: 0.36)
-  static let charcoal = Color(red: 0.086, green: 0.078, blue: 0.071)
-  static let brown = Color(red: 0.17, green: 0.13, blue: 0.105)
-  static let blue = Color(red: 0.34, green: 0.62, blue: 1)
-  static let purple = Color(red: 0.64, green: 0.46, blue: 1)
-  static let green = Color(red: 0.35, green: 0.88, blue: 0.63)
-  static let secondary = Color.white.opacity(0.66)
+  static let background = Color(red: 0.97, green: 0.97, blue: 0.95)
+  static let surface = Color.white
+  static let surfaceMuted = Color(red: 0.93, green: 0.94, blue: 0.92)
+  static let primary = Color(red: 0.08, green: 0.10, blue: 0.10)
+  static let secondary = Color(red: 0.36, green: 0.39, blue: 0.38)
+  static let accent = Color(red: 0.68, green: 0.89, blue: 0.90)
+  static let lemon = Color(red: 0.97, green: 0.89, blue: 0.44)
+  // Strong foreground colors stay legible on the warm, light surfaces.
+  static let orange = Color(red: 0.12, green: 0.40, blue: 0.39)
+  static let amber = Color(red: 0.50, green: 0.36, blue: 0.08)
+  static let blue = Color(red: 0.12, green: 0.37, blue: 0.60)
+  static let purple = Color(red: 0.47, green: 0.28, blue: 0.62)
+  static let green = Color(red: 0.19, green: 0.44, blue: 0.26)
+  static let charcoal = primary
+  static let brown = surfaceMuted
   static let radius: CGFloat = 28
 }
 struct AmbientBackground: View {
   var body: some View {
-    GeometryReader { g in
-      ZStack {
-        RAITheme.charcoal
-        LinearGradient(
-          colors: [Color(red: 0.10, green: 0.13, blue: 0.20), RAITheme.brown, RAITheme.charcoal],
-          startPoint: .topTrailing, endPoint: .bottomLeading)
-        RadialGradient(
-          colors: [RAITheme.orange.opacity(0.30), .clear], center: UnitPoint(x: 0.02, y: 0.30),
-          startRadius: 1, endRadius: g.size.width * 0.8)
-        RadialGradient(
-          colors: [RAITheme.amber.opacity(0.18), .clear], center: UnitPoint(x: 1, y: 0.75),
-          startRadius: 1, endRadius: g.size.width * 0.75)
-      }
-    }.ignoresSafeArea().accessibilityHidden(true)
+    RAITheme.background.ignoresSafeArea().accessibilityHidden(true)
   }
 }
 struct RAIGlassSurface: ViewModifier {
-  @Environment(\.accessibilityReduceTransparency) private var opaque
   var radius: CGFloat = RAITheme.radius
   func body(content: Content) -> some View {
-    let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-    if opaque {
-      content.background(RAITheme.brown, in: shape).overlay(
-        shape.strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
-    } else if #available(iOS 26.0, *), RAIRenderer.metalAvailable {
-      content.glassEffect(.regular.tint(RAITheme.brown.opacity(0.20)), in: shape)
-    } else {
-      content.background(.ultraThinMaterial, in: shape).background(
-        RAITheme.brown.opacity(0.55), in: shape
-      ).overlay(
-        shape.strokeBorder(
-          LinearGradient(
-            colors: [.white.opacity(0.30), .white.opacity(0.07)], startPoint: .topLeading,
-            endPoint: .bottomTrailing), lineWidth: 0.5)
-      ).shadow(color: .black.opacity(0.16), radius: 8, y: 4)
-    }
+    content.background(RAITheme.surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
   }
 }
 extension View {
@@ -72,8 +50,8 @@ extension View {
   func raiScreen() -> some View {
     frame(maxWidth: .infinity, maxHeight: .infinity).background { AmbientBackground() }
       .toolbarBackground(.hidden, for: .navigationBar)
-      .toolbarColorScheme(.dark, for: .navigationBar)
-      .foregroundStyle(.white)
+      .toolbarColorScheme(.light, for: .navigationBar)
+      .foregroundStyle(RAITheme.primary)
       .modifier(RAITabMaterialFallback())
   }
 }
@@ -88,7 +66,7 @@ struct RAIPressStyle: ButtonStyle {
 struct CardHeading: View {
   let title: String, icon: String
   var body: some View {
-    Label(title, systemImage: icon).font(.headline).foregroundStyle(.white.opacity(0.90))
+    Label(title, systemImage: icon).font(.headline).foregroundStyle(RAITheme.primary)
   }
 }
 struct MetricText: View {
@@ -114,53 +92,15 @@ struct OrangeButton: View {
   var action: () -> Void
   var body: some View {
     Button(action: action) {
-      Label(title, systemImage: icon).font(.headline).frame(maxWidth: .infinity).padding(
-        .vertical, 16
-      ).background(
-        LinearGradient(
-          colors: [RAITheme.amber.opacity(0.40), RAITheme.orange.opacity(0.20)],
-          startPoint: .topLeading, endPoint: .bottomTrailing), in: Capsule()
-      ).overlay(Capsule().strokeBorder(.white.opacity(0.40), lineWidth: 0.5))
+      Label(title, systemImage: icon).font(.headline).frame(maxWidth: .infinity)
+        .padding(.vertical, 16).foregroundStyle(RAITheme.primary)
+        .background(LinearGradient(colors: [RAITheme.accent, RAITheme.lemon], startPoint: .leading, endPoint: .trailing), in: Capsule())
     }.buttonStyle(RAIPressStyle()).tint(RAITheme.orange)
   }
 }
-@MainActor private enum HeroArtwork {
-  static let image = UIImage(named: "TrainingHero.jpg")
-}
 struct HeroScene: View {
   var body: some View {
-    GeometryReader { g in
-      ZStack(alignment: .bottomTrailing) {
-        if let image = HeroArtwork.image {
-          Image(uiImage: image).resizable().scaledToFill().frame(
-            width: g.size.width, height: g.size.height
-          ).clipped()
-        }
-        if HeroArtwork.image == nil {
-          LinearGradient(
-            colors: [
-              RAITheme.blue.opacity(0.15), RAITheme.amber.opacity(0.50),
-              RAITheme.orange.opacity(0.15),
-            ], startPoint: .topLeading, endPoint: .bottomTrailing)
-          Circle().fill(
-            RadialGradient(
-              colors: [RAITheme.amber.opacity(0.75), .clear], center: .center, startRadius: 0,
-              endRadius: 100)
-          ).frame(width: 200, height: 200).offset(x: 45, y: -15)
-          // Abstract track, never a fabricated geographic route.
-          Path { p in
-            p.move(to: CGPoint(x: g.size.width * 0.46, y: g.size.height))
-            p.addQuadCurve(
-              to: CGPoint(x: g.size.width, y: g.size.height * 0.32),
-              control: CGPoint(x: g.size.width * 0.60, y: g.size.height * 0.58))
-          }.stroke(RAITheme.amber.opacity(0.25), lineWidth: 2)
-          Image(systemName: "figure.run").font(.system(size: 125, weight: .ultraLight))
-            .foregroundStyle(.black.opacity(0.30)).offset(x: -12, y: 12)
-        }
-        LinearGradient(
-          colors: [.black.opacity(0.05), .black.opacity(0.58)], startPoint: .top, endPoint: .bottom)
-      }
-    }.accessibilityHidden(true)
+    RAITheme.accent.accessibilityHidden(true)
   }
 }
 
@@ -170,7 +110,7 @@ struct RAITabMaterialFallback: ViewModifier {
       content
     } else {
       content.toolbarBackground(.visible, for: .tabBar).toolbarBackground(
-        RAITheme.brown, for: .tabBar)
+        RAITheme.surface, for: .tabBar)
     }
   }
 }

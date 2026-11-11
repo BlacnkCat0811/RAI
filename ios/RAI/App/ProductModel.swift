@@ -108,6 +108,36 @@ final class ProductModel {
   private var auditVersion = ""
   private var auditLoadingVersion = ""
   private var auditReader: TrainingAuditReader?
+  var statisticsRevision = 0
+  var statistics: RunningStatistics?
+  var statisticsLoading = false
+  var statisticsError: String?
+  private var statisticsRequests = RunningStatisticsRequests()
+  var statisticsTimezone: TimeZone {
+    TimeZone(identifier: data.overview.string("timezone")) ?? .current
+  }
+  func loadStatistics(_ window: RunningStatisticsWindow) async {
+    let request = statisticsRequests.begin()
+    statisticsLoading = true
+    statisticsError = nil
+    statistics = nil
+    defer { if statisticsRequests.accepts(request) { statisticsLoading = false } }
+    await configure()
+    guard let api else {
+      if statisticsRequests.accepts(request) { statisticsError = "请先在「我的」连接私有服务。" }
+      return
+    }
+    do {
+      let result = try await api.runningStatistics(window: window)
+      guard statisticsRequests.accepts(request), !Task.isCancelled else { return }
+      statistics = result
+    } catch is CancellationError {
+      return
+    } catch {
+      guard statisticsRequests.accepts(request), !Task.isCancelled else { return }
+      statisticsError = "跑量统计加载失败，请重试。"
+    }
+  }
   private var api: ProductAPI?
   private var journal: ProductJournal?
   private let log = Logger(subsystem: "com.rai.v2.ios", category: "product.performance")
@@ -183,6 +213,11 @@ final class ProductModel {
   }
   func reconnect() async {
     guard !loading else { return }
+    statisticsRequests.invalidate()
+    statisticsRevision += 1
+    statistics = nil
+    statisticsLoading = false
+    statisticsError = nil
     api = nil
     configured = false
     await refresh()
@@ -216,6 +251,7 @@ final class ProductModel {
     }
     let stateStart = Date()
     data = loaded
+    statisticsRevision += 1
     log.info("state_publication_ms=\(Date().timeIntervalSince(stateStart)*1000,privacy:.public)")
     // Only real faults prompt a retry. "The product is not activated yet" is an
     // expected empty state: retrying cannot change it, so it must not look broken.

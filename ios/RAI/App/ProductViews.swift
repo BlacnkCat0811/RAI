@@ -19,8 +19,8 @@ struct ProductTabs: View {
       NavigationStack { TrainingView(model: model) }.tabItem {
         Label("训练", systemImage: "list.bullet.clipboard")
       }.tag(2)
-      NavigationStack { AnalysisView(model: model) }.tabItem {
-        Label("分析", systemImage: "chart.bar.xaxis")
+      NavigationStack { StatisticsView(model: model) }.tabItem {
+        Label("统计", systemImage: "chart.bar.xaxis")
       }.tag(3)
       NavigationStack { ProfileView(model: model, sync: sync) }.tabItem {
         Label("我的", systemImage: "person.crop.circle")
@@ -54,7 +54,8 @@ struct HomeView: View {
   var body: some View {
     ScrollView {
       VStack(spacing: 12) {
-        greeting.padding(.bottom, 4)
+        greeting.padding(.bottom, 8)
+        WeeklyCard(overview: model.data.overview)
         if let session = model.data.todaySession {
           Button {
             selectedSession = session
@@ -65,18 +66,6 @@ struct HomeView: View {
         } else {
           EmptyCard(title: "今日训练", detail: model.configured ? "今天没有已发布的训练安排。" : "连接私有服务，查看今天的训练。")
         }
-        Button {
-          tab = 3
-        } label: {
-          if let athlete = model.data.athlete, athlete.supportsPresentation {
-            AthleteModelCard(snapshot: athlete, summary: true)
-          } else {
-            EmptyCard(title: "运动模型", detail: model.configured ? model.data.athleteAbsenceText : "连接私有服务后查看运动模型。")
-          }
-        }.buttonStyle(RAIPressStyle())
-          .accessibilityIdentifier(model.data.athlete?.supportsPresentation == true ? "model.home.active" : "home.status")
-        AthleteRefreshNotice(snapshot: model.data)
-        WeeklyCard(overview: model.data.overview)
         VStack(alignment: .leading, spacing: 14) {
           HStack {
             CardHeading(title: "最近运动", icon: "clock")
@@ -93,6 +82,17 @@ struct HomeView: View {
             Text("暂无已同步的运动记录").font(.subheadline).foregroundStyle(RAITheme.secondary)
           }
         }.padding(18).raiGlass()
+        NavigationLink {
+          AnalysisView(model: model)
+        } label: {
+          if let athlete = model.data.athlete, athlete.supportsPresentation {
+            AthleteModelCard(snapshot: athlete, summary: true)
+          } else {
+            EmptyCard(title: "运动模型", detail: model.configured ? model.data.athleteAbsenceText : "连接私有服务后查看运动模型。")
+          }
+        }.buttonStyle(RAIPressStyle())
+          .accessibilityIdentifier(model.data.athlete?.supportsPresentation == true ? "model.home.active" : "home.status")
+        AthleteRefreshNotice(snapshot: model.data)
         // Only the very first load shows a spinner; later refreshes are silent.
         if model.loading && model.data.workouts.isEmpty && model.data.athlete == nil {
           ProgressView("正在更新").font(.caption)
@@ -127,12 +127,9 @@ struct HomeView: View {
   }
   private var identity: some View {
     HStack(alignment: .center, spacing: 12) {
-      Image(systemName: "person.crop.circle.fill").font(.system(size: 46, weight: .light))
-        .foregroundStyle(RAITheme.amber).accessibilityHidden(true)
       VStack(alignment: .leading, spacing: 2) {
         Text(greetingText).font(.subheadline).foregroundStyle(RAITheme.secondary)
         Text(name).font(.system(.title, design: .rounded, weight: .bold))
-        Text("每一次奔跑，都是更好的自己").font(.caption).foregroundStyle(RAITheme.secondary)
       }
     }
   }
@@ -144,7 +141,7 @@ struct HomeView: View {
         Image(systemName: sync.busy ? "arrow.triangle.2.circlepath" : "cloud")
         Text(syncLabel).font(.caption2)
       }.foregroundStyle(sync.error == nil ? RAITheme.secondary : RAITheme.amber).padding(10)
-        .background(.white.opacity(0.06), in: Capsule())
+        .background(RAITheme.primary.opacity(0.06), in: Capsule())
     }.buttonStyle(.plain).accessibilityIdentifier("home.sync")
   }
   private var syncLabel: String {
@@ -170,7 +167,6 @@ struct TrainingHero: View {
         Label("今日训练", systemImage: "figure.run").font(.subheadline.weight(.semibold))
         Image(systemName: "chevron.right").font(.caption)
         Spacer()
-        Image(systemName: "ellipsis").padding(8).background(.white.opacity(0.08), in: Circle())
       }
       Spacer(minLength: 4)
       Text(session.title).font(.system(.largeTitle, design: .rounded, weight: .bold))
@@ -179,18 +175,17 @@ struct TrainingHero: View {
         Text(trainingTag(session.type))
         if session.type != "REST" { Text("自感用力 \(Int(session.raw.number("effort") ?? 0))") }
         if session.modified { Text("已调整").foregroundStyle(RAITheme.amber) }
-      }.font(.caption).foregroundStyle(.white.opacity(0.85))
+      }.font(.caption).foregroundStyle(RAITheme.secondary)
       HStack {
         Spacer()
         Label(
           session.runnable ? "查看并开始训练" : "查看训练安排",
           systemImage: session.runnable ? "play.fill" : "chevron.right")
         Spacer()
-      }.font(.headline).padding(.vertical, 14).background(.white.opacity(0.12), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.40), lineWidth: 0.5))
+      }.font(.headline).padding(.vertical, 14).background(RAITheme.lemon, in: Capsule())
     }.padding(20).frame(minHeight: 235, alignment: .leading).background {
       HeroScene().clipShape(RoundedRectangle(cornerRadius: RAITheme.radius))
-    }.raiGlass().foregroundStyle(.white)
+    }.raiGlass().foregroundStyle(RAITheme.primary)
   }
 }
 func prescription(_ s: ProductSession) -> String {
@@ -236,23 +231,24 @@ struct WeeklyCard: View {
           }
         }
       }
-      Text("仅统计已同步跑步；缺失负荷不补零").font(.caption2).foregroundStyle(RAITheme.secondary)
-    }.padding(18).raiGlass().onAppear {
+    }.padding(22).raiGlass().onAppear {
       if !appeared { withAnimation(reduced ? nil : .easeOut(duration: 0.3)) { appeared = true } }
     }
   }
   @ViewBuilder private var heading: some View {
-    CardHeading(title: "本周概览", icon: "chart.bar")
+    CardHeading(title: "本周跑量", icon: "chart.bar")
     if !typeSize.isAccessibilitySize { Spacer() }
-    Text("\(days.filter{($0.number("count") ?? 0)>0}.count)/7 天").font(.caption)
-      .foregroundStyle(RAITheme.secondary)
+    if !days.isEmpty {
+      Text("\(days.filter{($0.number("count") ?? 0)>0}.count)/7 天").font(.caption)
+        .foregroundStyle(RAITheme.secondary)
+    }
   }
   private func column(_ label: String, _ key: String, _ value: String, _ unit: String) -> some View
   {
     VStack(alignment: .leading, spacing: 4) {
       Text(label).font(.caption).foregroundStyle(RAITheme.secondary)
       HStack(alignment: .firstTextBaseline, spacing: 3) {
-        Text(value).font(.title2.bold()).monospacedDigit()
+        Text(value).font(.system(.largeTitle, design: .rounded, weight: .bold)).monospacedDigit()
         Text(unit).font(.caption).foregroundStyle(RAITheme.secondary)
       }
       if !RAIRenderer.metalAvailable {
@@ -267,7 +263,7 @@ struct WeeklyCard: View {
             BarMark(x: .value("日", index), y: .value(label, appeared ? n : 0), width: .ratio(0.46))
               .foregroundStyle(
                 LinearGradient(
-                  colors: [RAITheme.amber, RAITheme.orange], startPoint: .top, endPoint: .bottom)
+                  colors: [RAITheme.orange.opacity(0.80), RAITheme.orange], startPoint: .top, endPoint: .bottom)
               ).cornerRadius(3)
           }
         }.chartXAxis {
@@ -287,7 +283,7 @@ struct ActivityRow: View {
     HStack(spacing: 12) {
       Image(systemName: "figure.run").font(.title).foregroundStyle(RAITheme.amber).frame(
         width: 48, height: 52
-      ).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+      ).background(RAITheme.lemon, in: RoundedRectangle(cornerRadius: 14))
       VStack(alignment: .leading, spacing: 4) {
         Text(workout.title).font(.headline)
         Text(workout.detailLine.isEmpty ? "暂无数据" : workout.detailLine)
@@ -297,7 +293,7 @@ struct ActivityRow: View {
       }
       Spacer(minLength: 0)
       Image(systemName: "chevron.right").font(.caption).foregroundStyle(RAITheme.secondary)
-    }.foregroundStyle(.white)
+    }.foregroundStyle(RAITheme.primary)
   }
 }
 struct ActivitiesView: View {
@@ -1034,7 +1030,7 @@ struct WorkoutSyncView: View {
   private func metric(_ title: String, _ value: String) -> some View {
     VStack(alignment: .leading, spacing: 1) {
       Text(title).font(.caption2).foregroundStyle(RAITheme.secondary)
-      Text(value).font(.caption.monospacedDigit()).foregroundStyle(.white)
+      Text(value).font(.caption.monospacedDigit()).foregroundStyle(RAITheme.primary)
     }
   }
 
@@ -1164,7 +1160,7 @@ struct RunningAbilityEntryCard: View {
     let metric = snapshot?.runningAbility
     HStack(spacing: 16) {
       ZStack {
-        Circle().stroke(.white.opacity(0.14), lineWidth: 7)
+        Circle().stroke(RAITheme.primary.opacity(0.14), lineWidth: 7)
         if let score = metric?.presentationValue?.score {
           Circle()
             .trim(from: 0, to: max(0, min(score / 100, 1)))
@@ -1180,7 +1176,7 @@ struct RunningAbilityEntryCard: View {
           Text(metric.map { runningAbilityStateText($0.envelope) } ?? absenceText)
             .font(.caption2)
             .padding(.horizontal, 6).padding(.vertical, 2)
-            .background(.white.opacity(0.10), in: Capsule())
+            .background(RAITheme.primary.opacity(0.10), in: Capsule())
             .foregroundStyle(RAITheme.secondary)
         }
         Text(runningAbilitySubtitle(metric))
@@ -1283,7 +1279,7 @@ struct RunningAbilityDetailView: View {
         VStack(alignment: .trailing, spacing: 6) {
           Text(runningAbilityStateText(metric.envelope))
             .font(.caption).padding(.horizontal, 8).padding(.vertical, 4)
-            .background(.white.opacity(0.10), in: Capsule())
+            .background(RAITheme.primary.opacity(0.10), in: Capsule())
           if let confidence = metric.envelope.confidence {
             Text("证据置信 \(Int((confidence * 100).rounded()))%")
               .font(.caption2).foregroundStyle(RAITheme.secondary)
@@ -1349,7 +1345,7 @@ struct RunningAbilityDetailView: View {
         .lineLimit(1).minimumScaleFactor(0.7)
       Text(detail).font(.caption2).foregroundStyle(RAITheme.secondary).lineLimit(1)
     }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
-      .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+      .background(RAITheme.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
   }
 
   /// Zones and projections prefer the experimental maximal ability (built
@@ -1401,7 +1397,7 @@ struct RunningAbilityDetailView: View {
             }
             Spacer(minLength: 4)
             Text("\(runningPaceText(zone.fastSecondsPerKm))–\(runningPaceText(zone.slowSecondsPerKm))")
-              .font(.subheadline.monospacedDigit()).foregroundStyle(.white.opacity(0.90))
+              .font(.subheadline.monospacedDigit()).foregroundStyle(RAITheme.primary)
             Text("/km").font(.caption2).foregroundStyle(RAITheme.secondary)
           }.padding(.vertical, 2)
         }
@@ -1490,13 +1486,13 @@ struct RunningAbilityDetailView: View {
         if item.experimental {
           Text("实验").font(.caption2)
             .padding(.horizontal, 5).padding(.vertical, 1)
-            .background(.white.opacity(0.10), in: Capsule())
+            .background(RAITheme.primary.opacity(0.10), in: Capsule())
             .foregroundStyle(RAITheme.secondary)
         }
         Spacer(minLength: 6)
         Text(researchStatusText(item.status))
           .font(.caption2).padding(.horizontal, 6).padding(.vertical, 2)
-          .background(.white.opacity(0.10), in: Capsule())
+          .background(RAITheme.primary.opacity(0.10), in: Capsule())
           .foregroundStyle(item.isAvailable ? RAITheme.orange : RAITheme.secondary)
       }
       Text(researchDetail(item)).font(.caption).foregroundStyle(RAITheme.secondary)
@@ -1783,7 +1779,7 @@ struct TrainingLoadDetailView: View {
         .foregroundStyle(color)
       Text(caption).font(.caption2).foregroundStyle(RAITheme.secondary)
     }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
-      .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
+      .background(RAITheme.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
   }
 
   private var trend: some View {

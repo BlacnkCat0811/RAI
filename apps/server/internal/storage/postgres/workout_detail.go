@@ -58,7 +58,10 @@ type workoutDetailData struct {
 	Parameters *analysis.Parameters
 	// HR zone bounds: the effective HR reference, else the legacy set.
 	ZoneRestHR, ZoneMaxHR float64
-	Execution             *executionRow
+	// Distance statistics require a single historical HRR reference, never a
+	// current legacy parameter set or a mixture of two references.
+	HistoricalRestHR, HistoricalMaxHR float64
+	Execution                         *executionRow
 
 	Batches     int
 	LastBatchAt time.Time
@@ -381,6 +384,7 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		d.ZoneMaxHR = ref.MaxHR
 		if ref.RestingHR != nil {
 			d.ZoneRestHR = *ref.RestingHR
+			d.HistoricalRestHR, d.HistoricalMaxHR = *ref.RestingHR, ref.MaxHR
 		}
 	}
 
@@ -759,6 +763,8 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 		ExplanationCodes: []string{"detail_series_sampled_600", "route_points_sampled_500", "quality_is_feature_coverage"},
 	}}
 	out.Analysis = d.FeatureArtifact
+	_, distanceEvents := d.measured()
+	out.DistanceDistribution = workoutdetail.BuildDistanceDistribution(d.Start.UnixMicro(), d.End.UnixMicro(), distance, d.Observations, distanceEvents, d.HistoricalRestHR, d.HistoricalMaxHR)
 	out.ModelQualification = d.Qualification
 	out.LoadFocus = d.LoadFocus
 	if durationS > 0 && distance != nil && *distance > 0 {

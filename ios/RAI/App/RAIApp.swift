@@ -831,7 +831,7 @@ struct RAIApp: App {
         WindowGroup {
             RootContent(model: model)
                 .environment(\.locale, Locale(identifier: "zh-Hans-CN"))
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(.light)
                 .onOpenURL { model.receiveConnectLink($0) }
                 .alert("连接到这台服务器？", isPresented: Binding(
                     get: { model.pendingConnection != nil }, set: { if !$0 { model.pendingConnection = nil } })) {

@@ -745,7 +745,35 @@ components:
     TrainingDetailPage: {"type": "object", "additionalProperties": false, "required": ["version", "section", "metadata", "items", "next"], "properties": {"version": {"$ref": "#/components/schemas/TrainingVersionSummary"}, "section": {"enum": ["effective_sessions", "base_sessions", "context_workouts", "context_signals", "context_feedback"]}, "metadata": {"type": "object", "additionalProperties": false, "required": ["effective", "base", "context"], "properties": {"effective": {"$ref": "#/components/schemas/TrainingEffectiveMetadata"}, "base": {"$ref": "#/components/schemas/TrainingBaseMetadata"}, "context": {"$ref": "#/components/schemas/TrainingContextMetadata"}}}, "items": {"type": "array", "maxItems": 50, "items": {"oneOf": [{"$ref": "#/components/schemas/TrainingSession"}, {"$ref": "#/components/schemas/TrainingWorkout"}, {"$ref": "#/components/schemas/TrainingSignal"}, {"$ref": "#/components/schemas/TrainingFeedback"}]}}, "next": {"type": "integer", "minimum": 0, "description": "Last immutable array ordinal if more exist; 0 means complete. Cursor is local to version and section."}}}
     TrainingLegacyHistory: {"type": "object", "required": ["versions", "next"], "properties": {"versions": {"type": "array", "maxItems": 50, "items": {"$ref": "#/components/schemas/TrainingEffective"}}, "next": {"type": "integer", "description": "Legacy last returned version number; retained for compatibility."}}}
 
-    WorkoutDetail: {"type": "object", "additionalProperties": true, "required": ["workout", "environment", "summary", "trainingLoad", "zoneSummary", "route", "override"], "description": "Native detail projection. workout/route facts are always present; derived values are null without a clean publication. Environment observations remain visible with pending status and null correction. Planned-effort load fallback is labeled planned_effort_fallback/v1; actual RPE stays null. Optional modelQualification {runningAbility,trainingLoad}: each {status,reasonCodes}; running ability status eligible|conditional|ineligible from the active stack feature qualification (grade-adjusted in v2), training load eligible (complete HR tier)|conditional (estimated/approximate)|ineligible (unknown)|pending."}
+    WorkoutDetail: {"type": "object", "additionalProperties": true, "properties": {"distanceDistribution": {"$ref": "#/components/schemas/WorkoutDistanceDistribution"}}, "required": ["workout", "environment", "summary", "trainingLoad", "zoneSummary", "route", "override"], "description": "Native detail projection. workout/route facts are always present; derived values are null without a clean publication. Environment observations remain visible with pending status and null correction. Planned-effort load fallback is labeled planned_effort_fallback/v1; actual RPE stays null. Optional modelQualification {runningAbility,trainingLoad}: each {status,reasonCodes}; running ability status eligible|conditional|ineligible from the active stack feature qualification (grade-adjusted in v2), training load eligible (complete HR tier)|conditional (estimated/approximate)|ineligible (unknown)|pending."}
+    WorkoutDistanceZone:
+      type: object
+      required: [zone, distanceMeters]
+      properties:
+        zone: {type: string}
+        distanceMeters: {type: number, minimum: 0}
+    WorkoutDistanceDistribution:
+      type: object
+      required: [policyVersion, totalDistanceMeters, pace, heartRate, paceUnknownMeters, heartRateUnknownMeters, heartRateProfileID, reasonCodes]
+      description: >-
+        Optional measured projection, available independently of model publication when the Workout has a finite total distance.
+        Policy distance-zones/v1 integrates unsampled, positive-duration running-speed intervals in their declared units, intersecting HR intervals for HRR distance.
+        Identical overlaps count once; conflicting observations, gaps, point-only samples and pause intervals are not extrapolated.
+        Absolute pace bands in seconds/km are [0,240), [240,300), [300,360), [360,420), [420,infinity),
+        identified by under_4, 4_to_5, 5_to_6, 6_to_7, over_7 respectively. These are distance bands, not training prescription zones.
+        HRR uses one complete max/resting HR reference effective at Workout start, with boundaries below .6, [.6,.7), [.7,.8), [.8,.9), [.9,infinity),
+        identified by recovery, aerobic_base, aerobic_power, lactate_threshold, anaerobic. Absent historical HRR leaves HR distance unknown.
+        Integrated speed distance exceeding the official Workout total is uniformly scaled down for both distributions; distance is never scaled up to fill gaps.
+        Each unknown value is the official total minus that distribution's classified distance. Raw sample gaps therefore remain visible.
+      properties:
+        policyVersion: {type: string, enum: [distance-zones/v1]}
+        totalDistanceMeters: {type: number, minimum: 0}
+        pace: {type: array, minItems: 5, maxItems: 5, items: {$ref: '#/components/schemas/WorkoutDistanceZone'}}
+        heartRate: {type: array, minItems: 5, maxItems: 5, items: {$ref: '#/components/schemas/WorkoutDistanceZone'}}
+        paceUnknownMeters: {type: number, minimum: 0}
+        heartRateUnknownMeters: {type: number, minimum: 0}
+        heartRateProfileID: {type: string, description: 'hrr:resting:max; empty when no complete historical reference exists.'}
+        reasonCodes: {type: array, items: {type: string}}
     WorkoutSeries: {"type": "object", "additionalProperties": true, "required": ["workoutID", "startedAtUs", "endedAtUs", "durationS", "splits", "grade", "segments", "segmentPlan", "segmentNote", "hasMeasuredWorkoutSteps", "dynamics", "series"], "description": "Eight metric series plus measured splits/segments and display-only dynamics."}
     WorkoutFreshness: {"type": "object", "additionalProperties": true, "required": ["workoutID", "facts", "analysis", "series", "completeness", "deliveryState", "analysisState", "stabilityState"], "description": "Per-metric state is present or not_seen_yet; not_seen_yet does not assert device incapability."}
 

@@ -187,16 +187,17 @@ type Qualification struct {
 }
 
 type Detail struct {
-	LoadFocus          *tl.WorkoutFocus    `json:"loadFocus,omitempty"`
-	Workout            Workout             `json:"workout"`
-	Analysis           *FeatureAnalysis    `json:"analysis,omitempty"`
-	ModelQualification *ModelQualification `json:"modelQualification,omitempty"`
-	Environment        *Environment        `json:"environment"`
-	Summary            Summary             `json:"summary"`
-	TrainingLoad       *TrainingLoad       `json:"trainingLoad"`
-	ZoneSummary        *ZoneSummary        `json:"zoneSummary"`
-	Route              Route               `json:"route"`
-	Override           *Override           `json:"override"`
+	LoadFocus            *tl.WorkoutFocus      `json:"loadFocus,omitempty"`
+	Workout              Workout               `json:"workout"`
+	Analysis             *FeatureAnalysis      `json:"analysis,omitempty"`
+	ModelQualification   *ModelQualification   `json:"modelQualification,omitempty"`
+	Environment          *Environment          `json:"environment"`
+	Summary              Summary               `json:"summary"`
+	TrainingLoad         *TrainingLoad         `json:"trainingLoad"`
+	ZoneSummary          *ZoneSummary          `json:"zoneSummary"`
+	DistanceDistribution *DistanceDistribution `json:"distanceDistribution,omitempty"`
+	Route                Route                 `json:"route"`
+	Override             *Override             `json:"override"`
 }
 
 type MetricPoint struct {

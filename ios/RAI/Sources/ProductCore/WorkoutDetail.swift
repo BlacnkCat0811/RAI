@@ -11,6 +11,7 @@ public struct WorkoutDetailResponse: Codable, Sendable {
   public let summary: WorkoutSummary
   public let trainingLoad: WorkoutLoad?
   public let zoneSummary: WorkoutZoneSummary?
+  public let distanceDistribution: WorkoutDistanceDistribution?
   public let route: WorkoutRoute
   public let override: WorkoutOverride?
   /// Whether the active model admits this run for 跑力 and 负荷; absent until

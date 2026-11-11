@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D151AA110022334455667702 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D151AA110022334455667701 /* StatisticsView.swift */; };
 		AABBCCDD0011223344556602 /* DailyHealthNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0011223344556601 /* DailyHealthNormalizer.swift */; };
 		AABBCCDD0011223344557702 /* VO2MaxNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0011223344557701 /* VO2MaxNormalizer.swift */; };
 		017785EB305BF2D0F0C922C8 /* ProductModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0CE59185A6582157B523D9 /* ProductModel.swift */; };
@@ -55,6 +56,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		D151AA110022334455667701 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
 		AABBCCDD0011223344556601 /* DailyHealthNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyHealthNormalizer.swift; sourceTree = "<group>"; };
 		AABBCCDD0011223344557701 /* VO2MaxNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VO2MaxNormalizer.swift; sourceTree = "<group>"; };
 		07A341B735C9EDE82516D5B7 /* ProductViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductViews.swift; sourceTree = "<group>"; };
@@ -172,6 +174,7 @@
 				D573336D2D55F14E12765B60 /* RAITheme.swift */,
 				50C22EC825B004D4C177125E /* SyncCoordinator.swift */,
 				6D79734A29F98E7FF31585DA /* TrainingViews.swift */,
+				D151AA110022334455667701 /* StatisticsView.swift */,
 				7CE264E120F439B2A03391B7 /* Resources */,
 			);
 			path = App;
@@ -363,6 +366,7 @@
 				74409469EFBA71F64DB591A7 /* RAITheme.swift in Sources */,
 				CE77CC555CD1BF81346F22E2 /* SyncCoordinator.swift in Sources */,
 				69A14B76ECBDB83F1149DA87 /* TrainingViews.swift in Sources */,
+				D151AA110022334455667702 /* StatisticsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

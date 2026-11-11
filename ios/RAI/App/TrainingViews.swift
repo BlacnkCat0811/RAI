@@ -50,10 +50,10 @@ struct TrainingView: View {
                 } label: {
                   VStack(spacing: 6) {
                     Text(String(day.suffix(5)))
-                    Circle().fill(day == selected ? RAITheme.orange : .white.opacity(0.15)).frame(
+                    Circle().fill(day == selected ? RAITheme.orange : RAITheme.primary.opacity(0.15)).frame(
                       width: 5, height: 5)
                   }.font(.caption).padding(12).background(
-                    day == selected ? RAITheme.orange.opacity(0.18) : .white.opacity(0.04),
+                    day == selected ? RAITheme.orange.opacity(0.18) : RAITheme.primary.opacity(0.04),
                     in: RoundedRectangle(cornerRadius: 18))
                 }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("training.date." + day)
               }
@@ -123,7 +123,7 @@ struct SessionCard: View {
         Spacer()
         Text(statusText(session.raw.string("status")))
       }.font(.caption).foregroundStyle(RAITheme.secondary)
-    }.frame(maxWidth: .infinity, alignment: .leading).padding(22).raiGlass().foregroundStyle(.white)
+    }.frame(maxWidth: .infinity, alignment: .leading).padding(22).raiGlass().foregroundStyle(RAITheme.primary)
   }
 }
 func statusText(_ status: String) -> String {
@@ -288,7 +288,7 @@ struct SessionDetail: View {
     } label: {
       Label(title, systemImage: icon).font(.subheadline)
         .frame(maxWidth: .infinity, minHeight: 44)
-        .background(.white.opacity(0.08), in: Capsule()).contentShape(Capsule())
+        .background(RAITheme.primary.opacity(0.08), in: Capsule()).contentShape(Capsule())
     }.buttonStyle(.plain).accessibilityIdentifier("session." + operation)
   }
 }
@@ -432,7 +432,7 @@ struct SessionEditor: View {
             .accessibilityIdentifier("edit.save")
         }
       }
-    }.tint(RAITheme.orange).preferredColorScheme(.dark).onAppear {
+    }.tint(RAITheme.orange).preferredColorScheme(.light).onAppear {
       observed = effective.string("effectiveVersionID")
       if session?.type == "REST" { field = "notes" }
       fillValue()
@@ -587,7 +587,7 @@ struct CreatePlanView: View {
             .accessibilityIdentifier("create.save")
         }
       }
-    }.preferredColorScheme(.dark).onAppear {
+    }.preferredColorScheme(.light).onAppear {
       var cal = Calendar(identifier: .gregorian)
       cal.firstWeekday = 2
       let weekday = cal.component(.weekday, from: Date())

@@ -24,6 +24,16 @@
 
 ## 读取
 - 运动：`GET /v2/workouts`、`/v2/workouts/{id}`、`/detail`、`/series`、`/freshness`
+  - `/detail` 新增可选 `distanceDistribution`（`policyVersion=distance-zones/v1`），由原始速度／心率时间区间积分距离，
+    独立于模型发布与旧 `zoneSummary` 的时长占比。返回 `totalDistanceMeters`、`pace`、`heartRate`（各项 `zone` / `distanceMeters`）、
+    `paceUnknownMeters`、`heartRateUnknownMeters`、`heartRateProfileID` 与 `reasonCodes`。
+    配速固定为 `<4:00`、`[4:00,5:00)`、`[5:00,6:00)`、`[6:00,7:00)`、`≥7:00 min/km`，
+    对应 `under_4`、`4_to_5`、`5_to_6`、`6_to_7`、`over_7`；心率按训练开始时有效的个人 HRR 参数分为
+    `<60%`、`[60%,70%)`、`[70%,80%)`、`[80%,90%)`、`≥90%`，不回退到当前参数。
+    重复观测只计一次，冲突、暂停和缺失区间不归类；积分超过记录总距离时统一缩小，少于总距离时不放大补齐。
+    旧服务未提供该字段或分区读取失败时，客户端保留总跑量，将相应距离列为未分类。
+  - iOS 周／月统计完整读取列表游标链，仅请求所选周期跑步的详情；使用 overview 的数据集时区，周一为周起点，
+    跨午夜跑步按开始日计入。分区百分比以本期已知总距离为分母，包含未分类距离，不是心率时长占比。
 - 分析：`GET /v2/analysis/parameters`、`/vo2max-sources`、`/athlete`、`/athlete/history`、`/athlete/diagnostics`
   （旧链路的 `/v2/analysis/state`、`/history`、`/workouts/{id}` 已删除，返回 404）
   - 运动列表的 `metrics` 只含 active stack 的 `workout_load`（单位 `RAI_AU`，`details.qualityTier`/`method`）；未发布时 `analysisStatus=pending`
