@@ -18,6 +18,7 @@ public protocol FileUploader: Sendable {
     /// Implementations that do not cache results may ignore this.
     func discardCachedResult(_ identity: String)
     func cachedResultFilename(_ identity: String) -> String?
+    func cachedResponse(_ identity: String) throws -> UploadResponse?
 }
 public extension FileUploader {
     func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
@@ -26,6 +27,7 @@ public extension FileUploader {
     }
     func discardCachedResult(_ identity: String) {}
     func cachedResultFilename(_ identity: String) -> String? { nil }
+    func cachedResponse(_ identity: String) throws -> UploadResponse? { nil }
 }
 public struct RAIAPIClient: Sendable {
     public static let defaultSession: URLSession = {
@@ -43,9 +45,10 @@ public struct RAIAPIClient: Sendable {
     private let session: URLSession
     private let uploader: (any FileUploader)?
     let metrics: SyncMetrics
+    private let invalidateNegotiation: (@Sendable () async -> Void)?
     private let refreshToken: (@Sendable () async throws -> String)?
-    public init(baseURL: URL, token: String, session: URLSession = RAIAPIClient.defaultSession, uploader: (any FileUploader)? = nil, metrics: SyncMetrics = .init(), refreshToken: (@Sendable () async throws -> String)? = nil) {
-        self.baseURL = baseURL; self.token = token; self.session = session; self.uploader = uploader; self.metrics = metrics; self.refreshToken = refreshToken
+    public init(baseURL: URL, token: String, session: URLSession = RAIAPIClient.defaultSession, uploader: (any FileUploader)? = nil, metrics: SyncMetrics = .init(), invalidateNegotiation: (@Sendable () async -> Void)? = nil, refreshToken: (@Sendable () async throws -> String)? = nil) {
+        self.baseURL = baseURL; self.token = token; self.session = session; self.uploader = uploader; self.metrics = metrics; self.refreshToken = refreshToken; self.invalidateNegotiation = invalidateNegotiation
     }
 
     public func call(_ method: String, _ path: String, body: Data? = nil, file: URL? = nil,
@@ -106,6 +109,7 @@ public struct RAIAPIClient: Sendable {
                 status = http.statusCode; retryAfter = Self.retryAfter(http.value(forHTTPHeaderField: "Retry-After")); contentType = http.value(forHTTPHeaderField: "Content-Type")
             }
             guard data.count <= Self.responseBudget(for: path) else { throw UploadError(code: "oversized_response", status: durableACK ? 0 : 422) }
+            if path != "/v2/handshake", [401, 403, 409].contains(status) { await invalidateNegotiation?() }
             guard status == 200 else {
                 let decoded = try? JSON.decode(data)
                 let code = decoded?["code"].text
@@ -113,7 +117,10 @@ public struct RAIAPIClient: Sendable {
             }
             if durableACK {
                 let media = contentType?.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                guard !data.isEmpty, media == "application/json" else { throw UploadError(code: "invalid_ack_response") }
+                guard !data.isEmpty, media == "application/json" else {
+                    uploader?.discardCachedResult(identity)
+                    throw UploadError(code: "invalid_ack_response")
+                }
             }
             let decodeStart = Date()
             let json = try JSON.decode(data)
@@ -125,6 +132,9 @@ public struct RAIAPIClient: Sendable {
             throw UploadError(code: "network_" + String(error.code.rawValue))
         }
         catch is CancellationError { throw CancellationError() }
-        catch { throw UploadError(code: "invalid_response", status: durableACK ? 0 : 422) }
+        catch {
+            if durableACK { uploader?.discardCachedResult(identity) }
+            throw UploadError(code: "invalid_response", status: durableACK ? 0 : 422)
+        }
     }
 }

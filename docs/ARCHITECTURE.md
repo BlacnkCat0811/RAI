@@ -12,10 +12,22 @@
 
 1. **发现**：App 启动、回前台、HealthKit 的 Workout 观察者唤醒时，`SyncModel.autoSyncWorkouts` 读取最近 30 条 Workout，
    用 `POST /v2/sync/workout-ingests/status` 与服务端对账，再按 `WorkoutAutoSyncPolicy` 选出要传的记录
-   （跑完 ≥10 分钟、14 天内、未上传或早传过一次需补传、非服务端 rejected）。
+   （跑完 ≥1 分钟、14 天内、未上传或早传过一次需补传、非服务端 rejected）。后台观察者唤醒不等这 1 分钟，
+   直接上传当时可见的数据。跑完 30 分钟内传过的记录，在首传 30 分钟后再传一次以带上晚到的心率与路线
+   （字节不同服务端才替换并重新解析；每次运行每条记录只补传一次）。还没到时间的记录由一次性定时器到点再查，
+   不用等 15 分钟扫描。
+   **跑步与日常健康是两条独立通道**：跑步批次用 `workoutScheduler`，日常健康用 `syncScheduler`，互不取消、互不等待；
+   服务端同一设备有 2 个跑步槽和 1 个日常健康槽，进程总上限 3（`httpapi.acquireUpload`），握手公告各自额度。
+   同一会话的状态查询、跑步与日常健康共享 60 秒内存握手缓存及在途请求；凭证/服务地址/会话变化隔离缓存，
+   鉴权或身份冲突清除缓存，每次使用仍检查本地 active 状态。激活与恢复始终实时握手。
 2. **构建**：`RawStreamSyncEngine.build` 一次读全 HealthKit，生成 protocol-6 JSON（顶层来源 + 流 + 路线）。
-3. **上传**：`WorkoutIngestDelivery.acceptWithRetry` 以 gzip multipart 发 `POST /v2/sync/workout-ingests/{uuid}`；
-   网络错误 / 408 / 429 / 5xx 按 1s、3s、8s 重试（尊重 `Retry-After`）。
+3. **上传**：最多 2 个 worker 各自读取、构建一条记录；旧服务端未公告 `workoutUploads` 时使用 1 个 worker。
+   `WorkoutUploadJournal` 先原子保存 multipart 文件、边界、内容哈希和请求身份，`BackgroundTransfers` 再通过后台
+   URLSession 的文件上传发 `POST /v2/sync/workout-ingests/{uuid}`。网络错误 / 408 / 429 / 5xx 按 1s、3s、8s 重试，
+   更长 `Retry-After` 的单次等待上限 30 秒，所有尝试复用同一文件与身份。Workout 不占用 Daily/VO2 的 GCRA 节流器。
+   挂起/取消进程内等待不会取消已交给系统的传输；回调原子落盘后验证 UUID/回执，再持久化 journal 中的 accepted
+   回执并回收正文与传输结果。重启/回前台只消费已有回执；再次同步未完成项时接回原文件，不重新读取 HealthKit。
+   选择列表不会全部预先生成文件；后台构建受 iOS 执行时间限制，尚未构建的历史在后续前台轮次继续。
 4. **接收**：API 把原始字节原样写入 `workout_ingests`，返回回执（同一事务）。字节相同的重复提交重放原回执；
    被拒绝或字节不同的新快照会替换原文并重新解析。
 5. **解析**：Worker 单槽领取 `accepted` 行，只投影已知字段为事实（样本、关联、序列、路线），
@@ -99,6 +111,13 @@ StackID 匹配。当前注册范围如下；注册表之外的版本明确返回
 产品当前值、历史和训练输入按 active stack 的 `model/<stack>/athlete/day/v2/<date>` 路径定位产物，校验
 该发布的真实计算配置、manifest、dataset、generation 和内容哈希。只读取发布指针与脏范围代数一致的干净结果；
 已失效的发布不能继续提供数值。当前值读取当天日发布，历史读取指定日期范围；当天产物缺失不会自动用前一天冒充。
+
+**失效与历史重算（迁移 55）**：日常健康事实逐行写入，但失效按“数据集 + 事务”合并——行触发器只把时间范围并入
+`model_stack_pending_invalidations`，提交时由延迟触发器在同一事务内执行一次 `rai_model_stack_invalidate`，所以一页
+（最多 500 条）只产生一次失效和一个当天任务。覆盖度行（每页都会改写，含空页心跳）只重排当天，不再让过去 366 天失效。
+晚到的事实（昨晚的睡眠、第二天才上传的跑步）仍会让已发布的历史日失效；Worker 每 15 秒的推进在该数据集没有排队或
+运行中的日任务时，调用 `rai_model_stack_rebuild_history` 把最近 365 天内曾发布过、现已失效的日范围按从新到旧每次最多
+10 个重新排队，算完后历史恢复可读。只重算当前构建的栈；从未发布过的日期不会被创建。
 准备度投影使用对应版本的配置和有效期，旧结果不改标为新模型。注册表冻结的是读取契约，Worker 仍只计算当前构建的栈；
 旧栈缺失或失效的产物提示 `model_update_required`，不能用新算法写回旧栈。
 
@@ -132,7 +151,8 @@ HRV、静息心率、睡眠、VO2 走 HealthKit 锚点 + 本地 Outbox（`Outbox
   （即 Retry-After），有到期发现就 2 秒后，否则 15 分钟兜底。限流、容量、超时、网络错误属于暂时性错误
   （`DailyHealth.isTransient`），只推迟该页、不阻断快速续传；其他错误仍等 15 分钟扫描。
 - **分页**：页大小取握手 `dailyMaxChanges` 并持久化（服务端 500，未握手按 128）。500 条睡眠页约 257 KB，本机 PG 18 上
-  500 条新增约 0.6 秒、500 条删除约 0.5 秒提交，远低于 5 秒事务预算（`integration/daily_test.go`）。迁移 54 把
+  500 条新增约 0.6 秒、500 条删除约 0.5 秒提交，远低于 5 秒事务预算（`integration/daily_test.go`）；已启用模型栈且存在
+  120 天日范围时，跨 90 天的 500 条历史页约 0.5 秒、只排一个日任务（`integration/model_stack_invalidation_test.go`）。迁移 54 把
   `daily_health_coverage` 的计数约束放宽到 500。
 - **空页心跳**：已完成 bootstrap、没有新增或删除的查询，距上次服务端 ACK 不足 6 小时就只在本地记录发现时间、不上传；
   到 6 小时才上传空页刷新覆盖度（恢复要求覆盖度在 24 小时内）。锚点不前移，下次从同一锚点继续查。

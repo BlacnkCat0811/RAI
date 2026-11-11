@@ -22,7 +22,7 @@ func TestBundleRejectsBeforeReadingBodyWhenDeviceSlotBusy(t *testing.T) {
 	p := syncing.Principal{DatasetID: "11111111-1111-4111-8111-111111111111",
 		DeviceID: "22222222-2222-4222-8222-222222222222", CanCollect: true}
 	a := &API{store: admissionStore{}, log: slog.Default(), uploads: make(chan struct{}, 2),
-		devices: map[uploadDevice]bool{{p.DatasetID, p.DeviceID}: true}}
+		devices: map[uploadSlot]int{{p.DatasetID, p.DeviceID, workoutUpload}: DeviceWorkoutUploadSlots}}
 	workoutID := "44444444-4444-4444-8444-444444444444"
 	body := &countingBody{}
 	request := httptest.NewRequest("POST", "/v2/sync/workout-ingests/"+workoutID, body)

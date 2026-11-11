@@ -24,7 +24,7 @@ type API struct {
 	log      *slog.Logger
 	uploads  chan struct{}
 	uploadMu sync.Mutex
-	devices  map[uploadDevice]bool
+	devices  map[uploadSlot]int
 
 	statusSlots   chan struct{}
 	statusMu      sync.Mutex
@@ -32,6 +32,21 @@ type API struct {
 }
 
 type uploadDevice struct{ datasetID, deviceID string }
+
+// uploadKind separates the two things a phone uploads. A Workout payload and a
+// daily health page are independent on the client and touch different tables
+// on acceptance, so one never has to wait for the other.
+type uploadKind string
+
+const (
+	workoutUpload uploadKind = "workout"
+	healthUpload  uploadKind = "health"
+)
+
+type uploadSlot struct {
+	datasetID, deviceID string
+	kind                uploadKind
+}
 
 type statusBudget struct {
 	tokens  float64
@@ -41,7 +56,10 @@ type statusBudget struct {
 // ProcessUploadSlots is the process-wide concurrent upload ceiling. It is the
 // default budget the handshake advertises and the capacity of the upload slot
 // channel; performance entries must not raise it.
-const ProcessUploadSlots = 2
+const ProcessUploadSlots = 3
+
+// Two bounded history workers plus an independent daily-health upload.
+const DeviceWorkoutUploadSlots = 2
 
 // Status queries never write. They still hold a bounded process-local slot so
 // one client cannot occupy every database connection with polling.
@@ -53,7 +71,7 @@ const (
 )
 
 func New(store syncing.Store, log *slog.Logger) http.Handler {
-	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadDevice]bool),
+	a := &API{store: store, log: log, uploads: make(chan struct{}, ProcessUploadSlots), devices: make(map[uploadSlot]int),
 		statusSlots: make(chan struct{}, ProcessStatusSlots), statusBuckets: make(map[uploadDevice]statusBudget)}
 	m := http.NewServeMux()
 	live := func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]string{"status": "alive"}) }
@@ -339,7 +357,7 @@ func (a *API) handshake(w http.ResponseWriter, r *http.Request, p syncing.Princi
 	// Protocol 6 is the only raw Workout payload. The session protocol itself
 	// stays at version 3; it versions the handshake shape, not the payload.
 	respond(w, 200, map[string]any{"protocolVersion": 3, "deviceID": m.DeviceID, "collectorEpoch": m.CollectorEpoch, "datasetStatus": m.DatasetStatus, "datasetID": m.DatasetID, "datasetEpoch": m.DatasetEpoch, "serviceID": m.ServiceID, "timezone": m.Timezone, "commitRevision": m.CommitRevision,
-		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": ProcessUploadSlots, "processDeviceUploads": 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1},
+		"limits":       map[string]any{"bundleBytes": syncing.MaxWorkoutBundleBytes, "bundleWireBytes": MaxBundleWireBytes, "bundleCompressedBytes": MaxBundleCompressedBytes, "bundleEvents": syncing.MaxWorkoutBundleEvents, "bundleRoutes": syncing.MaxBundleRoutes, "bundleRoutePoints": syncing.MaxBundleRoutePoints, "requests": syncing.RequestBudgets(), "processUploads": ProcessUploadSlots, "processDeviceUploads": DeviceWorkoutUploadSlots + 1, "datasetUploads": syncing.DatasetUploads, "deviceUploads": 1, "workoutUploads": DeviceWorkoutUploadSlots, "healthUploads": 1},
 		"capabilities": map[string]any{"workoutSourcePolicyVersion": syncing.WorkoutSourcePolicyVersion, "workoutUUIDIngestVersion": 1, "workoutUUIDIngestAccepting": true, "vo2maxFactsVersion": 1, "vo2maxMetadataRegistryVersion": 1, "vo2maxMaxChanges": syncing.MaxVO2Changes, "vo2maxMaxBytes": syncing.MaxVO2Bytes, "dailyFactsVersion": 1, "dailyFactTypes": syncing.DailyTypes, "dailyMaxChanges": syncing.MaxDailyChanges, "dailyMaxBytes": syncing.MaxDailyBytes, "sampleTypes": types, "workouts": true, "workoutType": syncing.WorkoutType, "workoutPayloadVersion": 6, "bundleGzipPart": true, "routes": true, "sampleWorkoutAssociations": true, "changefeed": false, "analysis": true}})
 	return nil
 }
@@ -351,7 +369,7 @@ func (a *API) acceptWorkoutIngest(w http.ResponseWriter, r *http.Request, p sync
 	if !syncing.ValidID(workoutID) {
 		return syncing.Fail(422, "unsupported_payload")
 	}
-	release, err := a.acquireUpload(p)
+	release, err := a.acquireUpload(p, workoutUpload)
 	if err != nil {
 		return err
 	}
@@ -486,22 +504,30 @@ func (a *API) acquireStatusQuery(p syncing.Principal) (func(), error) {
 	}
 }
 
-// Only active uploads occupy map entries. The global two-slot cap bounds both
-// memory and concurrent parsing; device keys never depend on bearer tokens.
-func (a *API) acquireUpload(p syncing.Principal) (func(), error) {
+// Only active uploads occupy map entries. The global cap bounds memory and
+// parsing; device keys never depend on bearer tokens. History gets two slots
+// while daily/VO2 remains independently limited to one.
+func (a *API) acquireUpload(p syncing.Principal, kind uploadKind) (func(), error) {
 	a.uploadMu.Lock()
 	defer a.uploadMu.Unlock()
-	key := uploadDevice{p.DatasetID, p.DeviceID}
-	if a.devices[key] {
+	key := uploadSlot{p.DatasetID, p.DeviceID, kind}
+	limit := 1
+	if kind == workoutUpload {
+		limit = DeviceWorkoutUploadSlots
+	}
+	if a.devices[key] >= limit {
 		return nil, &syncing.Error{Status: 429, Code: "device_upload_capacity_exceeded", RetryAfterSeconds: 1}
 	}
 	select {
 	case a.uploads <- struct{}{}:
-		a.devices[key] = true
+		a.devices[key]++
 		return func() {
 			a.uploadMu.Lock()
 			defer a.uploadMu.Unlock()
-			delete(a.devices, key)
+			a.devices[key]--
+			if a.devices[key] == 0 {
+				delete(a.devices, key)
+			}
 			<-a.uploads
 		}, nil
 	default:

@@ -21,15 +21,17 @@ struct WorkoutUploadOutcome: Sendable, Equatable {
     var succeeded: Bool { errorCode == nil }
 }
 
-/// One HKWorkout = one protocol-6 payload built and sent in the foreground.
-/// There is no local Workout upload queue, status pre-read, automatic retry,
-/// background transfer or analysis polling in this path.
+/// One HKWorkout = one protocol-6 payload. Bounded workers prepare immutable
+/// files and hand them to the OS-managed, session-scoped upload transport.
 actor SyncCoordinator {
     let store: OutboxStore
     let health: any HealthKitReading
     private let session: URLSession
     private let sessionStore: SyncSessionStore?
     private let sessionID: String?
+    private let handshakeCache: HandshakeCache
+    private let workoutUploads: WorkoutUploadJournal
+    private var workoutConcurrency = 1
     private var workoutBatchRunning = false
     private var dailyRunning = false
     private var supportsDaily = false
@@ -260,9 +262,11 @@ actor SyncCoordinator {
         #endif
     }
 
-    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil) {
+    init(store: OutboxStore, health: any HealthKitReading = HealthKitClient(), session: URLSession = .shared, sessionStore: SyncSessionStore? = nil, sessionID: String? = nil, handshakeCache: HandshakeCache = HandshakeCache()) {
         self.store = store; self.health = health; self.session = session
         self.sessionStore = sessionStore; self.sessionID = sessionID
+        self.handshakeCache = handshakeCache
+        self.workoutUploads = WorkoutUploadJournal(directory: store.directory)
     }
 
     func authorize() async throws { try await health.authorize() }
@@ -285,40 +289,45 @@ actor SyncCoordinator {
     }
 
     private func context(secret: ClientConfiguration.Secret, transfers: any FileUploader, metrics: SyncMetrics) async throws -> (RAIAPIClient, Scope) {
-        let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, session: session, uploader: transfers, metrics: metrics)
-        let hello = try await api.call("GET", "/v2/handshake")
-        if let sessionStore, let sessionID {
-            try await sessionStore.validateActiveHandshake(sessionID, handshake: hello)
-        }
-        let supported = Set(hello["capabilities"]["sampleTypes"].list.compactMap(\.text))
-        // Protocol 6 is the only Workout payload this client can produce or
-        // deliver. A server that still advertises another version is not
-        // compatible; there is no downgrade and no legacy upload path.
-        guard hello["protocolVersion"].integer == 3, let service = hello["serviceID"].text,
-              let dataset = hello["datasetID"].text, let epoch = hello["datasetEpoch"].text,
-              hello["datasetStatus"].text == "active",
-              hello["capabilities"]["workoutPayloadVersion"].integer == 6,
-              hello["capabilities"]["workoutUUIDIngestVersion"].integer == 1,
-              !supported.isEmpty,
-              HealthKitClient.quantityTypes.allSatisfy({ supported.contains($0.identifier) }) else {
-            throw SyncFailure.invalid("unsupported_handshake")
-        }
-        supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
-        vo2Capabilities = hello["capabilities"]
-        let budget = UploadPacer.budget(handshake: hello)
-        await pacer.configure(perMinute: budget.perMinute, burst: budget.burst)
-        let scope = Scope(serviceID: service, datasetID: dataset, datasetEpoch: epoch, collectorEpoch: secret.configuration.collectorEpoch)
-        try await store.bind(scope)
-        if supportsDaily { try await store.setDailyMaxChanges(hello["capabilities"]["dailyMaxChanges"].integer.map { Int($0) }) }
-        return (api, scope)
+        if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
+        let key = HandshakeCache.key(baseURL: secret.configuration.baseURL, token: secret.token,
+                                     collectorEpoch: secret.configuration.collectorEpoch, sessionID: sessionID)
+        let cache = handshakeCache
+        let api = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token, session: session,
+            uploader: transfers, metrics: metrics, invalidateNegotiation: { await cache.invalidate(key) })
+        let hello = try await cache.value(for: key) { try await api.call("GET", "/v2/handshake") }
+        do {
+            if let sessionStore, let sessionID {
+                try await sessionStore.validateActiveHandshake(sessionID, handshake: hello)
+            }
+            let supported = Set(hello["capabilities"]["sampleTypes"].list.compactMap(\.text))
+            // Protocol 6 is the only Workout payload this client can produce or
+            // deliver. A server that still advertises another version is not
+            // compatible; there is no downgrade and no legacy upload path.
+            guard hello["protocolVersion"].integer == 3, let service = hello["serviceID"].text,
+                  let dataset = hello["datasetID"].text, let epoch = hello["datasetEpoch"].text,
+                  hello["datasetStatus"].text == "active",
+                  hello["capabilities"]["workoutPayloadVersion"].integer == 6,
+                  hello["capabilities"]["workoutUUIDIngestVersion"].integer == 1,
+                  !supported.isEmpty,
+                  HealthKitClient.quantityTypes.allSatisfy({ supported.contains($0.identifier) }) else {
+                throw SyncFailure.invalid("unsupported_handshake")
+            }
+            workoutConcurrency = min(2, max(1, Int(hello["limits"]["workoutUploads"].integer ?? 1)))
+            supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
+            vo2Capabilities = hello["capabilities"]
+            let budget = UploadPacer.budget(handshake: hello)
+            await pacer.configure(perMinute: budget.perMinute, burst: budget.burst)
+            let scope = Scope(serviceID: service, datasetID: dataset, datasetEpoch: epoch, collectorEpoch: secret.configuration.collectorEpoch)
+            try await store.bind(scope)
+            if supportsDaily { try await store.setDailyMaxChanges(hello["capabilities"]["dailyMaxChanges"].integer.map { Int($0) }) }
+            return (api, scope)
+        } catch { await cache.invalidate(key); throw error }
     }
 
-    /// Uploads the selected Workouts in the foreground, one after another.
-    /// The handshake happens once per batch; each Workout is read, built and
-    /// sent exactly once. A per-Workout failure is reported through `progress`
-    /// and does not stop the remaining items; only cancellation ends the round
-    /// early. The returned outcomes are exactly the Workouts whose final
-    /// result was reached before the call returned.
+    /// Two workers at most; old servers negotiate one. Each worker owns one
+    /// build/file/upload, so a large history cannot retain all payloads in RAM.
+    /// Outcomes stream in completion order and return in the selection order.
     func uploadWorkouts(_ ids: [String], secret: ClientConfiguration.Secret,
                         transfers: any FileUploader,
                         started: @escaping @MainActor @Sendable (String) -> Void = { _ in },
@@ -328,29 +337,79 @@ actor SyncCoordinator {
         workoutBatchRunning = true; defer { workoutBatchRunning = false }
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
         let (api, scope) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-        let delivery = WorkoutIngestDelivery(api: api)
-        var outcomes: [WorkoutUploadOutcome] = []
-        outcomes.reserveCapacity(ids.count)
-        for id in ids {
-            try Task.checkCancellation()
-            await started(id)
-            let buildStarted = Date()
-            do {
-                let raw = try await RawStreamSyncEngine(health: health, scope: scope).build(id: id)
-                metrics.value("v6_build_ms", Date().timeIntervalSince(buildStarted) * 1000)
-                let receipt = try await delivery.acceptWithRetry(raw, workoutID: id, scope: scope)
-                metrics.value("workout_sync_ms", Date().timeIntervalSince(buildStarted) * 1000)
-                let outcome = WorkoutUploadOutcome(workoutID: id, acceptedAt: receipt.acceptedAt, errorCode: nil)
-                outcomes.append(outcome)
-                await progress(outcome)
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                if Task.isCancelled { throw CancellationError() }
-                let outcome = WorkoutUploadOutcome(workoutID: id, acceptedAt: nil, errorCode: Self.uploadCode(error))
-                outcomes.append(outcome)
-                await progress(outcome)
+        let concurrency = workoutConcurrency
+        var seen = Set<String>()
+        let ordered = ids.filter { seen.insert($0).inserted }
+        return try await withThrowingTaskGroup(of: (Int, WorkoutUploadOutcome).self) { group in
+            var next = 0
+            var results: [Int: WorkoutUploadOutcome] = [:]
+            func enqueue(_ index: Int) {
+                let id = ordered[index]
+                group.addTask {
+                    try Task.checkCancellation()
+                    await started(id)
+                    let outcome = try await self.uploadWorkout(id, api: api, scope: scope, transfers: transfers, metrics: metrics)
+                    await progress(outcome)
+                    return (index, outcome)
+                }
             }
+            for _ in 0..<min(concurrency, ordered.count) { enqueue(next); next += 1 }
+            while let (index, outcome) = try await group.next() {
+                results[index] = outcome
+                try Task.checkCancellation()
+                if next < ordered.count { enqueue(next); next += 1 }
+            }
+            return ordered.indices.compactMap { results[$0] }
+        }
+    }
+
+    private func uploadWorkout(_ id: String, api: RAIAPIClient, scope: Scope,
+                               transfers: any FileUploader, metrics: SyncMetrics) async throws -> WorkoutUploadOutcome {
+        let started = Date()
+        do {
+            if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
+            let prepared: PreparedWorkoutUpload
+            if let pending = try await workoutUploads.pending(id, scope: scope) { prepared = pending }
+            else {
+                let raw = try await RawStreamSyncEngine(health: health, scope: scope).build(id: id)
+                try Task.checkCancellation()
+                prepared = try await workoutUploads.prepare(raw, workoutID: id, scope: scope)
+                metrics.value("v6_build_ms", Date().timeIntervalSince(started) * 1000)
+            }
+            if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
+            let receipt = try await WorkoutIngestDelivery(api: api).acceptWithRetry(prepared, directory: store.directory)
+            try await workoutUploads.complete(prepared, receipt: receipt.raw)
+            transfers.discardCachedResult(prepared.identity)
+            metrics.value("workout_sync_ms", Date().timeIntervalSince(started) * 1000)
+            return WorkoutUploadOutcome(workoutID: id, acceptedAt: receipt.acceptedAt, errorCode: nil)
+        } catch is CancellationError { throw CancellationError() }
+        catch {
+            if Task.isCancelled { throw CancellationError() }
+            return WorkoutUploadOutcome(workoutID: id, acceptedAt: nil, errorCode: Self.uploadCode(error))
+        }
+    }
+
+    /// Consume only already-finished transfers. A background callback never
+    /// reads HealthKit or starts an unrelated upload to reconstruct a receipt.
+    func reconcileWorkoutUploads(transfers: any FileUploader) async throws -> [WorkoutUploadOutcome] {
+        if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
+        guard let scope = await store.snapshot().scope else { return [] }
+        var outcomes: [WorkoutUploadOutcome] = []
+        for entry in try await workoutUploads.all(scope: scope) {
+            let receipt: JSON
+            if let accepted = entry.receipt { receipt = accepted }
+            else {
+                guard let response = try transfers.cachedResponse(entry.identity) else { continue }
+                let media = response.contentType?.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                guard media == "application/json", response.data.count <= 1_048_576 else { continue }
+                guard let decoded = try? JSON.decode(response.data),
+                      (try? WorkoutIngestStatus(receipt: decoded, workoutID: entry.workoutID)) != nil else { continue }
+                receipt = decoded
+                try await workoutUploads.complete(entry, receipt: receipt)
+            }
+            transfers.discardCachedResult(entry.identity)
+            let accepted = try WorkoutIngestStatus(receipt: receipt, workoutID: entry.workoutID)
+            outcomes.append(WorkoutUploadOutcome(workoutID: entry.workoutID, acceptedAt: accepted.acceptedAt, errorCode: nil))
         }
         return outcomes
     }

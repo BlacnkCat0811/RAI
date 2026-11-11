@@ -15,6 +15,9 @@
   `capabilities.dailyMaxChanges`（schema 54 起为 500，此前 128），请求体不超过 512 KiB。客户端保存最近一次握手的值，
   未握手时按 128 分页。删除（`deletedUUIDs`）照常上传并写墓碑，是“不做删除同步”的例外
 - `POST /v2/sync/vo2max-facts` / `GET /v2/sync/vo2max-facts/coverage` — 外部 VO2
+- 上传并发：同一设备同时最多两个 Workout 上传和一个日常健康（daily / VO2）上传，分别由握手
+  `limits.workoutUploads=2` / `healthUploads=1` 公告；超过各自额度返回 `429 device_upload_capacity_exceeded`。
+  进程内总并发由 `limits.processUploads=3` 限制。iOS 对旧服务端缺失 `workoutUploads` 时退回单路上传
 - `GET /v2/sync/changes` — 变更通知（能力位 `changefeed=false`）
 - `POST /v2/model-inputs/{kind}`、`POST /v2/model-inputs/{id}/revocations` — 个人参考值与目标
   （App 使用 `hr-references`、`sleep-targets`、`vo2max-source-selections`、`workout-efforts`；`trimp-parameters` 仍接受但 App 已不再写入）
@@ -75,4 +78,7 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分（突发 2）；可用 `RAI_RATE_BUDGETS` 覆盖，
 真机验收后端 `scripts/local/device.py` 把上传放宽到 120/分、突发 12）。设备桶先判、数据集桶后判，两者都允许才同时扣额；
 任一拒绝都不扣额，所以单设备超额只返回 `device_rate_exceeded`，不会顺带耗尽数据集余额。超限返回 `429` 与 `Retry-After`。
-握手 `limits.requests` 返回生效预算，iOS 按其中的上传预算节流日常健康与 VO2 上传。
+握手 `limits.requests` 返回生效预算，iOS 按其中的上传预算节流日常健康与 VO2 上传。Workout UUID ingest 沿用
+独立并发槽与积压额度，不套用日常健康的每分钟预算；遇到 429 按 `Retry-After` 重试。
+同步握手在进程内缓存 60 秒，键包含服务 URL、令牌摘要、collector epoch 和会话 ID，并合并并发请求；失败不缓存，
+401/403/409 使缓存失效。每次使用仍检查本地会话为 active；连接、激活与恢复校验始终实时握手。

@@ -23,7 +23,7 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
         super.init()
         let config = URLSessionConfiguration.background(withIdentifier: identifier)
         config.sessionSendsLaunchEvents = true; config.isDiscretionary = false
-        config.timeoutIntervalForRequest = 270; config.timeoutIntervalForResource = 3600; config.httpMaximumConnectionsPerHost = 1
+        config.timeoutIntervalForRequest = 270; config.timeoutIntervalForResource = 3600; config.httpMaximumConnectionsPerHost = 3
         let queue = OperationQueue(); queue.maxConcurrentOperationCount = 1
         let session = URLSession(configuration: config, delegate: self, delegateQueue: queue)
         state.withLock { $0.session = session }
@@ -35,6 +35,14 @@ final class BackgroundTransfers: NSObject, URLSessionDataDelegate, FileUploader,
     func discardCachedResult(_ identity: String) {
         let scoped = sessionID.map { $0 + ":" + identity } ?? identity
         try? FileManager.default.removeItem(at: resultURL(scoped))
+    }
+    func cachedResponse(_ identity: String) throws -> UploadResponse? {
+        let scoped = sessionID.map { $0 + ":" + identity } ?? identity
+        let url = resultURL(scoped)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        let result = try JSONDecoder().decode(Result.self, from: Data(contentsOf: url))
+        guard result.status == 200, result.error == nil else { return nil }
+        return UploadResponse(data: result.body, status: result.status, retryAfter: result.retryAfter, contentType: result.contentType)
     }
     func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
         let result = try await response(request, file: file, identity: identity)

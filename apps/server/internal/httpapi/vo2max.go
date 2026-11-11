@@ -10,7 +10,7 @@ import (
 )
 
 func (a *API) vo2Upload(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
-	release, err := a.acquireUpload(p)
+	release, err := a.acquireUpload(p, healthUpload)
 	if err != nil {
 		return err
 	}

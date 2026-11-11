@@ -248,7 +248,7 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
     @MainActor
     func testLeavingListAndDetailPagesDoesNotCancelTheUpload() async {
         for showingDetail in [false, true] {
-            let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
+            let scheduler = ForegroundSyncScheduler(), model = SyncModel(workoutScheduler: scheduler)
             let id = Wire.id()
             let workout = HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
                 distanceM: nil, averageHeartRate: nil, isIndoor: true, activityType: 37,
@@ -292,7 +292,7 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
 
     @MainActor
     func testExplicitCancelPreservesSuccessAndMarksTheRestInterrupted() async {
-        let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
+        let scheduler = ForegroundSyncScheduler(), model = SyncModel(workoutScheduler: scheduler)
         let ids = [Wire.id(), Wire.id(), Wire.id()]
         model.workouts = ids.map { id in
             HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
@@ -315,7 +315,7 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
 
     @MainActor
     func testBackgroundDoesNotCancelARunningUpload() async {
-        let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
+        let scheduler = ForegroundSyncScheduler(), model = SyncModel(workoutScheduler: scheduler)
         let id = Wire.id()
         model.workouts = [HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
                                               distanceM: nil, averageHeartRate: nil, isIndoor: true,
@@ -332,33 +332,48 @@ final class WorkoutCoordinatorReliabilityTests: XCTestCase {
     }
 
     @MainActor
-    func testModelAllowsUserSyncDuringAutomaticWorkAndReservesSelectionImmediately() async {
-        let scheduler = ForegroundSyncScheduler(), model = SyncModel(syncScheduler: scheduler)
+    func testWorkoutSyncRunsBesideDailyWorkAndReservesSelectionImmediately() async {
+        let daily = ForegroundSyncScheduler(), workout = ForegroundSyncScheduler()
+        let model = SyncModel(syncScheduler: daily, workoutScheduler: workout)
         let (started, continuation) = AsyncStream<Void>.makeStream()
         var stopped = false
-        scheduler.startAutomatic {
+        daily.startAutomatic {
             continuation.yield(())
             do { try await Task.sleep(for: .seconds(3600)) } catch { stopped = true }
         }
         for await _ in started { break }
         XCTAssertTrue(model.busy)
+        // A daily round in flight holds back neither the list nor an upload.
+        XCTAssertFalse(model.workoutBusy)
         XCTAssertTrue(model.canStartWorkoutSync)
         let id = Wire.id()
         model.workouts = [HealthWorkoutSummary(id: id, start: Date(), end: Date(), durationS: 60,
                                               distanceM: nil, averageHeartRate: nil, isIndoor: true,
                                               activityType: 37, sourceName: "Apple Watch", deviceName: "Watch",
                                               sourceClassification: "apple_watch", sourceOutcome: WorkoutSourcePolicy.eligible)]
+        // Hold the Workout lane so the round is still running when checked.
+        let pause = UploadPagePause()
+        workout.startAutomatic { await pause.wait() }
         model.syncWorkouts([id])
-        XCTAssertEqual(scheduler.mode, .manual)
-        XCTAssertTrue(model.busy)
+        XCTAssertEqual(workout.mode, .manual)
+        XCTAssertEqual(model.workoutResults[id]?.state, .pending)
         XCTAssertFalse(model.canStartWorkoutSync)
+        // The daily round keeps going and can still be driven by the user.
+        XCTAssertEqual(daily.mode, .automatic)
+        XCTAssertFalse(stopped)
+        XCTAssertTrue(model.canStartDailySync)
         // The round has no synthetic session; cancel it so this test never
         // depends on the simulator's persisted app state or a network read.
-        scheduler.cancel()
-        await scheduler.waitForCompletion()
+        model.cancelWorkoutSync()
+        await pause.release()
+        await workout.waitForCompletion()
+        XCTAssertFalse(stopped)
+        XCTAssertTrue(model.canStartWorkoutSync)
+        XCTAssertTrue(model.busy)
+        daily.cancel()
+        await daily.waitForCompletion()
         XCTAssertTrue(stopped)
         XCTAssertFalse(model.busy)
-        XCTAssertTrue(model.canStartWorkoutSync)
     }
 
 }
@@ -650,6 +665,7 @@ extension NormalizerTests {
             for key in ["batchID", "datasetID", "datasetEpoch", "collectorEpoch", "streamID", "clientSeq"] { receipt[key] = body[key] }
             try await store.acknowledgeDaily(type: type, receipt: .object(receipt))
         }
+        let acknowledged = await store.snapshot().daily ?? [:]
         let reopened = try OutboxStore(directory: directory), resumed = SyncCoordinator(store: reopened, health: health)
         try await resumed.discoverDaily()
         let cooled = await health.anchors
@@ -659,10 +675,15 @@ extension NormalizerTests {
         let incremental = await health.anchors
         for type in DailyHealth.types {
             XCTAssertEqual(incremental[type]?.count, 2); XCTAssertNotNil(incremental[type]?[1])
-            let flow = try await reopened.dailyFlow(type), pending = try XCTUnwrap(flow.pending)
-            let raw = try JSON.decode(Data(contentsOf: await reopened.fileURL(pending.file)))
-            XCTAssertTrue(raw["facts"].list.isEmpty)
-            XCTAssertEqual(flow.sequence, 2)
+            let flow = try await reopened.dailyFlow(type)
+            // A caught-up empty query within the heartbeat interval updates
+            // discovery only. It must not stage an empty upload or move the
+            // server-acknowledged anchor/sequence ahead of its last receipt.
+            XCTAssertNil(flow.pending)
+            XCTAssertEqual(flow.anchor, incremental[type]?[1])
+            XCTAssertEqual(flow.sequence, acknowledged[type]?.sequence)
+            XCTAssertEqual(flow.anchor, acknowledged[type]?.anchor)
+            XCTAssertNil(flow.error)
         }
     }
 }

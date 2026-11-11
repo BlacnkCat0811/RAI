@@ -142,6 +142,36 @@ public struct WorkoutIngestDelivery: Sendable {
         }
     }
 
+    /// File-based upload for the OS-managed background session. Every retry
+    /// uses the same file, boundary and durable transfer identity.
+    public func acceptWithRetry(_ prepared: PreparedWorkoutUpload, directory: URL, pacer: UploadPacer? = nil,
+                                sleep: @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }) async throws -> WorkoutIngestStatus {
+        var attempt = 0
+        while true {
+            try Task.checkCancellation()
+            if let pacer {
+                let wait = await pacer.reserve()
+                if wait > 0 { try await sleep(wait) }
+            }
+            do {
+                let reply = try await api.call("POST", "/v2/sync/workout-ingests/" + prepared.workoutID,
+                    file: directory.appendingPathComponent(prepared.file),
+                    mediaType: "multipart/form-data; boundary=" + prepared.boundary, identity: prepared.identity)
+                return try WorkoutIngestStatus(receipt: reply, workoutID: prepared.workoutID)
+            } catch {
+                if error is CancellationError || Task.isCancelled { throw CancellationError() }
+                let failure = WorkoutPayloadTransport.failure(error)
+                if failure.code == "receipt_mismatch" { api.discardUploadResult(prepared.identity) }
+                if failure.status == 429, let delay = failure.retryAfter, let pacer {
+                    await pacer.penalize(until: Date().addingTimeInterval(delay))
+                }
+                guard let delay = Self.retryDelay(for: failure, attempt: attempt) else { throw failure }
+                attempt += 1
+                try await sleep(delay)
+            }
+        }
+    }
+
     /// One batch read of the server's state, 200 UUIDs per request. The answer
     /// order does not matter; every requested UUID is present in the result.
     public func statuses(_ ids: [String]) async throws -> [String: WorkoutRemoteStatus] {

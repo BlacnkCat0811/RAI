@@ -8,9 +8,33 @@ struct WorkoutAutoSyncPolicyTests {
     private let policy = WorkoutAutoSyncPolicy()
 
     @Test func freshWorkoutWaitsForTheWatchToFinishSyncing() {
-        let result = policy.due(candidates: [.init(id: "a", end: at(3))], accepted: [:], now: now)
+        let result = policy.due(candidates: [.init(id: "a", end: at(0.5))], accepted: [:], now: now)
         #expect(result.isEmpty)
-        #expect(policy.due(candidates: [.init(id: "a", end: at(11))], accepted: [:], now: now) == ["a"])
+        // One minute is enough: the run is on the server while the runner is
+        // still looking at the app, and the second copy picks up late data.
+        #expect(policy.due(candidates: [.init(id: "a", end: at(1))], accepted: [:], now: now) == ["a"])
+    }
+
+    @Test func backgroundWakeSendsWithoutWaiting() {
+        var immediate = policy
+        immediate.settle = 0
+        #expect(immediate.due(candidates: [.init(id: "a", end: now)], accepted: [:], now: now) == ["a"])
+    }
+
+    @Test func nextCheckIsWhenTheRunSettlesOrItsSecondCopyIsDue() {
+        let fresh = WorkoutAutoSyncPolicy.Candidate(id: "a", end: at(0.5))
+        #expect(policy.nextCheck(candidates: [fresh], accepted: [:], now: now) == fresh.end.addingTimeInterval(60))
+        // Sent two minutes after the end, just now: repeat in 30 minutes.
+        let early = WorkoutAutoSyncPolicy.Candidate(id: "b", end: at(2))
+        #expect(policy.nextCheck(candidates: [early], accepted: ["b": now], now: now) == now.addingTimeInterval(30 * 60))
+        // The earliest of several pending records wins.
+        #expect(policy.nextCheck(candidates: [fresh, early], accepted: ["b": now], now: now) == fresh.end.addingTimeInterval(60))
+        // Already due, sent late, rejected or out of the look-back: nothing to wait for.
+        let settled = WorkoutAutoSyncPolicy.Candidate(id: "c", end: at(90))
+        #expect(policy.nextCheck(candidates: [settled], accepted: [:], now: now) == nil)
+        #expect(policy.nextCheck(candidates: [settled], accepted: ["c": at(5)], now: now) == nil)
+        #expect(policy.nextCheck(candidates: [fresh], accepted: [:], rejected: ["a"], now: now) == nil)
+        #expect(policy.nextCheck(candidates: [.init(id: "old", end: at(60 * 24 * 15))], accepted: [:], now: now) == nil)
     }
 
     @Test func newestFirstAndBoundedPerRound() {

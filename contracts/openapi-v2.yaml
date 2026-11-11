@@ -95,10 +95,12 @@ paths:
                         upload:
                           device: {perMinute: 30, burst: 2}
                           dataset: {perMinute: 60, burst: 4}
-                      processUploads: 2
-                      processDeviceUploads: 1
+                      processUploads: 3
+                      processDeviceUploads: 3
                       datasetUploads: 2
                       deviceUploads: 1
+                      workoutUploads: 2
+                      healthUploads: 1
                     capabilities:
                       sampleTypes:
                         - HKCategoryTypeIdentifierSleepAnalysis
@@ -611,6 +613,8 @@ components:
         requests: {$ref: '#/components/schemas/RequestBudgets'}
         processUploads: {type: integer, minimum: 1, description: Per-process concurrent bundle uploads}
         processDeviceUploads: {type: integer, minimum: 1, description: Per-process concurrent bundle uploads for one device}
+        workoutUploads: {type: integer, minimum: 1, description: Per-process concurrent Workout ingests for one device; clients default to one when absent}
+        healthUploads: {type: integer, minimum: 1, description: Per-process concurrent daily and VO2 uploads for one device}
         datasetUploads: {type: integer, minimum: 1, description: Configured dataset request/upload budget}
         deviceUploads: {type: integer, minimum: 1, description: Configured device request/upload budget}
     HandshakeCapabilities:

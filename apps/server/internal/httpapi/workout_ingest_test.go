@@ -99,9 +99,15 @@ func TestWorkoutUUIDIngestHandshakeCapability(t *testing.T) {
 	var body struct {
 		ProtocolVersion int            `json:"protocolVersion"`
 		Capabilities    map[string]any `json:"capabilities"`
+		Limits          map[string]any `json:"limits"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
+	}
+	if body.Limits["workoutUploads"] != float64(DeviceWorkoutUploadSlots) ||
+		body.Limits["healthUploads"] != float64(1) || body.Limits["processUploads"] != float64(ProcessUploadSlots) ||
+		body.Limits["processDeviceUploads"] != float64(DeviceWorkoutUploadSlots+1) {
+		t.Fatalf("upload budgets: %+v", body.Limits)
 	}
 	if body.ProtocolVersion != 3 {
 		t.Fatalf("session protocol shape changed: %d", body.ProtocolVersion)

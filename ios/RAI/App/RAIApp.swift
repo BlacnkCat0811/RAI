@@ -37,12 +37,21 @@ final class SyncModel {
     var dailyProgress: [String] = []
     var error: String?
     private var operationBusy = false
+    /// Daily health (HRV, resting HR, sleep, VO2): automatic scans and the
+    /// manual "同步日常健康" round.
     let syncScheduler: ForegroundSyncScheduler
+    /// Workout upload batches. A separate lane, so a new run never waits for a
+    /// daily backfill round and a Workout batch never stops daily delivery.
+    let workoutScheduler: ForegroundSyncScheduler
+    /// Anything in flight. Session switches and authorization wait for this.
     var busy: Bool {
-        get { operationBusy || syncScheduler.isRunning }
+        get { operationBusy || syncScheduler.isRunning || workoutScheduler.isRunning }
         set { operationBusy = newValue }
     }
-    var canStartWorkoutSync: Bool { !operationBusy && syncScheduler.mode != .manual }
+    /// The Workout list and its selection only wait for Workout work.
+    var workoutBusy: Bool { operationBusy || workoutScheduler.isRunning }
+    var canStartWorkoutSync: Bool { !operationBusy && workoutScheduler.mode != .manual }
+    var canStartDailySync: Bool { !operationBusy && syncScheduler.mode != .manual }
     var workouts: [HealthWorkoutSummary] = []
     var selected: Set<String> = []
     var loadingWorkouts = false
@@ -68,7 +77,7 @@ final class SyncModel {
     /// Keeps a running Workout upload alive for the short grace period iOS gives
     /// a backgrounded app, instead of cancelling it the moment the app leaves.
     private var backgroundUploadTask: UIBackgroundTaskIdentifier = .invalid
-    var canLoadMoreWorkouts: Bool { hasMoreWorkouts && !loadingMoreWorkouts && !busy && !loadingWorkouts }
+    var canLoadMoreWorkouts: Bool { hasMoreWorkouts && !loadingMoreWorkouts && !workoutBusy && !loadingWorkouts }
     #if DEBUG
     var dailyRDIsolated = false
     var inspectionStatus: String?
@@ -80,8 +89,10 @@ final class SyncModel {
     var coordinator: SyncCoordinator?
     var store: OutboxStore?
     var task: Task<Void, Never>?
-    init(syncScheduler: ForegroundSyncScheduler = ForegroundSyncScheduler()) {
+    init(syncScheduler: ForegroundSyncScheduler = ForegroundSyncScheduler(),
+         workoutScheduler: ForegroundSyncScheduler = ForegroundSyncScheduler()) {
         self.syncScheduler = syncScheduler
+        self.workoutScheduler = workoutScheduler
         #if DEBUG
         if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" { return }
         #endif
@@ -190,7 +201,17 @@ final class SyncModel {
         try install(try await sessions.requireActive(descriptor.sessionID))
         apply(await store!.snapshot()); status = "恢复会话已启用；将从当前可见健康历史重新发现"
     }
+    /// Both lanes call this before they touch the session; the second caller
+    /// waits for the first instead of activating the same session twice.
+    private var sessionResume: Task<Void, any Error>?
     private func resumePreparedSession() async throws {
+        if let running = sessionResume { try await running.value; return }
+        let task = Task { try await self.activatePreparedSession() }
+        sessionResume = task
+        defer { sessionResume = nil }
+        try await task.value
+    }
+    private func activatePreparedSession() async throws {
         guard let sessions else { return }
         let manifest = try await sessions.snapshot()
         let prepared = manifest.sessions.values.filter { $0.status == .prepared }
@@ -212,6 +233,20 @@ final class SyncModel {
               let directory = try? SyncSessionStore.directory(root: sessions.root, sessionID: descriptor.sessionID) else { return nil }
         let transfer = BackgroundTransfers(directory: directory, identifier: identifier, sessionID: descriptor.sessionID)
         transferRegistry[identifier] = transfer; return transfer
+    }
+    func reconcileWorkoutTransfers(identifier: String? = nil) async {
+        guard let coordinator, let transfers,
+              identifier == nil || identifier == transfersIdentifier else { return }
+        let owner = activeSessionID
+        guard let outcomes = try? await coordinator.reconcileWorkoutUploads(transfers: transfers),
+              activeSessionID == owner else { return }
+        for outcome in outcomes {
+            if let accepted = outcome.acceptedAt, acceptedWorkouts[outcome.workoutID].map({ $0 >= accepted }) == true { continue }
+            applyUploadOutcome(outcome)
+        }
+    }
+    private var transfersIdentifier: String? {
+        transferRegistry.first { $0.value === transfers }?.key
     }
     func authorize() {
         #if DEBUG
@@ -235,7 +270,7 @@ final class SyncModel {
         #if DEBUG
         if DailyDeviceDiagnostics.enabled { return }
         #endif
-        guard !loadingWorkouts, !busy, let coordinator else { return }
+        guard !loadingWorkouts, !workoutBusy, let coordinator else { return }
         loadingWorkouts = true; defer { loadingWorkouts = false }
         do {
             if let store { apply(await store.snapshot()) }
@@ -249,7 +284,7 @@ final class SyncModel {
             // One request settles every row (also after a reinstall or a new phone).
             let visible = page.map(\.id)
             Task { await refreshRemoteStatuses(visible) }
-            if !busy {
+            if !workoutBusy {
                 if workouts.isEmpty { status = "HealthKit 中还没有可见的跑步记录" }
                 error = nil
             }
@@ -282,7 +317,7 @@ final class SyncModel {
     /// Reads the whole visible history page by page, then uploads every eligible
     /// record the server does not have yet (or rejected), oldest last.
     func backfillUnsyncedWorkouts() async {
-        guard !loadingWorkouts, !loadingMoreWorkouts, !busy, let coordinator else { return }
+        guard !loadingWorkouts, !loadingMoreWorkouts, !workoutBusy, let coordinator else { return }
         loadingMoreWorkouts = true
         do {
             while hasMoreWorkouts {
@@ -320,23 +355,23 @@ final class SyncModel {
     private func startBatch(_ ordered: [String]) {
         // The token only lets a stale round ignore progress that is not its own.
         let owner = UUID()
-        recoveryWake?.cancel()
-        // Reserve the selection before the scheduler waits for automatic work
-        // to stop. Even a page closed in this handoff window gets final results.
+        // Reserve the selection before the round starts, so even a page closed
+        // right away gets final results. Daily delivery keeps running on its
+        // own lane and its continuation timer is left alone.
         workoutUploadOwner = owner
         batch = WorkoutBatch(ids: ordered, startedAt: Date())
         for id in ordered { workoutResults[id] = WorkoutUploadResult(state: .pending) }
-        syncScheduler.startManual { await self.runWorkoutBatch(ordered, owner: owner) }
+        workoutScheduler.startManual { await self.runWorkoutBatch(ordered, owner: owner) }
     }
     func cancelWorkoutSync() {
         guard workoutUploadOwner != nil else { return }
-        syncScheduler.cancel()
+        workoutScheduler.cancel()
         if let batch { finishBatch(batch.ids, interrupted: true) }
         currentWorkoutID = nil
         workoutUploadOwner = nil
     }
-    /// One handshake, then one read/build/POST per selected Workout, strictly
-    /// sequential. A per-record failure does not stop the batch. Any selected
+    /// Cached negotiation, then bounded file builds and background uploads.
+    /// A per-record failure does not stop the batch. Any selected
     /// record without a final outcome after cancellation counts as failed.
     private func runWorkoutBatch(_ ids: [String], owner: UUID) async {
         let round = batch ?? WorkoutBatch(ids: ids, startedAt: Date())
@@ -401,9 +436,12 @@ final class SyncModel {
         }
     }
     private func applyUploadOutcome(_ outcome: WorkoutUploadOutcome) {
-        currentWorkoutID = nil
+        if currentWorkoutID == outcome.workoutID {
+            currentWorkoutID = batch?.ids.first { $0 != outcome.workoutID && workoutResults[$0]?.state == .uploading }
+        }
         if outcome.succeeded {
             workoutResults[outcome.workoutID] = WorkoutUploadResult(state: .succeeded, acceptedAt: outcome.acceptedAt)
+            if acceptedWorkouts[outcome.workoutID] != nil { repeatedWorkouts.insert(outcome.workoutID) }
             recordUpload(at: outcome.acceptedAt ?? Date())
             recordAcceptedWorkout(outcome.workoutID, at: outcome.acceptedAt ?? Date())
         } else {
@@ -441,6 +479,13 @@ final class SyncModel {
     private var lastAutoSyncAt: Date?
     private var workoutObserverInstalled = false
     private let autoPolicy = WorkoutAutoSyncPolicy()
+    /// One-shot timer for a run that is still settling or waiting for its
+    /// second copy; without it the next look would be the 15-minute scan.
+    private var workoutRecheck: Task<Void, Never>?
+    /// Workouts sent again after an earlier acceptance. The server replays the
+    /// original receipt (and its time) for identical bytes, so the acceptance
+    /// time alone cannot tell that the second copy has already gone out.
+    private var repeatedWorkouts: Set<String> = []
 
     /// Folds one batch of server answers into the local picture. The server is
     /// authoritative: a record it does not know is not "uploaded", whatever the
@@ -496,11 +541,14 @@ final class SyncModel {
     /// Sends the newest unsent Workouts without a tap: on launch, on return to
     /// the foreground and when HealthKit reports a new Workout. Old history is
     /// left to the manual backfill.
-    func autoSyncWorkouts(fromBackground: Bool = false) async {
+    ///
+    /// `scheduled` marks the model's own timed re-check, which is exempt from
+    /// the one-minute throttle that absorbs bursts of observer callbacks.
+    func autoSyncWorkouts(fromBackground: Bool = false, scheduled: Bool = false) async {
         guard !autoSyncRunning, canStartWorkoutSync, let coordinator, let transfers,
               UserDefaults.standard.bool(forKey: "healthAuthorizationRequested"),
               let secret = try? ClientConfiguration.load() else { return }
-        if let last = lastAutoSyncAt, Date().timeIntervalSince(last) < 60 { return }
+        if !scheduled, let last = lastAutoSyncAt, Date().timeIntervalSince(last) < 60 { return }
         lastAutoSyncAt = Date()
         autoSyncRunning = true; defer { autoSyncRunning = false }
         if fromBackground { beginBackgroundUploadTask() }
@@ -510,14 +558,38 @@ final class SyncModel {
             guard !eligible.isEmpty else { endBackgroundIfIdle(); return }
             let remote = try await coordinator.workoutStatuses(eligible.map(\.id), secret: secret, transfers: transfers)
             applyRemoteStatuses(remote)
-            var due = autoPolicy.due(candidates: eligible.map { .init(id: $0.id, end: $0.end) },
-                                     accepted: acceptedWorkouts, rejected: Set(remoteRejected.keys), now: Date())
+            // A background wake cannot wait: it sends what HealthKit holds now
+            // and leaves late data to the second copy.
+            var policy = autoPolicy
+            if fromBackground { policy.settle = 0 }
+            let candidates = eligible.filter { !repeatedWorkouts.contains($0.id) }
+                .map { WorkoutAutoSyncPolicy.Candidate(id: $0.id, end: $0.end) }
+            let rejected = Set(remoteRejected.keys), now = Date()
+            var due = policy.due(candidates: candidates, accepted: acceptedWorkouts, rejected: rejected, now: now)
             // The system only grants a short window to a background wake.
             if fromBackground { due = Array(due.prefix(2)) }
+            // Everything in `due` is accepted (or failed) by the time the timer
+            // could matter, so the next look is for what is not due yet.
+            var expected = acceptedWorkouts
+            for id in due { expected[id] = now }
+            scheduleWorkoutRecheck(policy.nextCheck(candidates: candidates, accepted: expected, rejected: rejected, now: now))
             guard !due.isEmpty, canStartWorkoutSync else { endBackgroundIfIdle(); return }
             startBatch(due)
         } catch {
             endBackgroundIfIdle()
+        }
+    }
+    /// Looks again when the next run has settled or its second copy is due.
+    /// The timer only lives while the app runs; a later launch, foreground
+    /// return or observer wake covers the rest.
+    private func scheduleWorkoutRecheck(_ date: Date?) {
+        workoutRecheck?.cancel()
+        guard let date else { workoutRecheck = nil; return }
+        workoutRecheck = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(max(1, date.timeIntervalSinceNow) + 1)) }
+            catch { return }
+            await self?.workoutScheduler.waitForCompletion()
+            await self?.autoSyncWorkouts(scheduled: true)
         }
     }
     private func endBackgroundIfIdle() {
@@ -590,8 +662,8 @@ final class SyncModel {
         return "sync_failed"
     }
     func apply(_ snapshot: LocalState) {
-        // Workout uploads have no persisted task state. Only the daily journal
-        // keeps a durable pending page here.
+        // Workout files/receipts have their own journal; this badge counts the
+        // daily pages in the Outbox.
         pendingChanges = (snapshot.daily ?? [:]).values.filter { $0.pending != nil }.count
         dailyProgress = Self.dailyProgress(snapshot)
     }
@@ -618,7 +690,7 @@ final class SyncModel {
         #if DEBUG
         if DailyDeviceDiagnostics.enabled, !dailyRDIsolated { status = "请先完成独立验收会话连接"; return }
         #endif
-        guard canStartWorkoutSync else { return }
+        guard canStartDailySync else { return }
         syncScheduler.startManual {
             guard let coordinator = self.coordinator, let store = self.store, let transfers = self.transfers else { return }
             do {
@@ -658,7 +730,7 @@ final class SyncModel {
             return
         }
         #endif
-        guard !busy else { return }
+        guard !operationBusy else { return }
         syncScheduler.startAutomatic {
             if newWake, let store = self.store { try? await store.markDailyWake() }
             await self.performForegroundScan()
@@ -666,34 +738,39 @@ final class SyncModel {
     }
     private func performForegroundScan() async {
         guard !Task.isCancelled else { return }
-        do { try await resumePreparedSession() } catch { self.error = "准备中的会话尚未通过握手；现有会话已保留。"; return }
+        do { try await resumePreparedSession() } catch { dailyError("准备中的会话尚未通过握手；现有会话已保留。"); return }
         guard let coordinator, let store else { return }
-        error = nil
+        await reconcileWorkoutTransfers()
+        dailyError(nil)
         apply(await store.snapshot())
-        guard UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") else { status = "尚未请求健康数据读取权限"; return }
-        do {
-            status = "扫描健康变化"
-            try await coordinator.discoverDaily()
-            apply(await store.snapshot())
-            status = "健康变化已记录"
-            let vo2Pending = await store.snapshot().vo2?.pending != nil
-            if pendingChanges > 0 || vo2Pending, let transfers, let secret = try ClientConfiguration.load() {
-                status = "同步日常健康"
-                try await coordinator.syncDaily(secret: secret, transfers: transfers, budget: dailyRoundBudget)
-                apply(await store.snapshot())
-                status = pendingChanges > 0 ? "日常健康补传中，稍后自动继续" : "日常健康已同步"
-            }
-        } catch is CancellationError { status = "已暂停；同步位置已保留" }
-        catch { self.error = "日常健康同步尚未完成；稍后自动重试。" }
-        if !Task.isCancelled { scheduleDiscoveryScan(await store.snapshot()) }
-        // The scan holds the scheduler; the automatic Workout round starts once
-        // it has finished and released it.
+        guard UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") else { dailyStatus("尚未请求健康数据读取权限"); return }
+        // New runs go out on the Workout lane right away, in parallel with the
+        // daily scan below; a long daily backfill round does not hold them back.
         Task { [weak self] in
             await self?.installObservers()
-            await self?.syncScheduler.waitForCompletion()
-            await self?.autoSyncWorkouts()
+            await self?.autoSyncWorkouts(fromBackground: UIApplication.shared.applicationState != .active)
         }
+        do {
+            dailyStatus("扫描健康变化")
+            try await coordinator.discoverDaily()
+            apply(await store.snapshot())
+            dailyStatus("健康变化已记录")
+            let vo2Pending = await store.snapshot().vo2?.pending != nil
+            if pendingChanges > 0 || vo2Pending, let transfers, let secret = try ClientConfiguration.load() {
+                dailyStatus("同步日常健康")
+                try await coordinator.syncDaily(secret: secret, transfers: transfers, budget: dailyRoundBudget)
+                apply(await store.snapshot())
+                dailyStatus(pendingChanges > 0 ? "日常健康补传中，稍后自动继续" : "日常健康已同步")
+            }
+        } catch is CancellationError { dailyStatus("已暂停；同步位置已保留") }
+        catch { dailyError("日常健康同步尚未完成；稍后自动重试。") }
+        if !Task.isCancelled { scheduleDiscoveryScan(await store.snapshot()) }
     }
+    /// The status line and error text are shared with the Workout lane. While a
+    /// Workout batch is running they belong to it, so a daily scan finishing in
+    /// the middle does not replace "正在上传 2/5" or clear its failure summary.
+    private func dailyStatus(_ text: String) { if workoutUploadOwner == nil { status = text } }
+    private func dailyError(_ text: String?) { if workoutUploadOwner == nil { error = text } }
     /// A HealthKit observer wake for HRV, resting HR or sleep: record it and
     /// run the same scan-and-deliver round as a foreground return.
     func dailyWake() {
@@ -722,14 +799,11 @@ final class SyncModel {
         }
     }
     func suspendForegroundWork() {
-        task?.cancel(); recoveryWake?.cancel()
-        if workoutUploadOwner != nil {
-            // A Workout upload in flight is not cancelled by leaving the app: ask
-            // iOS for background time and let the current batch keep going.
-            beginBackgroundUploadTask()
-        } else {
-            syncScheduler.cancel()
-        }
+        task?.cancel(); recoveryWake?.cancel(); workoutRecheck?.cancel()
+        // A Workout upload in flight is not cancelled by leaving the app: ask
+        // iOS for background time and let the current batch keep going.
+        if workoutUploadOwner != nil { beginBackgroundUploadTask() }
+        syncScheduler.cancel()
     }
 }
 
@@ -738,9 +812,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
         Task { @MainActor in
             guard let transfers = await SyncModel.shared.backgroundTransfers(identifier: identifier) else { completionHandler(); return }
-            // Background URLSession events belong to the daily/VO2 file
-            // transfers only. They never resume or start a Workout upload.
-            transfers.handleEvents { completionHandler() }
+            transfers.handleEvents {
+                Task { @MainActor in
+                    await SyncModel.shared.reconcileWorkoutTransfers(identifier: identifier)
+                    completionHandler()
+                }
+            }
         }
     }
 }
@@ -794,7 +871,7 @@ struct SyncView: View {
             }
             Section("同步") {
                 LabeledContent("状态", value: model.status)
-                Button("同步日常健康") { model.syncDailyNow() }.disabled(!model.canStartWorkoutSync)
+                Button("同步日常健康") { model.syncDailyNow() }.disabled(!model.canStartDailySync)
                 Text("同步 Apple 健康中的心率变异性、静息心率与睡眠记录；读取可见性由系统管理。").font(.caption)
                 LabeledContent("日常健康待交付记录", value: String(model.pendingChanges))
                 ForEach(model.dailyProgress, id: \.self) { Text($0).font(.caption) }

@@ -228,13 +228,38 @@ private actor LiveHealth: HealthKitReading {
     }
 }
 
-/// The production App uploads through `BackgroundTransfers`; the ingest POST
-/// itself carries its body in memory, so a passthrough is the honest stand-in
-/// for the file-upload surface here.
+/// File transport over real TCP. The live tests below also exercise the actual
+/// BackgroundTransfers delegate/session, rather than only this passthrough.
 private struct LiveUploader: FileUploader {
     func upload(_ request: URLRequest, file: URL, identity: String) async throws -> (Data, Int, TimeInterval?) {
+        let result = try await response(request, file: file, identity: identity)
+        return (result.data, result.status, result.retryAfter)
+    }
+    func response(_ request: URLRequest, file: URL, identity: String) async throws -> UploadResponse {
         let (data, response) = try await URLSession.shared.upload(for: request, fromFile: file)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
-        return (data, http.statusCode, http.value(forHTTPHeaderField: "Retry-After").flatMap(Double.init))
+        return UploadResponse(data: data, status: http.statusCode,
+            retryAfter: RAIAPIClient.retryAfter(http.value(forHTTPHeaderField: "Retry-After")),
+            contentType: http.value(forHTTPHeaderField: "Content-Type"))
+    }
+}
+
+extension WorkoutUploadLiveTests {
+    func testBackgroundSessionUploadsHistoryAndReopensReceipts() async throws {
+        let live = try live(), dir = directory("background-history")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let workouts = (0..<4).map { liveWorkout(at: Date(timeIntervalSince1970: 1_793_059_200 + Double($0) * 3600)) }
+        let store = try OutboxStore(directory: dir)
+        let transfers = BackgroundTransfers(directory: dir, identifier: "com.rai.tests." + Wire.id())
+        let health = LiveHealth(workouts: workouts)
+        let coordinator = coordinator(health, store: store)
+        let ids = workouts.map { $0.uuid.uuidString.lowercased() }
+        let outcomes = try await coordinator.uploadWorkouts(ids, secret: secret(live), transfers: transfers)
+        XCTAssertEqual(outcomes.map(\.workoutID), ids)
+        XCTAssertTrue(outcomes.allSatisfy(\.succeeded), "file-based history upload failed")
+        let reopened = self.coordinator(LiveHealth(workouts: []), store: try OutboxStore(directory: dir))
+        let receipts = try await reopened.reconcileWorkoutUploads(transfers: transfers)
+        XCTAssertEqual(Set(receipts.map(\.workoutID)), Set(ids))
+        XCTAssertTrue(receipts.allSatisfy(\.succeeded))
     }
 }

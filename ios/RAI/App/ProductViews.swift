@@ -873,7 +873,7 @@ struct WorkoutSyncView: View {
       }
       #endif
       ToolbarItem(placement: .topBarTrailing) {
-        Button("刷新") { Task { await model.loadWorkouts() } }.disabled(model.busy || model.loadingWorkouts)
+        Button("刷新") { Task { await model.loadWorkouts() } }.disabled(model.workoutBusy || model.loadingWorkouts)
       }
     }
     .refreshable { await model.loadWorkouts() }
@@ -887,7 +887,7 @@ struct WorkoutSyncView: View {
   }
 
   private var selectionEditable: Bool {
-    !model.busy && !model.loadingWorkouts && !model.loadingMoreWorkouts
+    !model.workoutBusy && !model.loadingWorkouts && !model.loadingMoreWorkouts
   }
 
   private var intro: some View {

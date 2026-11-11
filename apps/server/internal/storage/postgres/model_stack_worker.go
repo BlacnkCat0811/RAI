@@ -286,5 +286,38 @@ func (s *Store) advanceModelStackDay(ctx context.Context, at time.Time) error {
 			return err
 		}
 	}
+	return s.rebuildModelStackHistory(ctx, at)
+}
+
+// historyRebuildBatch is how many invalidated day releases one recovery tick
+// queues again per dataset. The worker handles about one job per second, so a
+// batch is finished before the next tick.
+const historyRebuildBatch = 10
+
+// rebuildModelStackHistory queues published day releases that a late fact
+// invalidated (last night's sleep, a run uploaded the next day), newest first.
+// The database function skips a dataset while any of its day jobs is queued or
+// running, so today's release always goes first and a long backfill is not
+// recomputed page by page.
+func (s *Store) rebuildModelStackHistory(ctx context.Context, at time.Time) error {
+	stack := modelmanifest.StackID()
+	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT ds.id::text FROM datasets ds
+ JOIN analysis_model_channels m ON m.dataset_id=ds.id
+ WHERE ds.retired_at IS NULL AND m.stack_id=$1 AND m.extension_configs ? 'rai.model_manifest/1'
+ AND EXISTS (SELECT 1 FROM dirty_scopes x WHERE x.dataset_id=ds.id AND x.generation<>x.clean_generation
+  AND left(x.scope_key,length('model/'||m.stack_id||'/athlete/day/v2/'))='model/'||m.stack_id||'/athlete/day/v2/')
+ ORDER BY 1 LIMIT 20`, stack)
+	if err != nil {
+		return err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if _, err := s.Pool.Exec(ctx, `SELECT rai_model_stack_rebuild_history($1,$2,$3,$4)`, id, stack, at, historyRebuildBatch); err != nil {
+			return err
+		}
+	}
 	return nil
 }
