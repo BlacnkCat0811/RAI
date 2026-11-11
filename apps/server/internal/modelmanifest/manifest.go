@@ -54,6 +54,9 @@ type Manifest struct {
 	ConsumerVersions         []string    `json:"consumerVersions"`
 	EvidenceMode             string      `json:"evidenceMode"`
 	PhysiologicallyValidated bool        `json:"physiologicallyValidated"`
+	SessionRecovery          *Component  `json:"sessionRecovery,omitempty"`
+	AbilityEstimate          *Component  `json:"abilityEstimate,omitempty"`
+	LoadFocus                *Component  `json:"loadFocus,omitempty"`
 }
 
 func digest(s string) string {
@@ -62,7 +65,7 @@ func digest(s string) string {
 }
 
 // Current describes the managed synthetic release and its component contracts.
-func Current() Manifest {
+func baselineManifest() Manifest {
 	return Manifest{
 		Schema:         Schema,
 		Features:       Component{Name: "workout_features", ModelID: "rai.workout_features", Version: "v1", Schema: "rai.workout_features/1", InputSchema: "rai.workout_features.input/1", JobKind: StackJobKind, ArtifactKey: "workout_features", ConfigHash: digest("features:normalized-workout/v1"), SourcePolicy: "recorded-running;source-policy/v1", ConsumerSchema: "rai.workout_features/1"},
@@ -89,9 +92,41 @@ func Current() Manifest {
 	}
 }
 
+// Current is the independently activated schema3 candidate. Frozen schema2
+// releases keep their full manifest hash and read configuration.
+func Current() Manifest {
+	m := baselineManifest()
+	m.ProductSchema = "rai.athlete_model/3"
+	m.MappingVersion = "rai.product_metric_mapping/3"
+	m.ConsumerVersions = []string{"ios/3", "training-adapter/3", "http/v2"}
+	m.Features.ConfigHash = digest("features:normalized-workout/v1;structure-ten-second-native5s-grade03/v1")
+	m.Recovery.Version = "v3"
+	m.Recovery.Schema = "rai.recovery.physiological/3"
+	m.Recovery.InputSchema = "rai.recovery.input/3"
+	m.Recovery.ConsumerSchema = m.Recovery.Schema
+	m.Recovery.ConfigHash = digest("night-block30m;trend7-4;decay3d;weight-cap.35;baseline28-7/14/28;continuous82;single-missing48h;no-deleted-fallback/v3")
+	m.Readiness.Version = "v4"
+	m.Readiness.Schema = "rai.readiness.training/4"
+	m.Readiness.InputSchema = "rai.readiness.input/4"
+	m.Readiness.ConsumerSchema = m.Readiness.Schema
+	m.Readiness.ConfigHash = digest("min-phys-session-weekly;continuous82;unknown.15-days;range<=10;estimated<=75;session-fatigue/v4")
+	m.SessionRecovery = &Component{Name: "session_recovery", ModelID: "rai.session_recovery", Version: "v1", Schema: "rai.session_recovery/1", ArtifactKey: "session_recovery", JobKind: StackJobKind, ConfigHash: digest("AU/B^.6;u<=4;tau18-72;short-repeat-proxy;threshold.25;binary.25h;max168h;tail180d-4096;material.02;unknown.5-2B-tau48;baseline28-fallback90/v1"), SourcePolicy: "recorded-running;pre-workout-baseline", ConsumerSchema: "rai.session_recovery/1"}
+	m.AbilityEstimate = &Component{Name: "running_ability_estimate", ModelID: "rai.running_ability_estimate", Version: "v1", Schema: "rai.running_ability_estimate/1", ArtifactKey: "running_ability_estimate", JobKind: StackJobKind, ConfigHash: digest("vo2-product-gates;f60-prior.85/.75-.92;point-vo2-width.20-or-propagated.25;range-propagated.45;no-gamma;source-selection/v1"), SourcePolicy: "rai-vo2-only;independent-branches", ConsumerSchema: "rai.running_ability_estimate/1"}
+	m.LoadFocus = &Component{Name: "load_focus", ModelID: "rai.load_focus", Version: "v1", Schema: "rai.load_focus/1", ArtifactKey: "load_focus", JobKind: StackJobKind, ConfigHash: digest("hrr-proxy.70;short-repeat3x20-120s;pre-v60x1.15;native5s;measured-grade.03;unclassified-gap;local-days/v1"), SourcePolicy: "recorded-running;no-plan-labels", ConsumerSchema: "rai.load_focus/1"}
+	return m
+}
+
 func (m Manifest) Validate() error {
+	if m.ProductSchema == "rai.athlete_model/3" && (m.SessionRecovery == nil || m.AbilityEstimate == nil || m.LoadFocus == nil) {
+		return ErrInvalid
+	}
 	all := []Component{m.Features, m.Load, m.LoadState, m.RunningAbility, m.VO2Max, m.Recovery, m.Readiness, m.ExternalVO2}
 	all = append(all, m.Diagnostics...)
+	for _, c := range []*Component{m.SessionRecovery, m.AbilityEstimate, m.LoadFocus} {
+		if c != nil {
+			all = append(all, *c)
+		}
+	}
 	seen := map[string]bool{}
 	for _, c := range all {
 		if c.Name == "" || c.ModelID == "" || c.Version == "" || c.Schema == "" || len(c.ConfigHash) != 64 || c.SourcePolicy == "" {
@@ -102,7 +137,7 @@ func (m Manifest) Validate() error {
 		}
 		seen[c.ModelID+"/"+c.Version] = true
 	}
-	if m.Schema != Schema || m.ProductSchema != ProductSchema || m.MappingVersion != MappingVersion || len(m.Diagnostics) != 4 || m.PhysiologicallyValidated {
+	if m.Schema != Schema || (m.ProductSchema != ProductSchema || m.MappingVersion != MappingVersion) && (m.ProductSchema != "rai.athlete_model/3" || m.MappingVersion != "rai.product_metric_mapping/3") || len(m.Diagnostics) != 4 || m.PhysiologicallyValidated {
 		return ErrInvalid
 	}
 	return nil

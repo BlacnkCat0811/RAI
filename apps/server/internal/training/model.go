@@ -87,14 +87,20 @@ type Session struct {
 	Conflicts  []string `json:"conflicts,omitempty"`
 }
 type Signal struct {
-	RunID      string   `json:"runID"`
-	Generation int64    `json:"generation"`
-	Day        string   `json:"day"`
-	Name       string   `json:"metric"`
-	Algorithm  string   `json:"algorithm"`
-	Version    string   `json:"algorithmVersion"`
-	Quality    string   `json:"quality"`
-	Value      *float64 `json:"value"`
+	Mode            string   `json:"mode,omitempty"`
+	EvidenceAt      *int64   `json:"evidenceAt,omitempty"`
+	ValidBefore     *int64   `json:"validBefore,omitempty"`
+	Confidence      *float64 `json:"confidence,omitempty"`
+	SensitivityLow  *float64 `json:"sensitivityLow,omitempty"`
+	SensitivityHigh *float64 `json:"sensitivityHigh,omitempty"`
+	RunID           string   `json:"runID"`
+	Generation      int64    `json:"generation"`
+	Day             string   `json:"day"`
+	Name            string   `json:"metric"`
+	Algorithm       string   `json:"algorithm"`
+	Version         string   `json:"algorithmVersion"`
+	Quality         string   `json:"quality"`
+	Value           *float64 `json:"value"`
 }
 type Workout struct {
 	Metrics    []Signal `json:"metrics"`
@@ -339,7 +345,7 @@ func ValidateSession(s Session) error {
 		return ErrInvalid
 	}
 	switch s.Type {
-	case "REST", "EASY", "LONG", "TEMPO", "INTERVAL", "RECOVERY":
+	case "REST", "EASY", "LONG", "TEMPO", "INTERVAL", "RECOVERY", "RACE":
 	default:
 		return ErrInvalid
 	}
@@ -364,7 +370,7 @@ func ValidateSession(s Session) error {
 		return ErrInvalid
 	}
 	totalStepS := 0
-	if len(s.Steps) > 0 && s.Type != "INTERVAL" {
+	if len(s.Steps) > 0 && s.Type != "INTERVAL" && s.Type != "TEMPO" {
 		return ErrInvalid
 	}
 	for _, v := range s.Steps {

@@ -46,7 +46,7 @@ func (s *Store) promoteModelStack(ctx context.Context, dataset, actor, stack, ma
 	}
 	if gate != nil {
 		if gate.DatasetID != dataset || gate.ConfigSHA != expected || gate.Model != m.VO2Max.ModelID || gate.Version != m.VO2Max.Version ||
-			gate.FeatureSchema != m.Features.Schema || gate.SourcePolicy != m.VO2Max.SourcePolicy || gate.InputRegistry != m.InputRegistry {
+			gate.MappingVersion != m.MappingVersion || gate.ConsumerSchema != m.ProductSchema || gate.FeatureSchema != m.Features.Schema || gate.SourcePolicy != m.VO2Max.SourcePolicy || gate.InputRegistry != m.InputRegistry {
 			return out, am.ErrGateClosed
 		}
 	} else if len(authorization) == 0 {
@@ -332,7 +332,7 @@ func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manif
  JOIN analysis_publications p ON p.dataset_id=d.dataset_id AND p.scope_key=d.scope_key AND p.generation=d.generation AND p.day=$4::date
  JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=d.scope_key AND r.target_generation=d.generation
  JOIN jobs j ON j.dataset_id=r.dataset_id AND j.id=r.job_id AND j.scope_key=d.scope_key AND j.target_generation=d.generation AND j.kind='analysis.model_stack_v2' AND j.state='succeeded'
- JOIN analysis_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND p.metric_family='model_product_v2/'||a.artifact_key
+ JOIN analysis_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND p.metric_family IN ('model_product_v2/'||a.artifact_key,'model_product_v3/'||a.artifact_key)
  WHERE m.dataset_id=$1 AND m.stack_id=$2 AND m.channel IN ('candidate','previous')
  AND m.config_sha256=decode($5,'hex') AND m.extension_configs->>'rai.model_manifest/1'=$5 AND r.status='SUCCEEDED' AND r.lineage->>'manifestSHA256'=$5`,
 		dataset, stack, modelmanifest.DayScope(stack, day), day, manifest)
@@ -356,7 +356,11 @@ func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manif
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	if len(seen) != modelProductSlots {
+	want := modelProductSlots
+	if release.Manifest.ProductSchema == am.Schema3 {
+		want += 3
+	}
+	if len(seen) != want {
 		return am.ErrGateClosed
 	}
 	return nil
@@ -376,6 +380,12 @@ func modelProductMetric(key string) string {
 		return "physiologicalRecovery"
 	case "training_readiness":
 		return "trainingReadiness"
+	case "session_recovery":
+		return "sessionRecovery"
+	case "running_ability_estimate":
+		return "abilityEstimate"
+	case "load_focus":
+		return "loadFocus"
 	default:
 		return ""
 	}

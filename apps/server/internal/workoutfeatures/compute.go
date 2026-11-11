@@ -120,6 +120,7 @@ func ComputeNormalized(ctx context.Context, s RawWorkoutSnapshot) (WorkoutFeatur
 		return f, nil
 	}
 	t := BuildTimeline(s)
+	f.Structure = structureFeatures(t)
 	f.Timing = t.Pause.Timing
 	f.HeartRate = t.HeartRate.Summary
 	f.Speed = t.Speed.Summary
@@ -130,8 +131,19 @@ func ComputeNormalized(ctx context.Context, s RawWorkoutSnapshot) (WorkoutFeatur
 		f.Route.Reasons = reasonSet(f.Route.Reasons, []Reason{DistanceMismatch})
 	}
 	parameter, parameterReasons := resolveParameter(s)
-	f.Windows = ExtractWindows(t, f.Distance, environment(s), f.Evidence.InputHash)
-	f.Steady = ExtractSteady(s, t, f.Environment, parameter, f.Evidence.InputHash)
+	if len(t.Speed.Spans) == 0 {
+		// Every cell is discontinuous without native speed support. Preserve the
+		// eight empty candidates exactly, without allocating three prefix indexes.
+		for _, d := range []int{180, 300, 600, 1200, 1800, 2400, 3600, 5400} {
+			f.Windows = append(f.Windows, WindowCandidates{Duration: d})
+		}
+		f.Steady = []SteadySegment{}
+	} else {
+		p := prefixes(t)
+		f.Windows = extractWindows(t, f.Distance, f.Environment, f.Evidence.InputHash, p)
+		f.Steady = extractSteady(s, t, f.Environment, parameter, f.Evidence.InputHash, p)
+		f.LongRun = extractLongRun(t, p)
+	}
 	if f.Distance.RouteDifferenceRatio != nil && *f.Distance.RouteDifferenceRatio > .05 {
 		for i := range f.Steady {
 			q := f.Steady[i].Qualification
@@ -139,7 +151,6 @@ func ComputeNormalized(ctx context.Context, s RawWorkoutSnapshot) (WorkoutFeatur
 			f.Steady[i].Window.Qualification = f.Steady[i].Qualification
 		}
 	}
-	f.LongRun = ExtractLongRun(t)
 	for _, spec := range []struct{ kind, key string }{{Steps, "cadence_proxy"}, {Power, "power"}, {GCT, "ground_contact_time"}, {Stride, "stride_length"}, {Vertical, "vertical_oscillation"}} {
 		if err := ctx.Err(); err != nil {
 			return f, err

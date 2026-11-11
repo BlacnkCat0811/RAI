@@ -106,7 +106,9 @@ func gapDistance(p prefix, a, b int) float64 {
 }
 
 func ExtractWindows(t AnalysisTimeline, check DistanceChoice, env Environment, evidence string) []WindowCandidates {
-	p := prefixes(t)
+	return extractWindows(t, check, env, evidence, prefixes(t))
+}
+func extractWindows(t AnalysisTimeline, check DistanceChoice, env Environment, evidence string, p prefix) []WindowCandidates {
 	nativeBad := make([]int, len(t.Cells)+1)
 	for i, c := range t.Cells {
 		nativeBad[i+1] = nativeBad[i]
@@ -189,8 +191,10 @@ func ExtractWindows(t AnalysisTimeline, check DistanceChoice, env Environment, e
 	return out
 }
 func ExtractSteady(s RawWorkoutSnapshot, t AnalysisTimeline, env Environment, parameter *Parameter, evidence string) []SteadySegment {
+	return extractSteady(s, t, env, parameter, evidence, prefixes(t))
+}
+func extractSteady(s RawWorkoutSnapshot, t AnalysisTimeline, env Environment, parameter *Parameter, evidence string, p prefix) []SteadySegment {
 	out := []SteadySegment{}
-	p := prefixes(t)
 	for a := 600; a+300 <= len(t.Cells); a += 300 {
 		b := a + 300
 		if !p.continuous(t, a, b) {
@@ -272,9 +276,9 @@ func ExtractSteady(s RawWorkoutSnapshot, t AnalysisTimeline, env Environment, pa
 	}
 	return out
 }
-func ExtractLongRun(t AnalysisTimeline) LongRun {
+func ExtractLongRun(t AnalysisTimeline) LongRun { return extractLongRun(t, prefixes(t)) }
+func extractLongRun(t AnalysisTimeline, p prefix) LongRun {
 	out := LongRun{}
-	p := prefixes(t)
 	start, bestStart, bestEnd := 0, 0, 0
 	for i, c := range t.Cells {
 		if !c.continuous {

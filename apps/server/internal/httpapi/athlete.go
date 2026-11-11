@@ -21,17 +21,30 @@ type athleteDiagnosticsReader interface {
 	ReadAthleteDiagnostics(context.Context, syncing.Principal, time.Time) (diag.ProductSnapshot, error)
 }
 
-var athleteMetrics = map[string]bool{"trainingReadiness": true, "physiologicalRecovery": true, "trainingLoad": true, "runningAbility": true, "raiVO2Max": true, "externalVO2Max": true}
+var athleteMetrics = map[string]bool{"trainingReadiness": true, "physiologicalRecovery": true, "trainingLoad": true, "runningAbility": true, "raiVO2Max": true, "externalVO2Max": true, "sessionRecovery": true, "loadFocus": true, "abilityEstimate": true}
 
 func (a *API) athleteProduct(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
 	rd, ok := a.store.(athleteModelReader)
 	if !ok {
 		return syncing.Fail(503, "athlete_model_unavailable")
 	}
-	if len(r.URL.Query()) != 0 {
+	q := r.URL.Query()
+	if len(q) > 1 || len(q) == 1 && (len(q["schemaVersion"]) != 1 || q.Get("schemaVersion") != am.Schema3) {
 		return syncing.Fail(422, "invalid_athlete_query")
 	}
-	snapshot, err := rd.ReadAthleteProduct(r.Context(), p, time.Now().UTC())
+	var snapshot am.AthleteModelSnapshot
+	var err error
+	if q.Get("schemaVersion") == am.Schema3 {
+		v3, ok := a.store.(interface {
+			ReadAthleteProductV3(context.Context, syncing.Principal, time.Time) (am.AthleteModelSnapshot, error)
+		})
+		if !ok {
+			return syncing.Fail(503, "athlete_model_unavailable")
+		}
+		snapshot, err = v3.ReadAthleteProductV3(r.Context(), p, time.Now().UTC())
+	} else {
+		snapshot, err = rd.ReadAthleteProduct(r.Context(), p, time.Now().UTC())
+	}
 	if err != nil {
 		if err == am.ErrNotActivated {
 			return syncing.Fail(409, "not_product_activated")

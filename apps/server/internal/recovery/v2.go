@@ -502,6 +502,8 @@ func CalculateV2(in V2Input) (V2Result, error) {
 		r.BaselineState = "collecting"
 		r.Status = "collecting_baseline"
 		r.Reasons = append(r.Reasons, "baseline_insufficient")
+	} else if b.SDNN.State == "provisional" || b.RHR.State == "provisional" {
+		r.BaselineState = "provisional"
 	}
 	var zh, zr float64
 	autAvailable := today.SDNN.Value != nil && today.RHR.Value != nil && b.SDNN.State != "collecting" && b.RHR.State != "collecting"

@@ -6,6 +6,7 @@ import (
 
 	"rai/server/internal/hrref"
 	ve "rai/server/internal/vo2maxexternal"
+	wf "rai/server/internal/workoutfeatures"
 )
 
 func TestDoseReferenceIdentityIgnoresRollingRestingBaseline(t *testing.T) {
@@ -57,5 +58,25 @@ func TestStableExternalInputKeepsSelectionAcrossUpdates(t *testing.T) {
 	}
 	if in.Selections[0].Epoch != "sha256:watch" || in.Selections[1].Epoch != "sha256:unknown" {
 		t.Fatalf("selection: %+v", in.Selections)
+	}
+}
+
+func TestVO2PrescreenRequiresNativeSpeedAndGradeSupport(t *testing.T) {
+	f := wf.WorkoutFeatures{}
+	active, distance := 1800., 5400.
+	f.Timing.Active = &active
+	f.Distance.SpeedIntegral = &distance
+	f.Route.GradeCoverage = 1
+	if !stackVO2RawNeeded(f) {
+		t.Fatal("a potentially qualifying timeline was skipped")
+	}
+	f.Distance.SpeedIntegral = nil
+	if stackVO2RawNeeded(f) {
+		t.Fatal("missing native speed cannot form VO2 windows")
+	}
+	f.Distance.SpeedIntegral = &distance
+	f.Route.GradeCoverage = 0
+	if stackVO2RawNeeded(f) {
+		t.Fatal("missing grade support cannot form VO2 windows")
 	}
 }

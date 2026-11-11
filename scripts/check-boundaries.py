@@ -107,3 +107,13 @@ reader=(root/'internal/storage/postgres/athlete_model.go').read_text()
 if any(x in reader for x in ('.Calculate(', 'loadRecoveryInput(', 'loadReadinessInput(', 'loadPerformanceInput(')):
     raise SystemExit('FAIL: unified reader recalculates/loads raw model inputs')
 print('PASS: M7 typed projection is pure; reader only validates/Freshens/maps; httpapi is the only candidate-product transport and legacy analysis consumers are unchanged')
+
+for domain in ('sessionrecovery', 'runningability'):
+    package = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/' + domain], cwd=root, text=True))
+    for dependency in package.get('Imports', []):
+        if dependency.startswith(('rai/server/internal/', 'github.com/', 'net', 'os', 'database/', 'math/rand')):
+            raise SystemExit('FAIL: '+domain+' reaches another model or I/O: '+dependency)
+    for source in (root/'internal'/domain).glob('*.go'):
+        if not source.name.endswith('_test.go') and any(x in source.read_text() for x in ('time.Now(', 'time.LoadLocation(', 'rand.')):
+            raise SystemExit('FAIL: '+domain+' reads ambient state')
+print('PASS: session recovery and running ability selection are pure independent DTO consumers')

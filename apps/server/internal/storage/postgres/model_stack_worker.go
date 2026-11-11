@@ -126,7 +126,7 @@ func (s *Store) publishModelStackDay(ctx context.Context, l Lease, stack, day, m
 		return "", err
 	}
 	status := "SUPERSEDED"
-	if current && len(artifacts) >= modelProductSlots {
+	if current && modelStackProductsPresent(artifacts) {
 		for _, a := range artifacts {
 			if r, ok := a.value.(workoutResultRow); ok {
 				if err := writeWorkoutResult(ctx, tx, l.DatasetID, stack, r); err != nil {
@@ -320,4 +320,22 @@ func (s *Store) rebuildModelStackHistory(ctx context.Context, at time.Time) erro
 		}
 	}
 	return nil
+}
+
+func modelStackProductsPresent(artifacts []stackArtifact) bool {
+	required := map[string]bool{"load_state": false, "performance_state_v2": false, "vo2max_external_projection": false, "vo2max_submax": false, "physiological_recovery": false, "training_readiness": false, "session_recovery": false, "running_ability_estimate": false, "load_focus": false}
+	for _, a := range artifacts {
+		if seen, ok := required[a.key]; ok {
+			if seen {
+				return false
+			}
+			required[a.key] = true
+		}
+	}
+	for _, seen := range required {
+		if !seen {
+			return false
+		}
+	}
+	return true
 }

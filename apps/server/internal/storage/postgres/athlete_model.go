@@ -112,7 +112,7 @@ func (s *Store) ReadAthleteModelCandidateSnapshot(ctx context.Context, dataset s
 		if err != nil || c.configHash != manifest {
 			return am.AthleteModelCandidateSnapshot{}, stats, ErrModelProjection
 		}
-		out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+		out = am.NewSnapshotV3(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
 		out, err = readPublishedModelStack(ctx, tx, dataset, "candidate", c.assignment.StackID, out, c, at)
 		stats.DBReads++
 		if err != nil {

@@ -3,6 +3,8 @@
 // functions here never read a clock, database, filesystem or network.
 package workoutdetail
 
+import tl "rai/server/internal/trainingload"
+
 // Workout is the fact-first header of the native detail page. Derived fields
 // stay nil (or analysisStatus=pending) until an analysis publication exists;
 // they are never replaced by a zero that reads like a measured score.
@@ -185,6 +187,7 @@ type Qualification struct {
 }
 
 type Detail struct {
+	LoadFocus          *tl.WorkoutFocus    `json:"loadFocus,omitempty"`
 	Workout            Workout             `json:"workout"`
 	Analysis           *FeatureAnalysis    `json:"analysis,omitempty"`
 	ModelQualification *ModelQualification `json:"modelQualification,omitempty"`

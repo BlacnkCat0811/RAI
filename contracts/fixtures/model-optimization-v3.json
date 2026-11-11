@@ -1,0 +1,580 @@
+{
+  "sessionRecovery": {
+    "envelope": {
+      "mode": "estimated",
+      "validBefore": 1794412800000000,
+      "id": "sessionRecovery",
+      "metric": "sessionRecovery",
+      "modelVersion": "rai.session_recovery/v1",
+      "payloadVersion": "rai.session_recovery/1",
+      "mappingVersion": "rai.product_metric_mapping/3",
+      "state": "available",
+      "modelStatus": "available",
+      "quality": "estimated",
+      "confidence": 0,
+      "evidenceSupport": "limited_evidence",
+      "asOf": 1794369600000000,
+      "evidenceAt": 1794369600000000,
+      "evaluationAt": 1794369600000000,
+      "computedAt": 1794369600000000,
+      "validationStatus": "not_available",
+      "freshness": "fresh",
+      "updatedAt": 1794369600000000,
+      "reasonCodes": [],
+      "productReasonCodes": [],
+      "lineageSummary": {
+        "dataSources": [
+          "recorded_running"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "remainingHours": 20,
+      "range": {
+        "low": 18,
+        "high": 20
+      },
+      "readyAfter": null,
+      "overflow": false,
+      "scope": "recorded_running_next_hard_session"
+    },
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "instant_state_no_long_term_trend"
+      ]
+    },
+    "explanation": {
+      "headline": "sessionRecovery.state",
+      "supportingFacts": [],
+      "limitations": [
+        "recorded_running_next_hard_session",
+        "estimated_not_full_body_recovery"
+      ]
+    }
+  },
+  "loadFocus": {
+    "envelope": {
+      "mode": "observed",
+      "id": "loadFocus",
+      "metric": "loadFocus",
+      "modelVersion": "rai.load_focus/v1",
+      "payloadVersion": "rai.load_focus/1",
+      "mappingVersion": "rai.product_metric_mapping/3",
+      "state": "available",
+      "modelStatus": "available",
+      "quality": "partial",
+      "confidence": null,
+      "evidenceSupport": "not_presented",
+      "asOf": 1794369600000000,
+      "evidenceAt": 1794369600000000,
+      "evaluationAt": 1794369600000000,
+      "computedAt": 1794369600000000,
+      "validationStatus": "not_available",
+      "freshness": "fresh",
+      "updatedAt": 1794369600000000,
+      "reasonCodes": [
+        "known_load_denominator"
+      ],
+      "productReasonCodes": [],
+      "lineageSummary": {
+        "dataSources": [
+          "recorded_running"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "windows": [
+        {
+          "windowDays": 7,
+          "buckets": {
+            "lowAerobicAU": 100,
+            "highAerobicAU": 30,
+            "anaerobicProxyAU": 0,
+            "unclassifiedAU": 20
+          },
+          "unknownWorkouts": 1,
+          "classifiedCoverage": 0.8666666666666667,
+          "denominator": "known_load",
+          "classificationMethod": "hrr_proxy"
+        }
+      ]
+    },
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "descriptive_distribution"
+      ]
+    },
+    "explanation": {
+      "headline": "loadFocus.state",
+      "supportingFacts": [],
+      "limitations": [
+        "hrr_proxy",
+        "anaerobic_proxy",
+        "no_automatic_target"
+      ]
+    }
+  },
+  "schemaVersion": "rai.athlete_model/3",
+  "asOf": 1794369600000000,
+  "evaluationAt": 1794369600000000,
+  "datasetRevision": 1,
+  "timezone": "Asia/Shanghai",
+  "calendarDate": "2026-11-11",
+  "assignment": {
+    "channel": "active",
+    "stackID": "synthetic-v3",
+    "version": 1
+  },
+  "responseState": "complete_response",
+  "presentationOrder": [
+    "trainingReadiness",
+    "physiologicalRecovery",
+    "sessionRecovery",
+    "trainingLoad",
+    "loadFocus",
+    "runningAbility",
+    "raiVO2Max",
+    "externalVO2Max"
+  ],
+  "notices": [
+    "informational_fitness_metrics",
+    "not_medical_diagnosis"
+  ],
+  "trainingLoad": {
+    "envelope": {
+      "id": "trainingLoad",
+      "metric": "trainingLoad",
+      "modelVersion": "",
+      "payloadVersion": "",
+      "mappingVersion": "rai.product_metric_mapping/2",
+      "state": "unavailable",
+      "modelStatus": "pending",
+      "quality": "insufficient",
+      "confidence": null,
+      "evidenceSupport": "not_presented",
+      "asOf": null,
+      "evaluationAt": 1794369600000000,
+      "freshness": "unknown",
+      "updatedAt": null,
+      "reasonCodes": [
+        "pending"
+      ],
+      "productReasonCodes": [
+        "model_result_pending"
+      ],
+      "primaryReason": "model_result_pending",
+      "lineageSummary": {
+        "dataSources": []
+      },
+      "technicalError": null
+    },
+    "value": null,
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "no_comparable_result"
+      ]
+    },
+    "explanation": {
+      "headline": "trainingLoad.state",
+      "supportingFacts": [],
+      "limitations": [
+        "pending"
+      ]
+    }
+  },
+  "runningAbility": {
+    "envelope": {
+      "mode": "submax_estimated",
+      "id": "runningAbility",
+      "metric": "runningAbility",
+      "modelVersion": "rai.running_ability_estimate/v1",
+      "payloadVersion": "rai.running_ability_estimate/1",
+      "mappingVersion": "rai.product_metric_mapping/3",
+      "state": "limited",
+      "modelStatus": "limited",
+      "quality": "limited",
+      "confidence": 0.35,
+      "evidenceSupport": "moderate_evidence",
+      "asOf": 1794369600000000,
+      "evidenceAt": 1794283200000000,
+      "evaluationAt": 1794369600000000,
+      "computedAt": 1794369600000000,
+      "validationStatus": "not_available",
+      "freshness": "fresh",
+      "updatedAt": 1794369600000000,
+      "reasonCodes": [],
+      "productReasonCodes": [
+        "metric_unavailable"
+      ],
+      "primaryReason": "metric_unavailable",
+      "lineageSummary": {
+        "dataSources": [
+          "recorded_running"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "demonstrated": {
+        "v60": null,
+        "range": null,
+        "score": null,
+        "gamma": null,
+        "mode": "demonstrated",
+        "status": "collecting",
+        "evidenceAt": 0,
+        "source": "",
+        "confidence": 0,
+        "sensitivityRelativeWidth": null
+      },
+      "maximalSupported": {
+        "v60": null,
+        "range": null,
+        "score": null,
+        "gamma": null,
+        "mode": "maximal_supported",
+        "status": "collecting",
+        "evidenceAt": 0,
+        "source": "",
+        "confidence": 0,
+        "sensitivityRelativeWidth": null
+      },
+      "submaxEstimated": {
+        "v60": 3.3,
+        "range": {
+          "low": 3.1,
+          "high": 3.6
+        },
+        "score": 57,
+        "gamma": null,
+        "mode": "submax_estimated",
+        "status": "limited",
+        "evidenceAt": 1794283200000000,
+        "source": "",
+        "confidence": 0.35,
+        "sensitivityRelativeWidth": null
+      },
+      "selectedMode": "submax_estimated",
+      "progress": {
+        "workouts": 4,
+        "spanDays": 12,
+        "shortWorkouts": 4,
+        "longWorkouts": 0,
+        "targetDays": 3
+      },
+      "score": 57,
+      "v60": 3.3,
+      "gamma": null,
+      "enduranceRetention": null,
+      "stability": "not_provided",
+      "evidenceMode": "submax_estimated",
+      "evidenceCount": 4,
+      "speedUnit": "m/s",
+      "scoreUnit": "score_0_100"
+    },
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "source_specific_only"
+      ]
+    },
+    "explanation": {
+      "headline": "runningAbility.state",
+      "supportingFacts": [],
+      "limitations": [
+        "independent_evidence_branches",
+        "submax_no_endurance_curve"
+      ]
+    }
+  },
+  "externalVO2Max": {
+    "envelope": {
+      "id": "externalVO2Max",
+      "metric": "externalVO2Max",
+      "modelVersion": "",
+      "payloadVersion": "",
+      "mappingVersion": "rai.product_metric_mapping/2",
+      "state": "unavailable",
+      "modelStatus": "pending",
+      "quality": "insufficient",
+      "confidence": null,
+      "evidenceSupport": "not_presented",
+      "asOf": null,
+      "evaluationAt": 1794369600000000,
+      "freshness": "unknown",
+      "updatedAt": null,
+      "reasonCodes": [
+        "pending"
+      ],
+      "productReasonCodes": [
+        "model_result_pending"
+      ],
+      "primaryReason": "model_result_pending",
+      "lineageSummary": {
+        "dataSources": []
+      },
+      "technicalError": null
+    },
+    "value": null,
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "no_comparable_result"
+      ]
+    },
+    "explanation": {
+      "headline": "externalVO2Max.state",
+      "supportingFacts": [],
+      "limitations": [
+        "pending"
+      ]
+    }
+  },
+  "physiologicalRecovery": {
+    "envelope": {
+      "mode": "estimated",
+      "validBefore": 1794412800000000,
+      "id": "physiologicalRecovery",
+      "metric": "physiologicalRecovery",
+      "modelVersion": "rai.recovery.physiological/v3",
+      "payloadVersion": "rai.recovery.physiological/3",
+      "mappingVersion": "rai.product_metric_mapping/3",
+      "state": "available",
+      "modelStatus": "available",
+      "quality": "estimated",
+      "confidence": 0.3,
+      "evidenceSupport": "moderate_evidence",
+      "asOf": 1794369600000000,
+      "evidenceAt": 1794283200000000,
+      "evaluationAt": 1794369600000000,
+      "freshness": "fresh",
+      "updatedAt": 1794369600000000,
+      "reasonCodes": [],
+      "productReasonCodes": [],
+      "lineageSummary": {
+        "dataSources": [
+          "Apple Health",
+          "RAI-derived"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "components": {
+        "hrv": {
+          "state": "missing_after_sync",
+          "observed": null,
+          "used": null,
+          "trend": 50,
+          "nightQuality": {
+            "samples": 0,
+            "blocks": 0,
+            "spanHours": 0,
+            "weight": 0
+          },
+          "trendNights": 6,
+          "baselineNights": 28,
+          "evidenceAt": 1794283200000000,
+          "sourceEpoch": "synthetic-watch"
+        }
+      },
+      "missingComponents": [
+        "hrv"
+      ],
+      "baselineNights": 28,
+      "trendNights": 6,
+      "sleepRelativeToHabit": false,
+      "score": 70,
+      "unit": "score_0_100",
+      "baselineState": "established",
+      "hrv": {
+        "availability": "missing_after_sync",
+        "relativeToBaseline": "unknown"
+      },
+      "rhr": {
+        "availability": "",
+        "relativeToBaseline": "unknown"
+      },
+      "sleep": {
+        "availability": "",
+        "relativeToBaseline": "unknown"
+      }
+    },
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "no_comparable_valid_daily_results"
+      ]
+    },
+    "explanation": {
+      "headline": "physiologicalRecovery.available",
+      "supportingFacts": [
+        {
+          "code": "recovery.score",
+          "value": 70,
+          "unit": "score_0_100"
+        },
+        {
+          "code": "recovery.hrv.unknown",
+          "value": null,
+          "unit": ""
+        },
+        {
+          "code": "recovery.rhr.unknown",
+          "value": null,
+          "unit": ""
+        },
+        {
+          "code": "recovery.sleep.unknown",
+          "value": null,
+          "unit": ""
+        }
+      ],
+      "limitations": [
+        "evidence_support_not_probability",
+        "hrv_sdnn_resting_hr_sleep_personal_baseline_proxy",
+        "not_diagnosis"
+      ]
+    }
+  },
+  "trainingReadiness": {
+    "envelope": {
+      "mode": "estimated",
+      "validBefore": 1794412800000000,
+      "id": "trainingReadiness",
+      "metric": "trainingReadiness",
+      "modelVersion": "rai.readiness.training/v4",
+      "payloadVersion": "rai.readiness.training/4",
+      "mappingVersion": "rai.product_metric_mapping/3",
+      "state": "available",
+      "modelStatus": "available",
+      "quality": "estimated",
+      "confidence": 0,
+      "evidenceSupport": "limited_evidence",
+      "asOf": 1794369600000000,
+      "evidenceAt": 1794283200000000,
+      "evaluationAt": 1794369600000000,
+      "freshness": "fresh",
+      "updatedAt": 1794369600000000,
+      "reasonCodes": [],
+      "productReasonCodes": [],
+      "lineageSummary": {
+        "dataSources": [
+          "Apple Health",
+          "RAI-derived"
+        ]
+      },
+      "technicalError": null
+    },
+    "value": {
+      "range": {
+        "low": 70,
+        "high": 72
+      },
+      "physiologicalCap": 70,
+      "sessionCap": 80,
+      "weeklyCap": 100,
+      "score": 70,
+      "recoveryScore": null,
+      "loadMultiplier": null,
+      "recentRecordedLoad": null,
+      "unit": "score_0_100",
+      "scope": "running_focused"
+    },
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "instant_state_no_long_term_trend"
+      ]
+    },
+    "explanation": {
+      "headline": "trainingReadiness.available",
+      "supportingFacts": [
+        {
+          "code": "readiness.recovery_score",
+          "value": null,
+          "unit": "score_0_100"
+        },
+        {
+          "code": "readiness.recent_recorded_running_load",
+          "value": null,
+          "unit": "RAI_AU"
+        },
+        {
+          "code": "readiness.load_multiplier",
+          "value": null,
+          "unit": "ratio"
+        }
+      ],
+      "limitations": [
+        "evidence_support_not_probability",
+        "informational_not_training_instruction",
+        "running_focused"
+      ]
+    }
+  },
+  "raiVO2Max": {
+    "envelope": {
+      "id": "raiVO2Max",
+      "metric": "raiVO2Max",
+      "modelVersion": "",
+      "payloadVersion": "",
+      "mappingVersion": "rai.product_metric_mapping/2",
+      "state": "unavailable",
+      "modelStatus": "pending",
+      "quality": "insufficient",
+      "confidence": null,
+      "evidenceSupport": "not_presented",
+      "asOf": null,
+      "evaluationAt": 1794369600000000,
+      "freshness": "unknown",
+      "updatedAt": null,
+      "reasonCodes": [
+        "pending"
+      ],
+      "productReasonCodes": [
+        "model_result_pending"
+      ],
+      "primaryReason": "model_result_pending",
+      "lineageSummary": {
+        "dataSources": []
+      },
+      "technicalError": null
+    },
+    "value": null,
+    "trend": {
+      "kind": "none",
+      "value": null,
+      "unit": "",
+      "reasonCodes": [
+        "no_comparable_result"
+      ]
+    },
+    "explanation": {
+      "headline": "raiVO2Max.state",
+      "supportingFacts": [],
+      "limitations": [
+        "pending"
+      ]
+    }
+  }
+}

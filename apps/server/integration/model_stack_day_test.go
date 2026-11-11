@@ -136,7 +136,7 @@ func runStackDay(t *testing.T, f *fixture, runs []stackDayRun, opts stackDayOpti
 		var b []byte
 		if err := f.s.Pool.QueryRow(ctx, `SELECT a.payload FROM analysis_publications p
  JOIN analysis_artifacts a ON a.dataset_id=p.dataset_id AND a.run_id=p.published_run_id AND a.artifact_key=$3
- WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$4`, f.p.DatasetID, scope, key, "model_product_v2/"+key).Scan(&b); err != nil {
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family IN ($4,$5)`, f.p.DatasetID, scope, key, "model_product_v2/"+key, "model_product_v3/"+key).Scan(&b); err != nil {
 			t.Fatalf("artifact %s: %v", key, err)
 		}
 		if err := json.Unmarshal(b, v); err != nil {

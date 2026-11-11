@@ -20,7 +20,7 @@ const (
 	MaxPoints        = 250000
 	MaxDetails       = 2000
 	MaxMetadataBytes = 4 << 20
-	MaxArtifactBytes = 128 << 10
+	MaxArtifactBytes = 1 << 20
 	MaxSeconds       = 24 * 60 * 60
 	HR               = "HKQuantityTypeIdentifierHeartRate"
 	Speed            = "HKQuantityTypeIdentifierRunningSpeed"
@@ -373,6 +373,7 @@ type Evidence struct {
 	ConfigHash       string   `json:"configHash"`
 }
 type WorkoutFeatures struct {
+	Structure     *StructureFeatures       `json:"structure,omitempty"`
 	ActivityType  int64                    `json:"activityType"`
 	Schema        string                   `json:"schemaVersion"`
 	Algorithm     string                   `json:"algorithm"`

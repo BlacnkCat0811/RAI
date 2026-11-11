@@ -41,10 +41,27 @@
       "type": "TEMPO",
       "origin": "generated",
       "status": "scheduled",
-      "durationS": 0,
+      "durationS": 2400,
       "distanceM": 6500,
       "effort": 6,
       "notes": "",
+      "steps": [
+        {
+          "kind": "warmup",
+          "durationS": 600,
+          "effort": 2
+        },
+        {
+          "kind": "work",
+          "durationS": 1200,
+          "effort": 6
+        },
+        {
+          "kind": "cooldown",
+          "durationS": 600,
+          "effort": 2
+        }
+      ],
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
@@ -304,10 +321,27 @@
       "type": "TEMPO",
       "origin": "generated",
       "status": "scheduled",
-      "durationS": 0,
+      "durationS": 2700,
       "distanceM": 7166,
       "effort": 6,
       "notes": "",
+      "steps": [
+        {
+          "kind": "warmup",
+          "durationS": 600,
+          "effort": 2
+        },
+        {
+          "kind": "work",
+          "durationS": 1500,
+          "effort": 6
+        },
+        {
+          "kind": "cooldown",
+          "durationS": 600,
+          "effort": 2
+        }
+      ],
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
@@ -399,7 +433,6 @@
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
         "recovery_week",
         "recovery_after_hard_session"
       ],
@@ -454,7 +487,6 @@
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
         "recovery_week",
         "goal_specific_tempo",
         "goal_specific_interval"
@@ -491,7 +523,6 @@
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
         "recovery_week"
       ],
       "modifiedByUser": false
@@ -526,7 +557,6 @@
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
         "recovery_week",
         "long_run_progression"
       ],
@@ -540,13 +570,12 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 6018,
+      "distanceM": 7166,
       "effort": 2,
       "notes": "",
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
         "recovery_after_hard_session"
       ],
       "modifiedByUser": false
@@ -574,14 +603,30 @@
       "type": "TEMPO",
       "origin": "generated",
       "status": "scheduled",
-      "durationS": 0,
-      "distanceM": 6018,
+      "durationS": 3000,
+      "distanceM": 7166,
       "effort": 6,
       "notes": "",
+      "steps": [
+        {
+          "kind": "warmup",
+          "durationS": 600,
+          "effort": 2
+        },
+        {
+          "kind": "work",
+          "durationS": 1800,
+          "effort": 6
+        },
+        {
+          "kind": "cooldown",
+          "durationS": 600,
+          "effort": 2
+        }
+      ],
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
         "goal_specific_tempo"
       ],
       "modifiedByUser": false
@@ -610,13 +655,12 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 6018,
+      "distanceM": 7166,
       "effort": 3,
       "notes": "",
       "reasonCodes": [
         "aerobic_base",
-        "weekly_load_constraint",
-        "weekly_progression"
+        "weekly_load_constraint"
       ],
       "modifiedByUser": false
     },
@@ -644,13 +688,12 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 9721,
+      "distanceM": 11575,
       "effort": 3,
       "notes": "",
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
         "long_run_progression"
       ],
       "modifiedByUser": false
@@ -663,7 +706,7 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 6318,
+      "distanceM": 7524,
       "effort": 2,
       "notes": "",
       "reasonCodes": [
@@ -698,7 +741,7 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 2880,
-      "distanceM": 6318,
+      "distanceM": 7524,
       "effort": 7,
       "notes": "",
       "steps": [
@@ -753,7 +796,7 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 6318,
+      "distanceM": 7524,
       "effort": 3,
       "notes": "",
       "reasonCodes": [
@@ -787,7 +830,7 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 10206,
+      "distanceM": 12153,
       "effort": 3,
       "notes": "",
       "reasonCodes": [
@@ -806,13 +849,13 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 6634,
+      "distanceM": 5643,
       "effort": 2,
       "notes": "",
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
+        "taper",
         "recovery_after_hard_session"
       ],
       "modifiedByUser": false
@@ -840,14 +883,31 @@
       "type": "TEMPO",
       "origin": "generated",
       "status": "scheduled",
-      "durationS": 0,
-      "distanceM": 6634,
+      "durationS": 3300,
+      "distanceM": 5643,
       "effort": 6,
       "notes": "",
+      "steps": [
+        {
+          "kind": "warmup",
+          "durationS": 600,
+          "effort": 2
+        },
+        {
+          "kind": "work",
+          "durationS": 2100,
+          "effort": 6
+        },
+        {
+          "kind": "cooldown",
+          "durationS": 600,
+          "effort": 2
+        }
+      ],
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
+        "taper",
         "goal_specific_tempo"
       ],
       "modifiedByUser": false
@@ -876,13 +936,13 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 6634,
+      "distanceM": 5643,
       "effort": 3,
       "notes": "",
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression"
+        "taper"
       ],
       "modifiedByUser": false
     },
@@ -910,13 +970,13 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 10716,
+      "distanceM": 9114,
       "effort": 3,
       "notes": "",
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
+        "taper",
         "long_run_progression"
       ],
       "modifiedByUser": false
@@ -925,19 +985,17 @@
       "sessionID": "0e8a2f5b-ea2a-5ca1-bdbb-2a08a97bb42c",
       "slot": 49,
       "date": "2026-12-14",
-      "type": "RECOVERY",
+      "type": "EASY",
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 5307,
-      "effort": 2,
+      "distanceM": 4051,
+      "effort": 3,
       "notes": "",
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
-        "recovery_week",
-        "recovery_after_hard_session"
+        "taper"
       ],
       "modifiedByUser": false
     },
@@ -961,39 +1019,17 @@
       "sessionID": "c4c62287-4649-5b49-b5aa-42c91fbfb3e0",
       "slot": 51,
       "date": "2026-12-16",
-      "type": "INTERVAL",
+      "type": "EASY",
       "origin": "generated",
       "status": "scheduled",
-      "durationS": 2880,
-      "distanceM": 5307,
-      "effort": 7,
+      "durationS": 0,
+      "distanceM": 4051,
+      "effort": 3,
       "notes": "",
-      "steps": [
-        {
-          "kind": "warmup",
-          "durationS": 600,
-          "effort": 2
-        },
-        {
-          "kind": "repeat",
-          "durationS": 300,
-          "effort": 7,
-          "repeats": 4,
-          "recoveryS": 120
-        },
-        {
-          "kind": "cooldown",
-          "durationS": 600,
-          "effort": 2
-        }
-      ],
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
-        "recovery_week",
-        "goal_specific_tempo",
-        "goal_specific_interval"
+        "taper"
       ],
       "modifiedByUser": false
     },
@@ -1021,14 +1057,13 @@
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 5307,
+      "distanceM": 4051,
       "effort": 3,
       "notes": "",
       "reasonCodes": [
         "aerobic_base",
         "weekly_load_constraint",
-        "weekly_progression",
-        "recovery_week"
+        "taper"
       ],
       "modifiedByUser": false
     },
@@ -1052,19 +1087,15 @@
       "sessionID": "dec52510-803f-5c09-ab34-a15ed44cdacb",
       "slot": 55,
       "date": "2026-12-20",
-      "type": "LONG",
+      "type": "RACE",
       "origin": "generated",
       "status": "scheduled",
       "durationS": 0,
-      "distanceM": 8572,
-      "effort": 3,
+      "distanceM": 21097.5,
+      "effort": 9,
       "notes": "",
       "reasonCodes": [
-        "aerobic_base",
-        "weekly_load_constraint",
-        "weekly_progression",
-        "recovery_week",
-        "long_run_progression"
+        "goal_event"
       ],
       "modifiedByUser": false
     }

@@ -50,6 +50,12 @@ func SetMissingMetricsV2(s *AthleteModelSnapshot, status string) {
 	s.TrainingReadiness = Missing[ReadinessValue]("trainingReadiness", at, status)
 	v := Missing[RAIVO2Value]("raiVO2Max", at, status)
 	s.RAIVO2Max = &v
+	if s.SchemaVersion == Schema3 {
+		session := Missing[SessionRecoveryValue]("sessionRecovery", at, status)
+		s.SessionRecovery = &session
+		focus := Missing[LoadFocusValue]("loadFocus", at, status)
+		s.LoadFocus = &focus
+	}
 	for _, e := range []*Envelope{&s.TrainingLoad.Envelope, &s.RunningAbility.Envelope, &s.ExternalVO2Max.Envelope, &s.PhysiologicalRecovery.Envelope, &s.TrainingReadiness.Envelope, &s.RAIVO2Max.Envelope} {
 		e.MappingVersion = MappingVersion2
 	}
@@ -121,10 +127,29 @@ func SetProjectedResponseState(s *AthleteModelSnapshot) {
 	if s.RAIVO2Max != nil && s.RAIVO2Max.Envelope.State == Available {
 		available++
 	}
+	total := 6
+	if s.SchemaVersion == Schema3 {
+		total = 8
+		for _, e := range []*Envelope{func() *Envelope {
+			if s.SessionRecovery != nil {
+				return &s.SessionRecovery.Envelope
+			}
+			return nil
+		}(), func() *Envelope {
+			if s.LoadFocus != nil {
+				return &s.LoadFocus.Envelope
+			}
+			return nil
+		}()} {
+			if e != nil && e.State == Available {
+				available++
+			}
+		}
+	}
 	switch {
 	case available == 0:
 		s.ResponseState = "unavailable_response"
-	case available < 6:
+	case available < total:
 		s.ResponseState = "partial_response"
 	default:
 		s.ResponseState = "complete_response"

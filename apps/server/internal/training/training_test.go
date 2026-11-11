@@ -3,8 +3,10 @@ package training
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 )
@@ -54,8 +56,17 @@ func checkConstraints(t *testing.T, b Base, in Context) {
 	lastLong := *in.Config.PreviousLongM
 	for w := 0; w < in.Config.Weeks; w++ {
 		sum, long, hard, rest := 0.0, 0.0, 0, 0
+		event := false
 		for d := 0; d < 7; d++ {
 			s := b.Sessions[w*7+d]
+			for _, code := range s.Reasons {
+				event = event || code == "taper" || code == "post_event_recovery" || code == "goal_event"
+			}
+			if s.Type == "RACE" {
+				// The event is not training volume and follows none of the
+				// weekly limits.
+				continue
+			}
 			sum += s.DistanceM
 			if s.Type == "LONG" {
 				long = s.DistanceM
@@ -83,8 +94,19 @@ func checkConstraints(t *testing.T, b Base, in Context) {
 		if sum > prev*1.05+1 || hard > 1 || rest < 1 || long > sum*.35+2 || long > 30000 || long > lastLong*1.05+1 {
 			t.Fatalf("constraint week=%d sum=%f prev=%f long=%f", w, sum, prev, long)
 		}
-		prev = sum
-		lastLong = long
+		// A recovery week is a cut, not a new starting point: the next week
+		// may return to the level reached before it, never above it. Taper,
+		// event and post-event weeks stay below it and never move it either.
+		if event {
+			if sum > prev+1 || long > lastLong+1 {
+				t.Fatalf("event-phase week=%d sum=%f long=%f above %f/%f", w, sum, long, prev, lastLong)
+			}
+		} else if w%4 != 3 {
+			prev = sum
+			lastLong = long
+		} else if sum > prev*.8+1 || long > lastLong*.8+1 {
+			t.Fatalf("recovery week=%d sum=%f long=%f not reduced from %f/%f", w, sum, long, prev, lastLong)
+		}
 	}
 }
 func TestSyntheticHistoriesAndMissingInputs(t *testing.T) {
@@ -437,6 +459,13 @@ func TestGeneratorTargetsAndRampGuard(t *testing.T) {
 			}
 			continue
 		}
+		if s.Type == "RACE" {
+			// The event takes its pace only from a stated target time.
+			if s.PaceSPerKM != nil || s.TargetHR != nil {
+				t.Fatal("event got an invented target")
+			}
+			continue
+		}
 		if s.PaceSPerKM == nil || s.TargetHR == nil {
 			t.Fatalf("%s without targets", s.Type)
 		}
@@ -477,5 +506,163 @@ func TestRescheduleTodayMovesHardSession(t *testing.T) {
 	easyToday := []Session{{ID: "x", Slot: 0, Date: "2026-10-26", Type: "EASY", Effort: 3, DistanceM: 5000, Origin: "generated", Status: "scheduled", Reasons: []string{"aerobic_base"}}}
 	if e := rescheduleToday(easyToday, 0, nil, nil, nil); e != nil || easyToday[0].Type != "EASY" {
 		t.Fatal("easy day changed")
+	}
+}
+
+func TestGeneratorV4EstimatesOnlyDownshiftAndRemainVersioned(t *testing.T) {
+	in := syntheticContext()
+	in.Config.BaselineWeeklyM = Ptr(30000)
+	in.Config.PreviousLongM = Ptr(12000)
+	in.ObservedModelBinding = &ModelBinding{Adapter: "schema3-v1"}
+	base, e := Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	in.Signals = []Signal{{Name: "readiness", Algorithm: "rai.readiness.training", Version: "v4", Mode: "estimated", Quality: "estimated", Value: Ptr(75)}}
+	high, e := Generate(in)
+	if e != nil || !reflect.DeepEqual(base.Sessions, high.Sessions) {
+		t.Fatal("estimated status upgraded planned sessions", e)
+	}
+	in.Signals[0].Value = Ptr(55)
+	low, e := Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if hardSession(base.Sessions[0].Type) && hardSession(low.Sessions[0].Type) {
+		t.Fatal("explicit low estimate failed to downshift")
+	}
+	in.ObservedModelBinding.Adapter = "schema2-v2"
+	old, e := Generate(in)
+	if e != nil || !containsString(old.Recommendations, "readiness_unavailable") {
+		t.Fatal("old adapter consumed new scale", e)
+	}
+}
+
+// The plan builds across recovery weeks: each block peaks above the previous
+// one and the long run keeps growing, instead of every deload becoming the new
+// baseline. Tempo sessions are a warm-up, a block at tempo effort and a
+// cool-down, and the block grows with each tempo session.
+func TestPlanBuildsAcrossRecoveryWeeksAndStructuresTempo(t *testing.T) {
+	in := syntheticContext()
+	in.Config.Weeks = 12
+	in.Config.Goal.Date = "2027-01-17"
+	in.Config.BaselineWeeklyM, in.Config.PreviousLongM = Ptr(40000), Ptr(14000)
+	base, e := Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var sums, longs []float64
+	var works []int
+	for w := 0; w < 12; w++ {
+		sum, long := 0., 0.
+		for _, s := range base.Sessions[w*7 : w*7+7] {
+			sum += s.DistanceM
+			if s.Type == "LONG" {
+				long = s.DistanceM
+			}
+			if s.Type == "TEMPO" {
+				if len(s.Steps) != 3 || s.Steps[0].Kind != "warmup" || s.Steps[1].Kind != "work" || s.Steps[2].Kind != "cooldown" || s.DurationS != float64(s.Steps[0].DurationS+s.Steps[1].DurationS+s.Steps[2].DurationS) {
+					t.Fatalf("week %d tempo is not structured: %+v", w, s)
+				}
+				works = append(works, s.Steps[1].DurationS)
+			}
+		}
+		sums, longs = append(sums, sum), append(longs, long)
+	}
+	for _, w := range []int{3, 7} {
+		if sums[w] >= sums[w-1]*.85 || sums[w] <= sums[w-1]*.75 {
+			t.Fatalf("recovery week %d: %f after %f", w, sums[w], sums[w-1])
+		}
+	}
+	for _, w := range []int{4, 8} {
+		if sums[w] < sums[w-2]-200 || sums[w] > sums[w-2]+1 || longs[w] > longs[w-2]+1 {
+			t.Fatalf("week %d should return to week %d: %f vs %f", w, w-2, sums[w], sums[w-2])
+		}
+	}
+	if !(sums[2] < sums[6] && sums[6] < sums[9]) || !(longs[2] < longs[6] && longs[6] < longs[9]) || sums[9] < sums[0]*1.25 {
+		t.Fatalf("plan does not build: weekly %v long %v", sums, longs)
+	}
+	if len(works) < 3 || works[0] != 1200 || works[1] != 1500 || works[len(works)-1] > 2400 {
+		t.Fatalf("tempo blocks %v", works)
+	}
+}
+
+// The weeks before the goal date taper, the event is scheduled on its date,
+// and what follows is recovery. Volume comes down while the weekly quality
+// session stays; the event takes a pace only from a stated target time.
+func TestPlanTapersIntoTheEventAndRecoversAfter(t *testing.T) {
+	in := syntheticContext()
+	in.Config.Weeks = 12
+	in.Config.Goal.Date = "2027-01-03" // Sunday of week 10; two weeks follow
+	in.Config.Goal.DistanceM = 42195
+	in.Config.Goal.TargetTimeS = Ptr(4 * 3600.)
+	in.Config.BaselineWeeklyM, in.Config.PreviousLongM = Ptr(60000), Ptr(24000)
+	base, e := Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	week := func(w int) (sum, long float64, types map[string]int) {
+		types = map[string]int{}
+		for _, s := range base.Sessions[w*7 : w*7+7] {
+			types[s.Type]++
+			if s.Type == "RACE" {
+				continue
+			}
+			sum += s.DistanceM
+			if s.Type == "LONG" {
+				long = s.DistanceM
+			}
+		}
+		return
+	}
+	peak, peakLong, _ := week(6)
+	t2, l2, k2 := week(7)
+	t1, l1, k1 := week(8)
+	raceSum, _, raceTypes := week(9)
+	post, _, postTypes := week(10)
+	if !(t2 < peak*.85 && t2 > peak*.7 && t1 < t2 && t1 > peak*.55) || !(l2 < peakLong && l1 < l2) {
+		t.Fatalf("taper volume %f %f after %f, long %f %f after %f", t2, t1, peak, l2, l1, peakLong)
+	}
+	if k2["TEMPO"]+k2["INTERVAL"] != 1 || k1["TEMPO"]+k1["INTERVAL"] != 1 {
+		t.Fatal("taper dropped the quality session", k2, k1)
+	}
+	if raceSum > peak*.36 || raceTypes["RACE"] != 1 || raceTypes["LONG"]+raceTypes["TEMPO"]+raceTypes["INTERVAL"] != 0 {
+		t.Fatalf("event week %f of %f: %v", raceSum, peak, raceTypes)
+	}
+	if post > peak*.51 || postTypes["LONG"]+postTypes["TEMPO"]+postTypes["INTERVAL"]+postTypes["EASY"] != 0 || postTypes["RECOVERY"] == 0 {
+		t.Fatalf("post-event week %f: %v", post, postTypes)
+	}
+	race := base.Sessions[9*7+6]
+	if race.Type != "RACE" || race.Date != "2027-01-03" || race.DistanceM != 42195 || race.PaceSPerKM == nil || math.Abs(*race.PaceSPerKM-341) > 1 || race.TargetHR != nil || !slices.Contains(race.Reasons, "goal_event") {
+		t.Fatalf("event session %+v", race)
+	}
+	if before := base.Sessions[9*7+5]; before.Type != "REST" && before.Type != "RECOVERY" {
+		t.Fatal("day before the event is not easy", before.Type)
+	}
+	if after := base.Sessions[10*7]; after.Type != "REST" {
+		t.Fatal("day after the event is not rest", after.Type)
+	}
+	// A short event tapers only in its own week, and without a target time
+	// the event carries no pace.
+	in.Config.Goal.DistanceM, in.Config.Goal.TargetTimeS = 10000, nil
+	base, e = Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, s := range base.Sessions[8*7 : 9*7] {
+		if slices.Contains(s.Reasons, "taper") {
+			t.Fatal("a 10 km event tapered a week early")
+		}
+	}
+	if race := base.Sessions[9*7+6]; race.Type != "RACE" || race.PaceSPerKM != nil {
+		t.Fatalf("10 km event %+v", race)
+	}
+	// Low readiness on the day never turns the event into a recovery run.
+	in.AsOf = "2027-01-03"
+	in.ObservedModelBinding = &ModelBinding{Adapter: "schema2-v2"}
+	in.Signals = []Signal{{Name: "readiness", Algorithm: "rai.readiness.training", Version: "v2", Quality: "complete", Value: Ptr(20.)}}
+	base, e = Generate(in)
+	if e != nil || base.Sessions[9*7+6].Type != "RACE" {
+		t.Fatal("low readiness rescheduled the event", e)
 	}
 }

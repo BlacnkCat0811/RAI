@@ -47,6 +47,7 @@ type workoutDetailData struct {
 	RouteSealed []time.Time
 
 	FeatureArtifact   *workoutdetail.FeatureAnalysis
+	LoadFocus         *tl.WorkoutFocus
 	Qualification     *workoutdetail.ModelQualification
 	Published         []analysis.Metric
 	AnalysisStatus    string
@@ -726,6 +727,7 @@ func loadModelQualification(ctx context.Context, tx pgx.Tx, p syncing.Principal,
 		default:
 			load.Status = "ineligible"
 		}
+		d.LoadFocus = r.Focus
 		load.ReasonCodes = append(load.ReasonCodes, r.ReasonCodes...)
 	}
 	d.Qualification = &workoutdetail.ModelQualification{RunningAbility: detailQualification(ability), TrainingLoad: load}
@@ -758,6 +760,7 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	}}
 	out.Analysis = d.FeatureArtifact
 	out.ModelQualification = d.Qualification
+	out.LoadFocus = d.LoadFocus
 	if durationS > 0 && distance != nil && *distance > 0 {
 		out.Workout.AveragePaceSPerKm = workoutdetail.Ptr(round1(durationS / (*distance / 1000)))
 	}
@@ -973,6 +976,8 @@ func (d *workoutDetailData) fallbackLoad(durationS float64, base *workoutdetail.
 			intensity = 0.70
 		case "INTERVAL":
 			intensity = 0.80
+		case "RACE":
+			intensity = 0.85
 		}
 	}
 	load := durationS / 60 * intensity * math.Exp(1.92*intensity)

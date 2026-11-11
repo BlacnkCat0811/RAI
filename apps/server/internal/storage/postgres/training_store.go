@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"rai/server/internal/modelrelease"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
 
@@ -50,6 +51,10 @@ func loadTrainingModelBinding(ctx context.Context, q trainingDB, dataset string)
 		return training.ModelBinding{}, err
 	}
 	b := training.ModelBinding{Assignment: stack, AssignmentVersion: version, ManifestSHA: manifest, Model: "rai.athlete_model/2", AsOf: assigned.UTC().Format(time.RFC3339), Adapter: "schema2-v2"}
+	if release, ok := modelrelease.Lookup(stack, manifest, "UTC"); ok && release.Manifest.ProductSchema == "rai.athlete_model/3" {
+		b.Model = "rai.athlete_model/3"
+		b.Adapter = "schema3-v1"
+	}
 	if stack == "legacy" {
 		b.Model = "rai.athlete_model/1"
 		b.Adapter = "legacy-v1"

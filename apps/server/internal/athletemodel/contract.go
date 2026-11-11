@@ -3,6 +3,10 @@
 package athletemodel
 
 import (
+	rd "rai/server/internal/readiness"
+	rc "rai/server/internal/recovery"
+	ra "rai/server/internal/runningability"
+	tl "rai/server/internal/trainingload"
 	"slices"
 	"sort"
 )
@@ -95,7 +99,7 @@ func MapReasons(status string, reasons []string) []ProductReasonCode {
 			out = append(out, "model_update_required")
 		case "sync_incomplete", "load_sync_incomplete", "daily_coverage_incomplete", "candidate_superseded":
 			out = append(out, "data_sync_incomplete")
-		case "source_conflict", "hrv_source_conflict", "rhr_source_conflict", "sleep_source_conflict", "parameter_conflict", "load_parameter_conflict", "recovery_source_conflict":
+		case "source_conflict", "ability_source_disagreement", "hrv_source_conflict", "rhr_source_conflict", "sleep_source_conflict", "parameter_conflict", "load_parameter_conflict", "recovery_source_conflict":
 			out = append(out, "source_conflict")
 		case "source_selection_required":
 			out = append(out, "source_selection_required")
@@ -103,7 +107,7 @@ func MapReasons(status string, reasons []string) []ProductReasonCode {
 			out = append(out, "data_stale")
 		case "missing_heart_rate", "hr_missing", "missing_hr", "hr_coverage_low":
 			out = append(out, "missing_heart_rate")
-		case "recovery_missing", "recovery_partial", "hrv_missing", "rhr_missing", "sleep_missing", "autonomic_only_full_score_unavailable":
+		case "night_data_missing", "night_sparse", "recent_trend_used", "regularity_collecting", "estimate_expired", "recovery_missing", "recovery_partial", "hrv_missing", "rhr_missing", "sleep_missing", "autonomic_only_full_score_unavailable":
 			out = append(out, "recovery_data_incomplete")
 		case "load_unknown", "load_incompatible", "recent_load_unknown":
 			out = append(out, "training_load_unknown")
@@ -126,6 +130,8 @@ func MapReasons(status string, reasons []string) []ProductReasonCode {
 }
 
 type Envelope struct {
+	Mode               string              `json:"mode,omitempty"`
+	ValidBefore        *int64              `json:"validBefore,omitempty"`
 	ID                 string              `json:"id"`
 	Metric             string              `json:"metric"`
 	ModelVersion       string              `json:"modelVersion"`
@@ -189,15 +195,21 @@ type TrainingLoadValue struct {
 	StateModelVersion string   `json:"stateModelVersion"`
 }
 type RunningAbilityValue struct {
-	Score              *float64 `json:"score"`
-	V60                *float64 `json:"v60"`
-	Gamma              *float64 `json:"gamma"`
-	EnduranceRetention *float64 `json:"enduranceRetention"`
-	Stability          string   `json:"stability"`
-	EvidenceMode       string   `json:"evidenceMode"`
-	EvidenceCount      int      `json:"evidenceCount"`
-	SpeedUnit          string   `json:"speedUnit"`
-	ScoreUnit          string   `json:"scoreUnit"`
+	SubmaxPrior        string       `json:"submaxPrior,omitempty"`
+	Demonstrated       *ra.Branch   `json:"demonstrated,omitempty"`
+	Maximal            *ra.Branch   `json:"maximalSupported,omitempty"`
+	Submax             *ra.Branch   `json:"submaxEstimated,omitempty"`
+	SelectedMode       string       `json:"selectedMode,omitempty"`
+	Progress           *ra.Progress `json:"progress,omitempty"`
+	Score              *float64     `json:"score"`
+	V60                *float64     `json:"v60"`
+	Gamma              *float64     `json:"gamma"`
+	EnduranceRetention *float64     `json:"enduranceRetention"`
+	Stability          string       `json:"stability"`
+	EvidenceMode       string       `json:"evidenceMode"`
+	EvidenceCount      int          `json:"evidenceCount"`
+	SpeedUnit          string       `json:"speedUnit"`
+	ScoreUnit          string       `json:"scoreUnit"`
 }
 type ExternalVO2Value struct {
 	Value            *float64 `json:"value"`
@@ -212,41 +224,62 @@ type ComponentState struct {
 	RelativeToBaseline string `json:"relativeToBaseline"`
 }
 type RecoveryValue struct {
-	Score         *float64       `json:"score"`
-	Unit          string         `json:"unit"`
-	BaselineState string         `json:"baselineState"`
-	HRV           ComponentState `json:"hrv"`
-	RHR           ComponentState `json:"rhr"`
-	Sleep         ComponentState `json:"sleep"`
+	Components           map[string]rc.V3Component `json:"components,omitempty"`
+	MissingComponents    []string                  `json:"missingComponents,omitempty"`
+	BaselineNights       int                       `json:"baselineNights,omitempty"`
+	TrendNights          int                       `json:"trendNights,omitempty"`
+	SleepRelativeToHabit *bool                     `json:"sleepRelativeToHabit,omitempty"`
+	Score                *float64                  `json:"score"`
+	Unit                 string                    `json:"unit"`
+	BaselineState        string                    `json:"baselineState"`
+	HRV                  ComponentState            `json:"hrv"`
+	RHR                  ComponentState            `json:"rhr"`
+	Sleep                ComponentState            `json:"sleep"`
 	// DeviationLevel: normal, mild_deviation or marked_deviation; omitted when
 	// the model published no score.
 	DeviationLevel string `json:"deviationLevel,omitempty"`
 }
 type ReadinessValue struct {
-	Score              *float64 `json:"score"`
-	RecoveryScore      *float64 `json:"recoveryScore"`
-	LoadMultiplier     *float64 `json:"loadMultiplier"`
-	RecentRecordedLoad *float64 `json:"recentRecordedLoad"`
-	Unit               string   `json:"unit"`
-	Scope              string   `json:"scope"`
+	Range              *rd.ScoreRange `json:"range,omitempty"`
+	PhysiologicalCap   *float64       `json:"physiologicalCap,omitempty"`
+	SessionCap         *float64       `json:"sessionCap,omitempty"`
+	WeeklyCap          *float64       `json:"weeklyCap,omitempty"`
+	Score              *float64       `json:"score"`
+	RecoveryScore      *float64       `json:"recoveryScore"`
+	LoadMultiplier     *float64       `json:"loadMultiplier"`
+	RecentRecordedLoad *float64       `json:"recentRecordedLoad"`
+	Unit               string         `json:"unit"`
+	Scope              string         `json:"scope"`
+}
+type SessionRecoveryValue struct {
+	RemainingHours *float64       `json:"remainingHours"`
+	Range          *rd.ScoreRange `json:"range"`
+	ReadyAfter     *int64         `json:"readyAfter"`
+	Overflow       bool           `json:"overflow"`
+	Scope          string         `json:"scope"`
+}
+type LoadFocusValue struct {
+	Windows []tl.FocusWindow `json:"windows"`
 }
 type AthleteModelSnapshot struct {
-	SchemaVersion         string                      `json:"schemaVersion"`
-	AsOf                  int64                       `json:"asOf"`
-	EvaluationAt          int64                       `json:"evaluationAt"`
-	DatasetRevision       int64                       `json:"datasetRevision"`
-	Timezone              string                      `json:"timezone"`
-	CalendarDate          string                      `json:"calendarDate"`
-	Assignment            Assignment                  `json:"assignment"`
-	ResponseState         string                      `json:"responseState"`
-	PresentationOrder     []string                    `json:"presentationOrder"`
-	Notices               []string                    `json:"notices"`
-	TrainingLoad          Metric[TrainingLoadValue]   `json:"trainingLoad"`
-	RunningAbility        Metric[RunningAbilityValue] `json:"runningAbility"`
-	ExternalVO2Max        Metric[ExternalVO2Value]    `json:"externalVO2Max"`
-	PhysiologicalRecovery Metric[RecoveryValue]       `json:"physiologicalRecovery"`
-	TrainingReadiness     Metric[ReadinessValue]      `json:"trainingReadiness"`
-	RAIVO2Max             *Metric[RAIVO2Value]        `json:"raiVO2Max,omitempty"`
+	SessionRecovery       *Metric[SessionRecoveryValue] `json:"sessionRecovery,omitempty"`
+	LoadFocus             *Metric[LoadFocusValue]       `json:"loadFocus,omitempty"`
+	SchemaVersion         string                        `json:"schemaVersion"`
+	AsOf                  int64                         `json:"asOf"`
+	EvaluationAt          int64                         `json:"evaluationAt"`
+	DatasetRevision       int64                         `json:"datasetRevision"`
+	Timezone              string                        `json:"timezone"`
+	CalendarDate          string                        `json:"calendarDate"`
+	Assignment            Assignment                    `json:"assignment"`
+	ResponseState         string                        `json:"responseState"`
+	PresentationOrder     []string                      `json:"presentationOrder"`
+	Notices               []string                      `json:"notices"`
+	TrainingLoad          Metric[TrainingLoadValue]     `json:"trainingLoad"`
+	RunningAbility        Metric[RunningAbilityValue]   `json:"runningAbility"`
+	ExternalVO2Max        Metric[ExternalVO2Value]      `json:"externalVO2Max"`
+	PhysiologicalRecovery Metric[RecoveryValue]         `json:"physiologicalRecovery"`
+	TrainingReadiness     Metric[ReadinessValue]        `json:"trainingReadiness"`
+	RAIVO2Max             *Metric[RAIVO2Value]          `json:"raiVO2Max,omitempty"`
 }
 
 // A distinct transport type prevents confusing an administrative preview with

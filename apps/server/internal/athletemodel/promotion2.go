@@ -34,7 +34,7 @@ type PromotionGate struct {
 }
 
 func (g PromotionGate) Validate(now time.Time, manifestSHA string, synthetic bool) error {
-	if g.Model == "" || g.Version == "" || g.Reviewer == "" || g.ManifestSHA != manifestSHA || !validDigest(g.ConfigSHA) || !validDigest(manifestSHA) || g.FeatureSchema == "" || g.SourcePolicy == "" || g.InputRegistry == "" || g.MappingVersion != MappingVersion2 || g.ConsumerSchema != Schema2 || g.DatasetID == "" {
+	if g.Model == "" || g.Version == "" || g.Reviewer == "" || g.ManifestSHA != manifestSHA || !validDigest(g.ConfigSHA) || !validDigest(manifestSHA) || g.FeatureSchema == "" || g.SourcePolicy == "" || g.InputRegistry == "" || (g.MappingVersion != MappingVersion2 || g.ConsumerSchema != Schema2) && (g.MappingVersion != MappingVersion3 || g.ConsumerSchema != Schema3) || g.DatasetID == "" {
 		return ErrGateClosed
 	}
 	for _, s := range []string{g.EngineeringReport, g.DeviceDataReport, g.ApplicabilityReport, g.UXPrivacyReport, g.RollbackReport, g.Authorization} {

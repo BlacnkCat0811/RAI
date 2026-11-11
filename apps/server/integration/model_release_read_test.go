@@ -71,7 +71,9 @@ func publishRetainedDay(t *testing.T, f *fixture, today time.Time, read func(str
 	load.Generation, load.ConfigHash = 1, r.LoadConfigHash
 	ability.Generation, ability.ConfigHash = 1, r.AbilityConfigHash
 	recovery.Generation, recovery.ConfigHash = 1, r.RecoveryConfig.Hash()
+	recovery.Schema, recovery.ModelVersion = rc.SchemaV2, rc.ModelV2
 	readiness.Generation, readiness.Config, readiness.ConfigHash = 1, r.ReadinessConfig, r.ReadinessConfig.Hash()
+	readiness.Schema, readiness.ModelVersion = rd.SchemaV3, rd.ModelV3
 	readiness.HabitualBurden = nil // This release uses the pre-habitual formula.
 	score, baseline := 80.0, 10.0
 	readiness.Score, readiness.RecoveryScore, readiness.Baseline.Value = &score, &score, &baseline
@@ -182,8 +184,8 @@ func TestModelReleaseUpgradeReadsRetainedResultsAndRollsBack(t *testing.T) {
 	m := modelmanifest.Current()
 	digest := strings.Repeat("a", 64)
 	gate := am.PromotionGate{Model: m.VO2Max.ModelID, Version: m.VO2Max.Version, ManifestSHA: hash, ConfigSHA: hash,
-		FeatureSchema: m.Features.Schema, SourcePolicy: m.VO2Max.SourcePolicy, InputRegistry: m.InputRegistry, MappingVersion: am.MappingVersion2,
-		ConsumerSchema: am.Schema2, DatasetID: f.p.DatasetID, SyntheticDataset: true, EngineeringReport: digest, DeviceDataReport: digest,
+		FeatureSchema: m.Features.Schema, SourcePolicy: m.VO2Max.SourcePolicy, InputRegistry: m.InputRegistry, MappingVersion: m.MappingVersion,
+		ConsumerSchema: m.ProductSchema, DatasetID: f.p.DatasetID, SyntheticDataset: true, EngineeringReport: digest, DeviceDataReport: digest,
 		ApplicabilityReport: digest, UXPrivacyReport: digest, RollbackReport: digest, Authorization: digest, Reviewer: "synthetic-test", ExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339)}
 	if _, err := f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,clock_timestamp())`, f.p.DatasetID, modelmanifest.StackID(), today.Format(time.DateOnly)); err != nil {
 		t.Fatal(err)
@@ -198,7 +200,7 @@ func TestModelReleaseUpgradeReadsRetainedResultsAndRollsBack(t *testing.T) {
 	if _, err := f.s.PromoteModelStack(ctx, f.p.DatasetID, "synthetic-test", modelmanifest.StackID(), gate, hash); err != nil {
 		t.Fatal(err)
 	}
-	current, err := f.s.ReadAthleteProduct(ctx, f.p, time.Now())
+	current, err := f.s.ReadAthleteProductV3(ctx, f.p, time.Now())
 	if err != nil || current.Assignment.StackID != modelmanifest.StackID() {
 		t.Fatalf("promotion: %v", err)
 	}
@@ -228,20 +230,20 @@ func TestModelReleasePendingFailureAndUnknownNeverClaimUnactivated(t *testing.T)
 	if _, err := f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,clock_timestamp())`, f.p.DatasetID, stack, today.Format(time.DateOnly)); err != nil {
 		t.Fatal(err)
 	}
-	s, err := f.s.ReadAthleteProduct(ctx, f.p, time.Now())
+	s, err := f.s.ReadAthleteProductV3(ctx, f.p, time.Now())
 	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "pending" || s.RunningAbility.Value != nil {
 		t.Fatalf("pending: %+v %v", s.TrainingReadiness.Envelope, err)
 	}
 	if _, err := f.s.Pool.Exec(ctx, `UPDATE jobs SET state='failed',last_error_code='analysis_invalid_input' WHERE dataset_id=$1 AND scope_key=$2 AND state='queued'`, f.p.DatasetID, scope); err != nil {
 		t.Fatal(err)
 	}
-	s, err = f.s.ReadAthleteProduct(ctx, f.p, time.Now())
+	s, err = f.s.ReadAthleteProductV3(ctx, f.p, time.Now())
 	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "technical_failure" {
 		t.Fatalf("failure: %+v %v", s.TrainingReadiness.Envelope, err)
 	}
 	unknown := strings.Repeat("b", 64)
 	setModelChannel(t, f, "active", "rai-v2-"+unknown[:16], unknown)
-	s, err = f.s.ReadAthleteProduct(ctx, f.p, time.Now())
+	s, err = f.s.ReadAthleteProductV3(ctx, f.p, time.Now())
 	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "unsupported" {
 		t.Fatalf("unsupported: %+v %v", s.TrainingReadiness.Envelope, err)
 	}

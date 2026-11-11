@@ -80,6 +80,11 @@ func effectiveStackInputs(inputs []stackInput, effective, known time.Time) []sta
 	return out
 }
 
+type stackPendingLoad struct {
+	w stackWorkout
+	r stackLoad
+}
+
 type stackWorkout struct {
 	feature     wf.WorkoutFeatures
 	exposure    wf.HRExposure
@@ -186,7 +191,7 @@ func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start,
 			out = append(out, w)
 			continue
 		}
-		if w.end > retainAfter {
+		if w.end > retainAfter && stackVO2RawNeeded(w.feature) {
 			if points += rawPoints(n); points > 2_000_000 {
 				return nil, &analysis.Failure{Code: "analysis_input_limit"}
 			}
@@ -402,11 +407,7 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	var features []pf.FeatureRef
 	loc := date.Location()
 	fromDay := from.Format(time.DateOnly)
-	type pendingLoad struct {
-		w stackWorkout
-		r stackLoad
-	}
-	var pending []pendingLoad
+	var pending []stackPendingLoad
 	vo2Points := 0
 	for _, workout := range workouts {
 		if err := ctx.Err(); err != nil {
@@ -417,14 +418,14 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 			continue
 		}
 		r := stackWorkoutLoad(workout, inputs, captured, restingHR, loc, stack, generation, ambiguous[id])
-		pending = append(pending, pendingLoad{workout, r})
+		pending = append(pending, stackPendingLoad{workout, r})
 		if r.failure != "" || ambiguous[id] {
 			continue
 		}
 		if end.After(date.AddDate(0, 0, -145)) && (source == "" || workout.sourceEpoch == source) {
 			features = append(features, pf.FeatureRef{Feature: workout.feature, RunID: workout.feature.Evidence.InputHash, KnownAt: workout.known.UnixMicro(), FirstReceivedAt: workout.known.UnixMicro()})
 		}
-		if r.doseRef != nil && end.After(at.AddDate(0, 0, -76)) && (source == "" || r.doseRef.SourceEpoch == source) &&
+		if r.doseRef != nil && stackVO2RawNeeded(workout.feature) && end.After(at.AddDate(0, 0, -76)) && (source == "" || r.doseRef.SourceEpoch == source) &&
 			workout.feature.Environment.Indoor != nil && !*workout.feature.Environment.Indoor {
 			// Cached Workouts load their raw facts only when VO2 needs them.
 			if workout.raw == nil {
@@ -519,10 +520,6 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		}
 		loads = append(loads, row)
 	}
-	upload, err := workoutSyncEvidence(ctx, tx, l.DatasetID)
-	if err != nil {
-		return nil, err
-	}
 	day := date.Format(time.DateOnly)
 	stateInput := tl.StateInput{Calendar: date.Location(), Timezone: date.Location().String(), DatasetID: l.DatasetID,
 		Generation: generation, From: day, Through: day, HistoryFrom: from.Format(time.DateOnly), Loads: ledger}
@@ -555,9 +552,9 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		return nil, analysis.Invalid()
 	}
 
-	in.RecoveryInput.Config = rc.DefaultV2Config(date.Location().String())
+	in.RecoveryInput.Config = rc.DefaultV3Config(date.Location().String())
 	recoveryInput := rc.V2Input{Input: *in.RecoveryInput, SleepTargets: targets}
-	recovery, err := rc.CalculateV2(recoveryInput)
+	recovery, err := rc.CalculateV3(recoveryInput)
 	if err != nil {
 		return nil, analysis.Invalid()
 	}
@@ -570,18 +567,11 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		return nil, analysis.Invalid()
 	}
 	recoveryID := syncing.NewID()
-	readyInput := rd.ReadinessSnapshot{Dataset: l.DatasetID, Epoch: epoch, Collector: collector, Assignment: l.ID, LoadAssignment: stack,
-		Generation: generation, AsOf: at.UnixMicro(), CapturedAt: captured.UnixMicro(), Config: rd.DefaultV3Config(date.Location().String()),
-		Sync: upload, Loads: loads}
-	readyInput.Recovery = &rd.RecoveryEvidence{RunID: recoveryID, Hash: rc.Hash(recovery), Generation: generation, Model: rc.ModelV2,
-		Status: recovery.Status, Quality: recovery.Quality, Score: recovery.Score, AsOf: recovery.AsOf, Confidence: recovery.Confidence, Coverage: recovery.ComponentCoverage,
-		FreshUntil: min(date.AddDate(0, 0, 1).UnixMicro(), recovery.AsOf+36*rd.Hour)}
-	for d := date.AddDate(0, 0, -readyInput.Config.BaselineDays); !d.After(date); d = d.AddDate(0, 0, 1) {
-		readyInput.Days = append(readyInput.Days, rd.Day{Date: d.Format(time.DateOnly), Start: d.UnixMicro(), End: d.AddDate(0, 0, 1).UnixMicro()})
-	}
-	ready, err := rd.CalculateV3(readyInput)
+	// The same day release computes structure -> fatigue -> readiness in that
+	// order. Independent ability branches consume frozen performance/VO2 DTOs.
+	optimized, ready, err := optimizedStackOutputs(ctx, tx, l, stack, date, at, captured, workouts, pending, loads, state, recovery, ability, maximal, owned, efforts)
 	if err != nil {
-		return nil, analysis.Invalid()
+		return nil, err
 	}
 	artifacts := []stackArtifact{
 		{key: "load_state", schema: tl.StateSchemaV2, algorithm: tl.StateAlgorithmV2, version: tl.VersionV2, value: state,
@@ -590,10 +580,26 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		{key: "running_ability_maximal_v2", family: "model_research_v1/running_ability_maximal_v2", schema: pf.AbilitySchemaV2, algorithm: pf.CurveModel, version: pf.VersionV2, value: maximal, inputHash: featureHash(maximalInput)},
 		{key: ve.ArtifactKey, schema: ve.Schema, algorithm: ve.Algorithm, version: "v1", value: external, inputHash: featureHash(in.ExternalInput)},
 		{key: vo2.ArtifactKey, schema: vo2.Schema, algorithm: vo2.Algorithm, version: vo2.Version, value: owned, inputHash: featureHash(ownedInput)},
-		{key: "physiological_recovery", schema: rc.SchemaV2, algorithm: rc.Algorithm, version: "v2", value: recovery, runID: recoveryID, inputHash: featureHash(recoveryInput)},
-		{key: "training_readiness", schema: rd.SchemaV3, algorithm: rd.Algorithm, version: "v3", value: ready, inputHash: ready.InputHash},
+		{key: "physiological_recovery", schema: rc.SchemaV3, algorithm: rc.Algorithm, version: "v3", value: recovery, runID: recoveryID, inputHash: featureHash(recoveryInput)},
+		{key: "training_readiness", schema: rd.SchemaV4, algorithm: rd.Algorithm, version: "v4", value: ready, inputHash: ready.InputHash},
 	}
-	artifacts = append(artifacts, modelResearchArtifacts(workouts, state, ready, l.DatasetID, generation, stack, at.UnixMicro())...)
+	artifacts = append(artifacts, optimized...)
+	artifacts = append(artifacts, modelResearchArtifacts(workouts, state, ready.Result, l.DatasetID, generation, stack, at.UnixMicro())...)
+	for i := range results {
+		if row, ok := results[i].value.(workoutResultRow); ok && row.load != nil {
+			for _, a := range optimized {
+				if focus, ok := a.value.(tl.FocusResult); ok {
+					for _, f := range focus.Workouts {
+						if f.WorkoutID == row.id {
+							v := f
+							row.load.Focus = &v
+						}
+					}
+				}
+			}
+			results[i].value = row
+		}
+	}
 	artifacts = append(artifacts, results...)
 	if date.Format(time.DateOnly) == captured.In(date.Location()).Format(time.DateOnly) {
 		for _, w := range workouts {
@@ -720,6 +726,13 @@ func stackOverlap(workouts []stackWorkout, resolutions []hrref.Resolution, at ti
 		}
 	}
 	return suppressed, ambiguous
+}
+
+// These necessary conditions come from the same normalized timeline used by
+// stackVO2Evidence. Without active 25min, speed distance or any grade support,
+// that evaluator cannot create one window. References never repair these gaps.
+func stackVO2RawNeeded(f wf.WorkoutFeatures) bool {
+	return f.Timing.Active != nil && *f.Timing.Active >= 25*60 && f.Distance.SpeedIntegral != nil && *f.Distance.SpeedIntegral > 0 && f.Route.GradeCoverage > 0
 }
 
 func stackVO2Evidence(w stackWorkout, dose tl.Reference, ref hrref.Snapshot, loc *time.Location) (*vo2.Evidence, error) {

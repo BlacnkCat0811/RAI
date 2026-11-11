@@ -99,6 +99,26 @@ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$3 AND p.day=$4::da
 	if err != nil {
 		return sig, false, err
 	}
+	if a.Schema == readiness.SchemaV4 {
+		release, ok := modelrelease.Lookup(stack, a.ManifestSHA, tz)
+		var r readiness.V4Result
+		if !ok || !validHistoryArtifactForRelease("trainingReadiness", dataset, tz, a, release) || json.Unmarshal(a.Payload, &r) != nil || r.Date != day {
+			return sig, false, syncing.Fail(503, "training_readiness_invalid")
+		}
+		fresh, e := readiness.FreshenV4(r, at.UnixMicro())
+		if e != nil {
+			return sig, false, syncing.Fail(503, "training_readiness_invalid")
+		}
+		sig = training.Signal{RunID: a.RunID, Generation: a.Generation, Day: r.Date, Name: "readiness", Algorithm: a.Algorithm, Version: a.Version, Quality: r.Quality, Mode: fresh.Mode, EvidenceAt: fresh.EvidenceAt, ValidBefore: &fresh.ValidBefore, Confidence: &fresh.Confidence}
+		if fresh.Score != nil && (fresh.Mode == "complete" || fresh.Mode == "estimated") {
+			sig.Value = fresh.Score
+		}
+		if fresh.Range != nil {
+			sig.SensitivityLow = &fresh.Range.Low
+			sig.SensitivityHigh = &fresh.Range.High
+		}
+		return sig, true, nil
+	}
 	var r readiness.Result
 	release, supported := modelrelease.Lookup(stack, a.ManifestSHA, tz)
 	if !supported {
@@ -156,7 +176,7 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 		return out, e
 	}
 	c.ObservedModelBinding = &binding
-	if binding.Adapter == "schema2-v2" {
+	if binding.Adapter == "schema2-v2" || binding.Adapter == "schema3-v1" {
 		sig, ok, err := loadTrainingReadinessSignal(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
 		if err != nil {
 			return out, err
