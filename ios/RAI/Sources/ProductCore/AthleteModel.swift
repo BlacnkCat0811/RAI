@@ -33,8 +33,13 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
   public var freshness: ProductCode
   public var updatedAt: Int64?
   public var reasonCodes: [ProductCode], productReasonCodes: [ProductCode]
+  /// Server-chosen reason to show (explicit priority); older servers omit it.
+  public var primaryReason: ProductCode?
   public var lineageSummary: MetricLineageSummary
   public var technicalError: ProductCode?
+  /// The reason a single-line presentation shows: the server's primary
+  /// reason, else the first of the frozen lexicographic list.
+  public var displayReason: ProductCode? { primaryReason ?? productReasonCodes.first }
   public var supportsPresentation: Bool {
     let versions = ["trainingLoad": ["rai.training_load.hrr_integral/v1", "rai.training_load.hrr_integral/v2"],
       "runningAbility": ["rai.running_ability/v1", "rai.running_ability/v2"],

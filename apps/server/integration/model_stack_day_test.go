@@ -409,4 +409,11 @@ func TestModelStackDayCachesWorkoutResults(t *testing.T) {
 		b, _ := json.Marshal(d.TrainingLoad)
 		t.Fatalf("workout detail load: %s %v", b, err)
 	}
+	// The detail says whether the active stack admits the run, and why not.
+	q := d.ModelQualification
+	known := map[string]bool{"eligible": true, "conditional": true, "ineligible": true}
+	if q == nil || q.TrainingLoad.Status != "eligible" || !known[q.RunningAbility.Status] || q.RunningAbility.ReasonCodes == nil || q.TrainingLoad.ReasonCodes == nil {
+		b, _ := json.Marshal(q)
+		t.Fatalf("workout detail qualification: %s", b)
+	}
 }

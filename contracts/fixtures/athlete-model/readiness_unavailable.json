@@ -319,6 +319,7 @@
       "productReasonCodes": [
         "data_sync_incomplete"
       ],
+      "primaryReason": "data_sync_incomplete",
       "lineageSummary": {
         "dataSources": []
       },

@@ -533,8 +533,10 @@ struct AthleteModelCard: View {
     }.accessibilityElement(children: .combine)
   }
   static func reason(_ metric: MetricEnvelope) -> String {
-    ProductReasonText.text(for: metric.productReasonCodes.first?.rawValue,
-                           state: metric.presentationState.rawValue)
+    metric.metric == "runningAbility"
+      ? ProductReasonText.runningAbility(modelStatus: metric.modelStatus.rawValue, reason: metric.displayReason?.rawValue,
+                                         state: metric.presentationState.rawValue)
+      : ProductReasonText.text(for: metric.displayReason?.rawValue, state: metric.presentationState.rawValue)
   }
 }
 
@@ -1165,8 +1167,8 @@ struct RunningAbilityEntryCard: View {
   private func runningAbilitySubtitle(_ metric: RunningAbilityMetric?) -> String {
     guard let metric else { return "配速区间、成绩预测与能力分解" }
     guard let value = metric.presentationValue else {
-      return ProductReasonText.text(
-        for: metric.envelope.productReasonCodes.first?.rawValue,
+      return ProductReasonText.runningAbility(
+        modelStatus: metric.envelope.modelStatus.rawValue, reason: metric.envelope.displayReason?.rawValue,
         state: metric.envelope.presentationState.rawValue)
     }
     guard value.speedUnit.rawValue == "m/s",
@@ -1194,8 +1196,8 @@ struct RunningAbilityDetailView: View {
           } else {
             EmptyCard(
               title: "跑力暂不可用",
-              detail: ProductReasonText.text(
-                for: metric.envelope.productReasonCodes.first?.rawValue,
+              detail: ProductReasonText.runningAbility(
+                modelStatus: metric.envelope.modelStatus.rawValue, reason: metric.envelope.displayReason?.rawValue,
                 state: metric.envelope.presentationState.rawValue))
           }
           researchDiagnostics()

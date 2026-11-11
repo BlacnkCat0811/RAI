@@ -250,6 +250,13 @@ struct WorkoutDetail: View {
           Text("区间覆盖：心率 \(percent(zones.heartRateCoverage)) · 配速 \(percent(zones.paceCoverage))")
             .font(.caption).foregroundStyle(RAITheme.secondary)
         }
+        if let q = detail.modelQualification {
+          VStack(alignment: .leading, spacing: 2) {
+            Text(WorkoutQualificationText.runningAbility(q.runningAbility))
+            Text(WorkoutQualificationText.trainingLoad(q.trainingLoad))
+          }.font(.caption2).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("workout.summary.modelQualification")
+        }
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .contentShape(Rectangle()).onTapGesture { withAnimation(.easeInOut(duration: 0.2)) { summaryExpanded.toggle() } }

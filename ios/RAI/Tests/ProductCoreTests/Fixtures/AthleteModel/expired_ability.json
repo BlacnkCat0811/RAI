@@ -114,6 +114,7 @@
       "productReasonCodes": [
         "data_stale"
       ],
+      "primaryReason": "data_stale",
       "lineageSummary": {
         "dataSources": []
       },

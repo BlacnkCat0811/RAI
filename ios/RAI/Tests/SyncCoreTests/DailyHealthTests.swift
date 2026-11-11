@@ -152,4 +152,84 @@ private func dailyFixture() async throws -> (OutboxStore, URL) {
         try await reopened.deferDailyRecovery(UploadError(code: "offline"), now: now.addingTimeInterval(1))
         #expect(try await reopened.dailyFlow(type).pending?.attempt == 1)
     }
+    @Test func rateLimitedPageResumesAtRetryAfterNotFifteenMinutes() async throws {
+        let (store, directory) = try await dailyFixture(); defer { try? FileManager.default.removeItem(at: directory) }
+        let type = DailyHealth.sleep; _ = try await store.dailyFlow(type)
+        try await store.stageDaily(type: type, previousAnchor: nil, candidateAnchor: Data([1]), facts: [], deleted: [], observedAt: Date(), hasMore: true)
+        let before = Date()
+        try await store.dailyFailure(type, code: "device_rate_exceeded", retryAfter: 2)
+        let limited = try await store.dailyFlow(type)
+        let next = try #require(limited.nextOpportunity(now: before, wakeGeneration: 0))
+        #expect(next.timeIntervalSince(before) >= 2 && next.timeIntervalSince(before) < 3)
+        for code in ["dataset_rate_exceeded", "network_-1009", "request_timeout"] { #expect(DailyHealth.isTransient(code)) }
+        // A permanent rejection is left to the regular 15-minute scan.
+        try await store.dailyFailure(type, code: "invalid_payload")
+        #expect(try await store.dailyFlow(type).nextOpportunity(now: Date(), wakeGeneration: 0) == nil)
+        // A caught-up wake is not held open by a transient error.
+        let rhr = DailyHealth.rhr; _ = try await store.dailyFlow(rhr)
+        try await store.markDailyWake()
+        for t in DailyHealth.types where t != type {
+            _ = try await store.dailyFlow(t)
+            try await store.stageDaily(type: t, previousAnchor: nil, candidateAnchor: Data([2]), facts: [], deleted: [], observedAt: Date(), hasMore: false)
+            let pending = try #require(try await store.dailyFlow(t).pending)
+            try await store.acknowledgeDaily(type: t, receipt: dailyACK(Data(contentsOf: await store.fileURL(pending.file))))
+        }
+        let pending = try #require(try await store.dailyFlow(type).pending)
+        try await store.acknowledgeDaily(type: type, receipt: dailyACK(Data(contentsOf: await store.fileURL(pending.file))))
+        try await store.stageDaily(type: type, previousAnchor: Data([1]), candidateAnchor: Data([3]), facts: [], deleted: [], observedAt: Date(), hasMore: false)
+        let last = try #require(try await store.dailyFlow(type).pending)
+        try await store.acknowledgeDaily(type: type, receipt: dailyACK(Data(contentsOf: await store.fileURL(last.file))))
+        try await store.dailyFailure(type, code: "device_rate_exceeded", retryAfter: 1)
+        try await store.finishDailyWakeIfCaughtUp()
+        #expect(await store.snapshot().dailyWakePending == false)
+    }
+    @Test func pageSizeFollowsTheServerHandshake() async throws {
+        let (store, directory) = try await dailyFixture(); defer { try? FileManager.default.removeItem(at: directory) }
+        let type = DailyHealth.hrv; _ = try await store.dailyFlow(type)
+        // No handshake yet: an older server only accepts 128.
+        #expect(await store.dailyPageLimit() == DailyHealth.defaultMaxChanges)
+        do { try await store.stageDaily(type: type, previousAnchor: nil, candidateAnchor: Data([1]), facts: [], deleted: (0..<129).map { _ in Wire.id() }, observedAt: Date(), hasMore: true); Issue.record("129 accepted before negotiation") } catch { }
+        try await store.setDailyMaxChanges(500)
+        let reopened = try OutboxStore(directory: directory)
+        #expect(await reopened.dailyPageLimit() == 500)
+        try await reopened.stageDaily(type: type, previousAnchor: nil, candidateAnchor: Data([1]), facts: [], deleted: (0..<500).map { _ in Wire.id() }, observedAt: Date(), hasMore: true)
+        #expect(try await reopened.dailyFlow(type).pending != nil)
+        try await reopened.setDailyMaxChanges(10_000)
+        #expect(await reopened.dailyPageLimit() == DailyHealth.maxChanges)
+        try await reopened.setDailyMaxChanges(nil)
+        #expect(await reopened.dailyPageLimit() == DailyHealth.defaultMaxChanges)
+    }
+    @Test func emptyCaughtUpQueryOnlyUploadsTheCoverageHeartbeat() async throws {
+        let (store, directory) = try await dailyFixture(); defer { try? FileManager.default.removeItem(at: directory) }
+        let type = DailyHealth.rhr; _ = try await store.dailyFlow(type)
+        // Bootstrap pages are always uploaded.
+        #expect(try await !store.skipEmptyDaily(type: type, previousAnchor: nil, observedAt: Date(), wakeGeneration: 0))
+        try await store.stageDaily(type: type, previousAnchor: nil, candidateAnchor: Data([1]), facts: [], deleted: [], observedAt: Date(), hasMore: false)
+        let pending = try #require(try await store.dailyFlow(type).pending)
+        try await store.acknowledgeDaily(type: type, receipt: dailyACK(Data(contentsOf: await store.fileURL(pending.file))))
+        let now = Date()
+        #expect(try await store.skipEmptyDaily(type: type, previousAnchor: Data([1]), observedAt: now.addingTimeInterval(60), wakeGeneration: 3))
+        let skipped = try await store.dailyFlow(type)
+        #expect(skipped.pending == nil && skipped.anchor == Data([1]) && skipped.discoveryGeneration == 3)
+        #expect(!skipped.discoveryDue(now: now.addingTimeInterval(120), wakeGeneration: 3))
+        // Once the heartbeat is due the empty page goes to the server again.
+        #expect(try await !store.skipEmptyDaily(type: type, previousAnchor: Data([1]), observedAt: now.addingTimeInterval(DailyHealth.heartbeatInterval + 1), wakeGeneration: 3))
+        // A stale anchor is never skipped over.
+        #expect(try await !store.skipEmptyDaily(type: type, previousAnchor: nil, observedAt: now.addingTimeInterval(60), wakeGeneration: 3))
+    }
+    @Test func pacerMatchesTheServerBudgetAndRetryAfter() async throws {
+        let budget = UploadPacer.budget(handshake: .object(["limits": .object(["requests": .object(["upload": .object(["device": .object(["perMinute": .int(30), "burst": .int(2)])])])])]))
+        #expect(budget.perMinute == 30 && budget.burst == 2)
+        #expect(UploadPacer.budget(handshake: .null) == (UploadPacer.defaultPerMinute, UploadPacer.defaultBurst))
+        let pacer = UploadPacer(perMinute: budget.perMinute, burst: budget.burst), now = Date()
+        #expect(await pacer.reserve(now: now) == 0)
+        #expect(await pacer.reserve(now: now) == 0)
+        let third = await pacer.reserve(now: now)
+        #expect(third >= 2 && third < 2.2)
+        // A 429 pushes the next slot past its Retry-After.
+        let later = UploadPacer(perMinute: 120, burst: 12)
+        await later.penalize(until: now.addingTimeInterval(5))
+        let delay = await later.reserve(now: now)
+        #expect(delay >= 5 && delay < 5.5)
+    }
 }

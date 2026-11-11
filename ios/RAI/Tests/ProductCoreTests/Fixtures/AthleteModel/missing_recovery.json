@@ -237,6 +237,7 @@
       "productReasonCodes": [
         "insufficient_evidence"
       ],
+      "primaryReason": "insufficient_evidence",
       "lineageSummary": {
         "dataSources": []
       },

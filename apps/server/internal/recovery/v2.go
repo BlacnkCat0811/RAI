@@ -10,7 +10,7 @@ const (
 	ModelV2       = "rai.recovery.physiological/v2"
 	SchemaV2      = "rai.recovery.physiological/2"
 	InputSchemaV2 = "rai.recovery.input/2"
-	PolicyV2      = "night-sdnn-asleep-20-12;ln-median;sleep-regularity-circular-medoid;typed-target;persistent-3d;stable-source-key;source-priority;deviation-levels/v2.2"
+	PolicyV2      = "night-sdnn-asleep-20-12;ln-median;sleep-regularity-circular-medoid;typed-target;persistent-3d;stable-source-key;source-priority;deviation-levels;evaluation-day-tombstones/v2.3"
 )
 
 type SleepTarget struct {
@@ -401,6 +401,30 @@ func v2CoverageComplete(in Input, c Config) bool {
 		counts[HRV] == 1 && counts[RHR] == 1 && counts[Sleep] == 1
 }
 
+// evaluationDeletion reports whether a deletion effective in this view removed
+// a sample from the evaluation night or day: from 20:00 the evening before (or
+// the start of today's sleep episode, if earlier) to the end of the day. The
+// deleted facts are already excluded by eligible(), and a rewrite that is still
+// syncing is held back by the daily coverage gate, so a deletion never blocks
+// the score; inside this window it only lowers confidence. Deletions that only
+// touched history change the baseline through the remaining facts and need no
+// flag. Every tombstone still enters TombstoneRefs and the input hash.
+func evaluationDeletion(in Input, d Day, sleep SleepSummary) bool {
+	from, to := d.Start-4*Hour, d.End
+	if sleep.EpisodeStart != nil && *sleep.EpisodeStart < from {
+		from = *sleep.EpisodeStart
+	}
+	for _, t := range in.Tombstones {
+		if t.Revision > in.KnownThroughRevision || t.KnownAt > in.CapturedAt || in.View != "revised" && t.KnownAt > in.AsOf {
+			continue
+		}
+		if t.Start == nil || t.End == nil || *t.End >= from && *t.Start < to {
+			return true
+		}
+	}
+	return false
+}
+
 func CalculateV2(in V2Input) (V2Result, error) {
 	cp := in.Input
 	cp.Config = DefaultConfig(cp.Config.Timezone)
@@ -414,7 +438,6 @@ func CalculateV2(in V2Input) (V2Result, error) {
 	fs, deprioritized := prioritize(eligible(in.Input), in.Days)
 	c := in.Config
 	coverageComplete := v2CoverageComplete(in.Input, c)
-	inputDeleted := len(in.Input.Tombstones) > 0
 	calHash := Hash(in.Days)
 	features := make([]DailyHealthFeatures, 0, len(in.Days))
 	for _, d := range in.Days {
@@ -439,6 +462,7 @@ func CalculateV2(in V2Input) (V2Result, error) {
 	todayDay := in.Days[len(in.Days)-1]
 	history := features[:len(features)-1]
 	historyDays := in.Days[:len(in.Days)-1]
+	inputDeleted := evaluationDeletion(in.Input, todayDay, today.Sleep)
 	b := DailyBaseline{Schema: BaselineSchema, Date: today.Date, Timezone: c.Timezone, ConfigHash: c.Hash(),
 		SDNN: baseline(history, today.SDNN, HRV, c), RHR: baseline(history, today.RHR, RHR, c), Sleep: baseline(history, today.Sleep.Component, Sleep, c)}
 	r := V2Result{Result: Result{Schema: SchemaV2, Dataset: in.Dataset, DatasetEpoch: in.DatasetEpoch, Collector: in.Collector,
@@ -508,7 +532,7 @@ func CalculateV2(in V2Input) (V2Result, error) {
 		r.RHRDeviation = &Deviation{Raw: zr, Clipped: clip(zr, -c.ZClip, c.ZClip), Burden: aR}
 		r.SDNNContribution, r.RHRContribution = &hc, &rc
 		r.AutonomicBurden = &aut
-		sleepReady := today.Sleep.Value != nil && r.SleepRegularity.Quality == "complete" && !r.SleepTarget.TargetUnavailable && coverageComplete && !inputDeleted
+		sleepReady := today.Sleep.Value != nil && r.SleepRegularity.Quality == "complete" && !r.SleepTarget.TargetUnavailable && coverageComplete
 		if sleepReady {
 			aS := clip(math.Max(0, r.SleepTarget.Hours-*today.Sleep.Value)/c.SleepDeficitHours+0.25*math.Max(0, r.SleepRegularity.DeviationHours-1), 0, c.SleepClip)
 			sb := c.SleepWeight * aS
@@ -563,6 +587,9 @@ func CalculateV2(in V2Input) (V2Result, error) {
 	}
 	sort.Strings(r.PersistentDeviation)
 	if r.ContextShift {
+		r.Confidence *= c.UnknownContextFactor
+	}
+	if inputDeleted {
 		r.Confidence *= c.UnknownContextFactor
 	}
 	if today.SDNN.ContextIncomplete || today.Sleep.ContextIncomplete {

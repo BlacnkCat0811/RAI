@@ -11,7 +11,9 @@
 - `POST /v2/sync/workout-ingests/{uuid}` — 上传一条 protocol-6 Workout（multipart `file`，gzip 或明文 JSON）
 - `GET /v2/sync/workout-ingests/{uuid}` — 单条接收状态
 - `POST /v2/sync/workout-ingests/status` — 批量状态，body `{"workoutIDs":[…≤200]}`，返回 `items`（含 `not_found`）
-- `POST /v2/sync/daily-facts` / `GET /v2/sync/daily-facts/coverage` — HRV、静息心率、睡眠
+- `POST /v2/sync/daily-facts` / `GET /v2/sync/daily-facts/coverage` — HRV、静息心率、睡眠；每页新增+删除合计不超过握手
+  `capabilities.dailyMaxChanges`（schema 54 起为 500，此前 128），请求体不超过 512 KiB。客户端保存最近一次握手的值，
+  未握手时按 128 分页。删除（`deletedUUIDs`）照常上传并写墓碑，是“不做删除同步”的例外
 - `POST /v2/sync/vo2max-facts` / `GET /v2/sync/vo2max-facts/coverage` — 外部 VO2
 - `GET /v2/sync/changes` — 变更通知（能力位 `changefeed=false`）
 - `POST /v2/model-inputs/{kind}`、`POST /v2/model-inputs/{id}/revocations` — 个人参考值与目标
@@ -27,6 +29,10 @@
   - `/vo2max-sources` 返回近一年的 Apple VO₂ 来源，每个设备/App 一项，`sourceEpoch` 即选择时提交的值
   - `/athlete/history?metric=trainingLoad` 的点以急性负荷为 `value`，`components` 携带 `chronic`、`balance`、`dailyLoad`
   - 运动模型的激活、产物缺失与读取故障分别表达，见下方状态表
+  - `/detail` 可选 `modelQualification`：`runningAbility` / `trainingLoad` 各含 `status` 与 `reasonCodes`，说明 active stack
+    是否采用这次跑步。跑力来自特征资格（v2 用坡度换算后的资格）：`eligible` / `conditional` / `ineligible`；负荷来自 v2 负荷结果：
+    `eligible`（完整心率）/ `conditional`（估算）/ `ineligible`（未知）/ `pending`（尚未算出）。入选只是必要条件，
+    跑力还只取每个时长最快的几次。栈尚未算到这次跑步时省略该字段
 - 首页：`GET /v2/product/overview`
 - 任务：`GET /v2/jobs/{id}`
 
@@ -34,6 +40,12 @@
 
 `GET /v2/analysis/athlete` 的 HTTP 成功表示已返回模型快照，不能据此认定每项指标都有可展示数值。
 各项以 `envelope.modelStatus`、`productReasonCodes`、`state`、`freshness` 和 `technicalError` 表达实际状态。
+`productReasonCodes` 保持冻结的字典序；`primaryReason`（可省略）按明确优先级给出应展示的那一个：
+未启用/版本/读取故障 → 待计算 → 来源 → 同步未完成 → 历史不足 → 具体输入（心率、负荷、恢复）→ 数据已过期 → 证据不足。
+iOS 优先显示 `primaryReason`，旧服务端没有该字段时取 `productReasonCodes` 第一个。
+状态 `collecting`、`collecting_baseline`、`insufficient_long_evidence` 优先于过期：从未有过曲线的跑力即使最新证据已超过
+28 天，仍为 `state=collecting`、`modelStatus=insufficient_long_evidence`（`freshness` 照常为 stale/expired），App 显示
+“证据不足：需要至少 2 次 40 分钟以上的合格跑步”。
 
 | 条件 | HTTP / 模型状态 | 产品原因码或错误码 | iOS 文案 |
 |---|---|---|---|
@@ -60,5 +72,7 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 - 写入：`POST /v2/training/plans`、`/plans/{id}/changes`、`/plans/{id}/overrides`、`/executions`、`/executions/{id}/changes`
 
 ## 限额
-读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分；可用 `RAI_RATE_BUDGETS` 覆盖）。
-超限返回 `429` 与 `Retry-After`。
+读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分（突发 2）；可用 `RAI_RATE_BUDGETS` 覆盖，
+真机验收后端 `scripts/local/device.py` 把上传放宽到 120/分、突发 12）。设备桶先判、数据集桶后判，两者都允许才同时扣额；
+任一拒绝都不扣额，所以单设备超额只返回 `device_rate_exceeded`，不会顺带耗尽数据集余额。超限返回 `429` 与 `Retry-After`。
+握手 `limits.requests` 返回生效预算，iOS 按其中的上传预算节流日常健康与 VO2 上传。

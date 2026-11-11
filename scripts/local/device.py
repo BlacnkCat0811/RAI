@@ -35,6 +35,14 @@ GO = ROOT / '.local/toolchain/go/bin/go'
 BINARY = RUN / 'rai'
 APP_ID = 'com.rai.v2.ios'
 STATE = RUN / 'run.json'
+# Personal single-phone backend: the default upload lane (30/min, burst 2 per
+# device) throttles the HRV/sleep history backfill into 15-minute steps. Read and
+# write keep the server defaults; only the upload lane is widened.
+RATE_BUDGETS = {
+    'read': {'device': {'perMinute': 120, 'burst': 30}, 'dataset': {'perMinute': 240, 'burst': 60}},
+    'write': {'device': {'perMinute': 60, 'burst': 10}, 'dataset': {'perMinute': 120, 'burst': 20}},
+    'upload': {'device': {'perMinute': 120, 'burst': 12}, 'dataset': {'perMinute': 240, 'burst': 24}},
+}
 os.umask(0o077)
 
 
@@ -108,6 +116,7 @@ def server_env(state):
     env = environment()
     env['RAI_DATABASE_URL_FILE'] = str(RUN / 'database-url')
     env['RAI_LISTEN_ADDR'] = state['listenAddr']
+    env['RAI_RATE_BUDGETS'] = json.dumps(RATE_BUDGETS, separators=(',', ':'))
     return env
 
 

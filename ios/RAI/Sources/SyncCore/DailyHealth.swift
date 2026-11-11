@@ -5,9 +5,31 @@ public enum DailyHealth {
     public static let rhr = "HKQuantityTypeIdentifierRestingHeartRate"
     public static let sleep = "HKCategoryTypeIdentifierSleepAnalysis"
     public static let types = [hrv, rhr, sleep]
-    public static let maxChanges = 128
+    /// Client upper bound on one page. The page actually used is the server's
+    /// handshake `dailyMaxChanges`, persisted so observer wakes without a
+    /// handshake stage pages the server accepts; an older server keeps 128.
+    public static let maxChanges = 500
+    public static let defaultMaxChanges = 128
     public static let maxBytes = 512 * 1024
+    /// 90 days, not the recovery window: recovery history and the resting-HR
+    /// fallback for older Workouts read beyond 30 days.
     public static let lookbackDays = 90
+    /// An empty, fully caught-up query is uploaded only to keep server coverage
+    /// fresh (recovery needs coverage within 24 h); between these heartbeats it
+    /// is recorded locally and spends no upload budget.
+    public static let heartbeatInterval: TimeInterval = 6 * 3600
+    public static func pageLimit(advertised: Int?) -> Int { min(max(advertised ?? defaultMaxChanges, 1), maxChanges) }
+    /// Failures that only mean "not now": rate limits, capacity, timeouts and
+    /// the network. They delay the page by its Retry-After/backoff but never
+    /// stop the fast resume; anything else waits for the 15-minute scan. No
+    /// failure (nil) also counts as transient.
+    public static func isTransient(_ code: String?) -> Bool {
+        guard let code else { return true }
+        return code.hasPrefix("network_") || [
+            "device_rate_exceeded", "dataset_rate_exceeded", "device_upload_capacity_exceeded",
+            "dataset_upload_capacity_exceeded", "upload_capacity_exceeded", "request_timeout", "request_cancelled",
+        ].contains(code)
+    }
     public static func fingerprint(type: String, startUs: Int64) -> String {
         "sha256:" + Wire.hash(Data("daily-v1|\(type)|\(startUs)".utf8))
     }
@@ -38,13 +60,21 @@ public struct DailyFlow: Codable, Sendable {
         guard pending == nil else { return false }
         return hasMore || discoveryGeneration != wakeGeneration || lastDiscovery == nil || now.timeIntervalSince(lastDiscovery!) >= 900
     }
+    /// When this flow next has work: a pending page at its nextAttempt (the
+    /// server's Retry-After), or a due discovery shortly. A non-transient error
+    /// returns nil and leaves the flow to the regular 15-minute scan.
+    public func nextOpportunity(now: Date = Date(), wakeGeneration: Int64) -> Date? {
+        guard DailyHealth.isTransient(error) else { return nil }
+        if let pending { return pending.nextAttempt }
+        return discoveryDue(now: now, wakeGeneration: wakeGeneration) ? now.addingTimeInterval(2) : nil
+    }
     public var fingerprint: String { DailyHealth.fingerprint(type: type, startUs: bootstrapStartUs) }
     public init(type: String, now: Date) {
         streamID = Wire.id(); self.type = type
         bootstrapStartUs = Int64((now.timeIntervalSince1970 * 1_000_000).rounded()) - Int64(DailyHealth.lookbackDays) * 86_400_000_000
     }
-    public func body(scope: Scope, facts: [JSON], deleted: [String], observedAt: Date, hasMore: Bool, batchID: String) throws -> Data {
-        guard DailyHealth.types.contains(type), facts.count + deleted.count <= DailyHealth.maxChanges else { throw SyncFailure.invalid("batch_too_large") }
+    public func body(scope: Scope, facts: [JSON], deleted: [String], observedAt: Date, hasMore: Bool, batchID: String, maxChanges: Int = DailyHealth.defaultMaxChanges) throws -> Data {
+        guard DailyHealth.types.contains(type), facts.count + deleted.count <= min(maxChanges, DailyHealth.maxChanges) else { throw SyncFailure.invalid("batch_too_large") }
         var fields = scope.bundleFields
         fields.removeValue(forKey: "protocolVersion")
         fields["version"] = .int(1); fields["streamID"] = .string(streamID); fields["batchID"] = .string(batchID)
@@ -89,8 +119,25 @@ extension OutboxStore {
         }
     }
     public func finishDailyWakeIfCaughtUp() throws {
-        guard DailyHealth.types.allSatisfy({ state.daily?[$0].map { $0.pending == nil && !$0.hasMore && $0.error == nil && $0.discoveryGeneration == (state.dailyWakeGeneration ?? 0) } == true }) else { return }
+        guard DailyHealth.types.allSatisfy({ state.daily?[$0].map { $0.pending == nil && !$0.hasMore && DailyHealth.isTransient($0.error) && $0.discoveryGeneration == (state.dailyWakeGeneration ?? 0) } == true }) else { return }
         var next = state; next.dailyWakePending = false; try commit(next)
+    }
+    /// Page size the server accepts, from the last handshake.
+    public func dailyPageLimit() -> Int { DailyHealth.pageLimit(advertised: state.dailyMaxChanges) }
+    public func setDailyMaxChanges(_ advertised: Int?) throws {
+        let value = advertised.map { DailyHealth.pageLimit(advertised: $0) }
+        guard state.dailyMaxChanges != value else { return }
+        var next = state; next.dailyMaxChanges = value; try commit(next)
+    }
+    /// Records an empty, caught-up query without staging an upload while the
+    /// last server ACK is younger than the heartbeat interval. The committed
+    /// anchor stays; the next query simply starts from it again. Returns false
+    /// when the page must be uploaded (bootstrap, more pages, or heartbeat due).
+    public func skipEmptyDaily(type: String, previousAnchor: Data?, observedAt: Date, wakeGeneration: Int64) throws -> Bool {
+        guard var flow = state.daily?[type], flow.anchor == previousAnchor, flow.pending == nil, flow.bootstrapComplete, !flow.hasMore,
+              let lastSync = flow.lastSync, observedAt.timeIntervalSince(lastSync) < DailyHealth.heartbeatInterval else { return false }
+        flow.lastDiscovery = observedAt; flow.discoveryGeneration = wakeGeneration; flow.error = nil
+        var next = state; next.daily?[type] = flow; try commit(next); return true
     }
     public func dailyFlow(_ type: String, now: Date = Date()) throws -> DailyFlow {
         guard DailyHealth.types.contains(type) else { throw SyncFailure.invalid("unsupported_type") }
@@ -104,7 +151,7 @@ extension OutboxStore {
     public func stageDaily(type: String, previousAnchor: Data?, candidateAnchor: Data, facts: [JSON], deleted: [String], observedAt: Date, hasMore: Bool, wakeGeneration: Int64? = nil) throws {
         guard var flow = state.daily?[type], flow.anchor == previousAnchor, flow.pending == nil, let scope = state.scope else { throw SyncFailure.localState("daily_state_conflict") }
         let batchID = Wire.id()
-        let raw = try flow.body(scope: scope, facts: facts, deleted: deleted, observedAt: observedAt, hasMore: hasMore, batchID: batchID)
+        let raw = try flow.body(scope: scope, facts: facts, deleted: deleted, observedAt: observedAt, hasMore: hasMore, batchID: batchID, maxChanges: dailyPageLimit())
         let file = try savePayload(raw, suffix: "daily.json")
         flow.pending = DailyPending(batchID: batchID, file: file, hash: Wire.hash(raw), candidateAnchor: candidateAnchor, hasMore: hasMore)
         flow.lastDiscovery = observedAt; flow.discoveryGeneration = wakeGeneration ?? state.dailyWakeGeneration ?? 0; flow.error = nil

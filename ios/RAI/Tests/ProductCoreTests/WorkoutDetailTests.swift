@@ -86,4 +86,11 @@ struct WorkoutDetailTests {
     #expect(freshness.seriesState("pace") == "not_seen_yet")
     #expect(WorkoutSeriesBundle.empty.pace.points.isEmpty)
   }
+  @Test func modelQualificationExplainsWhyARunIsNotUsed() throws {
+    let json = #"{"runningAbility":{"status":"ineligible","reasonCodes":["effort_unconfirmed","grade_unknown","new_future_reason"]},"trainingLoad":{"status":"conditional","reasonCodes":[]}}"#
+    let q = try JSONDecoder().decode(WorkoutModelQualification.self, from: Data(json.utf8))
+    #expect(WorkoutQualificationText.runningAbility(q.runningAbility) == "跑力证据：未采用（未确认为全力、坡度未知、new_future_reason）")
+    #expect(WorkoutQualificationText.trainingLoad(q.trainingLoad) == "负荷：估算")
+    #expect(WorkoutQualificationText.trainingLoad(WorkoutQualification(status: "pending", reasonCodes: [])) == "负荷：计算中")
+  }
 }

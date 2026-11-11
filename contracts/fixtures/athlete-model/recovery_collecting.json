@@ -237,6 +237,7 @@
       "productReasonCodes": [
         "not_enough_history"
       ],
+      "primaryReason": "not_enough_history",
       "lineageSummary": {
         "dataSources": []
       },

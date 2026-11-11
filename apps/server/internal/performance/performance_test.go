@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	wf "rai/server/internal/workoutfeatures"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -605,5 +606,25 @@ func TestLaterDayIsolatedPBIsInspectableWithoutNewTarget(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("later quarantine not inspectable")
+	}
+}
+
+// A result that never had a curve keeps "evidence insufficient" as it ages:
+// freshness and a staleness reason change, the status does not.
+func TestFreshenKeepsInsufficientEvidenceStatus(t *testing.T) {
+	end := fixtureEnd.UnixMicro()
+	base := Result{Status: "insufficient_long_evidence", AsOf: end, Support: Support{LatestEvidence: end}, ReasonCodes: []string{}}
+	for _, tc := range []struct {
+		days            int
+		freshness, code string
+	}{{30, "stale", "stale"}, {45, "expired", "evidence_expired"}} {
+		at := fixtureEnd.AddDate(0, 0, tc.days).UnixMicro()
+		r := Freshen(base, at)
+		if r.Status != "insufficient_long_evidence" || r.Freshness != tc.freshness || !slices.Contains(r.ReasonCodes, tc.code) || r.Ability != nil || r.Confidence != 0 {
+			t.Fatalf("%d days: %+v", tc.days, r)
+		}
+		if Hash(Freshen(r, at)) != Hash(r) {
+			t.Fatal("non-idempotent freshness")
+		}
 	}
 }

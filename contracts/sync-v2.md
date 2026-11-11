@@ -104,7 +104,7 @@ schema 7→8 只追加 `series_uploads`／`series_chunks`，不回填、不重�
 
 预算使用数据库时钟和连续补充的 GCRA（虚拟下一可用时间），不使用固定分钟窗口；闲置最多恢复突发数。每次 upload 尝试保守预留整个 2 MiB 压缩／8 MiB 解压预算，不信任 Content-Length，也不按客户端声明的小文件优惠。因此单 device 长期接受上限为 60 MiB 压缩／240 MiB 解压每分钟，另允许表中初始突发量；这不是吞吐实测或配额利用率保证。
 
-`sync_request_budgets` 只保存至多每 dataset 三行、每已注册设备三行；路径、batchID、页、token 均不成为预算键。短事务先扣 dataset，再扣 device；任一拒绝或数据库错误则回滚两者，拒绝不延长等待时间。已获准尝试随后即使解析、并发槽或业务失败也不退额，重试仍计额；重新启动 API、增加副本或轮换同设备 token 不重置余额。持久预算跨进程共享；schema 6 的跨进程上传租约见下节。
+`sync_request_budgets` 只保存至多每 dataset 三行、每已注册设备三行；路径、batchID、页、token 均不成为预算键。现行实现为进程内 GCRA（`Limiter.AllowAll`）：先判 device、再判 dataset，两者都允许才同时扣额；任一拒绝则两者都不扣，单设备超额只报 `device_rate_exceeded`，不会耗尽 dataset 余额，拒绝不延长等待时间。已获准尝试随后即使解析、并发槽或业务失败也不退额，重试仍计额；重新启动 API、增加副本或轮换同设备 token 不重置余额。持久预算跨进程共享；schema 6 的跨进程上传租约见下节。
 
 这是一笔在业务处理前独立结束的运行配额事务，不改事实／回执／序号／任务，不增加 commitRevision，不进入 changefeed。FK 检查可能短暂锁定已登记身份；事实事务仍保持 dataset → stream 加锁并整体提交。预算存储失败返回 503，不放行未检查请求；若准入 COMMIT 响应丢失，可能已计额，但业务尚未执行。
 

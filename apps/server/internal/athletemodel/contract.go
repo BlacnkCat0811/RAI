@@ -2,7 +2,10 @@
 // fitting, baseline calculation, database access or ambient clock.
 package athletemodel
 
-import "sort"
+import (
+	"slices"
+	"sort"
+)
 
 const Schema = "rai.athlete_model/1"
 const MappingVersion = "rai.product_metric_mapping/1"
@@ -22,6 +25,12 @@ func MapProductState(status, freshness string, supported bool) ProductMetricStat
 	if !supported || status == "unsupported" {
 		return Limited
 	}
+	// Still collecting comes before stale: a metric that never had enough
+	// evidence is not "expired", and the next qualifying data fixes both.
+	switch status {
+	case "collecting", "collecting_baseline", "insufficient_long_evidence":
+		return Collecting
+	}
 	if freshness == "expired" || freshness == "stale" || status == "stale" || status == "expired" {
 		return Stale
 	}
@@ -30,11 +39,31 @@ func MapProductState(status, freshness string, supported bool) ProductMetricStat
 		return Available
 	case "partial", "limited", "unstable":
 		return Limited
-	case "collecting", "collecting_baseline", "insufficient_long_evidence":
-		return Collecting
 	default:
 		return Unavailable
 	}
+}
+
+// reasonPriority orders product reasons by what the user should resolve first:
+// an inactive/broken model, then a source decision, then missing sync, then
+// missing history, then specific inputs, and staleness last among causes.
+// productReasonCodes stays in its frozen lexicographic order; primaryReason is
+// the one to show.
+var reasonPriority = []ProductReasonCode{"not_product_activated", "unsupported", "technical_failure", "model_update_required",
+	"model_result_pending", "deleted", "source_selection_required", "source_conflict", "data_sync_incomplete", "not_enough_history",
+	"missing_heart_rate", "training_load_unknown", "recovery_data_incomplete", "data_stale", "insufficient_evidence", "no_sample", "metric_unavailable"}
+
+// PrimaryReason picks the highest-priority product reason, or "" when none.
+func PrimaryReason(codes []ProductReasonCode) ProductReasonCode {
+	for _, p := range reasonPriority {
+		if slices.Contains(codes, p) {
+			return p
+		}
+	}
+	if len(codes) > 0 {
+		return codes[0]
+	}
+	return ""
 }
 
 type ProductReasonCode string
@@ -117,6 +146,7 @@ type Envelope struct {
 	UpdatedAt          *int64              `json:"updatedAt"`
 	ReasonCodes        []string            `json:"reasonCodes"`
 	ProductReasonCodes []ProductReasonCode `json:"productReasonCodes"`
+	PrimaryReason      ProductReasonCode   `json:"primaryReason,omitempty"`
 	LineageSummary     LineageSummary      `json:"lineageSummary"`
 	TechnicalError     *string             `json:"technicalError"`
 }
@@ -261,6 +291,7 @@ func NoTrend(reason string) Trend {
 func NewEnvelope(metric, model, payload, status, quality, freshness string, confidence *float64, asOf, updated *int64, at int64, reasons, sources []string) Envelope {
 	e := Envelope{ID: metric, Metric: metric, ModelVersion: model, PayloadVersion: payload, MappingVersion: MappingVersion, ModelStatus: status, Quality: quality, Freshness: freshness, Confidence: confidence, AsOf: asOf, UpdatedAt: updated, EvaluationAt: at, ReasonCodes: CanonicalReasons(reasons), ProductReasonCodes: MapReasons(status, reasons), LineageSummary: LineageSummary{CanonicalReasons(sources)}, EvidenceSupport: "not_presented"}
 	e.State = MapProductState(status, freshness, true)
+	e.PrimaryReason = PrimaryReason(e.ProductReasonCodes)
 	if confidence != nil {
 		e.EvidenceSupport = "limited_evidence"
 		if *confidence >= .2 {

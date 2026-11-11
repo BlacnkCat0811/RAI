@@ -35,6 +35,8 @@ actor SyncCoordinator {
     private var supportsDaily = false
     private var vo2Running = false
     private var vo2Capabilities: JSON = .null
+    /// Shared upload pacing for Daily and VO2, configured from each handshake.
+    private let pacer = UploadPacer()
 
     /// Observer work is local and bounded. Offline/pending pages keep their
     /// old committed anchor and exact immutable bytes until the server ACK.
@@ -60,7 +62,7 @@ actor SyncCoordinator {
         guard flow.discoveryDue(wakeGeneration: wakeGeneration) else { return }
         guard flow.error != "invalid_healthkit_anchor" else { throw SyncFailure.localState("invalid_healthkit_anchor") }
         guard await store.snapshot().scope != nil else { return }
-        var limit = DailyHealth.maxChanges
+        var limit = await store.dailyPageLimit()
         while true {
             try Task.checkCancellation()
             #if DEBUG
@@ -74,6 +76,12 @@ actor SyncCoordinator {
             #if DEBUG
             let normalizationMs = Date().timeIntervalSince(normalizationStarted) * 1000
             #endif
+            // Nothing new on a caught-up stream: keep the anchor and skip the
+            // upload unless the coverage heartbeat is due.
+            if page.samples.isEmpty, page.deleted.isEmpty, !page.isFull,
+               try await store.skipEmptyDaily(type: type.identifier, previousAnchor: flow.anchor, observedAt: Date(), wakeGeneration: wakeGeneration) {
+                return
+            }
             do {
                 try await store.stageDaily(type: type.identifier, previousAnchor: flow.anchor, candidateAnchor: page.anchor,
                     facts: facts, deleted: page.deleted.map { $0.uuid.uuidString.lowercased() }, observedAt: Date(), hasMore: page.isFull, wakeGeneration: wakeGeneration)
@@ -126,7 +134,12 @@ actor SyncCoordinator {
             Task { try? await self.discoverVO2(); await onWake() }
         }
     }
-    func syncDaily(secret: ClientConfiguration.Secret, transfers: any FileUploader) async throws {
+    /// One bounded delivery opportunity (`budget` seconds). Types take turns
+    /// one page at a time, so a long HRV backfill cannot starve Sleep. Uploads
+    /// follow the server's per-device budget through the pacer; a 429 waits out
+    /// its Retry-After inside the round while time remains. Whatever is left
+    /// keeps its page and resumes at that page's nextAttempt.
+    func syncDaily(secret: ClientConfiguration.Secret, transfers: any FileUploader, budget: TimeInterval = 60) async throws {
         guard !dailyRunning else { return }
         dailyRunning = true; defer { dailyRunning = false }
         let api: RAIAPIClient
@@ -139,33 +152,93 @@ actor SyncCoordinator {
             try await store.deferVO2Recovery(error)
             throw error
         }
-        if !supportsDaily { try await syncVO2(api: api); return }
+        let deadline = Date().addingTimeInterval(budget)
+        if !supportsDaily { try await syncVO2(api: api, deadline: deadline); return }
         let delivery = DailyHealthDelivery(store: store, api: api)
-        // Finite foreground opportunity. Other types proceed after a per-type
-        // failure; pages beyond the budget resume on the next opportunity.
-        for name in await store.healthDeliveryOrder() {
-            if name == VO2Max.type { try await syncVO2(api: api); continue }
-            guard let type = HealthKitClient.dailyTypes.first(where: { $0.identifier == name }) else { continue }
-            for _ in 0..<4 {
+        var active = Set(await store.healthDeliveryOrder())
+        if !VO2Max.supported(vo2Capabilities) {
+            try await store.vo2Failure(code: "unsupported_capability"); active.remove(VO2Max.type)
+        }
+        while !active.isEmpty, Date() < deadline {
+            for name in await store.healthDeliveryOrder() where active.contains(name) {
                 try Task.checkCancellation()
-                do {
-                    if try await store.dailyFlow(type.identifier).pending != nil {
-                        guard try await deliverDaily(delivery, type: type.identifier) else { break }
-                    } else { try await discoverDailyPage(type) }
-                    if try await store.dailyFlow(type.identifier).pending != nil { _ = try await deliverDaily(delivery, type: type.identifier) }
-                    if !(try await store.dailyFlow(type.identifier).hasMore) { break }
-                } catch is CancellationError { throw CancellationError() }
-                catch {
-                    if try await store.dailyFlow(type.identifier).error == nil {
-                        let failure: String
-                        switch error { case SyncFailure.invalid(let code), SyncFailure.localState(let code): failure = code; default: failure = (error as? UploadError)?.code ?? "daily_sync_failed" }
-                        try await store.dailyFailure(type.identifier, code: failure)
-                    }
-                    break
-                }
+                guard Date() < deadline else { break }
+                let more: Bool
+                if name == VO2Max.type {
+                    more = try await vo2Step(api: api, deadline: deadline)
+                } else if let type = HealthKitClient.dailyTypes.first(where: { $0.identifier == name }) {
+                    more = try await dailyStep(type, delivery: delivery, deadline: deadline)
+                } else { more = false }
+                if !more { active.remove(name) }
             }
         }
         try await store.finishDailyWakeIfCaughtUp()
+    }
+
+    /// One page of one Daily type. Returns whether the type still has work
+    /// worth another turn in this round.
+    private func dailyStep(_ type: HKSampleType, delivery: DailyHealthDelivery, deadline: Date) async throws -> Bool {
+        do {
+            if try await store.dailyFlow(type.identifier).pending == nil { try await discoverDailyPage(type) }
+            guard let pending = try await store.dailyFlow(type.identifier).pending else { return false }
+            guard try await waitForUploadSlot(notBefore: pending.nextAttempt, deadline: deadline) else { return false }
+            guard try await deliverDaily(delivery, type: type.identifier) else { return false }
+            return try await store.dailyFlow(type.identifier).hasMore
+        } catch is CancellationError { throw CancellationError() }
+        catch {
+            await penalizeIfRateLimited(error)
+            if try await store.dailyFlow(type.identifier).error == nil {
+                let failure: String
+                switch error { case SyncFailure.invalid(let code), SyncFailure.localState(let code): failure = code; default: failure = (error as? UploadError)?.code ?? "daily_sync_failed" }
+                try await store.dailyFailure(type.identifier, code: failure)
+            }
+            let flow = try await store.dailyFlow(type.identifier)
+            guard DailyHealth.isTransient(flow.error), let next = flow.pending?.nextAttempt else { return false }
+            return next < deadline
+        }
+    }
+
+    /// One VO2 page, under the same pacing and Retry-After rules as Daily.
+    private func vo2Step(api: RAIAPIClient, deadline: Date) async throws -> Bool {
+        guard !vo2Running else { return false }
+        vo2Running = true; defer { vo2Running = false }
+        do {
+            if try await store.vo2Flow().pending == nil { try await discoverVO2Page() }
+            let flow = try await store.vo2Flow()
+            guard let pending = flow.pending, !VO2Max.blocksAutomaticDelivery(flow.error),
+                  flow.blocked == nil || pending.sourceBlockedHash == flow.blocked?.hash else { return false }
+            guard try await waitForUploadSlot(notBefore: pending.nextAttempt, deadline: deadline) else { return false }
+            guard try await VO2MaxDelivery(store: store, api: api).deliver(capabilities: vo2Capabilities) else { return false }
+            return try await store.vo2Flow().hasMore
+        } catch is CancellationError { throw CancellationError() }
+        catch {
+            await penalizeIfRateLimited(error)
+            let code: String
+            switch error { case SyncFailure.invalid(let c), SyncFailure.localState(let c): code = c; default: code = (error as? UploadError)?.code ?? "vo2_sync_failed" }
+            if await store.snapshot().vo2?.error == nil { try await store.vo2Failure(code: code) }
+            let flow = try await store.vo2Flow()
+            guard DailyHealth.isTransient(flow.error), let next = flow.pending?.nextAttempt else { return false }
+            return next < deadline
+        }
+    }
+
+    /// Sleeps until the page's nextAttempt and a pacer slot have both passed.
+    /// Returns false, without sending, when that falls past the deadline.
+    private func waitForUploadSlot(notBefore: Date, deadline: Date) async throws -> Bool {
+        let wait = notBefore.timeIntervalSinceNow
+        if wait > 0 {
+            guard notBefore < deadline else { return false }
+            try await Task.sleep(for: .seconds(wait + Double.random(in: 0...0.25)))
+        }
+        let delay = await pacer.reserve()
+        guard Date().addingTimeInterval(delay) < deadline else { return false }
+        if delay > 0 { try await Task.sleep(for: .seconds(delay)) }
+        return true
+    }
+
+    private func penalizeIfRateLimited(_ error: any Error) async {
+        guard let upload = error as? UploadError, upload.status == 429 else { return }
+        await pacer.penalize(until: Date().addingTimeInterval(max(upload.retryAfter ?? 1, 1)))
     }
 
     private func deliverDaily(_ delivery: DailyHealthDelivery, type: String) async throws -> Bool {
@@ -232,8 +305,11 @@ actor SyncCoordinator {
         }
         supportsDaily = hello["capabilities"]["dailyFactsVersion"].integer == 1 && Set(hello["capabilities"]["dailyFactTypes"].list.compactMap(\.text)) == Set(DailyHealth.types)
         vo2Capabilities = hello["capabilities"]
+        let budget = UploadPacer.budget(handshake: hello)
+        await pacer.configure(perMinute: budget.perMinute, burst: budget.burst)
         let scope = Scope(serviceID: service, datasetID: dataset, datasetEpoch: epoch, collectorEpoch: secret.configuration.collectorEpoch)
         try await store.bind(scope)
+        if supportsDaily { try await store.setDailyMaxChanges(hello["capabilities"]["dailyMaxChanges"].integer.map { Int($0) }) }
         return (api, scope)
     }
 
@@ -307,7 +383,7 @@ extension SyncCoordinator {
         dailyRunning = true; defer { dailyRunning = false }
         let metrics = SyncMetrics { name, value in Metrics.value(name, value) }
         let (api, _) = try await context(secret: secret, transfers: transfers, metrics: metrics)
-        try await syncVO2(api: api)
+        try await syncVO2(api: api, deadline: Date().addingTimeInterval(60))
     }
     func discoverVO2() async throws {
         if let sessionStore, let sessionID { _ = try await sessionStore.requireActive(sessionID) }
@@ -362,26 +438,10 @@ extension SyncCoordinator {
             }
         }
     }
-    private func syncVO2(api: RAIAPIClient) async throws {
-        guard !vo2Running else { return }; vo2Running = true; defer { vo2Running = false }
+    private func syncVO2(api: RAIAPIClient, deadline: Date) async throws {
         guard VO2Max.supported(vo2Capabilities) else {
             try await store.vo2Failure(code: "unsupported_capability"); return
         }
-        let delivery = VO2MaxDelivery(store: store, api: api)
-        // Bounded pages; failures remain local to this flow. Existing Daily
-        // and Workout opportunities continue on the same foreground scheduler.
-        for _ in 0..<4 {
-            do {
-                if try await store.vo2Flow().pending == nil { try await discoverVO2Page() }
-                guard try await delivery.deliver(capabilities: vo2Capabilities) else { break }
-                if !(try await store.vo2Flow().hasMore) { break }
-            } catch is CancellationError { throw CancellationError() }
-            catch {
-                let code: String
-                switch error { case SyncFailure.invalid(let c), SyncFailure.localState(let c): code = c; default: code = (error as? UploadError)?.code ?? "vo2_sync_failed" }
-                if await store.snapshot().vo2?.error == nil { try await store.vo2Failure(code: code) }
-                break
-            }
-        }
+        while Date() < deadline, try await vo2Step(api: api, deadline: deadline) {}
     }
 }

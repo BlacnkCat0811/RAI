@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"slices"
 	"time"
 
 	wf "rai/server/internal/workoutfeatures"
@@ -228,24 +229,33 @@ func ability(alpha, gamma float64) Ability {
 
 // Freshen changes evidence support and visibility, never invents detraining.
 // Persisted results remain immutable; this function produces a read projection.
+// A result that never had a curve because evidence is still insufficient keeps
+// that status: age only marks its freshness and adds a staleness reason, so the
+// product reports "not enough evidence" first instead of hiding it behind
+// "expired" (more qualifying runs fix both).
 func Freshen(r Result, at int64) Result {
 	if r.Support.LatestEvidence == 0 || at < r.AsOf {
 		return r
 	}
 	r.AsOf = at
 	age := float64(at-r.Support.LatestEvidence) / 86400e6
+	noCurve := r.Ability == nil && (r.Status == "insufficient_long_evidence" || r.Status == "collecting")
 	switch {
 	case age >= 42:
 		r.Freshness = "expired"
-		r.Status = "insufficient_data"
+		if !noCurve {
+			r.Status = "insufficient_data"
+		}
 		r.Ability = nil
 		r.Confidence = 0
-		if len(r.ReasonCodes) == 0 || r.ReasonCodes[len(r.ReasonCodes)-1] != "evidence_expired" {
-			r.ReasonCodes = append(append([]string{}, r.ReasonCodes...), "evidence_expired")
-		}
+		r.ReasonCodes = withReason(r.ReasonCodes, "evidence_expired")
 	case age >= 28:
 		r.Freshness = "stale"
-		r.Status = "stale"
+		if noCurve {
+			r.ReasonCodes = withReason(r.ReasonCodes, "stale")
+		} else {
+			r.Status = "stale"
+		}
 		r.Ability = nil
 		r.Confidence = 0
 	case age >= 14:
@@ -261,6 +271,12 @@ func Freshen(r Result, at int64) Result {
 		}
 	}
 	return r
+}
+func withReason(xs []string, x string) []string {
+	if slices.Contains(xs, x) {
+		return xs
+	}
+	return append(append([]string{}, xs...), x)
 }
 func confidence(s Support) float64 {
 	return .55 * math.Min(1, float64(s.IndependentWorkouts)/10) * math.Min(1, float64(s.HistorySpan)/28) * math.Min(1, s.EffectiveWorkouts/8) * s.QualitySupport

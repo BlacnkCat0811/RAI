@@ -29,9 +29,9 @@ enum UserFacingText {
     return [
       // Retry later
       "connection_unavailable": "无法连接私有服务，稍后重试",
-      "device_rate_exceeded": "请求太频繁，稍后重试",
+      "device_rate_exceeded": "同步请求过多，稍后自动继续",
       "device_upload_capacity_exceeded": "服务繁忙，稍后会自动重试",
-      "dataset_rate_exceeded": "服务繁忙，稍后重试",
+      "dataset_rate_exceeded": "同步请求过多，稍后自动继续",
       "workout_ingest_backlog_exceeded": "服务端待处理记录较多，稍后重试",
       "request_retry_limit": "请求重试次数已用尽，稍后重试",
       "interrupted": "上传已中断，可再次同步",

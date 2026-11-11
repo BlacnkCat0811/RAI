@@ -51,5 +51,6 @@
   "00050_workout_ingests.sql": "300005ab946668c001cb7841602c6ab449232fa5e161662a122976f9983392e3",
   "00051_retire_workout_completeness.sql": "1b96d67f81ffa9f612135f9436ac0564dc24b7e80a72ab53f18da14378a528db",
   "00052_readiness_v3_artifact.sql": "9492e1cd5418386be811834f3a43a3e27ead715a02c7c230febff640e5ab8f1b",
-  "00053_retire_legacy_analysis_and_workout_results.sql": "55b94fa01dcc8d5ee75d3c4080239e0e9b4fddc96fc80a1502a33d04fe4b8a30"
+  "00053_retire_legacy_analysis_and_workout_results.sql": "55b94fa01dcc8d5ee75d3c4080239e0e9b4fddc96fc80a1502a33d04fe4b8a30",
+  "00054_daily_page_500.sql": "7bb24067d26571edae7cd2b718e5ab8a550efc4800de2e999285ead072db85a2"
 }

@@ -19,8 +19,9 @@ type Release struct {
 	ReadinessConfig   rd.Config              `json:"readinessConfig"`
 }
 
-// Frozen directly from caca7f4, 975b912 and ccbe328. Add a release when its
-// manifest changes; never rewrite an existing entry to match newer code.
+// Frozen directly from caca7f4, 975b912, ccbe328 and the recovery v2.3
+// evaluation-day tombstone release. Add a release when its manifest changes;
+// never rewrite an existing entry to match newer code.
 //
 //go:embed releases.json
 var frozen []byte

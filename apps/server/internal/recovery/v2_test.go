@@ -260,6 +260,75 @@ func TestDeviationLevels(t *testing.T) {
 	}
 }
 
+func withSleepTombstone(in V2Input, id string, start, end int64) V2Input {
+	x := Tombstone{Type: Sleep, ID: id, Revision: 1, KnownAt: in.Days[0].Start, Start: &start, End: &end}
+	x.Hash = Hash(x)
+	in.Tombstones = append(in.Tombstones, x)
+	return in
+}
+
+// Deleted facts are already excluded from the calculation. A deletion never
+// blocks the score; only one that touched the evaluation night or day lowers
+// confidence, and every tombstone stays referenced in the result.
+func TestV2DeletionOnlyLowersEvaluationDayConfidence(t *testing.T) {
+	base, err := CalculateV2(nightInput(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.Status != "available" || base.Score == nil || base.Confidence <= 0 || containsReason(base.Reasons, "input_deleted") {
+		t.Fatalf("baseline: status=%s score=%v reasons=%v", base.Status, base.Score, base.Reasons)
+	}
+
+	in := nightInput(t)
+	old := in.Days[10]
+	in = withSleepTombstone(in, "deleted-history-sleep", old.Start-2*Hour, old.Start+Hour)
+	history, err := CalculateV2(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if history.Status != "available" || history.Score == nil || *history.Score != *base.Score || history.Confidence != base.Confidence ||
+		containsReason(history.Reasons, "input_deleted") || len(history.TombstoneRefs) != 1 || history.InputHash == base.InputHash {
+		t.Fatalf("history deletion: status=%s score=%v confidence=%v reasons=%v refs=%v", history.Status, history.Score, history.Confidence, history.Reasons, history.TombstoneRefs)
+	}
+
+	in = nightInput(t)
+	today := in.Days[len(in.Days)-1]
+	in = withSleepTombstone(in, "deleted-tonight-sleep", today.Start-Hour, today.Start+Hour)
+	tonight, err := CalculateV2(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := base.Confidence * DefaultV2Config("UTC").UnknownContextFactor
+	if tonight.Status != "available" || tonight.Score == nil || *tonight.Score != *base.Score ||
+		math.Abs(tonight.Confidence-want) > 1e-12 || !containsReason(tonight.Reasons, "input_deleted") {
+		t.Fatalf("evaluation-night deletion: status=%s score=%v confidence=%v want %v reasons=%v", tonight.Status, tonight.Score, tonight.Confidence, want, tonight.Reasons)
+	}
+
+	// The window starts at 20:00 the evening before; a deletion just before it
+	// belongs to history.
+	in = nightInput(t)
+	in = withSleepTombstone(in, "deleted-evening-sleep", today.Start-6*Hour, today.Start-4*Hour-1)
+	evening, err := CalculateV2(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if evening.Confidence != base.Confidence || containsReason(evening.Reasons, "input_deleted") {
+		t.Fatalf("pre-window deletion flagged: confidence=%v reasons=%v", evening.Confidence, evening.Reasons)
+	}
+
+	// A deletion not yet committed in this view is not a deletion of it.
+	in = nightInput(t)
+	in = withSleepTombstone(in, "future-sleep", today.Start-Hour, today.Start+Hour)
+	in.Tombstones[0].Revision = in.KnownThroughRevision + 1
+	future, err := CalculateV2(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if future.Confidence != base.Confidence || containsReason(future.Reasons, "input_deleted") {
+		t.Fatalf("future deletion flagged: confidence=%v reasons=%v", future.Confidence, future.Reasons)
+	}
+}
+
 func containsReason(xs []string, x string) bool {
 	for _, v := range xs {
 		if v == x {

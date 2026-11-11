@@ -114,6 +114,7 @@
       "productReasonCodes": [
         "not_enough_history"
       ],
+      "primaryReason": "not_enough_history",
       "lineageSummary": {
         "dataSources": []
       },
@@ -158,6 +159,7 @@
       "productReasonCodes": [
         "data_sync_incomplete"
       ],
+      "primaryReason": "data_sync_incomplete",
       "lineageSummary": {
         "dataSources": []
       },
@@ -202,6 +204,7 @@
       "productReasonCodes": [
         "not_enough_history"
       ],
+      "primaryReason": "not_enough_history",
       "lineageSummary": {
         "dataSources": []
       },
@@ -246,6 +249,7 @@
       "productReasonCodes": [
         "insufficient_evidence"
       ],
+      "primaryReason": "insufficient_evidence",
       "lineageSummary": {
         "dataSources": []
       },

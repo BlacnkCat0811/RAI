@@ -13,6 +13,46 @@ public struct WorkoutDetailResponse: Codable, Sendable {
   public let zoneSummary: WorkoutZoneSummary?
   public let route: WorkoutRoute
   public let override: WorkoutOverride?
+  /// Whether the active model admits this run for 跑力 and 负荷; absent until
+  /// the model stack has computed it (and from older servers).
+  public let modelQualification: WorkoutModelQualification?
+}
+
+public struct WorkoutModelQualification: Codable, Sendable, Equatable {
+  public let runningAbility: WorkoutQualification
+  public let trainingLoad: WorkoutQualification
+}
+
+public struct WorkoutQualification: Codable, Sendable, Equatable {
+  public let status: String
+  public let reasonCodes: [String]
+}
+
+/// One line per model: admitted or not, and why not.
+public enum WorkoutQualificationText {
+  public static func runningAbility(_ q: WorkoutQualification) -> String {
+    let status = ["eligible": "已采用", "conditional": "有条件采用", "ineligible": "未采用"][q.status] ?? "未知"
+    return line("跑力证据", status, q.reasonCodes)
+  }
+  public static func trainingLoad(_ q: WorkoutQualification) -> String {
+    let status = ["eligible": "完整心率", "conditional": "估算", "ineligible": "未知", "pending": "计算中"][q.status] ?? "未知"
+    return line("负荷", status, q.reasonCodes)
+  }
+  public static func reason(_ code: String) -> String {
+    [
+      "missing_hr": "缺少心率", "hr_missing": "缺少心率", "hr_coverage_low": "心率覆盖不足", "active_time_uncertain": "运动时间不确定",
+      "speed_gap": "速度数据断档", "route_accuracy_low": "路线精度低", "grade_unknown": "坡度未知", "distance_mismatch": "距离不一致",
+      "distance_missing": "缺少距离", "pause_contaminated": "暂停影响分段", "source_conflict": "来源冲突", "source_unknown": "来源未知",
+      "duration_too_short": "时长过短", "environment_unknown": "环境未知", "parameter_missing": "缺少心率参数",
+      "parameter_conflict": "心率参数冲突", "invalid_observation": "数据异常", "signal_outlier": "信号异常",
+      "unsupported_input": "不支持的数据", "effort_unconfirmed": "未确认为全力", "cross_workout_evidence_required": "需要其他训练印证",
+      "indoor_unsupported": "室内跑不计入", "steady_support_low": "稳定配速段不足",
+    ][code] ?? code
+  }
+  static func line(_ name: String, _ status: String, _ reasons: [String]) -> String {
+    let why = reasons.map(reason)
+    return name + "：" + status + (why.isEmpty ? "" : "（" + why.joined(separator: "、") + "）")
+  }
 }
 
 public struct WorkoutFeatureAnalysis: Codable, Sendable {

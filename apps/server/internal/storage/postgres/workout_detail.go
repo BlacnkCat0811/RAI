@@ -47,6 +47,7 @@ type workoutDetailData struct {
 	RouteSealed []time.Time
 
 	FeatureArtifact   *workoutdetail.FeatureAnalysis
+	Qualification     *workoutdetail.ModelQualification
 	Published         []analysis.Metric
 	AnalysisStatus    string
 	AnalysisJobID     string
@@ -317,6 +318,10 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 	}
 
 	if err = loadFeatureAnalysis(ctx, tx, p, id, d); err != nil {
+		return nil, err
+	}
+
+	if err = loadModelQualification(ctx, tx, p, id, d); err != nil {
 		return nil, err
 	}
 
@@ -682,6 +687,59 @@ func loadFeatureAnalysis(ctx context.Context, tx pgx.Tx, p syncing.Principal, id
 	return nil
 }
 
+// loadModelQualification reads why the active stack does or does not admit
+// this run: as running-ability evidence from its feature qualification
+// (grade-adjusted in v2), and as training load from the v2 load result itself
+// (its quality tier and reasons; the feature-level load qualification is the
+// frozen v1 parameter rule and would contradict a computed v2 load). Absent
+// until the stack has computed the Workout.
+func loadModelQualification(ctx context.Context, tx pgx.Tx, p syncing.Principal, id string, d *workoutDetailData) error {
+	var raw, loadJSON []byte
+	err := tx.QueryRow(ctx, `SELECT r.feature->'qualification',r.load FROM model_workout_results r
+ JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
+ WHERE r.dataset_id=$1 AND r.workout_uuid=$2`, p.DatasetID, id).Scan(&raw, &loadJSON)
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && (len(raw) == 0 || string(raw) == "null") {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var q wf.Qualifications
+	if json.Unmarshal(raw, &q) != nil {
+		return syncing.Fail(500, "workout_feature_invalid")
+	}
+	ability := q.Performance
+	if q.PerformanceGAP != nil {
+		ability = *q.PerformanceGAP
+	}
+	load := workoutdetail.Qualification{Status: "pending", ReasonCodes: []string{}}
+	if len(loadJSON) > 0 && string(loadJSON) != "null" {
+		var r tl.Result
+		if json.Unmarshal(loadJSON, &r) != nil {
+			return analysis.Invalid()
+		}
+		switch {
+		case r.Load != nil && r.QualityTier == tl.TierComplete:
+			load.Status = "eligible"
+		case r.Load != nil:
+			load.Status = "conditional"
+		default:
+			load.Status = "ineligible"
+		}
+		load.ReasonCodes = append(load.ReasonCodes, r.ReasonCodes...)
+	}
+	d.Qualification = &workoutdetail.ModelQualification{RunningAbility: detailQualification(ability), TrainingLoad: load}
+	return nil
+}
+
+func detailQualification(q wf.Qualification) workoutdetail.Qualification {
+	out := workoutdetail.Qualification{Status: q.Status, ReasonCodes: make([]string, 0, len(q.Reasons))}
+	for _, r := range q.Reasons {
+		out.ReasonCodes = append(out.ReasonCodes, string(r))
+	}
+	return out
+}
+
 func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	durationS := float64(d.DurationUs) / 1e6
 	elapsed := d.End.Sub(d.Start).Seconds()
@@ -699,6 +757,7 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 		ExplanationCodes: []string{"detail_series_sampled_600", "route_points_sampled_500", "quality_is_feature_coverage"},
 	}}
 	out.Analysis = d.FeatureArtifact
+	out.ModelQualification = d.Qualification
 	if durationS > 0 && distance != nil && *distance > 0 {
 		out.Workout.AveragePaceSPerKm = workoutdetail.Ptr(round1(durationS / (*distance / 1000)))
 	}

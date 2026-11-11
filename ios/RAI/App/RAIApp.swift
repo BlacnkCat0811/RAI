@@ -33,6 +33,8 @@ final class SyncModel {
     var authorization = UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") ? "已请求读取权限；数据是否可用由系统管理" : "尚未请求"
     var status = "空闲"
     var pendingChanges = 0
+    /// One line per daily type: backfilling / synced, with the last page time.
+    var dailyProgress: [String] = []
     var error: String?
     private var operationBusy = false
     let syncScheduler: ForegroundSyncScheduler
@@ -591,7 +593,25 @@ final class SyncModel {
         // Workout uploads have no persisted task state. Only the daily journal
         // keeps a durable pending page here.
         pendingChanges = (snapshot.daily ?? [:]).values.filter { $0.pending != nil }.count
+        dailyProgress = Self.dailyProgress(snapshot)
     }
+    static func dailyProgress(_ snapshot: LocalState) -> [String] {
+        let names = [DailyHealth.hrv: "心率变异性", DailyHealth.rhr: "静息心率", DailyHealth.sleep: "睡眠"]
+        let time = Date.FormatStyle(date: .omitted, time: .shortened)
+        return DailyHealth.types.compactMap { type in
+            guard let flow = snapshot.daily?[type], let name = names[type] else { return nil }
+            let last = flow.lastSync.map { "，最近一页 " + $0.formatted(time) } ?? ""
+            if flow.pending == nil && !flow.hasMore && flow.bootstrapComplete && flow.error == nil { return name + "：已同步" + last }
+            var line = name + "：" + (flow.bootstrapComplete ? "等待交付" : "历史补传中") + last
+            if let code = flow.error {
+                line += DailyHealth.isTransient(code) ? "（稍后自动继续）" : "（" + UserFacingText.error(code) + "）"
+            }
+            return line
+        }
+    }
+    /// Background wakes (HealthKit observers) get a short round; the
+    /// foreground keeps going longer. Pages left over resume at nextAttempt.
+    private var dailyRoundBudget: TimeInterval { UIApplication.shared.applicationState == .active ? 60 : 20 }
     /// Foreground discovery timer. It never starts an upload.
     var recoveryWake: Task<Void, Never>?
     func syncDailyNow() {
@@ -656,11 +676,12 @@ final class SyncModel {
             try await coordinator.discoverDaily()
             apply(await store.snapshot())
             status = "健康变化已记录"
-            if pendingChanges > 0, let transfers, let secret = try ClientConfiguration.load() {
+            let vo2Pending = await store.snapshot().vo2?.pending != nil
+            if pendingChanges > 0 || vo2Pending, let transfers, let secret = try ClientConfiguration.load() {
                 status = "同步日常健康"
-                try await coordinator.syncDaily(secret: secret, transfers: transfers)
+                try await coordinator.syncDaily(secret: secret, transfers: transfers, budget: dailyRoundBudget)
                 apply(await store.snapshot())
-                status = pendingChanges > 0 ? "日常健康仍待交付；稍后自动重试" : "日常健康已同步"
+                status = pendingChanges > 0 ? "日常健康补传中，稍后自动继续" : "日常健康已同步"
             }
         } catch is CancellationError { status = "已暂停；同步位置已保留" }
         catch { self.error = "日常健康同步尚未完成；稍后自动重试。" }
@@ -679,17 +700,21 @@ final class SyncModel {
         guard store != nil else { return }
         scanHealthChanges(newWake: true)
     }
-    /// Only a due daily discovery or the 15-minute foreground scan is
-    /// scheduled. No pending delivery, Workout task or VO2 upload is timed.
+    /// The next foreground scan: the earliest daily/VO2 opportunity (a pending
+    /// page's nextAttempt, i.e. the server's Retry-After, or a due discovery),
+    /// else the 15-minute scan. Rate limits never push a page to 15 minutes;
+    /// only non-transient errors wait for the regular scan. No Workout is timed.
     private func scheduleDiscoveryScan(_ snapshot: LocalState) {
         recoveryWake?.cancel()
         guard UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") else { return }
-        var dates = [Date().addingTimeInterval(900)]
-        for flow in (snapshot.daily ?? [:]).values
-        where flow.error == nil && flow.discoveryDue(wakeGeneration: snapshot.dailyWakeGeneration ?? 0) {
-            dates.append(Date().addingTimeInterval(2))
+        let now = Date()
+        var dates = [now.addingTimeInterval(900)]
+        for flow in (snapshot.daily ?? [:]).values {
+            if let next = flow.nextOpportunity(now: now, wakeGeneration: snapshot.dailyWakeGeneration ?? 0) { dates.append(next) }
         }
-        guard let date = dates.min() else { return }
+        if let next = snapshot.vo2?.nextOpportunity(now: now, wakeGeneration: snapshot.vo2WakeGeneration ?? 0) { dates.append(next) }
+        guard let earliest = dates.min() else { return }
+        let date = max(earliest, now.addingTimeInterval(1)).addingTimeInterval(Double.random(in: 0...0.5))
         recoveryWake = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(max(1, date.timeIntervalSinceNow))) }
             catch { return }
@@ -772,6 +797,7 @@ struct SyncView: View {
                 Button("同步日常健康") { model.syncDailyNow() }.disabled(!model.canStartWorkoutSync)
                 Text("同步 Apple 健康中的心率变异性、静息心率与睡眠记录；读取可见性由系统管理。").font(.caption)
                 LabeledContent("日常健康待交付记录", value: String(model.pendingChanges))
+                ForEach(model.dailyProgress, id: \.self) { Text($0).font(.caption) }
                 if let batch = model.batch {
                     LabeledContent("本轮 Workout", value: "已选 \(batch.ids.count) 条")
                 }

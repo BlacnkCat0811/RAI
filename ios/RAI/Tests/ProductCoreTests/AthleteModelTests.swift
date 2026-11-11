@@ -104,4 +104,22 @@ import Testing
       #expect(!reason.isEmpty)
     }
   }
+  @Test func primaryReasonDrivesTheShownReason() throws {
+    let file = try #require(Bundle.module.resourceURL?.appendingPathComponent("Fixtures/AthleteModel/mixed.json"))
+    var snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: Data(contentsOf: file))
+    var envelope = snapshot.runningAbility.envelope
+    // The frozen list is lexicographic; the server's primary reason wins.
+    envelope.productReasonCodes = [ProductCode(rawValue: "data_stale"), ProductCode(rawValue: "not_enough_history")]
+    envelope.primaryReason = ProductCode(rawValue: "not_enough_history")
+    #expect(envelope.displayReason?.rawValue == "not_enough_history")
+    // An older server without primaryReason falls back to the first code.
+    envelope.primaryReason = nil
+    #expect(envelope.displayReason?.rawValue == "data_stale")
+    snapshot.runningAbility.envelope = envelope
+    let copy = try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONEncoder().encode(snapshot))
+    #expect(copy.runningAbility.envelope.primaryReason == nil)
+    #expect(ProductReasonText.runningAbility(modelStatus: "insufficient_long_evidence", reason: "data_stale", state: "collecting")
+      == "证据不足：需要至少 2 次 40 分钟以上的合格跑步")
+    #expect(ProductReasonText.runningAbility(modelStatus: "stale", reason: "data_stale", state: "stale") == "数据已过期")
+  }
 }

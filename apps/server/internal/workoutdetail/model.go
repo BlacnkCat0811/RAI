@@ -168,15 +168,32 @@ type FeatureAnalysis struct {
 	Reasons           []string `json:"reasonCodes"`
 }
 
+// ModelQualification says whether the active model stack admits this run as
+// running-ability evidence and as a known training load, with the reasons when
+// it does not. Status is eligible, conditional or ineligible; training load is
+// "pending" until the stack has computed this run's load (eligible = complete
+// heart-rate tier, conditional = estimated/approximate). Admission is
+// necessary, not sufficient: running ability also keeps only the fastest
+// recent efforts per duration.
+type ModelQualification struct {
+	RunningAbility Qualification `json:"runningAbility"`
+	TrainingLoad   Qualification `json:"trainingLoad"`
+}
+type Qualification struct {
+	Status      string   `json:"status"`
+	ReasonCodes []string `json:"reasonCodes"`
+}
+
 type Detail struct {
-	Workout      Workout          `json:"workout"`
-	Analysis     *FeatureAnalysis `json:"analysis,omitempty"`
-	Environment  *Environment     `json:"environment"`
-	Summary      Summary          `json:"summary"`
-	TrainingLoad *TrainingLoad    `json:"trainingLoad"`
-	ZoneSummary  *ZoneSummary     `json:"zoneSummary"`
-	Route        Route            `json:"route"`
-	Override     *Override        `json:"override"`
+	Workout            Workout             `json:"workout"`
+	Analysis           *FeatureAnalysis    `json:"analysis,omitempty"`
+	ModelQualification *ModelQualification `json:"modelQualification,omitempty"`
+	Environment        *Environment        `json:"environment"`
+	Summary            Summary             `json:"summary"`
+	TrainingLoad       *TrainingLoad       `json:"trainingLoad"`
+	ZoneSummary        *ZoneSummary        `json:"zoneSummary"`
+	Route              Route               `json:"route"`
+	Override           *Override           `json:"override"`
 }
 
 type MetricPoint struct {

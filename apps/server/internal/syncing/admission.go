@@ -92,22 +92,50 @@ type Limiter struct {
 
 func NewLimiter() *Limiter { return &Limiter{tat: map[string]time.Time{}} }
 
+// Bucket is one budget a request spends a slot from.
+type Bucket struct {
+	Key    string
+	Budget RequestBudget
+}
+
 // Allow spends one slot of key's bucket at now. On denial it reports how long
 // the caller should wait. A denied request does not move the bucket.
 func (l *Limiter) Allow(key string, budget RequestBudget, now time.Time) (time.Duration, bool) {
-	interval := time.Minute / time.Duration(budget.PerMinute)
+	_, wait, ok := l.AllowAll(now, Bucket{key, budget})
+	return wait, ok
+}
+
+// AllowAll spends one slot from every bucket or from none. A request refused by
+// any bucket leaves all of them untouched, so a device that exceeds its own
+// budget never drains the shared dataset budget. On denial it reports the first
+// refusing bucket in argument order and the longest wait among refusing ones,
+// the earliest moment every bucket would admit the request again.
+func (l *Limiter) AllowAll(now time.Time, buckets ...Bucket) (denied int, wait time.Duration, ok bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	tat := l.tat[key]
-	if tat.Before(now) {
-		tat = now
+	next := make([]time.Time, len(buckets))
+	denied = -1
+	for i, b := range buckets {
+		interval := time.Minute / time.Duration(b.Budget.PerMinute)
+		tat := l.tat[b.Key]
+		if tat.Before(now) {
+			tat = now
+		}
+		next[i] = tat.Add(interval)
+		allowAt := next[i].Add(-time.Duration(b.Budget.Burst) * interval)
+		if now.Before(allowAt) {
+			if denied < 0 {
+				denied = i
+			}
+			wait = max(wait, allowAt.Sub(now))
+		}
 	}
-	next := tat.Add(interval)
-	allowAt := next.Add(-time.Duration(budget.Burst) * interval)
-	if now.Before(allowAt) {
-		return allowAt.Sub(now), false
+	if denied >= 0 {
+		return denied, wait, false
 	}
-	l.tat[key] = next
+	for i, b := range buckets {
+		l.tat[b.Key] = next[i]
+	}
 	if len(l.tat) > 4096 {
 		for k, v := range l.tat {
 			if v.Before(now) {
@@ -115,5 +143,5 @@ func (l *Limiter) Allow(key string, budget RequestBudget, now time.Time) (time.D
 			}
 		}
 	}
-	return 0, true
+	return -1, 0, true
 }

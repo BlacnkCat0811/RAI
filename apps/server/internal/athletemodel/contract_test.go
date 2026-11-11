@@ -232,3 +232,32 @@ func BenchmarkProductSerialization(b *testing.B) {
 		})
 	}
 }
+
+// "Not enough evidence" outranks "stale" for both the state and the reason a
+// user sees; productReasonCodes keeps its frozen order.
+func TestCollectingOutranksStaleAndPrimaryReason(t *testing.T) {
+	if got := MapProductState("insufficient_long_evidence", "stale", true); got != Collecting {
+		t.Fatal("insufficient evidence shown as", got)
+	}
+	if got := MapProductState("available", "stale", true); got != Stale {
+		t.Fatal("a stale value must stay stale", got)
+	}
+	e := NewEnvelope("runningAbility", "rai.running_ability/v2", "rai.performance/2", "insufficient_long_evidence", "not_provided", "stale", nil, nil, nil, 1, []string{"stale"}, nil)
+	if e.State != Collecting || e.PrimaryReason != "not_enough_history" || !reflect.DeepEqual(e.ProductReasonCodes, []ProductReasonCode{"data_stale", "not_enough_history"}) {
+		t.Fatalf("envelope %+v", e)
+	}
+	for _, tc := range []struct {
+		codes []ProductReasonCode
+		want  ProductReasonCode
+	}{
+		{[]ProductReasonCode{"data_stale", "not_enough_history"}, "not_enough_history"},
+		{[]ProductReasonCode{"data_sync_incomplete", "not_enough_history"}, "data_sync_incomplete"},
+		{[]ProductReasonCode{"insufficient_evidence", "training_load_unknown"}, "training_load_unknown"},
+		{[]ProductReasonCode{"future_reason"}, "future_reason"},
+		{nil, ""},
+	} {
+		if got := PrimaryReason(tc.codes); got != tc.want {
+			t.Fatalf("%v -> %s want %s", tc.codes, got, tc.want)
+		}
+	}
+}

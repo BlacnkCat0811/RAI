@@ -16,6 +16,13 @@ public enum ProductReasonText {
     }
   }
 
+  /// 跑力 without a curve: say what evidence is missing instead of a bare
+  /// "历史不足"/"数据已过期".
+  public static func runningAbility(modelStatus: String, reason: String?, state: String?) -> String {
+    if modelStatus == "insufficient_long_evidence" { return "证据不足：需要至少 2 次 40 分钟以上的合格跑步" }
+    return text(for: reason, state: state)
+  }
+
   public static func text(for code: String?, state: String? = nil) -> String {
     if let code {
       switch code {

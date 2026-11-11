@@ -11,7 +11,7 @@ import (
 
 const (
 	DailyVersion         = 1
-	MaxDailyChanges      = 128
+	MaxDailyChanges      = 500
 	MaxDailyBytes        = 512 << 10
 	MaxDailyLookbackDays = 180
 	DailyHRV             = "HKQuantityTypeIdentifierHeartRateVariabilitySDNN"

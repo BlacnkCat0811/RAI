@@ -108,6 +108,8 @@ public struct LocalState: Codable, Sendable {
     public var vo2WakeGeneration: Int64?
     public var dailyWakePending: Bool?
     public var dailyWakeGeneration: Int64?
+    /// Server-advertised daily page size from the last handshake; nil = 128.
+    public var dailyMaxChanges: Int?
     // Optional for v1 state compatibility. Only fully delivered pages may mark
     // files; orphan/cancelled-page reclamation requires a separate proof.
     public var reclaimFiles: [String]?
