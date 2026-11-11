@@ -3,6 +3,7 @@
 个人自用的 iOS 跑步 App：HealthKit → 服务端（Go + PostgreSQL）→ 分析与训练建议 → App 展示。
 
 - 当前架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 模型核查与优化方案：[准备度、恢复、跑力与负荷对照](docs/ARCHITECTURE.md#模型对照核查与优化实施方案已实施)（已实施，新栈为候选、未激活）
 - 接口清单：[docs/API.md](docs/API.md)
 - 工程约定：[AGENTS.md](AGENTS.md)
 - 原始设计方案：[RAI-Go-PostgreSQL架构重设计与实施方案.md](RAI-Go-PostgreSQL架构重设计与实施方案.md)（保留原文）
@@ -28,8 +29,8 @@ scripts/local/test.sh gate           # 完成门禁：race + vet + 边界 + admi
 模型发布兼容性回归（全部使用合成数据，在本机隔离 PostgreSQL 18 执行）：
 
 ```bash
-scripts/local/test.sh integration -run '^TestModel(Release|StackDay)' ./integration
-scripts/local/test.sh swift --filter 'AthleteRefreshTests|AthleteModel'
+scripts/local/test.sh integration -run '^Test(ModelRelease|ModelStackDay|DailyPageInvalidates|DailyHistoryPage|ModelOptimization)' ./integration
+scripts/local/test.sh swift --filter 'AthleteRefreshTests|AthleteModel|RunningAbilityDerived|WorkoutDetail'
 ```
 
 上述定向检查不替代 `gate`，也不代表已完成真机或线上验收。
