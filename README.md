@@ -3,7 +3,7 @@
 个人自用的 iOS 跑步 App：HealthKit → 服务端（Go + PostgreSQL）→ 分析与训练建议 → App 展示。
 
 - 当前架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- 模型核查与优化方案：[准备度、恢复、跑力与负荷对照](docs/ARCHITECTURE.md#模型对照核查与优化实施方案已实施)（已实施，新栈为候选、未激活）
+- 模型核查与优化方案：[准备度、恢复、跑力与负荷对照](docs/ARCHITECTURE.md#模型对照核查与优化实施方案已实施)（已实施，schema3 栈已于 2026-11-11 部署并激活）
 - 接口清单：[docs/API.md](docs/API.md)
 - 工程约定：[AGENTS.md](AGENTS.md)
 - 原始设计方案：[RAI-Go-PostgreSQL架构重设计与实施方案.md](RAI-Go-PostgreSQL架构重设计与实施方案.md)（保留原文）

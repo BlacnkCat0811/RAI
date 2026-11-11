@@ -50,8 +50,9 @@
 RAI VO2、外部 VO2、生理恢复 v3、训练准备度 v4、课次恢复 v1、跑力估计 v1、负荷焦点 v1
 （后三项为 `model_product_v3/` 族），另发布确认全力跑力等研究产物。身份由 `modelmanifest.Current()` 的哈希（`StackID`）决定；
 算法或策略变化即新 stack，需要用 `rai analysis model-stack` 的 `prepare-real` / `activate-real`
-（回滚 `rollback-real`）切换，旧 stack 结果保留。当前构建的 schema3 栈为
-`rai-v2-4b9264855a47255d`（候选，未自动激活）；计算顺序为负荷 → 强度结构 → 课次疲劳 → 准备度，
+（回滚 `rollback-real`）切换，旧 stack 结果保留。当前构建的 schema3 栈
+`rai-v2-4b9264855a47255d` 已于 2026-11-11 部署（迁移 56）并以所有者授权在唯一数据集上激活：`active` 通道指向该栈，
+旧栈 `rai-v2-4a543690d2c37290` 保留为 `previous`，可 `rollback-real` 回退；计算顺序为负荷 → 强度结构 → 课次疲劳 → 准备度，
 跑力估计只消费冻结的 performance/VO2 DTO，不反向参与负荷。
 
 - **单条训练隔离**：某条训练自身事实无法解析、或参考行无效时，只把这条记为未知负荷
@@ -251,8 +252,10 @@ HRV、静息心率、睡眠、VO2 走 HealthKit 锚点 + 本地 Outbox（`Outbox
 
 ## 模型对照核查与优化实施方案（已实施）
 
-核查日期：2026-11-11。代码基线：`0414bb8`。本方案全部工作包（P0-A 至 P2-B）已于 2026-11-11 实施并通过本机验证；
-新栈 `rai-v2-4b9264855a47255d` 为**候选，未自动激活**，激活仍走所有者授权管理路径。上文「模型」一节是当前行为的
+核查日期：2026-11-11。代码基线：`0414bb8`。本方案全部工作包（P0-A 至 P2-B）已于 2026-11-11 实施并通过本机验证，
+同日后端上线并激活新栈：镜像 `rai-coach:20261111-2cbc7f8`、迁移 56、`active` 通道由 `rai-v2-4a543690d2c37290`
+切到 `rai-v2-4b9264855a47255d`（`prepare-real` + `activate-real`，所有者授权 `ownerAuthorized=true`、
+`standardGatesVerified=false`、`syntheticDataset=false`）。上文「模型」一节是当前行为的
 权威描述；本节保留核查结论与设计规则，规则已按实施结果转为已实现说明。仅 P2-B 的可选结构目标（§8.3 第二阶段）
 仍为待实施。按工程约定，方案收录在本文件，不另建阶段方案或证据文件；不修改 `../running`、归档资料或真实数据。
 
@@ -752,7 +755,7 @@ family，载荷 schema 升级为 v3/v4，发布与读取按发布的真实 schem
 ### 10. 实施顺序与完成条件
 
 以下工作包已于 2026-11-11 全部完成（基线 `0414bb8`），不另建阶段证据文档。完成条件由对应合成单测与真实隔离
-PostgreSQL 集成测试验证（见第 11、12 节）；新栈 `rai-v2-4b9264855a47255d` 为候选，未激活。
+PostgreSQL 集成测试验证（见第 11、12 节）；新栈 `rai-v2-4b9264855a47255d` 已于同日上线并激活（见第 12 节）。
 
 | 工作包 | 内容 | 依赖 | 完成条件 | 状态 |
 |---|---|---|---|---|
@@ -852,8 +855,14 @@ scripts/local/test.sh gate
 ### 12. 本次交付的验证范围
 
 2026-11-11 完成实施：第 10 节全部工作包、迁移 56、schema3 契约与 iOS 消费点；新栈 `rai-v2-4b9264855a47255d`
-已登记进冻结发布注册表并作为候选计算。**未激活**：没有执行 prepare-real/activate-real，active assignment 未改变，
-候选产物不进入产品读取（集成测试验证）。
+已登记进冻结发布注册表并作为候选计算。**同日上线并激活**（用户明确授权后执行）：后端镜像
+`rai-coach:20261111-eed6e73`（`source_commit=eed6e73`）部署，数据库 53 → 56；随后 `prepare-real`
+（job `a26b8989-6e41-43d1-89af-1cf6eeca725d`，worker `status=SUCCEEDED`）与 `activate-real`
+（revision 3，`FromStack rai-v2-4a543690d2c37290` → `ToStack rai-v2-4b9264855a47255d`）把 `active` 通道切到 schema3 栈，
+旧栈留作 `previous`。激活事务要求 schema3 的九个 family 全部就绪，否则拒绝切换。部署后 `probe --ready`、
+`worker-ready`、公网 `/health`、`/ready` 均通过；`model-stack health --channel active` 显示 `channelStackIsCurrentCode=true`，
+九族各有当日发布（数据集仅 5 次 Workout，多为 `collecting`/`insufficient_data` 类状态）。随后修正
+`model-stack health` 只统计六个 v2 family 的缺口（镜像 `rai-coach:20261111-2cbc7f8`），health 现覆盖九族。
 
 本机验证（Mac、隔离 PostgreSQL 18.6，全部合成数据）：
 
@@ -870,6 +879,9 @@ scripts/local/test.sh gate
   热缓存 p50 474.3→48.6 ms、p95 605.4→58.6 ms；冷缓存 p95 778.9→690.0 ms；采样峰值堆热 5.22→3.87 MB、
   冷 12.31→5.67 MB。满足 p95 增幅≤20% 预算（实际改善），同步事务 5 秒预算不回退。
 
-未进行：真机验收、生理效度实验、生产数据库读取、部署、active 栈切换或真实数据迁移。
+未进行：真机验收、生理效度实验、生产数据库读取与真实数据迁移。上线与 `active` 栈切换已按用户授权执行，
+但授权记录本身标注 `standardGatesVerified=false`：设备、校准与 UX 门禁未验证，schema2 旧客户端读取 schema3 栈时
+恢复/准备度返回 `model_update_required`，需安装本次 iOS 构建后恢复。上线后数据集样本极少（5 次 Workout、1 天发布），
+`collecting`/`insufficient_data` 是预期状态，不代表模型无效也不代表已验证。
 以上结果只证明工程正确性与合成场景行为，不构成医学准确性或优于佳明／高驰的证据。
 临时测试库、集群与基线 worktree 已清理。
