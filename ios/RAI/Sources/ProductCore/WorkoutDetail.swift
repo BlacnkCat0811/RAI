@@ -16,6 +16,7 @@ public struct WorkoutDetailResponse: Codable, Sendable {
   /// Whether the active model admits this run for 跑力 and 负荷; absent until
   /// the model stack has computed it (and from older servers).
   public let modelQualification: WorkoutModelQualification?
+  public let loadFocus: WorkoutLoadFocus?
 }
 
 public struct WorkoutModelQualification: Codable, Sendable, Equatable {

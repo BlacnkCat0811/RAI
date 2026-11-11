@@ -30,7 +30,7 @@ import Testing
   }
 
   @Test func racePredictionsGrowWithDistance() {
-    let predictions = RunningAbilityMath.racePredictions(v60: 4)
+    let predictions = RunningAbilityMath.racePredictions(v60: 4, gamma: 1 / 1.06)
     #expect(predictions.map(\.name) == ["5 公里", "10 公里", "半程马拉松", "马拉松"])
     #expect(predictions[0].seconds < predictions[1].seconds)
     #expect(predictions[1].seconds < predictions[2].seconds)
@@ -44,7 +44,7 @@ import Testing
   @Test func predictionsUseFittedGamma() {
     // γ = 1 / 1.06 reproduces Riegel; a lower γ (less endurance) is slower
     // beyond the hour and faster below it.
-    let riegel = RunningAbilityMath.racePredictions(v60: 4)
+    let riegel = RunningAbilityMath.racePredictions(v60: 4, gamma: 1 / 1.06)
     let fitted = RunningAbilityMath.racePredictions(v60: 4, gamma: 1 / 1.06)
     #expect(abs(riegel[3].seconds - fitted[3].seconds) < 0.001)
     let weak = RunningAbilityMath.racePredictions(v60: 4, gamma: 0.89)
@@ -55,6 +55,7 @@ import Testing
   }
 
   @Test func invalidInputProducesNoPredictions() {
+    #expect(RunningAbilityMath.racePredictions(v60: 4).isEmpty)
     #expect(RunningAbilityMath.paceZones(v60: nil).isEmpty)
     #expect(RunningAbilityMath.paceZones(v60: 0).isEmpty)
     #expect(RunningAbilityMath.paceZones(v60: .infinity).isEmpty)

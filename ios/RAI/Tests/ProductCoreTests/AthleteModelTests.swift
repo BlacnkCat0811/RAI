@@ -123,3 +123,20 @@ import Testing
     #expect(ProductReasonText.runningAbility(modelStatus: "stale", reason: "data_stale", state: "stale") == "数据已过期")
   }
 }
+
+@Suite struct AthleteModelV3Tests {
+  @Test func estimatesRemainExplicitAndDoNotInventEndurance() throws {
+    let file = try #require(Bundle.module.resourceURL?.appendingPathComponent("Fixtures/ModelOptimizationV3.json"))
+    let s = try JSONDecoder().decode(AthleteModelSnapshot.self, from: Data(contentsOf: file))
+    #expect(s.supportsPresentation)
+    #expect(s.physiologicalRecovery.envelope.mode == "estimated")
+    #expect(s.physiologicalRecovery.presentationValue?.missingComponents == ["hrv"])
+    #expect(s.trainingReadiness.presentationValue?.range?.low == 70)
+    #expect(s.sessionRecovery?.presentationValue?.text == "约 18–20 小时")
+    #expect(s.loadFocus?.presentationValue?.windows.first?.unknownWorkouts == 1)
+    #expect(s.runningAbility.presentationValue?.selectedMode == "submax_estimated")
+    #expect(s.runningAbility.presentationValue?.gamma == nil)
+    #expect(s.runningAbility.presentationValue?.enduranceRetention == nil)
+    #expect(s == (try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONEncoder().encode(s))))
+  }
+}

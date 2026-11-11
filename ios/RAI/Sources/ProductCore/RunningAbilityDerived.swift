@@ -79,7 +79,7 @@ public enum RunningAbilityMath {
   /// Standard race distances projected from the 60-minute effort with the
   /// power law the ability model fitted: t = 3600 · (D / D60)^(1/γ).
   public static func racePredictions(v60: Double?, gamma: Double? = nil) -> [RunningRacePrediction] {
-    guard let v60, v60.isFinite, v60 > 0 else { return [] }
+    guard let v60, v60.isFinite, v60 > 0, let gamma, gamma.isFinite, gamma > 0 else { return [] }
     let baseDistance = v60 * 3600
     let exponent = 1 / projectionGamma(gamma)
     let races: [(String, Double)] = [

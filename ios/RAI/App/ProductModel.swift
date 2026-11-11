@@ -308,7 +308,7 @@ final class ProductModel {
     athleteRefreshing = true
     defer { athleteRefreshing = false }
     do {
-      let json = try await api.get("/v2/analysis/athlete")
+      let json = try await api.get("/v2/analysis/athlete", query: ["schemaVersion": "rai.athlete_model/3"])
       let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: json.data())
       guard snapshot.supportsPresentation else { throw SyncFailure.invalid("unsupported_athlete_schema") }
       if !Task.isCancelled {

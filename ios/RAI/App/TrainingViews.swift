@@ -146,6 +146,8 @@ func reasonText(_ reason: String) -> String {
     "readiness_unavailable": "准备度数据不足，未用于自动训练调整",
     "weekly_load_constraint": "按周跑量预算安排训练", "weekly_progression": "按计划渐进增加周跑量",
     "recovery_week": "本周降低训练量", "recovery_after_hard_session": "关键训练后安排恢复",
+    "taper": "赛前减量：降低跑量，保留强度", "goal_event": "目标比赛日",
+    "post_event_recovery": "赛后恢复",
     "base_session_removed_kept": "自动课程已移除，保留你的调整",
     "override_rebase_conflict/v1": "历史调整需要确认；原调整仍保留在历史中。",
     "explicit_skip": "本次训练已明确跳过", "analysis_pending": "运动分析尚未发布",

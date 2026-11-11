@@ -246,6 +246,10 @@ struct WorkoutDetail: View {
           Text("主要刺激：\(stimulusName(load.stimulusType))").font(.caption).foregroundStyle(RAITheme.secondary)
           Text("负荷来源：\(loadSourceName(load.source))").font(.caption2).foregroundStyle(RAITheme.secondary)
         }
+        if let focus = detail.loadFocus {
+          Text("负荷结构 AU：低有氧 \(num(focus.buckets.lowAerobicAU, digits: 0)) · 高有氧 \(num(focus.buckets.highAerobicAU, digits: 0)) · 无氧候选 \(num(focus.buckets.anaerobicProxyAU, digits: 0)) · 未分类 \(num(focus.buckets.unclassifiedAU, digits: 0))")
+            .font(.caption2).foregroundStyle(RAITheme.secondary)
+        }
         if let zones = detail.zoneSummary {
           Text("区间覆盖：心率 \(percent(zones.heartRateCoverage)) · 配速 \(percent(zones.paceCoverage))")
             .font(.caption).foregroundStyle(RAITheme.secondary)
@@ -579,7 +583,7 @@ func percent(_ value: Double?) -> String {
 func sessionName(_ type: String) -> String {
   [
     "REST": "休息", "EASY": "基础跑", "LONG": "长距离", "TEMPO": "节奏跑", "INTERVAL": "间歇",
-    "RECOVERY": "恢复跑", "RUN": "跑步", "published": "已发布", "pending": "分析中", "failed": "分析失败",
+    "RECOVERY": "恢复跑", "RACE": "比赛", "RUN": "跑步", "published": "已发布", "pending": "分析中", "failed": "分析失败",
   ][type] ?? (type.isEmpty ? "未分类" : type)
 }
 func stimulusName(_ type: String) -> String {

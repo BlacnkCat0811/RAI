@@ -24,6 +24,7 @@ public struct ProductUnit: RawRepresentable, Codable, Hashable, Sendable {
 }
 public struct MetricLineageSummary: Codable, Equatable, Sendable { public var dataSources: [ProductCode] }
 public struct MetricEnvelope: Codable, Equatable, Sendable {
+  public var mode: String?, evidenceAt: Int64?, validBefore: Int64?
   public var id: String, metric: String, modelVersion: String, payloadVersion: String, mappingVersion: String
   public var state: ProductMetricState
   public var modelStatus: ProductCode, quality: ProductCode
@@ -42,13 +43,14 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
   public var displayReason: ProductCode? { primaryReason ?? productReasonCodes.first }
   public var supportsPresentation: Bool {
     let versions = ["trainingLoad": ["rai.training_load.hrr_integral/v1", "rai.training_load.hrr_integral/v2"],
-      "runningAbility": ["rai.running_ability/v1", "rai.running_ability/v2"],
+      "runningAbility": ["rai.running_ability/v1", "rai.running_ability/v2", "rai.running_ability_estimate/v1"],
       "externalVO2Max": ["rai.vo2max.external_projection/v1"],
-      "physiologicalRecovery": ["rai.recovery.physiological/v1", "rai.recovery.physiological/v2"],
-      "trainingReadiness": ["rai.readiness.training/v1", "rai.readiness.training/v2", "rai.readiness.training/v3"],
+      "physiologicalRecovery": ["rai.recovery.physiological/v1", "rai.recovery.physiological/v2", "rai.recovery.physiological/v3"],
+      "trainingReadiness": ["rai.readiness.training/v1", "rai.readiness.training/v2", "rai.readiness.training/v3", "rai.readiness.training/v4"],
+      "sessionRecovery": ["rai.session_recovery/v1"], "loadFocus": ["rai.load_focus/v1"],
       "raiVO2Max": ["rai.vo2max.submax/v1"]]
     return versions[metric]?.contains(modelVersion) == true && state.isKnown
-      && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2"].contains(mappingVersion)
+      && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2", "rai.product_metric_mapping/3"].contains(mappingVersion)
       && ["fresh", "current", "aging", "stale", "expired", "unknown"].contains(freshness.rawValue)
   }
   public var presentationValueAvailable: Bool {
@@ -56,7 +58,7 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
       && !["stale", "expired"].contains(freshness.rawValue) && technicalError == nil
   }
   public var presentationState: ProductMetricState {
-    if modelVersion.isEmpty && state.isKnown && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2"].contains(mappingVersion) { return state }
+    if modelVersion.isEmpty && state.isKnown && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2", "rai.product_metric_mapping/3"].contains(mappingVersion) { return state }
     return supportsPresentation ? state : ProductMetricState(rawValue: "limited")
   }
   public var stateLocalizationKey: String { "athlete_model.state." + presentationState.rawValue }
@@ -117,6 +119,9 @@ public struct TrainingLoadValue: Codable, Equatable, Sendable {
   public var knownness: ProductCode, unit: ProductUnit, stateUnit: ProductUnit, stateModelVersion: String
 }
 public struct RunningAbilityValue: Codable, Equatable, Sendable {
+  public var demonstrated: AbilityBranch?, maximalSupported: AbilityBranch?, submaxEstimated: AbilityBranch?
+  public var selectedMode: String?, progress: AbilityProgress?
+  public var submaxPrior: String?
   public var score: Double?, v60: Double?, gamma: Double?, enduranceRetention: Double?
   public var stability: ProductCode
   public var evidenceMode: ProductCode, evidenceCount: Int, speedUnit: ProductUnit, scoreUnit: ProductUnit
@@ -143,12 +148,15 @@ public struct ExternalVO2Value: Codable, Equatable, Sendable {
 }
 public struct RecoveryComponentState: Codable, Equatable, Sendable { public var availability: ProductCode, relativeToBaseline: ProductCode }
 public struct RecoveryValue: Codable, Equatable, Sendable {
+  public var components: [String: RecoveryV3Component]?, missingComponents: [String]?
+  public var baselineNights: Int?, trendNights: Int?, sleepRelativeToHabit: Bool?
   public var score: Double?, unit: ProductUnit, baselineState: ProductCode
   public var hrv: RecoveryComponentState, rhr: RecoveryComponentState, sleep: RecoveryComponentState
   /// normal / mild_deviation / marked_deviation; absent without a score.
   public var deviationLevel: String?
 }
 public struct ReadinessValue: Codable, Equatable, Sendable {
+  public var range: ModelRange?, physiologicalCap: Double?, sessionCap: Double?, weeklyCap: Double?
   public var score: Double?, recoveryScore: Double?, loadMultiplier: Double?, recentRecordedLoad: Double?
   public var unit: ProductUnit, scope: ProductCode
 }
@@ -160,13 +168,14 @@ public typealias RecoveryMetric = AthleteMetric<RecoveryValue>
 public typealias ReadinessMetric = AthleteMetric<ReadinessValue>
 public struct AthleteProductAssignment: Codable, Equatable, Sendable { public var channel: ProductCode, stackID: String, version: Int64 }
 public struct AthleteModelSnapshot: Codable, Equatable, Sendable {
+  public var sessionRecovery: AthleteMetric<SessionRecoveryValue>?, loadFocus: AthleteMetric<LoadFocusValue>?
   public var schemaVersion: String, asOf: Int64, evaluationAt: Int64, datasetRevision: Int64
   public var timezone: String, calendarDate: String, assignment: AthleteProductAssignment, responseState: ProductCode
   public var presentationOrder: [ProductCode], notices: [ProductCode]
   public var trainingLoad: TrainingLoadMetric, runningAbility: RunningAbilityMetric, externalVO2Max: ExternalVO2Metric
   public var physiologicalRecovery: RecoveryMetric, trainingReadiness: ReadinessMetric
   public var raiVO2Max: RAIVO2Metric?
-  public var supportsPresentation: Bool { ["rai.athlete_model/1", "rai.athlete_model/2"].contains(schemaVersion) }
+  public var supportsPresentation: Bool { ["rai.athlete_model/1", "rai.athlete_model/2", "rai.athlete_model/3"].contains(schemaVersion) }
 }
 
 
@@ -237,4 +246,41 @@ public struct AthleteDiagnostics: Codable, Equatable, Sendable {
   public var items: [AthleteDiagnosticItem]
   public var supportsPresentation: Bool { schemaVersion == "rai.athlete_diagnostics/1" }
   public func item(_ key: String) -> AthleteDiagnosticItem? { items.first { $0.key == key } }
+}
+
+public struct ModelRange: Codable, Equatable, Sendable { public var low: Double, high: Double }
+public struct AbilityBranch: Codable, Equatable, Sendable {
+  public var v60: Double?, range: ModelRange?, score: Double?, gamma: Double?
+  public var mode: String, status: String, evidenceAt: Int64, source: String, confidence: Double
+}
+public struct AbilityProgress: Codable, Equatable, Sendable {
+  public var workouts: Int, spanDays: Int, shortWorkouts: Int, longWorkouts: Int, targetDays: Int
+  public var text: String { "有效训练 \(workouts)/5 · 跨度 \(spanDays)/14 天 · 短窗口 \(shortWorkouts)/2 · 长窗口 \(longWorkouts)/2 · 目标日 \(targetDays)/3" }
+}
+public struct RecoveryV3Component: Codable, Equatable, Sendable {
+  public var state: String, observed: Double?, used: Double?, trend: Double?
+  public var trendNights: Int, baselineNights: Int, evidenceAt: Int64?, sourceEpoch: String
+}
+public struct SessionRecoveryValue: Codable, Equatable, Sendable {
+  public var remainingHours: Double?
+  public var range: ModelRange?
+  public var readyAfter: Int64?
+  public var overflow: Bool
+  public var scope: String
+  public var text: String {
+    if overflow { return ">168 小时" }
+    guard let range else { return "训练基线积累中" }
+    return "约 \(Int(range.low.rounded(.down)))–\(Int(range.high.rounded(.up))) 小时"
+  }
+}
+public struct LoadFocusBuckets: Codable, Equatable, Sendable {
+  public var lowAerobicAU: Double, highAerobicAU: Double, anaerobicProxyAU: Double, unclassifiedAU: Double
+}
+public struct LoadFocusWindow: Codable, Equatable, Sendable {
+  public var windowDays: Int, buckets: LoadFocusBuckets, unknownWorkouts: Int, classifiedCoverage: Double?, denominator: String, classificationMethod: String
+}
+public struct LoadFocusValue: Codable, Equatable, Sendable { public var windows: [LoadFocusWindow] }
+public struct WorkoutLoadFocus: Codable, Equatable, Sendable {
+  public var buckets: LoadFocusBuckets, classificationMethod: String
+  public var knownAU: Double?, reasonCodes: [String]
 }

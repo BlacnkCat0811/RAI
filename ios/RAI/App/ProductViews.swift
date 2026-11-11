@@ -503,12 +503,34 @@ struct AthleteModelCard: View {
          let notice = ProductReasonText.lowReadinessNotice(score: snapshot.trainingReadiness.value?.score) {
         Text(notice).font(.caption).foregroundStyle(RAITheme.secondary).accessibilityIdentifier("model.readiness.lowHint")
       }
-      row("跑力", value: snapshot.runningAbility.value?.score, unit: "分", metric: snapshot.runningAbility.envelope, digits: 0)
+      if snapshot.trainingReadiness.envelope.mode == "workout_only" {
+        Text("仅有训练负担信息，昨夜恢复数据不足").font(.caption).foregroundStyle(RAITheme.secondary)
+      }
+      if let session = snapshot.sessionRecovery, let value = session.presentationValue {
+        Text("距下一次高强度训练：" + value.text).font(.caption).foregroundStyle(RAITheme.secondary)
+        Text("仅按已记录跑步估计").font(.caption2).foregroundStyle(RAITheme.secondary)
+      }
+      row(snapshot.runningAbility.value?.selectedMode == "submax_estimated" ? "跑力（估计）" : "跑力", value: snapshot.runningAbility.value?.score, unit: "分", metric: snapshot.runningAbility.envelope, digits: 0)
       if !summary {
       row("生理恢复", value: snapshot.physiologicalRecovery.value?.score, unit: "分", metric: snapshot.physiologicalRecovery.envelope, digits: 0)
       if snapshot.physiologicalRecovery.envelope.presentationValueAvailable,
          let level = ProductReasonText.recoveryLevel(snapshot.physiologicalRecovery.value?.deviationLevel) {
         Text(level).font(.caption).foregroundStyle(RAITheme.secondary).accessibilityIdentifier("model.recovery.level")
+      }
+      if snapshot.physiologicalRecovery.envelope.mode == "estimated", let value = snapshot.physiologicalRecovery.value {
+        Text("有限估计 · 趋势 \(value.trendNights ?? 0) 夜 · 基线 \(value.baselineNights ?? 0) 夜").font(.caption2)
+        if let missing = value.missingComponents, !missing.isEmpty {
+          Text("昨夜数据不足：" + missing.map { ["hrv":"HRV", "rhr":"静息心率", "sleep":"睡眠"][$0] ?? $0 }.joined(separator: "、")).font(.caption2)
+        }
+      }
+      if snapshot.physiologicalRecovery.value?.sleepRelativeToHabit == true { Text("睡眠评估相对个人习惯").font(.caption2) }
+      if let focus = snapshot.loadFocus?.presentationValue {
+        ForEach(focus.windows, id: \.windowDays) { window in
+          Text("\(window.windowDays)天负荷结构：低有氧 \(Int(window.buckets.lowAerobicAU.rounded())) · 高有氧 \(Int(window.buckets.highAerobicAU.rounded())) · 无氧候选 \(Int(window.buckets.anaerobicProxyAU.rounded())) · 未分类 \(Int(window.buckets.unclassifiedAU.rounded())) AU").font(.caption2)
+          if let coverage = window.classifiedCoverage {
+            Text("已知负荷中可分类 \(Int((coverage*100).rounded()))% · 另有 \(window.unknownWorkouts) 次负荷未知").font(.caption2).foregroundStyle(RAITheme.secondary)
+          } else { Text("暂无已知负荷占比分母 · \(window.unknownWorkouts) 次负荷未知").font(.caption2) }
+        }
       }
       row("急性负荷", value: snapshot.trainingLoad.value?.acute, unit: "AU", metric: snapshot.trainingLoad.envelope, digits: 0)
       if let rai = snapshot.raiVO2Max {
@@ -523,7 +545,7 @@ struct AthleteModelCard: View {
   @ViewBuilder private func row(_ title: String, value: Double?, unit: String, metric: MetricEnvelope, digits: Int) -> some View {
     let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout())
     layout {
-      Text(title).font(.subheadline)
+      Text(title + (metric.mode == "estimated" ? "（估计）" : "")).font(.subheadline)
       if !typeSize.isAccessibilitySize { Spacer(minLength: 8) }
       if metric.presentationValueAvailable, let value, value.isFinite {
         Text(ProductFormat.decimal(value, digits: digits) + " " + unit).monospacedDigit()
@@ -555,7 +577,12 @@ struct AthleteHistoryView: View {
     List {
       Picker("指标", selection: $metric) {
         Text("急性负荷").tag("trainingLoad")
-        Text("跑力").tag("runningAbility")
+        Text("已展示跑力").tag("runningAbility")
+        if model.data.athlete?.schemaVersion == "rai.athlete_model/3" {
+          Text("能力估计").tag("abilityEstimate")
+          Text("课次恢复").tag("sessionRecovery")
+          Text("负荷结构").tag("loadFocus")
+        }
         Text("生理恢复").tag("physiologicalRecovery")
         Text("训练准备度").tag("trainingReadiness")
         Text("RAI VO₂（实验）").tag("raiVO2Max")
@@ -810,7 +837,7 @@ struct HeartRateSettingsView: View {
 func trainingTag(_ type: String) -> String {
   [
     "REST": "恢复与休息", "EASY": "有氧耐力", "LONG": "长距离耐力", "TEMPO": "节奏耐力", "INTERVAL": "间歇训练",
-    "RECOVERY": "低强度恢复",
+    "RECOVERY": "低强度恢复", "RACE": "目标比赛",
   ][type] ?? "训练安排"
 }
 
@@ -1174,24 +1201,45 @@ struct RunningAbilityEntryCard: View {
     guard value.speedUnit.rawValue == "m/s",
       let pace = RunningAbilityMath.paceSecondsPerKm(v60: value.v60)
     else { return "查看跑力详情" }
+    if value.evidenceMode.rawValue == "submax_estimated" { return "亚极量估计 · V60 配速 \(runningPaceText(pace))/km" }
     return "V60 配速 \(runningPaceText(pace))/km · 配速区间与成绩预测"
   }
 }
 
 struct RunningAbilityDetailView: View {
   @Bindable var model: ProductModel
+  @State private var selectedBranch = "selected"
 
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         AthleteRefreshNotice(snapshot: model.data)
         if let snapshot = model.data.athlete, snapshot.supportsPresentation {
-          let metric = snapshot.runningAbility
+          let metric = displayedMetric(snapshot.runningAbility)
+          if let value = snapshot.runningAbility.value, value.selectedMode != nil {
+            Picker("跑力证据", selection: $selectedBranch) {
+              Text("自动选择").tag("selected")
+              if value.demonstrated?.v60 != nil { Text("已展示").tag("demonstrated") }
+              if value.maximalSupported?.v60 != nil { Text("确认全力").tag("maximal_supported") }
+              if value.submaxEstimated?.v60 != nil { Text("亚极量估计").tag("submax_estimated") }
+            }.pickerStyle(.segmented)
+          }
           hero(metric)
+          if let progress = metric.value?.progress { Text(progress.text).font(.caption).foregroundStyle(RAITheme.secondary) }
+          if let branch = metric.value?.submaxEstimated, branch.status == "experimental_range", let range = branch.range {
+            Text("亚极量实验范围：\(ProductFormat.decimal(range.low, digits: 2))–\(ProductFormat.decimal(range.high, digits: 2)) m/s").font(.caption)
+          }
           if let value = metric.presentationValue {
             abilityGrid(value)
-            paceZones(value)
-            racePredictions(value)
+            if value.evidenceMode.rawValue != "submax_estimated", value.gamma != nil {
+              paceZones(value)
+              racePredictions(value)
+            }
+            if let progress = value.progress { Text(progress.text).font(.caption).foregroundStyle(RAITheme.secondary) }
+            if let branch = value.submaxEstimated, let range = branch.range {
+              Text("亚极量估计：\(ProductFormat.decimal(range.low, digits: 2))–\(ProductFormat.decimal(range.high, digits: 2)) m/s（敏感性范围）").font(.caption)
+              Text((value.submaxPrior == "individual_calibration" ? "个人一小时努力标定" : "群体可持续比例先验") + " · 不据此生成耐力曲线或比赛预测").font(.caption2).foregroundStyle(RAITheme.secondary)
+            }
             evidence(metric)
           } else {
             EmptyCard(
@@ -1307,6 +1355,20 @@ struct RunningAbilityDetailView: View {
   /// Zones and projections prefer the experimental maximal ability (built
   /// only from runs the user marked as all-out); otherwise the demonstrated
   /// ability, which is usually slower than race capacity.
+  private func displayedMetric(_ original: RunningAbilityMetric) -> RunningAbilityMetric {
+    guard var value = original.value, selectedBranch != "selected" else { return original }
+    let branch = selectedBranch == "demonstrated" ? value.demonstrated : selectedBranch == "maximal_supported" ? value.maximalSupported : value.submaxEstimated
+    guard let branch, branch.v60 != nil, ["available", "limited"].contains(branch.status) else { return original }
+    var result = original
+    value.score = branch.score; value.v60 = branch.v60; value.gamma = branch.gamma
+    value.evidenceMode = ProductCode(rawValue: selectedBranch); value.selectedMode = selectedBranch
+    value.enduranceRetention = nil
+    result.value = value
+    result.envelope.state = ProductMetricState(rawValue: "limited")
+    result.envelope.mode = selectedBranch
+    return result
+  }
+
   private func projectionBasis(_ value: RunningAbilityValue) -> (v60: Double?, gamma: Double?, maximal: Bool) {
     if let maximal = model.diagnostics?.items.compactMap(\.maximal).first, let v60 = maximal.v60 {
       return (v60, maximal.gamma, true)
