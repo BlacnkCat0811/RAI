@@ -8,7 +8,7 @@
 | 服务端 | Go 模块化单体（`apps/server`）。`api` 与 `worker` 同镜像。API 只做鉴权、原始字节入库和读取；Worker 解析原始载荷并运行分析任务。PostgreSQL 18，pgx/v5，sqlc。 |
 | 部署 | `deploy/release/compose.yaml`：postgres + api + worker + admin。 |
 
-### 跑步分析结果与模型任务（迁移 59，尚未部署）
+### 跑步分析结果与模型任务（迁移 59，已于 2026-11-12 部署）
 
 HealthKit 可以为每个样本生成独立的单点序列。序列容器数量按 `MaxPoints=250000` 预算检查，
 不再套用事件／活动的 `MaxDetails=2000`；数量、总点数、元数据及产物大小分别受限，原始载荷不变。
@@ -24,7 +24,8 @@ Worker 在锁定数据集和领取任务时只选择当前二进制支持且仍�
 它们不属于待执行队列；运维快照将已退出 live 通道的失败计入 `historical_failed_jobs`，而非 `failed_jobs_needing_action`。历史重建只等待同一栈的在途任务，不被另一个不兼容栈的任务阻塞。
 
 应用修复后可由管理路径仅为目标数据集的 active 栈排一次当天发布，使用已有原始事实补出当前窗口内缺失的
-单次分析，无需重新同步或重建全量日历史。该操作及云端部署尚未执行；迁移不自动重算用户数据。
+单次分析，无需重新同步或重建全量日历史。迁移不自动重算用户数据；本次部署后已按该路径为 active 栈排了一次
+当天发布（见文末部署记录）。
 
 ### 极简运动界面
 
@@ -1133,3 +1134,36 @@ Go/Swift/集成测试。
   未读取或改动真实健康数据（产品接口仅确认未鉴权时返回 401）。真实数据集无法整体重建历史：换栈后历史日在 active 栈下
   没有发布，无氧训练效果需等激活日之后的日发布积累出跑前参考；这一限制已写入上文“模型”小节。部署与激活不代表真机、
   模型或产品验收。
+
+### 部署记录 — rai-coach-20261108（2026-11-12，镜像 dc7a0e7，迁移 59 部署）
+
+用户要求“提交所有改动到远程仓库，不要进行任何测试，然后部署到远程服务器，激活所有功能，我自己安装app”。按此执行，
+未运行任何 Go/Swift/集成测试。
+
+- 源码与提交：单条分析失败结果、序列容器点数预算、详情心率/配速连续支持与 iOS 结构诊断合并提交为 `dc7a0e7`
+  （`fix(model,workout): per-workout analysis failures, series limits and HR support (migration 59)`）并推送
+  `ed5d81b..dc7a0e7`：新增迁移 59（`model_workout_failures`）、`rai_model_stack_invalidate`/`rai_model_stack_tick`
+  改为只对 active／candidate 通道失效与排程、Worker 只领取当前二进制支持且仍 live 的栈、运维快照拆分
+  `historical_failed_jobs`、`workoutdetail` 心率/配速连续支持与旧分区插值、`workoutfeatures` 序列点数预算、iOS
+  `heartRateTiming` 结构诊断。`RequiredSchemaVersion` 58 → 59。未改动 `modelmanifest`，StackID/manifest 哈希不变
+  （`rai-v2-69efefa730b47818` / `69efefa730b47818ba73acad203f3b42ceb9df0874a64d8ce352bd5e01e55312`）。
+- 构建：Go 1.27.3 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`，`-trimpath -buildvcs=false -ldflags='-s -w -X main.sourceCommit=dc7a0e7'`，
+  二进制 SHA-256 `148ecb9ce564893fa588e2fda177ffc1316c754076d03035cdd28ca2f553b5db`（16,965,792 B），上传后服务器
+  `sha256sum` 一致。镜像 `rai-coach:20261112-dc7a0e7`（ID `bdab1dc1a876`）。
+- 备份：部署前 `pg_dump -Fc` 到 `/opt/rai-coach-20261108/backup-before-dc7a0e7-20261112-173520.dump`（97,825,808 B，
+  651 个 TOC 项，`pg_restore -l` 校验通过）；`environment` 保留为 `environment.bak-dc7a0e7`。
+- 迁移：`admin migrate` 退出码 0，数据库 58 → 59（`00059_workout_analysis_outcomes.sql`），`migrate-status` 59 份全部 `applied`。
+- 运行态：`environment` 的 `RAI_RELEASE_IMAGE` 改为 `rai-coach:20261112-dc7a0e7`，`./dc up -d --wait api worker` 后
+  api/worker 均 healthy；容器内 `probe --ready`、`worker-ready` 退出码 0；`rai version` 报告 `schema=59`、
+  `source_commit=dc7a0e7`、`model_stack=rai-v2-69efefa730b47818`、`training=training_plan/v3`、`openapi=1.13.3`、
+  `sync_protocol=3`。公网 `/ready` 200、`/health` 200；重启窗口内 API/Worker 日志仅有 `GET /ready` 的 INFO 记录，
+  无 WARN/ERROR/panic。
+- 功能激活：本次未改动 `modelmanifest`，active 栈已是当前构建（`analysis model-stack health --channel active`
+  报告 `channelStackIsCurrentCode=true`；`active=rai-v2-69efefa730b47818`（assignment_version 7）、
+  `previous=rai-v2-c3441e6edc485d9e`），八个 family 均有当日发布。按文档的管理路径仅为该数据集 active 栈排一次
+  当天发布（`rai_schedule_model_day`，job `4af0cc63-7bf6-4c36-a12b-a6306476a6a2`，首次尝试 `succeeded`）：当天
+  scope generation 9 → 10 且 `clean_generation=10`，当天 12 条发布记录，`model_workout_failures` 为空（当前窗口无
+  失效单条输入）。jobs 表 65 个 `failed` 全部来自旧栈（`4a543690d2c37290` 34 条、`4b9264855a47255d` 23 条、
+  `c3441e6edc485d9e` 8 条），active 栈 `69efefa730b47818` 无失败，按规则保留为历史审计，不删除、不改为成功。
+- 未验证：按用户要求未运行任何测试；未用真实 iPhone 验证详情页心率/配速覆盖、列表 `failed` 展示或训练效果文案
+  （iOS 包由用户自行安装）；未读取或改动真实健康数据。部署与激活不代表真机、模型或产品验收。

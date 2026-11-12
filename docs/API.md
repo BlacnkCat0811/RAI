@@ -42,7 +42,7 @@
   `/running-fitness/current`、`/running-fitness/history`、`/running-fitness/evidence`；`POST /running-fitness/reanalyses`、
   `GET /running-fitness/reanalyses/{operationID}`（见下方“跑力”）
   （旧链路的 `/v2/analysis/state`、`/history`、`/workouts/{id}` 已删除，返回 404）
-  - 运动列表的 `metrics` 只含 active stack 的 `workout_load`（单位 `RAI_AU`，`details.qualityTier`/`method`）；尚未产出结果时 `analysisStatus=pending`；当前事实代次的单条输入分析失败时为 `failed`，已发布为 `published`。失败不会作为等待状态展示，也不覆盖原始记录；成功重新分析会清除失败状态（迁移 59，尚未部署）
+  - 运动列表的 `metrics` 只含 active stack 的 `workout_load`（单位 `RAI_AU`，`details.qualityTier`/`method`）；尚未产出结果时 `analysisStatus=pending`；当前事实代次的单条输入分析失败时为 `failed`，已发布为 `published`。失败不会作为等待状态展示，也不覆盖原始记录；成功重新分析会清除失败状态（迁移 59，已于 2026-11-12 部署）
   - 训练回执的 `analysisStatus=queued` 表示 v2 日模型栈已失效待算，`analysisJobIDs` 为空
   - `/parameters` 返回 `parameters`（旧 TRIMP 参数）、`hrReference`（当前生效的 `hr_reference`，用户本人录入值）与 `observedMaxHR`（近一年 30 秒心率中位数最大值，仅作建议）
   - `/vo2max-sources` 返回近一年的 Apple VO₂ 来源，每个设备/App 一项，`sourceEpoch` 即选择时提交的值
