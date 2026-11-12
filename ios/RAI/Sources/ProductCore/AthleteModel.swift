@@ -43,14 +43,14 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
   public var displayReason: ProductCode? { primaryReason ?? productReasonCodes.first }
   public var supportsPresentation: Bool {
     let versions = ["trainingLoad": ["rai.training_load.hrr_integral/v1", "rai.training_load.hrr_integral/v2"],
-      "runningAbility": ["rai.running_ability/v1", "rai.running_ability/v2", "rai.running_ability_estimate/v1"],
+      "runningFitness": ["rai.running_fitness/v1"],
       "externalVO2Max": ["rai.vo2max.external_projection/v1"],
       "physiologicalRecovery": ["rai.recovery.physiological/v1", "rai.recovery.physiological/v2", "rai.recovery.physiological/v3"],
       "trainingReadiness": ["rai.readiness.training/v1", "rai.readiness.training/v2", "rai.readiness.training/v3", "rai.readiness.training/v4"],
       "sessionRecovery": ["rai.session_recovery/v1"], "loadFocus": ["rai.load_focus/v1"],
       "raiVO2Max": ["rai.vo2max.submax/v1"]]
     return versions[metric]?.contains(modelVersion) == true && state.isKnown
-      && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2", "rai.product_metric_mapping/3"].contains(mappingVersion)
+      && Self.mappings.contains(mappingVersion)
       && ["fresh", "current", "aging", "stale", "expired", "unknown"].contains(freshness.rawValue)
   }
   public var presentationValueAvailable: Bool {
@@ -58,9 +58,10 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
       && !["stale", "expired"].contains(freshness.rawValue) && technicalError == nil
   }
   public var presentationState: ProductMetricState {
-    if modelVersion.isEmpty && state.isKnown && ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2", "rai.product_metric_mapping/3"].contains(mappingVersion) { return state }
+    if modelVersion.isEmpty && state.isKnown && Self.mappings.contains(mappingVersion) { return state }
     return supportsPresentation ? state : ProductMetricState(rawValue: "limited")
   }
+  static let mappings = ["rai.product_metric_mapping/1", "rai.product_metric_mapping/2", "rai.product_metric_mapping/3", "rai.product_metric_mapping/4"]
   public var stateLocalizationKey: String { "athlete_model.state." + presentationState.rawValue }
   // Confidence is evidence support; V1 exposes no probability/percentage label.
   public var evidenceLocalizationKey: String {
@@ -118,13 +119,10 @@ public struct TrainingLoadValue: Codable, Equatable, Sendable {
   public var acute: Double?, chronic: Double?, balance: Double?, trend7: Double?
   public var knownness: ProductCode, unit: ProductUnit, stateUnit: ProductUnit, stateModelVersion: String
 }
+/// The retired running-ability slot: servers return it without a value and
+/// the client never presents it. Running fitness replaced it.
 public struct RunningAbilityValue: Codable, Equatable, Sendable {
-  public var demonstrated: AbilityBranch?, maximalSupported: AbilityBranch?, submaxEstimated: AbilityBranch?
-  public var selectedMode: String?, progress: AbilityProgress?
-  public var submaxPrior: String?
-  public var score: Double?, v60: Double?, gamma: Double?, enduranceRetention: Double?
-  public var stability: ProductCode
-  public var evidenceMode: ProductCode, evidenceCount: Int, speedUnit: ProductUnit, scoreUnit: ProductUnit
+  public var score: Double?
 }
 public struct RAIVO2Value: Codable, Equatable, Sendable {
   public var value: Double?
@@ -168,6 +166,7 @@ public typealias RecoveryMetric = AthleteMetric<RecoveryValue>
 public typealias ReadinessMetric = AthleteMetric<ReadinessValue>
 public struct AthleteProductAssignment: Codable, Equatable, Sendable { public var channel: ProductCode, stackID: String, version: Int64 }
 public struct AthleteModelSnapshot: Codable, Equatable, Sendable {
+  public var runningFitness: RunningFitnessMetric?
   public var sessionRecovery: AthleteMetric<SessionRecoveryValue>?, loadFocus: AthleteMetric<LoadFocusValue>?
   public var schemaVersion: String, asOf: Int64, evaluationAt: Int64, datasetRevision: Int64
   public var timezone: String, calendarDate: String, assignment: AthleteProductAssignment, responseState: ProductCode
@@ -175,7 +174,7 @@ public struct AthleteModelSnapshot: Codable, Equatable, Sendable {
   public var trainingLoad: TrainingLoadMetric, runningAbility: RunningAbilityMetric, externalVO2Max: ExternalVO2Metric
   public var physiologicalRecovery: RecoveryMetric, trainingReadiness: ReadinessMetric
   public var raiVO2Max: RAIVO2Metric?
-  public var supportsPresentation: Bool { ["rai.athlete_model/1", "rai.athlete_model/2", "rai.athlete_model/3"].contains(schemaVersion) }
+  public var supportsPresentation: Bool { ["rai.athlete_model/1", "rai.athlete_model/2", "rai.athlete_model/3", "rai.athlete_model/4"].contains(schemaVersion) }
 }
 
 
@@ -198,10 +197,6 @@ public struct AthleteHistoryPage: Codable, Equatable, Sendable {
 // scalars only; evidence arrays and source epochs never leave the server.
 public struct AthleteDiagnosticSupport: Codable, Equatable, Sendable {
   public var level: String, fraction: Double, count: Int
-}
-public struct AthleteDiagnosticMaximal: Codable, Equatable, Sendable {
-  public var score: Double?, v60: Double?, gamma: Double?, enduranceRetention: Double?
-  public var confidence: Double, anchorDay: String?
 }
 public struct AthleteDiagnosticDurability: Codable, Equatable, Sendable {
   public var workoutID: String
@@ -229,7 +224,6 @@ public struct AthleteDiagnosticItem: Codable, Equatable, Sendable, Identifiable 
   public var support: AthleteDiagnosticSupport
   public var asOfUs: Int64, publishedAtUs: Int64
   public var day: String
-  public var maximal: AthleteDiagnosticMaximal?
   public var durability: AthleteDiagnosticDurability?
   public var efficiency: AthleteDiagnosticEfficiency?
   public var criticalSpeed: AthleteDiagnosticCriticalSpeed?
@@ -249,14 +243,6 @@ public struct AthleteDiagnostics: Codable, Equatable, Sendable {
 }
 
 public struct ModelRange: Codable, Equatable, Sendable { public var low: Double, high: Double }
-public struct AbilityBranch: Codable, Equatable, Sendable {
-  public var v60: Double?, range: ModelRange?, score: Double?, gamma: Double?
-  public var mode: String, status: String, evidenceAt: Int64, source: String, confidence: Double
-}
-public struct AbilityProgress: Codable, Equatable, Sendable {
-  public var workouts: Int, spanDays: Int, shortWorkouts: Int, longWorkouts: Int, targetDays: Int
-  public var text: String { "有效训练 \(workouts)/5 · 跨度 \(spanDays)/14 天 · 短窗口 \(shortWorkouts)/2 · 长窗口 \(longWorkouts)/2 · 目标日 \(targetDays)/3" }
-}
 public struct RecoveryV3Component: Codable, Equatable, Sendable {
   public var state: String, observed: Double?, used: Double?, trend: Double?
   public var trendNights: Int, baselineNights: Int, evidenceAt: Int64?, sourceEpoch: String

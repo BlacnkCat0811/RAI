@@ -346,7 +346,7 @@ final class ProductModel {
     athleteRefreshing = true
     defer { athleteRefreshing = false }
     do {
-      let json = try await api.get("/v2/analysis/athlete", query: ["schemaVersion": "rai.athlete_model/3"])
+      let json = try await api.get("/v2/analysis/athlete", query: ["schemaVersion": "rai.athlete_model/4"])
       let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: json.data())
       guard snapshot.supportsPresentation else { throw SyncFailure.invalid("unsupported_athlete_schema") }
       if !Task.isCancelled {
@@ -381,6 +381,36 @@ final class ProductModel {
   func loadAthleteHistory(metric: String) async throws -> AthleteHistoryPage {
     guard let api else { throw SyncFailure.invalid("configure_development_api_first") }
     return try await api.athleteHistory(metric: metric)
+  }
+  /// Revised running-fitness history: daily long-term line and single-run points.
+  func loadRunningFitnessHistory() async throws -> RunningFitnessHistory {
+    guard let api else { throw SyncFailure.invalid("configure_development_api_first") }
+    return try await api.runningFitnessHistory()
+  }
+  /// The last re-analysis this device requested (status is read from the server).
+  var fitnessReanalysis: RunningFitnessReanalysis?
+  var fitnessReanalysisError: String?
+  /// Asks the server to recompute running fitness with the active algorithm,
+  /// either for some runs or for a local date range. Nothing is reported as
+  /// finished until the server says so.
+  func requestFitnessReanalysis(workoutIDs: [String] = [], from: String? = nil, to: String? = nil) async {
+    guard let api else {
+      fitnessReanalysisError = "请先连接服务器。"
+      return
+    }
+    let key = "ios-" + UUID().uuidString.lowercased()
+    do {
+      fitnessReanalysis = try await api.requestRunningFitnessReanalysis(workoutIDs: workoutIDs, from: from, to: to, key: key)
+      fitnessReanalysisError = nil
+    } catch let failure as UploadError {
+      fitnessReanalysisError = failure.code == "not_product_activated" ? "跑力尚未启用。" : "重算请求未被接受，请稍后重试。"
+    } catch {
+      fitnessReanalysisError = "重算请求失败，请稍后重试。"
+    }
+  }
+  func refreshFitnessReanalysis() async {
+    guard let api, let id = fitnessReanalysis?.operationID else { return }
+    if let op = try? await api.runningFitnessReanalysis(id: id) { fitnessReanalysis = op }
   }
   func loadAthleteDiagnostics() async {
     guard let api, let assignment = data.athlete?.assignment else {

@@ -507,24 +507,19 @@ final class ModelStackLiveUITests: XCTestCase {
     let card = app.descendants(matching: .any).matching(identifier: "model.card").firstMatch
     for _ in 0..<3 where !card.exists { app.swipeDown() }
     XCTAssertTrue(card.waitForExistence(timeout: 10))
-    let running = app.descendants(matching: .any).matching(identifier: "runningAbility.entry").firstMatch
+    let running = app.descendants(matching: .any).matching(identifier: "runningFitness.entry").firstMatch
     for _ in 0..<4 where !running.isHittable { app.swipeDown() }
     XCTAssertTrue(running.waitForExistence(timeout: 10))
     running.tap()
-    XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "runningAbility.score").firstMatch.waitForExistence(timeout: 15))
-    let zones = app.descendants(matching: .any).matching(identifier: "runningAbility.zones").firstMatch
-    for _ in 0..<4 where !zones.exists { app.swipeUp() }
-    XCTAssertTrue(zones.waitForExistence(timeout: 10))
-    let predictions = app.descendants(matching: .any).matching(identifier: "runningAbility.predictions").firstMatch
-    for _ in 0..<3 where !predictions.exists { app.swipeUp() }
-    XCTAssertTrue(predictions.waitForExistence(timeout: 10))
-    let diagnostics = app.descendants(matching: .any).matching(identifier: "runningAbility.diagnostics").firstMatch
-    for _ in 0..<4 where !diagnostics.exists { app.swipeUp() }
-    XCTAssertTrue(diagnostics.waitForExistence(timeout: 15))
-    let diagnosticRow = app.descendants(matching: .any)
-      .matching(identifier: "runningAbility.diagnostic.running_ability_maximal_v2").firstMatch
-    XCTAssertTrue(diagnosticRow.waitForExistence(timeout: 10), app.debugDescription)
-    XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "runningAbility.history").firstMatch.exists)
+    XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "runningFitness.score").firstMatch.waitForExistence(timeout: 15))
+    for identifier in ["runningFitness.dimensions", "runningFitness.predictions", "runningFitness.zones", "runningFitness.diagnostics"] {
+      let element = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+      for _ in 0..<4 where !element.exists { app.swipeUp() }
+      XCTAssertTrue(element.waitForExistence(timeout: 15), identifier)
+    }
+    let fitnessHistory = app.descendants(matching: .any).matching(identifier: "runningFitness.history").firstMatch
+    for _ in 0..<3 where !fitnessHistory.exists { app.swipeUp() }
+    XCTAssertTrue(fitnessHistory.exists)
     app.navigationBars.buttons.element(boundBy: 0).tap()
 
     app.tabBars.buttons["运动"].tap()

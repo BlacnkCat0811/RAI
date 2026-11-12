@@ -273,47 +273,14 @@ func TestBoundedStateRebuildEqualsFresh(t *testing.T) {
 	}
 }
 
-// 1.4: an HR-less run is approximated from pace with the athlete's own
-// calibration; without calibration or v60 it stays unknown.
-func TestPaceApproximation(t *testing.T) {
-	s := watchTrace(3600, steady(150))
-	s.Distance = ptr(3600 * 3.2)
-	hr := boundedLoad(t, s, reference(50, 190))
+// Running fitness v1 retired the v60 pace approximation: an HR-less run keeps
+// an unknown load instead of a load derived from an ability estimate.
+func TestHRLessRunStaysUnknown(t *testing.T) {
 	noHR := watchTrace(3600, func(int) (float64, bool) { return 0, false })
 	noHR.Distance = ptr(3600 * 3.2)
 	r := boundedLoad(t, noHR, reference(50, 190))
-	if r.Load != nil || !slices.Contains(r.ReasonCodes, "missing_hr") {
-		t.Fatalf("fixture: %v", r.ReasonCodes)
-	}
-	f := input(t, noHR).Feature
-	intensity, ok := PaceIntensity(input(t, s).Feature, 4)
-	if !ok {
-		t.Fatal("intensity")
-	}
-	ratios := []float64{}
-	for i := 0; i < 5; i++ {
-		ratios = append(ratios, *hr.Load/intensity)
-	}
-	if _, ok := CalibratePace(ratios[:4]); ok {
-		t.Fatal("four calibration runs must not suffice")
-	}
-	k, ok := CalibratePace(ratios)
-	if !ok || !ApplyPaceApproximation(&r, f, 4, k) {
-		t.Fatal("approximation not applied")
-	}
-	close(t, *r.Load, *hr.Load, 1e-6)
-	if r.QualityTier != TierApproximate || r.Quality != "partial" || r.Confidence != PaceConfidence || r.Status != "available" {
-		t.Fatalf("approximation identity %+v", r)
-	}
-	sum := 0.0
-	for _, d := range r.Days {
-		sum += *d.Load
-	}
-	close(t, sum, *r.Load, 1e-9)
-	// A reference problem is never papered over by pace.
-	missingRef, _ := CalculateTrainingLoadV2(V2Input{WorkoutInput: input(t, noHR)}, 1)
-	if ApplyPaceApproximation(&missingRef, f, 4, k) {
-		t.Fatal("reference_missing approximated")
+	if r.Load != nil || !slices.Contains(r.ReasonCodes, "missing_hr") || r.QualityTier != TierUnknown {
+		t.Fatalf("HR-less load must stay unknown: %+v", r)
 	}
 }
 

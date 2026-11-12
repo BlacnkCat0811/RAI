@@ -21,7 +21,9 @@ type athleteDiagnosticsReader interface {
 	ReadAthleteDiagnostics(context.Context, syncing.Principal, time.Time) (diag.ProductSnapshot, error)
 }
 
-var athleteMetrics = map[string]bool{"trainingReadiness": true, "physiologicalRecovery": true, "trainingLoad": true, "runningAbility": true, "raiVO2Max": true, "externalVO2Max": true, "sessionRecovery": true, "loadFocus": true, "abilityEstimate": true}
+// runningAbility and abilityEstimate remain accepted names so retired clients
+// receive 409 model_version_unsupported instead of an invalid-metric error.
+var athleteMetrics = map[string]bool{"trainingReadiness": true, "physiologicalRecovery": true, "trainingLoad": true, "runningAbility": true, "raiVO2Max": true, "externalVO2Max": true, "sessionRecovery": true, "loadFocus": true, "abilityEstimate": true, "runningFitness": true}
 
 func (a *API) athleteProduct(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
 	rd, ok := a.store.(athleteModelReader)
@@ -29,12 +31,20 @@ func (a *API) athleteProduct(w http.ResponseWriter, r *http.Request, p syncing.P
 		return syncing.Fail(503, "athlete_model_unavailable")
 	}
 	q := r.URL.Query()
-	if len(q) > 1 || len(q) == 1 && (len(q["schemaVersion"]) != 1 || q.Get("schemaVersion") != am.Schema3) {
+	if len(q) > 1 || len(q) == 1 && (len(q["schemaVersion"]) != 1 || q.Get("schemaVersion") != am.Schema3 && q.Get("schemaVersion") != am.Schema4) {
 		return syncing.Fail(422, "invalid_athlete_query")
 	}
 	var snapshot am.AthleteModelSnapshot
 	var err error
-	if q.Get("schemaVersion") == am.Schema3 {
+	if q.Get("schemaVersion") == am.Schema4 {
+		v4, ok := a.store.(interface {
+			ReadAthleteProductV4(context.Context, syncing.Principal, time.Time) (am.AthleteModelSnapshot, error)
+		})
+		if !ok {
+			return syncing.Fail(503, "athlete_model_unavailable")
+		}
+		snapshot, err = v4.ReadAthleteProductV4(r.Context(), p, time.Now().UTC())
+	} else if q.Get("schemaVersion") == am.Schema3 {
 		v3, ok := a.store.(interface {
 			ReadAthleteProductV3(context.Context, syncing.Principal, time.Time) (am.AthleteModelSnapshot, error)
 		})

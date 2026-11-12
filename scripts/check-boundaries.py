@@ -30,7 +30,7 @@ for dependency in algorithms.get('Imports', []):
         raise SystemExit('FAIL: training core reaches I/O: ' + dependency)
 print('PASS: pure training domain excludes database, network and filesystem')
 
-for domain in ('workoutfeatures', 'workoutdomain', 'trainingload', 'performance'):
+for domain in ('workoutfeatures', 'workoutdomain', 'trainingload', 'runfitness'):
     package = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/' + domain], cwd=root, text=True))
     for dependency in package.get('Imports', []):
         if dependency.startswith(('rai/server/internal/storage', 'rai/server/internal/admin', 'rai/server/internal/workoutdetail', 'github.com/jackc/', 'net', 'os', 'database/', 'math/rand')):
@@ -38,22 +38,30 @@ for domain in ('workoutfeatures', 'workoutdomain', 'trainingload', 'performance'
     for source in (root / 'internal' / domain).glob('*.go'):
         if source.name.endswith('_test.go'):
             continue
-        if 'time.Now(' in source.read_text() or 'rand.' in source.read_text() or (domain in ('trainingload', 'performance') and 'time.LoadLocation(' in source.read_text()):
+        if 'time.Now(' in source.read_text() or 'rand.' in source.read_text() or (domain in ('trainingload', 'runfitness') and 'time.LoadLocation(' in source.read_text()):
             raise SystemExit('FAIL: feature foundation reads ambient state: ' + str(source))
 print('PASS: feature foundation excludes I/O, presentation, randomness and system clock')
 
-# M3 cannot acquire a hidden dependency on load, VO2, recovery or raw samples.
-performance = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/performance'], cwd=root, text=True))
-for dependency in performance.get('Imports', []):
-    if dependency.startswith('rai/server/internal/') and dependency != 'rai/server/internal/workoutfeatures':
-        raise SystemExit('FAIL: performance consumes a non-feature model: ' + dependency)
-for source in (root / 'internal/storage/postgres').glob('performance_*.go'):
+# Running fitness v1 consumes only neutral Workout features: no load, VO2,
+# recovery, readiness, storage or the retired running-ability code.
+runfitness = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/runfitness'], cwd=root, text=True))
+for dependency in runfitness.get('Imports', []):
+    if dependency.startswith('rai/server/internal/') and dependency not in ('rai/server/internal/workoutfeatures', 'rai/server/internal/workoutdomain'):
+        raise SystemExit('FAIL: runfitness consumes a non-feature model: ' + dependency)
+print('PASS: runfitness consumes only neutral Workout features; no VO2/load/recovery dependency')
+
+# The retired v60 running ability must not come back through any production path.
+import re
+for source in (root / 'internal').rglob('*.go'):
     if source.name.endswith('_test.go'):
         continue
     text = source.read_text()
-    if any(table in text for table in ('health_samples', 'route_points', 'series_chunks', 'analysis_load_ledger')):
-        raise SystemExit('FAIL: M3 reads raw signals/load: ' + str(source))
-print('PASS: performance consumes only M1 features; no M2/VO2/raw-history dependency')
+    if 'rai/server/internal/performance"' in text or 'rai/server/internal/runningability"' in text:
+        raise SystemExit('FAIL: production code imports the retired running ability: ' + str(source))
+    code = re.sub(r'//[^\n]*|"(?:[^"\\\n]|\\.)*"|`[^`]*`', '', text)
+    if re.search(r'\b[vV]60\w*\b|\w*V60\b', code):
+        raise SystemExit('FAIL: production code uses the retired v60 identifier: ' + str(source))
+print('PASS: no production import of retired running-ability packages and no v60 identifier')
 
 external = json.loads(subprocess.check_output(['go','list','-json','./internal/vo2maxexternal'],cwd=root,text=True))
 for dependency in external.get('Imports', []):
@@ -108,7 +116,7 @@ if any(x in reader for x in ('.Calculate(', 'loadRecoveryInput(', 'loadReadiness
     raise SystemExit('FAIL: unified reader recalculates/loads raw model inputs')
 print('PASS: M7 typed projection is pure; reader only validates/Freshens/maps; httpapi is the only candidate-product transport and legacy analysis consumers are unchanged')
 
-for domain in ('sessionrecovery', 'runningability'):
+for domain in ('sessionrecovery',):
     package = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/' + domain], cwd=root, text=True))
     for dependency in package.get('Imports', []):
         if dependency.startswith(('rai/server/internal/', 'github.com/', 'net', 'os', 'database/', 'math/rand')):
@@ -116,4 +124,4 @@ for domain in ('sessionrecovery', 'runningability'):
     for source in (root/'internal'/domain).glob('*.go'):
         if not source.name.endswith('_test.go') and any(x in source.read_text() for x in ('time.Now(', 'time.LoadLocation(', 'rand.')):
             raise SystemExit('FAIL: '+domain+' reads ambient state')
-print('PASS: session recovery and running ability selection are pure independent DTO consumers')
+print('PASS: session recovery is a pure independent DTO consumer')

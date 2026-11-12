@@ -412,8 +412,11 @@ func TestModelStackDayCachesWorkoutResults(t *testing.T) {
 	// The detail says whether the active stack admits the run, and why not.
 	q := d.ModelQualification
 	known := map[string]bool{"eligible": true, "conditional": true, "ineligible": true}
-	if q == nil || q.TrainingLoad.Status != "eligible" || !known[q.RunningAbility.Status] || q.RunningAbility.ReasonCodes == nil || q.TrainingLoad.ReasonCodes == nil {
+	if q == nil || !known[q.TrainingLoad.Status] || q.TrainingLoad.Status != "eligible" || q.TrainingLoad.ReasonCodes == nil {
 		b, _ := json.Marshal(q)
 		t.Fatalf("workout detail qualification: %s", b)
+	}
+	if d.RunFitness != nil && d.RunFitness.Single.WorkoutID != runs[1].id {
+		t.Fatal("run fitness of another Workout attached to the detail")
 	}
 }

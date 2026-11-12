@@ -3,7 +3,10 @@
 // functions here never read a clock, database, filesystem or network.
 package workoutdetail
 
-import tl "rai/server/internal/trainingload"
+import (
+	rf "rai/server/internal/runfitness"
+	tl "rai/server/internal/trainingload"
+)
 
 // Workout is the fact-first header of the native detail page. Derived fields
 // stay nil (or analysisStatus=pending) until an analysis publication exists;
@@ -171,15 +174,27 @@ type FeatureAnalysis struct {
 }
 
 // ModelQualification says whether the active model stack admits this run as
-// running-ability evidence and as a known training load, with the reasons when
-// it does not. Status is eligible, conditional or ineligible; training load is
-// "pending" until the stack has computed this run's load (eligible = complete
-// heart-rate tier, conditional = estimated/approximate). Admission is
-// necessary, not sufficient: running ability also keeps only the fastest
-// recent efforts per duration.
+// a known training load, with the reasons when it does not. Status is
+// eligible, conditional or ineligible, or "pending" until the stack has
+// computed this run's load (eligible = complete heart-rate tier, conditional =
+// estimated/approximate). Running fitness reports per run in RunFitness.
 type ModelQualification struct {
-	RunningAbility Qualification `json:"runningAbility"`
-	TrainingLoad   Qualification `json:"trainingLoad"`
+	TrainingLoad Qualification `json:"trainingLoad"`
+}
+
+// RunFitness is this run's single-run fitness from the published day state of
+// its local day, and the comparison with the long-term snapshot before it.
+// The reference score uses the same fixed policy as the single score; it is
+// absent at cold start. The marathon-equivalent scale is never a finish-time
+// promise for this run.
+type RunFitness struct {
+	Single              rf.SingleResult `json:"single"`
+	ReferenceDailyScore *float64        `json:"referenceDailyScore"`
+	ReferenceDate       string          `json:"referenceDate,omitempty"`
+	DeltaToReference    *float64        `json:"deltaToReference"`
+	PublishedDate       string          `json:"publishedDate"`
+	AlgorithmVersion    string          `json:"algorithmVersion"`
+	RatingPolicy        string          `json:"ratingPolicy"`
 }
 type Qualification struct {
 	Status      string   `json:"status"`
@@ -187,6 +202,7 @@ type Qualification struct {
 }
 
 type Detail struct {
+	RunFitness           *RunFitness           `json:"runFitness,omitempty"`
 	LoadFocus            *tl.WorkoutFocus      `json:"loadFocus,omitempty"`
 	Workout              Workout               `json:"workout"`
 	Analysis             *FeatureAnalysis      `json:"analysis,omitempty"`

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	diag "rai/server/internal/diagnostics"
-	pf "rai/server/internal/performance"
 	tl "rai/server/internal/trainingload"
 )
 
@@ -79,19 +78,9 @@ func TestResearchProductItemRejectsContentHashMismatch(t *testing.T) {
 	}
 }
 
-func TestResearchProductItemMaximalHashesTypedPerformanceResult(t *testing.T) {
-	dataset, generation := "6a8a5d8a-0000-4000-8000-000000000004", int64(10)
-	result := pf.Result{Schema: pf.AbilitySchemaV2, DatasetID: dataset, Generation: generation, Model: pf.AbilityModel,
-		Version: pf.VersionV2, ConfigHash: pf.ConfigHashV2(), AsOf: time.Now().UnixMicro(), View: "revised",
-		EvidenceMode: pf.ModeMaximalV2, Status: "available", AnchorDay: "2026-11-08",
-		Ability: &pf.Ability{V60: 3.1, Gamma: 1, Retention: .8, Score: 61}}
-	payload, err := json.Marshal(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	item, err := researchProductItem("running_ability_maximal_v2", "model_research_v1/running_ability_maximal_v2", pf.AbilitySchemaV2,
-		pf.CurveModel, pf.VersionV2, pf.Hash(result), "2026-11-08", generation, time.Now(), jsonbRoundTrip(t, payload), dataset, "synthetic-v2")
-	if err != nil || item.Status != diag.ProductAvailable || item.Maximal == nil || item.Maximal.Score == nil || *item.Maximal.Score != 61 {
-		t.Fatalf("maximal projection item=%+v err=%v", item, err)
+func TestRetiredMaximalResearchProductIsRejected(t *testing.T) {
+	if _, err := researchProductItem("running_ability_maximal_v2", "model_research_v1/running_ability_maximal_v2", "rai.running_ability/2",
+		"rai.performance_curve", "v2", tl.Hash("x"), "2026-11-08", 1, time.Now(), []byte(`{}`), "6a8a5d8a-0000-4000-8000-000000000004", "synthetic-v2"); err == nil {
+		t.Fatal("the retired v60 research product must not project")
 	}
 }

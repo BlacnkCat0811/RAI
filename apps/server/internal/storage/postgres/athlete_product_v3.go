@@ -6,7 +6,6 @@ import (
 	"rai/server/internal/modelrelease"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
-	ra "rai/server/internal/runningability"
 	sr "rai/server/internal/sessionrecovery"
 	tl "rai/server/internal/trainingload"
 )
@@ -42,17 +41,6 @@ func projectOptimizedArtifacts(out *am.AthleteModelSnapshot, rows map[string]pub
 			}
 		}
 		out.SessionRecovery = &m
-	}
-	if a, ok := rows["estimate"]; ok {
-		var r ra.Result
-		if validHistoryArtifactForRelease("abilityEstimate", dataset, tz, a, release) && json.Unmarshal(a.Payload, &r) == nil {
-			if v, e := ra.Freshen(r, at); e == nil {
-				out.RunningAbility = am.ProjectAbilityEstimate(v, a.PublishedAt.UnixMicro(), at)
-				stampArtifact(&out.RunningAbility, a)
-			}
-		} else {
-			out.RunningAbility = am.Missing[am.RunningAbilityValue]("runningAbility", at, "technical_failure")
-		}
 	}
 	if a, ok := rows["focus"]; ok {
 		var r tl.FocusResult

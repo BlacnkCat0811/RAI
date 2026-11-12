@@ -46,12 +46,15 @@ import Testing
   @Test func unknownModelCanChangeValueShape() throws {
     let file = try #require(Bundle.module.resourceURL?.appendingPathComponent("Fixtures/AthleteModel/future_unknown.json"))
     var root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
-    var ability = try #require(root["runningAbility"] as? [String: Any])
-    ability["value"] = ["futureShape": "opaque preserved"]
-    root["runningAbility"] = ability
+    var load = try #require(root["trainingLoad"] as? [String: Any])
+    var envelope = try #require(load["envelope"] as? [String: Any])
+    envelope["modelVersion"] = "rai.training_load.hrr_integral/v99"
+    load["envelope"] = envelope
+    load["value"] = ["futureShape": "opaque preserved"]
+    root["trainingLoad"] = load
     let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONSerialization.data(withJSONObject: root))
-    #expect(snapshot.runningAbility.presentationValue == nil)
-    #expect(snapshot.runningAbility.unsupportedPayload != nil)
+    #expect(snapshot.trainingLoad.presentationValue == nil)
+    #expect(snapshot.trainingLoad.unsupportedPayload != nil)
     #expect(snapshot == (try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONEncoder().encode(snapshot))))
   }
 }
@@ -118,25 +121,40 @@ import Testing
     snapshot.runningAbility.envelope = envelope
     let copy = try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONEncoder().encode(snapshot))
     #expect(copy.runningAbility.envelope.primaryReason == nil)
-    #expect(ProductReasonText.runningAbility(modelStatus: "insufficient_long_evidence", reason: "data_stale", state: "collecting")
-      == "证据不足：需要至少 2 次 40 分钟以上的合格跑步")
-    #expect(ProductReasonText.runningAbility(modelStatus: "stale", reason: "data_stale", state: "stale") == "数据已过期")
+    #expect(ProductReasonText.runningFitness(modelStatus: "collecting", reason: nil, state: "collecting")
+      == "完成一次带心率、5 分钟以上的稳定跑步即可开始估计")
+    #expect(ProductReasonText.runningFitness(modelStatus: "stale", reason: "data_stale", state: "stale") == "数据已过期")
   }
 }
 
-@Suite struct AthleteModelV3Tests {
-  @Test func estimatesRemainExplicitAndDoNotInventEndurance() throws {
-    let file = try #require(Bundle.module.resourceURL?.appendingPathComponent("Fixtures/ModelOptimizationV3.json"))
+@Suite struct RunningFitnessV4Tests {
+  @Test func runningFitnessDecodesWithoutLocalFormulas() throws {
+    let file = try #require(Bundle.module.resourceURL?.appendingPathComponent("Fixtures/RunningFitnessV4.json"))
     let s = try JSONDecoder().decode(AthleteModelSnapshot.self, from: Data(contentsOf: file))
     #expect(s.supportsPresentation)
-    #expect(s.physiologicalRecovery.envelope.mode == "estimated")
-    #expect(s.physiologicalRecovery.presentationValue?.missingComponents == ["hrv"])
-    #expect(s.trainingReadiness.presentationValue?.range?.low == 70)
+    #expect(s.schemaVersion == "rai.athlete_model/4")
+    #expect(s.runningAbility.value == nil)
+    #expect(s.runningAbility.envelope.modelStatus.rawValue == "model_update_required")
+    let fitness = try #require(s.runningFitness?.presentationValue)
+    #expect(fitness.overall.score != nil)
+    #expect(fitness.overall.range != nil)
+    #expect(fitness.dimensions.endurance.hasRating)
+    // A prior is never shown as a measured speed or sprint rating.
+    #expect(!fitness.dimensions.speed.hasRating)
+    #expect(!fitness.dimensions.sprint.hasRating)
+    #expect(fitness.zones.zones.count == 6)
+    #expect(fitness.zones.zone("Z5")?.schedulable == false)
+    #expect(fitness.zones.zone("Z6")?.slowPaceSecondsPerKm == nil)
+    #expect(fitness.predictions.map(\.distance) == ["5k", "10k", "half", "marathon"])
+    #expect(fitness.predictions.allSatisfy { $0.predictionSupport == "prior_based" })
     #expect(s.sessionRecovery?.presentationValue?.text == "约 18–20 小时")
-    #expect(s.loadFocus?.presentationValue?.windows.first?.unknownWorkouts == 1)
-    #expect(s.runningAbility.presentationValue?.selectedMode == "submax_estimated")
-    #expect(s.runningAbility.presentationValue?.gamma == nil)
-    #expect(s.runningAbility.presentationValue?.enduranceRetention == nil)
     #expect(s == (try JSONDecoder().decode(AthleteModelSnapshot.self, from: JSONEncoder().encode(s))))
+  }
+  @Test func runnerTextAvoidsImplementationVocabulary() {
+    #expect(RunningFitnessText.pace(300) == "5′00″")
+    #expect(RunningFitnessText.raceTime(3725) == "1:02:05")
+    #expect(RunningFitnessText.dimensionStatus("lower_bound_only") == "仅已展示下限")
+    #expect(RunningFitnessText.predictionSupport("prior_based") == "理论范围")
+    #expect(RunningFitnessText.singleReason(["hr_reference_missing"]) == "缺少最大心率设置")
   }
 }

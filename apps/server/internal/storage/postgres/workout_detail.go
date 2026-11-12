@@ -46,6 +46,7 @@ type workoutDetailData struct {
 	RouteCount  int
 	RouteSealed []time.Time
 
+	RunFitness        *workoutdetail.RunFitness
 	FeatureArtifact   *workoutdetail.FeatureAnalysis
 	LoadFocus         *tl.WorkoutFocus
 	Qualification     *workoutdetail.ModelQualification
@@ -325,6 +326,9 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		return nil, err
 	}
 
+	if err = loadRunFitnessDetail(ctx, tx, p, id, d); err != nil {
+		return nil, err
+	}
 	if err = loadModelQualification(ctx, tx, p, id, d); err != nil {
 		return nil, err
 	}
@@ -713,10 +717,6 @@ func loadModelQualification(ctx context.Context, tx pgx.Tx, p syncing.Principal,
 	if json.Unmarshal(raw, &q) != nil {
 		return syncing.Fail(500, "workout_feature_invalid")
 	}
-	ability := q.Performance
-	if q.PerformanceGAP != nil {
-		ability = *q.PerformanceGAP
-	}
 	load := workoutdetail.Qualification{Status: "pending", ReasonCodes: []string{}}
 	if len(loadJSON) > 0 && string(loadJSON) != "null" {
 		var r tl.Result
@@ -734,16 +734,8 @@ func loadModelQualification(ctx context.Context, tx pgx.Tx, p syncing.Principal,
 		d.LoadFocus = r.Focus
 		load.ReasonCodes = append(load.ReasonCodes, r.ReasonCodes...)
 	}
-	d.Qualification = &workoutdetail.ModelQualification{RunningAbility: detailQualification(ability), TrainingLoad: load}
+	d.Qualification = &workoutdetail.ModelQualification{TrainingLoad: load}
 	return nil
-}
-
-func detailQualification(q wf.Qualification) workoutdetail.Qualification {
-	out := workoutdetail.Qualification{Status: q.Status, ReasonCodes: make([]string, 0, len(q.Reasons))}
-	for _, r := range q.Reasons {
-		out.ReasonCodes = append(out.ReasonCodes, string(r))
-	}
-	return out
 }
 
 func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
@@ -766,6 +758,7 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	_, distanceEvents := d.measured()
 	out.DistanceDistribution = workoutdetail.BuildDistanceDistribution(d.Start.UnixMicro(), d.End.UnixMicro(), distance, d.Observations, distanceEvents, d.HistoricalRestHR, d.HistoricalMaxHR)
 	out.ModelQualification = d.Qualification
+	out.RunFitness = d.RunFitness
 	out.LoadFocus = d.LoadFocus
 	if durationS > 0 && distance != nil && *distance > 0 {
 		out.Workout.AveragePaceSPerKm = workoutdetail.Ptr(round1(durationS / (*distance / 1000)))

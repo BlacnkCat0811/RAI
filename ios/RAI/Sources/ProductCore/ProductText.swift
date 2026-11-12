@@ -16,10 +16,10 @@ public enum ProductReasonText {
     }
   }
 
-  /// 跑力 without a curve: say what evidence is missing instead of a bare
-  /// "历史不足"/"数据已过期".
-  public static func runningAbility(modelStatus: String, reason: String?, state: String?) -> String {
-    if modelStatus == "insufficient_long_evidence" { return "证据不足：需要至少 2 次 40 分钟以上的合格跑步" }
+  /// 跑力 without a value: one qualified run with heart rate is enough to
+  /// start, so say what is missing instead of asking for long runs.
+  public static func runningFitness(modelStatus: String, reason: String?, state: String?) -> String {
+    if modelStatus == "collecting" || state == "collecting" { return "完成一次带心率、5 分钟以上的稳定跑步即可开始估计" }
     return text(for: reason, state: state)
   }
 

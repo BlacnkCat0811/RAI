@@ -6,9 +6,9 @@ import (
 	"time"
 
 	am "rai/server/internal/athletemodel"
-	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
+	rf "rai/server/internal/runfitness"
 	tl "rai/server/internal/trainingload"
 	vo2 "rai/server/internal/vo2max"
 	ve "rai/server/internal/vo2maxexternal"
@@ -28,7 +28,7 @@ func TestHistoryPointDecodesEveryV2Scalar(t *testing.T) {
 		body   any
 	}{
 		{"trainingLoad", acute, tl.Unit + "/day", tl.StateResult{Unit: tl.Unit, Days: []tl.DailyState{{Day: day, Quality: "complete", Acute: tl.KernelValue{Value: &acute}}}}},
-		{"runningAbility", ability, "score_0_100", pf.Result{AsOf: now.UnixMicro(), Status: "available", Ability: &pf.Ability{Score: ability}}},
+		{"runningFitness", ability, "score_0_100", rf.State{AsOf: now.UnixMicro(), Status: "established", Overall: rf.Overall{Score: &ability}}},
 		{"physiologicalRecovery", score, "score_0_100", rc.Result{AsOf: now.UnixMicro(), Status: "available", Score: &score}},
 		{"trainingReadiness", score, "score_0_100", rd.Result{AsOf: now.UnixMicro(), Status: "available", Score: &score}},
 		{"raiVO2Max", vo2v, vo2.Unit, vo2.Result{AsOf: now.UnixMicro(), Status: "available", Unit: vo2.Unit, Value: &vo2v}},

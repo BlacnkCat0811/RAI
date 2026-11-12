@@ -134,3 +134,27 @@ func TestRevocationRequiresTargetSchemaAndRevokesID(t *testing.T) {
 		t.Fatal("revocation without target accepted")
 	}
 }
+
+func TestEffortKindsAndAgeEstimatedColdStart(t *testing.T) {
+	now := time.Now().UTC()
+	for _, mode := range []string{"race", "threshold_test", "speed_test", "sprint_test"} {
+		r := base(now)
+		r.Kind = "workout_effort"
+		r.Payload = Payload{"workoutID": "6f9619ff-8b86-4d01-b42d-00cf4fc964ff", "mode": mode, "userConfirmed": true}
+		if _, err := Validate(r, now); err != nil {
+			t.Fatalf("%s rejected: %v", mode, err)
+		}
+	}
+	r := base(now)
+	r.Kind = "workout_effort"
+	r.Payload = Payload{"workoutID": "6f9619ff-8b86-4d01-b42d-00cf4fc964ff", "mode": "easy_run", "userConfirmed": true}
+	if _, err := Validate(r, now); err == nil {
+		t.Fatal("unknown effort kind accepted")
+	}
+	r = base(now)
+	r.Kind = "hr_reference"
+	r.Payload = Payload{"maxHR": 186.0, "measuredAt": now.Add(-time.Hour).Format(time.RFC3339), "method": "age_estimated", "unit": "bpm"}
+	if _, err := Validate(r, now); err != nil {
+		t.Fatalf("explicit age-estimated cold start rejected: %v", err)
+	}
+}

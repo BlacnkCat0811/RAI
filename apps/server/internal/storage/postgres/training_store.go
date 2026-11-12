@@ -54,6 +54,9 @@ func loadTrainingModelBinding(ctx context.Context, q trainingDB, dataset string)
 	if release, ok := modelrelease.Lookup(stack, manifest, "UTC"); ok && release.Manifest.ProductSchema == "rai.athlete_model/3" {
 		b.Model = "rai.athlete_model/3"
 		b.Adapter = "schema3-v1"
+	} else if ok && release.Manifest.ProductSchema == "rai.athlete_model/4" {
+		b.Model = "rai.athlete_model/4"
+		b.Adapter = "schema4-v1"
 	}
 	if stack == "legacy" {
 		b.Model = "rai.athlete_model/1"

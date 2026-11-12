@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const Generator = "training_plan/v2"
+const Generator = "training_plan/v3"
 const ParameterVersion = "coach_parameters/v1"
 const FeedbackVersion = "training_feedback/v1"
 const MergeVersion = "training_merge/v2"

@@ -11,7 +11,7 @@ import (
 
 const FocusSchema = "rai.load_focus/1"
 const FocusAlgorithm = "rai.load_focus"
-const FocusPolicy = "hrr-proxy.70;short-repeat3x20-120s;pre-v60x1.15;native5s;measured-grade.03;unclassified-gap;local-days/v1"
+const FocusPolicy = "hrr-proxy.70;short-repeat3x20-120s;pre-workout-v6x1.0;recovery-v6x.78;native5s;measured-grade.03;unclassified-gap;local-days/v2"
 
 type Buckets struct {
 	Low          float64 `json:"lowAerobicAU"`
@@ -42,11 +42,15 @@ type WorkoutFocus struct {
 	Reasons   []string   `json:"reasonCodes"`
 	InputHash string     `json:"inputHash"`
 }
+
+// AbilityReference is the pre-workout running-fitness speed anchor: v6 from
+// a published day state whose speed dimension had direct evidence (supported
+// or estimated). Without it short repetitions stay unclassified.
 type AbilityReference struct {
-	V60  float64 `json:"v60"`
-	At   int64   `json:"asOf"`
-	Hash string  `json:"hash"`
-	Mode string  `json:"mode"`
+	V6     float64 `json:"v6"`
+	At     int64   `json:"asOf"`
+	Hash   string  `json:"hash"`
+	Status string  `json:"speedStatus"`
 }
 
 // ClassifyLoad integrates the same clamped native HR segments as the AU
@@ -81,10 +85,10 @@ func ClassifyLoad(load Result, e wf.HRExposure, f wf.WorkoutFeatures, ref *Refer
 	}
 	precise := load.QualityTier != TierApproximate && ref != nil && ref.MaxHR > ref.RestHR && len(e.Segments) > 0
 	fast := []wf.Interval{}
-	if precise && pre != nil && pre.At < f.Timing.Start && pre.V60 > 0 && finite(pre.V60) && pre.Hash != "" && pre.Mode != "submax_estimated" && f.Structure != nil && f.Structure.Schema == wf.StructureSchema {
+	if precise && pre != nil && pre.At < f.Timing.Start && pre.V6 > 0 && finite(pre.V6) && pre.Hash != "" && (pre.Status == "supported" || pre.Status == "estimated") && f.Structure != nil && f.Structure.Schema == wf.StructureSchema {
 		var runs []wf.Interval
 		for _, s := range f.Structure.Slices {
-			if s.Speed < pre.V60*1.15 {
+			if s.Speed < pre.V6 {
 				continue
 			}
 			n := len(runs)
@@ -115,7 +119,7 @@ func ClassifyLoad(load Result, e wf.HRExposure, f wf.WorkoutFeatures, ref *Refer
 				covered := int64(0)
 				lowHR := false
 				for _, s := range f.Structure.Slices {
-					if s.Start >= prev.End && s.End <= run.Start && s.Speed < pre.V60*.9 {
+					if s.Start >= prev.End && s.End <= run.Start && s.Speed < pre.V6*.78 {
 						covered += s.End - s.Start
 						lowHR = lowHR || s.HR < ref.RestHR+.8*(ref.MaxHR-ref.RestHR)
 					}

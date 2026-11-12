@@ -51,7 +51,7 @@ func TestFocusShortRepetitionsRequirePreWorkoutReference(t *testing.T) {
 		}
 		in.Feature.Structure.Slices = append(in.Feature.Structure.Slices, wf.StructureSlice{Start: start + i*10e6, End: start + (i+1)*10e6, Speed: speed, HR: hr})
 	}
-	pre := &AbilityReference{V60: 3, At: start - 1, Hash: "prior", Mode: "demonstrated"}
+	pre := &AbilityReference{V6: 3.45, At: start - 1, Hash: "prior", Status: "estimated"}
 	f, e := ClassifyLoad(r, in.Exposure, in.Feature, ref, pre, time.UTC)
 	if e != nil || f.Buckets.Anaerobic <= 0 {
 		t.Fatal("repetition not recognized", e, f)

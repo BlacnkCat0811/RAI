@@ -2,7 +2,9 @@ package training
 
 import (
 	"math"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -64,11 +66,24 @@ func Generate(in Context) (Base, error) {
 		out.Recommendations = append(out.Recommendations, "cold_start_conservative")
 	}
 	p := in.Parameters
-	var v2Readiness, acute, chronic, v60, hrMax, hrRest *float64
-	v2 := in.ObservedModelBinding != nil && (in.ObservedModelBinding.Adapter == "schema2-v2" || in.ObservedModelBinding.Adapter == "schema3-v1")
+	var v2Readiness, acute, chronic, hrMax, hrRest *float64
+	paces := PaceTargets{}
+	adapter := ""
+	if in.ObservedModelBinding != nil {
+		adapter = in.ObservedModelBinding.Adapter
+	}
+	v2 := adapter == "schema2-v2" || adapter == "schema3-v1" || adapter == "schema4-v1"
+	newAdapter := adapter == "schema3-v1" || adapter == "schema4-v1"
 	for _, s := range in.Signals {
-		newAdapter := in.ObservedModelBinding != nil && in.ObservedModelBinding.Adapter == "schema3-v1"
 		if s.Name == "readiness" && (newAdapter && s.Version != "v4" || !newAdapter && s.Version == "v4") {
+			continue
+		}
+		// Running-fitness pace zones come only from the schema4 stack's frozen
+		// prescription; they are emitted only when the zone may be scheduled.
+		if s.Algorithm == PaceAlgorithm && s.Version == "v1" && adapter == "schema4-v1" && s.Value != nil && Finite(*s.Value) && s.Quality == "complete" {
+			if zone, ok := strings.CutPrefix(s.Name, "pace_"); ok {
+				paces[zone] = *s.Value
+			}
 			continue
 		}
 		// Only the v2 model stack feeds the plan; legacy signals were retired.
@@ -83,8 +98,6 @@ func Generate(in Context) (Base, error) {
 		switch {
 		case s.Name == "readiness" && s.Algorithm == "rai.readiness.training":
 			v2Readiness = s.Value
-		case s.Name == "v60" && s.Algorithm == "rai.running_ability":
-			v60 = s.Value
 		case s.Name == "hr_max" && s.Algorithm == "hr_reference":
 			hrMax = s.Value
 		case s.Name == "hr_rest" && s.Algorithm == "hr_reference":
@@ -97,7 +110,7 @@ func Generate(in Context) (Base, error) {
 	}
 	// Today's readiness (or an acute spike) reschedules only today's slot.
 	lowToday := (v2Readiness != nil && *v2Readiness < p.LowReadiness) || (acute != nil && chronic != nil && *chronic > 0 && *acute > *chronic*1.5)
-	if in.ObservedModelBinding != nil && in.ObservedModelBinding.Adapter == "schema3-v1" && v2Readiness != nil {
+	if newAdapter && v2Readiness != nil {
 		// The continuous recovery scale uses a separate conservative threshold.
 		// Estimated signals only take this downward path; they never add intensity.
 		lowToday = *v2Readiness < 60 || (acute != nil && chronic != nil && *chronic > 0 && *acute > *chronic*1.5)
@@ -309,7 +322,7 @@ func Generate(in Context) (Base, error) {
 				}
 			}
 			if s.Type != "RACE" {
-				setTargets(&s, v60, hrMax, hrRest)
+				setTargets(&s, paces, hrMax, hrRest)
 			}
 			if err := ValidateSession(s); err != nil {
 				return Base{}, err
@@ -318,7 +331,7 @@ func Generate(in Context) (Base, error) {
 		}
 	}
 	if lowToday {
-		if e := rescheduleToday(out.Sessions, int(asOf.Sub(start).Hours()/24+.5), v60, hrMax, hrRest); e != nil {
+		if e := rescheduleToday(out.Sessions, int(asOf.Sub(start).Hours()/24+.5), paces, hrMax, hrRest); e != nil {
 			return Base{}, e
 		}
 	}
@@ -331,7 +344,7 @@ func hardSession(t string) bool { return t == "TEMPO" || t == "INTERVAL" || t ==
 // content moves to the next EASY day of the same week whose following day is
 // not hard; that EASY day's distance becomes today's recovery run. Slot ids,
 // indices and dates stay put. Without such a day the hard content is dropped.
-func rescheduleToday(sessions []Session, today int, v60, hrMax, hrRest *float64) error {
+func rescheduleToday(sessions []Session, today int, paces PaceTargets, hrMax, hrRest *float64) error {
 	if today < 0 || today >= len(sessions) || !hardSession(sessions[today].Type) {
 		return nil
 	}
@@ -348,7 +361,7 @@ func rescheduleToday(sessions []Session, today int, v60, hrMax, hrRest *float64)
 		moved.PaceSPerKM, moved.TargetHR = nil, nil
 		moved.Reasons = append(append([]string(nil), t.Reasons...), "daily_readiness_reschedule")
 		*c = moved
-		setTargets(c, v60, hrMax, hrRest)
+		setTargets(c, paces, hrMax, hrRest)
 		if e := ValidateSession(*c); e != nil {
 			return e
 		}
@@ -357,7 +370,7 @@ func rescheduleToday(sessions []Session, today int, v60, hrMax, hrRest *float64)
 	t.Type, t.Effort, t.DurationS, t.Steps, t.DistanceM = "RECOVERY", 2, 0, nil, recovery
 	t.PaceSPerKM, t.TargetHR = nil, nil
 	t.Reasons = append(append([]string(nil), t.Reasons...), "daily_readiness_reschedule")
-	setTargets(t, v60, hrMax, hrRest)
+	setTargets(t, paces, hrMax, hrRest)
 	return ValidateSession(*t)
 }
 
@@ -365,22 +378,35 @@ func rescheduleToday(sessions []Session, today int, v60, hrMax, hrRest *float64)
 // progression (an ACWR-style guard on the v2 load state).
 const RampGuardRatio = 1.3
 
-// Target intensities per session type: speed as a fraction of the 60-minute
-// ability v60 (pace zones E/T/I), and heart rate as a fraction of heart-rate
-// reserve. Rest days get none.
-var sessionTargets = map[string]struct{ speed, hrr float64 }{
-	"EASY": {.74, .70}, "LONG": {.76, .72}, "RECOVERY": {.68, .62}, "TEMPO": {.97, .85}, "INTERVAL": {1.08, .90},
+// PaceAlgorithm is the running-fitness model whose zone paces feed the plan.
+const PaceAlgorithm = "rai.running_fitness"
+
+// PaceTargets maps a zone ("z1".."z5", "marathon") to the frozen target pace
+// in s/km of the plan's PacePrescriptionSnapshot.
+type PaceTargets map[string]float64
+
+// Session types map to running-fitness zones (section 12): E->Z2, T->Z4,
+// I->Z5, long->Z2, recovery->Z1. Heart rate stays a fraction of the
+// heart-rate reserve. Rest days get none.
+var sessionTargets = map[string]struct {
+	zone string
+	hrr  float64
+}{
+	"EASY": {"z2", .70}, "LONG": {"z2", .72}, "RECOVERY": {"z1", .62}, "TEMPO": {"z4", .85}, "INTERVAL": {"z5", .90},
 }
 
-// setTargets adds a pace target from the running ability and a heart-rate
-// target from the HR reference when they exist; it never invents either.
-func setTargets(s *Session, v60, hrMax, hrRest *float64) {
+// setTargets adds a pace target from the frozen zone paces and a heart-rate
+// target from the HR reference when they exist; it never invents either and
+// never falls back to another zone. A missing zone is recorded on the session.
+func setTargets(s *Session, paces PaceTargets, hrMax, hrRest *float64) {
 	t, ok := sessionTargets[s.Type]
 	if !ok {
 		return
 	}
-	if v60 != nil && Finite(*v60) && *v60 > 0 {
-		s.PaceSPerKM = Ptr(math.Round(1000 / (*v60 * t.speed)))
+	if v, ok := paces[t.zone]; ok && Finite(v) && v >= 120 && v <= 1800 {
+		s.PaceSPerKM = Ptr(math.Round(v))
+	} else if !slices.Contains(s.Reasons, "pace_zone_unavailable_hr_only") {
+		s.Reasons = append(s.Reasons, "pace_zone_unavailable_hr_only")
 	}
 	if hrMax != nil && hrRest != nil && Finite(*hrMax) && Finite(*hrRest) && *hrMax > *hrRest && *hrRest > 0 {
 		s.TargetHR = Ptr(math.Round(*hrRest + t.hrr*(*hrMax-*hrRest)))

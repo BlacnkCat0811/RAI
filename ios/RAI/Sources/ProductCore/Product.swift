@@ -136,7 +136,7 @@ public actor ProductAPI {
     await withTaskGroup(of: (String, Result<JSON, any Error>).self) { group in
       for (key, path) in reads {
         group.addTask { [self] in
-          do { return (key, .success(try await get(path, query: key == "athlete" ? ["schemaVersion": "rai.athlete_model/3"] : [:]))) } catch { return (key, .failure(error)) }
+          do { return (key, .success(try await get(path, query: key == "athlete" ? ["schemaVersion": "rai.athlete_model/4"] : [:]))) } catch { return (key, .failure(error)) }
         }
       }
       for await (key, result) in group { results[key] = result }
@@ -177,6 +177,29 @@ public actor ProductAPI {
     let raw = try await get("/v2/analysis/athlete/history", query: query)
     return try JSONDecoder().decode(AthleteHistoryPage.self, from: raw.data())
   }
+  /// The revised daily history of running fitness (newest first).
+  public func runningFitnessHistory(from: String? = nil, to: String? = nil, cursor: String? = nil) async throws -> RunningFitnessHistory {
+    var query = ["view": "revised", "limit": "90"]
+    if let from { query["from"] = from }
+    if let to { query["to"] = to }
+    if let cursor { query["cursor"] = cursor }
+    let raw = try await get("/v2/analysis/running-fitness/history", query: query)
+    return try JSONDecoder().decode(RunningFitnessHistory.self, from: raw.data())
+  }
+  /// Asks the server to recompute running fitness with the active algorithm.
+  /// The same key always returns the same operation; 202 only means queued.
+  public func requestRunningFitnessReanalysis(workoutIDs: [String] = [], from: String? = nil, to: String? = nil, key: String) async throws -> RunningFitnessReanalysis {
+    var body: [String: JSON] = ["view": .string("revised"), "referencePolicy": .string("current_effective"), "algorithmVersion": .string("v1")]
+    if !workoutIDs.isEmpty { body["workoutIDs"] = .array(workoutIDs.map { .string($0.lowercased()) }) }
+    if let from { body["from"] = .string(from) }
+    if let to { body["to"] = .string(to) }
+    let raw = try await request("POST", "/v2/analysis/running-fitness/reanalyses", body: JSON.object(body).data(), headers: ["Idempotency-Key": key])
+    return try JSONDecoder().decode(RunningFitnessReanalysis.self, from: raw.data())
+  }
+  public func runningFitnessReanalysis(id: String) async throws -> RunningFitnessReanalysis {
+    let raw = try await get("/v2/analysis/running-fitness/reanalyses/" + id)
+    return try JSONDecoder().decode(RunningFitnessReanalysis.self, from: raw.data())
+  }
   public func athleteDiagnostics() async throws -> AthleteDiagnostics {
     let raw = try await get("/v2/analysis/athlete/diagnostics")
     return try JSONDecoder().decode(AthleteDiagnostics.self, from: raw.data())
@@ -192,10 +215,10 @@ public actor ProductAPI {
     try await request("POST", path, body: body.data())
   }
   private func request(
-    _ method: String, _ path: String, body: Data? = nil, query: [String: String] = [:]
+    _ method: String, _ path: String, body: Data? = nil, query: [String: String] = [:], headers: [String: String] = [:]
   ) async throws -> JSON {
     for attempt in 0..<4 {
-      do { return try await client.call(method, path, body: body, query: query) } catch let error
+      do { return try await client.call(method, path, body: body, query: query, headers: headers) } catch let error
         as UploadError where error.status == 429 && attempt < 3
       {
         try await Task.sleep(for: .seconds(max(1, error.retryAfter ?? 2)))

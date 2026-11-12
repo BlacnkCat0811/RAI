@@ -8,6 +8,9 @@
 
 - 当前架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 模型核查与优化方案：[准备度、恢复、跑力与负荷对照](docs/ARCHITECTURE.md#模型对照核查与优化实施方案已实施)（已实施，schema3 栈已于 2026-11-11 部署并激活）
+- 跑力 v1：[单次／长期跑力、四项能力、分距离预测、六区间与历史重算](docs/ARCHITECTURE.md#模型v2-日模型栈schema4-产物)，
+  按 [跑力系统重设计方案](RAI-跑力系统重设计方案-2026-11-12.md) 实现于 schema4 栈（迁移 57）；尚未部署、未激活，
+  参数均为未经真实数据校准的 RAI v1 设计值
 - 接口清单：[docs/API.md](docs/API.md)
 - 工程约定：[AGENTS.md](AGENTS.md)
 - 原始设计方案：[RAI-Go-PostgreSQL架构重设计与实施方案.md](RAI-Go-PostgreSQL架构重设计与实施方案.md)（保留原文）
@@ -33,8 +36,8 @@ scripts/local/test.sh gate           # 完成门禁：race + vet + 边界 + admi
 模型发布兼容性回归（全部使用合成数据，在本机隔离 PostgreSQL 18 执行）：
 
 ```bash
-scripts/local/test.sh integration -run '^Test(ModelRelease|ModelStackDay|DailyPageInvalidates|DailyHistoryPage|ModelOptimization)' ./integration
-scripts/local/test.sh swift --filter 'AthleteRefreshTests|AthleteModel|RunningAbilityDerived|WorkoutDetail'
+scripts/local/test.sh integration -run '^Test(ModelRelease|ModelStackDay|DailyPageInvalidates|DailyHistoryPage|RunningFitness)' ./integration
+scripts/local/test.sh swift --filter 'AthleteRefreshTests|AthleteModel|RunningFitness|WorkoutDetail'
 ```
 
 上述定向检查不替代 `gate`，也不代表已完成真机或线上验收。

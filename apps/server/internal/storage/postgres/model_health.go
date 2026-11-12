@@ -9,6 +9,7 @@ import (
 
 	"rai/server/internal/analysis"
 	"rai/server/internal/modelmanifest"
+	rf "rai/server/internal/runfitness"
 	"rai/server/internal/syncing"
 
 	"github.com/jackc/pgx/v5"
@@ -44,8 +45,8 @@ type WorkoutHealth struct {
 	LoadReasons        HealthCounts `json:"loadReasonCodes"`
 	HRCoverage         HealthCounts `json:"hrCoverage"`
 	HRMaxGap           HealthCounts `json:"hrMaxGapSeconds"`
-	Performance        HealthCounts `json:"performanceQualification"`
-	PerformanceReasons HealthCounts `json:"performanceReasonCodes"`
+	Performance        HealthCounts `json:"runFitnessSingleStatus"`
+	PerformanceReasons HealthCounts `json:"runFitnessReasonCodes"`
 	VO2                HealthCounts `json:"vo2Qualification"`
 	VO2Reasons         HealthCounts `json:"vo2ReasonCodes"`
 	StableSourceSets   int          `json:"distinctStableSourceSets"`
@@ -73,7 +74,7 @@ type ModelStackHealth struct {
 // healthArtifacts spans both product schemas: the six v2 families plus the
 // three families introduced by the schema3 stack, so an activated schema3
 // channel reports the same before/after coverage as a v2 one.
-var healthArtifacts = []string{"load_state", "physiological_recovery", "training_readiness", "performance_state_v2", "vo2max_submax", "vo2max_external_projection", "session_recovery", "running_ability_estimate", "load_focus"}
+var healthArtifacts = []string{"load_state", "physiological_recovery", "training_readiness", "running_fitness", "vo2max_submax", "vo2max_external_projection", "session_recovery", "load_focus"}
 
 func coverageBucket(v float64) string {
 	switch {
@@ -243,7 +244,7 @@ func workoutHealth(ctx context.Context, tx pgx.Tx, out *ModelStackHealth, datase
 	if err != nil {
 		return err
 	}
-	_, _, resolutions, _ := stackAnnotations(inputs, now)
+	_, resolutions, _ := stackAnnotations(inputs, now)
 	_, ambiguous := stackOverlap(workouts, resolutions, now)
 	restingHR, err := stackRestingHRFacts(ctx, tx, dataset, first.AddDate(0, 0, -30), now, now)
 	if err != nil {
@@ -270,9 +271,11 @@ func workoutHealth(ctx context.Context, tx pgx.Tx, out *ModelStackHealth, datase
 		f := x.feature
 		w.HRCoverage.add(coverageBucket(f.HeartRate.ReconstructedCoverage))
 		w.HRMaxGap.add(gapBucket(f.HeartRate.MaxGap))
-		w.Performance.add(f.Qualification.Performance.Status)
-		for _, c := range f.Qualification.Performance.Reasons {
-			w.PerformanceReasons.add(string(c))
+		ref, conflict := fitnessReference(r.ref, r.refConflict)
+		single := rf.Single(rf.SingleInput{WorkoutID: x.id, Start: x.start, End: x.end, Features: f.RunFitness, Reference: ref, ReferenceConflict: conflict})
+		w.Performance.add(single.Status)
+		for _, c := range single.Reasons {
+			w.PerformanceReasons.add(c)
 		}
 		w.VO2.add(f.Qualification.VO2.Status)
 		for _, c := range f.Qualification.VO2.Reasons {

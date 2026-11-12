@@ -57,12 +57,14 @@
 旧分析链路（`analysis.workout` / `training_state` TRIMP、v1 候选模型任务、`analysis.sample`/`series`）已在服务端删除
 （迁移 53）；`trainingload`、`recovery`、`readiness`、`performance` 包内 v1 纯函数保留为冻结基线及其测试，不再被任何任务调用。
 
-## 模型（v2 日模型栈，schema3 产物）
+## 模型（v2 日模型栈，schema4 产物）
 
 `analysis.model_stack_v2` 每个自然日一个任务（`storage/postgres/model_stack_inputs.go` `computeModelStackDay`），
-读取近 186 天跑步与日健康事实，在同一事务里发布九项核心产物：负荷状态、跑力（demonstrated）、
-RAI VO2、外部 VO2、生理恢复 v3、训练准备度 v4、课次恢复 v1、跑力估计 v1、负荷焦点 v1
-（后三项为 `model_product_v3/` 族），另发布确认全力跑力等研究产物。身份由 `modelmanifest.Current()` 的哈希（`StackID`）决定；
+读取近 186 天跑步与日健康事实，在同一事务里发布八项核心产物：负荷状态、跑力 v1（`running_fitness`）、
+RAI VO2、外部 VO2、生理恢复 v3、训练准备度 v4、课次恢复 v1、负荷焦点 v1（后两项为 `model_product_v3/` 族），另发布研究产物。
+当前构建为 schema4 栈（跑力 v1，迁移 57）；旧 v60 跑力（`performance`、`runningability` 包、三分支、旧门槛、旧评分、iOS 本地推算）
+已从运行链路删除，下文“跑力 v1”为现行规则。以下关于 schema3 栈部署与激活的记录描述的是部署时的状态：
+schema4 栈尚未部署、未激活，激活仍须按既有授权流程执行。身份由 `modelmanifest.Current()` 的哈希（`StackID`）决定；
 算法或策略变化即新 stack，需要用 `rai analysis model-stack` 的 `prepare-real` / `activate-real`
 （回滚 `rollback-real`）切换，旧 stack 结果保留。当前构建的 schema3 栈
 `rai-v2-4b9264855a47255d` 已于 2026-11-11 部署（迁移 56）并以所有者授权在唯一数据集上激活：`active` 通道指向该栈，
@@ -118,13 +120,42 @@ RAI VO2、外部 VO2、生理恢复 v3、训练准备度 v4、课次恢复 v1、
   即停止；估计模式总分上限 75、支持上限 0.40、无正向奖励。三晚持续偏离用各晚当时基线记录，滚动基线适应
   不会立即消除提示。评估日墓碑仍乘 0.7 置信度并记 `input_deleted`；墓碑只排除被删事实，不阻断出分，
   全部进入 `TombstoneRefs` 与输入哈希。`deviationLevel` 三档保留（<70 轻度、<50 明显，持续偏离升档）。
-- **跑力 v2.2（已展示分支）**：性能窗口用 Minetti 坡度代价换算为平地等效速度（坡度 ≤8%），不再要求 90% 平路；
+- **跑力 v1（`internal/runfitness`，`running_fitness` 产物）**：按《RAI-跑力系统重设计方案-2026-11-12》实现的纯 Go 模块，只消费
+  中性跑步特征（`workoutfeatures` 的 `runFitness`：适应期 120 秒／恢复后 90 秒之后确定性贪心切分的 180 秒片段，15 秒中位数心率、
+  10 秒均值速度、速度 CV、心率趋势、Minetti 平地速度；≥3 个持续跑动快慢周期合计 ≥600 秒的 `cycle_averaged` 片段；
+  60/90/120 秒（原生速度间隔 ≤5 秒）与 3–40 分钟最快窗口；连续 ≥60 分钟长跑的 15 分钟块；15 秒持续峰值心率），
+  不读取 VO2、负荷或恢复结果，不读时钟。
+  - **单次跑力**：每个合格片段 `r=(HR−静息)/(最大−静息)`，`A=v_flat×(0.70/r)`；核心域 0.50–0.85，0.40–0.50 低强度代理（×0.7）、
+    0.85–0.92 高强度边缘（×0.6，最高 limited），>0.92 只作已展示下界，r>1 隔离并记 `hr_reference_exceeded`；速度 ≥1.4 m/s、
+    覆盖 ≥90%（70–90% 仅诊断）、CV ≤8%、心率趋势 ≤2 bpm/min、坡度 ≤5%（5–8% 只作坡地表现）、距离交叉核对 ≤5%。
+    权重 = 覆盖×来源×稳态×条件×漂移（累计跑动 60 分钟后 ×0.5）；对 ln A 取加权中位数。分数为马拉松等效刻度
+    `100×ln(28800/T_M)/ln4`（rT=0.85、tT=2400 秒、bL=1.10 固定），并给出测量敏感性范围（静息 ±5、最大 ±10 bpm，年龄估计 ±12；
+    速度 ±2%，坡度未知或跑步机 ±8%）与能力敏感性范围。≥180 秒合格净支持为 limited，≥600 秒且平路、距离核对、实测最大心率为 supported。
+    确认比赛／阈值测试／速度测试按中性曲线折算 `race_equivalent`；冲刺测试提供 v90s。天气：<5℃ 或 >25℃ ×0.7、湿度 >85% ×0.8、
+    缺天气 ×0.8；0℃ 以下、30℃ 以上不上调长期能力。跑步机 limited，长期权重 ×0.5。观测峰值高于最大心率只给 `hrMaxSuggestion`。
+  - **长期跑力**：日常证据 42 个本地日（τ=21 天，末 7 天线性收尾），比赛／测试 90 天（τ=42 天，末 14 天收尾，预算 2）；同日训练按
+    分钟分配“分钟加权质量×min(总分钟/20,1)”的日预算，拆成两条记录不增加支持；同一训练的心率与成绩证据各半共用预算。
+    唯一估计器是 bL 网格（1.02–1.25，步长 0.001）上的有界 Huber IRLS 联合拟合（ln A、阈值关系偏差、短时形状偏差），
+    阈值与短时形状、bL 先验始终作为惩罚项，比赛成绩连续收缩，无硬切换；无确认成绩时与 A 的 Huber 位置逐位一致。
+    普通训练最快窗口只作单边下界。跑步机、坡度未知、极端天气证据只能建立值、不能抬高已有值。阶段：1 天 initial，
+    ≥3 天跨 ≥7 天 preliminary，≥8 天跨 ≥21 天 established；时效 ≤14 天 fresh、≤28 aging、≤42 stale（停止自动配速）、只剩比赛
+    `race_only`。established 时逐日留一，最近一天导致总分变动 >5 或锚点 >10% 且非可靠比赛时记 `change_unconfirmed` 并半权重。
+  - **四维与预测**：有氧耐力 A（附 retention、bL）、阈值 vT、速度 v6、冲刺 v90s，评分 `50+55×log2(x/x_ref)`，有氧评分恒等于
+    `referenceDailyScore`；只有直接证据才给评分，先验与下限显示为待补充。两段曲线（6–40 分钟 v6↔vT 对数插值，>40 分钟
+    `vT×(t/2400)^(1/bL−1)`）给 5K/10K/半马/全马（二分到 0.1 秒内，定义域外 unsupported），范围为 A、阈值、形状与 bL 的确定性角点；
+    `predictionSupport` 为 direct/calibrated/prior_based/insufficient；全马建议目标需 56 天内 ≥2 次 ≥90 分钟长跑且有长距离校准。
+  - **六区间**：B0–B2 为 `A×(r/0.70)` 在 0.40/0.55/0.70，B3/B4 为 0.95/1.03×vT，B5 为 3 分钟等效速度，B6 为 v90s；
+    B3≤B2 时 Z3 返回 `zone_anchor_conflict` 留空；Z5 三级（直接证据+已识别形状 supported、直接证据+先验 estimated 取慢端、
+    由 vT 先验推出 prior_based 不排课）；Z6 需直接冲刺证据且不用于自动排课。比赛配速参考取各距离预测，只有 direct/calibrated 可排课。
+  - **发布**：单次结果、长期状态、四维、预测、区间写在同一 `running_fitness` 产物，与当天其他产物同一 generation。参数、窗口均为
+    待验证的 RAI v1 设计参数，未经人体数据校准。
+- **跑力 v2.2（已退出，仅审计）**：性能窗口用 Minetti 坡度代价换算为平地等效速度（坡度 ≤8%），不再要求 90% 平路；
   每个时长只取最快 3 条训练做中位数拟合，其余标为 `below_envelope`。读取投影 `Freshen` 只对曾有曲线的结果在证据满
   28 天时改为 `stale`、满 42 天时改为 `insufficient_data`；从未有曲线的 `insufficient_long_evidence` / `collecting`
   保持原状态，只更新 `freshness` 并追加 `stale` / `evidence_expired` 原因，产品状态显示“积累中”而不是“已过期”。
   运动详情的 `modelQualification` 给出每次跑步是否被采用为跑力证据和已知负荷及原因。
   产品同时展示精确积累进度：有效训练/5、跨度/14 天、短窗口/2、长窗口/2、目标日/3。
-- **跑力估计 v1（`running_ability_estimate`）**：纯模块 `internal/runningability` 独立保存三类证据分支
+- **跑力估计 v1（`running_ability_estimate`，已退出，仅审计）**：纯模块 `internal/runningability` 独立保存三类证据分支
   （demonstrated / maximal_supported / submax_estimated），不导入 performance 或 VO2。亚极量分支只消费
   产品合格的 RAI VO2（非 CandidateOnly、LOO 支持、稳定、≥4 次证据、敏感性宽度 ≤30%、证据 ≤14 天），
   按 `v60 = (VO2-3.5)×f60/12` 推算；`f60` 未个体校准时取群体先验 0.85（范围 0.75–0.92，标 `population_prior`，
@@ -137,7 +168,7 @@ RAI VO2、外部 VO2、生理恢复 v3、训练准备度 v4、课次恢复 v1、
   并保留冲突，不自动取高值。无心率负荷标定仍只用 demonstrated v60，估计跑力不回灌负荷。
 - **负荷焦点 v1（`load_focus`）**：在与 AU 账本相同的规范化心率时间线上积分分桶，低有氧（HRR<0.70 代理界）、
   高有氧、无氧候选、未分类四桶守恒（误差 ≤1e-8×max(1,AU)）。无氧候选只识别可解释短重复：≥3 段 20–120s、
-  速度 ≥训练前 demonstrated v60×1.15、段间有低速低心率恢复，且来自 10 秒结构切片（原生 5s 分辨率、
+  速度 ≥训练前已发布跑力状态中有直接证据的 v6（速度维度 supported/estimated；缺 v6 时只记未分类）、段间有低于 0.78×v6 的低速低心率恢复，且来自 10 秒结构切片（原生 5s 分辨率、
   实测坡度 ≤3%）；持续高心率不判无氧。只有均值心率或配速估算的负荷进未分类；负荷未知时 AU 保持 null，
   独立报告未知训练数。7/28 天窗口按本地自然日汇总（跨午夜按训练时间切分），分母注明“已知负荷”，
   给出可分类覆盖率。第一阶段只作事实性描述，不给目标建议；与计划刺激标签解耦。单次分桶随
@@ -145,8 +176,7 @@ RAI VO2、外部 VO2、生理恢复 v3、训练准备度 v4、课次恢复 v1、
 - **RAI VO2**：窗口平均坡度 ≤5% 时按同一坡度代价换算；0–30 °C 内保留证据，5–25 °C 外权重 ×0.7，湿度 >85% ×0.8。
 - **Apple VO2**：来源选择按稳定来源身份匹配（`VO2Provenance.StableEpochID`），系统升级不需要重新选择；App 从
   `/v2/analysis/vo2max-sources` 列表中选择。
-- **无心率负荷**：心率缺失或覆盖不足的跑步，在有跑力 v60 且近 90 天有 ≥5 条完整心率负荷可标定时，按
-  `k · 活动分钟 · (平均速度/v60)²` 估算（`approximate`，置信度 0.5）。
+- **无心率负荷**：随旧跑力一起停用配速估算；心率缺失或覆盖不足的跑步负荷为未知，不用跑力反推负荷。
 - **心率设置**：App 只在「我的 → 静息与最大心率」录入 `hr_reference`（默认生效日期为半年前以覆盖历史），负荷、准备度、
   VO2、训练详情心率区间共用；有观测最大心率高于设置时给出一键采用建议。
 - **单次结果缓存（`model_workout_results`）**：每条跑步按 (数据集, stack, 训练) 存特征、心率暴露、最新 v2 负荷
@@ -167,7 +197,8 @@ RAI VO2、外部 VO2、生理恢复 v3、训练准备度 v4、课次恢复 v1、
 - **训练计划（`training_plan/v2`）**：只读模型栈信号，适配器按 active 发布的契约选择：schema2 栈用
   `schema2-v2`（complete 准备度，低分阈值取计划参数 `lowReadiness`，默认 50），schema3 栈用 `schema3-v1`（消费 v4 准备度的 complete 与
   estimated 模式，连续刻度低分阈值固定 60；estimated 只走保守下调，不增加里程或强度）。课次带配速目标
-  （v60 的 E/T/I 区间）与心率目标（心率储备比例）；急性/慢性 >1.3 时第二周不递增。**当日重排**：准备度低于
+  （schema4 栈消费跑力 v1 的可排课区间：轻松/长跑→Z2、恢复→Z1、节奏→Z4、间歇→Z5，不可排课时只给心率目标并记
+  `pace_zone_unavailable_hr_only`；旧栈不再给配速目标）与心率目标（心率储备比例）；急性/慢性 >1.3 时第二周不递增。**当日重排**：准备度低于
   阈值或急性/慢性 >1.5 时，若今天是 TEMPO/INTERVAL/LONG，今天改为 RECOVERY（距离取被替换的 EASY 日），
   原课次移到本周之后第一个“次日不是高强度”的 EASY 日；找不到则取消该强度课；两天都带
   `daily_readiness_reschedule`，其余日期不变。workout_only 不推断恢复正常，已知急性负担异常仍触发保守规则。
@@ -189,13 +220,17 @@ StackID 匹配。当前注册范围如下；注册表之外的版本明确返回
 | `975b912` | `rai-v2-654b005210f66d0e` | 冻结配置读取 |
 | `ccbe328` | `rai-v2-4a543690d2c37290` | 冻结配置读取 |
 | 恢复 v2.3（评估日墓碑） | `rai-v2-b2d165ffd1b0254a` | 冻结配置读取 |
-| 模型对照优化（schema3：恢复 v3 / 准备度 v4 / 课次恢复 / 跑力估计 / 负荷焦点） | `rai-v2-4b9264855a47255d` | 当前构建的计算配置及读取 |
+| 模型对照优化（schema3：恢复 v3 / 准备度 v4 / 课次恢复 / 跑力估计 / 负荷焦点） | `rai-v2-4b9264855a47255d` | 冻结配置读取（旧跑力不再提供） |
+| 跑力 v1（schema4：`running_fitness`，负荷焦点 v6，取消配速负荷） | `modelmanifest.StackID()` | 当前构建的计算配置及读取（未部署、未激活） |
 
 产品当前值、历史和训练输入按 active stack 的 `model/<stack>/athlete/day/v2/<date>` 路径定位产物，校验
 该发布的真实计算配置、manifest、dataset、generation 和内容哈希。只读取发布指针与脏范围代数一致的干净结果；
 已失效的发布不能继续提供数值。当前值读取当天日发布，历史读取指定日期范围；当天产物缺失不会自动用前一天冒充。
 
-**schema 协商**：`GET /v2/analysis/athlete` 缺省按 schema2 契约读取；显式 `schemaVersion=rai.athlete_model/3`
+**schema 协商**：`GET /v2/analysis/athlete` 缺省按 schema2 契约读取；显式 `schemaVersion=rai.athlete_model/4` 返回 schema4 快照
+（新增 `runningFitness`，`runningAbility` 恒为 `model_update_required`）；active 栈新于请求时所有指标返回 `model_update_required`。
+旧 v60 跑力产物在任何栈上都不再校验或展示；切回保留的旧发布（`rollback-real`）时其余指标照常，跑力即关闭。
+显式 `schemaVersion=rai.athlete_model/3`
 才返回 schema3 快照（新增 `sessionRecovery`、`loadFocus` 指标，`runningAbility` 携带三分支与积累进度，
 envelope 增加 `mode` / `evidenceAt` / `validBefore`）。active 为 schema3 栈而客户端按 schema2 读取时，
 恢复/准备度等无法按旧语义安全输出的指标返回既有可解码的 `model_update_required`，不把新 estimated 塞进旧
@@ -228,6 +263,22 @@ complete；active 为旧栈时 schema3 请求降级按 schema2 输出。历史�
 已激活模型的缺失、失败与不支持状态见 [API 状态表](API.md#运动模型状态)。iOS 先展示缓存再刷新；
 网络、解析或未知顶层 schema 导致的刷新失败保留上次成功结果，并显示该结果的时间和重试提示。
 明确的 `not_product_activated` 会清除缓存模型，避免重启后恢复已撤销的展示。上述自动化回归不代替真机与线上验收。
+
+### 跑力历史与重算
+
+- **历史视图**：`revised`（缺省）读取各日当前干净发布，可包含后来补传、事件早于评估日的训练，不用评估日之后的训练；
+  `published` 从不可变运行记录读取每天在当天结束前最后一次发布的结果（运行与产物不删除，迁移 57 的
+  `run_fitness_day_runs` 视图只暴露 active 栈的跑力日运行）；`as_known` 明确返回 `historical_input_unavailable`：
+  事实、标注与参数没有按 knownAt 保留的版本历史，不能凭当前行伪造过去状态。
+- **有界影响**：日状态只由该日之前 90 天的单次结果重建（窗口外与未来证据不改变结果，有单测）；事实写入沿用既有失效
+  （影响到事件日 +214 天，覆盖跑力需要的 +41/+89 天），比赛标注、心率参考按修订视图对整个有效期生效。静息心率参考取整到 1 bpm，
+  未改变取整值的日常静息心率不会改变任何跑力输出；“按输出哈希截断失效传播”这一纯效率优化尚未实现，失效仍按输入范围排队。
+- **显式重算**：`POST /v2/analysis/running-fitness/reanalyses`（单次或日期范围，幂等键，迁移 57 的 `rai_run_fitness_reanalysis`）
+  在同一事务里记录请求并把起点到终点 +89 天内已发布的日发布代数加一；Worker 的历史回填按从新到旧重算，状态由各日 clean
+  generation 与任务状态推导（queued/running/completed/failed）。每天的发布原子替换；跨多日的整段 manifest 原子切换尚未实现，
+  重算进行中历史可能部分为新结果、部分为待重算（待重算日不可读，不会显示旧代数）。重算从不依赖备份、迁移或全量重算，
+  同步正确性也不依赖重算完成。
+- **算法升级**：新算法即新 StackID；升级须准备候选栈并按授权流程激活，旧栈历史不换算到新刻度。
 
 ## 日常健康与 VO2
 
@@ -577,6 +628,8 @@ residualFatigue(t) = Σ u_i × exp(-(t-end_i)/tauHours_i)
 睡眠缺失不应使此训练指标消失，准备度仍按自己的生理证据门槛处理。
 
 ### 7. 跑力：增加亚极量估计，保留证据含义
+
+> 已被跑力 v1（`internal/runfitness`，见上文“模型”）完整替换；本节保留为当时的实施记录。
 
 #### 7.1 先修正文案与进度
 

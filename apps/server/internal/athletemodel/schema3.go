@@ -3,7 +3,6 @@ package athletemodel
 import (
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
-	ra "rai/server/internal/runningability"
 	sr "rai/server/internal/sessionrecovery"
 	tl "rai/server/internal/trainingload"
 )
@@ -71,32 +70,6 @@ func ProjectSessionRecovery(r sr.Result, updated, at int64) Metric[SessionRecove
 		v.Range = &rd.ScoreRange{Low: r.Range.Low, High: r.Range.High}
 	}
 	m.Value = &v
-	return m
-}
-func ProjectAbilityEstimate(r ra.Result, updated, at int64) Metric[RunningAbilityValue] {
-	b := r.Demonstrated
-	switch r.SelectedMode {
-	case "maximal_supported":
-		b = r.Maximal
-	case "submax_estimated":
-		b = r.Submax
-	}
-	status := b.Status
-	if r.SelectedMode == "unavailable" {
-		status = "collecting"
-	}
-	if r.SelectedMode == "source_conflict" {
-		status = "source_conflict"
-		b.V60 = nil
-		b.Score = nil
-		b.Gamma = nil
-	}
-	if r.SelectedMode == "submax_estimated" && b.V60 != nil {
-		status = "limited"
-	}
-	m := Metric[RunningAbilityValue]{Envelope: NewEnvelopeV2("runningAbility", ra.Algorithm+"/v1", ra.Schema, status, "limited", "fresh", &b.Confidence, &r.AsOf, &updated, at, r.Reasons, []string{"recorded_running"}), Trend: NoTrend("source_specific_only"), Explanation: Explanation{Headline: "runningAbility.state", SupportingFacts: []Fact{}, Limitations: []string{"independent_evidence_branches", "submax_no_endurance_curve"}}}
-	stampV3(&m.Envelope, r.SelectedMode, &b.EvidenceAt, 0)
-	m.Value = &RunningAbilityValue{SubmaxPrior: r.Prior, Score: b.Score, V60: b.V60, Gamma: b.Gamma, SpeedUnit: "m/s", ScoreUnit: "score_0_100", EvidenceMode: r.SelectedMode, SelectedMode: r.SelectedMode, EvidenceCount: r.Progress.Workouts, Stability: "not_provided", Demonstrated: &r.Demonstrated, Maximal: &r.Maximal, Submax: &r.Submax, Progress: &r.Progress}
 	return m
 }
 func ProjectFocus(r tl.FocusResult, updated, at int64) Metric[LoadFocusValue] {

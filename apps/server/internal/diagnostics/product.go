@@ -47,20 +47,10 @@ type ProductItem struct {
 	AsOf          int64                 `json:"asOfUs"`
 	PublishedAt   int64                 `json:"publishedAtUs"`
 	Day           string                `json:"day"`
-	Maximal       *MaximalProduct       `json:"maximal,omitempty"`
 	Durability    *DurabilityProduct    `json:"durability,omitempty"`
 	Efficiency    *EfficiencyProduct    `json:"efficiency,omitempty"`
 	CriticalSpeed *CriticalSpeedProduct `json:"criticalSpeed,omitempty"`
 	LoadSettling  *SettlingProduct      `json:"loadSettling,omitempty"`
-}
-
-type MaximalProduct struct {
-	Score              *float64 `json:"score,omitempty"`
-	V60                *float64 `json:"v60,omitempty"`
-	Gamma              *float64 `json:"gamma,omitempty"`
-	EnduranceRetention *float64 `json:"enduranceRetention,omitempty"`
-	Confidence         float64  `json:"confidence"`
-	AnchorDay          string   `json:"anchorDay,omitempty"`
 }
 
 type DurabilityProduct struct {
@@ -116,23 +106,6 @@ func ProductStatusOf(s Status) ProductStatus {
 		return ProductCollecting
 	case StatusUnstable:
 		return ProductUnstable
-	default:
-		return ProductInsufficient
-	}
-}
-
-// ProductStatusOfPerformance maps the running-ability lifecycle to the same
-// product vocabulary.
-func ProductStatusOfPerformance(s string) ProductStatus {
-	switch s {
-	case "available", "complete":
-		return ProductAvailable
-	case "collecting", "collecting_baseline":
-		return ProductCollecting
-	case "stale", "expired":
-		return ProductStale
-	case "partial", "limited":
-		return ProductPartial
 	default:
 		return ProductInsufficient
 	}

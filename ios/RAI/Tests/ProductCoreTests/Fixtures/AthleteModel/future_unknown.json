@@ -97,42 +97,30 @@
       "id": "runningAbility",
       "metric": "runningAbility",
       "modelVersion": "rai.running_ability/v99",
-      "payloadVersion": "rai.performance/1",
+      "payloadVersion": "",
       "mappingVersion": "rai.product_metric_mapping/1",
       "state": "limited",
       "modelStatus": "future_status",
       "quality": "future_quality",
-      "confidence": 0.4,
-      "evidenceSupport": "stronger_evidence",
-      "asOf": 1793671200000000,
+      "confidence": null,
+      "evidenceSupport": "not_presented",
+      "asOf": null,
       "evaluationAt": 1793757600000000,
-      "freshness": "fresh",
-      "updatedAt": 1793671200000000,
+      "freshness": "unknown",
+      "updatedAt": null,
       "reasonCodes": [
         "future_reason"
       ],
       "productReasonCodes": [
         "future_product_reason"
       ],
+      "primaryReason": "model_update_required",
       "lineageSummary": {
-        "dataSources": [
-          "Apple Health",
-          "RAI-derived"
-        ]
+        "dataSources": []
       },
       "technicalError": null
     },
-    "value": {
-      "score": 55,
-      "v60": 3.3,
-      "gamma": 0.9,
-      "enduranceRetention": 0.88,
-      "stability": "stable",
-      "evidenceMode": "demonstrated",
-      "evidenceCount": 6,
-      "speedUnit": "m/s",
-      "scoreUnit": "score_0_100"
-    },
+    "value": null,
     "trend": {
       "kind": "none",
       "value": null,
@@ -142,23 +130,10 @@
       ]
     },
     "explanation": {
-      "headline": "runningAbility.available",
-      "supportingFacts": [
-        {
-          "code": "running_ability.v60",
-          "value": 3.3,
-          "unit": "m/s"
-        },
-        {
-          "code": "running_ability.evidence_count",
-          "value": 6,
-          "unit": "count"
-        }
-      ],
+      "headline": "runningAbility.state",
+      "supportingFacts": [],
       "limitations": [
-        "evidence_support_not_probability",
-        "not_vo2max",
-        "recent_demonstrated_running_performance"
+        "model_update_required"
       ]
     }
   },

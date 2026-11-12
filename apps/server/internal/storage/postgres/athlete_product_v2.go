@@ -10,10 +10,9 @@ import (
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/modelrelease"
-	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
-	ra "rai/server/internal/runningability"
+	rf "rai/server/internal/runfitness"
 	sr "rai/server/internal/sessionrecovery"
 	"rai/server/internal/syncing"
 	tl "rai/server/internal/trainingload"
@@ -54,12 +53,17 @@ func stampArtifact[T any](m *am.Metric[T], a publishedModelArtifact) {
 }
 
 func (s *Store) ReadAthleteProduct(ctx context.Context, p syncing.Principal, at time.Time) (am.AthleteModelSnapshot, error) {
-	return s.readAthleteProduct(ctx, p, at, false)
+	return s.readAthleteProduct(ctx, p, at, am.Schema2)
 }
 func (s *Store) ReadAthleteProductV3(ctx context.Context, p syncing.Principal, at time.Time) (am.AthleteModelSnapshot, error) {
-	return s.readAthleteProduct(ctx, p, at, true)
+	return s.readAthleteProduct(ctx, p, at, am.Schema3)
 }
-func (s *Store) readAthleteProduct(ctx context.Context, p syncing.Principal, at time.Time, schema3 bool) (am.AthleteModelSnapshot, error) {
+
+// ReadAthleteProductV4 is the running-fitness product contract.
+func (s *Store) ReadAthleteProductV4(ctx context.Context, p syncing.Principal, at time.Time) (am.AthleteModelSnapshot, error) {
+	return s.readAthleteProduct(ctx, p, at, am.Schema4)
+}
+func (s *Store) readAthleteProduct(ctx context.Context, p syncing.Principal, at time.Time, schema string) (am.AthleteModelSnapshot, error) {
 	if !syncing.ValidID(p.DatasetID) || at.IsZero() {
 		return am.AthleteModelSnapshot{}, ErrModelProjection
 	}
@@ -77,9 +81,13 @@ func (s *Store) readAthleteProduct(ctx context.Context, p syncing.Principal, at 
 	if c.assignment.StackID == "" || c.assignment.StackID == "legacy" {
 		return out, am.ErrNotActivated
 	}
-	out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
-	if schema3 {
+	switch schema {
+	case am.Schema4:
+		out = am.NewSnapshotV4(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+	case am.Schema3:
 		out = am.NewSnapshotV3(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+	default:
+		out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
 	}
 	out, err = readPublishedModelStack(ctx, tx, p.DatasetID, "active", c.assignment.StackID, out, c, at)
 	if err != nil {
@@ -97,13 +105,21 @@ func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, s
 		am.SetProjectedResponseState(&out)
 		return out, nil
 	}
-	if release.Manifest.ProductSchema == am.Schema3 && out.SchemaVersion != am.Schema3 {
+	// A client older than the active release cannot receive new semantics
+	// under old names; a newer client reading an older release gets that
+	// release's own contract.
+	rank := map[string]int{am.Schema2: 2, am.Schema3: 3, am.Schema4: 4}
+	if rank[release.Manifest.ProductSchema] > rank[out.SchemaVersion] {
 		am.SetMissingMetricsV2(&out, "model_update_required")
 		am.SetProjectedResponseState(&out)
 		return out, nil
 	}
-	if release.Manifest.ProductSchema != am.Schema3 && out.SchemaVersion == am.Schema3 {
-		out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+	if rank[release.Manifest.ProductSchema] < rank[out.SchemaVersion] {
+		if release.Manifest.ProductSchema == am.Schema3 {
+			out = am.NewSnapshotV3(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+		} else {
+			out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+		}
 	}
 	var assignedManifest string
 	if json.Unmarshal(c.extensions[modelmanifest.Schema], &assignedManifest) != nil || assignedManifest != c.configHash {
@@ -121,12 +137,18 @@ func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, s
 	}
 	// One bounded batch read for all six slots keeps the product request at a
 	// fixed SELECT count and avoids N+1 artifact lookups.
-	artifactKeys := map[string]string{"loadState": "load_state", "ability": pf.ArtifactKeyV2, "vo2": ve.ArtifactKey, "raiVO2": vo2.ArtifactKey, "recovery": "physiological_recovery", "readiness": "training_readiness"}
-	if out.SchemaVersion == am.Schema3 && release.Manifest.ProductSchema == am.Schema3 {
+	artifactKeys := map[string]string{"loadState": "load_state", "vo2": ve.ArtifactKey, "raiVO2": vo2.ArtifactKey, "recovery": "physiological_recovery", "readiness": "training_readiness"}
+	if release.Manifest.ProductSchema == am.Schema3 || release.Manifest.ProductSchema == am.Schema4 {
 		artifactKeys["session"] = sr.Key
-		artifactKeys["estimate"] = ra.Key
 		artifactKeys["focus"] = "load_focus"
 	}
+	if release.Manifest.ProductSchema == am.Schema4 {
+		artifactKeys["fitness"] = rf.ArtifactKey
+	}
+	// The v60 running ability was retired with running fitness v1; retained
+	// releases cannot serve it any more and say so.
+	out.RunningAbility = am.Missing[am.RunningAbilityValue]("runningAbility", at.UnixMicro(), "model_update_required")
+	out.RunningAbility.Envelope.MappingVersion = am.MappingVersion2
 	byKey := make(map[string]string, len(artifactKeys))
 	keys := make([]string, 0, len(artifactKeys))
 	for name, key := range artifactKeys {
@@ -214,16 +236,6 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 			}
 		}
 	}
-	if a, ok := rows["ability"]; ok {
-		var r pf.Result
-		if !validHistoryArtifactForRelease("runningAbility", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
-			out.RunningAbility = am.Missing[am.RunningAbilityValue]("runningAbility", at.UnixMicro(), "technical_failure")
-		} else {
-			v := pf.Freshen(r, at.UnixMicro())
-			out.RunningAbility = am.ProjectAbility(v, r.AsOf, a.PublishedAt.UnixMicro(), at.UnixMicro())
-			stampArtifact(&out.RunningAbility, a)
-		}
-	}
 	if a, ok := rows["vo2"]; ok {
 		var r ve.Result
 		if !validHistoryArtifactForRelease("externalVO2Max", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
@@ -277,8 +289,18 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 			}
 		}
 	}
-	if release.Manifest.ProductSchema == am.Schema3 {
+	if release.Manifest.ProductSchema == am.Schema3 || release.Manifest.ProductSchema == am.Schema4 {
 		projectOptimizedArtifacts(&out, rows, dataset, c.timezone, release, at.UnixMicro())
+	}
+	if a, ok := rows["fitness"]; ok && out.SchemaVersion == am.Schema4 {
+		var r rf.State
+		m := am.Missing[am.RunningFitnessValue]("runningFitness", at.UnixMicro(), "technical_failure")
+		if validHistoryArtifactForRelease("runningFitness", dataset, c.timezone, a, release) && json.Unmarshal(a.Payload, &r) == nil {
+			m = am.ProjectRunningFitness(rf.Freshen(r, day), a.RunID, a.PublishedAt.UnixMicro(), at.UnixMicro())
+			stampArtifact(&m, a)
+			m.Envelope.MappingVersion = am.MappingVersion4
+		}
+		out.RunningFitness = &m
 	}
 	am.SetProjectedResponseState(&out)
 	return out, nil
@@ -316,7 +338,9 @@ func (s *Store) ReadAthleteHistory(ctx context.Context, p syncing.Principal, met
 	if json.Unmarshal(c.extensions[modelmanifest.Schema], &assignedManifest) != nil || assignedManifest != c.configHash {
 		return page, ErrModelProjection
 	}
-	if metric == "sessionRecovery" && release.Manifest.SessionRecovery == nil || metric == "abilityEstimate" && release.Manifest.AbilityEstimate == nil || metric == "loadFocus" && release.Manifest.LoadFocus == nil {
+	if metric == "sessionRecovery" && release.Manifest.SessionRecovery == nil || metric == "runningAbility" || metric == "abilityEstimate" || metric == "loadFocus" && release.Manifest.LoadFocus == nil ||
+		metric == "runningFitness" && release.Manifest.ProductSchema != am.Schema4 {
+		// The retired v60 running ability has no readable history any more.
 		return page, am.ErrUnsupportedRelease
 	}
 	page.ManifestSHA = c.configHash
@@ -349,8 +373,8 @@ func (s *Store) ReadAthleteHistory(ctx context.Context, p syncing.Principal, met
 	switch metric {
 	case "trainingLoad":
 		key = "load_state"
-	case "runningAbility":
-		key = pf.ArtifactKeyV2
+	case "runningFitness":
+		key = rf.ArtifactKey
 	case "physiologicalRecovery":
 		key = "physiological_recovery"
 	case "trainingReadiness":
@@ -363,8 +387,6 @@ func (s *Store) ReadAthleteHistory(ctx context.Context, p syncing.Principal, met
 		key = sr.Key
 	case "loadFocus":
 		key = "load_focus"
-	case "abilityEstimate":
-		key = ra.Key
 	default:
 		return page, ErrModelProjection
 	}
@@ -425,11 +447,11 @@ func validHistoryArtifactForRelease(metric, dataset, tz string, a publishedModel
 		return a.Schema == tl.StateSchemaV2 && a.Algorithm == tl.StateAlgorithmV2 && a.Version == tl.VersionV2 &&
 			json.Unmarshal(a.Payload, &r) == nil && r.DatasetID == dataset && r.Generation == a.Generation &&
 			r.Schema == a.Schema && r.ConfigHash == release.LoadConfigHash && tl.Hash(r) == a.ContentHash
-	case "runningAbility":
-		var r pf.Result
-		return a.Schema == pf.SchemaV2 && a.Algorithm == pf.CurveModel && a.Version == pf.VersionV2 &&
-			json.Unmarshal(a.Payload, &r) == nil && r.DatasetID == dataset && r.Generation == a.Generation &&
-			r.Schema == a.Schema && r.ConfigHash == release.AbilityConfigHash && pf.Hash(r) == a.ContentHash
+	case "runningFitness":
+		var r rf.State
+		return release.Manifest.RunningAbility.ModelID == rf.Algorithm && a.Schema == rf.Schema && a.Algorithm == rf.Algorithm && a.Version == rf.Version &&
+			json.Unmarshal(a.Payload, &r) == nil && r.DatasetID == dataset && r.Generation == a.Generation && r.Schema == a.Schema && r.ConfigHash == release.AbilityConfigHash &&
+			r.ConfigHash == release.Manifest.RunningAbility.ConfigHash && rf.Hash(r) == a.ContentHash
 	case "physiologicalRecovery":
 		if release.Manifest.Recovery.Version == "v3" {
 			var r rc.V3Result
@@ -461,12 +483,9 @@ func validHistoryArtifactForRelease(metric, dataset, tz string, a publishedModel
 	case "sessionRecovery":
 		var r sr.Result
 		return release.Manifest.SessionRecovery != nil && a.Schema == sr.Schema && a.Algorithm == sr.Algorithm && a.Version == "v1" && json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation && r.Schema == a.Schema && r.ConfigHash == release.Manifest.SessionRecovery.ConfigHash && sr.Hash(r) == a.ContentHash
-	case "abilityEstimate":
-		var r ra.Result
-		return release.Manifest.AbilityEstimate != nil && a.Schema == ra.Schema && a.Algorithm == ra.Algorithm && a.Version == "v1" && json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation && r.Schema == a.Schema && r.ConfigHash == release.Manifest.AbilityEstimate.ConfigHash && ra.Hash(r) == a.ContentHash
 	case "loadFocus":
 		var r tl.FocusResult
-		return release.Manifest.LoadFocus != nil && a.Schema == tl.FocusSchema && a.Algorithm == tl.FocusAlgorithm && a.Version == "v1" && json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation && r.Schema == a.Schema && r.ConfigHash == release.Manifest.LoadFocus.ConfigHash && tl.Hash(r) == a.ContentHash
+		return release.Manifest.LoadFocus != nil && a.Schema == tl.FocusSchema && a.Algorithm == tl.FocusAlgorithm && a.Version == release.Manifest.LoadFocus.Version && json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation && r.Schema == a.Schema && r.ConfigHash == release.Manifest.LoadFocus.ConfigHash && tl.Hash(r) == a.ContentHash
 	default:
 		return false
 	}
@@ -501,16 +520,24 @@ func historyPoint(metric, day, algorithm, version, schema string, publishedAt ti
 				}
 			}
 		}
-	case "runningAbility":
-		var v pf.Result
+	case "runningFitness":
+		var v rf.State
 		if json.Unmarshal(payload, &v) == nil {
-			if v.Ability != nil {
-				score := v.Ability.Score
-				point.Value = &score
-			}
+			point.Value = v.Overall.Score
 			point.Unit = "score_0_100"
-			point.ConfigHash, point.Mode = v.ConfigHash, v.EvidenceMode
-			point.AsOf, status = v.AsOf, v.Status
+			point.ConfigHash, point.Mode = v.ConfigHash, v.Status
+			point.AsOf, status = v.AsOf, "available"
+			point.EvidenceAt = v.EvidenceAt
+			point.ReasonCodes = v.Reasons
+			point.Components = map[string]float64{}
+			for key, x := range map[string]*float64{"referenceDailyScore": v.ReferenceDailyScore, "a70MPS": v.Params.A, "vTMPS": v.Params.VT, "v6MPS": v.Params.V6, "v90sMPS": v.Params.V90s, "bL": v.Params.BL} {
+				if x != nil {
+					point.Components[key] = *x
+				}
+			}
+			if v.Overall.Range != nil {
+				point.Components["rangeLow"], point.Components["rangeHigh"] = v.Overall.Range.Low, v.Overall.Range.High
+			}
 		}
 	case "physiologicalRecovery":
 		var v rc.Result
@@ -580,28 +607,6 @@ func historyPoint(metric, day, algorithm, version, schema string, publishedAt ti
 					point.Components = map[string]float64{"lowAerobicAU": w.Buckets.Low, "highAerobicAU": w.Buckets.High, "anaerobicProxyAU": w.Buckets.Anaerobic, "unclassifiedAU": w.Buckets.Unclassified, "unknownWorkouts": float64(w.UnknownWorkouts)}
 				}
 			}
-		}
-	case "abilityEstimate":
-		var v ra.Result
-		if json.Unmarshal(payload, &v) == nil {
-			b := v.Demonstrated
-			switch v.SelectedMode {
-			case "maximal_supported":
-				b = v.Maximal
-			case "submax_estimated":
-				b = v.Submax
-			case "source_conflict":
-				b.Score = nil
-			}
-			point.Value = b.Score
-			point.Unit = "score_0_100"
-			point.Mode = v.SelectedMode
-			point.Source = b.Source
-			point.EvidenceAt = &b.EvidenceAt
-			point.AsOf = v.AsOf
-			point.ConfigHash = v.ConfigHash
-			status = b.Status
-			point.ReasonCodes = v.Reasons
 		}
 	case "externalVO2Max":
 		var v ve.Result

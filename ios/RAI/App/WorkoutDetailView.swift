@@ -15,6 +15,7 @@ struct WorkoutDetail: View {
   @State private var effortMessage: String?
   @State private var effortBusy = false
   @State private var confirmEffort = false
+  @State private var reanalyzing = false
   @AppStorage("developerOptions") private var developerOptions = false
 
   private var detail: WorkoutDetailResponse? {
@@ -72,7 +73,8 @@ struct WorkoutDetail: View {
           segmentsOrSplits(detail: detail, series: series)
           if let dynamics = series?.dynamics { dynamicsPanel(dynamics) }
           qualityPanel(detail)
-          effortPanel()
+          runFitnessPanel(detail.runFitness)
+          effortPanel(detail.runFitness?.single.effortKind)
           if let override = detail.override { overridePanel(override) }
         }.padding(.horizontal, 18).padding(.vertical, 14).padding(.bottom, 24)
       } else if let error = model.workoutDetailError {
@@ -99,36 +101,104 @@ struct WorkoutDetail: View {
     .accessibilityIdentifier("screen.workout.detail")
   }
 
-  /// Marks this run as an all-out effort (race or time trial). Only marked runs
-  /// feed the experimental maximal ability, which zones and race projections
-  /// prefer over everyday training.
-  private func effortPanel() -> some View {
+  /// This run's single-run fitness: score or range, analysed minutes, evidence
+  /// type and conditions, compared with the same-policy baseline from before
+  /// the run. Never presented as a marathon time this run could achieve.
+  @ViewBuilder private func runFitnessPanel(_ fitness: WorkoutRunFitness?) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      CardHeading(title: "这是一次全力跑吗？", icon: "flame")
-      Text("比赛或全力测试请标记，跑力会据此估算你的比赛能力；日常训练不用标记。")
+      CardHeading(title: "单次跑力", icon: "gauge.with.dots.needle.67percent")
+      if let fitness {
+        let single = fitness.single
+        if let hr = single.hrNormalized {
+          HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(num(hr.score, digits: 1)).font(.title2.weight(.bold)).monospacedDigit()
+              .accessibilityIdentifier("workout.runFitness.score")
+            Text("分").foregroundStyle(RAITheme.secondary)
+            Text(RunningFitnessText.singleStatus(single.status)).font(.caption)
+              .padding(.horizontal, 6).padding(.vertical, 2)
+              .background(RAITheme.primary.opacity(0.10), in: Capsule())
+            Spacer()
+            if let delta = fitness.deltaToReference {
+              Text((delta >= 0 ? "+" : "") + num(delta, digits: 1) + " 较训练前基准").font(.caption).monospacedDigit()
+            }
+          }
+          Text("范围 \(num(hr.scoreSensitivityRange.low, digits: 1))–\(num(hr.scoreSensitivityRange.high, digits: 1)) 分 · 有效分析 \(Int((hr.netSupportedSeconds / 60).rounded())) 分钟 · 心率与配速")
+            .font(.caption).foregroundStyle(RAITheme.secondary)
+          if hr.gradeMode != "adjusted" {
+            Text(hr.gradeMode == "indoor" ? "跑步机：速度没有路线核对，只作有限参考" : "坡度未知：按未校正配速估计")
+              .font(.caption2).foregroundStyle(RAITheme.secondary)
+          }
+          if hr.conditionWeight < 1 {
+            Text("天气条件不同，这次跑步在长期跑力里降权").font(.caption2).foregroundStyle(RAITheme.secondary)
+          }
+        }
+        if let race = single.raceEquivalent {
+          Text("\(RunningFitnessText.effortName(race.kind))成绩折算 \(num(race.score, digits: 1)) 分 · \(RunningFitnessText.raceTime(race.elapsedSeconds))")
+            .font(.subheadline)
+        }
+        if single.hrNormalized == nil && single.raceEquivalent == nil {
+          Text("这次跑步没有单次跑力：" + RunningFitnessText.singleReason(single.reasonCodes))
+            .font(.caption).foregroundStyle(RAITheme.secondary)
+        }
+        if let retention = single.retention {
+          Text("长跑后段效率保持 \(num(retention.retention * 100, digits: 1))%").font(.caption2).foregroundStyle(RAITheme.secondary)
+        }
+        if let suggestion = single.hrMaxSuggestion {
+          Text("这次跑步持续 15 秒以上心率达到 \(Int(suggestion)) bpm，高于当前最大心率设置；可在「我的 → 静息与最大心率」确认是否更新。")
+            .font(.caption2).foregroundStyle(RAITheme.amber)
+        }
+        Text("单次分按统一的默认耐力假设换算，不代表这次能跑出的全马成绩。")
+          .font(.caption2).foregroundStyle(RAITheme.secondary)
+      } else {
+        Text("跑力还在计算，或这次跑步不在当前模型的范围内。").font(.caption).foregroundStyle(RAITheme.secondary)
+      }
+      Button(reanalyzing ? "已提交重新分析" : "按当前设置重新分析这次跑步") {
+        reanalyzing = true
+        Task { await model.requestFitnessReanalysis(workoutIDs: [workout.id]) }
+      }.font(.caption).disabled(reanalyzing).accessibilityIdentifier("workout.runFitness.reanalyze")
+      if reanalyzing, let op = model.fitnessReanalysis {
+        Text(RunningFitnessText.reanalysisStatus(op)).font(.caption2).foregroundStyle(RAITheme.secondary)
+      }
+    }.padding(16).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
+      .accessibilityIdentifier("workout.runFitness")
+  }
+
+  /// Labels this run as a race or a structured test. Labels change only the
+  /// model input; HealthKit data is never modified. Everyday runs need none.
+  private func effortPanel(_ current: String?) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      CardHeading(title: "这是比赛或测试吗？", icon: "flame")
+      Text("比赛和全力测试会校准速度、阈值和长距离能力；日常训练不用标记。")
         .font(.caption).foregroundStyle(RAITheme.secondary)
+      if let current {
+        Text("当前标注：" + RunningFitnessText.effortName(current)).font(.caption)
+      }
       if let effortMessage {
         Text(effortMessage).font(.caption).foregroundStyle(RAITheme.secondary)
           .accessibilityIdentifier("workout.effort.message")
       }
-      Button(effortBusy ? "正在提交…" : "标记为全力跑 / 比赛") { confirmEffort = true }
+      Button(effortBusy ? "正在提交…" : "标记为比赛或测试") { confirmEffort = true }
         .buttonStyle(RAISecondaryButtonStyle())
         .disabled(effortBusy)
         .accessibilityIdentifier("workout.effort.mark")
     }.padding(16).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
-      .confirmationDialog("确认这次是全力跑或比赛？", isPresented: $confirmEffort, titleVisibility: .visible) {
-        Button("确认标记") {
-          effortBusy = true
-          Task {
-            let failure = await model.submitModelInput(
-              kind: "workout_effort",
-              payload: ["workoutID": .string(workout.id.lowercased()), "mode": .string("maximal_supported"), "userConfirmed": .bool(true)],
-              effectiveFrom: Date())
-            effortMessage = failure ?? "已标记，下次更新跑力时生效。"
-            effortBusy = false
-          }
+      .confirmationDialog("这次跑步是？", isPresented: $confirmEffort, titleVisibility: .visible) {
+        ForEach(["race", "threshold_test", "speed_test", "sprint_test"], id: \.self) { kind in
+          Button(RunningFitnessText.effortName(kind)) { submitEffort(kind) }
         }
       }
+  }
+
+  private func submitEffort(_ kind: String) {
+    effortBusy = true
+    Task {
+      let failure = await model.submitModelInput(
+        kind: "workout_effort",
+        payload: ["workoutID": .string(workout.id.lowercased()), "mode": .string(kind), "userConfirmed": .bool(true)],
+        effectiveFrom: Date())
+      effortMessage = failure ?? "已标记为\(RunningFitnessText.effortName(kind))，跑力更新后生效。"
+      effortBusy = false
+    }
   }
 
   private func pollFreshness() async {
@@ -254,7 +324,6 @@ struct WorkoutDetail: View {
         }
         if let q = detail.modelQualification {
           VStack(alignment: .leading, spacing: 2) {
-            Text(WorkoutQualificationText.runningAbility(q.runningAbility))
             Text(WorkoutQualificationText.trainingLoad(q.trainingLoad))
           }.font(.caption2).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("workout.summary.modelQualification")

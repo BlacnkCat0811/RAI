@@ -21,6 +21,9 @@
 - `GET /v2/sync/changes` — 变更通知（能力位 `changefeed=false`）
 - `POST /v2/model-inputs/{kind}`、`POST /v2/model-inputs/{id}/revocations` — 个人参考值与目标
   （App 使用 `hr-references`、`sleep-targets`、`vo2max-source-selections`、`workout-efforts`；`trimp-parameters` 仍接受但 App 已不再写入）
+  - `workout-efforts` 的 `mode` 为 `race` / `threshold_test` / `speed_test` / `sprint_test`（旧值 `maximal_supported` 按 `race` 读取），
+    须 `userConfirmed=true`；撤销用 `revocations`。标注只改变模型输入，不修改 HealthKit 事实
+  - `hr-references` 的 `method` 新增 `age_estimated`：仅在用户显式选择“暂用年龄估计”时提交，跑力据此一律为有限、敏感性范围加宽
 
 ## 读取
 - 运动：`GET /v2/workouts`、`/v2/workouts/{id}`、`/detail`、`/series`、`/freshness`
@@ -34,16 +37,21 @@
     旧服务未提供该字段或分区读取失败时，客户端保留总跑量，将相应距离列为未分类。
   - iOS 周／月统计完整读取列表游标链，仅请求所选周期跑步的详情；使用 overview 的数据集时区，周一为周起点，
     跨午夜跑步按开始日计入。分区百分比以本期已知总距离为分母，包含未分类距离，不是心率时长占比。
-- 分析：`GET /v2/analysis/parameters`、`/vo2max-sources`、`/athlete`、`/athlete/history`、`/athlete/diagnostics`
+- 分析：`GET /v2/analysis/parameters`、`/vo2max-sources`、`/athlete`、`/athlete/history`、`/athlete/diagnostics`、
+  `/running-fitness/current`、`/running-fitness/history`、`/running-fitness/evidence`；`POST /running-fitness/reanalyses`、
+  `GET /running-fitness/reanalyses/{operationID}`（见下方“跑力”）
   （旧链路的 `/v2/analysis/state`、`/history`、`/workouts/{id}` 已删除，返回 404）
   - 运动列表的 `metrics` 只含 active stack 的 `workout_load`（单位 `RAI_AU`，`details.qualityTier`/`method`）；未发布时 `analysisStatus=pending`
   - 训练回执的 `analysisStatus=queued` 表示 v2 日模型栈已失效待算，`analysisJobIDs` 为空
   - `/parameters` 返回 `parameters`（旧 TRIMP 参数）、`hrReference`（当前生效的 `hr_reference`，用户本人录入值）与 `observedMaxHR`（近一年 30 秒心率中位数最大值，仅作建议）
   - `/vo2max-sources` 返回近一年的 Apple VO₂ 来源，每个设备/App 一项，`sourceEpoch` 即选择时提交的值
-  - `/athlete` 缺省按 schema2 契约读取；唯一接受的查询是 `schemaVersion=rai.athlete_model/3`（返回 schema3 快照），
-    其他取值、重复或多余参数返回 `422 invalid_athlete_query`。active 为旧栈时 schema3 请求降级按 schema2 输出；
-    active 为 schema3 栈而按 schema2 读取时，无法按旧语义安全输出的指标返回既有可解码的 `model_update_required`，
-    不把新 estimated 塞进旧 complete。iOS 已按 schema3 请求
+  - `/athlete` 缺省按 schema2 契约读取；接受的查询只有 `schemaVersion=rai.athlete_model/3` 或 `rai.athlete_model/4`，
+    其他取值、重复或多余参数返回 `422 invalid_athlete_query`。请求的 schema 新于 active 栈时按该栈自己的契约输出；
+    active 栈新于请求的 schema 时，所有指标返回既有可解码的 `model_update_required`，不把新语义塞进旧字段名。
+    iOS 已按 schema4 请求
+  - schema4（跑力 v1 栈）新增 `runningFitness` 指标（`modelVersion=rai.running_fitness/v1`，`mappingVersion=rai.product_metric_mapping/4`，
+    `mode` 为阶段 `initial`/`preliminary`/`established`/`race_only`/`insufficient_evidence`/`conflict`）；旧 `runningAbility` 槽位保留可解码，
+    但在任何栈上都只返回 `model_update_required`、`value=null`（旧 v60 跑力已退出运行链路，旧栈的旧跑力产物只作审计行保留）
   - schema3 新增 `sessionRecovery`（`remainingHours`/`range`/`readyAfter`/`overflow`/`scope`，估计的下次高强度前恢复时间）
     与 `loadFocus`（7/28 天 `windows`：`lowAerobicAU`/`highAerobicAU`/`anaerobicProxyAU`/`unclassifiedAU`、
     `unknownWorkouts`、`classifiedCoverage`、`classificationMethod`）；`runningAbility.value` 携带
@@ -54,16 +62,45 @@
     envelope 增加 `mode`（数值性质，如 `complete`/`estimated`/`workout_only`/`pending`，随指标而异）、
     `evidenceAt`、`validBefore`。schema3 的 `complete_response` 要求八项指标均 available
   - `/athlete/history?metric=trainingLoad` 的点以急性负荷为 `value`，`components` 携带 `chronic`、`balance`、`dailyLoad`；
-    schema3 栈另支持 `metric=sessionRecovery`/`loadFocus`/`abilityEstimate`，旧栈对这三个 metric 返回 `409 model_version_unsupported`
+    schema3/4 栈另支持 `metric=sessionRecovery`/`loadFocus`，schema4 栈支持 `metric=runningFitness`（`value` 为长期总分，`components`
+    含 `referenceDailyScore`、`a70MPS`、`vTMPS`、`v6MPS`、`v90sMPS`、`bL`、`rangeLow`、`rangeHigh`）；
+    `metric=runningAbility`/`abilityEstimate` 在任何栈上都返回 `409 model_version_unsupported`
   - 运动模型的激活、产物缺失与读取故障分别表达，见下方状态表
-  - `/detail` 可选 `modelQualification`：`runningAbility` / `trainingLoad` 各含 `status` 与 `reasonCodes`，说明 active stack
-    是否采用这次跑步。跑力来自特征资格（v2 用坡度换算后的资格）：`eligible` / `conditional` / `ineligible`；负荷来自 v2 负荷结果：
-    `eligible`（完整心率）/ `conditional`（估算）/ `ineligible`（未知）/ `pending`（尚未算出）。入选只是必要条件，
-    跑力还只取每个时长最快的几次。栈尚未算到这次跑步时省略该字段
+  - `/detail` 可选 `modelQualification.trainingLoad`（`status` 与 `reasonCodes`）：`eligible`（完整心率）/ `conditional`（估算）/
+    `ineligible`（未知）/ `pending`（尚未算出）。旧的 `runningAbility` 资格字段已退出
+  - schema4 栈的 `/detail` 可选 `runFitness`：`single`（单次跑力：`status`、`evidenceTypes`、`hrNormalized` 的 `a70MPS`/`score`/
+    `scoreSensitivityRange`/`abilitySensitivityRange`/`netSupportedSeconds`/`gradeMode`/`segments`，确认比赛的 `raceEquivalent`，
+    `retention`、`hrMaxSuggestion`、`reasonCodes`），`referenceDailyScore` / `referenceDate`（训练日前一天长期状态按同一固定政策的分数）
+    与 `deltaToReference`。来自该训练本地日的已发布日状态；当天尚未（重新）发布时省略。冷启动无基准时不给差值
   - schema3 栈的 `/detail` 另含可选 `loadFocus`：这次课次的 `knownAU`、四桶 `buckets`、区间秒数 `seconds`、
     跨午夜按日切分 `days`、`classificationMethod` 与 `reasonCodes`；旧栈或栈尚未算到这次跑步时省略，
     负荷未知时 `knownAU=null`（原因 `load_unknown`），不把未知当低强度
 - 首页：`GET /v2/product/overview`
+
+### 跑力（schema4 栈，`rai.running_fitness/1`）
+
+所有数值由服务端计算；iOS 不再本地推算配速区间或成绩。active 不是 schema4 栈时这些接口返回 `409 model_version_unsupported`，
+未启用返回 `409 not_product_activated`。
+
+- `GET /v2/analysis/running-fitness/current` — `{schemaVersion, assignment, runningFitness}`，`runningFitness` 与 `/athlete?schemaVersion=rai.athlete_model/4`
+  中的同名指标相同：`overall`（`score`/`rawScore`/`range`/`basis`/`marathonEquivalentSeconds`）、`referenceDailyScore`、
+  `params`（`a70MPS`/`vTMPS`/`v6MPS`/`v90sMPS`/`bL`/`bS` 及识别状态）、`dimensions`（`endurance`/`threshold`/`speed`/`sprint`，
+  各含 `status`、物理锚点、`rating`、对应区间 `zone`、`evidenceHint`）、`predictions`（5k/10k/half/marathon 的 `seconds`、`range`、
+  `predictionSupport`、`targetEligible`、`longRunCovered`、`conditions`）、`zones`（Z1–Z6 的快/慢配速、`support`、`schedulable`、
+  `reasonCodes`）、`racePaces`、`preparation`、`support`、`stability`、`singleRuns`（近 42 天单次点）与 `reasonCodes`。
+  范围为确定性角点“模型范围”，不是概率
+- `GET /v2/analysis/running-fitness/history?from=&to=&view=&cursor=&limit=` — 逐日 `days`（长期总分、同政策日常基准、参数、
+  当日单次点、`publicationID`）。`view=revised`（缺省，当前算法与输入下的历史，可含后来补传、事件在评估日前的训练）；
+  `view=published`（每天在当天结束前最后一次发布的不可变结果，即使后来被重算替换）；`view=as_known` 返回
+  `409 historical_input_unavailable`。范围最长 366 天，缺失日不插值；游标绑定数据集、栈、视图与范围
+- `GET /v2/analysis/running-fitness/evidence?date=&dimension=` — 某个已发布日状态的证据清单（训练、日期、类型、维度、权重、物理量）
+- `POST /v2/analysis/running-fitness/reanalyses` — 头 `Idempotency-Key`（1–128 字符）必填；正文
+  `{"workoutIDs":[…≤100]}` 或 `{"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}`，另需 `"view":"revised"`、`"referencePolicy":"current_effective"`、
+  `"algorithmVersion":"v1"`（只能指定 active 栈的算法，不能选任意代码）。同键同请求返回同一操作，同键不同请求 `409 idempotency_conflict`，
+  其他非法请求 `422 invalid_reanalysis_request`。成功返回 `202`，只表示已排队：受影响范围为起点到终点 +89 天（不超过今天），
+  只重排其中已经发布过的日发布，最早一年内
+- `GET /v2/analysis/running-fitness/reanalyses/{operationID}` — `status`（`queued`/`running`/`completed`/`failed`）、
+  `totalDays`/`completedDays`/`failedDays`。状态由各日发布的代数推导；失败保留原发布，不置零、不伪报完成
 - 任务：`GET /v2/jobs/{id}`
 
 ### 运动模型状态
@@ -73,9 +110,8 @@
 `productReasonCodes` 保持冻结的字典序；`primaryReason`（可省略）按明确优先级给出应展示的那一个：
 未启用/版本/读取故障 → 待计算 → 来源 → 同步未完成 → 历史不足 → 具体输入（心率、负荷、恢复）→ 数据已过期 → 证据不足。
 iOS 优先显示 `primaryReason`，旧服务端没有该字段时取 `productReasonCodes` 第一个。
-状态 `collecting`、`collecting_baseline`、`insufficient_long_evidence` 优先于过期：从未有过曲线的跑力即使最新证据已超过
-28 天，仍为 `state=collecting`、`modelStatus=insufficient_long_evidence`（`freshness` 照常为 stale/expired），App 显示
-“证据不足：需要至少 2 次 40 分钟以上的合格跑步”。
+状态 `collecting`、`collecting_baseline` 优先于过期。跑力 v1 不再要求长跑：一次带心率、5 分钟以上且有 ≥180 秒合格稳定片段的跑步
+即可产生单次跑力与初步长期估计；没有任何证据时为 `collecting`，App 提示完成一次稳定跑步即可开始估计。
 
 | 条件 | HTTP / 模型状态 | 产品原因码或错误码 | iOS 文案 |
 |---|---|---|---|
@@ -87,7 +123,7 @@ iOS 优先显示 `primaryReason`，旧服务端没有该字段时取 `productRea
 | 计算结果证据不足或已过期 | 200 / 对应模型实际状态 | `insufficient_evidence` / `data_stale` 等 | 证据不足 / 数据已过期 |
 
 前五种情况中，200 响应的缺失指标 `value=null`；不会用零补齐。全无 `state=available` 的指标时
-`responseState=unavailable_response`，部分为 `partial_response`，全部可用才为 `complete_response`（schema2 六项、schema3 八项）。
+`responseState=unavailable_response`，部分为 `partial_response`，全部可用才为 `complete_response`。
 数据库或 assignment 元数据等读取故障可返回 `503 athlete_model_unavailable`，不等同于未激活。
 
 schema3 的 `envelope.mode` 与技术状态正交：`estimated` 表示输入缺失下的有限估计（恢复总分≤75、置信度≤0.40；
@@ -110,7 +146,9 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 - 写入：`POST /v2/training/plans`、`/plans/{id}/changes`、`/plans/{id}/overrides`、`/executions`、`/executions/{id}/changes`
 - 训练输入适配器按 active 栈版本绑定：schema2 栈用 `schema2-v2`（只消费 complete 准备度，低准备度阈值取计划参数
   `lowReadiness`，默认 50）；schema3 栈用 `schema3-v1`（消费 v4 complete 与 estimated 准备度，阈值固定 60；estimated 只走保守下调，
-  不自动增加强度或里程；workout_only 不推断恢复正常）。负荷焦点目前只作事实描述，不参与目标建议
+  不自动增加强度或里程；workout_only 不推断恢复正常）；schema4 栈用 `schema4-v1`（准备度同 schema3，另消费跑力的可排课区间配速）。
+  生成器 `training_plan/v3`：轻松跑→Z2、长跑→Z2、恢复跑→Z1、节奏跑→Z4、间歇→Z5，取区间中点配速；区间不可排课时该课只给心率目标并在
+  `reasons` 记 `pace_zone_unavailable_hr_only`，不回退到其他区间或旧公式。旧栈不再提供配速目标。负荷焦点目前只作事实描述，不参与目标建议
 
 ## 限额
 读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分（突发 2）；可用 `RAI_RATE_BUDGETS` 覆盖，

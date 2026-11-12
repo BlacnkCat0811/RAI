@@ -54,7 +54,7 @@ func ConfigHashV2() string {
 		AcuteUnknownMass, ChronicUnknownMass                    float64
 		Horizon                                                 int
 		ReferencePolicy, Overlap, BoundPolicy, ImputationPolicy string
-	}{AlgorithmV2 + "/" + VersionV2, StateAlgorithmV2 + "/" + VersionV2, wf.ExposureSchema, CompleteCoverage, CompleteMaxGap, EstimatedCoverage, EstimatedMaxGap, .35, 1, AcuteUnknownMassMax, ChronicUnknownMassMax, Horizon, "hr_reference/2;latest-effective;hrmax-no-expiry-review365d;rhr90d;baseline28d;revised-known-at/v2.2", "positive-intersection-knownness/v1", "hrr-clamp-0-1;tiers;pace-approx-k-median5-conf.5/v3.1", "ring-mean-known-training-day/v1"})
+	}{AlgorithmV2 + "/" + VersionV2, StateAlgorithmV2 + "/" + VersionV2, wf.ExposureSchema, CompleteCoverage, CompleteMaxGap, EstimatedCoverage, EstimatedMaxGap, .35, 1, AcuteUnknownMassMax, ChronicUnknownMassMax, Horizon, "hr_reference/2;latest-effective;hrmax-no-expiry-review365d;rhr90d;baseline28d;revised-known-at/v2.2", "positive-intersection-knownness/v1", "hrr-clamp-0-1;tiers;no-pace-approximation/v4", "ring-mean-known-training-day/v1"})
 }
 
 func ScopeV2(workout string) string { return ScopeV2For(workout, wf.StackID()) }

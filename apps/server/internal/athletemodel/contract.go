@@ -5,7 +5,6 @@ package athletemodel
 import (
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
-	ra "rai/server/internal/runningability"
 	tl "rai/server/internal/trainingload"
 	"slices"
 	"sort"
@@ -194,22 +193,14 @@ type TrainingLoadValue struct {
 	StateUnit         string   `json:"stateUnit"`
 	StateModelVersion string   `json:"stateModelVersion"`
 }
+
+// RunningAbilityValue is the retired running-ability slot. Running fitness v1
+// replaced the v60 model; the slot stays decodable for older clients and is
+// always returned without a value ("model_update_required").
 type RunningAbilityValue struct {
-	SubmaxPrior        string       `json:"submaxPrior,omitempty"`
-	Demonstrated       *ra.Branch   `json:"demonstrated,omitempty"`
-	Maximal            *ra.Branch   `json:"maximalSupported,omitempty"`
-	Submax             *ra.Branch   `json:"submaxEstimated,omitempty"`
-	SelectedMode       string       `json:"selectedMode,omitempty"`
-	Progress           *ra.Progress `json:"progress,omitempty"`
-	Score              *float64     `json:"score"`
-	V60                *float64     `json:"v60"`
-	Gamma              *float64     `json:"gamma"`
-	EnduranceRetention *float64     `json:"enduranceRetention"`
-	Stability          string       `json:"stability"`
-	EvidenceMode       string       `json:"evidenceMode"`
-	EvidenceCount      int          `json:"evidenceCount"`
-	SpeedUnit          string       `json:"speedUnit"`
-	ScoreUnit          string       `json:"scoreUnit"`
+	Score     *float64 `json:"score"`
+	SpeedUnit string   `json:"speedUnit"`
+	ScoreUnit string   `json:"scoreUnit"`
 }
 type ExternalVO2Value struct {
 	Value            *float64 `json:"value"`
@@ -262,6 +253,7 @@ type LoadFocusValue struct {
 	Windows []tl.FocusWindow `json:"windows"`
 }
 type AthleteModelSnapshot struct {
+	RunningFitness        *Metric[RunningFitnessValue]  `json:"runningFitness,omitempty"`
 	SessionRecovery       *Metric[SessionRecoveryValue] `json:"sessionRecovery,omitempty"`
 	LoadFocus             *Metric[LoadFocusValue]       `json:"loadFocus,omitempty"`
 	SchemaVersion         string                        `json:"schemaVersion"`

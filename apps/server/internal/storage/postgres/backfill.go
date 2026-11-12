@@ -282,7 +282,7 @@ func readBackfillSnapshot(ctx context.Context, tx pgx.Tx, dataset, id string) (b
   AND EXISTS (SELECT 1 FROM analysis_publications p JOIN dirty_scopes d
     ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
     WHERE p.dataset_id=r.dataset_id AND p.published_run_id=r.id AND p.scope_key=r.scope_key AND p.generation=r.target_generation)
-  AND a.artifact_key IN ('load_state','performance_state_v2','vo2max_external_projection','vo2max_submax','physiological_recovery','training_readiness')
+  AND a.artifact_key IN ('load_state','running_fitness','vo2max_external_projection','vo2max_submax','physiological_recovery','training_readiness')
  ORDER BY r.scope_key,a.artifact_key,r.target_generation DESC LIMIT 2197`,
 		dataset, id, modelmanifest.DayScope(stack, from), modelmanifest.DayScope(stack, through))
 	if err != nil {

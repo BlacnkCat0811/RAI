@@ -6,15 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
-	"strings"
 	"time"
 
 	"rai/server/internal/analysis"
 	"rai/server/internal/hrref"
 	"rai/server/internal/modelmanifest"
-	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
+	rf "rai/server/internal/runfitness"
 	"rai/server/internal/storage/postgres/dbgen"
 	"rai/server/internal/syncing"
 	tl "rai/server/internal/trainingload"
@@ -160,7 +159,8 @@ func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start,
 			var f wf.WorkoutFeatures
 			var e wf.HRExposure
 			if json.Unmarshal(c.feature, &f) == nil && json.Unmarshal(c.exposure, &e) == nil && f.WorkoutID == w.id && e.WorkoutID == w.id &&
-				f.Schema == wf.Schema && f.StackID == wf.StackID() && e.Schema == wf.ExposureSchema {
+				f.Schema == wf.Schema && f.StackID == wf.StackID() && e.Schema == wf.ExposureSchema &&
+				f.RunFitness != nil && f.RunFitness.Schema == wf.RunFitnessSchema && f.RunFitness.Policy == wf.RunFitnessPolicy() {
 				w.feature, w.exposure, w.cached = f, e, true
 				out = append(out, w)
 				continue
@@ -326,21 +326,12 @@ func dailyRHRFacts(in *rc.Input, workoutStart int64, epoch string, loc *time.Loc
 	return out
 }
 
-func stackAnnotations(inputs []stackInput, asOf time.Time) ([]pf.EffortAnnotation, []rc.SleepTarget, []hrref.Resolution, string) {
-	var efforts []pf.EffortAnnotation
+func stackAnnotations(inputs []stackInput, asOf time.Time) ([]rc.SleepTarget, []hrref.Resolution, string) {
 	var targets []rc.SleepTarget
 	var resolutions []hrref.Resolution
 	epochs := map[string]bool{}
 	for _, row := range effectiveStackInputs(inputs, asOf, asOf) {
 		switch row.Kind {
-		case "workout_effort":
-			var x pf.EffortAnnotation
-			if json.Unmarshal(row.Payload, &x) == nil && x.UserConfirmed {
-				// Workout UUIDs are stored lowercase; HealthKit prints them uppercase.
-				x.WorkoutID = strings.ToLower(x.WorkoutID)
-				x.ID, x.AnnotatedAt, x.KnownAt = row.ID, row.From.UnixMicro(), row.Known.UnixMicro()
-				efforts = append(efforts, x)
-			}
 		case "sleep_target":
 			var x rc.SleepTarget
 			if json.Unmarshal(row.Payload, &x) == nil {
@@ -371,7 +362,7 @@ func stackAnnotations(inputs []stackInput, asOf time.Time) ([]pf.EffortAnnotatio
 			epoch = key
 		}
 	}
-	return efforts, targets, resolutions, epoch
+	return targets, resolutions, epoch
 }
 
 func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string, date, at, captured time.Time, revision int64, epoch, collector string) ([]stackArtifact, error) {
@@ -384,7 +375,8 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	if err != nil {
 		return nil, err
 	}
-	efforts, targets, resolutions, source := stackAnnotations(inputs, at)
+	targets, resolutions, source := stackAnnotations(inputs, at)
+	efforts := stackEfforts(inputs, captured)
 	suppressed, ambiguous := stackOverlap(workouts, resolutions, at)
 	generation := l.TargetGeneration
 	in := analysis.Snapshot{Generation: generation, Revision: revision}
@@ -404,7 +396,6 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	var ledger []tl.LedgerLoad
 	var loads []rd.WorkoutLoad
 	var evidence []vo2.Evidence
-	var features []pf.FeatureRef
 	loc := date.Location()
 	fromDay := from.Format(time.DateOnly)
 	var pending []stackPendingLoad
@@ -421,9 +412,6 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		pending = append(pending, stackPendingLoad{workout, r})
 		if r.failure != "" || ambiguous[id] {
 			continue
-		}
-		if end.After(date.AddDate(0, 0, -145)) && (source == "" || workout.sourceEpoch == source) {
-			features = append(features, pf.FeatureRef{Feature: workout.feature, RunID: workout.feature.Evidence.InputHash, KnownAt: workout.known.UnixMicro(), FirstReceivedAt: workout.known.UnixMicro()})
 		}
 		if r.doseRef != nil && stackVO2RawNeeded(workout.feature) && end.After(at.AddDate(0, 0, -76)) && (source == "" || r.doseRef.SourceEpoch == source) &&
 			workout.feature.Environment.Indoor != nil && !*workout.feature.Environment.Indoor {
@@ -449,37 +437,9 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 			}
 		}
 	}
-	if source == "" && len(features) > 0 {
-		latestEpoch := features[len(features)-1].Feature.Evidence.SourceEpochs
-		features = slices.DeleteFunc(features, func(f pf.FeatureRef) bool { return !slices.Equal(f.Feature.Evidence.SourceEpochs, latestEpoch) })
-	}
-	abilityInput := pf.V2Input{Input: pf.Input{Calendar: date.Location(), Timezone: date.Location().String(), DatasetID: l.DatasetID,
-		Generation: generation, AsOf: at.UnixMicro(), View: "revised", Features: features}, Annotations: efforts}
-	ability, err := pf.CalculateV2(abilityInput)
-	if err != nil {
-		return nil, analysis.Invalid()
-	}
-	// 1.4: HR-less runs get a pace-based load, calibrated on the athlete's own
-	// complete HR loads of the last 90 days, when the running ability exists.
-	if ability.Ability != nil {
-		v60 := ability.Ability.V60
-		var ratios []float64
-		for _, p := range pending {
-			if p.r.failure == "" && p.r.load.QualityTier == tl.TierComplete && p.r.load.Load != nil && time.UnixMicro(p.w.end).After(at.AddDate(0, 0, -90)) {
-				if x, ok := tl.PaceIntensity(p.w.feature, v60); ok {
-					ratios = append(ratios, *p.r.load.Load/x)
-				}
-			}
-		}
-		if k, ok := tl.CalibratePace(ratios); ok {
-			for i := range pending {
-				p := &pending[i]
-				if p.r.failure == "" && !ambiguous[p.w.id] && tl.ApplyPaceApproximation(&p.r.load, p.w.feature, v60, k) {
-					p.r.load.Scope = tl.ScopeV2For(p.w.id, stack)
-				}
-			}
-		}
-	}
+	// Running fitness v1: single results and the day state. HR-less runs keep
+	// an unknown load; no ability estimate is fed back into load.
+	fitness := stackRunFitness(l.DatasetID, generation, date, at, pending, efforts, source, ambiguous)
 	// Per-Workout results: newly computed features/exposures fill the cache,
 	// and today's release records each Workout's v2 load for product readers.
 	var results []stackArtifact
@@ -533,13 +493,6 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	}
 	state.Checkpoint = &checkpoint
 	state.Scope = tl.ScopeStateV2For(stack)
-	maximalInput := abilityInput
-	maximalInput.Mode = pf.ModeMaximalV2
-	maximal, err := pf.CalculateV2(maximalInput)
-	if err != nil {
-		return nil, analysis.Invalid()
-	}
-	maximal.Schema = pf.AbilitySchemaV2
 	var referenceHash, sourceEpoch string
 	if len(evidence) > 0 {
 		last := evidence[len(evidence)-1]
@@ -568,16 +521,15 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	}
 	recoveryID := syncing.NewID()
 	// The same day release computes structure -> fatigue -> readiness in that
-	// order. Independent ability branches consume frozen performance/VO2 DTOs.
-	optimized, ready, err := optimizedStackOutputs(ctx, tx, l, stack, date, at, captured, workouts, pending, loads, state, recovery, ability, maximal, owned, efforts)
+	// order. Running fitness consumes only neutral Workout features.
+	optimized, ready, err := optimizedStackOutputs(ctx, tx, l, stack, date, at, captured, workouts, pending, loads, state, recovery)
 	if err != nil {
 		return nil, err
 	}
 	artifacts := []stackArtifact{
 		{key: "load_state", schema: tl.StateSchemaV2, algorithm: tl.StateAlgorithmV2, version: tl.VersionV2, value: state,
 			inputHash: featureHash(stateInput)},
-		{key: pf.ArtifactKeyV2, schema: pf.SchemaV2, algorithm: pf.CurveModel, version: pf.VersionV2, value: ability, inputHash: featureHash(abilityInput)},
-		{key: "running_ability_maximal_v2", family: "model_research_v1/running_ability_maximal_v2", schema: pf.AbilitySchemaV2, algorithm: pf.CurveModel, version: pf.VersionV2, value: maximal, inputHash: featureHash(maximalInput)},
+		{key: rf.ArtifactKey, schema: rf.Schema, algorithm: rf.Algorithm, version: rf.Version, value: fitness, inputHash: fitness.InputHash},
 		{key: ve.ArtifactKey, schema: ve.Schema, algorithm: ve.Algorithm, version: "v1", value: external, inputHash: featureHash(in.ExternalInput)},
 		{key: vo2.ArtifactKey, schema: vo2.Schema, algorithm: vo2.Algorithm, version: vo2.Version, value: owned, inputHash: featureHash(ownedInput)},
 		{key: "physiological_recovery", schema: rc.SchemaV3, algorithm: rc.Algorithm, version: "v3", value: recovery, runID: recoveryID, inputHash: featureHash(recoveryInput)},
@@ -613,10 +565,11 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 }
 
 type stackLoad struct {
-	load    tl.Result
-	ref     hrref.Snapshot
-	doseRef *tl.Reference
-	failure string
+	load        tl.Result
+	ref         hrref.Snapshot
+	doseRef     *tl.Reference
+	refConflict bool
+	failure     string
 }
 
 // stackWorkoutLoad resolves one Workout's HR reference and v2 load. Every error
@@ -642,7 +595,7 @@ func stackWorkoutLoad(w stackWorkout, inputs []stackInput, captured time.Time, r
 		return stackLoad{load: failedStackLoad(w, loc, stack, generation, "analysis_invalid_input"), failure: "analysis_invalid_input"}
 	}
 	load.Scope = tl.ScopeV2For(w.id, stack)
-	return stackLoad{load: load, ref: ref, doseRef: doseRef}
+	return stackLoad{load: load, ref: ref, doseRef: doseRef, refConflict: conflict}
 }
 
 // doseReference turns a resolved snapshot into the load/VO2 dose reference.

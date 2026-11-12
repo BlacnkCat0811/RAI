@@ -14,7 +14,6 @@ import (
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/modelrelease"
-	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
 	"rai/server/internal/syncing"
@@ -57,19 +56,19 @@ func publishRetainedDay(t *testing.T, f *fixture, today time.Time, read func(str
 		t.Fatal("retained release missing")
 	}
 	var load tl.StateResult
-	var ability pf.Result
 	var recovery rc.V2Result
 	var readiness rd.Result
 	var native vo2.Result
 	var external ve.Result
 	read("load_state", &load)
-	read(pf.ArtifactKeyV2, &ability)
 	read("physiological_recovery", &recovery)
 	read("training_readiness", &readiness)
 	read(vo2.ArtifactKey, &native)
 	read(ve.ArtifactKey, &external)
 	load.Generation, load.ConfigHash = 1, r.LoadConfigHash
-	ability.Generation, ability.ConfigHash = 1, r.AbilityConfigHash
+	// The retained release's v60 ability artifact: an audit row the current
+	// code no longer reads or serves.
+	ability := map[string]any{"schemaVersion": "rai.performance/2", "datasetID": f.p.DatasetID, "generation": 1, "configHash": r.AbilityConfigHash, "status": "available"}
 	recovery.Generation, recovery.ConfigHash = 1, r.RecoveryConfig.Hash()
 	recovery.Schema, recovery.ModelVersion = rc.SchemaV2, rc.ModelV2
 	readiness.Generation, readiness.Config, readiness.ConfigHash = 1, r.ReadinessConfig, r.ReadinessConfig.Hash()
@@ -99,7 +98,7 @@ func publishRetainedDay(t *testing.T, f *fixture, today time.Time, read func(str
 		value                           any
 	}{
 		{"load_state", tl.StateSchemaV2, tl.StateAlgorithmV2, "v2", load},
-		{pf.ArtifactKeyV2, pf.SchemaV2, pf.CurveModel, "v2", ability},
+		{"performance_state_v2", "rai.performance/2", "rai.performance_curve", "v2", ability},
 		{"physiological_recovery", rc.SchemaV2, rc.Algorithm, "v2", recovery},
 		{"training_readiness", rd.SchemaV3, rd.Algorithm, "v3", readiness},
 		{vo2.ArtifactKey, vo2.Schema, vo2.Model, "v1", native},
@@ -151,10 +150,13 @@ func TestModelReleaseUpgradeReadsRetainedResultsAndRollsBack(t *testing.T) {
 		if err != nil || s.Assignment.StackID != retainedStack {
 			t.Fatalf("retained read: %v", err)
 		}
-		for _, e := range []am.Envelope{s.TrainingLoad.Envelope, s.RunningAbility.Envelope, s.PhysiologicalRecovery.Envelope, s.TrainingReadiness.Envelope, s.ExternalVO2Max.Envelope, s.RAIVO2Max.Envelope} {
+		for _, e := range []am.Envelope{s.TrainingLoad.Envelope, s.PhysiologicalRecovery.Envelope, s.TrainingReadiness.Envelope, s.ExternalVO2Max.Envelope, s.RAIVO2Max.Envelope} {
 			if e.ModelVersion == "" || e.TechnicalError != nil || e.ModelStatus == "not_product_activated" {
 				t.Fatalf("retained slot rejected: %+v", e)
 			}
+		}
+		if s.RunningAbility.Value != nil || s.RunningAbility.Envelope.ModelStatus != "model_update_required" {
+			t.Fatalf("retired v60 ability served from a retained release: %+v", s.RunningAbility.Envelope)
 		}
 		if s.TrainingReadiness.Value == nil || s.TrainingReadiness.Value.Score == nil || *s.TrainingReadiness.Value.Score != 80 {
 			t.Fatal("retained readiness formula not preserved")
@@ -172,11 +174,14 @@ func TestModelReleaseUpgradeReadsRetainedResultsAndRollsBack(t *testing.T) {
 		if !found {
 			t.Fatal("retained readiness missing from training inputs")
 		}
-		for _, metric := range []string{"trainingLoad", "runningAbility", "physiologicalRecovery", "trainingReadiness", "externalVO2Max", "raiVO2Max"} {
+		for _, metric := range []string{"trainingLoad", "physiologicalRecovery", "trainingReadiness", "externalVO2Max", "raiVO2Max"} {
 			p, err := f.s.ReadAthleteHistory(ctx, f.p, metric, today.Format(time.DateOnly), today.Format(time.DateOnly), 30, "", "revised")
 			if err != nil || len(p.Points) != 1 || p.ManifestSHA != retainedManifest {
 				t.Fatalf("retained history %s: %v", metric, err)
 			}
+		}
+		if _, err := f.s.ReadAthleteHistory(ctx, f.p, "runningAbility", today.Format(time.DateOnly), today.Format(time.DateOnly), 30, "", "revised"); !errors.Is(err, am.ErrUnsupportedRelease) {
+			t.Fatalf("retired ability history: %v", err)
 		}
 	}
 	assertRetained() // Current candidate must not replace the active old release.
@@ -200,9 +205,12 @@ func TestModelReleaseUpgradeReadsRetainedResultsAndRollsBack(t *testing.T) {
 	if _, err := f.s.PromoteModelStack(ctx, f.p.DatasetID, "synthetic-test", modelmanifest.StackID(), gate, hash); err != nil {
 		t.Fatal(err)
 	}
-	current, err := f.s.ReadAthleteProductV3(ctx, f.p, time.Now())
-	if err != nil || current.Assignment.StackID != modelmanifest.StackID() {
+	current, err := f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
+	if err != nil || current.Assignment.StackID != modelmanifest.StackID() || current.RunningFitness == nil || current.RunningFitness.Envelope.TechnicalError != nil {
 		t.Fatalf("promotion: %v", err)
+	}
+	if old, err := f.s.ReadAthleteProductV3(ctx, f.p, time.Now()); err != nil || old.TrainingReadiness.Envelope.ModelStatus != "model_update_required" {
+		t.Fatalf("schema3 client must be told to update: %v", err)
 	}
 	if _, err := f.s.LoadTraining(ctx, analysis.Lease{DatasetID: f.p.DatasetID, ScopeKey: "plan:" + plan.ID}, time.Now()); err != nil {
 		t.Fatalf("current training inputs: %v", err)
@@ -230,20 +238,20 @@ func TestModelReleasePendingFailureAndUnknownNeverClaimUnactivated(t *testing.T)
 	if _, err := f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,clock_timestamp())`, f.p.DatasetID, stack, today.Format(time.DateOnly)); err != nil {
 		t.Fatal(err)
 	}
-	s, err := f.s.ReadAthleteProductV3(ctx, f.p, time.Now())
-	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "pending" || s.RunningAbility.Value != nil {
+	s, err := f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
+	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "pending" || s.RunningAbility.Value != nil || s.RunningFitness == nil || s.RunningFitness.Envelope.ModelStatus != "pending" {
 		t.Fatalf("pending: %+v %v", s.TrainingReadiness.Envelope, err)
 	}
 	if _, err := f.s.Pool.Exec(ctx, `UPDATE jobs SET state='failed',last_error_code='analysis_invalid_input' WHERE dataset_id=$1 AND scope_key=$2 AND state='queued'`, f.p.DatasetID, scope); err != nil {
 		t.Fatal(err)
 	}
-	s, err = f.s.ReadAthleteProductV3(ctx, f.p, time.Now())
+	s, err = f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
 	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "technical_failure" {
 		t.Fatalf("failure: %+v %v", s.TrainingReadiness.Envelope, err)
 	}
 	unknown := strings.Repeat("b", 64)
 	setModelChannel(t, f, "active", "rai-v2-"+unknown[:16], unknown)
-	s, err = f.s.ReadAthleteProductV3(ctx, f.p, time.Now())
+	s, err = f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
 	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "unsupported" {
 		t.Fatalf("unsupported: %+v %v", s.TrainingReadiness.Envelope, err)
 	}

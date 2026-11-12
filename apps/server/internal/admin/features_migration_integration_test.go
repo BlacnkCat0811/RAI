@@ -46,7 +46,7 @@ func TestFeatureMigration20ToLatestRetryAndRollbackRefused(t *testing.T) {
 		t.Fatal("destructive rollback allowed", err)
 	}
 	var version, tables int
-	if err = db.QueryRowContext(ctx, `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied),(SELECT count(*) FROM information_schema.tables WHERE table_schema='public')`).Scan(&version, &tables); err != nil || int64(version) != migrations.LatestVersion() || tables != 62 {
+	if err = db.QueryRowContext(ctx, `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied),(SELECT count(*) FROM information_schema.tables WHERE table_schema='public')`).Scan(&version, &tables); err != nil || int64(version) != migrations.LatestVersion() || tables != 64 { // +run_fitness_reanalysis_operations, run_fitness_day_runs (57)
 		t.Fatal("unexpected schema", version, tables, err)
 	}
 }

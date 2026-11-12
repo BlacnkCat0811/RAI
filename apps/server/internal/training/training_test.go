@@ -439,9 +439,12 @@ func TestGeneratorTargetsAndRampGuard(t *testing.T) {
 	in := syntheticContext()
 	in.Config.BaselineWeeklyM = Ptr(30000)
 	in.Config.PreviousLongM = Ptr(12000)
-	in.ObservedModelBinding = &ModelBinding{Adapter: "schema2-v2"}
+	in.ObservedModelBinding = &ModelBinding{Adapter: "schema4-v1"}
 	in.Signals = []Signal{
-		{Name: "v60", Algorithm: "rai.running_ability", Version: "v2", Quality: "complete", Value: Ptr(4)},
+		{Name: "pace_z1", Algorithm: PaceAlgorithm, Version: "v1", Quality: "complete", Value: Ptr(372)},
+		{Name: "pace_z2", Algorithm: PaceAlgorithm, Version: "v1", Quality: "complete", Value: Ptr(338)},
+		{Name: "pace_z4", Algorithm: PaceAlgorithm, Version: "v1", Quality: "complete", Value: Ptr(258)},
+		{Name: "pace_z5", Algorithm: PaceAlgorithm, Version: "v1", Quality: "complete", Value: Ptr(232)},
 		{Name: "hr_max", Algorithm: "hr_reference", Version: "v2", Quality: "complete", Value: Ptr(190)},
 		{Name: "hr_rest", Algorithm: "hr_reference", Version: "v2", Quality: "complete", Value: Ptr(50)},
 		{Name: "acute", Algorithm: "rai.load_state.exp_finite", Version: "v2", Quality: "partial", Value: Ptr(70)},
@@ -494,7 +497,7 @@ func TestRescheduleTodayMovesHardSession(t *testing.T) {
 		{ID: "c", Slot: 2, Date: "2026-10-28", Type: "EASY", Effort: 3, DistanceM: 6000, Origin: "generated", Status: "scheduled", Reasons: []string{"aerobic_base"}},
 		{ID: "d", Slot: 3, Date: "2026-10-29", Type: "REST", Origin: "generated", Status: "scheduled", Reasons: []string{"minimum_recovery"}},
 	}
-	if e := rescheduleToday(week, 0, Ptr(4.0), Ptr(190.0), Ptr(50.0)); e != nil {
+	if e := rescheduleToday(week, 0, PaceTargets{"z1": 400, "z2": 360, "z4": 270}, Ptr(190.0), Ptr(50.0)); e != nil {
 		t.Fatal(e)
 	}
 	if week[0].Type != "RECOVERY" || week[0].DistanceM != 6000 || week[0].ID != "a" || week[0].PaceSPerKM == nil {
@@ -664,5 +667,35 @@ func TestPlanTapersIntoTheEventAndRecoversAfter(t *testing.T) {
 	base, e = Generate(in)
 	if e != nil || base.Sessions[9*7+6].Type != "RACE" {
 		t.Fatal("low readiness rescheduled the event", e)
+	}
+}
+
+func TestGeneratorWithoutSchedulableZoneIsHROnly(t *testing.T) {
+	in := syntheticContext()
+	in.Config.BaselineWeeklyM = Ptr(30000)
+	in.Config.PreviousLongM = Ptr(12000)
+	in.ObservedModelBinding = &ModelBinding{Adapter: "schema4-v1"}
+	in.Signals = []Signal{
+		{Name: "pace_z2", Algorithm: PaceAlgorithm, Version: "v1", Quality: "complete", Value: Ptr(338)},
+		{Name: "hr_max", Algorithm: "hr_reference", Version: "v2", Quality: "complete", Value: Ptr(190)},
+		{Name: "hr_rest", Algorithm: "hr_reference", Version: "v2", Quality: "complete", Value: Ptr(50)},
+		// A retired v60 signal must not produce any pace.
+		{Name: "v60", Algorithm: "rai.running_ability", Version: "v2", Quality: "complete", Value: Ptr(4)},
+	}
+	b, e := Generate(in)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, s := range b.Sessions {
+		switch s.Type {
+		case "TEMPO", "INTERVAL", "RECOVERY":
+			if s.PaceSPerKM != nil || s.TargetHR == nil || !containsString(s.Reasons, "pace_zone_unavailable_hr_only") {
+				t.Fatalf("%s must fall back to HR only: %+v", s.Type, s)
+			}
+		case "EASY":
+			if s.PaceSPerKM == nil || *s.PaceSPerKM != 338 {
+				t.Fatalf("easy pace %+v", s.PaceSPerKM)
+			}
+		}
 	}
 }

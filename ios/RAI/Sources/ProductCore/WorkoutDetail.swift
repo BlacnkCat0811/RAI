@@ -14,14 +14,16 @@ public struct WorkoutDetailResponse: Codable, Sendable {
   public let distanceDistribution: WorkoutDistanceDistribution?
   public let route: WorkoutRoute
   public let override: WorkoutOverride?
-  /// Whether the active model admits this run for 跑力 and 负荷; absent until
-  /// the model stack has computed it (and from older servers).
+  /// Whether the active model admits this run as known training load; absent
+  /// until the model stack has computed it (and from older servers).
   public let modelQualification: WorkoutModelQualification?
   public let loadFocus: WorkoutLoadFocus?
+  /// This run's single-run fitness from the published day state, with the
+  /// fixed-policy reference of the day before it; absent until published.
+  public let runFitness: WorkoutRunFitness?
 }
 
 public struct WorkoutModelQualification: Codable, Sendable, Equatable {
-  public let runningAbility: WorkoutQualification
   public let trainingLoad: WorkoutQualification
 }
 
@@ -32,10 +34,6 @@ public struct WorkoutQualification: Codable, Sendable, Equatable {
 
 /// One line per model: admitted or not, and why not.
 public enum WorkoutQualificationText {
-  public static func runningAbility(_ q: WorkoutQualification) -> String {
-    let status = ["eligible": "已采用", "conditional": "有条件采用", "ineligible": "未采用"][q.status] ?? "未知"
-    return line("跑力证据", status, q.reasonCodes)
-  }
   public static func trainingLoad(_ q: WorkoutQualification) -> String {
     let status = ["eligible": "完整心率", "conditional": "估算", "ineligible": "未知", "pending": "计算中"][q.status] ?? "未知"
     return line("负荷", status, q.reasonCodes)

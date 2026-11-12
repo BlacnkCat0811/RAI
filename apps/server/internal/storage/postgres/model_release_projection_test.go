@@ -40,6 +40,13 @@ func TestRetainedReleasePayloadsSurviveJSONBAndRejectIdentityCorruption(t *testi
 				a := publishedModelArtifact{Payload: jsonbRoundTrip(t, []byte(value.Payload)), Schema: value.Schema,
 					Algorithm: value.Algorithm, Version: value.Version, ContentHash: value.Hash, Generation: 1, ManifestSHA: fixture.Manifest}
 				const dataset = "00000000-0000-4000-8000-000000000001"
+				if value.Metric == "runningAbility" {
+					// The retired v60 ability is retained as an audit row only.
+					if validHistoryArtifactForRelease(value.Metric, dataset, "UTC", a, release) {
+						t.Fatal("retired running ability is still served")
+					}
+					continue
+				}
 				if !validHistoryArtifactForRelease(value.Metric, dataset, "UTC", a, release) {
 					t.Fatalf("retained %s rejected", value.Metric)
 				}

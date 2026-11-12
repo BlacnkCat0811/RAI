@@ -346,6 +346,11 @@ func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manif
 		if err := rows.Scan(&a.Key, &a.Schema, &a.ContentHash, &a.Payload, &a.Algorithm, &a.Version, &a.Generation, &a.PublishedAt); err != nil {
 			return err
 		}
+		if retiredAbilityKey(a.Key) {
+			// The v60 running ability of a retained release is no longer
+			// served; switching to that release turns running fitness off.
+			continue
+		}
 		metric := modelProductMetric(a.Key)
 		a.ManifestSHA = manifest // The SQL binds this to both assignment and run.
 		if seen[a.Key] || !validHistoryArtifactForRelease(metric, dataset, tz, a, release) {
@@ -357,8 +362,13 @@ func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manif
 		return err
 	}
 	want := modelProductSlots
-	if release.Manifest.ProductSchema == am.Schema3 {
-		want += 3
+	switch release.Manifest.ProductSchema {
+	case am.Schema4:
+		want += 2 // session recovery, load focus
+	case am.Schema3:
+		want += 2 - 1 // session recovery, load focus; no retired ability
+	default:
+		want-- // no retired ability
 	}
 	if len(seen) != want {
 		return am.ErrGateClosed
@@ -366,12 +376,18 @@ func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manif
 	return nil
 }
 
+// retiredAbilityKey names the v60 running-ability artifacts of retained
+// releases. Their rows stay for audit; no reader validates or serves them.
+func retiredAbilityKey(key string) bool {
+	return key == "performance_state_v2" || key == "running_ability_estimate"
+}
+
 func modelProductMetric(key string) string {
 	switch key {
 	case "load_state":
 		return "trainingLoad"
-	case "performance_state_v2":
-		return "runningAbility"
+	case "running_fitness":
+		return "runningFitness"
 	case "vo2max_external_projection":
 		return "externalVO2Max"
 	case "vo2max_submax":
@@ -382,8 +398,6 @@ func modelProductMetric(key string) string {
 		return "trainingReadiness"
 	case "session_recovery":
 		return "sessionRecovery"
-	case "running_ability_estimate":
-		return "abilityEstimate"
 	case "load_focus":
 		return "loadFocus"
 	default:

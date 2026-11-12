@@ -230,7 +230,9 @@ func validateHR(m map[string]any, now time.Time) error {
 		return ErrInvalid
 	}
 	switch m["method"] {
-	case "lab_max_test", "field_max_test", "clinical", "user_entered", "wearable_estimate":
+	// age_estimated is an explicit, user-chosen cold start; it is never applied
+	// silently and running fitness marks every result based on it as limited.
+	case "lab_max_test", "field_max_test", "clinical", "user_entered", "wearable_estimate", "age_estimated":
 	default:
 		return ErrInvalid
 	}
@@ -270,7 +272,10 @@ func validateEffort(m map[string]any) error {
 		return ErrInvalid
 	}
 	mode, _ := m["mode"].(string)
-	if mode != "maximal_supported" {
+	switch mode {
+	// maximal_supported is the original all-out label and reads as a race.
+	case "maximal_supported", "race", "threshold_test", "speed_test", "sprint_test":
+	default:
 		return ErrInvalid
 	}
 	user, _ := m["userConfirmed"].(bool)

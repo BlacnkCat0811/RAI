@@ -50,11 +50,16 @@ func SetMissingMetricsV2(s *AthleteModelSnapshot, status string) {
 	s.TrainingReadiness = Missing[ReadinessValue]("trainingReadiness", at, status)
 	v := Missing[RAIVO2Value]("raiVO2Max", at, status)
 	s.RAIVO2Max = &v
-	if s.SchemaVersion == Schema3 {
+	if s.SchemaVersion == Schema3 || s.SchemaVersion == Schema4 {
 		session := Missing[SessionRecoveryValue]("sessionRecovery", at, status)
 		s.SessionRecovery = &session
 		focus := Missing[LoadFocusValue]("loadFocus", at, status)
 		s.LoadFocus = &focus
+	}
+	if s.SchemaVersion == Schema4 {
+		fitness := Missing[RunningFitnessValue]("runningFitness", at, status)
+		fitness.Envelope.MappingVersion = MappingVersion4
+		s.RunningFitness = &fitness
 	}
 	for _, e := range []*Envelope{&s.TrainingLoad.Envelope, &s.RunningAbility.Envelope, &s.ExternalVO2Max.Envelope, &s.PhysiologicalRecovery.Envelope, &s.TrainingReadiness.Envelope, &s.RAIVO2Max.Envelope} {
 		e.MappingVersion = MappingVersion2

@@ -8,12 +8,7 @@ import (
 
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/modelmanifest"
-	pf "rai/server/internal/performance"
-	rd "rai/server/internal/readiness"
-	rc "rai/server/internal/recovery"
 	"rai/server/internal/syncing"
-	tl "rai/server/internal/trainingload"
-	ve "rai/server/internal/vo2maxexternal"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -68,14 +63,6 @@ type projectionRef struct {
 	Key    string `json:"key"`
 	Hash   string `json:"hash"`
 }
-type candidateModels struct {
-	load      *tl.Result
-	state     *tl.StateResult
-	ability   *pf.Result
-	vo2       *ve.Result
-	recovery  *rc.Result
-	readiness *rd.Result
-}
 
 // ReadAthleteModelCandidateSnapshot requires administrative DB authority. It
 // cannot be called successfully by the restricted API or worker role. All
@@ -112,7 +99,7 @@ func (s *Store) ReadAthleteModelCandidateSnapshot(ctx context.Context, dataset s
 		if err != nil || c.configHash != manifest {
 			return am.AthleteModelCandidateSnapshot{}, stats, ErrModelProjection
 		}
-		out = am.NewSnapshotV3(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
+		out = am.NewSnapshotV4(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
 		out, err = readPublishedModelStack(ctx, tx, dataset, "candidate", c.assignment.StackID, out, c, at)
 		stats.DBReads++
 		if err != nil {

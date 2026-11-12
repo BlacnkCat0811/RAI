@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"testing"
 
-	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
 	tl "rai/server/internal/trainingload"
@@ -19,8 +18,8 @@ import (
 func syntheticSnapshot() AthleteModelSnapshot {
 	const at int64 = 1793757600000000
 	s := NewSnapshot(at, 17, "Asia/Shanghai", "2026-11-04", Assignment{"candidate", "synthetic", 1})
-	a := pf.Result{Schema: pf.Schema, Model: pf.AbilityModel, Version: "v1", ConfigHash: pf.ConfigHash(), AsOf: at - 86400e6, Status: "available", Freshness: "fresh", Stability: "stable", EvidenceMode: "demonstrated", Confidence: .4, Support: pf.Support{IndependentWorkouts: 6}, Ability: &pf.Ability{Score: 55, V60: 3.3, Gamma: .9, Retention: .88}}
-	s.RunningAbility = ProjectAbility(a, a.AsOf, a.AsOf, at)
+	// The v60 running ability is retired; its slot only says to update.
+	s.RunningAbility = Missing[RunningAbilityValue]("runningAbility", at, "model_update_required")
 	v := ve.Result{Schema: ve.Schema, ModelVersion: ve.Model, AsOf: at - 12*86400e6, Value: number(42), Unit: ve.Unit, Provider: "Apple Health", Status: "available", Quality: "complete", Selected: &ve.Selected{End: at - 12*86400e6}}
 	s.ExternalVO2Max = ProjectVO2(v, v.AsOf, at)
 	fresh := rc.Freshness{State: "fresh"}
@@ -51,7 +50,7 @@ func goldenSnapshots() map[string]AthleteModelSnapshot {
 	stale.ExternalVO2Max = ProjectVO2(ve.Result{Schema: ve.Schema, ModelVersion: ve.Model, Status: "stale", Quality: "complete", Value: number(42), Unit: ve.Unit, Provider: "Apple Health", AsOf: at - 40*86400e6}, at-40*86400e6, at)
 	expired := full
 	expired.RunningAbility = Missing[RunningAbilityValue]("runningAbility", at, "expired")
-	expired.RunningAbility.Envelope.ModelVersion = pf.AbilityModel + "/v1"
+	expired.RunningAbility.Envelope.ModelVersion = "rai.running_ability/v1"
 	expired.RunningAbility.Envelope.Freshness = "expired"
 	missing := full
 	missing.PhysiologicalRecovery = Missing[RecoveryValue]("physiologicalRecovery", at, "insufficient_data")
@@ -177,20 +176,6 @@ func TestTrendAndPromotionGates(t *testing.T) {
 	if ProjectLoad(nil, &partial, nil, 1, 1, 1).Envelope.State != Limited {
 		t.Fatal("partial load presented as complete")
 	}
-	a := pf.Result{Model: pf.AbilityModel, Version: "v1", Status: "available", Freshness: "fresh", EvidenceMode: "demonstrated", Ability: &pf.Ability{Score: 50}}
-	b := a
-	if RunningAbilityTrend(a, b) == nil {
-		t.Fatal("comparable")
-	}
-	b.Version = "v2"
-	if RunningAbilityTrend(a, b) != nil {
-		t.Fatal("mixed model trend")
-	}
-	b = a
-	b.EvidenceMode = "other"
-	if RunningAbilityTrend(a, b) != nil {
-		t.Fatal("mixed mode trend")
-	}
 	r := rc.Result{ModelVersion: rc.Model, Date: "2026-11-04", Status: "available", Quality: "complete", Score: number(50)}
 	p := r
 	p.Date = "2026-11-03"
@@ -214,7 +199,7 @@ func BenchmarkProductProjection(b *testing.B) {
 	s := syntheticSnapshot()
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = ProjectAbility(pf.Result{Model: pf.AbilityModel, Version: "v1", Status: "collecting"}, s.AsOf, s.AsOf, s.AsOf)
+		_ = ProjectLoadV2(nil, s.AsOf, s.AsOf, s.AsOf)
 	}
 }
 func BenchmarkProductSerialization(b *testing.B) {

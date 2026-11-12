@@ -323,7 +323,7 @@ func (s *Store) rebuildModelStackHistory(ctx context.Context, at time.Time) erro
 }
 
 func modelStackProductsPresent(artifacts []stackArtifact) bool {
-	required := map[string]bool{"load_state": false, "performance_state_v2": false, "vo2max_external_projection": false, "vo2max_submax": false, "physiological_recovery": false, "training_readiness": false, "session_recovery": false, "running_ability_estimate": false, "load_focus": false}
+	required := map[string]bool{"load_state": false, "running_fitness": false, "vo2max_external_projection": false, "vo2max_submax": false, "physiological_recovery": false, "training_readiness": false, "session_recovery": false, "load_focus": false}
 	for _, a := range artifacts {
 		if seen, ok := required[a.key]; ok {
 			if seen {

@@ -8,6 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+
+	rf "rai/server/internal/runfitness"
+	wf "rai/server/internal/workoutfeatures"
 )
 
 const (
@@ -59,6 +62,10 @@ type Manifest struct {
 	LoadFocus                *Component  `json:"loadFocus,omitempty"`
 }
 
+// ProductSchema4 is the running-fitness product contract.
+const ProductSchema4 = "rai.athlete_model/4"
+const MappingVersion4 = "rai.product_metric_mapping/4"
+
 func digest(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:])
@@ -92,9 +99,8 @@ func baselineManifest() Manifest {
 	}
 }
 
-// Current is the independently activated schema3 candidate. Frozen schema2
-// releases keep their full manifest hash and read configuration.
-func Current() Manifest {
+// schema3Manifest is the deployed schema3 release (frozen in modelrelease).
+func schema3Manifest() Manifest {
 	m := baselineManifest()
 	m.ProductSchema = "rai.athlete_model/3"
 	m.MappingVersion = "rai.product_metric_mapping/3"
@@ -116,8 +122,31 @@ func Current() Manifest {
 	return m
 }
 
+// Current is the running-fitness v1 release (schema4). The retired v60
+// running ability and its VO2-derived estimate are gone from the stack: the
+// RunningAbility slot now names the running-fitness component, and the
+// load, focus and features configurations changed with it. The config hash
+// strings are fixed design identities, except running fitness and the
+// feature policy, which come from their pure modules.
+func Current() Manifest {
+	m := schema3Manifest()
+	m.ProductSchema = ProductSchema4
+	m.MappingVersion = MappingVersion4
+	m.ConsumerVersions = []string{"ios/4", "training-adapter/4", "http/v2"}
+	m.AbilityEstimate = nil
+	m.Features.ConfigHash = digest("features:normalized-workout/v1;structure-ten-second-native5s-grade03/v1;" + wf.RunFitnessPolicy())
+	m.Load.ConfigHash = digest("load:tiers.98-30s/.80-180s;hrr-clamp-0-1;summary.35;ratio1;horizon180;reference-v2;overlap-knownness;workout-isolated;hrref-latest-effective-no-expiry;no-pace-approximation/v4")
+	m.RunningAbility = Component{Name: "running_fitness", ModelID: "rai.running_fitness", Version: "v1", Schema: "rai.running_fitness/1", InputSchema: "rai.running_fitness.input/1", JobKind: StackJobKind, ArtifactKey: "running_fitness",
+		ConfigHash: rf.ConfigHash(), SourcePolicy: "recorded-running;stable-source-identity;hr-reference-at-event;effort-labels-known-at/v1", AnnotationMode: AnnotationPolicy, ConsumerSchema: "rai.running_fitness/1"}
+	m.LoadFocus.ConfigHash = digest("hrr-proxy.70;short-repeat3x20-120s;pre-workout-v6x1.0;recovery-v6x.78;native5s;measured-grade.03;unclassified-gap;local-days/v2")
+	return m
+}
+
 func (m Manifest) Validate() error {
 	if m.ProductSchema == "rai.athlete_model/3" && (m.SessionRecovery == nil || m.AbilityEstimate == nil || m.LoadFocus == nil) {
+		return ErrInvalid
+	}
+	if m.ProductSchema == ProductSchema4 && (m.SessionRecovery == nil || m.AbilityEstimate != nil || m.LoadFocus == nil || m.RunningAbility.ModelID != "rai.running_fitness") {
 		return ErrInvalid
 	}
 	all := []Component{m.Features, m.Load, m.LoadState, m.RunningAbility, m.VO2Max, m.Recovery, m.Readiness, m.ExternalVO2}
@@ -137,7 +166,8 @@ func (m Manifest) Validate() error {
 		}
 		seen[c.ModelID+"/"+c.Version] = true
 	}
-	if m.Schema != Schema || (m.ProductSchema != ProductSchema || m.MappingVersion != MappingVersion) && (m.ProductSchema != "rai.athlete_model/3" || m.MappingVersion != "rai.product_metric_mapping/3") || len(m.Diagnostics) != 4 || m.PhysiologicallyValidated {
+	if m.Schema != Schema || (m.ProductSchema != ProductSchema || m.MappingVersion != MappingVersion) && (m.ProductSchema != "rai.athlete_model/3" || m.MappingVersion != "rai.product_metric_mapping/3") &&
+		(m.ProductSchema != ProductSchema4 || m.MappingVersion != MappingVersion4) || len(m.Diagnostics) != 4 || m.PhysiologicallyValidated {
 		return ErrInvalid
 	}
 	return nil

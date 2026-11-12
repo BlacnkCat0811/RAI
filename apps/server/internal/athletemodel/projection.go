@@ -1,7 +1,6 @@
 package athletemodel
 
 import (
-	pf "rai/server/internal/performance"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
 	tl "rai/server/internal/trainingload"
@@ -12,19 +11,6 @@ func number(v float64) *float64 { return &v }
 
 // All functions below receive already validated, Freshen-ed results. They never
 // query facts or recalculate any physiological model.
-func ProjectAbility(r pf.Result, anchor, updated, at int64) Metric[RunningAbilityValue] {
-	v := &RunningAbilityValue{EvidenceMode: r.EvidenceMode, Stability: r.Stability, EvidenceCount: r.Support.IndependentWorkouts, SpeedUnit: "m/s", ScoreUnit: "score_0_100"}
-	if r.Ability != nil {
-		v.Score = number(r.Ability.Score)
-		v.V60 = number(r.Ability.V60)
-		v.Gamma = number(r.Ability.Gamma)
-		v.EnduranceRetention = number(r.Ability.Retention)
-	}
-	e := NewEnvelope("runningAbility", r.Model+"/"+r.Version, r.Schema, r.Status, "not_provided", r.Freshness, &r.Confidence, &anchor, &updated, at, r.ReasonCodes, []string{"RAI-derived", "Apple Health"})
-	m := Metric[RunningAbilityValue]{Envelope: e, Value: v, Trend: NoTrend("no_comparable_result")}
-	m.Explanation = BuildMetricExplanation(m.Envelope, []Fact{{"running_ability.v60", v.V60, "m/s"}, {"running_ability.evidence_count", number(float64(v.EvidenceCount)), "count"}}, []string{"recent_demonstrated_running_performance", "not_vo2max", "evidence_support_not_probability"})
-	return m
-}
 func ProjectVO2(r ve.Result, updated, at int64) Metric[ExternalVO2Value] {
 	fresh := "unknown"
 	if r.Status == "available" {
@@ -139,14 +125,6 @@ func BuildMetricExplanation(e Envelope, facts []Fact, limitations []string) Expl
 	return Explanation{Headline: e.Metric + "." + string(e.State), SupportingFacts: facts, Limitations: CanonicalReasons(limitations)}
 }
 
-// V1 does not load history in the current reader. These pure comparability
-// contracts can be used by a future bounded history endpoint without UI math.
-func RunningAbilityTrend(a, b pf.Result) *float64 {
-	if a.Model != b.Model || a.Version != b.Version || a.EvidenceMode != b.EvidenceMode || a.View != b.View || a.ConfigHash != b.ConfigHash || a.Status != "available" || b.Status != "available" || a.Ability == nil || b.Ability == nil || a.Freshness != "fresh" || b.Freshness != "fresh" {
-		return nil
-	}
-	return number(a.Ability.Score - b.Ability.Score)
-}
 func RecoveryDailyTrend(a, b rc.Result) *float64 {
 	if a.ModelVersion != b.ModelVersion || a.ConfigHash != b.ConfigHash || a.Timezone != b.Timezone || a.Date <= b.Date || a.Status != "available" || b.Status != "available" || a.Quality != "complete" || b.Quality != "complete" || a.Score == nil || b.Score == nil {
 		return nil

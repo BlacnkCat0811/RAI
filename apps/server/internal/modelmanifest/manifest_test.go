@@ -21,8 +21,15 @@ func TestCurrentManifestIsCanonicalAndVersioned(t *testing.T) {
 	if m.Features.Version != "v1" || m.Features.JobKind != StackJobKind || m.Load.Version != "v2" || m.VO2Max.ModelID != "rai.vo2max.submax" || m.VO2Max.Version != "v1" {
 		t.Fatalf("identities %+v %+v", m.Features, m.VO2Max)
 	}
-	if m.Readiness.Version != "v4" || m.Readiness.Schema != "rai.readiness.training/4" || m.Recovery.Version != "v3" || m.ProductSchema != "rai.athlete_model/3" {
-		t.Fatal("readiness v3 boundary missing")
+	if m.Readiness.Version != "v4" || m.Readiness.Schema != "rai.readiness.training/4" || m.Recovery.Version != "v3" || m.ProductSchema != ProductSchema4 {
+		t.Fatal("readiness v4 / schema4 boundary missing")
+	}
+	if m.RunningAbility.ModelID != "rai.running_fitness" || m.RunningAbility.ArtifactKey != "running_fitness" || m.AbilityEstimate != nil {
+		t.Fatal("retired running ability still in the current manifest")
+	}
+	s3 := schema3Manifest()
+	if h, _ := Hash(s3); h == h1 || s3.Validate() != nil {
+		t.Fatal("schema3 manifest must remain valid and distinct")
 	}
 	for _, d := range m.Diagnostics {
 		if !strings.HasPrefix(d.Schema, "rai.") || d.Version != "v1" {

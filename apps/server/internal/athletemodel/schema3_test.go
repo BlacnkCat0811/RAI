@@ -3,17 +3,37 @@ package athletemodel
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
+	"testing"
+	"time"
+
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
-	ra "rai/server/internal/runningability"
+	rf "rai/server/internal/runfitness"
 	sr "rai/server/internal/sessionrecovery"
 	tl "rai/server/internal/trainingload"
-	"testing"
+	wf "rai/server/internal/workoutfeatures"
 )
 
-func TestOptimizedSharedContract(t *testing.T) {
-	s := NewSnapshotV3(1794369600000000, 1, "Asia/Shanghai", "2026-11-11", Assignment{Channel: "active", StackID: "synthetic-v3", Version: 1})
+func syntheticFitness(date string, n int) rf.State {
+	ref := &rf.Reference{MaxHR: 190, RestHR: 50, MaxBasis: "measured", RestBasis: "user", Hash: "synthetic"}
+	var obs []rf.SingleResult
+	start, _ := time.Parse(time.DateOnly, "2026-10-01")
+	for i := 0; i < n; i++ {
+		d := start.AddDate(0, 0, i)
+		f := &wf.RunFitnessFeatures{Schema: wf.RunFitnessSchema, DistanceCheck: "consistent", Indoor: new(bool), TemperatureC: number(15), Humidity: number(.5), RunningSeconds: 1800}
+		for k := 0; k < 9; k++ {
+			f.Segments = append(f.Segments, wf.RunFitnessSegment{Kind: "steady", Start: int64(120+k*180) * 1e6, End: int64(300+k*180) * 1e6, Seconds: 180, RunningAt: float64(120 + k*180),
+				Speed: 3, FlatSpeed: number(3), Grade: number(0), MaxAbsGrade: number(0), HR: 145, SpeedCV: .02, MinSpeed: 2.9, Coverage: 1, GradeSupport: 1, SpeedEpoch: "w", HREpoch: "w"})
+		}
+		obs = append(obs, rf.Single(rf.SingleInput{WorkoutID: fmt.Sprintf("00000000-0000-4000-8000-%012d", i), Day: d.Format(time.DateOnly), Start: d.Add(7 * time.Hour).UnixMicro(), End: d.Add(8 * time.Hour).UnixMicro(), Features: f, Reference: ref}))
+	}
+	return rf.CalculateState(rf.StateInput{DatasetID: "synthetic", Date: date, Observations: obs})
+}
+
+func TestRunningFitnessSharedContract(t *testing.T) {
+	s := NewSnapshotV4(1794369600000000, 1, "Asia/Shanghai", "2026-11-11", Assignment{Channel: "active", StackID: "synthetic-v4", Version: 1})
 	at := s.AsOf
 	score := 70.
 	evidence := at - 24*sr.Hour
@@ -24,13 +44,14 @@ func TestOptimizedSharedContract(t *testing.T) {
 	s.SessionRecovery = &session
 	focus := ProjectFocus(tl.FocusResult{AsOf: at, Windows: []tl.FocusWindow{{WindowDays: 7, Buckets: tl.Buckets{Low: 100, High: 30, Unclassified: 20}, UnknownWorkouts: 1, ClassifiedCoverage: number(130. / 150), Denominator: "known_load", Method: "hrr_proxy"}}}, at, at)
 	s.LoadFocus = &focus
-	s.RunningAbility = ProjectAbilityEstimate(ra.Result{AsOf: at, SelectedMode: "submax_estimated", Demonstrated: ra.Branch{Mode: "demonstrated", Status: "collecting"}, Maximal: ra.Branch{Mode: "maximal_supported", Status: "collecting"}, Submax: ra.Branch{V60: number(3.3), Score: number(57), Range: &ra.Range{Low: 3.1, High: 3.6}, Mode: "submax_estimated", Status: "limited", EvidenceAt: evidence, Confidence: .35}, Progress: ra.Progress{Workouts: 4, SpanDays: 12, ShortWorkouts: 4, TargetDays: 3}}, at, at)
+	fitness := ProjectRunningFitness(syntheticFitness("2026-10-25", 25), "synthetic-publication", at, at)
+	s.RunningFitness = &fitness
 	b, e := json.MarshalIndent(s, "", "  ")
 	if e != nil {
 		t.Fatal(e)
 	}
 	b = append(b, '\n')
-	for _, path := range []string{"../../../../contracts/fixtures/model-optimization-v3.json", "../../../../ios/RAI/Tests/ProductCoreTests/Fixtures/ModelOptimizationV3.json"} {
+	for _, path := range []string{"../../../../contracts/fixtures/running-fitness-v4.json", "../../../../ios/RAI/Tests/ProductCoreTests/Fixtures/RunningFitnessV4.json"} {
 		if os.Getenv("RAI_UPDATE_M7_GOLDENS") == "1" {
 			if e := os.WriteFile(path, b, 0644); e != nil {
 				t.Fatal(e)
@@ -38,10 +59,11 @@ func TestOptimizedSharedContract(t *testing.T) {
 		}
 		want, e := os.ReadFile(path)
 		if e != nil || !bytes.Equal(b, want) {
-			t.Fatal("shared v3 fixture differs", e)
+			t.Fatal("shared v4 fixture differs", e)
 		}
 	}
-	if s.RunningAbility.Value.Gamma != nil || s.PhysiologicalRecovery.Envelope.Mode != "estimated" {
-		t.Fatal("estimate manufactured full evidence")
+	v := s.RunningFitness.Value
+	if s.SchemaVersion != Schema4 || s.RunningAbility.Value != nil || v == nil || v.Overall.Score == nil || v.Dimensions.Speed.Rating != nil || len(v.Zones.Zones) != 6 || len(v.Predictions) != 4 {
+		t.Fatal("schema4 running fitness contract")
 	}
 }

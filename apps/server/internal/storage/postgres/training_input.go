@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/modelrelease"
-	pf "rai/server/internal/performance"
 	"rai/server/internal/readiness"
+	rf "rai/server/internal/runfitness"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
 	tl "rai/server/internal/trainingload"
@@ -176,7 +177,7 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 		return out, e
 	}
 	c.ObservedModelBinding = &binding
-	if binding.Adapter == "schema2-v2" || binding.Adapter == "schema3-v1" {
+	if binding.Adapter == "schema2-v2" || binding.Adapter == "schema3-v1" || binding.Adapter == "schema4-v1" {
 		sig, ok, err := loadTrainingReadinessSignal(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
 		if err != nil {
 			return out, err
@@ -279,9 +280,11 @@ func loadTrainingLoadSignals(ctx context.Context, q trainingDB, dataset, stack, 
 	return nil, nil
 }
 
-// loadTrainingTargetSignals supplies session targets: the published running
-// ability v60 (fresh, available) and the HR reference effective at the plan
-// day. A missing value simply leaves sessions without that target.
+// loadTrainingTargetSignals supplies session targets: the schedulable
+// running-fitness zone paces of the newest clean day state (the plan's frozen
+// PacePrescriptionSnapshot) and the HR reference effective at the plan day.
+// A zone that may not be scheduled emits nothing; sessions then carry only
+// an HR target, never a pace from another zone or a retired v60 formula.
 func loadTrainingTargetSignals(ctx context.Context, q trainingDB, dataset, stack, tz, day string, at time.Time) ([]training.Signal, error) {
 	out := []training.Signal{}
 	scope := modelmanifest.DayScope(stack, day)
@@ -291,15 +294,16 @@ func loadTrainingTargetSignals(ctx context.Context, q trainingDB, dataset, stack
  JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
  JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=$4
  JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
- WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day<=$3::date ORDER BY p.day DESC LIMIT 1`, dataset, scope, day, pf.ArtifactKeyV2).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID, &a.ManifestSHA)
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day<=$3::date ORDER BY p.day DESC LIMIT 1`, dataset, scope, day, rf.ArtifactKey).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID, &a.ManifestSHA)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	if err == nil && validHistoryArtifactForStack("runningAbility", dataset, tz, stack, a) {
-		var r pf.Result
+	if err == nil && validHistoryArtifactForStack("runningFitness", dataset, tz, stack, a) {
+		var r rf.State
 		if json.Unmarshal(a.Payload, &r) == nil {
-			if v := pf.Freshen(r, at.UnixMicro()); v.Ability != nil && v.Status == "available" {
-				out = append(out, training.Signal{RunID: a.RunID, Generation: a.Generation, Day: day, Name: "v60", Algorithm: pf.AbilityModel, Version: pf.VersionV2, Quality: "complete", Value: &v.Ability.V60})
+			for _, s := range trainingPaceSignals(rf.Freshen(r, day)) {
+				s.RunID, s.Generation, s.Day = a.RunID, a.Generation, day
+				out = append(out, s)
 			}
 		}
 	}
@@ -314,4 +318,30 @@ func loadTrainingTargetSignals(ctx context.Context, q trainingDB, dataset, stack
 		}
 	}
 	return out, nil
+}
+
+// trainingPaceSignals maps schedulable zones to target paces: the midpoint of
+// the zone (for Z5 the slow end of its estimated range is already the fast
+// bound) and the marathon race pace when it may be scheduled.
+func trainingPaceSignals(r rf.State) []training.Signal {
+	var out []training.Signal
+	add := func(name string, pace float64, support string) {
+		v := pace
+		out = append(out, training.Signal{Name: "pace_" + name, Algorithm: training.PaceAlgorithm, Version: rf.Version, Quality: "complete", Mode: support, Value: &v})
+	}
+	for _, z := range r.Zones.Zones {
+		if !z.Schedulable || z.FastPace == nil || z.SlowPace == nil {
+			continue
+		}
+		switch z.Name {
+		case "Z1", "Z2", "Z4", "Z5":
+			add(strings.ToLower(z.Name), (*z.FastPace+*z.SlowPace)/2, z.Support)
+		}
+	}
+	for _, p := range r.RacePaces {
+		if p.Distance == "marathon" && p.Schedulable && p.PaceSecKm != nil {
+			add("marathon", *p.PaceSecKm, p.Support)
+		}
+	}
+	return out
 }

@@ -54,5 +54,6 @@
   "00053_retire_legacy_analysis_and_workout_results.sql": "55b94fa01dcc8d5ee75d3c4080239e0e9b4fddc96fc80a1502a33d04fe4b8a30",
   "00054_daily_page_500.sql": "7bb24067d26571edae7cd2b718e5ab8a550efc4800de2e999285ead072db85a2",
   "00055_model_stack_invalidation_per_transaction.sql": "72177f0491aa1cd7ff5c0cb42ca2a559ada0f3bf0172618b7405d494b557affa",
-  "00056_model_optimization_v3.sql": "14a880d9ce9e16bc0c852f700137ccffa2a5ff9df139787d681387cc7b149ebf"
+  "00056_model_optimization_v3.sql": "14a880d9ce9e16bc0c852f700137ccffa2a5ff9df139787d681387cc7b149ebf",
+  "00057_running_fitness_v1.sql": "4fad38c6f1e0adc57f31bc2d16d9f8f9975dac3388b72cc63ec65c5827d921ba"
 }

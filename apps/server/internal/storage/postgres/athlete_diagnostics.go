@@ -10,7 +10,6 @@ import (
 	am "rai/server/internal/athletemodel"
 	diag "rai/server/internal/diagnostics"
 	"rai/server/internal/modelmanifest"
-	pf "rai/server/internal/performance"
 	"rai/server/internal/syncing"
 	tl "rai/server/internal/trainingload"
 
@@ -18,7 +17,6 @@ import (
 )
 
 var researchProductKeys = []string{
-	"running_ability_maximal_v2",
 	"workout_durability",
 	"aerobic_efficiency",
 	"critical_speed",
@@ -26,7 +24,6 @@ var researchProductKeys = []string{
 }
 
 var researchProductFamilies = []string{
-	"model_research_v1/running_ability_maximal_v2",
 	"model_research_v1/workout_durability",
 	"model_research_v1/aerobic_efficiency",
 	"model_research_v1/critical_speed",
@@ -171,28 +168,6 @@ func researchProductItem(key, family, schema, algorithm, version, contentHash, d
 	}
 	if family != "model_research_v1/"+key {
 		return diag.ProductItem{}, ErrModelProjection
-	}
-	if key == "running_ability_maximal_v2" {
-		var r pf.Result
-		if schema != pf.AbilitySchemaV2 || algorithm != pf.CurveModel || version != pf.VersionV2 ||
-			json.Unmarshal(payload, &r) != nil || r.Schema != pf.AbilitySchemaV2 || r.Model != pf.AbilityModel ||
-			r.Version != pf.VersionV2 || r.DatasetID != dataset || r.Generation != generation ||
-			r.ConfigHash != pf.ConfigHashV2() || r.EvidenceMode != pf.ModeMaximalV2 ||
-			pf.Hash(r) != contentHash {
-			return diag.ProductItem{}, ErrModelProjection
-		}
-		item.Model, item.Version, item.Schema = pf.AbilityModel, pf.VersionV2, pf.AbilitySchemaV2
-		item.Status = diag.ProductStatusOfPerformance(r.Status)
-		item.AsOf = r.AsOf
-		item.Support = diag.Support{Level: researchSupportLevel(r.Confidence), Fraction: researchFraction(r.Support.QualitySupport), Count: r.Support.IndependentWorkouts}
-		for _, code := range r.ReasonCodes {
-			item.ReasonCodes = append(item.ReasonCodes, diag.ReasonCode(code))
-		}
-		if r.Ability != nil {
-			v60, gamma, retention, score := r.Ability.V60, r.Ability.Gamma, r.Ability.Retention, r.Ability.Score
-			item.Maximal = &diag.MaximalProduct{Score: &score, V60: &v60, Gamma: &gamma, EnduranceRetention: &retention, Confidence: r.Confidence, AnchorDay: r.AnchorDay}
-		}
-		return item, nil
 	}
 	identity, ok := researchIdentity(key)
 	if !ok {
