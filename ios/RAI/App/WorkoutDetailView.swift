@@ -598,15 +598,17 @@ struct WorkoutDetail: View {
 
   private func qualityPanel(_ detail: WorkoutDetailResponse) -> some View {
     let pending = detail.workout.analysisStatus != "published"
+    let failed = detail.workout.analysisStatus == "failed"
     return VStack(alignment: .leading, spacing: 10) {
       HStack {
         Text("数据质量").font(.headline)
         Spacer()
-        if pending { RAITag(text: "分析中", color: RAITheme.blue) }
+        if failed { RAITag(text: "分析失败", color: RAITheme.amber) }
+        else if pending { RAITag(text: "分析中", color: RAITheme.blue) }
         else if developerOptions { Text(detail.workout.modelVersion).font(.caption2).foregroundStyle(RAITheme.secondary) }
       }
       if pending {
-        Text("分析完成后显示。")
+        Text(failed ? "本次分析未能完成，跑步记录已保存。" : "分析完成后显示。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       } else {
         HStack(spacing: 8) {
@@ -764,7 +766,7 @@ enum DetailFreshnessBanner {
   }
   static func make(detail: WorkoutDetailResponse, freshness: WorkoutFreshness?) -> Banner? {
     if freshness?.analysisState == "failed" || detail.workout.analysisStatus == "failed" {
-      return Banner(title: "分析失败", detail: "跑步记录本身完好，但分析结果暂时没有生成，可稍后下拉刷新。", icon: "exclamationmark.circle", color: RAITheme.amber)
+      return Banner(title: "分析失败", detail: "跑步记录已保存，本次分析未能完成。刷新可查看最新状态。", icon: "exclamationmark.circle", color: RAITheme.amber)
     }
     if detail.workout.analysisStatus != "published" {
       return Banner(title: "分析中", detail: "记录已保存，分析完成后会自动补全评分和配速分析，通常需要 1–2 分钟。", icon: "hourglass", color: RAITheme.blue)

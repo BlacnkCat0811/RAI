@@ -447,6 +447,11 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	writeLoad := date.Format(time.DateOnly) == captured.In(loc).Format(time.DateOnly)
 	for _, p := range pending {
 		if p.r.failure != "" {
+			if writeLoad {
+				results = append(results, stackArtifact{key: workoutResultKey, value: workoutResultRow{
+					id: p.w.id, generation: p.w.factGeneration, failure: p.r.failure,
+				}})
+			}
 			continue
 		}
 		row := workoutResultRow{id: p.w.id, generation: p.w.factGeneration, epoch: p.w.sourceEpoch}
@@ -769,6 +774,7 @@ const workoutResultKey = "model_workout_result"
 // when newly computed (cache fill), load only from today's release.
 type workoutResultRow struct {
 	id, epoch  string
+	failure    string
 	generation int64
 	feature    *wf.WorkoutFeatures
 	exposure   *wf.HRExposure
@@ -776,6 +782,20 @@ type workoutResultRow struct {
 }
 
 func writeWorkoutResult(ctx context.Context, tx pgx.Tx, dataset, stack string, r workoutResultRow) error {
+	if r.failure != "" {
+		_, err := tx.Exec(ctx, `INSERT INTO model_workout_failures(dataset_id,stack_id,workout_uuid,fact_generation,error_code)
+ VALUES($1,$2,$3,$4,$5) ON CONFLICT(dataset_id,stack_id,workout_uuid) DO UPDATE SET
+ fact_generation=EXCLUDED.fact_generation,error_code=EXCLUDED.error_code,failed_at=clock_timestamp()`,
+			dataset, stack, r.id, r.generation, r.failure)
+		return err
+	}
+	// Only today's load publication resolves a failure; a historical cache fill
+	// must not hide a failed current result before its replacement is published.
+	if r.load != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM model_workout_failures WHERE dataset_id=$1 AND stack_id=$2 AND workout_uuid=$3`, dataset, stack, r.id); err != nil {
+			return err
+		}
+	}
 	var load []byte
 	if r.load != nil {
 		load = featureJSON(r.load)

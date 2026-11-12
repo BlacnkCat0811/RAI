@@ -166,6 +166,7 @@ actor HealthKitClient: HealthKitReading {
             } catch { associations.append(.object(["type": .string(type.identifier), "status": .string("query_failed"), "errorCode": .int(Int64((error as NSError).code))])) }
         }
         report["associatedSamples"] = .array(associations)
+        report["heartRateTiming"] = try await inspectHeartRateTiming(workout)
         do {
             let routes = try await HKSampleQueryDescriptor(predicates: [.sample(type: HKSeriesType.workoutRoute(), predicate: HKQuery.predicateForObjects(from: workout))], sortDescriptors: [], limit: 100).result(for: health).compactMap { $0 as? HKWorkoutRoute }
             report["routes"] = .object(["visibleRouteCount": .int(Int64(routes.count)), "countCappedAt100": .bool(routes.count == 100), "declaredPointCount": .int(routes.reduce(Int64(0)) { $0 + Int64($1.count) }), "coordinatesRead": .bool(false), "metadata": .array(routes.map { WorkoutInspection.metadata($0.metadata) }), "metadataKeys": WorkoutInspection.sampleMetadataKeys(routes)])
@@ -173,6 +174,61 @@ actor HealthKitClient: HealthKitReading {
         let path = try FileManager.default.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true).appendingPathComponent("RAIWorkoutStructure.json")
         try OutboxStore.write(JSON.object(report).data(), to: path)
         return path
+    }
+    /// Counts, intervals and timestamp digests only; no quantity values or sync writes.
+    private func inspectHeartRateTiming(_ workout: HKWorkout) async throws -> JSON {
+        let type = HKQuantityType(.heartRate)
+        let associated = HKQuery.predicateForObjects(from: workout)
+        let samples = try await HKSampleQueryDescriptor(predicates: [.quantitySample(type: type, predicate: associated)],
+            sortDescriptors: [SortDescriptor(\.startDate)], limit: HKObjectQueryNoLimit).result(for: health)
+        func summary(_ intervals: [(Date, Date)]) -> JSON {
+            var points: [(Int64, Int64)] = intervals.map { interval in
+                (Normalizer.us(interval.0), Normalizer.us(interval.1))
+            }
+            points.sort { lhs, rhs in
+                lhs.0 == rhs.0 ? lhs.1 < rhs.1 : lhs.0 < rhs.0
+            }
+            var gaps: [Double] = []
+            for (previous, next) in zip(points, points.dropFirst()) {
+                gaps.append(Double(next.0 - previous.0) / 1_000_000)
+            }
+            gaps.sort()
+            let canonical = points.map { point in "\(point.0):\(point.1)\n" }.joined()
+            var maxError: Double = 0
+            for (start, end) in intervals {
+                let startError = abs(Double(Normalizer.us(start)) / 1e6 - start.timeIntervalSince1970)
+                let endError = abs(Double(Normalizer.us(end)) / 1e6 - end.timeIntervalSince1970)
+                maxError = max(maxError, startError, endError)
+            }
+            var median: JSON = .null
+            if !gaps.isEmpty {
+                let middle = gaps.count / 2
+                median = .number(gaps.count % 2 == 0 ? (gaps[middle - 1] + gaps[middle]) / 2 : gaps[middle])
+            }
+            return .object([
+                "count": .int(Int64(points.count)),
+                "instantaneousCount": .int(Int64(points.filter { point in point.0 == point.1 }.count)),
+                "timestampSHA256": .string(Wire.hash(Data(canonical.utf8))),
+                "medianGapSeconds": median,
+                "maxGapSeconds": gaps.last.map(JSON.number) ?? .null,
+                "maxTimestampRoundingErrorMicroseconds": .number(maxError * 1e6),
+                "sourceClasses": WorkoutInspection.sourceClasses(samples, parent: workout)
+            ])
+        }
+        var series: [(Date, Date)] = []
+        let query = HKQuantitySeriesSampleQueryDescriptor(predicate: .quantitySample(type: type, predicate: associated),
+            options: [.includeSample])
+        for try await point in query.results(for: health) {
+            series.append((point.dateInterval.start, point.dateInterval.end))
+        }
+        let window = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [.strictStartDate, .strictEndDate])
+        let windowSamples = try await HKSampleQueryDescriptor(predicates: [.quantitySample(type: type, predicate: window)],
+            sortDescriptors: [SortDescriptor(\.startDate)], limit: HKObjectQueryNoLimit).result(for: health)
+        return .object(["associatedSamples": summary(samples.map { ($0.startDate, $0.endDate) }),
+            "associatedSeriesPoints": summary(series),
+            "windowSampleCount": .int(Int64(windowSamples.count)),
+            "declaredSeriesPointCount": .int(samples.reduce(0) { $0 + Int64($1.count) }),
+            "healthValuesIncluded": .bool(false), "anchorsReadOrAdvanced": .bool(false)])
     }
     #endif
     private static func decodeAnchor(_ archive: Data?) throws -> HKQueryAnchor? {

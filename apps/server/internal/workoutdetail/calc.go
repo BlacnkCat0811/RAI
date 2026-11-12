@@ -922,7 +922,95 @@ func meanValues(xs []float64) float64 {
 	return sum / float64(len(xs))
 }
 
+// HeartRateSupport converts instant samples into bounded display support. It
+// never extrapolates first/last points or bridges gaps over the feature policy's
+// 15-second limit. This fallback has no source/pause context; published feature
+// coverage is preferred by storage. Model eligibility uses the feature pipeline.
+func HeartRateSupport(obs []Observation) []Observation {
+	xs := append([]Observation(nil), obs...)
+	sort.Slice(xs, func(i, j int) bool { return xs[i].StartUs < xs[j].StartUs })
+	unique := xs[:0]
+	for _, x := range xs {
+		if len(unique) == 0 || unique[len(unique)-1] != x {
+			unique = append(unique, x)
+		}
+	}
+	xs = unique
+	out := []Observation{}
+	for i, x := range xs {
+		if x.Type != HeartRate || !valid(x.Value) || x.Value <= 0 || x.Value >= 220 {
+			continue
+		}
+		if x.EndUs > x.StartUs {
+			out = append(out, x)
+			continue
+		}
+		if x.EndUs != x.StartUs || i+1 == len(xs) {
+			continue
+		}
+		next := xs[i+1]
+		// Duplicate/conflicting timestamps and invalid points are barriers.
+		if i > 0 && xs[i-1].StartUs == x.StartUs {
+			continue
+		}
+		if next.Type != HeartRate || next.StartUs <= x.StartUs || next.EndUs != next.StartUs ||
+			next.StartUs-x.StartUs > 15_000_000 || !valid(next.Value) || next.Value <= 0 || next.Value >= 220 {
+			continue
+		}
+		if i+2 < len(xs) && xs[i+2].StartUs == next.StartUs {
+			continue
+		}
+		if next.StartUs-x.StartUs <= 5_000_000 && math.Abs(next.Value-x.Value) > 30 {
+			continue
+		}
+		x.EndUs = next.StartUs
+		out = append(out, x)
+	}
+	return out
+}
+
 // ---------------------------------------------------------------- zones / quality
+
+// Split interpolated instant support at HRR boundaries so classification uses
+// the same linear signal assumption as features, without counting points as seconds.
+func heartZoneSupport(obs []Observation, restHR, maxHR float64) []Observation {
+	points := map[int64]Observation{}
+	intervals := map[Observation]bool{}
+	for _, o := range obs {
+		if o.EndUs > o.StartUs {
+			intervals[o] = true
+		}
+		if o.StartUs == o.EndUs {
+			points[o.StartUs] = o
+		}
+	}
+	out := []Observation{}
+	for _, o := range HeartRateSupport(obs) {
+		first, instant := points[o.StartUs]
+		last, ok := points[o.EndUs]
+		if intervals[o] || !instant || !ok || first.Value == last.Value {
+			out = append(out, o)
+			continue
+		}
+		cuts := []float64{0, 1}
+		for _, fraction := range []float64{.6, .7, .8, .9} {
+			hr := restHR + fraction*(maxHR-restHR)
+			f := (hr - first.Value) / (last.Value - first.Value)
+			if f > 0 && f < 1 {
+				cuts = append(cuts, f)
+			}
+		}
+		sort.Float64s(cuts)
+		for i := 1; i < len(cuts); i++ {
+			piece := o
+			piece.StartUs = o.StartUs + int64(math.Round(cuts[i-1]*float64(o.EndUs-o.StartUs)))
+			piece.EndUs = o.StartUs + int64(math.Round(cuts[i]*float64(o.EndUs-o.StartUs)))
+			piece.Value = first.Value + (last.Value-first.Value)*(cuts[i-1]+cuts[i])/2
+			out = append(out, piece)
+		}
+	}
+	return out
+}
 
 func BuildHRZones(startUs, endUs int64, elapsedS float64, heart []Observation, restHR, maxHR float64) *ZoneSummary {
 	out := &ZoneSummary{
@@ -957,7 +1045,7 @@ func BuildHRZones(startUs, endUs int64, elapsedS float64, heart []Observation, r
 		delta int
 	}
 	edges := []edge{}
-	for _, o := range heart {
+	for _, o := range heartZoneSupport(heart, restHR, maxHR) {
 		if o.Type != HeartRate || !valid(o.Value) || o.Value <= 0 || o.EndUs <= o.StartUs {
 			continue
 		}

@@ -43,7 +43,7 @@ func TestPerformanceMigration22ToLatestRepeat(t *testing.T) {
 		t.Fatal("migration changed facts", err)
 	}
 	var version, tables int
-	if err = db.QueryRowContext(ctx, `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied),(SELECT count(*) FROM information_schema.tables WHERE table_schema='public')`).Scan(&version, &tables); err != nil || int64(version) != migrations.LatestVersion() || tables != 64 { // +run_fitness_reanalysis_operations, run_fitness_day_runs (57)
+	if err = db.QueryRowContext(ctx, `SELECT (SELECT max(version_id) FROM goose_db_version WHERE is_applied),(SELECT count(*) FROM information_schema.tables WHERE table_schema='public')`).Scan(&version, &tables); err != nil || int64(version) != migrations.LatestVersion() || tables != 65 { // +model_workout_failures (59)
 		t.Fatal("schema", version, tables, err)
 	}
 	if err = MigrateDown(ctx, dsn); !errors.Is(err, ErrMigrationIrreversible) {

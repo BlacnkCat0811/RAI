@@ -7,6 +7,7 @@
 缺失记录或未覆盖的分区不补成零强度，也不以整次平均配速或平均心率代替分区。
 
 - 当前架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 跑步分析卡住修复（迁移 59，尚未部署）：支持数千个 HealthKit 单点序列，保留总点数预算；单条失败明确展示。旧模型 previous 停止排程，已失败任务保留审计。
 - 生理恢复 v4：已实现最近 7 次有效观测均值及默认基准估计，支持漏戴手表时继续估计准备度；取消缺测扣分及估计模式 75 分封顶，保留估计标注与置信度。需要迁移 58，与训练效果同栈发布，已于 2026-11-12 部署并激活。
 - 模型核查与优化方案：[准备度、恢复、跑力与负荷对照](docs/ARCHITECTURE.md#模型对照核查与优化实施方案已实施)（已实施，schema3 栈已于 2026-11-11 部署并激活；2026-11-12 起由 schema4 栈取代）
 - 跑力 v1：[单次／长期跑力、四项能力、分距离预测、六区间与历史重算](docs/ARCHITECTURE.md#模型v2-日模型栈schema4-产物)，
@@ -50,6 +51,10 @@ scripts/local/test.sh swift --filter 'AthleteRefreshTests|AthleteModel|RunningFi
 上述定向检查不替代 `gate`，也不代表已完成真机或线上验收。
 
 本机起一个后端用于手机/模拟器联调：`scripts/local/stack.sh`（见该脚本头部说明）。
+
+USB 真机只读结构诊断：`python3 scripts/local/device.py structure --workout <uuid>`。
+开发版报告中的 `heartRateTiming` 直接查询 HealthKit 关联心率样本及序列子点，输出点数、采样间隔、微秒时间戳摘要与舍入误差，
+并统计运动时间窗内的样本数；不导出心率值、不推进锚点、不上传运动。摘要按起止微秒排序后，以 `start:end\n` 拼接计算 SHA-256，可与本机验收库时间戳比对。
 
 ## 把手机连上服务器
 

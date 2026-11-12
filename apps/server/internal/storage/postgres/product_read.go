@@ -18,12 +18,16 @@ import (
 // latest day release recorded in model_workout_results.
 const productWorkoutFrom = ` FROM workouts w
  LEFT JOIN LATERAL (SELECT total_distance_m FROM workout_enrichments e WHERE e.dataset_id=w.dataset_id AND e.workout_uuid=w.workout_uuid AND total_distance_m IS NOT NULL ORDER BY observed_at_us DESC,source_version DESC LIMIT 1) e ON true
+ LEFT JOIN LATERAL (SELECT true failed FROM model_workout_failures f
+ JOIN analysis_model_channels c ON c.dataset_id=f.dataset_id AND c.stack_id=f.stack_id AND c.channel='active'
+ LEFT JOIN dirty_scopes d ON d.dataset_id=f.dataset_id AND d.scope_key='workout:HKWorkoutTypeIdentifier:'||f.workout_uuid::text
+ WHERE f.dataset_id=w.dataset_id AND f.workout_uuid=w.workout_uuid AND f.fact_generation=COALESCE(d.generation,0)) failure ON true
  LEFT JOIN LATERAL (SELECT jsonb_build_array(jsonb_build_object('metric','workout_load','value',(r.load->>'load')::float8,'unit','RAI_AU',
  'quality',r.load->>'quality','algorithm',r.load->>'model','algorithmVersion',r.load->>'modelVersion',
  'details',jsonb_build_object('qualityTier',r.load->>'qualityTier','method',r.load->>'method'))) metrics,
  (r.load->>'load')::float8 load
  FROM model_workout_results r JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
- WHERE r.dataset_id=w.dataset_id AND r.workout_uuid=w.workout_uuid AND r.load IS NOT NULL) m ON true `
+ WHERE r.dataset_id=w.dataset_id AND r.workout_uuid=w.workout_uuid AND r.load IS NOT NULL AND failure.failed IS NOT TRUE) m ON true `
 const productDistance = `COALESCE((w.payload->'workout'->'totalDistance'->>'value')::float8,e.total_distance_m)`
 
 func (s *Store) ProductWorkouts(ctx context.Context, p syncing.Principal, before string, limit int, id string) (product.Page, error) {
@@ -52,7 +56,7 @@ func (s *Store) ProductWorkouts(ctx context.Context, p syncing.Principal, before
 	if id != "" && !syncing.ValidID(id) {
 		return out, syncing.Fail(422, "invalid_workout_id")
 	}
-	rows, e := s.Pool.Query(ctx, `SELECT w.workout_uuid::text,w.event_start,w.activity_type,w.duration_us/1000000.0,`+productDistance+`,COALESCE(m.metrics,'[]'::jsonb)`+productWorkoutFrom+` WHERE w.dataset_id=$1 AND (w.event_start,w.workout_uuid)<($2,$3::uuid) AND ($4='' OR w.workout_uuid=NULLIF($4,'')::uuid) ORDER BY w.event_start DESC,w.workout_uuid DESC LIMIT $5`, p.DatasetID, stamp, cursorID, id, limit+1)
+	rows, e := s.Pool.Query(ctx, `SELECT w.workout_uuid::text,w.event_start,w.activity_type,w.duration_us/1000000.0,`+productDistance+`,COALESCE(m.metrics,'[]'::jsonb),COALESCE(failure.failed,false)`+productWorkoutFrom+` WHERE w.dataset_id=$1 AND (w.event_start,w.workout_uuid)<($2,$3::uuid) AND ($4='' OR w.workout_uuid=NULLIF($4,'')::uuid) ORDER BY w.event_start DESC,w.workout_uuid DESC LIMIT $5`, p.DatasetID, stamp, cursorID, id, limit+1)
 	if e != nil {
 		return out, e
 	}
@@ -61,7 +65,8 @@ func (s *Store) ProductWorkouts(ctx context.Context, p syncing.Principal, before
 		var v product.Workout
 		var t time.Time
 		var b []byte
-		if e = rows.Scan(&v.ID, &t, &v.ActivityType, &v.DurationS, &v.DistanceM, &b); e != nil {
+		var failed bool
+		if e = rows.Scan(&v.ID, &t, &v.ActivityType, &v.DurationS, &v.DistanceM, &b, &failed); e != nil {
 			return out, e
 		}
 		v.StartUs = t.UnixMicro()
@@ -72,6 +77,9 @@ func (s *Store) ProductWorkouts(ctx context.Context, p syncing.Principal, before
 		v.AnalysisStatus = "pending"
 		if len(v.Metrics) > 0 {
 			v.AnalysisStatus = "published"
+		}
+		if failed {
+			v.AnalysisStatus = "failed"
 		}
 		out.Items = append(out.Items, v)
 	}

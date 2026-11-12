@@ -37,7 +37,7 @@ func (s *Store) ProcessModelStack(ctx context.Context, l Lease, now time.Time) (
 	var captured time.Time
 	err = tx.QueryRow(ctx, `SELECT ds.epoch::text,COALESCE(c.collector_epoch::text,''),ds.timezone,ds.commit_rev,
  d.generation,clock_timestamp(),COALESCE((SELECT encode(m.config_sha256,'hex') FROM analysis_model_channels m
- WHERE m.dataset_id=ds.id AND m.stack_id=$3 AND m.extension_configs->>'rai.model_manifest/1'=encode(m.config_sha256,'hex') LIMIT 1),'')
+ WHERE m.dataset_id=ds.id AND m.channel IN ('active','candidate') AND m.stack_id=$3 AND m.extension_configs->>'rai.model_manifest/1'=encode(m.config_sha256,'hex') LIMIT 1),'')
  FROM datasets ds JOIN dirty_scopes d ON d.dataset_id=ds.id AND d.scope_key=$2
  LEFT JOIN collector_leases c ON c.dataset_id=ds.id
  LEFT JOIN devices v ON v.dataset_id=c.dataset_id AND v.id=c.device_id
@@ -119,7 +119,7 @@ func (s *Store) publishModelStackDay(ctx context.Context, l Lease, stack, day, m
 	}
 	var current bool
 	if err := tx.QueryRow(ctx, `SELECT d.generation=$3 AND rai_backfill_job_allowed($1,$4) AND EXISTS(
- SELECT 1 FROM analysis_model_channels m WHERE m.dataset_id=ds.id AND m.stack_id=$5
+ SELECT 1 FROM analysis_model_channels m WHERE m.dataset_id=ds.id AND m.channel IN ('active','candidate') AND m.stack_id=$5
  AND m.extension_configs->>'rai.model_manifest/1'=$6 AND m.config_sha256=decode($6,'hex'))
  FROM datasets ds JOIN dirty_scopes d ON d.dataset_id=ds.id AND d.scope_key=$2 WHERE ds.id=$1`,
 		l.DatasetID, l.ScopeKey, l.TargetGeneration, l.ID, stack, manifest).Scan(&current); err != nil {
@@ -270,7 +270,7 @@ func writeStackWorkout(ctx context.Context, tx pgx.Tx, l Lease, stack, manifest 
 func (s *Store) advanceModelStackDay(ctx context.Context, at time.Time) error {
 	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT ds.id::text FROM datasets ds
  JOIN analysis_model_channels m ON m.dataset_id=ds.id
- WHERE ds.retired_at IS NULL AND m.stack_id=$2 AND m.extension_configs ? 'rai.model_manifest/1'
+ WHERE ds.retired_at IS NULL AND m.channel IN ('active','candidate') AND m.stack_id=$2 AND m.extension_configs ? 'rai.model_manifest/1'
  AND NOT EXISTS (SELECT 1 FROM dirty_scopes x WHERE x.dataset_id=ds.id AND x.scope_key=
   'model/'||m.stack_id||'/athlete/day/v2/'||($1::timestamptz AT TIME ZONE ds.timezone)::date::text)
  ORDER BY 1 LIMIT 20`, at, modelmanifest.StackID())
@@ -303,7 +303,7 @@ func (s *Store) rebuildModelStackHistory(ctx context.Context, at time.Time) erro
 	stack := modelmanifest.StackID()
 	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT ds.id::text FROM datasets ds
  JOIN analysis_model_channels m ON m.dataset_id=ds.id
- WHERE ds.retired_at IS NULL AND m.stack_id=$1 AND m.extension_configs ? 'rai.model_manifest/1'
+ WHERE ds.retired_at IS NULL AND m.channel IN ('active','candidate') AND m.stack_id=$1 AND m.extension_configs ? 'rai.model_manifest/1'
  AND EXISTS (SELECT 1 FROM dirty_scopes x WHERE x.dataset_id=ds.id AND x.generation<>x.clean_generation
   AND left(x.scope_key,length('model/'||m.stack_id||'/athlete/day/v2/'))='model/'||m.stack_id||'/athlete/day/v2/')
  ORDER BY 1 LIMIT 20`, stack)

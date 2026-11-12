@@ -368,7 +368,9 @@ struct ActivityRow: View {
       VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 8) {
           Text(workout.title).font(.headline)
-          if pending { RAITag(text: "分析中", color: RAITheme.blue) }
+          if workout.raw.string("analysisStatus") == "failed" {
+            RAITag(text: "分析失败", color: RAITheme.amber)
+          } else if pending { RAITag(text: "分析中", color: RAITheme.blue) }
         }
         Text(workout.detailLine.isEmpty ? "暂无数据" : workout.detailLine)
           .font(.caption).monospacedDigit()

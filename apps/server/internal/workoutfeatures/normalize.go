@@ -94,7 +94,10 @@ func Normalize(in RawWorkoutSnapshot) (RawWorkoutSnapshot, error) {
 	if in.End >= in.Start && in.End-in.Start > MaxSeconds*1e6 {
 		return RawWorkoutSnapshot{}, failure("input_limit")
 	}
-	if total > MaxPoints || routes > MaxPoints || details > MaxDetails || metadata > MaxMetadataBytes || len(in.References) > MaxPoints+MaxDetails || len(in.Parameters) > 256 || len(in.Provenance) > MaxDetails || len(in.Series) > MaxDetails || len(in.Routes) > MaxDetails || len(in.Availability) > MaxPoints+MaxDetails || len(in.Enrichments) > MaxDetails {
+	// HealthKit can seal one series per sample, including single-point series.
+	// Their container count follows the sample/point budget, not the event and
+	// activity detail budget. Keep the total point budget independently bounded.
+	if total > MaxPoints || routes > MaxPoints || details > MaxDetails || metadata > MaxMetadataBytes || len(in.References) > MaxPoints+MaxDetails || len(in.Parameters) > 256 || len(in.Provenance) > MaxDetails || len(in.Series) > MaxPoints || len(in.Routes) > MaxDetails || len(in.Availability) > MaxPoints+MaxDetails || len(in.Enrichments) > MaxDetails {
 		return RawWorkoutSnapshot{}, failure("input_limit")
 	}
 	if in.Policy != DefaultPolicy() || in.AlgorithmVersion != Algorithm+"/"+Version || in.DatasetID == "" || in.WorkoutID == "" || in.Generation < 1 || in.End < in.Start || in.End-in.Start > MaxSeconds*1e6 || in.DurationUs < 0 || in.DurationUs > in.End-in.Start {

@@ -134,3 +134,7 @@ GRANT EXECUTE ON FUNCTION rai_backfill_progress(uuid,uuid,boolean),rai_backfill_
 -- settings/detail read the user's own HR reference entries.
 GRANT SELECT, INSERT, UPDATE ON model_workout_results TO rai_worker;
 GRANT SELECT ON model_workout_results, athlete_model_inputs TO rai_api;
+
+-- Schema 59: isolated terminal failures are published with the day release.
+GRANT SELECT, INSERT, UPDATE, DELETE ON model_workout_failures TO rai_worker;
+GRANT SELECT ON model_workout_failures TO rai_api;

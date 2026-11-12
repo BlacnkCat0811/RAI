@@ -337,14 +337,24 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 
 	// The v2 model stack's latest day release records this Workout's load in
 	// model_workout_results; that row is the Workout's published analysis.
+	var failed bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM model_workout_failures f
+ JOIN analysis_model_channels c ON c.dataset_id=f.dataset_id AND c.stack_id=f.stack_id AND c.channel='active'
+ LEFT JOIN dirty_scopes d ON d.dataset_id=f.dataset_id AND d.scope_key='workout:HKWorkoutTypeIdentifier:'||f.workout_uuid::text
+ WHERE f.dataset_id=$1 AND f.workout_uuid=$2 AND f.fact_generation=COALESCE(d.generation,0))`, p.DatasetID, id).Scan(&failed); err != nil {
+		return nil, err
+	}
 	var loadJSON []byte
 	var updated time.Time
 	err = tx.QueryRow(ctx, `SELECT r.load,r.updated_at FROM model_workout_results r
  JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
- WHERE r.dataset_id=$1 AND r.workout_uuid=$2 AND r.load IS NOT NULL`, p.DatasetID, id).Scan(&loadJSON, &updated)
+ WHERE r.dataset_id=$1 AND r.workout_uuid=$2 AND r.load IS NOT NULL AND NOT $3`, p.DatasetID, id, failed).Scan(&loadJSON, &updated)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		d.AnalysisStatus = "pending"
+		if failed {
+			d.AnalysisStatus = "failed"
+		}
 	case err != nil:
 		return nil, err
 	default:
@@ -694,7 +704,7 @@ func loadFeatureAnalysis(ctx context.Context, tx pgx.Tx, p syncing.Principal, id
 	for _, r := range f.Reasons {
 		reasons = append(reasons, string(r))
 	}
-	d.FeatureArtifact = &workoutdetail.FeatureAnalysis{Schema: f.Schema, Algorithm: f.Algorithm, Version: f.Version, StackID: stack, PublishedAtUs: publishedAt.UnixMicro(), ActiveSeconds: f.Timing.Active, HeartRateCoverage: f.HeartRate.ObservedCoverage, SpeedCoverage: f.Speed.ObservedCoverage, RouteCoverage: f.Route.Coverage, Reasons: reasons}
+	d.FeatureArtifact = &workoutdetail.FeatureAnalysis{Schema: f.Schema, Algorithm: f.Algorithm, Version: f.Version, StackID: stack, PublishedAtUs: publishedAt.UnixMicro(), ActiveSeconds: f.Timing.Active, HeartRateCoverage: f.HeartRate.ReconstructedCoverage, SpeedCoverage: f.Speed.ReconstructedCoverage, RouteCoverage: f.Route.Coverage, Reasons: reasons}
 	return nil
 }
 
@@ -874,6 +884,9 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 }
 
 func (d *workoutDetailData) heartCoverage() *float64 {
+	if d.FeatureArtifact != nil {
+		return workoutdetail.Ptr(d.FeatureArtifact.HeartRateCoverage)
+	}
 	if m := d.metric("heart_rate_coverage"); m != nil && m.Value != nil {
 		return m.Value
 	}
@@ -887,6 +900,9 @@ func seriesCoverage(obs []workoutdetail.Observation, kind string, start, end int
 		return nil
 	}
 	xs := obsByType(obs, kind)
+	if kind == workoutdetail.HeartRate {
+		xs = workoutdetail.HeartRateSupport(xs)
+	}
 	sort.Slice(xs, func(i, j int) bool { return xs[i].StartUs < xs[j].StartUs })
 	var covered int64
 	var cursor = start

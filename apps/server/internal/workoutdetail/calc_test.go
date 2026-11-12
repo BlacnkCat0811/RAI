@@ -313,3 +313,32 @@ func TestHRZonesDeduplicateAndExcludeAmbiguousIntervals(t *testing.T) {
 		t.Fatal("fully ambiguous heart trace produced zones")
 	}
 }
+
+func TestHRZonesFiveSecondInstantSampling(t *testing.T) {
+	var heart []Observation
+	for sec := 0; sec <= 600; sec += 5 {
+		heart = append(heart, Observation{Type: HeartRate, StartUs: int64(sec) * 1e6, EndUs: int64(sec) * 1e6, Value: 150})
+	}
+	zones := BuildHRZones(0, 600e6, 600, heart, 50, 200)
+	if zones == nil || zones.HeartRateCoverage != 1 {
+		t.Fatalf("regular sampling coverage: %+v", zones)
+	}
+	// First and last gaps must not be extrapolated.
+	zones = BuildHRZones(0, 600e6, 600, heart[1:len(heart)-1], 50, 200)
+	if math.Abs(zones.HeartRateCoverage-590.0/600) > 1e-12 {
+		t.Fatalf("edges: %+v", zones)
+	}
+}
+
+func TestHeartRateSupportKeepsBarriers(t *testing.T) {
+	for _, middle := range []float64{0, 220, math.NaN()} {
+		xs := []Observation{{Type: HeartRate, StartUs: 0, EndUs: 0, Value: 150}, {Type: HeartRate, StartUs: 5e6, EndUs: 5e6, Value: middle}, {Type: HeartRate, StartUs: 10e6, EndUs: 10e6, Value: 150}}
+		if got := HeartRateSupport(xs); len(got) != 0 {
+			t.Fatalf("invalid point bridged: %+v", got)
+		}
+	}
+	xs := []Observation{{Type: HeartRate, StartUs: 0, EndUs: 0, Value: 150}, {Type: HeartRate, StartUs: 60e6, EndUs: 60e6, Value: 150}}
+	if got := HeartRateSupport(xs); len(got) != 0 {
+		t.Fatal("long gap bridged")
+	}
+}

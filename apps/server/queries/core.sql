@@ -39,11 +39,15 @@ FROM jobs WHERE dataset_id = $1 AND id = $2;
 -- name: ClaimJob :one
 WITH dataset AS MATERIALIZED (
  SELECT d.id FROM datasets d WHERE d.retired_at IS NULL AND EXISTS
- (SELECT 1 FROM jobs WHERE dataset_id=d.id AND state='queued' AND run_after<=now() AND kind=ANY(sqlc.arg(kinds)::text[]))
+ (SELECT 1 FROM jobs WHERE dataset_id=d.id AND state='queued' AND run_after<=now() AND kind=ANY(sqlc.arg(kinds)::text[])
+ AND (kind<>'analysis.model_stack_v2' OR (left(scope_key,length(sqlc.arg(model_day_prefix)::text))=sqlc.arg(model_day_prefix)::text
+ AND EXISTS(SELECT 1 FROM analysis_model_channels c WHERE c.dataset_id=jobs.dataset_id AND c.stack_id=split_part(jobs.scope_key,'/',2) AND c.channel IN ('active','candidate')))))
  ORDER BY d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1
 ), candidate AS (
     SELECT id FROM jobs candidate
     WHERE dataset_id IN (SELECT id FROM dataset) AND state = 'queued' AND run_after <= now() AND kind = ANY(sqlc.arg(kinds)::text[])
+    AND (kind<>'analysis.model_stack_v2' OR (left(scope_key,length(sqlc.arg(model_day_prefix)::text))=sqlc.arg(model_day_prefix)::text
+     AND EXISTS(SELECT 1 FROM analysis_model_channels c WHERE c.dataset_id=candidate.dataset_id AND c.stack_id=split_part(candidate.scope_key,'/',2) AND c.channel IN ('active','candidate'))))
     AND NOT EXISTS (SELECT 1 FROM jobs newer WHERE newer.dataset_id=candidate.dataset_id AND newer.kind=candidate.kind AND newer.scope_key=candidate.scope_key AND newer.target_generation>candidate.target_generation AND newer.state IN ('queued','running'))
     ORDER BY CASE kind WHEN 'analysis.workout' THEN 0 WHEN 'analysis.training_state' THEN 2 WHEN 'training.plan' THEN 3 ELSE 1 END, run_after, id FOR UPDATE SKIP LOCKED LIMIT 1
 )

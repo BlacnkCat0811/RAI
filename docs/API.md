@@ -27,6 +27,7 @@
 
 ## 读取
 - 运动：`GET /v2/workouts`、`/v2/workouts/{id}`、`/detail`、`/series`、`/freshness`
+  - `/detail` 的心率覆盖及分析卡速度覆盖使用有效连续支持（包含受限插值），不使用瞬时样本数量除以秒数。优先取已发布特征的 `reconstructedCoverage`（活动时间口径，保留暂停、来源冲突和异常过滤）；`observedCoverage` 保留为原始区间观测语义。旧详情无特征时，心率显示按相邻有效瞬时点间隔 ≤15 秒计连续支持，不外推首尾、不跨越长断点；旧心率分区按线性插值的区间边界累计。此修复不修改原始载荷或模型版本，也不自动发布、部署或重算。
   - `/detail` 新增可选 `distanceDistribution`（`policyVersion=distance-zones/v1`），由原始速度／心率时间区间积分距离，
     独立于模型发布与旧 `zoneSummary` 的时长占比。返回 `totalDistanceMeters`、`pace`、`heartRate`（各项 `zone` / `distanceMeters`）、
     `paceUnknownMeters`、`heartRateUnknownMeters`、`heartRateProfileID` 与 `reasonCodes`。
@@ -41,7 +42,7 @@
   `/running-fitness/current`、`/running-fitness/history`、`/running-fitness/evidence`；`POST /running-fitness/reanalyses`、
   `GET /running-fitness/reanalyses/{operationID}`（见下方“跑力”）
   （旧链路的 `/v2/analysis/state`、`/history`、`/workouts/{id}` 已删除，返回 404）
-  - 运动列表的 `metrics` 只含 active stack 的 `workout_load`（单位 `RAI_AU`，`details.qualityTier`/`method`）；未发布时 `analysisStatus=pending`
+  - 运动列表的 `metrics` 只含 active stack 的 `workout_load`（单位 `RAI_AU`，`details.qualityTier`/`method`）；尚未产出结果时 `analysisStatus=pending`；当前事实代次的单条输入分析失败时为 `failed`，已发布为 `published`。失败不会作为等待状态展示，也不覆盖原始记录；成功重新分析会清除失败状态（迁移 59，尚未部署）
   - 训练回执的 `analysisStatus=queued` 表示 v2 日模型栈已失效待算，`analysisJobIDs` 为空
   - `/parameters` 返回 `parameters`（旧 TRIMP 参数）、`hrReference`（当前生效的 `hr_reference`，用户本人录入值）与 `observedMaxHR`（近一年 30 秒心率中位数最大值，仅作建议）
   - `/vo2max-sources` 返回近一年的 Apple VO₂ 来源，每个设备/App 一项，`sourceEpoch` 即选择时提交的值

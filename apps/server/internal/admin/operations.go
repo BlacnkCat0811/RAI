@@ -52,17 +52,22 @@ func Operations(ctx context.Context, url string, args []string, out io.Writer) e
 func operationsSnapshot(ctx context.Context, tx pgx.Tx) (any, error) {
 	// Aggregate-only output: no dataset/device/workout IDs or health values.
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT jsonb_build_object(
+	err := tx.QueryRow(ctx, `WITH failed_health AS (
+ SELECT j.state,coalesce(d.generation>j.target_generation AND d.clean_generation>=j.target_generation,false)
+  OR (j.kind='analysis.model_stack_v2' AND NOT EXISTS (
+   SELECT 1 FROM analysis_model_channels c WHERE c.dataset_id=j.dataset_id AND c.channel IN ('active','candidate')
+    AND c.stack_id=split_part(j.scope_key,'/',2))) AS historical
+ FROM jobs j LEFT JOIN dirty_scopes d ON d.dataset_id=j.dataset_id AND d.scope_key=j.scope_key
+ WHERE j.state IN ('failed','repair_required')
+ ) SELECT jsonb_build_object(
  'observed_at',clock_timestamp(), 'database_size_bytes',pg_database_size(current_database()),
  'connections',(SELECT count(*) FROM pg_stat_activity WHERE datname=current_database()),
  'lock_waiters',(SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock'),
  'rollbacks_total',(SELECT xact_rollback FROM pg_stat_database WHERE datname=current_database()),
  'deadlocks_total',(SELECT deadlocks FROM pg_stat_database WHERE datname=current_database()),
  'jobs',(SELECT coalesce(jsonb_object_agg(state,n),'{}') FROM (SELECT state,count(*) n FROM jobs GROUP BY state) j),
- 'failed_jobs_needing_action',(SELECT count(*) FROM jobs j LEFT JOIN dirty_scopes d ON d.dataset_id=j.dataset_id AND d.scope_key=j.scope_key
-   WHERE j.state='repair_required' OR (j.state='failed' AND NOT coalesce(d.generation>j.target_generation AND d.clean_generation>=j.target_generation,false))),
- 'historical_failed_jobs',(SELECT count(*) FROM jobs j JOIN dirty_scopes d ON d.dataset_id=j.dataset_id AND d.scope_key=j.scope_key
-   WHERE j.state='failed' AND d.generation>j.target_generation AND d.clean_generation>=j.target_generation),
+ 'failed_jobs_needing_action',(SELECT count(*) FROM failed_health WHERE state='repair_required' OR (state='failed' AND NOT historical)),
+ 'historical_failed_jobs',(SELECT count(*) FROM failed_health WHERE state='failed' AND historical),
  'expired_leases',(SELECT count(*) FROM jobs WHERE state='running' AND lease_until<clock_timestamp()),
  'retry_count',(SELECT coalesce(sum(greatest(attempts-1,0)),0) FROM jobs),
  'oldest_due_job_seconds',(SELECT coalesce(greatest(extract(epoch FROM clock_timestamp()-min(run_after)),0),0) FROM jobs WHERE state='queued'),

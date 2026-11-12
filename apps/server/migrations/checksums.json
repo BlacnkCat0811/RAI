@@ -56,5 +56,6 @@
   "00055_model_stack_invalidation_per_transaction.sql": "72177f0491aa1cd7ff5c0cb42ca2a559ada0f3bf0172618b7405d494b557affa",
   "00056_model_optimization_v3.sql": "14a880d9ce9e16bc0c852f700137ccffa2a5ff9df139787d681387cc7b149ebf",
   "00057_running_fitness_v1.sql": "4fad38c6f1e0adc57f31bc2d16d9f8f9975dac3388b72cc63ec65c5827d921ba",
-  "00058_recovery_v4.sql": "a10e98387dd49909a42a66b168291c208d763b7309550cf200429c3f07918183"
+  "00058_recovery_v4.sql": "a10e98387dd49909a42a66b168291c208d763b7309550cf200429c3f07918183",
+  "00059_workout_analysis_outcomes.sql": "a9c8687992adb03164bf9c4f906336a767047dcc7b2155bbea2aa6d110b23a11"
 }

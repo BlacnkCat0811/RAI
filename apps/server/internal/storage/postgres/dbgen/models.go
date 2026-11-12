@@ -102,6 +102,15 @@ type AnalysisPublishedArtifact struct {
 	Payload       []byte
 }
 
+type AnalysisPublishedResearchArtifact struct {
+	DatasetID     string
+	RunID         string
+	ArtifactKey   string
+	SchemaVersion string
+	ContentSha256 []byte
+	Payload       []byte
+}
+
 type AnalysisPublishedResult struct {
 	DatasetID        string
 	ScopeKey         string
@@ -329,6 +338,34 @@ type ModelInputReceipt struct {
 	CreatedAt     pgtype.Timestamptz
 }
 
+type ModelStackPendingInvalidation struct {
+	DatasetID string
+	Txid      int64
+	FromAt    pgtype.Timestamptz
+	ThroughAt pgtype.Timestamptz
+}
+
+type ModelWorkoutFailure struct {
+	DatasetID      string
+	StackID        string
+	WorkoutUuid    string
+	FactGeneration int64
+	ErrorCode      string
+	FailedAt       pgtype.Timestamptz
+}
+
+type ModelWorkoutResult struct {
+	DatasetID      string
+	StackID        string
+	WorkoutUuid    string
+	FactGeneration int64
+	SourceEpoch    string
+	Feature        []byte
+	Exposure       []byte
+	Load           []byte
+	UpdatedAt      pgtype.Timestamptz
+}
+
 type RouteChunk struct {
 	DatasetID             string
 	RouteUuid             string
@@ -366,6 +403,37 @@ type RoutePoint struct {
 	VerticalAccuracy   pgtype.Float8
 	Speed              pgtype.Float8
 	Course             pgtype.Float8
+}
+
+type RunFitnessDayRun struct {
+	DatasetID        string
+	RunID            string
+	ScopeKey         string
+	TargetGeneration int64
+	FinishedAt       pgtype.Timestamptz
+	ManifestSha256   interface{}
+	AlgorithmName    string
+	AlgorithmVersion string
+	SchemaVersion    string
+	ContentSha256    []byte
+	Payload          []byte
+}
+
+type RunFitnessReanalysisOperation struct {
+	DatasetID        string
+	ID               string
+	IdempotencyKey   string
+	RequestSha256    []byte
+	StackID          string
+	ManifestSha256   []byte
+	View             string
+	ReferencePolicy  string
+	AlgorithmVersion string
+	Request          []byte
+	FromDay          pgtype.Date
+	ThroughDay       pgtype.Date
+	Targets          []byte
+	CreatedAt        pgtype.Timestamptz
 }
 
 type SeriesChunk struct {
@@ -642,6 +710,25 @@ type WorkoutImport struct {
 	Payload      []byte
 	Receipt      []byte
 	ImportedAt   pgtype.Timestamptz
+}
+
+type WorkoutIngest struct {
+	DatasetID      string
+	WorkoutUuid    string
+	RawJson        []byte
+	PayloadBytes   int64
+	DeviceID       string
+	DatasetEpoch   string
+	CollectorEpoch string
+	State          string
+	AcceptedAt     pgtype.Timestamptz
+	CommitRevision pgtype.Int8
+	CommitReceipt  []byte
+	FinishedAt     pgtype.Timestamptz
+	ErrorCode      pgtype.Text
+	Attempts       int32
+	NextAttemptAt  pgtype.Timestamptz
+	LeaseUntil     pgtype.Timestamptz
 }
 
 type WorkoutPackage struct {

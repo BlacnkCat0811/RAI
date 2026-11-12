@@ -564,3 +564,15 @@ func TestNonRunningActivityCannotBecomeRunningEvidence(t *testing.T) {
 		}
 	}
 }
+
+func TestFiveSecondHRUsesEffectiveCoverageForQualification(t *testing.T) {
+	s := synthetic(1200)
+	instant(&s, HR, 5)
+	f := compute(t, s)
+	if f.HeartRate.ObservedCoverage != 0 || f.HeartRate.ReconstructedCoverage != 1 {
+		t.Fatalf("instant observations and effective support must stay distinct: %+v", f.HeartRate)
+	}
+	if hasReason(f.Qualification.Load, HRCoverageLow) || hasReason(f.Qualification.Load, MissingHR) {
+		t.Fatalf("regular sampling blocked load: %+v", f.Qualification.Load)
+	}
+}

@@ -6,6 +6,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO rai_backup_login;
 GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO rai_backup_login;
 GRANT SELECT ON jobs,job_attempts,dirty_scopes,analysis_runs,analysis_publications,
  training_generation_runs,training_executions TO rai_monitor_login;
+GRANT SELECT(dataset_id,channel,stack_id) ON analysis_model_channels TO rai_monitor_login;
 GRANT pg_read_all_stats TO rai_monitor_login;
 ALTER ROLE rai_api_login SET statement_timeout='2s';
 ALTER ROLE rai_worker_login SET statement_timeout='2s';

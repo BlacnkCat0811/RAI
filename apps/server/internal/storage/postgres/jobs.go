@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"rai/server/internal/analysis"
+	"rai/server/internal/modelmanifest"
 
 	"rai/server/internal/storage/postgres/dbgen"
 	"rai/server/internal/syncing"
@@ -19,7 +20,9 @@ func (s *Store) Claim(ctx context.Context, kinds []string) (Lease, error) {
 		return Lease{}, err
 	}
 	defer tx.Rollback(ctx)
-	r, err := dbgen.New(tx).ClaimJob(ctx, kinds)
+	r, err := dbgen.New(tx).ClaimJob(ctx, dbgen.ClaimJobParams{
+		Kinds: kinds, ModelDayPrefix: "model/" + modelmanifest.StackID() + "/athlete/day/v2/",
+	})
 	if err != nil {
 		return Lease{}, err
 	}
@@ -119,6 +122,9 @@ func (s *Store) Complete(ctx context.Context, l Lease) error {
 	return tx.Commit(ctx)
 }
 func (s *Store) RequeueExpired(ctx context.Context) (int, error) {
+	if err := s.retireUnassignedModelJobs(ctx); err != nil {
+		return 0, err
+	}
 	tx, err := s.begin(ctx)
 	if err != nil {
 		return 0, err
@@ -146,4 +152,32 @@ func (s *Store) RequeueExpired(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	return len(rows), nil
+}
+
+// Separate transactions keep retirement and expiry from locking two datasets
+// in opposite orders when several workers recover their queues concurrently.
+func (s *Store) retireUnassignedModelJobs(ctx context.Context) error {
+	tx, err := s.begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	// Retire only queued jobs whose stack no longer has a live assignment.
+	// A different active/candidate stack may still have a compatible worker
+	// during a rolling upgrade. Keep its work and all terminal audit history.
+	if _, err := tx.Exec(ctx, `WITH dataset AS MATERIALIZED (
+ SELECT d.id FROM datasets d WHERE d.retired_at IS NULL AND EXISTS (
+  SELECT 1 FROM jobs j WHERE j.dataset_id=d.id AND j.kind='analysis.model_stack_v2' AND j.state='queued'
+   AND NOT EXISTS(SELECT 1 FROM analysis_model_channels c WHERE c.dataset_id=j.dataset_id
+    AND c.channel IN ('active','candidate') AND left(j.scope_key,length('model/'||c.stack_id||'/athlete/day/v2/'))='model/'||c.stack_id||'/athlete/day/v2/'))
+ ORDER BY d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1
+ ), retired AS (
+ SELECT j.id FROM jobs j WHERE j.dataset_id IN (SELECT id FROM dataset) AND j.kind='analysis.model_stack_v2' AND j.state='queued'
+  AND NOT EXISTS(SELECT 1 FROM analysis_model_channels c WHERE c.dataset_id=j.dataset_id
+   AND c.channel IN ('active','candidate') AND left(j.scope_key,length('model/'||c.stack_id||'/athlete/day/v2/'))='model/'||c.stack_id||'/athlete/day/v2/')
+ ORDER BY j.id FOR UPDATE OF j SKIP LOCKED LIMIT 100
+ ) UPDATE jobs j SET state='failed',lease_until=NULL,last_error_code='retired_model_stack' FROM retired r WHERE j.id=r.id`); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
