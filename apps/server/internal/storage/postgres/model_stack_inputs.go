@@ -160,7 +160,8 @@ func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start,
 			var e wf.HRExposure
 			if json.Unmarshal(c.feature, &f) == nil && json.Unmarshal(c.exposure, &e) == nil && f.WorkoutID == w.id && e.WorkoutID == w.id &&
 				f.Schema == wf.Schema && f.StackID == wf.StackID() && e.Schema == wf.ExposureSchema &&
-				f.RunFitness != nil && f.RunFitness.Schema == wf.RunFitnessSchema && f.RunFitness.Policy == wf.RunFitnessPolicy() {
+				f.RunFitness != nil && f.RunFitness.Schema == wf.RunFitnessSchema && f.RunFitness.Policy == wf.RunFitnessPolicy() &&
+				f.Effort != nil && f.Effort.Schema == wf.EffortSchema && f.Effort.Policy == wf.EffortPolicy {
 				w.feature, w.exposure, w.cached = f, e, true
 				out = append(out, w)
 				continue
@@ -522,7 +523,7 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	recoveryID := syncing.NewID()
 	// The same day release computes structure -> fatigue -> readiness in that
 	// order. Running fitness consumes only neutral Workout features.
-	optimized, ready, err := optimizedStackOutputs(ctx, tx, l, stack, date, at, captured, workouts, pending, loads, state, recovery)
+	optimized, effects, ready, err := optimizedStackOutputs(ctx, tx, l, stack, date, at, captured, workouts, pending, loads, state, recovery)
 	if err != nil {
 		return nil, err
 	}
@@ -548,6 +549,9 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 						}
 					}
 				}
+			}
+			if effect, ok := effects[row.id]; ok {
+				row.load.Effect = &effect
 			}
 			results[i].value = row
 		}

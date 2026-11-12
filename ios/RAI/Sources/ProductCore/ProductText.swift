@@ -48,3 +48,58 @@ public enum ProductReasonText {
     return state == "collecting" ? "积累中" : "暂不可用"
   }
 }
+
+/// Copy for the per-run training effect card.
+public enum TrainingEffectText {
+  public static let disclaimer = "基于心率与速度的估算，表示训练刺激大小，不代表能力已提升；与手表厂商的评分不可直接比较。"
+
+  /// Band name for a 0-5 score; the server label wins, the value is the fallback.
+  public static func label(_ score: TrainingEffectScore) -> String {
+    let names = ["none": "无效果", "minor": "轻微", "maintaining": "维持", "improving": "提升",
+                 "highly_improving": "大幅提升", "overreaching": "过量"]
+    if let label = score.label, let name = names[label] { return name }
+    guard let v = score.value, v.isFinite else { return "暂无" }
+    switch v {
+    case ..<1: return "无效果"
+    case ..<2: return "轻微"
+    case ..<3: return "维持"
+    case ..<4: return "提升"
+    case ..<5: return "大幅提升"
+    default: return "过量"
+    }
+  }
+
+  public static func isOverreaching(_ score: TrainingEffectScore) -> Bool {
+    score.label == "overreaching" || (score.value ?? 0) >= 5
+  }
+
+  /// One actionable line explaining why a score is missing or limited.
+  public static func reason(_ code: String) -> String? {
+    [
+      "hr_reference_missing": "填写最大心率后可计算训练效果",
+      "hr_exposure_insufficient": "心率数据不足，无法计算有氧训练效果",
+      "speed_reference_unavailable": "积累几次跑步、形成跑力后显示无氧评分",
+      "effort_features_missing": "这次跑步的分析版本较旧，重新分析后显示",
+      "speed_missing": "缺少速度数据，无法计算无氧评分",
+      "short_sprint_uncorroborated": "短冲刺缺少功率或步频佐证，未计入",
+      "bout_uncorroborated": "部分快速段心率没有响应，未计入",
+      "speed_point_unsupported": "部分速度点不可靠，未计入",
+      "high_intensity_unsupported": "高强度段佐证不足，为估算值",
+      "indoor_speed": "室内跑速度来自手表估算",
+      "speed_reference_estimated": "跑力参数为估算值",
+      "ability_reference_exceeded": "本次表现超过当前跑力参数，跑力可能偏低",
+      "hr_exposure_estimated": "心率覆盖不完整，为估算值",
+      "training_level_estimated": "近期训练记录较少，训练等级为估算",
+      "training_level_default": "训练记录不足，按默认训练等级计算",
+      "invalid_input": "数据异常，无法计算",
+    ][code]
+  }
+
+  public static func reasons(_ score: TrainingEffectScore) -> [String] {
+    (score.reasonCodes ?? []).compactMap(reason)
+  }
+
+  public static func levelStatus(_ status: String?) -> String {
+    ["observed": "近 28 天", "estimated": "近 90 天估算", "default": "默认"][status ?? ""] ?? "—"
+  }
+}

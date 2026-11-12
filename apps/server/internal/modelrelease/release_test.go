@@ -9,6 +9,7 @@ import (
 	rc "rai/server/internal/recovery"
 	rf "rai/server/internal/runfitness"
 	sr "rai/server/internal/sessionrecovery"
+	te "rai/server/internal/trainingeffect"
 	tl "rai/server/internal/trainingload"
 )
 
@@ -19,7 +20,8 @@ func TestCurrentReleaseIsFrozenWithItsActualCalculationConfigs(t *testing.T) {
 		r.AbilityConfigHash != rf.ConfigHash() || r.RecoveryConfig != rc.DefaultV4Config("Asia/Shanghai") || r.ReadinessConfig != rd.DefaultV4Config("Asia/Shanghai") {
 		t.Fatal("register the changed manifest and calculation configs as a new immutable release")
 	}
-	if r.Manifest.SessionRecovery == nil || r.Manifest.SessionRecovery.ConfigHash != sr.ConfigHash() || r.Manifest.AbilityEstimate != nil || r.Manifest.RunningAbility.ConfigHash != rf.ConfigHash() || r.Manifest.LoadFocus == nil || r.Manifest.LoadFocus.ConfigHash != tl.FocusConfigHash() {
+	if r.Manifest.SessionRecovery == nil || r.Manifest.SessionRecovery.ConfigHash != sr.ConfigHash() || r.Manifest.AbilityEstimate != nil || r.Manifest.RunningAbility.ConfigHash != rf.ConfigHash() || r.Manifest.LoadFocus == nil || r.Manifest.LoadFocus.ConfigHash != tl.FocusConfigHash() ||
+		r.Manifest.TrainingEffect == nil || r.Manifest.TrainingEffect.ConfigHash != te.ConfigHash() {
 		t.Fatal("new pure-module configurations do not match the frozen manifest")
 	}
 }

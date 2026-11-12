@@ -128,6 +128,11 @@ func ComputeNormalized(ctx context.Context, s RawWorkoutSnapshot) (WorkoutFeatur
 	f.Distance = chooseDistance(s, t)
 	f.Environment = environment(s)
 	f.RunFitness = runFitnessFeatures(s, t, f.Distance, f.Environment)
+	effort, err := effortFeatures(s, t, f.Environment)
+	if err != nil {
+		return WorkoutFeatures{}, err
+	}
+	f.Effort = effort
 	if f.Distance.RouteDifferenceRatio != nil && *f.Distance.RouteDifferenceRatio > .05 {
 		f.Route.Reasons = reasonSet(f.Route.Reasons, []Reason{DistanceMismatch})
 	}

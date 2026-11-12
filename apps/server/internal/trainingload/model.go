@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	te "rai/server/internal/trainingeffect"
 	wf "rai/server/internal/workoutfeatures"
 	"time"
 )
@@ -70,29 +71,32 @@ type ExternalExposure struct {
 	DistanceM     *float64 `json:"distanceM"`
 }
 type Result struct {
-	Focus           *WorkoutFocus `json:"loadFocus,omitempty"`
-	Schema          string        `json:"schemaVersion"`
-	DatasetID       string        `json:"datasetID"`
-	WorkoutID       string        `json:"workoutID"`
-	InputGeneration int64         `json:"inputGeneration"`
-	Model           string        `json:"model"`
-	ModelVersion    string        `json:"modelVersion"`
-	ConfigHash      string        `json:"configHash"`
-	Scope           string        `json:"scope"`
-	Status          string        `json:"status"`
-	Load            *float64      `json:"load"`
-	Unit            string        `json:"unit"`
-	Method          string        `json:"method"`
-	Quality         string        `json:"quality"`
-	Confidence      float64       `json:"confidence"`
-	ObservedLoad    *float64      `json:"observedLoad"`
-	EstimatedLoad   *float64      `json:"estimatedLoad"`
-	ScaleFactor     *float64      `json:"scaleFactor"`
-	ActiveSeconds   *float64      `json:"activeSeconds"`
-	ValidHRSeconds  float64       `json:"validHRSeconds"`
-	Coverage        float64       `json:"coverage"`
-	MaxGap          float64       `json:"maxGapSeconds"`
-	ConflictSeconds float64       `json:"parameterConflictSeconds"`
+	Focus *WorkoutFocus `json:"loadFocus,omitempty"`
+	// Effect is the run's training effect (stack with a TrainingEffect
+	// component only); omitted so older stacks' rows stay byte-identical.
+	Effect          *te.Result `json:"trainingEffect,omitempty"`
+	Schema          string     `json:"schemaVersion"`
+	DatasetID       string     `json:"datasetID"`
+	WorkoutID       string     `json:"workoutID"`
+	InputGeneration int64      `json:"inputGeneration"`
+	Model           string     `json:"model"`
+	ModelVersion    string     `json:"modelVersion"`
+	ConfigHash      string     `json:"configHash"`
+	Scope           string     `json:"scope"`
+	Status          string     `json:"status"`
+	Load            *float64   `json:"load"`
+	Unit            string     `json:"unit"`
+	Method          string     `json:"method"`
+	Quality         string     `json:"quality"`
+	Confidence      float64    `json:"confidence"`
+	ObservedLoad    *float64   `json:"observedLoad"`
+	EstimatedLoad   *float64   `json:"estimatedLoad"`
+	ScaleFactor     *float64   `json:"scaleFactor"`
+	ActiveSeconds   *float64   `json:"activeSeconds"`
+	ValidHRSeconds  float64    `json:"validHRSeconds"`
+	Coverage        float64    `json:"coverage"`
+	MaxGap          float64    `json:"maxGapSeconds"`
+	ConflictSeconds float64    `json:"parameterConflictSeconds"`
 	// Bounded (v2) policy only; omitted from frozen v1 artifacts.
 	QualityTier       string            `json:"qualityTier,omitempty"`
 	AboveMaxSeconds   float64           `json:"aboveReferenceMaxSeconds,omitempty"`

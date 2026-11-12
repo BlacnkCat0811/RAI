@@ -21,6 +21,42 @@ public struct WorkoutDetailResponse: Codable, Sendable {
   /// This run's single-run fitness from the published day state, with the
   /// fixed-policy reference of the day before it; absent until published.
   public let runFitness: WorkoutRunFitness?
+  /// Aerobic/anaerobic training effect (0.0-5.0) of this run; absent for
+  /// older model stacks and runs the stack has not computed yet.
+  public let trainingEffect: WorkoutTrainingEffect?
+}
+
+/// RAI's own training-effect estimate (rai.training_effect/1). Every field
+/// decodes optionally so a newer server never breaks the page.
+public struct WorkoutTrainingEffect: Codable, Sendable, Equatable {
+  public let schemaVersion: String?
+  public let aerobic: TrainingEffectScore?
+  public let anaerobic: TrainingEffectScore?
+  public let epocPeak: Double?
+  public let trainingLevel: Double?
+  public let trainingLevelStatus: String?
+  public let anaerobicWorkM: Double?
+  public let anaerobicReserveM: Double?
+  public let highIntensitySeconds: Double?
+  public let unsupportedSeconds: Double?
+  public let bouts: Int?
+}
+
+public struct TrainingEffectScore: Codable, Sendable, Equatable {
+  /// nil when unavailable; never a placeholder 0.
+  public let value: Double?
+  public let label: String?
+  public let status: String?
+  public let reasonCodes: [String]?
+
+  public init(value: Double?, label: String?, status: String?, reasonCodes: [String]?) {
+    self.value = value
+    self.label = label
+    self.status = status
+    self.reasonCodes = reasonCodes
+  }
+
+  public var isEstimated: Bool { status == "estimated" }
 }
 
 public struct WorkoutModelQualification: Codable, Sendable, Equatable {

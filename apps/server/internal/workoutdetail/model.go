@@ -5,6 +5,7 @@ package workoutdetail
 
 import (
 	rf "rai/server/internal/runfitness"
+	te "rai/server/internal/trainingeffect"
 	tl "rai/server/internal/trainingload"
 )
 
@@ -204,6 +205,7 @@ type Qualification struct {
 type Detail struct {
 	RunFitness           *RunFitness           `json:"runFitness,omitempty"`
 	LoadFocus            *tl.WorkoutFocus      `json:"loadFocus,omitempty"`
+	TrainingEffect       *te.Result            `json:"trainingEffect,omitempty"`
 	Workout              Workout               `json:"workout"`
 	Analysis             *FeatureAnalysis      `json:"analysis,omitempty"`
 	ModelQualification   *ModelQualification   `json:"modelQualification,omitempty"`

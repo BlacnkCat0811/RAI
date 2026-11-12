@@ -56,6 +56,42 @@ private struct FitnessScoreArc: Shape {
   }
 }
 
+/// 0-5 training-effect arc. An unavailable score renders "—", never a 0.
+struct TrainingEffectGauge: View {
+  let title: String
+  let score: TrainingEffectScore?
+
+  var body: some View {
+    let value = score?.value.flatMap { $0.isFinite ? $0 : nil }
+    let over = score.map(TrainingEffectText.isOverreaching) ?? false
+    let tint = over ? RAITheme.amber : RAITheme.orange
+    VStack(spacing: 4) {
+      ZStack(alignment: .bottom) {
+        FitnessScoreArc(progress: 1).stroke(RAITheme.primary.opacity(0.08), style: StrokeStyle(lineWidth: 9, lineCap: .round))
+        if let value {
+          FitnessScoreArc(progress: max(0, min(1, value / 5)))
+            .stroke(tint.gradient, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+        }
+        Text(value.map { ProductFormat.decimal($0, digits: 1) } ?? "—")
+          .font(.system(size: 30, weight: .bold, design: .rounded)).monospacedDigit()
+          .padding(.bottom, 4)
+      }.frame(height: 86)
+      HStack(spacing: 4) {
+        Text(title).font(.subheadline.weight(.semibold))
+        if score?.isEstimated == true {
+          Text("估算").font(.caption2).padding(.horizontal, 5).padding(.vertical, 1)
+            .background(RAITheme.primary.opacity(0.08), in: Capsule())
+        }
+      }
+      Text(value == nil ? "暂无" : score.map(TrainingEffectText.label) ?? "暂无")
+        .font(.caption.weight(.medium)).foregroundStyle(value == nil ? RAITheme.secondary : tint)
+    }.frame(maxWidth: .infinity)
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel(title + "训练效果")
+      .accessibilityValue(value.map { ProductFormat.decimal($0, digits: 1) + "，" + (score.map(TrainingEffectText.label) ?? "") + (score?.isEstimated == true ? "，估算" : "") } ?? "暂无")
+  }
+}
+
 struct FitnessAbilityRow: View {
   let key: String
   let dimension: FitnessDimension

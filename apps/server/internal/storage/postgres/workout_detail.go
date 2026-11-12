@@ -12,6 +12,7 @@ import (
 	"rai/server/internal/analysis"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
+	te "rai/server/internal/trainingeffect"
 	tl "rai/server/internal/trainingload"
 	"rai/server/internal/workoutdetail"
 	wf "rai/server/internal/workoutfeatures"
@@ -49,6 +50,7 @@ type workoutDetailData struct {
 	RunFitness        *workoutdetail.RunFitness
 	FeatureArtifact   *workoutdetail.FeatureAnalysis
 	LoadFocus         *tl.WorkoutFocus
+	TrainingEffect    *te.Result
 	Qualification     *workoutdetail.ModelQualification
 	Published         []analysis.Metric
 	AnalysisStatus    string
@@ -732,6 +734,7 @@ func loadModelQualification(ctx context.Context, tx pgx.Tx, p syncing.Principal,
 			load.Status = "ineligible"
 		}
 		d.LoadFocus = r.Focus
+		d.TrainingEffect = r.Effect
 		load.ReasonCodes = append(load.ReasonCodes, r.ReasonCodes...)
 	}
 	d.Qualification = &workoutdetail.ModelQualification{TrainingLoad: load}
@@ -760,6 +763,7 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	out.ModelQualification = d.Qualification
 	out.RunFitness = d.RunFitness
 	out.LoadFocus = d.LoadFocus
+	out.TrainingEffect = d.TrainingEffect
 	if durationS > 0 && distance != nil && *distance > 0 {
 		out.Workout.AveragePaceSPerKm = workoutdetail.Ptr(round1(durationS / (*distance / 1000)))
 	}

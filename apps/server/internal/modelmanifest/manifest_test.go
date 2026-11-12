@@ -3,6 +3,8 @@ package modelmanifest
 import (
 	"strings"
 	"testing"
+
+	te "rai/server/internal/trainingeffect"
 )
 
 func TestCurrentManifestIsCanonicalAndVersioned(t *testing.T) {
@@ -26,6 +28,9 @@ func TestCurrentManifestIsCanonicalAndVersioned(t *testing.T) {
 	}
 	if m.RunningAbility.ModelID != "rai.running_fitness" || m.RunningAbility.ArtifactKey != "running_fitness" || m.AbilityEstimate != nil {
 		t.Fatal("retired running ability still in the current manifest")
+	}
+	if m.TrainingEffect == nil || m.TrainingEffect.ModelID != "rai.training_effect" || m.TrainingEffect.ConfigHash != te.ConfigHash() {
+		t.Fatal("training effect component missing from the current manifest")
 	}
 	s3 := schema3Manifest()
 	if h, _ := Hash(s3); h == h1 || s3.Validate() != nil {

@@ -72,6 +72,15 @@
     `scoreSensitivityRange`/`abilitySensitivityRange`/`netSupportedSeconds`/`gradeMode`/`segments`，确认比赛的 `raceEquivalent`，
     `retention`、`hrMaxSuggestion`、`reasonCodes`），`referenceDailyScore` / `referenceDate`（训练日前一天长期状态按同一固定政策的分数）
     与 `deltaToReference`。来自该训练本地日的已发布日状态；当天尚未（重新）发布时省略。冷启动无基准时不给差值
+  - 含训练效果组件的栈（`rai-v2-69efefa730b47818` 起）的 `/detail` 可选 `trainingEffect`（`rai.training_effect/1`）：
+    `aerobic` / `anaerobic` 各为 `{value, label, status, reasonCodes}`，`value` 0.0–5.0（一位小数）或 `null`（不可用，`label` 为空、
+    `status=unavailable`，绝不以 0 冒充），`label` ∈ `none|minor|maintaining|improving|highly_improving|overreaching`，
+    `status` ∈ `complete|estimated|unavailable`；另含 `epocPeak`（ml/kg 当量代理值）、`epocPeakAtUs`、`trainingLevel`、
+    `trainingLevelStatus`（`observed|estimated|default`）、`anaerobicWorkM`、`anaerobicReserveM`、`anaerobicPeakM`、
+    `highIntensitySeconds`、`unsupportedSeconds`、`bouts`、`policy`、`inputHash`。常见原因码：`hr_reference_missing`、
+    `hr_exposure_insufficient`、`speed_reference_unavailable`、`effort_features_missing`、`short_sprint_uncorroborated`、
+    `bout_uncorroborated`、`indoor_speed`、`ability_reference_exceeded`、`training_level_estimated|default`。
+    旧栈、未分析或栈尚未算到这次跑步时省略。RAI 自有模型，不是手表厂商的训练效果
   - schema3 栈的 `/detail` 另含可选 `loadFocus`：这次课次的 `knownAU`、四桶 `buckets`、区间秒数 `seconds`、
     跨午夜按日切分 `days`、`classificationMethod` 与 `reasonCodes`；旧栈或栈尚未算到这次跑步时省略，
     负荷未知时 `knownAU=null`（原因 `load_unknown`），不把未知当低强度

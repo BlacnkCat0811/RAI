@@ -59,6 +59,11 @@ type stackDayOptions struct {
 	maxOnly      bool   // reference without an explicit resting HR
 	dailyRHRDays int    // synthetic daily resting-HR facts for the last N days
 	dailyRHRAges []int  // sparse history, independent of the last seven days
+	// seed runs inside the dataset before the stack is prepared (e.g. to
+	// publish an earlier day's state the release must read).
+	seed func(today time.Time)
+	// payloads build whole protocol-6 Workouts by run id instead of stackRun.
+	payloads map[string]func(f *fixture, id string, start time.Time) []byte
 }
 
 // runStackDay ingests the runs, applies the options, prepares the synthetic v2
@@ -117,7 +122,12 @@ func runStackDay(t *testing.T, f *fixture, runs []stackDayRun, opts stackDayOpti
 		}
 	}
 	for _, r := range runs {
-		acceptIngest(t, f, f.p, stackRun(t, f, r.id, today.AddDate(0, 0, r.day).Add(8*time.Hour), r.version, r.hr))
+		start := today.AddDate(0, 0, r.day).Add(8 * time.Hour)
+		if build := opts.payloads[r.id]; build != nil {
+			acceptIngest(t, f, f.p, build(f, r.id, start))
+			continue
+		}
+		acceptIngest(t, f, f.p, stackRun(t, f, r.id, start, r.version, r.hr))
 	}
 	for _, o := range processAllIngests(t, f.s) {
 		if o.Status != "committed" {
@@ -128,6 +138,9 @@ func runStackDay(t *testing.T, f *fixture, runs []stackDayRun, opts stackDayOpti
 		if _, err := f.s.Pool.Exec(ctx, `UPDATE workouts SET payload='{}'::jsonb WHERE dataset_id=$1 AND workout_uuid=$2`, f.p.DatasetID, opts.corrupt); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if opts.seed != nil {
+		opts.seed(today)
 	}
 	if _, err := f.s.PrepareModelStack(ctx, f.p.DatasetID); err != nil {
 		t.Fatal(err)

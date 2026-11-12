@@ -93,4 +93,35 @@ struct WorkoutDetailTests {
     #expect(WorkoutQualificationText.trainingLoad(q.trainingLoad) == "负荷：估算")
     #expect(WorkoutQualificationText.trainingLoad(WorkoutQualification(status: "pending", reasonCodes: [])) == "负荷：计算中")
   }
+
+  @Test func decodesTrainingEffectCompletePartialAndUnknown() throws {
+    let complete = """
+    {"schemaVersion":"rai.training_effect/1","workoutID":"w","aerobic":{"value":3.7,"label":"improving","status":"complete","reasonCodes":[]},
+     "anaerobic":{"value":null,"label":"","status":"unavailable","reasonCodes":["speed_reference_unavailable"]},
+     "epocPeak":157.0,"epocPeakAtUs":1,"trainingLevel":6.2,"trainingLevelStatus":"observed","anaerobicWorkM":null,"anaerobicReserveM":null,"anaerobicPeakM":null,
+     "highIntensitySeconds":0,"unsupportedSeconds":0,"bouts":0,"policy":"p","inputHash":"h","futureField":{"x":1}}
+    """
+    let e = try JSONDecoder().decode(WorkoutTrainingEffect.self, from: Data(complete.utf8))
+    #expect(e.aerobic?.value == 3.7)
+    #expect(TrainingEffectText.label(e.aerobic!) == "提升")
+    #expect(e.anaerobic?.value == nil)
+    #expect(TrainingEffectText.reasons(e.anaerobic!) == ["积累几次跑步、形成跑力后显示无氧评分"])
+    #expect(e.bouts == 0 && e.trainingLevel == 6.2)
+
+    // Missing fields and an unknown label still decode; the value decides the band.
+    let partial = #"{"aerobic":{"value":5.0,"label":"something_new"},"anaerobic":{"value":1.2,"status":"estimated","reasonCodes":["short_sprint_uncorroborated","unknown_code"]}}"#
+    let p = try JSONDecoder().decode(WorkoutTrainingEffect.self, from: Data(partial.utf8))
+    #expect(TrainingEffectText.label(p.aerobic!) == "过量")
+    #expect(TrainingEffectText.isOverreaching(p.aerobic!))
+    #expect(p.anaerobic?.isEstimated == true)
+    #expect(TrainingEffectText.label(p.anaerobic!) == "轻微")
+    #expect(TrainingEffectText.reasons(p.anaerobic!) == ["短冲刺缺少功率或步频佐证，未计入"])
+    #expect(p.epocPeak == nil && p.schemaVersion == nil)
+
+    let missingHR = TrainingEffectScore(value: nil, label: "", status: "unavailable", reasonCodes: ["hr_reference_missing"])
+    #expect(TrainingEffectText.label(missingHR) == "暂无")
+    #expect(TrainingEffectText.reasons(missingHR) == ["填写最大心率后可计算训练效果"])
+    #expect(!TrainingEffectText.isOverreaching(missingHR))
+    #expect(TrainingEffectText.levelStatus("default") == "默认")
+  }
 }

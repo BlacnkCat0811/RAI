@@ -216,3 +216,8 @@ Independent HRV SDNN, RHR and raw Sleep intervals use `/v2/sync/daily-facts`,
 with per-type streams, immutable bounded batches, complete source descriptors,
 delete precedence and received-discovery coverage. Existing Workout Protocol 3
 wire semantics remain frozen. See `docs/DAILY_HEALTH_SYNC_CONTRACT.md`.
+
+## 2026-11-12 Workout Training Effect v1
+
+`GET /v2/workouts/{id}/detail` 新增可选顶层 `trainingEffect`（`rai.training_effect/1`）：有氧/无氧训练效果各 0.0–5.0、等级标签、状态与原因码，以及 EPOC 代理峰值、训练等级、无氧做功/储备/峰值、高强度秒数与段数。缺数据时 `value` 为 `null` 并带原因码，绝不以 0 冒充。仅新模型栈的 Workout 结果携带该字段，旧栈、未分析与非跑步缺省。无 migration，athlete model schema、同步协议与上传语义不变。
+

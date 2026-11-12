@@ -43,6 +43,7 @@ struct WorkoutDetail: View {
           }
           routePanel(detail)
           summaryPanel(detail)
+          trainingEffectPanel(detail)
           effectPanel(detail)
           if let feature = detail.analysis, feature.schemaVersion == "rai.workout_features/1" {
             VStack(alignment: .leading, spacing: 8) {
@@ -311,7 +312,7 @@ struct WorkoutDetail: View {
             summaryMetric("负荷强度", num(load.intensity, digits: 1))
             summaryMetric("负荷可信度", percent(load.confidence))
           }
-          Text("主要训练效果：\(stimulusName(load.stimulusType))").font(.caption).foregroundStyle(RAITheme.secondary)
+          Text("主要刺激：\(stimulusName(load.stimulusType))").font(.caption).foregroundStyle(RAITheme.secondary)
           Text("负荷计算方式：\(loadSourceName(load.source))").font(.caption2).foregroundStyle(RAITheme.secondary)
         }
         if let focus = detail.loadFocus {
@@ -371,13 +372,64 @@ struct WorkoutDetail: View {
     .accessibilityIdentifier("workout.summary.environment")
   }
 
+  /// Aerobic and anaerobic training effect, each 0.0-5.0. Unavailable scores
+  /// show "—" with an actionable reason; the stimulus-type card stays separate.
+  @ViewBuilder private func trainingEffectPanel(_ detail: WorkoutDetailResponse) -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      CardHeading(title: "训练效果", icon: "flame")
+      if let effect = detail.trainingEffect {
+        HStack(spacing: 12) {
+          TrainingEffectGauge(title: "有氧", score: effect.aerobic)
+            .accessibilityIdentifier("workout.trainingEffect.aerobic")
+          TrainingEffectGauge(title: "无氧", score: effect.anaerobic)
+            .accessibilityIdentifier("workout.trainingEffect.anaerobic")
+        }
+        if [effect.aerobic, effect.anaerobic].contains(where: { $0.map(TrainingEffectText.isOverreaching) ?? false }) {
+          Label("刺激过量，注意恢复", systemImage: "exclamationmark.triangle")
+            .font(.caption.weight(.medium)).foregroundStyle(RAITheme.amber)
+        }
+        let notes = trainingEffectNotes(effect)
+        ForEach(notes, id: \.self) { note in
+          Text(note).font(.caption).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        if ([effect.aerobic, effect.anaerobic].compactMap { $0?.reasonCodes }.joined()).contains("hr_reference_missing") {
+          NavigationLink {
+            HeartRateSettingsView(model: model)
+          } label: {
+            Label("填写最大心率", systemImage: "heart")
+          }.font(.caption.weight(.medium)).tint(RAITheme.blue)
+            .accessibilityIdentifier("workout.trainingEffect.hrSettings")
+        }
+        DisclosureGroup("计算依据") {
+          VStack(alignment: .leading, spacing: 4) {
+            LabeledContent("EPOC 峰值（代理值）", value: value(effect.epocPeak, digits: 0, unit: "ml/kg"))
+            LabeledContent("训练等级", value: num(effect.trainingLevel, digits: 1) + " · " + TrainingEffectText.levelStatus(effect.trainingLevelStatus))
+            LabeledContent("高强度段", value: "\(effect.bouts ?? 0) 段 · " + ProductFormat.duration(effect.highIntensitySeconds))
+          }.font(.caption.monospacedDigit()).padding(.top, 4)
+        }.font(.caption).tint(RAITheme.blue)
+        Text(TrainingEffectText.disclaimer).font(.caption2).foregroundStyle(RAITheme.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      } else {
+        Text(detail.workout.analysisStatus == "published" ? "当前模型版本尚未计算这次跑步的训练效果。" : "分析完成后显示训练效果。")
+          .font(.footnote).foregroundStyle(RAITheme.secondary)
+      }
+    }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
+      .accessibilityElement(children: .contain)
+      .accessibilityIdentifier("workout.trainingEffect")
+  }
+
+  private func trainingEffectNotes(_ effect: WorkoutTrainingEffect) -> [String] {
+    var seen = Set<String>()
+    return [effect.aerobic, effect.anaerobic].compactMap { $0 }.flatMap(TrainingEffectText.reasons).filter { seen.insert($0).inserted }
+  }
+
   @ViewBuilder private func effectPanel(_ detail: WorkoutDetailResponse) -> some View {
     let zones = detail.zoneSummary
     let scores = (zones?.stimulusScores ?? []).filter { $0.qualifyingSeconds > 0 || $0.score > 0 }
       .sorted { $0.score == $1.score ? $0.stimulusType < $1.stimulusType : $0.score > $1.score }
     VStack(alignment: .leading, spacing: 10) {
       HStack {
-        Text("训练效果").font(.headline)
+        Text("刺激类型").font(.headline)
         Spacer()
         if let confidence = zones?.stimulusConfidence ?? detail.workout.stimulusConfidence {
           Text("可信度 " + percent(confidence)).font(.caption).foregroundStyle(RAITheme.secondary)
@@ -398,13 +450,13 @@ struct WorkoutDetail: View {
           }
         }
       } else if detail.workout.analysisStatus != "published" {
-        Text("分析完成后显示训练效果。")
+        Text("分析完成后显示刺激类型。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       } else if zones?.stimulusType == "unclassified" {
-        Text("这次跑步暂时无法归类训练效果：还没有可用的阈值配速。")
+        Text("这次跑步暂时无法归类刺激类型：还没有可用的阈值配速。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       } else {
-        Text("这次跑步暂无训练效果数据").font(.footnote).foregroundStyle(RAITheme.secondary)
+        Text("这次跑步暂无刺激类型数据").font(.footnote).foregroundStyle(RAITheme.secondary)
       }
       if let zones, !zones.secondaryStimulusTypes.isEmpty {
         Text("次要效果：\(zones.secondaryStimulusTypes.map(stimulusName).joined(separator: "、"))")

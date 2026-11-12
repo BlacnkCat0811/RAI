@@ -62,7 +62,7 @@
 `analysis.model_stack_v2` 每个自然日一个任务（`storage/postgres/model_stack_inputs.go` `computeModelStackDay`），
 读取近 186 天跑步与日健康事实，在同一事务里发布八项核心产物：负荷状态、跑力 v1（`running_fitness`）、
 RAI VO2、外部 VO2、生理恢复 v4、训练准备度 v4、课次恢复 v1、负荷焦点 v1（后两项为 `model_product_v3/` 族），另发布研究产物。
-本次源码新增恢复 v4／准备度 v4.1 策略栈 `rai-v2-df81d988ae579587`，尚未部署或激活；下文已部署的 `rai-v2-c3441e6edc485d9e` 仍消费恢复 v3。
+源码在恢复 v4／准备度 v4.1 策略栈 `rai-v2-df81d988ae579587`（未部署）之上又加入单次训练效果 v1，当前构建为新栈 `rai-v2-69efefa730b47818`，两者合并为同一次发布（只需一次全历史重建），尚未部署或激活；下文已部署的 `rai-v2-c3441e6edc485d9e` 仍消费恢复 v3、没有训练效果。
 当前构建为 schema4 栈（跑力 v1、恢复 v4，迁移 58）；旧 v60 跑力（`performance`、`runningability` 包、三分支、旧门槛、旧评分、iOS 本地推算）
 已从运行链路删除，下文“跑力 v1”为现行规则。身份由 `modelmanifest.Current()` 的哈希（`StackID`）决定；
 算法或策略变化即新 stack，需要用 `rai analysis model-stack` 的 `prepare-real` / `activate-real`
@@ -198,14 +198,41 @@ schema3 栈 `rai-v2-4b9264855a47255d` 于 2026-11-11 部署（迁移 56）并激
   独立报告未知训练数。7/28 天窗口按本地自然日汇总（跨午夜按训练时间切分），分母注明“已知负荷”，
   给出可分类覆盖率。第一阶段只作事实性描述，不给目标建议；与计划刺激标签解耦。单次分桶随
   `model_workout_results` 缓存并在运动详情 `loadFocus` 展示。
+- **训练效果 v1（`trainingeffect`，`rai.training_effect/1`）**：每次跑步两个独立分数（有氧、无氧，各 0.0–5.0，一位小数），
+  思路对齐 Firstbeat 的双训练效果，但常数全部是 RAI 自有、写进 `trainingeffect.Policy`（变更即换栈），分数与手表不保证一致。
+  纯函数包，不导入 `trainingload`（后者内嵌其结果）；在日模型栈 `optimizedStackOutputs` 中紧随 `ClassifyLoad` 计算，结果写入
+  `model_workout_results.load` 的 `trainingEffect` 键（`omitempty`，旧栈行字节不变），运动详情只读。缺数据时分数为 `null` 并带原因码，绝不为 0。
+  - **有氧**：逐段 HRR 强度 `i`（%HRR 近似 %VO₂R），EPOC 代理值 `dE/dt = r(i)(1−E/900) − λ(i)E`，`r = 40·max(0,i−0.30)³`（每分钟），
+    `λ = ln2/20min·max(0,(0.5−i)/0.5)`；段间空档按 `i=0` 衰减；积分按绝对整秒子步解析求解，按整秒切段结果不变。取峰值 `EPOCpeak`。
+    映射：TE k 档阈值 `base_k·9^(γ_k(L−6)/9)`，`base = 8/35/90/180/320`、`γ = 1/1/.8/.6/.45`，档间线性插值，≥TE5 阈值封顶 5.0；
+    TE2 在 L=1/L=10 约 10/93，与 Firstbeat 公开锚点吻合。准入：需事件时刻心率参考（否则 `hr_reference_missing`）、负荷质量档
+    complete/estimated 且有心率分段（否则 `hr_exposure_insufficient`）；estimated 档或训练等级非实测时状态为 `estimated`。
+  - **训练等级 L**：跑前同来源、非冲突跑步的周均活动分钟（28 天，训练日 <5 时回退 90 天并标 `estimated`，仍不足取默认 5），
+    按档中点（7.5→2、22.5→3、45→4、90→5、150→6、240→7、360→7.5、480→8、600→8.5、720→9 分钟）线性插值；评分时限定 3–9。
+    与设计稿不同：等级只看跑步时长、不要求已知负荷（冷启动无心率参考的跑步也计入时长）。只计跑步，交叉训练者等级偏低、分数偏高。
+  - **无氧**：以速度为主信号，D′ 余额模型。参考取训练开始前 28 天内最近一次已发布、哈希校验通过、速度维度 supported/estimated 的
+    跑力日状态中的 `vT`/`v6`/`v90s`（无则 `speed_reference_unavailable`）。边界 `v_b = 0.97·vT`，储备 `D′ = (v6−v_b)·360 m`；
+    `z=(v−v_b)/(v6−v_b)`，`z<1` 时做功率 `(v6−v_b)·z²`（阈值附近几乎不计），`z≥1` 时 `v−v_b`；连续高强度段内按段内时刻乘时长权重
+    （≤120s 为 1，线性降至 600s 的 0.4）；低于边界或空档按 τ=300s 指数恢复余额。
+    `x = W/D′ + 0.6·min(1.5, B峰/D′)`，`TE = 5(1−e^{−x/x₀})`，`x₀ = 2(1+0.05(L−6))`。无硬上限：余额超过 1.5·D′ 累计 >30s 只加
+    `ability_reference_exceeded`，不扣分、不回写跑力。
+  - **抗噪**：只用连续活动段内、原生跨度与支持间隔均 ≤5s 的点，速度 ≤ min(12 m/s, 1.5·v90s 或 1.6·v6)；有实测坡度用坡度修正速度，
+    下坡（<−3%）超阈速度不计分；≥20s 的段需心率在段内及其后 30s 内上升 ≥5 bpm 或达到 80% HRR，<20s（或无心率）的段需同期功率
+    ≥1.25×全程中位功率或步频 ≥1.05×中位步频（否则 `short_sprint_uncorroborated`）；未通过佐证的秒数占高强度 >30% 时 `estimated`；
+    室内跑标 `indoor_speed` 且为 `estimated`。
+  - **特征输入**：特征新增 `effort` 块（`rai.workout_effort/1`）：原生速度跨度（Apple Watch 约 2.56s）逐点的速度、坡度、坡度修正速度、
+    同期功率、步频、中点心率与支持标志，只保留 ≥0.9×中位速度的点及前后 30s 上下文（数值按 mm/s、0.01%、0.1 取整；4 小时匀速跑约 500 KB），
+    另存中位速度/功率/步频；超过 20000 点或特征产物超过 1 MiB 时返回 `feature_artifact_limit`，不截断。10 秒结构切片保持不变。
+  - **已知偏差**：连续阈值跑的无氧分有意低于 Firstbeat 白皮书（约 0.2–0.7 对 2.6）；长距离扩展间歇（15×200m）无氧分偏高；
+    50 m 冲刺在 2.56s 粒度下约低估 15–20%。全部参数仅经合成课校准（六项行为要求固化为 `trainingeffect` 单测），真实间歇课尚未对照。
 - **RAI VO2**：窗口平均坡度 ≤5% 时按同一坡度代价换算；0–30 °C 内保留证据，5–25 °C 外权重 ×0.7，湿度 >85% ×0.8。
 - **Apple VO2**：来源选择按稳定来源身份匹配（`VO2Provenance.StableEpochID`），系统升级不需要重新选择；App 从
   `/v2/analysis/vo2max-sources` 列表中选择。
 - **无心率负荷**：随旧跑力一起停用配速估算；心率缺失或覆盖不足的跑步负荷为未知，不用跑力反推负荷。
 - **心率设置**：App 只在「我的 → 静息与最大心率」录入 `hr_reference`（默认生效日期为半年前以覆盖历史），负荷、准备度、
   VO2、训练详情心率区间共用；有观测最大心率高于设置时给出一键采用建议。
-- **单次结果缓存（`model_workout_results`）**：每条跑步按 (数据集, stack, 训练) 存特征、心率暴露、最新 v2 负荷
-  与负荷焦点分桶，以该训练脏范围代数 `fact_generation` 为键。代数相同且特征 schema/StackID 匹配即直接复用，
+- **单次结果缓存（`model_workout_results`）**：每条跑步按 (数据集, stack, 训练) 存特征（含 `effort` 点序列）、心率暴露、最新 v2 负荷、
+  负荷焦点分桶与训练效果，以该训练脏范围代数 `fact_generation` 为键。代数相同且特征 schema/StackID 匹配即直接复用，
   不再读原始采样；事实变化递增代数后下一次发布重算。负荷只在发布“今天”时写入。运动列表、详情、训练计划、
   观测最大心率读这张表。
 - **负荷状态增量**：当天 `load_state` 产物带 `checkpoint`（ATL/CTL 核与前 7 天值、[D-185, D] 负荷账本哈希）。
@@ -246,7 +273,9 @@ StackID 匹配。当前注册范围如下；注册表之外的版本明确返回
 | `ccbe328` | `rai-v2-4a543690d2c37290` | 冻结配置读取 |
 | 恢复 v2.3（评估日墓碑） | `rai-v2-b2d165ffd1b0254a` | 冻结配置读取 |
 | 模型对照优化（schema3：恢复 v3 / 准备度 v4 / 课次恢复 / 跑力估计 / 负荷焦点） | `rai-v2-4b9264855a47255d` | 冻结配置读取（旧跑力不再提供） |
-| 跑力 v1（schema4：`running_fitness`，负荷焦点 v6，取消配速负荷） | `rai-v2-c3441e6edc485d9e`（`modelmanifest.StackID()`） | 冻结配置读取（2026-11-12 部署并激活，当前 active） |
+| 跑力 v1（schema4：`running_fitness`，负荷焦点 v6，取消配速负荷） | `rai-v2-c3441e6edc485d9e` | 冻结配置读取（2026-11-12 部署并激活，当前 active） |
+| 恢复 v4 / 准备度 v4.1（schema4） | `rai-v2-df81d988ae579587` | 冻结配置读取（未部署，由下一行取代） |
+| 恢复 v4 + 训练效果 v1（schema4，新增 `trainingEffect` 组件与特征 `effort` 块） | `rai-v2-69efefa730b47818`（`modelmanifest.StackID()`） | 冻结配置读取（未部署、未激活） |
 
 产品当前值、历史和训练输入按 active stack 的 `model/<stack>/athlete/day/v2/<date>` 路径定位产物，校验
 该发布的真实计算配置、manifest、dataset、generation 和内容哈希。只读取发布指针与脏范围代数一致的干净结果；

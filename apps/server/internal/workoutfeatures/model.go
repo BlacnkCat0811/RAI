@@ -375,6 +375,7 @@ type Evidence struct {
 type WorkoutFeatures struct {
 	Structure     *StructureFeatures       `json:"structure,omitempty"`
 	RunFitness    *RunFitnessFeatures      `json:"runFitness,omitempty"`
+	Effort        *EffortFeatures          `json:"effort,omitempty"`
 	ActivityType  int64                    `json:"activityType"`
 	Schema        string                   `json:"schemaVersion"`
 	Algorithm     string                   `json:"algorithm"`

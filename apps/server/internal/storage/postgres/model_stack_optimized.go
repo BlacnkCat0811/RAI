@@ -12,14 +12,22 @@ import (
 	rc "rai/server/internal/recovery"
 	rf "rai/server/internal/runfitness"
 	sr "rai/server/internal/sessionrecovery"
+	te "rai/server/internal/trainingeffect"
 	tl "rai/server/internal/trainingload"
 )
 
 // Prior running-fitness speed anchors are one bounded batch read of clean
 // published day states, never today's estimate fed back into its own
 // evidence. Only a speed dimension with direct evidence can classify short
-// repetitions; invalidated publications cannot.
-func preWorkoutAbilities(ctx context.Context, tx pgx.Tx, dataset, stack string, from, to time.Time) ([]tl.AbilityReference, error) {
+// repetitions; invalidated publications cannot. The same day state also
+// carries vT/v90s for the training-effect anaerobic reserve; loadFocus keeps
+// its own v6-only reference so its input identity is unchanged.
+type priorFitness struct {
+	ability tl.AbilityReference
+	fitness *te.FitnessReference
+}
+
+func preWorkoutAbilities(ctx context.Context, tx pgx.Tx, dataset, stack string, from, to time.Time) ([]priorFitness, error) {
 	rows, err := tx.Query(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),p.published_at FROM analysis_publications p
  JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.status='SUCCEEDED'
  JOIN analysis_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=$5
@@ -30,7 +38,7 @@ func preWorkoutAbilities(ctx context.Context, tx pgx.Tx, dataset, stack string, 
 		return nil, err
 	}
 	defer rows.Close()
-	var out []tl.AbilityReference
+	var out []priorFitness
 	for rows.Next() {
 		var payload []byte
 		var hash string
@@ -41,12 +49,44 @@ func preWorkoutAbilities(ctx context.Context, tx pgx.Tx, dataset, stack string, 
 		var r rf.State
 		if json.Unmarshal(payload, &r) == nil && r.DatasetID == dataset && r.Schema == rf.Schema && rf.Hash(r) == hash && r.Params.V6 != nil {
 			if s := r.Dimensions.Speed.Status; s == "supported" || s == "estimated" {
-				out = append(out, tl.AbilityReference{V6: *r.Params.V6, At: max(r.AsOf, published.UnixMicro()), Hash: hash, Status: s})
+				at := max(r.AsOf, published.UnixMicro())
+				p := priorFitness{ability: tl.AbilityReference{V6: *r.Params.V6, At: at, Hash: hash, Status: s}}
+				if r.Params.VT != nil {
+					p.fitness = &te.FitnessReference{VT: *r.Params.VT, V6: *r.Params.V6, V90s: r.Params.V90s, At: at, Hash: hash, Status: s}
+				}
+				out = append(out, p)
 			}
 		}
 	}
 	return out, rows.Err()
 }
+
+// trainingLevelInput sums completed, non-conflicting runs of the same source
+// before this run's start (28 and 90 days). Running time needs no HR, so a
+// run without a load still counts towards the level.
+func trainingLevelInput(w stackWorkout, loads []rd.WorkoutLoad, byID map[string]stackWorkout, loc *time.Location) te.LevelInput {
+	var in te.LevelInput
+	days28, days90 := map[string]bool{}, map[string]bool{}
+	from28 := time.UnixMicro(w.start).AddDate(0, 0, -28).UnixMicro()
+	from90 := time.UnixMicro(w.start).AddDate(0, 0, -90).UnixMicro()
+	for _, old := range loads {
+		ow, ok := byID[old.ID]
+		if !ok || old.End >= w.start || old.End < from90 || ow.sourceEpoch != w.sourceEpoch || old.Conflict || ow.feature.Timing.Active == nil {
+			continue
+		}
+		sec := *ow.feature.Timing.Active
+		d := time.UnixMicro(old.End).In(loc).Format(time.DateOnly)
+		in.Seconds90 += sec
+		days90[d] = true
+		if old.End >= from28 {
+			in.Seconds28 += sec
+			days28[d] = true
+		}
+	}
+	in.Days28, in.Days90 = len(days28), len(days90)
+	return in
+}
+
 func floatMedian(xs []float64) *float64 {
 	if len(xs) == 0 {
 		return nil
@@ -59,14 +99,15 @@ func floatMedian(xs []float64) *float64 {
 	return &v
 }
 
-func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string, date, at, captured time.Time, workouts []stackWorkout, pending []stackPendingLoad, loads []rd.WorkoutLoad, state tl.StateResult, recovery rc.V3Result) ([]stackArtifact, rd.V4Result, error) {
+func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string, date, at, captured time.Time, workouts []stackWorkout, pending []stackPendingLoad, loads []rd.WorkoutLoad, state tl.StateResult, recovery rc.V3Result) ([]stackArtifact, map[string]te.Result, rd.V4Result, error) {
 	var artifacts []stackArtifact
 	loc := date.Location()
 	prior, err := preWorkoutAbilities(ctx, tx, l.DatasetID, stack, date.AddDate(0, 0, -186), date)
 	if err != nil {
-		return nil, rd.V4Result{}, err
+		return nil, nil, rd.V4Result{}, err
 	}
 	var focus []tl.WorkoutFocus
+	effects := map[string]te.Result{}
 	var sessions []sr.Workout
 	byID := map[string]stackWorkout{}
 	for _, w := range workouts {
@@ -75,17 +116,26 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 	for _, p := range pending {
 		w, r := p.w, p.r
 		var pre *tl.AbilityReference
+		var fitness *te.FitnessReference
 		for i := range prior {
 			p := &prior[i]
-			if p.At < w.start && w.start-p.At < 28*sr.Hour*24 && (pre == nil || p.At > pre.At) {
-				pre = p
+			if p.ability.At < w.start && w.start-p.ability.At < 28*sr.Hour*24 && (pre == nil || p.ability.At > pre.At) {
+				pre, fitness = &p.ability, p.fitness
 			}
 		}
 		f, e := tl.ClassifyLoad(r.load, w.exposure, w.feature, r.doseRef, pre, loc)
 		if e != nil {
-			return nil, rd.V4Result{}, analysis.Invalid()
+			return nil, nil, rd.V4Result{}, analysis.Invalid()
 		}
 		focus = append(focus, f)
+		// Training effect: this run's own facts plus pre-run references only,
+		// so later training never rewrites a historical score.
+		effectInput := te.Input{WorkoutID: w.id, Start: w.start, LoadTier: r.load.QualityTier, Exposure: w.exposure, Effort: w.feature.Effort,
+			Fitness: fitness, Level: trainingLevelInput(w, loads, byID, loc)}
+		if r.doseRef != nil {
+			effectInput.HR = &te.HRReference{RestHR: r.doseRef.RestHR, MaxHR: r.doseRef.MaxHR, Hash: r.doseRef.Hash}
+		}
+		effects[w.id] = te.Calculate(effectInput)
 		// B and longRef use only completed, comparable runs before this run's
 		// start; current-day evidence cannot redefine its own fatigue pulse.
 		// The 28 days before the run are preferred. After a break they hold too
@@ -155,7 +205,7 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 	sessionInput := sr.Input{Dataset: l.DatasetID, Stack: stack, Generation: l.TargetGeneration, AsOf: at.UnixMicro(), ValidBefore: date.AddDate(0, 0, 1).UnixMicro(), Workouts: sessions}
 	session, err := sr.Calculate(sessionInput)
 	if err != nil {
-		return nil, rd.V4Result{}, analysis.Invalid()
+		return nil, nil, rd.V4Result{}, analysis.Invalid()
 	}
 	readyInput := rd.V4Input{Snapshot: rd.ReadinessSnapshot{Dataset: l.DatasetID, Assignment: l.ID, LoadAssignment: stack, Generation: l.TargetGeneration, AsOf: at.UnixMicro(), CapturedAt: captured.UnixMicro(), Config: rd.DefaultV4Config(loc.String()), Loads: loads},
 		Physiology: rd.Physiological{Score: recovery.Score, Mode: recovery.Mode, Status: recovery.Status, Confidence: recovery.Confidence, EvidenceAt: recovery.EvidenceAt, ValidBefore: recovery.ValidBefore, Hash: rc.Hash(recovery)}, SessionAvailable: session.Residual != nil, SessionMode: session.Mode, SessionUnknown: session.UnknownBurden}
@@ -173,7 +223,7 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 	}
 	ready, err := rd.CalculateV4(readyInput)
 	if err != nil {
-		return nil, rd.V4Result{}, analysis.Invalid()
+		return nil, nil, rd.V4Result{}, analysis.Invalid()
 	}
 	for _, a := range []stackArtifact{
 		{key: sr.Key, schema: sr.Schema, algorithm: sr.Algorithm, version: "v1", value: session, inputHash: session.InputHash},
@@ -182,5 +232,5 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 		a.family = "model_product_v3/" + a.key
 		artifacts = append(artifacts, a)
 	}
-	return artifacts, ready, nil
+	return artifacts, effects, ready, nil
 }

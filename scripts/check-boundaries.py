@@ -30,7 +30,7 @@ for dependency in algorithms.get('Imports', []):
         raise SystemExit('FAIL: training core reaches I/O: ' + dependency)
 print('PASS: pure training domain excludes database, network and filesystem')
 
-for domain in ('workoutfeatures', 'workoutdomain', 'trainingload', 'runfitness'):
+for domain in ('workoutfeatures', 'workoutdomain', 'trainingload', 'runfitness', 'trainingeffect'):
     package = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/' + domain], cwd=root, text=True))
     for dependency in package.get('Imports', []):
         if dependency.startswith(('rai/server/internal/storage', 'rai/server/internal/admin', 'rai/server/internal/workoutdetail', 'github.com/jackc/', 'net', 'os', 'database/', 'math/rand')):
@@ -38,9 +38,17 @@ for domain in ('workoutfeatures', 'workoutdomain', 'trainingload', 'runfitness')
     for source in (root / 'internal' / domain).glob('*.go'):
         if source.name.endswith('_test.go'):
             continue
-        if 'time.Now(' in source.read_text() or 'rand.' in source.read_text() or (domain in ('trainingload', 'runfitness') and 'time.LoadLocation(' in source.read_text()):
+        if 'time.Now(' in source.read_text() or 'rand.' in source.read_text() or (domain in ('trainingload', 'runfitness', 'trainingeffect') and 'time.LoadLocation(' in source.read_text()):
             raise SystemExit('FAIL: feature foundation reads ambient state: ' + str(source))
 print('PASS: feature foundation excludes I/O, presentation, randomness and system clock')
+
+# Training effect embeds into the load result, so it must never import the load
+# package back (cycle) and reads no other model's state.
+effect = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/trainingeffect'], cwd=root, text=True))
+for dependency in effect.get('Imports', []):
+    if dependency.startswith('rai/server/') and dependency != 'rai/server/internal/workoutfeatures':
+        raise SystemExit('FAIL: training effect reaches another model: ' + dependency)
+print('PASS: training effect is pure and depends only on neutral Workout features')
 
 # Running fitness v1 consumes only neutral Workout features: no load, VO2,
 # recovery, readiness, storage or the retired running-ability code.

@@ -12,6 +12,7 @@ import (
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
 	rf "rai/server/internal/runfitness"
+	te "rai/server/internal/trainingeffect"
 	wf "rai/server/internal/workoutfeatures"
 )
 
@@ -62,6 +63,7 @@ type Manifest struct {
 	SessionRecovery          *Component  `json:"sessionRecovery,omitempty"`
 	AbilityEstimate          *Component  `json:"abilityEstimate,omitempty"`
 	LoadFocus                *Component  `json:"loadFocus,omitempty"`
+	TrainingEffect           *Component  `json:"trainingEffect,omitempty"`
 }
 
 // ProductSchema4 is the running-fitness product contract.
@@ -136,7 +138,7 @@ func Current() Manifest {
 	m.MappingVersion = MappingVersion4
 	m.ConsumerVersions = []string{"ios/4", "training-adapter/4", "http/v2"}
 	m.AbilityEstimate = nil
-	m.Features.ConfigHash = digest("features:normalized-workout/v1;structure-ten-second-native5s-grade03/v1;" + wf.RunFitnessPolicy())
+	m.Features.ConfigHash = digest("features:normalized-workout/v1;structure-ten-second-native5s-grade03/v1;" + wf.RunFitnessPolicy() + ";" + wf.EffortPolicy)
 	m.Load.ConfigHash = digest("load:tiers.98-30s/.80-180s;hrr-clamp-0-1;summary.35;ratio1;horizon180;reference-v2;overlap-knownness;workout-isolated;hrref-latest-effective-no-expiry;no-pace-approximation/v4")
 	m.RunningAbility = Component{Name: "running_fitness", ModelID: "rai.running_fitness", Version: "v1", Schema: "rai.running_fitness/1", InputSchema: "rai.running_fitness.input/1", JobKind: StackJobKind, ArtifactKey: "running_fitness",
 		ConfigHash: rf.ConfigHash(), SourcePolicy: "recorded-running;stable-source-identity;hr-reference-at-event;effort-labels-known-at/v1", AnnotationMode: AnnotationPolicy, ConsumerSchema: "rai.running_fitness/1"}
@@ -148,6 +150,10 @@ func Current() Manifest {
 	m.Recovery.SourcePolicy = "healthkit-readonly;night-context;latest-valid-observations;typed-rhr;explicit-model-defaults/v4"
 	m.Readiness.SourcePolicy = "recorded-running;load-v2;recovery-v4-complete-or-estimated;decayed-unknown/v4"
 	m.Readiness.ConfigHash = digest(rd.PolicyV4)
+	// Per-run training effect: stored with each Workout's load result and
+	// read only by the Workout detail; the athlete product is unchanged.
+	m.TrainingEffect = &Component{Name: "training_effect", ModelID: te.Algorithm, Version: te.Version, Schema: te.Schema, ConfigHash: te.ConfigHash(),
+		SourcePolicy: "recorded-running;hr-reference-at-event;pre-workout-running-fitness;pre-workout-training-level;workout-detail-only", ConsumerSchema: te.Schema}
 	return m
 }
 
@@ -160,7 +166,7 @@ func (m Manifest) Validate() error {
 	}
 	all := []Component{m.Features, m.Load, m.LoadState, m.RunningAbility, m.VO2Max, m.Recovery, m.Readiness, m.ExternalVO2}
 	all = append(all, m.Diagnostics...)
-	for _, c := range []*Component{m.SessionRecovery, m.AbilityEstimate, m.LoadFocus} {
+	for _, c := range []*Component{m.SessionRecovery, m.AbilityEstimate, m.LoadFocus, m.TrainingEffect} {
 		if c != nil {
 			all = append(all, *c)
 		}
