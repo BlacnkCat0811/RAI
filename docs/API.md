@@ -89,6 +89,11 @@
   `predictionSupport`、`targetEligible`、`longRunCovered`、`conditions`）、`zones`（Z1–Z6 的快/慢配速、`support`、`schedulable`、
   `reasonCodes`）、`racePaces`、`preparation`、`support`、`stability`、`singleRuns`（近 42 天单次点）与 `reasonCodes`。
   范围为确定性角点“模型范围”，不是概率
+  - iOS 跑力详情用半圆刻度展示总分，并将四项能力按 `dimension.zone` 对应到 Z2/Z4/Z5/Z6 的训练配速区间；
+    不把 `speedRange` 的模型不确定范围当训练区间，不在客户端补算缺失边界或评分。冲突、缺失区间显示待补充，
+    默认假设区间明确标为仅参考。基础指标独立读取当前可展示的外部 VO₂（优先）或 RAI VO₂（标实验性），
+    乳酸阈值配速来自 `dimensions.threshold.paceSecondsPerKm`（估计须注明）；当前契约没有乳酸阈心率，显示 `-- / 暂未提供`，
+    不用最大心率比例冒充该指标
 - `GET /v2/analysis/running-fitness/history?from=&to=&view=&cursor=&limit=` — 逐日 `days`（长期总分、同政策日常基准、参数、
   当日单次点、`publicationID`）。`view=revised`（缺省，当前算法与输入下的历史，可含后来补传、事件在评估日前的训练）；
   `view=published`（每天在当天结束前最后一次发布的不可变结果，即使后来被重算替换）；`view=as_known` 返回
@@ -126,11 +131,20 @@ iOS 优先显示 `primaryReason`，旧服务端没有该字段时取 `productRea
 `responseState=unavailable_response`，部分为 `partial_response`，全部可用才为 `complete_response`。
 数据库或 assignment 元数据等读取故障可返回 `503 athlete_model_unavailable`，不等同于未激活。
 
-schema3 的 `envelope.mode` 与技术状态正交：`estimated` 表示输入缺失下的有限估计（恢复总分≤75、置信度≤0.40；
+保留的 schema3 栈中，`envelope.mode` 与技术状态正交：`estimated` 表示输入缺失下的有限估计（恢复总分≤75、置信度≤0.40；
 准备度区间宽度≤10 才给点估计并取保守端），`workout_only` 表示仅有训练负担信息（准备度 `score=null`，疲劳/负荷仍可独立展示）。
 计算成功的产物可以因证据不足没有数值；读失败不能叫 estimated。模型级新原因码（`night_data_missing`、`night_sparse`、
 `recent_trend_used`、`estimate_expired`、`regularity_collecting`、`session_intensity_unknown`、`submax_prior_used`、
 `ability_source_disagreement`、`load_baseline_insufficient`、`short_repetition_unsupported` 等）保留在 `reasonCodes` 供审计；
+恢复 v4（`rai.recovery.physiological/4`，需要迁移 58，新栈尚未部署）沿用恢复组件结构，新增可选 `inputBasis`、`meanSamples`、
+`baselineCenter`、`baselineScale`。`inputBasis` 为 `recent_mean`（最近最多 7 个有效夜／日的算术均值）、`observed`
+（当晚睡眠）、`user_entered`（静息心率）或 `default_baseline`（HRV 50 ms／RHR 60 bpm／睡眠 8h）。历史查询有界为
+180 天；`observed=null` 保留当晚缺测语义，`used` 才是实际计算值。缺测可返回 `available` + `mode=estimated`，
+取消估计模式的 75 分封顶及每缺失组件扣 5 分，分数使用同一 0–100 公式，估计状态与置信度独立表达证据质量。
+健康数据缺失不再要求最近 7 天或 48h 内有证据；日界到期仍返回 expired。训练准备度模型保持 v4，当前 v4.1 policy
+也取消估计模式 75 分封顶，继续遵守训练负荷与课次疲劳可用性要求。新 configHash/stack 区分策略修订，
+旧恢复 v3 及原带封顶 v4 的发布产物按其冻结配置读取，不重算或改写历史分数。
+
 `productReasonCodes` 经 `MapReasons` 映射到冻结字典（恢复相关新码 → `recovery_data_incomplete`、
 `ability_source_disagreement` → `source_conflict`、`load_baseline_insufficient` → `not_enough_history` 等），iOS 用既有文案本地化。
 

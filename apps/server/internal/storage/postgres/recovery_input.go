@@ -23,14 +23,17 @@ type recoveryAssignment struct {
 }
 
 func loadRecoveryFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf, capture, day time.Time, epoch, collector, assignment string) error {
+	return loadRecoveryFactsForConfig(ctx, tx, l, in, asOf, capture, day, epoch, collector, assignment, rc.DefaultConfig(day.Location().String()))
+}
+
+func loadRecoveryFactsForConfig(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Snapshot, asOf, capture, day time.Time, epoch, collector, assignment string, config rc.Config) error {
 	loc := day.Location()
-	tz := loc.String()
 	through := day.AddDate(0, 0, 1)
 	evaluation := asOf
 	if !evaluation.Before(through) {
 		evaluation = through.Add(-time.Microsecond)
 	}
-	input := &rc.Input{Dataset: l.DatasetID, DatasetEpoch: epoch, Collector: collector, Assignment: assignment, Generation: in.Generation, KnownThroughRevision: in.Revision, CapturedAt: capture.UnixMicro(), AsOf: evaluation.UnixMicro(), View: "revised", Config: rc.DefaultConfig(tz), Days: []rc.Day{}, Facts: []rc.Fact{}, Tombstones: []rc.Tombstone{}, Coverage: []rc.Coverage{}}
+	input := &rc.Input{Dataset: l.DatasetID, DatasetEpoch: epoch, Collector: collector, Assignment: assignment, Generation: in.Generation, KnownThroughRevision: in.Revision, CapturedAt: capture.UnixMicro(), AsOf: evaluation.UnixMicro(), View: "revised", Config: config, Days: []rc.Day{}, Facts: []rc.Fact{}, Tombstones: []rc.Tombstone{}, Coverage: []rc.Coverage{}}
 	for d := day.AddDate(0, 0, -input.Config.Window); !d.After(day); d = d.AddDate(0, 0, 1) {
 		input.Days = append(input.Days, rc.Day{Date: d.Format("2006-01-02"), Start: d.UnixMicro(), End: d.AddDate(0, 0, 1).UnixMicro(), ClockBuckets: [4]int64{d.UnixMicro(), time.Date(d.Year(), d.Month(), d.Day(), 6, 0, 0, 0, loc).UnixMicro(), time.Date(d.Year(), d.Month(), d.Day(), 12, 0, 0, 0, loc).UnixMicro(), time.Date(d.Year(), d.Month(), d.Day(), 18, 0, 0, 0, loc).UnixMicro()}})
 	}
@@ -155,7 +158,13 @@ func loadRecoveryFacts(ctx context.Context, tx pgx.Tx, l Lease, in *analysis.Sna
 			known = input.AsOf
 		}
 		c.Through = known
-		c.Complete = c.Complete && lower <= input.Days[0].Start
+		coverageStart := input.Days[0].Start
+		if config.Policy == rc.PolicyV4 {
+			// The extended horizon is a sparse-history fallback, not a new
+			// requirement to bootstrap 180 days before current data can be used.
+			coverageStart = day.AddDate(0, 0, -28).UnixMicro()
+		}
+		c.Complete = c.Complete && lower <= coverageStart
 		c.Identity = rc.Hash(struct {
 			Stream, Fingerprint string
 			Lower               int64

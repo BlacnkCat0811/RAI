@@ -282,10 +282,14 @@ func canonical(in Input) Input {
 func Canonical(in Input) Input  { return canonical(in) }
 func InputHash(in Input) string { return Hash(canonical(in)) }
 func Validate(in Input) error {
+	return validateForConfig(in, DefaultConfig(in.Config.Timezone))
+}
+
+func validateForConfig(in Input, config Config) error {
 	if len(in.Facts)+len(in.Tombstones) > MaxFacts {
 		return ErrLimit
 	}
-	if in.Config != DefaultConfig(in.Config.Timezone) || in.Config.Timezone == "" || len(in.Days) != in.Config.Window+1 || in.AsOf <= 0 || in.CapturedAt <= 0 || in.KnownThroughRevision < 0 || (in.View != "revised" && in.View != "as_known") {
+	if in.Config != config || in.Config.Timezone == "" || len(in.Days) != in.Config.Window+1 || in.AsOf <= 0 || in.CapturedAt <= 0 || in.KnownThroughRevision < 0 || (in.View != "revised" && in.View != "as_known") {
 		return ErrInvalid
 	}
 	for i, d := range in.Days {

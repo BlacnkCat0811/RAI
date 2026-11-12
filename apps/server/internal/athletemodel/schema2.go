@@ -123,6 +123,10 @@ var ErrUnsupportedRelease = errors.New("athlete_model_release_unsupported")
 // A syntactically complete schema2 document is not a complete response when
 // every published artifact is absent or stale.
 func SetProjectedResponseState(s *AthleteModelSnapshot) {
+	if s.SchemaVersion == Schema4 {
+		setResponseStateV4(s)
+		return
+	}
 	available := 0
 	for _, e := range []Envelope{s.TrainingLoad.Envelope, s.RunningAbility.Envelope, s.ExternalVO2Max.Envelope, s.PhysiologicalRecovery.Envelope, s.TrainingReadiness.Envelope} {
 		if e.State == Available {

@@ -45,7 +45,7 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
     let versions = ["trainingLoad": ["rai.training_load.hrr_integral/v1", "rai.training_load.hrr_integral/v2"],
       "runningFitness": ["rai.running_fitness/v1"],
       "externalVO2Max": ["rai.vo2max.external_projection/v1"],
-      "physiologicalRecovery": ["rai.recovery.physiological/v1", "rai.recovery.physiological/v2", "rai.recovery.physiological/v3"],
+      "physiologicalRecovery": ["rai.recovery.physiological/v1", "rai.recovery.physiological/v2", "rai.recovery.physiological/v3", "rai.recovery.physiological/v4"],
       "trainingReadiness": ["rai.readiness.training/v1", "rai.readiness.training/v2", "rai.readiness.training/v3", "rai.readiness.training/v4"],
       "sessionRecovery": ["rai.session_recovery/v1"], "loadFocus": ["rai.load_focus/v1"],
       "raiVO2Max": ["rai.vo2max.submax/v1"]]
@@ -246,6 +246,23 @@ public struct ModelRange: Codable, Equatable, Sendable { public var low: Double,
 public struct RecoveryV3Component: Codable, Equatable, Sendable {
   public var state: String, observed: Double?, used: Double?, trend: Double?
   public var trendNights: Int, baselineNights: Int, evidenceAt: Int64?, sourceEpoch: String
+  public var inputBasis: String?, meanSamples: Int?
+}
+
+extension RecoveryValue {
+  public var inputSourceDescriptions: [String] {
+    ["hrv", "rhr", "sleep"].compactMap { key in
+      guard let component = components?[key], let basis = component.inputBasis else { return nil }
+      let name = ["hrv": "HRV", "rhr": "静息心率", "sleep": "睡眠"][key] ?? key
+      switch basis {
+      case "observed": return "\(name)：当晚实测"
+      case "recent_mean": return "\(name)：最近 \(component.meanSamples ?? component.trendNights) 次有效观测均值"
+      case "user_entered": return "\(name)：用户填写值"
+      case "default_baseline": return "\(name)：默认基准估计"
+      default: return "\(name)：估计"
+      }
+    }
+  }
 }
 public struct SessionRecoveryValue: Codable, Equatable, Sendable {
   public var remainingHours: Double?

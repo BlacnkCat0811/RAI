@@ -261,7 +261,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 			out.RAIVO2Max = &m
 		}
 	}
-	if a, ok := rows["recovery"]; ok && a.Schema != rc.SchemaV3 {
+	if a, ok := rows["recovery"]; ok && a.Schema != rc.SchemaV3 && a.Schema != rc.SchemaV4 {
 		var r rc.V2Result
 		if !validHistoryArtifactForRelease("physiologicalRecovery", dataset, c.timezone, a, release) || json.Unmarshal(a.Payload, &r) != nil {
 			out.PhysiologicalRecovery = am.Missing[am.RecoveryValue]("physiologicalRecovery", at.UnixMicro(), "technical_failure")
@@ -453,6 +453,10 @@ func validHistoryArtifactForRelease(metric, dataset, tz string, a publishedModel
 			json.Unmarshal(a.Payload, &r) == nil && r.DatasetID == dataset && r.Generation == a.Generation && r.Schema == a.Schema && r.ConfigHash == release.AbilityConfigHash &&
 			r.ConfigHash == release.Manifest.RunningAbility.ConfigHash && rf.Hash(r) == a.ContentHash
 	case "physiologicalRecovery":
+		if release.Manifest.Recovery.Version == "v4" {
+			var r rc.V4Result
+			return a.Schema == rc.SchemaV4 && a.Algorithm == rc.Algorithm && a.Version == "v4" && json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation && r.Timezone == tz && r.Schema == a.Schema && r.ModelVersion == rc.ModelV4 && r.ConfigHash == release.RecoveryConfig.Hash() && rc.Hash(r) == a.ContentHash
+		}
 		if release.Manifest.Recovery.Version == "v3" {
 			var r rc.V3Result
 			return a.Schema == rc.SchemaV3 && a.Algorithm == rc.Algorithm && a.Version == "v3" && json.Unmarshal(a.Payload, &r) == nil && r.Dataset == dataset && r.Generation == a.Generation && r.Timezone == tz && r.Schema == a.Schema && r.ConfigHash == release.RecoveryConfig.Hash() && rc.Hash(r) == a.ContentHash

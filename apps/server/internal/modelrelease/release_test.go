@@ -16,7 +16,7 @@ func TestCurrentReleaseIsFrozenWithItsActualCalculationConfigs(t *testing.T) {
 	h, _ := modelmanifest.CurrentHash()
 	r, ok := Lookup(modelmanifest.StackID(), h, "Asia/Shanghai")
 	if !ok || !reflect.DeepEqual(r.Manifest, modelmanifest.Current()) || r.LoadConfigHash != tl.ConfigHashV2() ||
-		r.AbilityConfigHash != rf.ConfigHash() || r.RecoveryConfig != rc.DefaultV3Config("Asia/Shanghai") || r.ReadinessConfig != rd.DefaultV4Config("Asia/Shanghai") {
+		r.AbilityConfigHash != rf.ConfigHash() || r.RecoveryConfig != rc.DefaultV4Config("Asia/Shanghai") || r.ReadinessConfig != rd.DefaultV4Config("Asia/Shanghai") {
 		t.Fatal("register the changed manifest and calculation configs as a new immutable release")
 	}
 	if r.Manifest.SessionRecovery == nil || r.Manifest.SessionRecovery.ConfigHash != sr.ConfigHash() || r.Manifest.AbilityEstimate != nil || r.Manifest.RunningAbility.ConfigHash != rf.ConfigHash() || r.Manifest.LoadFocus == nil || r.Manifest.LoadFocus.ConfigHash != tl.FocusConfigHash() {

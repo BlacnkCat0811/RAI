@@ -157,4 +157,81 @@ import Testing
     #expect(RunningFitnessText.predictionSupport("prior_based") == "理论范围")
     #expect(RunningFitnessText.singleReason(["hr_reference_missing"]) == "缺少最大心率设置")
   }
+
+  private func snapshot() throws -> AthleteModelSnapshot {
+    let file = try #require(Bundle.module.resourceURL?.appendingPathComponent("Fixtures/RunningFitnessV4.json"))
+    return try JSONDecoder().decode(AthleteModelSnapshot.self, from: Data(contentsOf: file))
+  }
+
+  @Test func abilityPaceUsesTrainingBoundsAndRejectsConflicts() throws {
+    let value = try #require(snapshot().runningFitness?.presentationValue)
+    var zone = try #require(value.zones.zone("Z2"))
+    zone.fastPaceSecondsPerKm = 300
+    zone.slowPaceSecondsPerKm = 360
+    #expect(RunningFitnessText.zonePace(zone) == "5′00″–6′00″ /km")
+    zone.fastPaceSecondsPerKm = nil
+    #expect(RunningFitnessText.zonePace(zone) == nil)
+    zone.openEnded = true
+    #expect(RunningFitnessText.zonePace(zone) == "快于 6′00″ /km")
+    zone.reasonCodes = ["zone_anchor_conflict"]
+    #expect(RunningFitnessText.zonePace(zone) == nil)
+    zone.reasonCodes = []
+    zone.openEnded = false
+    zone.fastPaceSecondsPerKm = 400
+    #expect(RunningFitnessText.zonePace(zone) == nil)
+    zone.fastPaceSecondsPerKm = .nan
+    #expect(RunningFitnessText.zonePace(zone) == nil)
+    zone.support = "future_support"
+    #expect(RunningFitnessText.zonePace(zone) == nil)
+  }
+
+  @Test func ordinaryFastRunningNeverBecomesSprintRating() throws {
+    var d = try #require(snapshot().runningFitness?.presentationValue).dimensions.endurance
+    d.basis = "daily_fast_running"
+    let sprint = d.presentation(for: "sprint")
+    #expect(!sprint.hasRating)
+    #expect(sprint.lowerBoundMPS == d.speedMPS)
+    #expect(sprint.status == "lower_bound_only")
+    d.basis = "sprint_test"
+    #expect(d.presentation(for: "sprint").hasRating)
+    #expect(d.presentation(for: "endurance") == d)
+  }
+
+  @Test func basicMetricsRespectAvailabilityAndNeverInventThresholdHeartRate() throws {
+    var s = try snapshot()
+    let basic = FitnessBasicMetric.metrics(snapshot: s)
+    #expect(basic.map(\.id) == ["vo2max", "thresholdPace", "thresholdHeartRate"])
+    #expect(basic[1].text == RunningFitnessText.pace(s.runningFitness?.value?.dimensions.threshold.paceSecondsPerKm))
+    #expect(basic[1].note.contains("估计"))
+    #expect(basic[2].text == "--")
+    s.runningFitness?.envelope.freshness = .init(rawValue: "expired")
+    s.externalVO2Max.envelope.freshness = .init(rawValue: "expired")
+    s.raiVO2Max?.envelope.freshness = .init(rawValue: "expired")
+    #expect(FitnessBasicMetric.metrics(snapshot: s).allSatisfy { $0.text == "--" })
+    #expect(FitnessBasicMetric.metrics(snapshot: nil).allSatisfy { $0.text == "--" })
+    s.schemaVersion = "future"
+    #expect(FitnessBasicMetric.metrics(snapshot: s).allSatisfy { $0.text == "--" })
+  }
+
+  @Test func vo2SourceIsExplicitAndStaleExternalValuesDoNotWin() throws {
+    var s = try snapshot()
+    s.externalVO2Max.envelope.modelVersion = "rai.vo2max.external_projection/v1"
+    s.externalVO2Max.envelope.state = .init(rawValue: "available")
+    s.externalVO2Max.envelope.freshness = .init(rawValue: "fresh")
+    s.externalVO2Max.value = .init(value: 51, unit: .init(rawValue: "mL/kg/min"),
+      provider: .init(rawValue: "apple"), externalEstimate: true)
+    s.raiVO2Max?.envelope.modelVersion = "rai.vo2max.submax/v1"
+    s.raiVO2Max?.envelope.state = .init(rawValue: "limited")
+    s.raiVO2Max?.envelope.freshness = .init(rawValue: "fresh")
+    s.raiVO2Max?.value = .init(value: 48, unit: .init(rawValue: "mL/kg/min"), experimental: true,
+      evidenceMode: .init(rawValue: "submax"), stability: .init(rawValue: "stable"), independentWorkoutCount: 5,
+      source: .init(rawValue: "rai"))
+    #expect(FitnessBasicMetric.metrics(snapshot: s)[0].text == ProductFormat.decimal(51, digits: 1))
+    #expect(FitnessBasicMetric.metrics(snapshot: s)[0].note.contains("Apple"))
+    s.externalVO2Max.envelope.freshness = .init(rawValue: "stale")
+    #expect(FitnessBasicMetric.metrics(snapshot: s)[0].text == ProductFormat.decimal(48, digits: 1))
+    #expect(FitnessBasicMetric.metrics(snapshot: s)[0].note.contains("实验性"))
+    s.raiVO2Max?.value?.value = -.infinity
+    #expect(FitnessBasicMetric.metrics(snapshot: s)[0].text == "--")
+  }
 }

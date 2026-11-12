@@ -258,8 +258,8 @@ func workoutReference(w stackWorkout, inputs []stackInput, captured time.Time, d
 }
 
 // stackRestingHRFacts loads the daily resting-HR facts behind every Workout's
-// 28-day resting baseline. The recovery input only spans the evaluated day's
-// own 28-day window; a Workout up to 186 days back needs the 28 days before
+// 28-day resting baseline. Even the recovery input's 180-day fallback horizon
+// is not enough: a Workout up to 186 days back needs the 28 days before
 // it, otherwise every Workout older than about two weeks has no baseline and
 // no load. Manual entries are excluded, as in the recovery model.
 func stackRestingHRFacts(ctx context.Context, tx pgx.Tx, dataset string, from, at, captured time.Time) (*rc.Input, error) {
@@ -380,7 +380,7 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	suppressed, ambiguous := stackOverlap(workouts, resolutions, at)
 	generation := l.TargetGeneration
 	in := analysis.Snapshot{Generation: generation, Revision: revision}
-	if err := loadRecoveryFacts(ctx, tx, l, &in, at, captured, date, epoch, collector, l.ID); err != nil {
+	if err := loadRecoveryFactsForConfig(ctx, tx, l, &in, at, captured, date, epoch, collector, l.ID, rc.DefaultV4Config(date.Location().String())); err != nil {
 		return nil, err
 	}
 	// The v2 stack groups daily health facts by the software-version-free
@@ -505,9 +505,9 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		return nil, analysis.Invalid()
 	}
 
-	in.RecoveryInput.Config = rc.DefaultV3Config(date.Location().String())
-	recoveryInput := rc.V2Input{Input: *in.RecoveryInput, SleepTargets: targets}
-	recovery, err := rc.CalculateV3(recoveryInput)
+	typedRHR, referenceConflict := recoveryRestingHR(inputs, at, captured)
+	recoveryInput := rc.V4Input{V2Input: rc.V2Input{Input: *in.RecoveryInput, SleepTargets: targets}, RestingHR: typedRHR, ReferenceConflict: referenceConflict}
+	recovery, err := rc.CalculateV4(recoveryInput)
 	if err != nil {
 		return nil, analysis.Invalid()
 	}
@@ -532,7 +532,7 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		{key: rf.ArtifactKey, schema: rf.Schema, algorithm: rf.Algorithm, version: rf.Version, value: fitness, inputHash: fitness.InputHash},
 		{key: ve.ArtifactKey, schema: ve.Schema, algorithm: ve.Algorithm, version: "v1", value: external, inputHash: featureHash(in.ExternalInput)},
 		{key: vo2.ArtifactKey, schema: vo2.Schema, algorithm: vo2.Algorithm, version: vo2.Version, value: owned, inputHash: featureHash(ownedInput)},
-		{key: "physiological_recovery", schema: rc.SchemaV3, algorithm: rc.Algorithm, version: "v3", value: recovery, runID: recoveryID, inputHash: featureHash(recoveryInput)},
+		{key: "physiological_recovery", schema: rc.SchemaV4, algorithm: rc.Algorithm, version: "v4", value: recovery, runID: recoveryID, inputHash: featureHash(recoveryInput)},
 		{key: "training_readiness", schema: rd.SchemaV4, algorithm: rd.Algorithm, version: "v4", value: ready, inputHash: ready.InputHash},
 	}
 	artifacts = append(artifacts, optimized...)

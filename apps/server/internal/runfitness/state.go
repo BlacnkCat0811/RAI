@@ -404,24 +404,31 @@ func CalculateState(in StateInput) State {
 		sprintTest = sprintTest || s.test
 		out.Evidence = append(out.Evidence, EvidenceRef{s.works, s.day, map[bool]string{true: "sprint_test", false: "demonstrated_90s"}[s.test], "sprint", s.w, s.v, 90})
 	}
+	// Only a confirmed sprint test measures the sprint anchor. The fastest 90
+	// seconds of ordinary runs is a demonstrated lower bound, however many days
+	// it appears on: an easy run's best minute and a half is not a sprint.
 	if len(sprintVals) > 0 {
-		v := math.Exp(huberLocation(p, sprintVals, sprintWs))
 		d := &out.Dimensions.Sprint
-		switch {
-		case sprintTest:
-			d.Status, d.Basis = "supported", "sprint_test"
-		case len(sprintDays) >= 2:
-			d.Status, d.Basis = "estimated", "repeated_short_efforts"
-		default:
-			d.Status, d.Basis = "lower_bound_only", "single_day_short_effort"
+		var testVals, testWs []float64
+		best := 0.0
+		for _, s := range sprints {
+			if s.test {
+				testVals = append(testVals, math.Log(s.v))
+				testWs = append(testWs, s.w)
+			}
+			best = math.Max(best, s.v)
 		}
-		if d.Status == "lower_bound_only" {
-			d.LowerBound = ptr(v)
-		} else {
+		if sprintTest {
+			v := math.Exp(huberLocation(p, testVals, testWs))
+			d.Status, d.Basis = "supported", "sprint_test"
 			d.SpeedMPS, d.PaceSecKm, d.Rating = ptr(v), ptr(Pace(v)), ptr(Rating(v, SprintRef))
 			out.Params.V90s = ptr(v)
+		} else {
+			d.Status, d.Basis = "lower_bound_only", "ordinary_run_best_90s"
+			d.LowerBound = ptr(best)
 		}
 	}
+	_ = sprintDays
 
 	est := runFit(p, items)
 	if !est.ok {

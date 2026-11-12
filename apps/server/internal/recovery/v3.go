@@ -20,6 +20,10 @@ type NightQuality struct {
 	Weight    float64 `json:"weight"`
 }
 type V3Component struct {
+	InputBasis     string       `json:"inputBasis,omitempty"`
+	MeanSamples    int          `json:"meanSamples,omitempty"`
+	BaselineCenter *float64     `json:"baselineCenter,omitempty"`
+	BaselineScale  *float64     `json:"baselineScale,omitempty"`
 	State          string       `json:"state"`
 	AdverseZ       *float64     `json:"adverseZ,omitempty"`
 	Observed       *float64     `json:"observed"`

@@ -16,6 +16,7 @@ import (
 	"rai/server/internal/modelinput"
 	"rai/server/internal/modelmanifest"
 	rd "rai/server/internal/readiness"
+	rc "rai/server/internal/recovery"
 	"rai/server/internal/syncing"
 	tl "rai/server/internal/trainingload"
 	wf "rai/server/internal/workoutfeatures"
@@ -57,6 +58,7 @@ type stackDayOptions struct {
 	corrupt      string // Workout whose stored facts are made unreadable
 	maxOnly      bool   // reference without an explicit resting HR
 	dailyRHRDays int    // synthetic daily resting-HR facts for the last N days
+	dailyRHRAges []int  // sparse history, independent of the last seven days
 }
 
 // runStackDay ingests the runs, applies the options, prepares the synthetic v2
@@ -91,6 +93,26 @@ func runStackDay(t *testing.T, f *fixture, runs []stackDayRun, opts stackDayOpti
  VALUES($1,'HKQuantityTypeIdentifierRestingHeartRate',$2::uuid,$3,$3,$4,'count/min','com.apple.health',sha256(convert_to($2::text,'UTF8')),1,
  '{"RAI:dailySource":{"bundleID":"com.apple.health","productType":"Watch7,1","version":"11.0"}}')`,
 			f.p.DatasetID, syncing.NewID(), at, 48+float64(k%5)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(opts.dailyRHRAges) > 0 {
+		// Use the real daily transaction so both the fact revisions and the
+		// dataset watermark exist even when there have been no Workouts.
+		start := now.AddDate(0, 0, -90).UnixMicro()
+		batch := syncing.DailyBatch{Version: 1, DatasetID: f.enrollment.DatasetID, DatasetEpoch: f.enrollment.DatasetEpoch, CollectorEpoch: f.enrollment.CollectorEpoch,
+			StreamID: syncing.NewID(), BatchID: syncing.NewID(), ClientSeq: 1, SampleType: syncing.DailyRHR,
+			QueryFingerprint: syncing.DailyFingerprint(syncing.DailyRHR, start), BootstrapStartUs: start, ObservedAtUs: now.UnixMicro(), DeletedUUIDs: []string{}}
+		for _, age := range opts.dailyRHRAges {
+			at := today.AddDate(0, 0, -age).Add(6 * time.Hour).UnixMicro()
+			batch.Facts = append(batch.Facts, syncing.DailyFact{UUID: syncing.NewID(), StartUs: at, EndUs: at,
+				Quantity: &syncing.Quantity{Value: 50, Unit: "count/min"}, Source: syncing.HealthKitSource{BundleID: "com.apple.health", ProductType: "Watch7,1", Version: "11.0"}})
+		}
+		raw, err := json.Marshal(batch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := commitDaily(t, f, raw); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -146,6 +168,35 @@ func runStackDay(t *testing.T, f *fixture, runs []stackDayRun, opts stackDayOpti
 }
 
 func steadyHR(int) float64 { return 150 }
+
+func TestModelStackDayRecoveryWithoutNightHealth(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		ages  []int
+		basis string
+	}{
+		{"bootstrap", nil, "user_entered"},
+		{"sparse_history", []int{30, 45, 60}, "recent_mean"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := setup(t)
+			_, artifact := runStackDay(t, f, nil, stackDayOptions{dailyRHRAges: tc.ages})
+			var recovery rc.V4Result
+			artifact("physiological_recovery", &recovery)
+			if recovery.Schema != rc.SchemaV4 || recovery.Score == nil || recovery.Mode != "estimated" || recovery.Components["rhr"].InputBasis != tc.basis || recovery.Components["hrv"].InputBasis != "default_baseline" || recovery.Components["sleep"].InputBasis != "default_baseline" {
+				t.Fatal("night-health fallback did not survive the real day publication")
+			}
+			if recovery.Components["rhr"].MeanSamples != len(tc.ages) {
+				t.Fatal("sparse observations outside 28 days were not loaded")
+			}
+			var ready rd.V4Result
+			artifact("training_readiness", &ready)
+			if ready.Score == nil || *ready.Score != 82 || recovery.Score == nil || *recovery.Score != 82 || ready.Mode != "estimated" || ready.PhysiologicalCap == nil {
+				t.Fatal("missing night-health still blocked readiness")
+			}
+		})
+	}
+}
 
 // TestModelStackDayIsolatesWorkoutsAndKeepsSourceAcrossUpdates runs one real
 // v2 day release over synthetic Workouts:

@@ -20,7 +20,7 @@ func TestV4CapsAndEstimatedDoNotPretendComplete(t *testing.T) {
 	}
 	in.Physiology.Mode = "estimated"
 	r, e = CalculateV4(in)
-	if e != nil || r.Mode != "estimated" || *r.Score > 75 || r.Confidence > .4 {
+	if e != nil || r.Score == nil || r.Mode != "estimated" || math.Abs(*r.Score-82) > 1e-9 || r.Confidence > .4 {
 		t.Fatal(e, r)
 	}
 	in.Physiology.Score = nil
@@ -33,6 +33,48 @@ func TestV4CapsAndEstimatedDoNotPretendComplete(t *testing.T) {
 	r, _ = CalculateV4(in)
 	if r.Score != nil || r.Mode != "pending" {
 		t.Fatal("pending got estimated")
+	}
+}
+
+func TestV4EstimatedScoreIsNotCappedByAnyEstimateReason(t *testing.T) {
+	for _, reason := range []string{"physiology", "session", "unknown", "baseline"} {
+		t.Run(reason, func(t *testing.T) {
+			in := v4Fixture()
+			in.Fatigue = nil
+			in.Physiology.Score = ptr(96)
+			switch reason {
+			case "physiology":
+				in.Physiology.Mode = "estimated"
+			case "session":
+				in.SessionMode = "estimated"
+			case "unknown":
+				in.SessionUnknown = .01
+			case "baseline":
+				in.Chronic = nil
+			}
+			r, err := CalculateV4(in)
+			if err != nil || r.Score == nil || *r.Score != 96 || r.Mode != "estimated" || r.Confidence > .4 {
+				t.Fatal("estimated input silently capped readiness", err)
+			}
+			fresh, err := FreshenV4(r, r.AsOf+Hour)
+			if err != nil || fresh.Score == nil || *fresh.Score != 96 || fresh.Mode != "estimated" {
+				t.Fatal("reading the published estimate reintroduced a score cap", err)
+			}
+		})
+	}
+}
+
+func TestV4RetainedCappedPolicyDoesNotChangeOnRead(t *testing.T) {
+	in := v4Fixture()
+	in.Snapshot.Config.Policy = PolicyV4Capped
+	in.Physiology.Mode = "estimated"
+	r, err := CalculateV4(in)
+	if err != nil || r.Score == nil || *r.Score != 75 {
+		t.Fatal("retained capped policy changed", err)
+	}
+	fresh, err := FreshenV4(r, r.AsOf+Hour)
+	if err != nil || fresh.Score == nil || *fresh.Score != 75 {
+		t.Fatal("retained publication was reinterpreted as uncapped", err)
 	}
 }
 func TestV4UnknownRangeAndFrozenProjection(t *testing.T) {

@@ -6,12 +6,20 @@ import (
 )
 
 const (
-	ModelV4  = "rai.readiness.training/v4"
-	SchemaV4 = "rai.readiness.training/4"
-	PolicyV4 = "min-phys-session-weekly;continuous82;unknown.15-days;range<=10;estimated<=75;session-fatigue/v4"
+	ModelV4        = "rai.readiness.training/v4"
+	SchemaV4       = "rai.readiness.training/4"
+	PolicyV4Capped = "min-phys-session-weekly;continuous82;unknown.15-days;range<=10;estimated<=75;session-fatigue/v4"
+	PolicyV4       = "min-phys-session-weekly;continuous82;unknown.15-days;range<=10;estimated-no-score-cap;session-fatigue/v4.1"
 )
 
 func DefaultV4Config(tz string) Config { c := DefaultV3Config(tz); c.Policy = PolicyV4; return c }
+
+// Retained publications keep their original score policy during projection.
+func supportedV4Config(c Config) bool {
+	legacy := DefaultV4Config(c.Timezone)
+	legacy.Policy = PolicyV4Capped
+	return c == DefaultV4Config(c.Timezone) || c == legacy
+}
 
 type ScoreRange struct {
 	Low  float64 `json:"low"`
@@ -83,7 +91,7 @@ func evaluateV4(r *V4Result, at int64) {
 		lo = math.Min(lo, *r.WeeklyCap)
 		hi = math.Min(hi, *r.WeeklyCap)
 	}
-	if r.Mode == "estimated" {
+	if r.Mode == "estimated" && r.Config.Policy == PolicyV4Capped {
 		lo = math.Min(lo, 75)
 		hi = math.Min(hi, 75)
 	}
@@ -104,7 +112,7 @@ func CalculateV4(in V4Input) (V4Result, error) {
 	validation := s
 	validation.Config = DefaultV3Config(s.Config.Timezone)
 	validation.Recovery = nil
-	if s.Config != DefaultV4Config(s.Config.Timezone) {
+	if !supportedV4Config(s.Config) {
 		return V4Result{}, ErrInvalid
 	}
 	if err := ValidateV3(validation); err != nil {
@@ -184,7 +192,7 @@ func CalculateV4(in V4Input) (V4Result, error) {
 	return r, nil
 }
 func FreshenV4(r V4Result, at int64) (V4Result, error) {
-	if at < r.AsOf || r.ModelVersion != ModelV4 || r.Config != DefaultV4Config(r.Config.Timezone) {
+	if at < r.AsOf || r.ModelVersion != ModelV4 || !supportedV4Config(r.Config) {
 		return V4Result{}, ErrInvalid
 	}
 	if at >= r.ValidBefore {

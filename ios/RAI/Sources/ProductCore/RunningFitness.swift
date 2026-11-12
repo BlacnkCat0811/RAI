@@ -33,6 +33,18 @@ public struct FitnessDimension: Codable, Equatable, Sendable {
   public var retention: Double?, bL: Double?, bLStatus: String?
   /// A rating is shown only with direct evidence; a prior is never a measured dimension.
   public var hasRating: Bool { rating != nil && ["supported", "estimated"].contains(status) }
+
+  /// Older publications used ordinary fast running as a sprint rating.
+  /// Keep that evidence visible only as a demonstrated lower bound.
+  public func presentation(for key: String) -> FitnessDimension {
+    var result = self
+    if key == "sprint", hasRating, basis != "sprint_test" {
+      result.lowerBoundMPS = speedMPS
+      result.rating = nil
+      result.status = "lower_bound_only"
+    }
+    return result
+  }
 }
 
 public struct FitnessDimensions: Codable, Equatable, Sendable {
@@ -208,9 +220,45 @@ public struct RunningFitnessReanalysis: Codable, Equatable, Sendable {
 
 // MARK: - Runner-facing text (no implementation vocabulary)
 
+public struct FitnessBasicMetric: Equatable, Sendable, Identifiable {
+  public var id: String, title: String, text: String, unit: String, note: String
+
+  /// Display independently available metrics even while running fitness collects.
+  /// No VO₂-to-score conversion or maximum-heart-rate-to-threshold formula.
+  public static func metrics(snapshot: AthleteModelSnapshot?) -> [FitnessBasicMetric] {
+    let snapshot = snapshot.flatMap { $0.supportsPresentation ? $0 : nil }
+    let external = snapshot?.externalVO2Max.presentationValue?.value
+    let rai = snapshot?.raiVO2Max?.presentationValue?.value
+    let useExternal = external.map { $0.isFinite && $0 > 0 } == true
+    let vo2 = useExternal ? external : rai.flatMap { $0.isFinite && $0 > 0 ? $0 : nil }
+    let threshold = snapshot?.runningFitness?.presentationValue?.dimensions.threshold
+    let pace = threshold.flatMap { d -> Double? in
+      guard ["supported", "estimated", "prior_based"].contains(d.status),
+        let pace = d.paceSecondsPerKm, pace.isFinite, pace > 0 else { return nil }
+      return pace
+    }
+    return [
+      .init(id: "vo2max", title: "VO₂max", text: ProductFormat.decimal(vo2, digits: 1), unit: "mL/kg/min",
+        note: vo2 == nil ? "暂无可用估计" : (useExternal ? "Apple 健康 · 外部估计" : "RAI 估计 · 实验性")),
+      .init(id: "thresholdPace", title: "乳酸阈值配速", text: RunningFitnessText.pace(pace), unit: "/km",
+        note: pace == nil ? "证据不足" : (threshold?.status == "supported" ? "有训练或比赛校准" : "模型估计 · 仅供参考")),
+      .init(id: "thresholdHeartRate", title: "乳酸阈心率", text: "--", unit: "bpm", note: "暂未提供")
+    ]
+  }
+}
+
 public enum RunningFitnessText {
   public static func dimensionName(_ key: String) -> String {
-    ["endurance": "有氧耐力", "threshold": "阈值", "speed": "速度", "sprint": "冲刺"][key] ?? "能力"
+    ["endurance": "有氧耐力", "threshold": "乳酸阈能力", "speed": "速度耐力", "sprint": "冲刺能力"][key] ?? "能力"
+  }
+  /// Training bounds are distinct from uncertainty around a physical anchor.
+  public static func zonePace(_ zone: FitnessZone?) -> String? {
+    guard let zone, ["supported", "estimated", "limited", "prior_based"].contains(zone.support),
+      !zone.reasonCodes.contains("zone_anchor_conflict"),
+      let slow = zone.slowPaceSecondsPerKm, slow.isFinite, slow > 0 else { return nil }
+    if zone.openEnded == true { return "快于 " + pace(slow) + " /km" }
+    guard let fast = zone.fastPaceSecondsPerKm, fast.isFinite, fast > 0, fast <= slow else { return nil }
+    return pace(fast) + "–" + pace(slow) + " /km"
   }
   public static func dimensionAnchor(_ key: String) -> String {
     ["endurance": "70% 心率储备等效配速", "threshold": "阈值配速（估计）", "speed": "6 分钟全力配速", "sprint": "90 秒全力配速"][key] ?? ""
@@ -220,7 +268,7 @@ public enum RunningFitnessText {
     case "endurance": return "持续 20 分钟以上的稳定轻松跑会补充证据"
     case "threshold": return "20–40 分钟阈值测试或比赛可校准"
     case "speed": return "3–12 分钟全力测试或短距离比赛可校准"
-    case "sprint": return "在两天以上的训练里完成 90 秒左右的快速重复"
+    case "sprint": return "完成一次 90 秒左右的冲刺测试，并在跑步详情中标注"
     default: return ""
     }
   }
@@ -276,11 +324,11 @@ public enum RunningFitnessText {
     ["Z1": "恢复", "Z2": "有氧耐力", "Z3": "有氧能力", "Z4": "阈值", "Z5": "无氧耐力", "Z6": "无氧能力"][name] ?? name
   }
   public static func zoneSupport(_ zone: FitnessZone) -> String {
-    if zone.reasonCodes.contains("zone_anchor_conflict") { return "有氧与阈值依据冲突，暂不给出" }
+    if zone.reasonCodes.contains("zone_anchor_conflict") { return zone.name == "Z3" ? "有氧与阈值依据冲突，暂不给出" : "相邻配速依据互相矛盾，暂不给出" }
     switch zone.support {
     case "supported": return zone.schedulable ? "可用于训练计划" : "仅参考"
     case "estimated": return zone.schedulable ? "估计，计划取保守端" : "估计，仅参考"
-    case "limited": return "有限参考"
+    case "limited": return zone.schedulable ? "证据有限，计划仅用于轻松课" : "有限参考"
     case "prior_based": return "按默认假设，仅参考"
     default: return "需要相应训练才能给出"
     }

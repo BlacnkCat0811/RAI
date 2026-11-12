@@ -58,7 +58,7 @@ struct HomeView: View {
         if needsSetup {
           SetupCard(sync: sync, connected: sync.activeSessionID != nil, authorized: authorized)
         }
-        if sync.activeSessionID != nil {
+        if connected {
           WeeklyCard(overview: model.data.overview)
           if let session = model.data.todaySession {
             Button {
@@ -126,7 +126,8 @@ struct HomeView: View {
   private var authorized: Bool {
     sync.authorization != "尚未请求" || UserDefaults.standard.bool(forKey: "healthAuthorizationRequested")
   }
-  private var needsSetup: Bool { sync.activeSessionID == nil || !authorized }
+  private var needsSetup: Bool { !model.previewOnly && (sync.activeSessionID == nil || !authorized) }
+  private var connected: Bool { sync.activeSessionID != nil || model.previewOnly }
   private var greeting: some View {
     Group {
       if typeSize.isAccessibilitySize {
@@ -572,13 +573,57 @@ struct AthleteRefreshNotice: View {
   }
 }
 
+/// Load composition of one window as a single stacked bar; unknown runs are
+/// counted separately, never drawn as low intensity.
+struct LoadFocusBar: View {
+  let window: LoadFocusWindow
+  var body: some View {
+    let b = window.buckets
+    let parts: [(String, Double, Color)] = [("低强度有氧", b.lowAerobicAU, RAITheme.blue), ("高强度有氧", b.highAerobicAU, RAITheme.orange),
+      ("无氧", b.anaerobicProxyAU, RAITheme.purple), ("未分类", b.unclassifiedAU, RAITheme.secondary.opacity(0.4))]
+    let total = parts.reduce(0) { $0 + $1.1 }
+    VStack(alignment: .leading, spacing: 6) {
+      HStack {
+        Text("近 \(window.windowDays) 天构成").font(.caption)
+        Spacer()
+        if let coverage = window.classifiedCoverage {
+          Text("可归类 \(Int((coverage * 100).rounded()))%").font(.caption2).foregroundStyle(RAITheme.secondary)
+        }
+      }
+      if total > 0 {
+        GeometryReader { geo in
+          HStack(spacing: 2) {
+            ForEach(parts.filter { $0.1 > 0 }, id: \.0) { part in
+              RoundedRectangle(cornerRadius: 3).fill(part.2)
+                .frame(width: max(4, (geo.size.width - 6) * part.1 / total))
+            }
+          }
+        }.frame(height: 10)
+        HStack(spacing: 10) {
+          ForEach(parts.filter { $0.1 > 0 }, id: \.0) { part in
+            HStack(spacing: 4) {
+              Circle().fill(part.2).frame(width: 7, height: 7)
+              Text("\(part.0) \(Int((part.1 / total * 100).rounded()))%").font(.caption2).foregroundStyle(RAITheme.secondary)
+            }
+          }
+        }
+      } else {
+        Text("没有已知负荷").font(.caption2).foregroundStyle(RAITheme.secondary)
+      }
+      if window.unknownWorkouts > 0 {
+        Text("\(window.unknownWorkouts) 次跑步负荷未知，未计入").font(.caption2).foregroundStyle(RAITheme.secondary)
+      }
+    }.accessibilityElement(children: .combine)
+  }
+}
+
 struct AthleteModelCard: View {
   let snapshot: AthleteModelSnapshot
   var summary = false
   @Environment(\.dynamicTypeSize) private var typeSize
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      CardHeading(title: "运动模型", icon: "figure.run.circle")
+      CardHeading(title: summary ? "运动模型" : "恢复与准备度", icon: summary ? "figure.run.circle" : "heart.text.square")
       row("训练准备度", value: snapshot.trainingReadiness.value?.score, unit: "分", metric: snapshot.trainingReadiness.envelope, digits: 0)
       if snapshot.trainingReadiness.envelope.presentationValueAvailable,
          let notice = ProductReasonText.lowReadinessNotice(score: snapshot.trainingReadiness.value?.score) {
@@ -591,7 +636,7 @@ struct AthleteModelCard: View {
         Text("距下一次高强度训练：" + value.text).font(.caption).foregroundStyle(RAITheme.secondary)
         Text("按已同步的跑步估计").font(.caption2).foregroundStyle(RAITheme.secondary)
       }
-      if let fitness = snapshot.runningFitness {
+      if summary, let fitness = snapshot.runningFitness {
         row("跑力", value: fitness.value?.overall.score, unit: "分", metric: fitness.envelope, digits: 1)
       }
       if !summary {
@@ -606,18 +651,22 @@ struct AthleteModelCard: View {
           Text("昨夜数据不足：" + missing.map { ["hrv":"HRV", "rhr":"静息心率", "sleep":"睡眠"][$0] ?? $0 }.joined(separator: "、")).font(.caption2).foregroundStyle(RAITheme.secondary)
         }
       }
-      if snapshot.physiologicalRecovery.value?.sleepRelativeToHabit == true { Text("睡眠按你的个人习惯评估").font(.caption2).foregroundStyle(RAITheme.secondary) }
-      if let focus = snapshot.loadFocus?.presentationValue {
-        ForEach(focus.windows, id: \.windowDays) { window in
-          Text("近 \(window.windowDays) 天负荷构成：低强度有氧 \(Int(window.buckets.lowAerobicAU.rounded())) · 高强度有氧 \(Int(window.buckets.highAerobicAU.rounded())) · 无氧 \(Int(window.buckets.anaerobicProxyAU.rounded())) · 未分类 \(Int(window.buckets.unclassifiedAU.rounded()))").font(.caption2)
-          if let coverage = window.classifiedCoverage {
-            Text("\(Int((coverage*100).rounded()))% 的负荷可归类" + (window.unknownWorkouts > 0 ? " · \(window.unknownWorkouts) 次跑步负荷未知" : "")).font(.caption2).foregroundStyle(RAITheme.secondary)
-          } else if window.unknownWorkouts > 0 {
-            Text("\(window.unknownWorkouts) 次跑步负荷未知").font(.caption2).foregroundStyle(RAITheme.secondary)
-          }
+      if let value = snapshot.physiologicalRecovery.presentationValue {
+        ForEach(value.inputSourceDescriptions, id: \.self) { description in
+          Text(description).font(.caption2).foregroundStyle(RAITheme.secondary)
         }
       }
-      row("近 7 天负荷", value: snapshot.trainingLoad.value?.acute, unit: "", metric: snapshot.trainingLoad.envelope, digits: 0)
+      if snapshot.physiologicalRecovery.value?.sleepRelativeToHabit == true { Text("睡眠按你的个人习惯评估").font(.caption2).foregroundStyle(RAITheme.secondary) }
+
+      sectionDivider("训练负荷")
+      row("近 7 天日均负荷", value: snapshot.trainingLoad.value?.acute, unit: "", metric: snapshot.trainingLoad.envelope, digits: 0)
+      if let focus = snapshot.loadFocus?.presentationValue {
+        ForEach(focus.windows, id: \.windowDays) { window in
+          LoadFocusBar(window: window)
+        }
+      }
+
+      sectionDivider("最大摄氧量")
       if let rai = snapshot.raiVO2Max {
         row(rai.value?.experimental == true ? "RAI VO₂（" + ProductReasonText.experimentalLabel + "）" : "RAI VO₂", value: rai.value?.value, unit: "mL/kg/min", metric: rai.envelope, digits: 1)
       }
@@ -626,6 +675,12 @@ struct AthleteModelCard: View {
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("model.card")
+  }
+  private func sectionDivider(_ title: String) -> some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Divider().padding(.top, 4)
+      Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(RAITheme.secondary)
+    }
   }
   @ViewBuilder private func row(_ title: String, value: Double?, unit: String, metric: MetricEnvelope, digits: Int) -> some View {
     let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading)) : AnyLayout(HStackLayout())
@@ -1359,16 +1414,17 @@ struct RunningFitnessDetailView: View {
           if let value = metric.presentationValue {
             hero(value)
             dimensions(value)
+            FitnessBasicMetricsCard(metrics: FitnessBasicMetric.metrics(snapshot: snapshot))
             predictions(value)
             zones(value)
             singleRuns(value)
-            reanalysis()
           } else {
             EmptyCard(
               title: "跑力暂不可用",
               detail: ProductReasonText.runningFitness(
                 modelStatus: metric.envelope.modelStatus.rawValue, reason: metric.envelope.displayReason?.rawValue,
                 state: metric.envelope.presentationState.rawValue))
+            FitnessBasicMetricsCard(metrics: FitnessBasicMetric.metrics(snapshot: snapshot))
           }
           researchDiagnostics()
           NavigationLink {
@@ -1376,6 +1432,7 @@ struct RunningFitnessDetailView: View {
           } label: {
             RAIRowLabel(title: "跑力历史", icon: "calendar")
           }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("runningFitness.history")
+          if metric.presentationValue != nil { reanalysis() }
         } else {
           EmptyCard(
             title: "跑力暂不可用",
@@ -1393,30 +1450,21 @@ struct RunningFitnessDetailView: View {
 
   private func hero(_ value: RunningFitnessValue) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-      HStack(alignment: .top) {
-        VStack(alignment: .leading, spacing: 4) {
-          Text("长期跑力").font(.subheadline).foregroundStyle(RAITheme.secondary)
-          HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Text(ProductFormat.decimal(value.overall.score, digits: 1))
-              .font(.system(size: 56, weight: .bold, design: .rounded)).monospacedDigit()
-              .accessibilityIdentifier("runningFitness.score")
-            Text("分").font(.title3).foregroundStyle(RAITheme.secondary)
-          }
-          if let range = value.overall.range {
-            Text("范围 \(ProductFormat.decimal(range.low, digits: 1))–\(ProductFormat.decimal(range.high, digits: 1)) 分")
-              .font(.caption).foregroundStyle(RAITheme.secondary)
-          }
-        }
+      HStack {
+        Text("跑步能力").font(.headline)
         Spacer(minLength: 8)
-        VStack(alignment: .trailing, spacing: 6) {
-          Text(RunningFitnessText.stage(value.status))
-            .font(.caption).padding(.horizontal, 8).padding(.vertical, 4)
-            .background(RAITheme.primary.opacity(0.10), in: Capsule())
-          Text(RunningFitnessText.freshness(value.freshness)).font(.caption2).foregroundStyle(RAITheme.secondary)
-            .multilineTextAlignment(.trailing)
-        }
+        Text(RunningFitnessText.stage(value.status))
+          .font(.caption).padding(.horizontal, 8).padding(.vertical, 4)
+          .background(RAITheme.primary.opacity(0.08), in: Capsule())
       }
-      Text(RunningFitnessText.basis(value.overall.basis)).font(.caption).foregroundStyle(RAITheme.secondary)
+      FitnessScoreGauge(score: value.overall.score)
+      Text(RunningFitnessText.freshness(value.freshness)).font(.caption).foregroundStyle(RAITheme.secondary)
+      if let score = value.overall.score, let range = value.overall.range {
+        FitnessRangeBar(score: score, range: range)
+      }
+      Text(RunningFitnessText.basis(value.overall.basis) + (value.overall.range.map { range in
+        range.high - range.low > 25 ? "，证据还少，范围较宽" : "" } ?? ""))
+        .font(.caption).foregroundStyle(RAITheme.secondary)
       if value.stability.changeUnconfirmed {
         Text("最近一次训练让结果变化较大，等待另一次训练确认。").font(.caption).foregroundStyle(RAITheme.amber)
       }
@@ -1424,52 +1472,25 @@ struct RunningFitnessDetailView: View {
         Text("最近证据 \(date) · 有效训练日 \(value.support.independentDays) 天").font(.caption2).foregroundStyle(RAITheme.secondary)
       }
       if value.support.conditionDownweightedShare > 0.3 {
-        Text("近期 \(Int((value.support.conditionDownweightedShare * 100).rounded()))% 的证据在炎热、寒冷或缺天气条件下降权，季节变化会影响分数。")
+        Text("近期 \(Int((value.support.conditionDownweightedShare * 100).rounded()))% 的跑步缺少天气记录或在炎热、寒冷条件下，长期跑力中权重已降低。")
           .font(.caption2).foregroundStyle(RAITheme.secondary)
       }
     }.padding(20).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
   }
 
   private func dimensions(_ value: RunningFitnessValue) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
-      CardHeading(title: "四项能力", icon: "chart.bar.doc.horizontal")
-      LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-        ForEach(value.dimensions.ordered, id: \.key) { item in
-          dimensionTile(item.key, item.value, zone: value.zones.zone(item.value.zone))
-        }
+    VStack(alignment: .leading, spacing: 18) {
+      CardHeading(title: "能力分析", icon: "chart.bar.doc.horizontal")
+      Text("当前跑力下，四类能力对应的训练配速区间。")
+        .font(.caption).foregroundStyle(RAITheme.secondary)
+      ForEach(value.dimensions.ordered, id: \.key) { item in
+        FitnessAbilityRow(key: item.key, dimension: item.value, zone: value.zones.zone(item.value.zone))
+        if item.key != "sprint" { Divider() }
       }
-      Text("有值才显示评分；只有默认假设或下限的能力显示为待补充，不按其他能力推算。")
+      Text("配速区间与能力评分分别展示；默认假设区间仅供参考，缺少证据的能力不补评分。")
         .font(.caption2).foregroundStyle(RAITheme.secondary)
-    }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
+    }.padding(20).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("runningFitness.dimensions")
-  }
-
-  private func dimensionTile(_ key: String, _ d: FitnessDimension, zone: FitnessZone?) -> some View {
-    VStack(alignment: .leading, spacing: 5) {
-      HStack {
-        Text(RunningFitnessText.dimensionName(key)).font(.caption).foregroundStyle(RAITheme.secondary)
-        Spacer(minLength: 2)
-        Text(RunningFitnessText.dimensionStatus(d.status)).font(.caption2).foregroundStyle(RAITheme.secondary)
-      }
-      Text(d.hasRating ? ProductFormat.decimal(d.rating, digits: 1) : "待补充").font(.title3.weight(.semibold)).monospacedDigit()
-      if d.hasRating, let pace = d.paceSecondsPerKm {
-        Text(RunningFitnessText.pace(pace) + "/km · " + RunningFitnessText.dimensionAnchor(key)).font(.caption2).foregroundStyle(RAITheme.secondary).lineLimit(2)
-      } else if let lower = d.lowerBoundMPS {
-        Text("已展示 ≥ " + RunningFitnessText.pace(Pace.secondsPerKm(lower)) + "/km").font(.caption2).foregroundStyle(RAITheme.secondary)
-      }
-      if let zone, let slow = zone.slowPaceSecondsPerKm {
-        let fast = zone.fastPaceSecondsPerKm.map(RunningFitnessText.pace) ?? "更快"
-        Text("\(zone.name) \(RunningFitnessText.zoneName(zone.name))：\(fast)–\(RunningFitnessText.pace(slow))").font(.caption2).foregroundStyle(RAITheme.primary)
-      } else {
-        Text(RunningFitnessText.evidenceHint(key)).font(.caption2).foregroundStyle(RAITheme.secondary).lineLimit(3)
-      }
-      if key == "endurance", let retention = d.retention {
-        Text("长跑效率保持 \(ProductFormat.decimal(retention * 100, digits: 1))%").font(.caption2).foregroundStyle(RAITheme.secondary)
-      }
-    }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
-      .background(RAITheme.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 14))
-      .accessibilityElement(children: .combine)
-      .accessibilityIdentifier("runningFitness.dimension." + key)
   }
 
   private func predictions(_ value: RunningFitnessValue) -> some View {
@@ -1487,7 +1508,8 @@ struct RunningFitnessDetailView: View {
               Text(RunningFitnessText.raceTime(range.low) + "–" + RunningFitnessText.raceTime(range.high)).font(.caption2).monospacedDigit()
             }
             Spacer()
-            Text(RunningFitnessText.predictionSupport(p.predictionSupport)).font(.caption2).foregroundStyle(RAITheme.secondary)
+            Text((p.seconds.map { RunningFitnessText.pace($0 / p.distanceM * 1000) + "/km · " } ?? "")
+              + RunningFitnessText.predictionSupport(p.predictionSupport)).font(.caption2).monospacedDigit()
           }.foregroundStyle(RAITheme.secondary)
           if p.longRunCovered == false {
             Text("最近长跑时长还不足以覆盖这个距离").font(.caption2).foregroundStyle(RAITheme.amber)
@@ -1505,23 +1527,28 @@ struct RunningFitnessDetailView: View {
       CardHeading(title: "训练配速", icon: "speedometer")
       ForEach(value.zones.zones) { zone in
         HStack(spacing: 10) {
-          Text(zone.name).font(.caption.bold()).frame(width: 30, height: 26)
-            .background(RAITheme.primary.opacity(0.10), in: Capsule())
+          Text(zone.name).font(.caption.bold()).frame(width: 34, height: 26)
+            .background(fitnessZoneColor(zone.name).opacity(zone.slowPaceSecondsPerKm == nil ? 0.08 : 0.2), in: Capsule())
+            .foregroundStyle(zone.slowPaceSecondsPerKm == nil ? RAITheme.secondary : fitnessZoneColor(zone.name))
           VStack(alignment: .leading, spacing: 2) {
-            Text(RunningFitnessText.zoneName(zone.name)).font(.subheadline.weight(.semibold))
+            HStack(spacing: 6) {
+              Text(RunningFitnessText.zoneName(zone.name)).font(.subheadline.weight(.semibold))
+              if zone.schedulable {
+                Text("计划可用").font(.caption2).padding(.horizontal, 5).padding(.vertical, 1)
+                  .background(RAITheme.primary.opacity(0.12), in: Capsule()).foregroundStyle(RAITheme.primary)
+              }
+            }
             Text(RunningFitnessText.zoneSupport(zone)).font(.caption2).foregroundStyle(RAITheme.secondary)
           }
           Spacer(minLength: 4)
-          if let slow = zone.slowPaceSecondsPerKm {
-            let fast = zone.fastPaceSecondsPerKm.map(RunningFitnessText.pace) ?? "更快"
-            Text("\(fast)–\(RunningFitnessText.pace(slow))").font(.subheadline.monospacedDigit())
-            Text("/km").font(.caption2).foregroundStyle(RAITheme.secondary)
+          if let pace = RunningFitnessText.zonePace(zone) {
+            Text(pace).font(.subheadline.monospacedDigit())
           } else {
             Text("--").font(.subheadline).foregroundStyle(RAITheme.secondary)
           }
         }
       }
-      let paces = value.racePaces.filter { $0.paceSecondsPerKm != nil }
+      let paces = value.racePaces.filter { $0.paceSecondsPerKm != nil && $0.schedulable }
       if !paces.isEmpty {
         Divider()
         Text("比赛配速参考").font(.caption).foregroundStyle(RAITheme.secondary)
@@ -1546,13 +1573,16 @@ struct RunningFitnessDetailView: View {
       if let reference = value.referenceDailyScore {
         Text("同口径日常基准 \(ProductFormat.decimal(reference, digits: 1)) 分").font(.caption).foregroundStyle(RAITheme.secondary)
       }
-      let runs = value.singleRuns.filter { $0.score != nil }.suffix(10).reversed()
-      if runs.isEmpty {
+      let scored = value.singleRuns.filter { $0.score != nil }
+      if scored.isEmpty {
         Text("近 42 天没有可计算单次跑力的跑步。").font(.caption).foregroundStyle(RAITheme.secondary)
+      } else {
+        FitnessSinglesChart(runs: scored, reference: value.referenceDailyScore)
       }
+      let runs = scored.suffix(3).reversed()
       ForEach(Array(runs)) { run in
         HStack {
-          Text(run.day).font(.caption.monospacedDigit())
+          Text(String(run.day.dropFirst(5)).replacingOccurrences(of: "-", with: "/")).font(.caption.monospacedDigit())
           Spacer()
           Text(ProductFormat.decimal(run.score, digits: 1)).font(.subheadline.monospacedDigit())
           if let range = run.range {
@@ -1684,10 +1714,6 @@ struct RunningFitnessHistoryView: View {
       do { history = try await model.loadRunningFitnessHistory() } catch { failed = true }
     }
   }
-}
-
-private enum Pace {
-  static func secondsPerKm(_ speed: Double) -> Double? { speed.isFinite && speed > 0 ? 1000 / speed : nil }
 }
 
 private func researchTitle(_ key: String) -> String {
@@ -1938,4 +1964,95 @@ private func shortDay(_ day: String) -> String {
 private func balanceColor(_ value: Double?) -> Color {
   guard let value else { return RAITheme.secondary }
   return value >= 0 ? RAITheme.green : RAITheme.amber
+}
+
+private func fitnessZoneColor(_ name: String) -> Color {
+  switch name {
+  case "Z1": return RAITheme.secondary
+  case "Z2": return RAITheme.blue
+  case "Z3": return RAITheme.green
+  case "Z4": return RAITheme.amber
+  case "Z5": return RAITheme.orange
+  default: return RAITheme.purple
+  }
+}
+
+/// Score marker on the 0–100 scale with the model range drawn around it.
+struct FitnessRangeBar: View {
+  let score: Double
+  let range: FitnessRange
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      GeometryReader { geo in
+        let w = geo.size.width
+        let x = { (v: Double) in CGFloat(max(0, min(100, v)) / 100) * w }
+        ZStack(alignment: .leading) {
+          Capsule().fill(RAITheme.primary.opacity(0.08)).frame(height: 8)
+          Capsule().fill(RAITheme.orange.opacity(0.35))
+            .frame(width: max(6, x(range.high) - x(range.low)), height: 8).offset(x: x(range.low))
+          Circle().fill(RAITheme.orange).overlay(Circle().stroke(.white, lineWidth: 2))
+            .frame(width: 16, height: 16).offset(x: x(score) - 8)
+        }.frame(height: 16)
+      }.frame(height: 16)
+      HStack {
+        Text("0").font(.caption2)
+        Spacer()
+        Text("范围 \(ProductFormat.decimal(range.low, digits: 0))–\(ProductFormat.decimal(range.high, digits: 0)) 分").font(.caption2.weight(.semibold))
+        Spacer()
+        Text("100").font(.caption2)
+      }.foregroundStyle(RAITheme.secondary).monospacedDigit()
+    }.accessibilityElement(children: .ignore)
+      .accessibilityLabel("范围 \(Int(range.low.rounded())) 到 \(Int(range.high.rounded())) 分")
+  }
+}
+
+/// Single-run scores with their sensitivity ranges and the same-policy
+/// baseline. Days without a score are simply absent.
+struct FitnessSinglesChart: View {
+  let runs: [FitnessSingleBrief]
+  let reference: Double?
+  private static let parser: DateFormatter = {
+    let f = DateFormatter()
+    f.calendar = Calendar(identifier: .gregorian)
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.timeZone = TimeZone(identifier: "UTC")
+    f.dateFormat = "yyyy-MM-dd"
+    return f
+  }()
+  private func yDomain(_ values: [(Double, FitnessRange?)]) -> ClosedRange<Double> {
+    var lo = reference ?? 50, hi = reference ?? 50
+    for (score, range) in values {
+      lo = min(lo, range?.low ?? score, score)
+      hi = max(hi, range?.high ?? score, score)
+    }
+    lo = max(0, (lo - 5).rounded(.down))
+    hi = min(100, (hi + 5).rounded(.up))
+    return lo...max(hi, lo + 10)
+  }
+  var body: some View {
+    let points = runs.compactMap { run -> (Date, Double, FitnessRange?, String)? in
+      guard let score = run.score, let day = Self.parser.date(from: run.day) else { return nil }
+      return (day, score, run.range, run.workoutID)
+    }
+    Chart {
+      if let reference {
+        RuleMark(y: .value("日常基准", reference))
+          .foregroundStyle(RAITheme.secondary.opacity(0.6))
+          .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+      }
+      ForEach(points, id: \.3) { point in
+        if let range = point.2 {
+          RuleMark(x: .value("日期", point.0), yStart: .value("低", range.low), yEnd: .value("高", range.high))
+            .foregroundStyle(RAITheme.orange.opacity(0.3)).lineStyle(StrokeStyle(lineWidth: 4, lineCap: .round))
+        }
+        PointMark(x: .value("日期", point.0), y: .value("单次跑力", point.1))
+          .foregroundStyle(RAITheme.orange).symbolSize(40)
+      }
+    }
+    .chartYScale(domain: yDomain(points.map { ($0.1, $0.2) }))
+    .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisGridLine(); AxisValueLabel(format: .dateTime.month(.defaultDigits).day(), centered: true) } }
+    .chartYAxis { AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) }
+    .frame(height: 160)
+    .accessibilityLabel("近期单次跑力图，共 \(points.count) 次")
+  }
 }

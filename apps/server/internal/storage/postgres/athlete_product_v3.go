@@ -15,7 +15,11 @@ func projectOptimizedArtifacts(out *am.AthleteModelSnapshot, rows map[string]pub
 		var r rc.V3Result
 		out.PhysiologicalRecovery = am.Missing[am.RecoveryValue]("physiologicalRecovery", at, "technical_failure")
 		if validHistoryArtifactForRelease("physiologicalRecovery", dataset, tz, a, release) && json.Unmarshal(a.Payload, &r) == nil {
-			if v, e := rc.FreshenV3(r, at); e == nil {
+			freshen := rc.FreshenV3
+			if release.Manifest.Recovery.Version == "v4" {
+				freshen = rc.FreshenV4
+			}
+			if v, e := freshen(r, at); e == nil {
 				out.PhysiologicalRecovery = am.ProjectRecoveryV3(v, a.PublishedAt.UnixMicro(), at)
 				stampArtifact(&out.PhysiologicalRecovery, a)
 			}

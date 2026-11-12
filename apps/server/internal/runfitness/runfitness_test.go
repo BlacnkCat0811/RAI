@@ -432,3 +432,18 @@ func TestAgeEstimatedReferenceIsLimitedAndWider(t *testing.T) {
 		t.Fatalf("age-estimated reference: %s %+v", est.Status, est.HR.ScoreRange)
 	}
 }
+
+func TestOrdinaryRunBest90sIsOnlyALowerBound(t *testing.T) {
+	obs := easyHistory(10, 3, 145)
+	for i := range obs {
+		obs[i].Sprint90 = f64(3.1)
+	}
+	st := CalculateState(StateInput{Date: "2026-10-10", Observations: obs})
+	sp := st.Dimensions.Sprint
+	if sp.Status != "lower_bound_only" || sp.Rating != nil || st.Params.V90s != nil || sp.LowerBound == nil {
+		t.Fatalf("ordinary 90s bests must not rate sprint: %+v", sp)
+	}
+	if z := st.Zones.Zones[5]; z.SlowSpeed != nil || z.Support == "conflict" {
+		t.Fatalf("Z6 must stay empty without a sprint test: %+v", z)
+	}
+}

@@ -67,3 +67,18 @@ func TestRunningFitnessSharedContract(t *testing.T) {
 		t.Fatal("schema4 running fitness contract")
 	}
 }
+
+func TestSchema4ResponseStateAndLimitedReasons(t *testing.T) {
+	s := NewSnapshotV4(1794369600000000, 1, "UTC", "2026-10-03", Assignment{Channel: "active", StackID: "s", Version: 1})
+	fitness := ProjectRunningFitness(syntheticFitness("2026-10-03", 3), "p", s.AsOf, s.AsOf)
+	s.RunningFitness = &fitness
+	focus := ProjectFocus(tl.FocusResult{AsOf: s.AsOf}, s.AsOf, s.AsOf)
+	s.LoadFocus = &focus
+	SetProjectedResponseState(&s)
+	if s.ResponseState != "partial_response" {
+		t.Fatalf("schema4 response state %s", s.ResponseState)
+	}
+	if fitness.Envelope.State != Limited || len(fitness.Envelope.ProductReasonCodes) != 0 || fitness.Envelope.PrimaryReason != "" {
+		t.Fatalf("limited fitness reasons %+v", fitness.Envelope.ProductReasonCodes)
+	}
+}

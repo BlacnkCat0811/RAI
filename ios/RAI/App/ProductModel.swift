@@ -95,6 +95,8 @@ final class ProductModel {
   var data = ProductSnapshot()
   var loading = false
   var configured = false
+  /// Simulator Debug offline preview of a snapshot file; no network at all.
+  private(set) var previewOnly = false
   var error: String?
   var conflict = false
   var pending: ProductCommand?
@@ -142,7 +144,7 @@ final class ProductModel {
   private var journal: ProductJournal?
   private let log = Logger(subsystem: "com.rai.v2.ios", category: "product.performance")
   func configure() async {
-    guard api == nil else { return }
+    guard api == nil, !previewOnly else { return }
     do {
       #if DEBUG && targetEnvironment(simulator)
         // A private test configuration points at a real isolated API. No
@@ -239,12 +241,25 @@ final class ProductModel {
     // Stale-while-revalidate: paint the last good snapshot first, refresh behind it.
     if !cacheRestored {
       cacheRestored = true
-      if let url = Self.cacheURL(), let bytes = try? Data(contentsOf: url),
+      #if DEBUG && targetEnvironment(simulator)
+        // Offline UI preview: paint a product snapshot file and never touch
+        // the network, credentials or HealthKit. Simulator Debug builds only.
+        if let path = ProcessInfo.processInfo.environment["RAI_PREVIEW_PRODUCT_SNAPSHOT"],
+          let bytes = try? Data(contentsOf: URL(fileURLWithPath: path)),
+          let cached = ProductSnapshotCache.decode(bytes)
+        {
+          data = cached
+          configured = true
+          previewOnly = true
+        }
+      #endif
+      if !previewOnly, let url = Self.cacheURL(), let bytes = try? Data(contentsOf: url),
         let cached = ProductSnapshotCache.decode(bytes)
       {
         data = cached
       }
     }
+    if previewOnly { return }
     await configure()
     guard let api else { return }
     let loaded = await api.load().keepingLastGood(from: data)

@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 
+	rd "rai/server/internal/readiness"
+	rc "rai/server/internal/recovery"
 	rf "rai/server/internal/runfitness"
 	wf "rai/server/internal/workoutfeatures"
 )
@@ -122,7 +124,7 @@ func schema3Manifest() Manifest {
 	return m
 }
 
-// Current is the running-fitness v1 release (schema4). The retired v60
+// Current is the running-fitness v1 / recovery v4 release (schema4). The retired v60
 // running ability and its VO2-derived estimate are gone from the stack: the
 // RunningAbility slot now names the running-fitness component, and the
 // load, focus and features configurations changed with it. The config hash
@@ -139,6 +141,13 @@ func Current() Manifest {
 	m.RunningAbility = Component{Name: "running_fitness", ModelID: "rai.running_fitness", Version: "v1", Schema: "rai.running_fitness/1", InputSchema: "rai.running_fitness.input/1", JobKind: StackJobKind, ArtifactKey: "running_fitness",
 		ConfigHash: rf.ConfigHash(), SourcePolicy: "recorded-running;stable-source-identity;hr-reference-at-event;effort-labels-known-at/v1", AnnotationMode: AnnotationPolicy, ConsumerSchema: "rai.running_fitness/1"}
 	m.LoadFocus.ConfigHash = digest("hrr-proxy.70;short-repeat3x20-120s;pre-workout-v6x1.0;recovery-v6x.78;native5s;measured-grade.03;unclassified-gap;local-days/v2")
+	m.Recovery.Version = "v4"
+	m.Recovery.Schema, m.Recovery.ConsumerSchema = rc.SchemaV4, rc.SchemaV4
+	m.Recovery.InputSchema = rc.InputSchemaV4
+	m.Recovery.ConfigHash = digest(rc.PolicyV4)
+	m.Recovery.SourcePolicy = "healthkit-readonly;night-context;latest-valid-observations;typed-rhr;explicit-model-defaults/v4"
+	m.Readiness.SourcePolicy = "recorded-running;load-v2;recovery-v4-complete-or-estimated;decayed-unknown/v4"
+	m.Readiness.ConfigHash = digest(rd.PolicyV4)
 	return m
 }
 

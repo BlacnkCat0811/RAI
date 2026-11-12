@@ -106,7 +106,7 @@ func MapReasons(status string, reasons []string) []ProductReasonCode {
 			out = append(out, "data_stale")
 		case "missing_heart_rate", "hr_missing", "missing_hr", "hr_coverage_low":
 			out = append(out, "missing_heart_rate")
-		case "night_data_missing", "night_sparse", "recent_trend_used", "regularity_collecting", "estimate_expired", "recovery_missing", "recovery_partial", "hrv_missing", "rhr_missing", "sleep_missing", "autonomic_only_full_score_unavailable":
+		case "night_data_missing", "night_sparse", "recent_trend_used", "recent_observation_mean_used", "health_default_baseline_used", "typed_resting_hr_used", "health_baseline_bootstrap", "regularity_collecting", "estimate_expired", "recovery_missing", "recovery_partial", "hrv_missing", "rhr_missing", "sleep_missing", "autonomic_only_full_score_unavailable":
 			out = append(out, "recovery_data_incomplete")
 		case "load_unknown", "load_incompatible", "recent_load_unknown":
 			out = append(out, "training_load_unknown")

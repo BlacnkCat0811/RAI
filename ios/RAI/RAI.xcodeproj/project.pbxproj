@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FA1112223334445556668802 /* RunningFitnessLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1112223334445556668801 /* RunningFitnessLayoutTests.swift */; };
+		FA1112223334445556667702 /* RunningFitnessComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1112223334445556667701 /* RunningFitnessComponents.swift */; };
 		D151AA110022334455667702 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D151AA110022334455667701 /* StatisticsView.swift */; };
 		AABBCCDD0011223344556602 /* DailyHealthNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0011223344556601 /* DailyHealthNormalizer.swift */; };
 		AABBCCDD0011223344557702 /* VO2MaxNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0011223344557701 /* VO2MaxNormalizer.swift */; };
@@ -56,6 +58,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		FA1112223334445556668801 /* RunningFitnessLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningFitnessLayoutTests.swift; sourceTree = "<group>"; };
+		FA1112223334445556667701 /* RunningFitnessComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningFitnessComponents.swift; sourceTree = "<group>"; };
 		D151AA110022334455667701 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
 		AABBCCDD0011223344556601 /* DailyHealthNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyHealthNormalizer.swift; sourceTree = "<group>"; };
 		AABBCCDD0011223344557701 /* VO2MaxNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VO2MaxNormalizer.swift; sourceTree = "<group>"; };
@@ -115,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				4874173CD79CACDE6A74EE5A /* NormalizerTests.swift */,
+				FA1112223334445556668801 /* RunningFitnessLayoutTests.swift */,
 				A1B2C3D4E5F6071829304B5C /* SourcePolicyGateTests.swift */,
 				A1B2C3D4E5F6000000000032 /* RawStreamSyncEngineTests.swift */,
 				A1B2C3D4E5F60000000000A2 /* WorkoutUploadLiveTests.swift */,
@@ -168,6 +173,7 @@
 				AABBCCDD0011223344557701 /* VO2MaxNormalizer.swift */,
 				CC0CE59185A6582157B523D9 /* ProductModel.swift */,
 				07A341B735C9EDE82516D5B7 /* ProductViews.swift */,
+				FA1112223334445556667701 /* RunningFitnessComponents.swift */,
 				6C2FDB10010A581B0F9F5385 /* WorkoutDetailView.swift */,
 				3F1C943D1E266CB2CE42EA95 /* RAIApp.swift */,
 				905313EC20F247608BE730C7 /* DebugAcceptance.swift */,
@@ -331,6 +337,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9FFAD6DF6F9F069918ABB579 /* NormalizerTests.swift in Sources */,
+				FA1112223334445556668802 /* RunningFitnessLayoutTests.swift in Sources */,
 				B2C3D4E5F6071829304B5C6D /* SourcePolicyGateTests.swift in Sources */,
 				A1B2C3D4E5F6000000000031 /* RawStreamSyncEngineTests.swift in Sources */,
 				A1B2C3D4E5F60000000000A1 /* WorkoutUploadLiveTests.swift in Sources */,
@@ -360,6 +367,7 @@
 				AABBCCDD0011223344557702 /* VO2MaxNormalizer.swift in Sources */,
 				017785EB305BF2D0F0C922C8 /* ProductModel.swift in Sources */,
 				E643ACCBB0EEE14443B39F98 /* ProductViews.swift in Sources */,
+				FA1112223334445556667702 /* RunningFitnessComponents.swift in Sources */,
 				96528C42F0F2AF0B7AB0C666 /* WorkoutDetailView.swift in Sources */,
 				AA50E8F4DA8B6A9BE235AD89 /* RAIApp.swift in Sources */,
 				2E32366AAA23ACBD5A7E26F3 /* DebugAcceptance.swift in Sources */,
@@ -455,7 +463,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/RAI.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				DEVELOPMENT_TEAM = V6GK55AADW;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = Config/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -579,7 +588,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Config/RAI.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				DEVELOPMENT_TEAM = V6GK55AADW;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = "Config/Info-Debug.plist";
 				LD_RUNPATH_SEARCH_PATHS = (

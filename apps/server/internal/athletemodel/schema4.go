@@ -47,6 +47,41 @@ func NewSnapshotV4(at, revision int64, tz, date string, a Assignment) AthleteMod
 	return s
 }
 
+// setResponseStateV4 counts the eight schema4 product metrics. The retired
+// runningAbility slot is never part of a schema4 response.
+func setResponseStateV4(s *AthleteModelSnapshot) {
+	envelopes := []*Envelope{&s.TrainingLoad.Envelope, &s.ExternalVO2Max.Envelope, &s.PhysiologicalRecovery.Envelope, &s.TrainingReadiness.Envelope}
+	if s.RAIVO2Max != nil {
+		envelopes = append(envelopes, &s.RAIVO2Max.Envelope)
+	}
+	for _, m := range []*Envelope{envelopeOf(s.SessionRecovery), envelopeOf(s.LoadFocus), envelopeOf(s.RunningFitness)} {
+		if m != nil {
+			envelopes = append(envelopes, m)
+		}
+	}
+	available := 0
+	for _, e := range envelopes {
+		if e.State == Available {
+			available++
+		}
+	}
+	switch {
+	case available == 0:
+		s.ResponseState = "unavailable_response"
+	case available < 8:
+		s.ResponseState = "partial_response"
+	default:
+		s.ResponseState = "complete_response"
+	}
+}
+
+func envelopeOf[T any](m *Metric[T]) *Envelope {
+	if m == nil {
+		return nil
+	}
+	return &m.Envelope
+}
+
 func fitnessEnvelopeStatus(s rf.State) (status, freshness string) {
 	switch s.Status {
 	case "established":
@@ -76,6 +111,17 @@ func ProjectRunningFitness(s rf.State, publication string, updated, at int64) Me
 	m := Metric[RunningFitnessValue]{Envelope: NewEnvelopeV2("runningFitness", rf.Algorithm+"/"+rf.Version, rf.Schema, status, s.Overall.Basis, freshness, nil, &s.AsOf, &updated, at, s.Reasons, []string{"recorded_running"}),
 		Trend: NoTrend("history_endpoint"), Explanation: Explanation{Headline: "runningFitness.state", SupportingFacts: []Fact{}, Limitations: []string{"model_range_not_probability", "rai_scale_not_brand_score", "unvalidated_design_parameters"}}}
 	stampV3(&m.Envelope, s.Status, s.EvidenceAt, 0)
+	if status == "limited" {
+		// A limited fitness value is shown; "metric_unavailable" would contradict it.
+		codes := []ProductReasonCode{}
+		for _, c := range m.Envelope.ProductReasonCodes {
+			if c != "metric_unavailable" {
+				codes = append(codes, c)
+			}
+		}
+		m.Envelope.ProductReasonCodes = codes
+		m.Envelope.PrimaryReason = PrimaryReason(codes)
+	}
 	m.Envelope.MappingVersion = MappingVersion4
 	m.Value = &RunningFitnessValue{PublicationID: publication, AlgorithmVersion: rf.Version, RatingPolicy: s.RatingPolicy, HistoryView: "revised", Date: s.Date, Status: s.Status, Freshness: s.Freshness,
 		LatestEvidenceDay: s.LatestEvidenceDay, ValidUntil: s.ValidUntil, Overall: s.Overall, ReferenceDailyScore: s.ReferenceDailyScore, Params: s.Params, Dimensions: s.Dimensions,
