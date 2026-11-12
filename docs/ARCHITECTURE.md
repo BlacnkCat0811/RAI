@@ -62,13 +62,18 @@
 `analysis.model_stack_v2` 每个自然日一个任务（`storage/postgres/model_stack_inputs.go` `computeModelStackDay`），
 读取近 186 天跑步与日健康事实，在同一事务里发布八项核心产物：负荷状态、跑力 v1（`running_fitness`）、
 RAI VO2、外部 VO2、生理恢复 v4、训练准备度 v4、课次恢复 v1、负荷焦点 v1（后两项为 `model_product_v3/` 族），另发布研究产物。
-源码在恢复 v4／准备度 v4.1 策略栈 `rai-v2-df81d988ae579587`（未部署）之上又加入单次训练效果 v1，当前构建为新栈 `rai-v2-69efefa730b47818`，两者合并为同一次发布（只需一次全历史重建），尚未部署或激活；下文已部署的 `rai-v2-c3441e6edc485d9e` 仍消费恢复 v3、没有训练效果。
+源码在恢复 v4／准备度 v4.1 策略栈 `rai-v2-df81d988ae579587` 之上又加入单次训练效果 v1，两者合并为同一次发布，
+当前构建为新栈 `rai-v2-69efefa730b47818`，已于 2026-11-12 部署（迁移 58）并激活（`Revision=7`，镜像 `36274b2`）；
+被取代的 schema4 跑力栈 `rai-v2-c3441e6edc485d9e` 保留为 `previous`。真实数据集的日历史不能整体重建：
+`admin analysis backfill` 只接受合成数据集（`CreateBackfillOperation` 要求 `synthetic_test`），
+`rai_model_stack_rebuild_history` 只重新排队**曾发布过**且已失效的当前栈日期，从未发布过的日期不会被创建；
+因此换栈后历史日、以及无氧训练效果所需的同栈跑前跑力参考，都从激活日起逐日累积。
 当前构建为 schema4 栈（跑力 v1、恢复 v4，迁移 58）；旧 v60 跑力（`performance`、`runningability` 包、三分支、旧门槛、旧评分、iOS 本地推算）
 已从运行链路删除，下文“跑力 v1”为现行规则。身份由 `modelmanifest.Current()` 的哈希（`StackID`）决定；
 算法或策略变化即新 stack，需要用 `rai analysis model-stack` 的 `prepare-real` / `activate-real`
 （回滚 `rollback-real`）切换，旧 stack 结果保留。当前构建的 schema4 栈
-`rai-v2-c3441e6edc485d9e` 已于 2026-11-12 部署（迁移 57）并以所有者授权在唯一数据集上激活：`active` 通道指向该栈，
-schema3 栈 `rai-v2-4b9264855a47255d` 保留为 `previous`，可 `rollback-real` 回退；计算顺序为负荷 → 强度结构 → 课次疲劳 → 准备度，
+`rai-v2-69efefa730b47818` 已于 2026-11-12 部署（迁移 58）并以所有者授权在唯一数据集上激活：`active` 通道指向该栈，
+跑力栈 `rai-v2-c3441e6edc485d9e` 保留为 `previous`，可 `rollback-real` 回退；计算顺序为负荷 → 强度结构 → 课次疲劳 → 准备度，
 跑力估计只消费冻结的 performance/VO2 DTO，不反向参与负荷。下文关于 schema3 栈部署与激活的记录描述的是部署时的状态：
 schema3 栈 `rai-v2-4b9264855a47255d` 于 2026-11-11 部署（迁移 56）并激活，其旧栈 `rai-v2-4a543690d2c37290`
 当时保留为 `previous`（schema4 激活后已退出通道）。
@@ -1067,4 +1072,46 @@ Go/Swift/集成测试。
   未读取或改动真实健康数据（产品接口仅确认未鉴权时返回 401）。`prepare-real` 只排队当天日任务，新栈历史日不会自动回填，
   历史曲线从激活日起逐日累积。jobs 表 34 个 `failed` 均为旧栈 `rai-v2-4a543690d2c37290` 的既有
   `analysis_unsupported_algorithm` 记录（最后 `run_after` 2026-11-11 23:27Z），非本次引入。部署与激活不代表真机、
+  模型或产品验收。
+
+### 部署记录 — rai-coach-20261108（2026-11-12，镜像 36274b2，训练效果 v1 + 恢复 v4 激活）
+
+用户要求“提交所有改动到远程仓库，不要进行任何测试，然后部署到远程服务器，激活所有功能，我自己安装app”。按此执行，
+未运行任何 Go/Swift/集成测试。
+
+- 源码与提交：单次训练效果 v1 与恢复 v4／准备度 v4.1 策略栈合并提交为 `36274b2`
+  （`feat(model,ios): per-run aerobic/anaerobic training effect v1`）并推送 `e0a44d2..36274b2`：新增
+  `internal/trainingeffect`（`rai.training_effect/1`，纯函数，不导入 `trainingload`）、`workoutfeatures/effort.go`
+  （`rai.workout_effort/1` 原生速度／坡度／功率／步频点序列）、迁移 58、`WorkoutDetail.trainingEffect` 契约与 iOS 双仪表卡。
+  新栈身份 `rai-v2-69efefa730b47818`，manifest
+  `69efefa730b47818ba73acad203f3b42ceb9df0874a64d8ce352bd5e01e55312`；`modelrelease.Lookup` 在 `UTC`/`Asia/Shanghai`
+  均返回 `rai.athlete_model/4`（运动员产品契约不变，训练效果只在运动详情）。
+- 构建：Go 1.27.3 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`，`-trimpath -buildvcs=false -ldflags='-s -w -X main.sourceCommit=36274b2'`，
+  二进制 SHA-256 `f1bb1794320edafbd7bd9cb38aed5d68d8c9954ee89f318a8abb5607832f86af`（16,941,216 B），上传后服务器
+  `sha256sum` 一致。镜像 `rai-coach:20261112-36274b2`（ID `b4f43f6668d8`）。
+- 备份：部署前 `pg_dump -Fc` 到 `/opt/rai-coach-20261108/backup-before-36274b2-20261112-163613.dump`（96,088,136 B，
+  651 个 TOC 项，`pg_restore -l` 校验通过）；`environment` 保留为 `environment.bak-36274b2`。
+- 迁移：`admin migrate` 退出码 0，数据库 57 → 58（`00058_recovery_v4.sql`），`migrate-status` 58 份全部 `applied`。
+- 运行态：`environment` 的 `RAI_RELEASE_IMAGE` 改为 `rai-coach:20261112-36274b2`，`./dc up -d --wait api worker` 后
+  api/worker 均 healthy；容器内 `probe --ready`、`worker-ready` 退出码 0；`rai version` 报告 `schema=58`、
+  `source_commit=36274b2`、`model_stack=rai-v2-69efefa730b47818`、`training=training_plan/v3`、`openapi=1.13.3`、
+  `sync_protocol=3`。公网 `/ready` 200、`/health` 200；重启窗口内 API/Worker 日志无 WARN/ERROR。
+- 功能激活：以所有者授权（`authorization/owner-activation-te-20261112.json`，绑定数据集、栈与 manifest，有效期至
+  2026-11-19）执行 `prepare-real`（job `165d5f16-7afd-444b-b4ef-dddb626aaf33`，当日日模型任务 `succeeded`，候选通道八个
+  family 均有当日发布，`physiological_recovery` 由 `sync_incomplete` 变为 `available`）与 `activate-real`
+  （`Revision=5`、`promote`、`FromStack=rai-v2-c3441e6edc485d9e` → `ToStack=rai-v2-69efefa730b47818`）。
+  用户随后要求重建最近 366 天历史；`admin analysis backfill plan` 可算出 366 天／12 块计划，但 `execute` 被
+  `backfill_operation_conflict` 拒绝——`CreateBackfillOperation` 的 `eligible` 要求 `datasets.synthetic_test`
+  且该栈处于 `candidate` 通道，真实数据集没有可用回填路径（`rai_model_stack_rebuild_history` 只重排曾发布过且失效的
+  当前栈日期）。为把候选态留给可能的重建路径，先执行 `rollback-real`（`Revision=6`、`rollback`，
+  `active=rai-v2-c3441e6edc485d9e`、`candidate=rai-v2-69efefa730b47818`），确认回填仍被拒后再次 `activate-real`
+  （`Revision=7`、`promote`）。当前 `active` 通道指向 `rai-v2-69efefa730b47818`（assignment_version 7），
+  `previous` 为 `rai-v2-c3441e6edc485d9e`；`analysis_assignment_audit` 记录 5→6→7 三次动作。
+- 训练效果结果：`model_workout_results` 中新栈 17 条当日缓存全部带 `trainingEffect`，旧栈 17 条字节未变（仍无该字段）。
+  有氧 8 条 `estimated`、9 条 `unavailable`（原因码 `hr_exposure_estimated`、`hr_reference_missing`、
+  `hr_exposure_insufficient`、`training_level_default`）；无氧 17 条全部 `unavailable`、原因码均为
+  `speed_reference_unavailable`——新栈只有激活日一天发布，缺少跑前已发布跑力参考，符合设计。
+- 未验证：按用户要求未运行任何测试；未用真实 iPhone 验证详情页双仪表、历史曲线与训练效果文案（iOS 包由用户自行安装）；
+  未读取或改动真实健康数据（产品接口仅确认未鉴权时返回 401）。真实数据集无法整体重建历史：换栈后历史日在 active 栈下
+  没有发布，无氧训练效果需等激活日之后的日发布积累出跑前参考；这一限制已写入上文“模型”小节。部署与激活不代表真机、
   模型或产品验收。
