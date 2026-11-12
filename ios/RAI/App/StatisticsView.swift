@@ -23,14 +23,14 @@ struct StatisticsView: View {
         }.pickerStyle(.segmented).accessibilityIdentifier("statistics.period")
         periodNavigation
         if model.statisticsLoading {
-          HStack(spacing: 10) { ProgressView(); Text("正在读取完整统计…").font(.subheadline) }
+          HStack(spacing: 10) { ProgressView(); Text("正在读取…").font(.subheadline) }
             .frame(maxWidth: .infinity, minHeight: 150).foregroundStyle(RAITheme.secondary)
         } else if let error = model.statisticsError {
           VStack(alignment: .leading, spacing: 12) {
             Text(error).foregroundStyle(RAITheme.secondary)
             Button("重试") { Task { await model.loadStatistics(window) } }
               .buttonStyle(.bordered).accessibilityIdentifier("statistics.retry")
-          }.frame(maxWidth: .infinity, alignment: .leading).padding(20).background(RAITheme.surface, in: RoundedRectangle(cornerRadius: 20))
+          }.frame(maxWidth: .infinity, alignment: .leading).padding(20).raiGlass()
         } else if let current {
           totals(current)
           volumeChart(current)
@@ -39,14 +39,8 @@ struct StatisticsView: View {
         NavigationLink {
           AnalysisView(model: model)
         } label: {
-          HStack {
-            Image(systemName: "waveform.path.ecg")
-            Text("运动模型").font(.headline)
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption.weight(.bold))
-          }.foregroundStyle(RAITheme.primary).padding(20)
-            .background(RAITheme.surface, in: RoundedRectangle(cornerRadius: 20))
-        }.accessibilityIdentifier("statistics.analysis")
+          RAIRowLabel(title: "运动模型", icon: "waveform.path.ecg", detail: "准备度、跑力、训练负荷")
+        }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("statistics.analysis")
       }.padding(.horizontal, 20).padding(.vertical, 16)
     }.navigationTitle("统计").raiScreen().accessibilityIdentifier("screen.statistics")
       .task(id: requestID) { await model.loadStatistics(window) }
@@ -67,13 +61,10 @@ struct StatisticsView: View {
         }.disabled(window.end > Date()).accessibilityLabel(period == .week ? "下一周" : "下个月")
           .accessibilityIdentifier("statistics.next")
       }.foregroundStyle(RAITheme.primary)
-      HStack {
-        Text("\(window.timezone) · 按跑步开始日期计入").font(.caption)
-        Spacer()
-        if !window.contains(Date()) {
-          Button("回到本\(period.title)") { selectedDate = Date() }.font(.caption.weight(.semibold))
-        }
-      }.foregroundStyle(RAITheme.secondary)
+      if !window.contains(Date()) {
+        Button("回到本\(period.title)") { selectedDate = Date() }.font(.caption.weight(.semibold))
+          .foregroundStyle(RAITheme.orange).frame(maxWidth: .infinity)
+      }
     }
   }
   private var periodTitle: String {
@@ -158,7 +149,7 @@ struct StatisticsView: View {
       if value.missingDistanceCount > 0 {
         Text("? 距离未知 · 部分 / * 表示当日有记录缺少距离").font(.caption).foregroundStyle(RAITheme.secondary)
       }
-    }.foregroundStyle(RAITheme.primary).padding(20).background(RAITheme.surface, in: RoundedRectangle(cornerRadius: 20))
+    }.foregroundStyle(RAITheme.primary).padding(20).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
   }
   private func distribution(_ value: RunningStatistics) -> some View {
     let zones = showHeartRate ? value.heartRate : value.pace
@@ -173,26 +164,26 @@ struct StatisticsView: View {
       zoneRow("未分类", meters: unknown, total: value.distanceMeters, unknown: true)
 
       if showHeartRate && value.heartRateProfiles.isEmpty && value.count > 0 {
-        Text("尚无可用的个人心率分区；可在「我的」完善心率参数。").font(.caption).foregroundStyle(RAITheme.secondary)
+        Text("还没有心率区间：请在「我的 → 静息与最大心率」填写最大心率。").font(.caption).foregroundStyle(RAITheme.secondary)
       }
       if value.heartRateProfiles.count > 1 && showHeartRate {
-        Text("本期含 \(value.heartRateProfiles.count) 组历史个人参数，按各次训练当时参数归区。").font(.caption).foregroundStyle(RAITheme.secondary)
+        Text("这段时间你调整过心率设置，每次跑步按当时的设置划分区间。").font(.caption).foregroundStyle(RAITheme.secondary)
       }
       if value.distributionFailureCount > 0 {
-        Text("\(value.distributionFailureCount) 次分区读取失败，其里程暂列未分类。下拉可重试。").font(.caption).foregroundStyle(RAITheme.secondary)
+        Text("\(value.distributionFailureCount) 次跑步的区间读取失败，暂列未分类，下拉可重试。").font(.caption).foregroundStyle(RAITheme.secondary)
       }
       if value.unavailableDistributionCount > 0 {
-        Text("\(value.unavailableDistributionCount) 次跑步暂无可用分区结果，其里程列为未分类。").font(.caption).foregroundStyle(RAITheme.secondary)
+        Text("\(value.unavailableDistributionCount) 次跑步还没有区间结果，暂列未分类。").font(.caption).foregroundStyle(RAITheme.secondary)
       }
-      DisclosureGroup("统计口径") {
+      DisclosureGroup("怎么算的") {
         VStack(alignment: .leading, spacing: 8) {
           Text(showHeartRate
-            ? "按每次跑步当时的个人心率储备（HRR）分区；速度与心率原始区间对齐后计算距离。缺少参数、心率或速度的里程不归类。"
-            : "按原始速度区间计算跑量，单位 min/km；边界值归入较慢一档。无可靠速度覆盖的里程不归类。")
-          Text("占比以本期已知总里程为分母，未分类也计入。未来日期不作实测零值展示。")
+            ? "按每次跑步当时的最大心率和静息心率划分心率区间，再统计各区间内跑过的距离。缺少心率或速度的里程列为未分类。"
+            : "按配速统计各档跑过的距离，刚好落在分界上的归入较慢一档。没有可靠配速的里程列为未分类。")
+          Text("占比按本期总里程计算；跑步按开始日期计入。")
         }.font(.caption).foregroundStyle(RAITheme.secondary).padding(.top, 8)
       }.font(.subheadline).tint(RAITheme.secondary)
-    }.foregroundStyle(RAITheme.primary).padding(20).background(RAITheme.surface, in: RoundedRectangle(cornerRadius: 20))
+    }.foregroundStyle(RAITheme.primary).padding(20).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
   }
   @ViewBuilder private func secondaryTotals(_ value: RunningStatistics) -> some View {
     Label("\(value.count) 次跑步", systemImage: "figure.run")

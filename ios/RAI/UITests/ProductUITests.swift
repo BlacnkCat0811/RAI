@@ -333,9 +333,9 @@ final class ProductUITests: XCTestCase {
     try tap("training.create")
     let target = app.textFields["create.target"]
     replace(target, with: "21")
-    let baseline = app.textFields["当前每周跑量（公里）"]
+    let baseline = app.textFields["create.baseline"]
     replace(baseline, with: "30")
-    let longest = app.textFields["最近最长距离（公里）"]
+    let longest = app.textFields["create.longest"]
     replace(longest, with: "12")
     XCTAssertEqual(target.value as? String, "21")
     XCTAssertEqual(baseline.value as? String, "30")
@@ -455,20 +455,20 @@ extension ProductUITests {
 
 @MainActor
 final class WorkoutSyncScreenUITests: XCTestCase {
-  func testScreenOpensAndShowsIndependentWorkoutCopy() {
+  func testScreenOpensAndShowsAutoUploadNote() {
     continueAfterFailure = false
     let app = XCUIApplication()
     app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
     app.launch()
     XCTAssertTrue(app.tabBars.buttons["我的"].waitForExistence(timeout: 20))
     app.tabBars.buttons["我的"].tap()
-    let link = app.buttons["健康数据同步"]
+    let link = app.buttons["profile.workout-sync"]
     XCTAssertTrue(link.waitForExistence(timeout: 10))
     link.tap()
     let screen = app.descendants(matching: .any).matching(identifier: "screen.workout-sync").firstMatch
     XCTAssertTrue(screen.waitForExistence(timeout: 10))
-    XCTAssertTrue(app.staticTexts["一条跑步 = 一个独立上传任务"].exists)
-    XCTAssertTrue(app.buttons["请求读取权限"].exists)
+    let note = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "自动上传")).firstMatch
+    XCTAssertTrue(note.waitForExistence(timeout: 10))
   }
 }
 

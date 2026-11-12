@@ -15,6 +15,7 @@ struct WorkoutDetail: View {
   @State private var effortMessage: String?
   @State private var effortBusy = false
   @State private var confirmEffort = false
+  @AppStorage("developerOptions") private var developerOptions = false
 
   private var detail: WorkoutDetailResponse? {
     guard model.workoutDetail?.workout.workoutID == workout.id else { return nil }
@@ -44,11 +45,11 @@ struct WorkoutDetail: View {
           effectPanel(detail)
           if let feature = detail.analysis, feature.schemaVersion == "rai.workout_features/1" {
             VStack(alignment: .leading, spacing: 8) {
-              CardHeading(title: "已发布运动分析", icon: "waveform.path")
+              CardHeading(title: "数据覆盖", icon: "waveform.path")
               LabeledContent("有效运动时长", value: ProductFormat.duration(feature.activeSeconds)).accessibilityIdentifier("model.workout.active")
-              LabeledContent("心率时间覆盖", value: feature.heartRateCoverage.formatted(.percent.precision(.fractionLength(0))))
-              LabeledContent("速度时间覆盖", value: feature.speedCoverage.formatted(.percent.precision(.fractionLength(0))))
-            }.padding(16).raiGlass()
+              LabeledContent("心率覆盖", value: feature.heartRateCoverage.formatted(.percent.precision(.fractionLength(0))))
+              LabeledContent("速度覆盖", value: feature.speedCoverage.formatted(.percent.precision(.fractionLength(0))))
+            }.padding(16).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
           }
           ForEach(WorkoutMetricKind.allCases) { metric in
             VStack(alignment: .leading, spacing: 8) {
@@ -76,16 +77,17 @@ struct WorkoutDetail: View {
         }.padding(.horizontal, 18).padding(.vertical, 14).padding(.bottom, 24)
       } else if let error = model.workoutDetailError {
         VStack(spacing: 14) {
-          EmptyCard(title: "训练详情暂不可用", detail: error)
+          EmptyCard(title: "跑步详情暂不可用", detail: error)
           OrangeButton(title: "重新加载", icon: "arrow.clockwise") {
             Task { await model.loadWorkoutDetail(workout.id) }
           }
         }.padding(18)
       } else {
-        ProgressView("正在读取训练详情").padding(.top, 80)
+        ProgressView("正在读取").padding(.top, 80)
       }
     }
-    .navigationTitle("训练详情")
+    .navigationTitle("跑步详情")
+    .navigationBarTitleDisplayMode(.inline)
     .toolbar(.visible, for: .navigationBar)
     .raiScreen()
     .task(id: taskKey) {
@@ -102,17 +104,18 @@ struct WorkoutDetail: View {
   /// prefer over everyday training.
   private func effortPanel() -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      CardHeading(title: "努力程度", icon: "flame")
-      Text("如果这是比赛或全力测试，标记后跑力会用它估算比赛能力；日常训练不要标记。")
+      CardHeading(title: "这是一次全力跑吗？", icon: "flame")
+      Text("比赛或全力测试请标记，跑力会据此估算你的比赛能力；日常训练不用标记。")
         .font(.caption).foregroundStyle(RAITheme.secondary)
       if let effortMessage {
         Text(effortMessage).font(.caption).foregroundStyle(RAITheme.secondary)
           .accessibilityIdentifier("workout.effort.message")
       }
       Button(effortBusy ? "正在提交…" : "标记为全力跑 / 比赛") { confirmEffort = true }
+        .buttonStyle(RAISecondaryButtonStyle())
         .disabled(effortBusy)
         .accessibilityIdentifier("workout.effort.mark")
-    }.padding(16).raiGlass()
+    }.padding(16).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .confirmationDialog("确认这次是全力跑或比赛？", isPresented: $confirmEffort, titleVisibility: .visible) {
         Button("确认标记") {
           effortBusy = true
@@ -121,7 +124,7 @@ struct WorkoutDetail: View {
               kind: "workout_effort",
               payload: ["workoutID": .string(workout.id.lowercased()), "mode": .string("maximal_supported"), "userConfirmed": .bool(true)],
               effectiveFrom: Date())
-            effortMessage = failure ?? "已标记。下次模型更新后生效。"
+            effortMessage = failure ?? "已标记，下次更新跑力时生效。"
             effortBusy = false
           }
         }
@@ -145,9 +148,9 @@ struct WorkoutDetail: View {
   private func emptyNote(_ metric: WorkoutMetricKind) -> String {
     let key = metric.rawValue
     if freshness?.seriesState(key) == "not_seen_yet" {
-      return "尚未到达：服务端还没有观察到\(metric.title)数据；这不等于设备没有这项能力。"
+      return "\(metric.title)数据还没有同步过来。"
     }
-    return "暂无\(metric.title)时序样本"
+    return "这次跑步没有\(metric.title)数据"
   }
 
   private func bannerCard(_ banner: DetailFreshnessBanner.Banner) -> some View {
@@ -167,11 +170,9 @@ struct WorkoutDetail: View {
       VStack(alignment: .leading, spacing: 5) {
         WorkoutRouteMap(route: detail.route)
           .accessibilityIdentifier("workout.route")
-        Text("Apple 地图 · 真实 GPS 轨迹 · 公里标记")
-          .font(.caption2).foregroundStyle(RAITheme.secondary)
       }
     } else {
-      Label(detail.workout.indoor == true ? "室内训练 · 无 GPS 路线" : "暂无可用 GPS 路线", systemImage: "map")
+      Label(detail.workout.indoor == true ? "室内跑步，没有路线" : "这次跑步没有路线", systemImage: "map")
         .font(.footnote).foregroundStyle(RAITheme.secondary)
         .frame(maxWidth: .infinity, minHeight: 72).raiGlass()
         .accessibilityIdentifier("workout.route.empty")
@@ -182,7 +183,7 @@ struct WorkoutDetail: View {
     let w = detail.workout
     return VStack(alignment: .leading, spacing: 10) {
       HStack(spacing: 8) {
-        Text("训练摘要").font(.subheadline.weight(.semibold))
+        Text("概览").font(.headline)
         Spacer(minLength: 8)
         Text(sessionName(w.sessionType)).font(.caption).foregroundStyle(RAITheme.secondary)
         if w.indoor == true { badge("室内") }
@@ -191,10 +192,6 @@ struct WorkoutDetail: View {
       }
       Text(w.startDate.formatted(date: .abbreviated, time: .shortened))
         .font(.caption.monospacedDigit()).foregroundStyle(RAITheme.secondary)
-      if w.analysisStatus != "published" {
-        Text("分析中：评分与等强配速会在分析发布后自动填充，空值不代表 0。")
-          .font(.caption2).foregroundStyle(RAITheme.amber).fixedSize(horizontal: false, vertical: true)
-      }
       HStack(spacing: 22) {
         VStack(alignment: .leading, spacing: 5) {
           Text(ProductFormat.decimal(w.distanceKM, digits: 2))
@@ -211,7 +208,7 @@ struct WorkoutDetail: View {
       environmentRow(detail.environment)
       LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), alignment: .leading)], alignment: .leading, spacing: 14) {
         summaryMetric("平均配速", paceValue(detail.summary.averagePaceSPerKm))
-        summaryMetric("平均等强配速", paceValue(detail.summary.gradeAdjustedPaceSPerKm), accent: RAITheme.blue)
+        summaryMetric("坡度修正配速", paceValue(detail.summary.gradeAdjustedPaceSPerKm), accent: RAITheme.blue)
         summaryMetric("平均心率", value(w.averageHeartRateBpm, digits: 0, unit: "bpm"))
         summaryMetric("累计上升", value(detail.summary.elevationGainM, digits: 0, unit: "m"))
         summaryMetric("能量消耗", value(w.activeEnergyKcal, digits: 0, unit: "kcal"))
@@ -219,14 +216,14 @@ struct WorkoutDetail: View {
       }
       if detail.summary.totalSplits > 0, detail.summary.coveredSplits < detail.summary.totalSplits {
         Text(detail.summary.coveredSplits > 0
-             ? "等强配速覆盖 \(detail.summary.coveredSplits)/\(detail.summary.totalSplits) 段"
-             : "等强配速暂无可用坡度数据")
+             ? "坡度修正配速仅覆盖 \(detail.summary.coveredSplits)/\(detail.summary.totalSplits) 段"
+             : "没有坡度数据，无法计算坡度修正配速")
           .font(.caption2).foregroundStyle(RAITheme.secondary)
       }
-      if let env = detail.environment { environmentSummary(env) }
+      if let env = detail.environment, env.status != "pending" { environmentSummary(env) }
       if summaryExpanded {
         Divider().overlay(RAITheme.primary.opacity(0.12))
-        Text("全部训练指标").font(.subheadline.weight(.medium))
+        Text("更多指标").font(.subheadline.weight(.medium))
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), alignment: .leading)], alignment: .leading, spacing: 14) {
           summaryMetric("经过时间", ProductFormat.duration(w.elapsedS))
           summaryMetric("平均步频", value(w.averageCadenceSpm, digits: 0, unit: "spm"))
@@ -234,7 +231,7 @@ struct WorkoutDetail: View {
           summaryMetric("平均步幅", value(w.averageStrideLengthM, digits: 2, unit: "m"))
           summaryMetric("垂直振幅", value(w.averageVerticalOscillationCm, digits: 1, unit: "cm"))
           summaryMetric("触地时间", value(w.averageGroundContactTimeMs, digits: 0, unit: "ms"))
-          summaryMetric("质量分", num(w.qualityScore, digits: 2))
+          summaryMetric("数据质量", num(w.qualityScore, digits: 2))
         }.accessibilityIdentifier("workout.summary.metrics")
         if let adjusted = detail.environment?.adjusted {
           summaryMetric("环境等效用时", ProductFormat.duration(adjusted.durationS)).accessibilityIdentifier("workout.summary.adjustedDuration")
@@ -242,13 +239,13 @@ struct WorkoutDetail: View {
         if let load = detail.trainingLoad {
           HStack(spacing: 14) {
             summaryMetric("负荷强度", num(load.intensity, digits: 1))
-            summaryMetric("负荷置信度", percent(load.confidence))
+            summaryMetric("负荷可信度", percent(load.confidence))
           }
-          Text("主要刺激：\(stimulusName(load.stimulusType))").font(.caption).foregroundStyle(RAITheme.secondary)
-          Text("负荷来源：\(loadSourceName(load.source))").font(.caption2).foregroundStyle(RAITheme.secondary)
+          Text("主要训练效果：\(stimulusName(load.stimulusType))").font(.caption).foregroundStyle(RAITheme.secondary)
+          Text("负荷计算方式：\(loadSourceName(load.source))").font(.caption2).foregroundStyle(RAITheme.secondary)
         }
         if let focus = detail.loadFocus {
-          Text("负荷结构 AU：低有氧 \(num(focus.buckets.lowAerobicAU, digits: 0)) · 高有氧 \(num(focus.buckets.highAerobicAU, digits: 0)) · 无氧候选 \(num(focus.buckets.anaerobicProxyAU, digits: 0)) · 未分类 \(num(focus.buckets.unclassifiedAU, digits: 0))")
+          Text("负荷构成：低强度有氧 \(num(focus.buckets.lowAerobicAU, digits: 0)) · 高强度有氧 \(num(focus.buckets.highAerobicAU, digits: 0)) · 无氧 \(num(focus.buckets.anaerobicProxyAU, digits: 0)) · 未分类 \(num(focus.buckets.unclassifiedAU, digits: 0))")
             .font(.caption2).foregroundStyle(RAITheme.secondary)
         }
         if let zones = detail.zoneSummary {
@@ -272,6 +269,12 @@ struct WorkoutDetail: View {
   }
 
   @ViewBuilder private func environmentRow(_ env: WorkoutEnvironment?) -> some View {
+    // Indoor runs and old records carry no weather: an all-empty row is noise.
+    if env?.weatherCondition != nil || env?.temperatureC != nil || env?.humidityPercent != nil {
+      weatherRow(env)
+    }
+  }
+  private func weatherRow(_ env: WorkoutEnvironment?) -> some View {
     HStack(spacing: 12) {
       Label("天气 \(weatherName(env?.weatherCondition))", systemImage: "cloud.sun")
       Label("温度 \(value(env?.temperatureC, digits: 1, unit: "°C"))", systemImage: "thermometer.medium")
@@ -305,14 +308,16 @@ struct WorkoutDetail: View {
       .sorted { $0.score == $1.score ? $0.stimulusType < $1.stimulusType : $0.score > $1.score }
     VStack(alignment: .leading, spacing: 10) {
       HStack {
-        Text("训练效果").font(.subheadline.weight(.semibold))
+        Text("训练效果").font(.headline)
         Spacer()
-        Text(percent(zones?.stimulusConfidence ?? detail.workout.stimulusConfidence)).font(.caption).foregroundStyle(RAITheme.amber)
+        if let confidence = zones?.stimulusConfidence ?? detail.workout.stimulusConfidence {
+          Text("可信度 " + percent(confidence)).font(.caption).foregroundStyle(RAITheme.secondary)
+        }
       }
       if let primary = scores.first {
         HStack(alignment: .bottom, spacing: 12) {
           VStack(alignment: .leading, spacing: 4) {
-            Text("主要刺激").font(.caption).foregroundStyle(RAITheme.secondary)
+            Text("主要效果").font(.caption).foregroundStyle(RAITheme.secondary)
             Text(stimulusName(primary.stimulusType)).font(.title3.weight(.semibold))
             Text("有效时长 \(ProductFormat.duration(primary.qualifyingSeconds)) / 目标 \(ProductFormat.duration(primary.targetSeconds))")
               .font(.caption2.monospacedDigit()).foregroundStyle(RAITheme.secondary)
@@ -324,21 +329,21 @@ struct WorkoutDetail: View {
           }
         }
       } else if detail.workout.analysisStatus != "published" {
-        Text("刺激分析会在分析发布后显示；现在的空值不代表 0。")
+        Text("分析完成后显示训练效果。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       } else if zones?.stimulusType == "unclassified" {
-        Text("本次训练刺激未分类：当前数据集没有可用的阈值配速或匹配课表。")
+        Text("这次跑步暂时无法归类训练效果：还没有可用的阈值配速。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       } else {
-        Text("本次训练暂无可用的刺激数据").font(.footnote).foregroundStyle(RAITheme.secondary)
+        Text("这次跑步暂无训练效果数据").font(.footnote).foregroundStyle(RAITheme.secondary)
       }
       if let zones, !zones.secondaryStimulusTypes.isEmpty {
-        Text("次要刺激：\(zones.secondaryStimulusTypes.map(stimulusName).joined(separator: "、"))")
+        Text("次要效果：\(zones.secondaryStimulusTypes.map(stimulusName).joined(separator: "、"))")
           .font(.caption).foregroundStyle(RAITheme.secondary)
       }
       ForEach(scores) { score in
         WorkoutStatLine(label: stimulusName(score.stimulusType), value: "\(percent(score.score)) · \(ProductFormat.duration(score.qualifyingSeconds))",
-                        fraction: score.score, note: "可信 \(percent(score.confidence))")
+                        fraction: score.score, note: "可信度 \(percent(score.confidence))")
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("workout.training-effect")
@@ -348,7 +353,7 @@ struct WorkoutDetail: View {
     if let series, !series.segments.isEmpty {
       VStack(alignment: .leading, spacing: 12) {
         HStack {
-          Text(segmentHeading(series)).font(.subheadline.weight(.semibold))
+          Text(segmentHeading(series)).font(.headline)
           Spacer(); Text("\(series.segments.count) 段").font(.caption).foregroundStyle(RAITheme.secondary)
         }
         ForEach(series.segments) { segment in
@@ -371,22 +376,22 @@ struct WorkoutDetail: View {
         }
         if let plan = series.segmentPlan {
           DisclosureGroup("分段来源") {
-            Text("匹配 \(plan.localDate) 第 \(plan.revision) 版课表（\(sessionName(plan.kind))）· 可解释 \(percent(plan.explainedFraction))")
+            Text("按 \(plan.localDate) 的训练计划（\(sessionName(plan.kind))）分段 · 匹配度 \(percent(plan.explainedFraction))")
               .font(.caption).foregroundStyle(RAITheme.secondary)
             if !series.segmentNote.isEmpty { Text(series.segmentNote).font(.caption).foregroundStyle(RAITheme.secondary) }
           }.font(.caption).tint(RAITheme.blue)
         } else if !series.segmentNote.isEmpty {
           Text(series.segmentNote).font(.caption).foregroundStyle(RAITheme.secondary)
         }
-      }.padding(18).raiGlass().accessibilityIdentifier("workout.segments")
+      }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass().accessibilityIdentifier("workout.segments")
     } else {
       splitPanel(series)
     }
   }
 
   private func segmentHeading(_ series: WorkoutSeriesResponse) -> String {
-    if series.segmentPlan != nil { return "课表分段" }
-    return series.hasMeasuredWorkoutSteps ? "实测活动分段" : "手表事件分段"
+    if series.segmentPlan != nil { return "按计划分段" }
+    return series.hasMeasuredWorkoutSteps ? "手表训练分段" : "手表分段"
   }
 
   private func splitPanel(_ series: WorkoutSeriesResponse?) -> some View {
@@ -394,14 +399,14 @@ struct WorkoutDetail: View {
     let maxPace = max(splits.map(\.averagePaceSPerKm).max() ?? 1, 1)
     return VStack(alignment: .leading, spacing: 4) {
       HStack {
-        Text("公里分段").font(.subheadline.weight(.semibold))
+        Text("每公里").font(.headline)
         Spacer(); Text("\(splits.count) 段").font(.caption).foregroundStyle(RAITheme.secondary)
       }
       if let note = series?.segmentNote, !note.isEmpty {
         Text(note).font(.caption).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
       }
       if splits.isEmpty {
-        Text("没有分段数据：需要可用的速度序列与官方距离；配速样本尚未到达时不会生成。）")
+        Text("暂无分段：需要完整的配速和距离数据。")
           .font(.footnote).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
       } else {
         ForEach(splits) { split in
@@ -422,19 +427,19 @@ struct WorkoutDetail: View {
           }.padding(.vertical, 7).overlay(alignment: .bottom) { Rectangle().fill(RAITheme.primary.opacity(0.08)).frame(height: 1) }
         }
       }
-    }.padding(18).raiGlass().accessibilityIdentifier("workout.splits")
+    }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass().accessibilityIdentifier("workout.splits")
   }
 
   private func dynamicsPanel(_ dynamics: RunningDynamics) -> some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {
-        Text("跑姿动态").font(.subheadline.weight(.semibold))
-        Spacer(); Text(dynamics.policyVersion).font(.caption2).foregroundStyle(RAITheme.blue)
+        Text("跑姿").font(.headline)
+        Spacer()
       }
-      Text("同一次跑的前后半程对比，且只在配速可比的位置比较；来自手表估计，未经实验室校验。")
+      Text("对比前后半程在相同配速下的跑姿变化，数据来自手表估计。")
         .font(.caption).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
       if !dynamics.analysable {
-        Text(dynamics.note.isEmpty ? "这次训练没有可用的跑姿动态样本" : dynamics.note)
+        Text(dynamics.note.isEmpty ? "这次跑步没有跑姿数据" : dynamics.note)
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       } else {
         LazyVGrid(columns: [GridItem(.flexible(), alignment: .leading), GridItem(.flexible(), alignment: .leading)], alignment: .leading, spacing: 12) {
@@ -443,7 +448,7 @@ struct WorkoutDetail: View {
               Text(metric.label).font(.caption).foregroundStyle(RAITheme.secondary)
               Text(dynamicsAverage(metric)).font(.subheadline.weight(.semibold)).monospacedDigit()
               Text(dynamicsDrift(metric)).font(.caption2).foregroundStyle(RAITheme.secondary)
-              Text("覆盖 \(percent(metric.coverage)) · \(metric.samples) 样本").font(.caption2).foregroundStyle(RAITheme.secondary)
+              Text("覆盖 \(percent(metric.coverage))").font(.caption2).foregroundStyle(RAITheme.secondary)
               if !metric.reasonCodes.isEmpty {
                 Text(metric.reasonCodes.map(dynamicsReason).joined(separator: "；"))
                   .font(.caption2).foregroundStyle(RAITheme.amber).fixedSize(horizontal: false, vertical: true)
@@ -452,7 +457,7 @@ struct WorkoutDetail: View {
           }
         }
         ForEach(dynamics.flags) { flag in
-          Text("\(flag.detail)（同配速样本 \(flag.comparableSamples) 个）")
+          Text(flag.detail)
             .font(.caption).foregroundStyle(RAITheme.amber).fixedSize(horizontal: false, vertical: true)
         }
         if !dynamics.note.isEmpty { Text(dynamics.note).font(.caption2).foregroundStyle(RAITheme.secondary) }
@@ -465,7 +470,7 @@ struct WorkoutDetail: View {
     return "\(num(average, digits: metric.unit == "spm" ? 0 : 1)) \(metric.unit)"
   }
   private func dynamicsDrift(_ metric: RunningDynamicsMetric) -> String {
-    guard let drift = metric.driftFraction else { return "无同配速对比" }
+    guard let drift = metric.driftFraction else { return "无法对比前后半程" }
     let sign = drift > 0 ? "+" : ""
     return "后半程 \(sign)\(num(drift * 100, digits: 1))%"
   }
@@ -474,30 +479,32 @@ struct WorkoutDetail: View {
     let pending = detail.workout.analysisStatus != "published"
     return VStack(alignment: .leading, spacing: 10) {
       HStack {
-        Text("质量与模型").font(.subheadline.weight(.semibold))
+        Text("数据质量").font(.headline)
         Spacer()
-        Text(pending ? "分析中" : detail.workout.modelVersion).font(.caption).foregroundStyle(RAITheme.blue)
+        if pending { RAITag(text: "分析中", color: RAITheme.blue) }
+        else if developerOptions { Text(detail.workout.modelVersion).font(.caption2).foregroundStyle(RAITheme.secondary) }
       }
       if pending {
-        Text("评分、可信度与质量指标会在分析发布后自动填充；现在的空值不代表 0 分。")
+        Text("分析完成后显示。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       } else {
         HStack(spacing: 8) {
           qualityTile("心率覆盖", percent(detail.workout.heartRateCoverage))
-          qualityTile("来源可信度", percent(detail.workout.sourceConfidence))
-          qualityTile("刺激可信度", percent(detail.workout.stimulusConfidence))
+          qualityTile("数据可信度", percent(detail.workout.sourceConfidence))
+          qualityTile("效果可信度", percent(detail.workout.stimulusConfidence))
         }
         HStack(spacing: 14) {
-          captionMetric("评估状态", sessionName(detail.workout.assessmentStatus))
+          captionMetric("分析状态", assessmentName(detail.workout.assessmentStatus))
           captionMetric("心率样本", "\(detail.workout.heartRateSampleCount)")
           captionMetric("路线质量", percent(detail.workout.routeQuality))
         }
         if !detail.workout.missingReasons.isEmpty {
-          Text("数据不足：\(detail.workout.missingReasons.joined(separator: "、"))")
+          Text("部分数据缺失，以上结果的可信度会降低。")
             .font(.footnote).foregroundStyle(RAITheme.amber)
         }
-        if !detail.workout.explanationCodes.isEmpty {
-          Text(detail.workout.explanationCodes.joined(separator: " · ")).font(.caption2).foregroundStyle(RAITheme.secondary)
+        if developerOptions {
+          Text((detail.workout.missingReasons + detail.workout.explanationCodes).joined(separator: " · "))
+            .font(.caption2).foregroundStyle(RAITheme.secondary)
         }
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass().accessibilityIdentifier("workout.quality")
@@ -506,14 +513,14 @@ struct WorkoutDetail: View {
   private func overridePanel(_ override: WorkoutOverride) -> some View {
     VStack(alignment: .leading, spacing: 7) {
       HStack {
-        Text("人工覆盖").font(.subheadline.weight(.semibold))
-        Spacer(); Text("v\(override.revision)").font(.caption).foregroundStyle(RAITheme.blue)
+        Text("手动标注").font(.headline)
+        Spacer()
       }
       if let value = override.eligibilityOverride { Text("纳入状态：\(value)") }
       if let value = override.statisticsParticipation { Text("统计参与：\(value)") }
       if let value = override.sessionType { Text("训练类型：\(sessionName(value))") }
-      if let value = override.performanceProtocol { Text("表现协议：\(value)") }
-      if let rpe = override.rpe { Text("训练感受：自感用力 \(Int(rpe))（原始值 \(Int(rpe))）") }
+      if let value = override.performanceProtocol { Text("测试类型：\(value)") }
+      if let rpe = override.rpe { Text("训练感受：自感用力 \(Int(rpe))") }
       if !override.conditionTags.isEmpty { Text("状态标签：\(override.conditionTags.joined(separator: "、"))") }
       if let note = override.note, !note.isEmpty { Text(note) }
     }.font(.footnote).foregroundStyle(RAITheme.secondary)
@@ -584,15 +591,21 @@ func percent(_ value: Double?) -> String {
 func sessionName(_ type: String) -> String {
   [
     "REST": "休息", "EASY": "基础跑", "LONG": "长距离", "TEMPO": "节奏跑", "INTERVAL": "间歇",
-    "RECOVERY": "恢复跑", "RACE": "比赛", "RUN": "跑步", "published": "已发布", "pending": "分析中", "failed": "分析失败",
-  ][type] ?? (type.isEmpty ? "未分类" : type)
+    "RECOVERY": "恢复跑", "RACE": "比赛", "RUN": "跑步", "published": "已完成", "pending": "分析中", "failed": "分析失败",
+  ][type] ?? "跑步"
+}
+func assessmentName(_ status: String) -> String {
+  [
+    "published": "已完成", "pending": "分析中", "failed": "失败", "assessed": "已完成",
+    "limited": "数据有限", "insufficient": "数据不足", "excluded": "未纳入",
+  ][status] ?? (status.isEmpty ? "--" : "已完成")
 }
 func stimulusName(_ type: String) -> String {
   [
     "recovery": "恢复", "aerobic_base": "有氧基础", "aerobic_power": "有氧动力",
     "lactate_threshold": "乳酸阈值", "vo2max": "最大摄氧", "anaerobic": "无氧耐力",
     "anaerobic_endurance": "无氧耐力", "sprint": "冲刺", "unclassified": "未分类",
-  ][type] ?? (type.isEmpty ? "未分类" : type)
+  ][type] ?? "未分类"
 }
 func weatherName(_ code: Int?) -> String {
   guard let code else { return "未记录" }
@@ -603,23 +616,23 @@ func weatherName(_ code: Int?) -> String {
   }
 }
 func environmentStatus(_ status: String) -> String {
-  ["applied": "已应用", "not_needed": "无需修正", "unavailable": "不可用", "pending": "等待分析发布"][status] ?? status
+  ["applied": "已应用", "not_needed": "无需修正", "unavailable": "不可用", "pending": "等待分析完成"][status] ?? "不可用"
 }
 func environmentReason(_ code: String) -> String {
   [
     "temperature_missing": "温度未记录", "humidity_missing": "湿度未记录",
-    "elevation_missing": "缺少爬升数据", "reference_conditions": "参照条件", "analysis_pending": "等待分析发布",
+    "elevation_missing": "缺少爬升数据", "reference_conditions": "接近标准条件", "analysis_pending": "等待分析完成",
     "heat_humidity_adjustment": "热湿修正", "elevation_adjustment": "爬升修正",
-  ][code] ?? code
+  ][code] ?? "其他因素"
 }
 func dynamicsReason(_ code: String) -> String {
-  ["no_comparable_pace_samples": "没有同配速可比样本"][code] ?? code
+  ["no_comparable_pace_samples": "前后半程没有相同配速的片段"][code] ?? "数据不足"
 }
 func loadSourceName(_ source: String) -> String {
-  if source.hasPrefix("training_load.trimp") { return "心率 TRIMP" }
-  if source.hasPrefix("planned_effort_fallback") { return "计划目标强度估算" }
-  if source.hasPrefix("session_type_fallback") { return "课型回退" }
-  return source
+  if source.hasPrefix("training_load.trimp") { return "按心率计算" }
+  if source.hasPrefix("planned_effort_fallback") { return "按计划强度估算" }
+  if source.hasPrefix("session_type_fallback") { return "按训练类型估算" }
+  return "其他"
 }
 
 // MARK: - freshness
@@ -630,14 +643,14 @@ enum DetailFreshnessBanner {
   }
   static func make(detail: WorkoutDetailResponse, freshness: WorkoutFreshness?) -> Banner? {
     if freshness?.analysisState == "failed" || detail.workout.analysisStatus == "failed" {
-      return Banner(title: "分析失败", detail: "原始训练事实仍可查看；派生评分不会用 0 代替。请稍后重试分析。", icon: "exclamationmark.circle", color: RAITheme.amber)
+      return Banner(title: "分析失败", detail: "跑步记录本身完好，但分析结果暂时没有生成，可稍后下拉刷新。", icon: "exclamationmark.circle", color: RAITheme.amber)
     }
     if detail.workout.analysisStatus != "published" {
-      return Banner(title: "分析中", detail: "训练事实已保存，评分、等强配速与质量指标会在分析发布后自动填充。", icon: "hourglass", color: RAITheme.blue)
+      return Banner(title: "分析中", detail: "记录已保存，分析完成后会自动补全评分和配速分析，通常需要 1–2 分钟。", icon: "hourglass", color: RAITheme.blue)
     }
     let missing = (freshness?.series ?? []).filter { $0.state == "not_seen_yet" }.map(\.metric)
     if !missing.isEmpty {
-      return Banner(title: "数据仍在补齐", detail: "部分指标尚未观察到：\(missing.map(metricName).joined(separator: "、"))。服务端仍在等待后续样本。", icon: "clock.arrow.circlepath", color: RAITheme.blue)
+      return Banner(title: "数据仍在补齐", detail: "这些数据还没从手表传过来：\(missing.map(metricName).joined(separator: "、"))。稍后会自动补上。", icon: "clock.arrow.circlepath", color: RAITheme.blue)
     }
     return nil
   }
@@ -741,7 +754,7 @@ struct WorkoutSeriesChart: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack {
-        Text(metric.title).font(.subheadline.weight(.semibold))
+        Text(metric.title).font(.headline)
         Spacer()
         Text(metric == .elevation ? metric.unit : "平均 \(display(average))").font(.caption).foregroundStyle(accent)
       }
@@ -753,7 +766,7 @@ struct WorkoutSeriesChart: View {
         }.font(.caption.monospacedDigit()).foregroundStyle(RAITheme.secondary)
       }
       if series.points.isEmpty {
-        Text(average == nil ? emptyNote : "仅有手表汇总值，暂无逐点时序样本。")
+        Text(average == nil ? emptyNote : "只有平均值，没有变化曲线。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
           .frame(maxWidth: .infinity, minHeight: 64).fixedSize(horizontal: false, vertical: true)
       } else {
@@ -829,7 +842,7 @@ struct WorkoutZoneCard: View {
         Spacer()
       }
       if unavailable {
-        Text("暂无阈值配速，配速区间不可用").font(.caption2).foregroundStyle(RAITheme.secondary)
+        Text("还没有阈值配速，暂无配速区间").font(.caption2).foregroundStyle(RAITheme.secondary)
       } else {
         ForEach(exposure) { zone in
           if zone.durationSeconds > 0 {
@@ -842,10 +855,10 @@ struct WorkoutZoneCard: View {
     }.padding(.horizontal, 4).accessibilityIdentifier("workout.zones.\(isHeartRate ? "heartRate" : "pace")")
   }
   private func heartRateZoneName(_ zone: String) -> String {
-    ["recovery": "恢复区", "aerobic_base": "有氧基础", "aerobic_power": "有氧动力", "lactate_threshold": "乳酸阈值", "anaerobic": "无氧"][zone] ?? zone
+    ["recovery": "恢复区", "aerobic_base": "有氧基础", "aerobic_power": "有氧动力", "lactate_threshold": "乳酸阈值", "anaerobic": "无氧"][zone] ?? "其他"
   }
   private func paceZoneName(_ zone: String) -> String {
-    ["easy": "轻松区", "marathon": "马拉松区", "lactate_threshold": "阈值区", "anaerobic_endurance": "无氧耐力区", "sprint": "冲刺区"][zone] ?? zone
+    ["easy": "轻松区", "marathon": "马拉松区", "lactate_threshold": "阈值区", "anaerobic_endurance": "无氧耐力区", "sprint": "冲刺区"][zone] ?? "其他"
   }
 }
 

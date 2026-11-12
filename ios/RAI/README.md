@@ -1,105 +1,80 @@
-> 2026-10-31: the app sync path is now one Workout → one `WorkoutBundle.json` → one multipart upload. The page/batch/association/series/route chunk text below is historical unless explicitly marked. See [Protocol 3 sync contract](../../contracts/sync-v3.md).
+# RAI iOS 客户端
 
-# RAI V2 P6 native iPhone product
+原生 SwiftUI iPhone App `RAI`（bundle `com.rai.v2.ios`，iOS 18+，Swift 6 完整并发检查）。只读 HealthKit，不写入、不删除健康数据。
+同步契约见 [`contracts/sync-v6.md`](../../contracts/sync-v6.md)，接口见 [`docs/API.md`](../../docs/API.md)，整体设计见 [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md)。
+所有开发与测试都在本机 Mac 执行，没有远端测试入口。
 
-2026-10-30 device acceptance ended at the user's request when the phone became unavailable. Actual Debug installation/launch, configuration save, partial real sample ingestion and one redacted running-Workout inspection succeeded. Final four-type authorization, patched Workout sync, full P3/P4/P5 loop and Metal/GPU acceptance remain **NOT COMPLETED / NOT VERIFIED**. Preserve the existing Keychain, outbox and persistent `rai-v2-device` database; see [current device result](../../docs/archive/V2_DEVICE_ACCEPTANCE_RESULT_2026-10-30.md). Debug diagnostics can inspect the latest running Workout without advancing anchors; the report contains structure/counts/durations/fingerprints, never measurement values, coordinates or full UUIDs.
+## 目录
 
-Native SwiftUI iPhone target `RAI`, bundle `com.rai.v2.ios`, iOS 18+, Swift 6 with complete concurrency checks. Five native tabs integrate published analysis, effective training, overrides, frozen execution and feedback. Sync diagnostics remain under Profile. See `../../docs/archive/P6_IOS_PRODUCT_CONTRACT.md` and `../../docs/archive/V2_PHASE6_RESULT.md` for actual verification and remaining gates. The frozen layout is `ios/RAI`, as specified in `docs/V2_PHASE0_BASELINE.md`.
+| 路径 | 内容 |
+| --- | --- |
+| `App/` | App target：五个 Tab（首页、运动、训练、统计、我的）、HealthKit 读取、后台上传 |
+| `Sources/SyncCore` | 同步核心：Workout protocol-6 打包、gzip multipart、outbox/上传日志、日常健康与 VO2 |
+| `Sources/ProductCore` | 产品数据层：API 解码、统计、训练负荷、跑步能力等展示逻辑（无本地分析算法） |
+| `Sources/RAICompression` | gzip 的 C 封装 |
+| `Tests/` | SwiftPM 测试（Swift Testing），`swift test` 运行 |
+| `AppTests/` | App 内 XCTest（需模拟器），含 HealthKit 合成数据转换与实时上传套件 |
+| `UITests/` | XCUITest，见下文“UI 测试” |
+| `Tools/CompareSnapshots.swift` | 比较两组同尺寸 PNG 截图（变化像素 ≤10%，通道均方误差 ≤12/255），不会自动更新基线 |
 
-## Build and tests
+## 构建与测试
 
-Open `RAI.xcodeproj` in Xcode. The checked-in project is sufficient; after changing `project.yml`, regenerate from this directory using `xcodegen generate`. XcodeGen 2.46 has a [nested capability serialization bug](https://github.com/yonaskolb/XcodeGen/issues/1637); the narrow post-generation hook fixes and validates the HealthKit dictionary without upgrading dependencies.
-
-```bash
-swift test
-xcodebuild -project RAI.xcodeproj -scheme RAI -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
-# Select an available simulator UUID with xcrun simctl list devices.
-xcodebuild -project RAI.xcodeproj -scheme RAI -destination 'platform=iOS Simulator,id=<SIMULATOR_UUID>' test
-```
-
-A new file under `AppTests/` is not picked up by the checked-in project on its own: `project.yml` declares the
-directory (`sources: [AppTests]`), so `xcodegen generate` reproduces the registration, but until the project is
-regenerated the file must be registered in `project.pbxproj` by hand (a `PBXBuildFile`, a `PBXFileReference`, the
-`AppTests` group entry and the `RAITests` Sources phase entry). `AppTests/WorkoutUploadLiveTests.swift` was added
-that way; after any regeneration, confirm it is still in the `RAITests` target's Sources phase, otherwise the live
-upload suite silently disappears.
-
-`swift test` runs the Swift Testing suites, including 108 Go-generated route vectors. Its initial XCTest discovery may print zero; the final Swift Testing test count is the relevant result. The Xcode tests exercise synthetic HealthKit quantity conversions on a simulator. An unsigned iPhone build does not prove signing, installation or real-device operation.
-
-For signing, copy `Config/Developer.xcconfig.example` to the ignored `Config/Developer.xcconfig`, supply an Apple Development Team, then build for a connected, unlocked, trusted iPhone. The HealthKit entitlement is read only; there is no HealthKit save/delete call or write authorization request.
-
-## Simulated-cloud upload acceptance
-
-`scripts/local/sim-upload.sh start|status|run|stop|all` runs the real App upload code inside a local Simulator
-against a local Go API and an isolated PostgreSQL 18 database (`scripts/local/test.sh simupload` does
-`all` and stops the stack afterwards; add `--drop` to remove the database and credential). Only synthetic
-Workouts are uploaded: the Simulator has no HealthKit data and `simctl` has no health service, so the suite
-supplies an in-process synthetic HealthKit reader and exercises everything else for real — protocol-6
-building, gzip multipart, TCP, acceptance, projection and Worker analysis. This is not real-device or
-real-cloud acceptance.
-
-## Isolated development configuration
-
-Use the debug screen to save the API origin, collector epoch and device bearer token to Keychain (`AfterFirstUnlockThisDeviceOnly`). The handshake binds the service/dataset/epoch/collector identity to local state; changing it is rejected. Do not use the existing fnOS `rai` database for acceptance. Credentials are never logged or committed.
-
-HTTPS is required in Release. Debug permits HTTP only for the exact host configured by `RAI_DEV_HTTP_HOST` (default `rai-dev.local`) and its scoped ATS exception. No global arbitrary-load exception is used. Provide a resolvable development hostname or TLS endpoint before a real-device run; personal IPs are not in source.
-
-## Durable state and boundaries
-
-- `HealthKitClient` implements a small mockable `HealthKitReading` boundary, using Apple's anchored-query async descriptor. Global Workout/sample streams are unfiltered and retain their delivered anchor across launches. Query limits are 25 Workouts or 250 quantity changes; each foreground pass is bounded. Cadence is not fabricated: this SDK has no direct running-cadence quantity type. Running speed/power are read where available.
-- Read authorization is requested for Workout/routes and ten quantity types: heart rate, walking/running distance, active and basal energy, running speed/power, step count, ground-contact time, stride length and vertical oscillation. The four added types (basal energy and the three running dynamics) require a fresh read-authorization request on an existing install; the prior six stream identities/anchors stay unchanged. The UI reports that access was requested, because [HealthKit does not reveal read authorization status](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data).
-- HealthKit anchors stay in protected, backup-excluded Application Support files. Immutable gzip payloads precede the atomic `state.json` replacement. A pending page owns its candidate anchor. Each validated batch ACK advances its sequence; the validated sealed page receipt and manifest are required before the delivered anchor advances.
-- Workout/sample deletion is a normal immutable stream event. Local tombstones prevent cached replay. Source-deleted parents cancel obsolete local relationship work without synthesizing server receipts or advancing the relationship anchor.
-- Workout body is immutable. Allowed nil-to-value total/allowlisted metadata additions use versioned enrichment. Unsupported statistics or incompatible source changes stop the affected stream with a retained anchor and an inspectable error; other fact streams continue. No source data is silently converted to a normal value.
-- Multi-point quantity samples use the frozen series protocol. Oversized Workouts use the existing detail-package protocol; unsupported single-detail bounds stop safely. Workout/sample facts are prioritized ahead of dependent routes and associations.
-- Associations use HealthKit's actual Workout relationship predicate and per-Workout/type local anchors. Missing parents retain their original request; a new durable fact generation wakes a waiting association. Conflicting bindings remain blocked for inspection.
-- Routes use a per-Workout local anchored query, a bounded 1,000-point spool, immutable gzip files, exact Go canonical floating-point representation, both SHA-256 chains, manifest registration, chunk ACK validation and seal. The 5,000-point limit is a protocol limit. Source order and missing measurements are preserved.
-- The stable background URLSession uploads files, reconnects tasks by page/cursor and persists responses before processing them. Cancelling a foreground wait leaves the system upload alive. Background completion drains saved work without reading HealthKit. A user force-quit requires reopening the App; [iOS does not automatically relaunch force-quit Apps for background transfers](https://developer.apple.com/documentation/foundation/urlsessionconfiguration/background(withidentifier:)). Correctness does not depend on BGProcessingTask, which is not added in this phase.
-- Retryable transport/408/429/5xx errors keep the same identities and files, with exponential backoff capped at 60 seconds and Retry-After respected. Protocol, identity, authorization and receipt conflicts stop automatic retry. `Retry Saved Work` explicitly retries retained work after inspection.
-- Statistics logs contain only counts, byte sizes, retries and timings: HealthKit read, normalization, encode, gzip, network, batch ACK, route read/chunk/seal. `route_upload_ms` is total wall time from durable staging through seal, including queue wait, suspension and retries; per-chunk network time is separate. DB commit timing is not inferred from network time. No payload, GPS, heart-rate series or credentials are logged.
-
-After all operations and the page seal are validated, the delivered anchor and GC markers are persisted in the same state update. Completed payload/transfer files and local receipt caches may then be reclaimed; the delivered anchor remains durable. Pending and unfinished work retains its identities and recovery state. GC rechecks pending references and processes a bounded marked queue (128 by default, at most 512); unknown orphans and older unmarked caches are retained rather than swept indiscriminately. Original exact-replay payloads and receipts are therefore not guaranteed to remain forever. Storage growth and real-device memory/latency still need measurement before accepting long-term operation.
-
-## Synthetic fnOS checks
-
-From the repository root:
+在仓库根目录用本机脚本（会设置 Xcode 与 Go 环境）：
 
 ```bash
-RAI_TEST_GOPROXY=https://goproxy.cn,direct bash scripts/test-remote.sh bash ../../scripts/check-p35-server.sh
-RAI_TEST_GOPROXY=https://goproxy.cn,direct bash scripts/test-remote.sh bash ../../scripts/test-p3-e2e.sh
-RAI_TEST_GOPROXY=https://goproxy.cn,direct bash scripts/test-remote.sh bash ../../scripts/p35-route-vectors.sh
+scripts/local/test.sh swift          # SwiftPM 单测，可加 --filter
+scripts/local/test.sh simulator      # RAITests（AppTests）合成数据 XCTest，专用本机模拟器
+scripts/local/test.sh simupload      # 模拟器内真实 App 上传代码 → 本机 Go API + 隔离 PG18
 ```
 
-The Swift probe uses the same SyncCore but is a macOS command-line **test harness**, not a desktop client. Start its disposable fnOS API through `test-remote.sh bash ../../scripts/p35-client-host.sh`, redirecting output to a private log. Wait for `P35_CLIENT_READY`, then build `swift build --product SyncProbe` here and run `python3 ../../scripts/test-p35-client.py <host-log>`. The driver obtains a temporary device token privately, opens a loopback SSH tunnel, kills two synthetic macOS processes with SIGKILL and resumes the saved outbox. Host-side SQL checks exact fact/chunk/page counts and durable jobs, then the API and temporary PostgreSQL container are removed. No Worker is started. This is not iPhone E2E.
-
-## Historical physical-device gate before 2026-10-30
-
-The user confirmed no physical iPhone is available for this run. Signing/install, actual read authorization, real Workout/sample/route reads, repeat incremental sync, foreground/background lifecycle, iPhone kill/network loss, server-commit response loss and API/PG restart recovery with that phone remain **NOT VERIFIED**. Real 20/45-minute records, GPS seal, latency and peak memory remain unmeasured. Delete tests must use disposable or mocked facts, never delete private HealthKit records for acceptance.
-
-P3/P3.5 evidence remains historical. P3 REAL DEVICE ACCEPTANCE is DEFERRED / NOT VERIFIED. P6 is separately tracked in `docs/evidence/p6-ios-2026-10-28.json`; neither simulator nor macOS probes establish physical-device acceptance.
-
-## P6 synthetic product acceptance
-
-The product is SwiftUI + native TabView/Charts/Sheet, iOS26 glassEffect with iOS18 Material fallback. `ProductCore` reuses `RAIAPIClient` and keeps immutable product commands separate from HealthKit anchors. No Swift coach or analysis algorithm exists. WorkoutKit scheduling remains deferred.
-
-From the repository root, run the disposable host in one terminal and keep its log private:
+只编译（含 UI 测试 target）：
 
 ```bash
-RAI_TEST_GOPROXY=https://goproxy.cn,direct scripts/test-remote.sh bash ../../scripts/p6-client-host.sh > /tmp/rai-p6-host.log 2>&1
+xcodebuild build-for-testing -project ios/RAI/RAI.xcodeproj -scheme RAI \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
 ```
 
-In another terminal, after `P6_CLIENT_READY`:
+- `simupload` 只上传合成 Workout：模拟器没有 HealthKit 数据，由进程内合成 reader 代替；其余协议构建、gzip、TCP、接收、投影和 Worker 分析都是真实的。它不等于真机或真实云端验收。
+- 模拟器与未签名构建不能证明签名、安装、HealthKit 授权或真机后台上传。
+
+## Xcode 工程
+
+`RAI.xcodeproj` 已提交；`project.yml` 是 XcodeGen 描述，但本机未安装 xcodegen，**工程文件靠手工维护**：
+
+- 在 `App/` 新增或删除 `.swift` 文件，需要在 `project.pbxproj` 补/删四处（`PBXBuildFile`、`PBXFileReference`、`App` 组、`RAI` target 的 Sources 阶段），可对照 `RAIApp.swift`。
+- `AppTests/`、`UITests/` 同理，分别登记到 `RAITests`、`RAIUITests` 的 Sources 阶段。`WorkoutUploadLiveTests.swift` 若从 `RAITests` 里消失，实时上传套件会静默不再运行。
+- `Sources/`、`Tests/` 属于 SwiftPM 包，无需改工程。
+- 若将来重新用 XcodeGen 生成，`postGenCommand` 会调用 `scripts/fix-p35-capability.py` 修正 HealthKit capability 序列化。
+
+## 签名与服务器配置
+
+- 真机签名：把 `Config/Developer.xcconfig.example` 复制为被忽略的 `Config/Developer.xcconfig` 并填入 Apple Development Team。
+- 连接服务器：在 App「我的 → 服务器与健康授权」粘贴 `scripts/connect-link.py` 生成的 `rai://` 链接，或手动填写服务器地址、设备标识与访问令牌；凭证存 Keychain（`AfterFirstUnlockThisDeviceOnly`），握手绑定 service/dataset/epoch/collector，之后不可更改。
+- Release 必须 HTTPS。Debug 只对 `RAI_DEV_HTTP_HOST`（`Config/Debug.xcconfig`，默认 `rai-dev.local`）开放 HTTP，没有全局 ATS 豁免。仓库中不含个人 IP，凭证不入日志、不入库。
+
+## 同步要点
+
+- 一条跑步 = 一个 `WorkoutBundle` = 一次 multipart 上传，成功后由服务端回执确认；失败按原标识重试（指数退避，上限 60 秒，遵守 `Retry-After`）。新跑步结束约 1 分钟后自动上传，半小时后补传一次晚到数据。
+- 上传日志与 outbox 在本地持久化；同设备同时最多两路 Workout 与一路日常健康上传，额度以握手公告为准。
+- 日常健康（HRV、静息心率、睡眠）和外部 VO2 走 `daily-facts`、`vo2max-facts`，使用 HealthKit 锚点查询；删除（`deletedObjects`）照常上传，Workout 不做删除同步。
+- 读取授权覆盖 Workout、路线和运行相关量类型；HealthKit 不暴露读取授权状态，界面只显示“已请求”。
+- 统计日志只含计数、字节数、重试次数和耗时，不含负载、GPS、心率序列或凭证。
+
+## UI 测试（`UITests/ProductUITests.swift`）
+
+| 测试类 | 前置条件 | 状态 |
+| --- | --- | --- |
+| `SportStyleOfflineUITests` | 无需账号、后端或 HealthKit | 可独立运行，覆盖统计周期切换与分析页导航 |
+| `WorkoutSyncScreenUITests` | 同上 | 可独立运行，覆盖「我的 → 跑步记录同步」页 |
+| `ProductUITests` | 需要 `/tmp/rai-p6-native-acceptance/config-app.json` 与一个真实后端驱动（会改写计划、制造并发冲突、丢弃 ACK） | 驱动脚本 `scripts/archive/p6-client-host.sh` 依赖已退役的远端测试入口，**当前没有本机替代**，这组用例近期未实际运行 |
+| `ModelStackLiveUITests` | 需环境变量 `RAI_MODEL_E2E_CONFIG`、`RAI_MODEL_E2E_CONTROL`；当前没有活跃脚本提供这套环境（仅见于 `docs/archive/`） | 缺环境时自动跳过，未验证 |
+
+运行示例（`-parallel-testing-enabled NO`，选一个本机模拟器）：
 
 ```bash
-cd ios/RAI
-swift test
-swift build --product ProductProbe
-cd ../..
-python3 scripts/test-p6-client.py /tmp/rai-p6-host.log
+xcodebuild test -project ios/RAI/RAI.xcodeproj -scheme RAI \
+  -destination 'platform=iOS Simulator,id=<SIMULATOR_UUID>' \
+  -only-testing:RAIUITests/SportStyleOfflineUITests -parallel-testing-enabled NO RAI_DEV_HTTP_HOST=127.0.0.1
 ```
 
-The driver creates a private `/tmp/rai-p6-native-acceptance` configuration, opens a loopback SSH tunnel, submits synthetic P3 facts and verifies live P4/P5 state with the same Swift clients. It stays alive for serial simulator tests. Build/run the RAI scheme with `RAI_DEV_HTTP_HOST=127.0.0.1`, `CODE_SIGNING_ALLOWED=NO`, an explicit simulator destination and parallel testing disabled. UI tests require this actual host; no mock runtime fallback is allowed. Choose an isolated acceptance simulator. Screenshots and redacted reports are copied before creating `/tmp/rai-p6-native-acceptance/done`, which ends the driver, removes private credentials, and tears down remote API/Worker/PG.
-
-`Tools/CompareSnapshots.swift <baseline-dir> <candidate-dir>` compares five actual PNG screenshots with equal dimensions, a 10% changed-pixel allowance and mean channel error ≤12/255. It never updates a baseline automatically. Compare the same OS/model/text size; review synthetic date/value differences. Baselines must come from a verified UI run, not the design image.
-
-Formal server regression: `RAI_TEST_GOPROXY=https://goproxy.cn,direct scripts/test-remote.sh bash ../../scripts/check-p6.sh`; Compose P3/P4/P5 regression remains `scripts/test-remote.sh bash ../../scripts/test-p5-compose.sh`. These are disposable synthetic environments, not production deployment.
+`scripts/local/test.sh simulator` 只跑 `RAITests`，不含 UI 测试。UI 测试里的定位全部使用 `accessibilityIdentifier`；改界面时同步这些标识，避免只靠中文文案断言。

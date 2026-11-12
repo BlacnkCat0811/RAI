@@ -28,45 +28,45 @@ enum UserFacingText {
     }
     return [
       // Retry later
-      "connection_unavailable": "无法连接私有服务，稍后重试",
+      "connection_unavailable": "无法连接服务器，稍后重试",
       "device_rate_exceeded": "同步请求过多，稍后自动继续",
       "device_upload_capacity_exceeded": "服务繁忙，稍后会自动重试",
       "dataset_rate_exceeded": "同步请求过多，稍后自动继续",
-      "workout_ingest_backlog_exceeded": "服务端待处理记录较多，稍后重试",
+      "workout_ingest_backlog_exceeded": "服务器待处理记录较多，稍后重试",
       "request_retry_limit": "请求重试次数已用尽，稍后重试",
       "interrupted": "上传已中断，可再次同步",
       "sync_already_running": "已有同步任务在进行",
       "analysis_not_ready": "分析尚未就绪",
       // Needs an action
-      "configure_development_api_first": "请先连接私有服务",
+      "configure_development_api_first": "请先连接服务器",
       "authentication_required": "访问令牌已失效，请重新连接服务器",
       "dataset_retired": "此同步空间已停用，请使用新的连接链接",
-      "session_not_active": "此会话尚未启用或已经归档",
-      "session_handshake_mismatch": "凭证与服务身份不匹配，连接未保存",
-      "session_identity_conflict": "凭证与已保存的会话不一致，原会话已保留",
+      "session_not_active": "当前连接尚未启用或已停用",
+      "session_handshake_mismatch": "凭证与服务器不匹配，连接未保存",
+      "session_identity_conflict": "凭证与已保存的连接不一致，原连接已保留",
       "session_switch_busy": "请等待当前同步结束后再切换服务器",
-      "invalid_api_origin": "服务地址无效",
-      "invalid_collector_epoch": "采集器周期标识无效",
-      "missing_device_token": "缺少设备访问令牌",
-      "https_required": "服务地址必须使用加密连接",
-      "unsupported_handshake": "服务协议不兼容，请更新应用或服务",
-      "unsupported_protocol": "服务协议版本不兼容，请更新应用",
+      "invalid_api_origin": "服务器地址无效",
+      "invalid_collector_epoch": "设备标识无效",
+      "missing_device_token": "缺少访问令牌",
+      "https_required": "服务器地址必须以 https:// 开头",
+      "unsupported_handshake": "App 与服务器版本不兼容，请更新",
+      "unsupported_protocol": "App 与服务器版本不兼容，请更新 App",
       "healthkit_unavailable": "设备不支持健康数据",
       "healthkit_read_failed": "健康数据读取失败，请检查授权",
-      "workout_not_visible": "HealthKit 中找不到这条跑步记录",
+      "workout_not_visible": "健康 App 中找不到这条跑步记录",
       "source_policy_excluded": "这条记录不是 Apple Watch 原生跑步，不会上传",
       "source_policy_pending": "来源尚未确认，暂不上传",
-      "workout_deleted": "这条跑步记录已从 HealthKit 删除",
+      "workout_deleted": "这条跑步记录已从健康 App 删除",
       "bundle_too_large": "这条记录的数据量超过安全上限",
-      "workout_ingest_rejected": "服务端未能解析这条记录，可重新上传",
-      "workout_identity_conflict": "服务端已有这条跑步的不同内容",
-      "sample_identity_conflict": "服务端已有这条跑步的不同样本",
+      "workout_ingest_rejected": "服务器未能解析这条记录，可重新上传",
+      "workout_identity_conflict": "服务器已有这条跑步的不同内容",
+      "sample_identity_conflict": "服务器已有这条跑步的不同数据",
       "route_read_incomplete": "路线读取未完成，本条记录未上传",
       "invalid_time_range": "记录时间范围无效，本条记录未上传",
-      "receipt_mismatch": "服务返回结果与请求不一致",
-      "invalid_response": "服务返回结果异常",
+      "receipt_mismatch": "服务器返回结果异常，请重试",
+      "invalid_response": "服务器返回结果异常",
       "invalid_training_override": "训练调整无效",
-      "resolve_pending_command_first": "请先处理待确认的提交",
+      "resolve_pending_command_first": "请先重新提交上一次修改",
       "training_not_found": "未找到训练计划",
     ][code] ?? "操作未完成，请稍后重试"
   }
@@ -74,7 +74,7 @@ enum UserFacingText {
   static func syncFailure(_ failure: SyncFailure) -> String {
     switch failure {
     case .invalid(let code), .localState(let code): return error(code)
-    case .receiptMismatch: return "服务返回结果与请求不一致"
+    case .receiptMismatch: return "服务器返回结果异常，请重试"
     }
   }
 
@@ -124,7 +124,7 @@ final class ProductModel {
     defer { if statisticsRequests.accepts(request) { statisticsLoading = false } }
     await configure()
     guard let api else {
-      if statisticsRequests.accepts(request) { statisticsError = "请先在「我的」连接私有服务。" }
+      if statisticsRequests.accepts(request) { statisticsError = "请先连接服务器。" }
       return
     }
     do {
@@ -173,7 +173,9 @@ final class ProductModel {
         }
       #endif
       guard let secret = try ClientConfiguration.load() else {
-        error = "请在「我的 → 同步与诊断」配置私有服务。"
+        // Not connected yet is the first-run state, not a fault: the home
+        // setup card explains what to do.
+        error = nil
         return
       }
       let client = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token)
@@ -197,7 +199,7 @@ final class ProductModel {
       }
     } catch let failure as UploadError {
       log.error("product_bootstrap_transport=\(failure.code, privacy: .public)")
-      error = "服务暂不可用：\(UserFacingText.error(failure.code))。请在同步与诊断中检查连接。"
+      error = "暂时连不上服务器：\(UserFacingText.error(failure.code))。"
     } catch let failure as SyncFailure {
       let code: String
       switch failure {
@@ -205,10 +207,10 @@ final class ProductModel {
       case .receiptMismatch: code = "receipt_mismatch"
       }
       log.error("product_bootstrap_failure=\(code, privacy: .public)")
-      error = "产品配置暂不可用：\(UserFacingText.error(code))。原文件已保留。"
+      error = "本地数据读取失败：\(UserFacingText.error(code))。"
     } catch {
       log.error("product_bootstrap_local_code=\((error as NSError).code, privacy: .public)")
-      self.error = "服务连接或本地命令恢复失败；原文件已保留。"
+      self.error = "暂时连不上服务器，可稍后下拉重试。"
     }
   }
   func reconnect() async {
@@ -261,7 +263,7 @@ final class ProductModel {
   /// Submits one user-entered model input. The server assigns receipt time and
   /// known-at; the app never edits or deletes an accepted input locally.
   func submitModelInput(kind: String, payload: [String: JSON], effectiveFrom: Date) async -> String? {
-    guard let journal else { return "请先在「我的 → 同步与诊断」配置私有服务。" }
+    guard let journal else { return "请先连接服务器。" }
     let formatter = ISO8601DateFormatter()
     let body = JSON.object([
       "id": .string(UUID().uuidString.lowercased()),
@@ -287,11 +289,11 @@ final class ProductModel {
     } catch let failure as SyncFailure {
       return UserFacingText.syncFailure(failure)
     } catch {
-      return "保存前无法记录提交身份，请稍后重试。"
+      return "保存失败，请稍后重试。"
     }
   }
   func retryModelInput() async -> String? {
-    guard let api, let journal, let command = pendingModelInput else { return "没有待确认的个人输入。" }
+    guard let api, let journal, let command = pendingModelInput else { return "没有需要重新提交的内容。" }
     do {
       let receipt = try await api.sendModelInput(path: command.path, body: command.body)
       guard receipt.string("inputID") == command.body.string("id"),
@@ -306,7 +308,7 @@ final class ProductModel {
       }
       return "保存失败：" + UserFacingText.error(failure.code)
     } catch {
-      return "提交结果待确认，重试会使用原提交身份。"
+      return "没有收到服务器的确认，请重试；不会重复保存。"
     }
   }
   /// Apple VO₂ sources of the last year, one per device/app.
@@ -392,7 +394,7 @@ final class ProductModel {
           "athlete diagnostics assignment mismatch: %{public}@ vs %{public}@", type: .error,
           String(describing: response.assignment), String(describing: assignment))
         diagnostics = nil
-        diagnosticsError = "模型栈已切换，请刷新。"
+        diagnosticsError = "模型已更新，请下拉刷新。"
         return
       }
       diagnostics = response
@@ -400,11 +402,11 @@ final class ProductModel {
     } catch let failure as UploadError where failure.status == 409 {
       os_log("athlete diagnostics not activated: %{public}@", type: .error, failure.code)
       diagnostics = nil
-      diagnosticsError = "研究诊断尚未激活。"
+      diagnosticsError = "暂无进阶指标。"
     } catch {
       os_log("athlete diagnostics unavailable: %{public}@", type: .error, String(describing: error))
       diagnostics = nil
-      diagnosticsError = "研究诊断暂不可用，可下拉重试。"
+      diagnosticsError = "进阶指标暂不可用，可下拉重试。"
     }
   }
   func loadMore() async {
@@ -434,7 +436,7 @@ final class ProductModel {
   private var detailCache: [String: (detail: WorkoutDetailResponse, series: WorkoutSeriesResponse?, freshness: WorkoutFreshness?)] = [:]
   func loadWorkoutDetail(_ id: String) async {
     guard let api else {
-      workoutDetailError = "请先配置私有服务。"
+      workoutDetailError = "请先连接服务器。"
       return
     }
     if workoutDetail?.workout.workoutID != id {
@@ -460,9 +462,9 @@ final class ProductModel {
       if let value = try? freshness.get() { workoutFreshness = value }
       detailCache[id] = (detail, workoutSeries, workoutFreshness)
     } catch let failure as UploadError {
-      workoutDetailError = "训练详情暂不可用：\(UserFacingText.error(failure.code))"
+      workoutDetailError = "跑步详情暂不可用：\(UserFacingText.error(failure.code))"
     } catch {
-      workoutDetailError = "训练详情暂不可用，请稍后重试。"
+      workoutDetailError = "跑步详情暂不可用，请稍后重试。"
     }
   }
   private nonisolated static func capture<T: Sendable>(_ body: @Sendable () async throws -> T) async -> Result<T, any Error> {
@@ -528,7 +530,7 @@ final class ProductModel {
     guard !loading else { return false }
     let command: ProductCommand
     do { command = try proposed.resolvingPending(pending) } catch {
-      self.error = "上一次修改结果尚未确认。当前草稿已保留，请先重试原操作或确认服务器状态。"
+      self.error = "上一次修改还没保存成功，请先重新提交。"
       return false
     }
     loading = true
@@ -571,14 +573,14 @@ final class ProductModel {
           try await journal.discardRejected()
           pending = nil
         } catch {
-          self.error = "被拒绝的请求仍保留，请重新打开后检查。"
+          self.error = "修改未被接受，请重新打开 App 后再试。"
           return false
         }
-        error = "训练处方未被接受：\(UserFacingText.error(e.code))。请修改草稿后重试。"
+        error = "修改未被接受：\(UserFacingText.error(e.code))。请调整后重试。"
       } else {
-        error = conflict ? "训练计划已更新。草稿已保留，请查看最新计划后再次确认。" : "提交结果尚未确认：\(UserFacingText.error(e.code))。请重试原命令。"
+        error = conflict ? "训练计划已更新。草稿已保留，请查看最新计划后再次确认。" : "没有收到服务器的确认：\(UserFacingText.error(e.code))。请重试。"
       }
-    } catch { self.error = "命令已保留，请恢复原提交。" }
+    } catch { self.error = "提交未完成，内容已保留，请重试。" }
     return false
   }
   func reviewConflict() async {
@@ -650,7 +652,7 @@ final class ProductModel {
     guard let api else { return }
     do {
       execution = try await api.get("/v2/training/executions/" + execution.string("executionID"))
-    } catch { self.error = "执行记录暂不可用" }
+    } catch { self.error = "训练记录暂不可用" }
   }
   func recalculate() async {
     let p = data.plan

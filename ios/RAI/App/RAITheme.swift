@@ -94,8 +94,80 @@ struct OrangeButton: View {
     Button(action: action) {
       Label(title, systemImage: icon).font(.headline).frame(maxWidth: .infinity)
         .padding(.vertical, 16).foregroundStyle(RAITheme.primary)
-        .background(LinearGradient(colors: [RAITheme.accent, RAITheme.lemon], startPoint: .leading, endPoint: .trailing), in: Capsule())
+        .background(RAITheme.lemon, in: Capsule())
     }.buttonStyle(RAIPressStyle()).tint(RAITheme.orange)
+  }
+}
+/// Secondary action inside a card or under a list: a quiet tinted capsule, so
+/// plain blue system text buttons do not float between cards.
+struct RAISecondaryButtonStyle: ButtonStyle {
+  @Environment(\.isEnabled) private var enabled
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.font(.subheadline.weight(.semibold))
+      .padding(.horizontal, 16).frame(minHeight: 40)
+      .foregroundStyle(RAITheme.orange)
+      .background(RAITheme.orange.opacity(0.10), in: Capsule())
+      .opacity(enabled ? (configuration.isPressed ? 0.7 : 1) : 0.45)
+  }
+}
+/// Action row inside a Form: tinted like a link, dimmed while disabled. The
+/// screen-wide primary foreground would otherwise paint it as plain text.
+struct RAIFormButtonStyle: ButtonStyle {
+  @Environment(\.isEnabled) private var enabled
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label.foregroundStyle(RAITheme.orange)
+      .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+      .opacity(enabled ? (configuration.isPressed ? 0.6 : 1) : 0.4)
+  }
+}
+/// One-line navigation row drawn as a card, with a leading icon and chevron.
+struct RAIRowLabel: View {
+  let title: String, icon: String
+  var detail: String?
+  var body: some View {
+    HStack(spacing: 12) {
+      Image(systemName: icon).font(.body.weight(.semibold)).foregroundStyle(RAITheme.orange)
+        .frame(width: 28)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(title).font(.headline)
+        if let detail {
+          Text(detail).font(.caption).foregroundStyle(RAITheme.secondary)
+            .multilineTextAlignment(.leading)
+        }
+      }
+      Spacer(minLength: 0)
+      Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+        .foregroundStyle(RAITheme.secondary)
+    }.foregroundStyle(RAITheme.primary).padding(18).frame(maxWidth: .infinity, alignment: .leading)
+      .raiGlass(radius: 20)
+  }
+}
+/// Inline status message. Errors and hints share one shape instead of loose
+/// coloured text at the bottom of a page.
+struct RAINotice: View {
+  enum Kind { case info, warning }
+  let text: String
+  var kind: Kind = .warning
+  var body: some View {
+    HStack(alignment: .top, spacing: 10) {
+      Image(systemName: kind == .warning ? "exclamationmark.triangle.fill" : "info.circle.fill")
+        .font(.subheadline).foregroundStyle(kind == .warning ? RAITheme.amber : RAITheme.blue)
+        .accessibilityHidden(true)
+      Text(text).font(.footnote).foregroundStyle(RAITheme.primary)
+        .fixedSize(horizontal: false, vertical: true)
+      Spacer(minLength: 0)
+    }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+      .background((kind == .warning ? RAITheme.lemon : RAITheme.accent).opacity(0.35),
+                  in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+  }
+}
+/// Small capsule tag used for record states.
+struct RAITag: View {
+  let text: String
+  var color: Color = RAITheme.secondary
+  var body: some View {
+    Text(text).font(.caption2.weight(.semibold)).padding(.horizontal, 8).padding(.vertical, 4)
+      .background(color.opacity(0.16), in: Capsule()).foregroundStyle(color)
   }
 }
 struct HeroScene: View {

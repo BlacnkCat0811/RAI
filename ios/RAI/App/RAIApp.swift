@@ -113,7 +113,10 @@ final class SyncModel {
             if let raw = ProcessInfo.processInfo.environment["RAI_ACCEPTANCE_CONFIG_JSON"],
                let data = raw.data(using: .utf8),
                let value = try? JSONDecoder().decode(AcceptanceConfig.self, from: data) {
-                Task { try? await bindNewSession(baseURL: value.baseURL, collectorEpoch: value.collectorEpoch, token: value.token) }
+                Task {
+                    await waitUntilIdle()
+                    try? await bindNewSession(baseURL: value.baseURL, collectorEpoch: value.collectorEpoch, token: value.token)
+                }
             }
             #endif
         } catch { self.error = "本地状态不可用，现有文件已保留。" }
@@ -158,7 +161,7 @@ final class SyncModel {
         }
         try await sessions.activate(descriptor.sessionID, handshake: hello)
         try install(try await sessions.requireActive(descriptor.sessionID))
-        apply(await store!.snapshot()); status = "新同步会话已启用；将重新发现当前可见健康记录"
+        apply(await store!.snapshot()); status = "已连接，等待同步"
     }
     /// A `rai://connect?url=…&epoch=…&token=…` link only proposes a server; the
     /// user confirms it by name before anything is stored or contacted.
@@ -172,20 +175,34 @@ final class SyncModel {
               let items = URLComponents(url: link, resolvingAgainstBaseURL: false)?.queryItems else { return }
         func value(_ name: String) -> String { items.first { $0.name == name }?.value ?? "" }
         guard (try? ClientConfiguration.validatedSecret(baseURL: value("url"), collectorEpoch: value("epoch"), token: value("token"))) != nil else {
-            error = "连接链接无效。"; return
+            connectionNotice = "连接链接无效，请重新生成。"; return
         }
         pendingConnection = PendingConnection(baseURL: value("url"), collectorEpoch: value("epoch"), token: value("token"))
+    }
+    /// Result of the last connection attempt, shown as an alert wherever the
+    /// user happens to be: a link can arrive on any screen.
+    var connectionNotice: String?
+    /// A foreground scan started at launch holds `busy` for a moment; a
+    /// connection confirmed right then waits for it instead of failing.
+    func waitUntilIdle() async {
+        for _ in 0..<100 where busy || loadingWorkouts {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
     }
     func confirmPendingConnection() async {
         guard let pending = pendingConnection else { return }
         pendingConnection = nil
+        await waitUntilIdle()
         do {
             try await bindNewSession(baseURL: pending.baseURL, collectorEpoch: pending.collectorEpoch, token: pending.token)
             error = nil
-            status = "已连接到 \(pending.host)；请请求读取权限，新的跑步记录会自动上传。"
+            status = "已连接到 \(pending.host)"
+            connectionNotice = UserDefaults.standard.bool(forKey: "healthAuthorizationRequested")
+                ? "已连接到 \(pending.host)。"
+                : "已连接到 \(pending.host)。下一步：在「我的 → 服务器与健康授权」中授权读取健康数据。"
         } catch let failure as SyncFailure {
-            error = "连接未保存：" + UserFacingText.syncFailure(failure)
-        } catch { self.error = "连接未保存：无法连接服务器或握手失败。" }
+            connectionNotice = "连接未保存：" + UserFacingText.syncFailure(failure) + "。"
+        } catch { connectionNotice = "连接未保存：无法访问服务器，或凭证与服务器不匹配。" }
     }
     func importRecoverySession(_ data: Data) async throws {
         guard !busy, !loadingWorkouts, let sessions else { throw SyncFailure.localState("session_switch_busy") }
@@ -285,7 +302,7 @@ final class SyncModel {
             let visible = page.map(\.id)
             Task { await refreshRemoteStatuses(visible) }
             if !workoutBusy {
-                if workouts.isEmpty { status = "HealthKit 中还没有可见的跑步记录" }
+                if workouts.isEmpty { status = "健康 App 中还没有可读取的跑步记录" }
                 error = nil
             }
         } catch let failure as SyncFailure {
@@ -840,6 +857,10 @@ struct RAIApp: App {
                 } message: {
                     Text("你的跑步与健康数据会上传到 \(model.pendingConnection?.host ?? "")。只连接你自己部署的服务器。")
                 }
+                .alert("服务器连接", isPresented: Binding(
+                    get: { model.connectionNotice != nil }, set: { if !$0 { model.connectionNotice = nil } })) {
+                    Button("好") { model.connectionNotice = nil }
+                } message: { Text(model.connectionNotice ?? "") }
                 .task {
                     if await model.runDebugAcceptanceIfRequested() { return }
                     model.scanHealthChanges(newWake: true)
@@ -859,59 +880,71 @@ struct SyncView: View {
     @State private var token = ""
     @State private var importingRecovery = false
     @State private var configurationStatus: String?
+    @State private var manualExpanded = false
+    @AppStorage("developerOptions") private var developerOptions = false
+    private var serverHost: String? {
+        guard model.activeSessionID != nil else { return nil }
+        return (try? ClientConfiguration.load())?.configuration.baseURL.host
+    }
     var body: some View {
         Form {
-            Section("健康数据授权") {
-                Text(model.authorization).font(.footnote)
-                Button("请求读取权限") { model.authorize() }.disabled(model.busy)
-                #if DEBUG
-                Button("检查最近跑步结构（脱敏）") { model.inspectRunningWorkout() }.disabled(model.busy)
-                if let status = model.inspectionStatus { Text(status).font(.footnote) }
-                #endif
-            }
-            Section("同步") {
-                LabeledContent("状态", value: model.status)
-                Button("同步日常健康") { model.syncDailyNow() }.disabled(!model.canStartDailySync)
-                Text("同步 Apple 健康中的心率变异性、静息心率与睡眠记录；读取可见性由系统管理。").font(.caption)
-                LabeledContent("日常健康待交付记录", value: String(model.pendingChanges))
-                ForEach(model.dailyProgress, id: \.self) { Text($0).font(.caption) }
-                if let batch = model.batch {
-                    LabeledContent("本轮 Workout", value: "已选 \(batch.ids.count) 条")
+            Section {
+                if let serverHost {
+                    LabeledContent("已连接", value: serverHost)
+                } else {
+                    Label("尚未连接服务器", systemImage: "wifi.slash").foregroundStyle(RAITheme.secondary)
                 }
-                if let error = model.error { Text(error).foregroundStyle(.red).font(.footnote) }
-                NavigationLink("跑步记录同步状态") { WorkoutSyncView(model: model) }
-                Text("新的跑步记录会自动上传；需要时可在这里补传历史记录。").font(.caption)
+                Button("粘贴连接链接") { pasteLink() }.buttonStyle(RAIFormButtonStyle()).disabled(model.busy)
+                DisclosureGroup("手动填写", isExpanded: $manualExpanded) {
+                    TextField("服务器地址（https://…）", text: $apiURL).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                    TextField("设备标识", text: $collector).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    SecureField("访问令牌", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Button("连接") { connect() }.buttonStyle(RAIFormButtonStyle())
+                        .disabled(model.busy || apiURL.isEmpty || collector.isEmpty || token.isEmpty)
+                }
+                if let configurationStatus { Text(configurationStatus).font(.footnote).foregroundStyle(RAITheme.green) }
+            } header: {
+                Text("服务器")
+            } footer: {
+                Text("在电脑上运行 scripts/connect-link.py 生成 rai:// 链接，发到手机后直接点开，或复制后在这里粘贴。三项手动信息都在服务器生成的凭证文件里。")
             }
+            Section {
+                LabeledContent("读取权限", value: UserDefaults.standard.bool(forKey: "healthAuthorizationRequested") ? "已请求" : "未请求")
+                Button("请求读取权限") { model.authorize() }.buttonStyle(RAIFormButtonStyle()).disabled(model.busy || model.activeSessionID == nil)
+            } header: {
+                Text("健康数据授权")
+            } footer: {
+                Text("RAI 只读取跑步、心率、睡眠等数据。系统不会告诉 App 你具体允许了哪些项目，可在「设置 → 健康 → 数据访问与设备」中查看和修改。")
+            }
+            Section {
+                LabeledContent("状态", value: model.status)
+                if model.pendingChanges > 0 { LabeledContent("等待上传", value: "\(model.pendingChanges) 条") }
+                ForEach(model.dailyProgress, id: \.self) { Text($0).font(.caption).foregroundStyle(RAITheme.secondary) }
+                Button("立即同步") { model.syncDailyNow() }.buttonStyle(RAIFormButtonStyle()).disabled(!model.canStartDailySync || model.activeSessionID == nil)
+            } header: {
+                Text("日常健康数据")
+            } footer: {
+                Text("心率变异性、静息心率和睡眠用于计算恢复与准备度，App 在前台时会自动同步。")
+            }
+            Section {
+                NavigationLink("跑步记录同步") { WorkoutSyncView(model: model) }
+            } footer: {
+                Text("新的跑步会自动上传；更早的历史记录可在里面补传。")
+            }
+            if let error = model.error { Section { RAINotice(text: error) } }
             #if DEBUG
-            Section("灾难恢复（调试）") {
-                Button("导入新恢复会话凭证") { importingRecovery = true }.disabled(model.busy)
-                Text("旧会话将归档，仅重新导入健康 App 当前可见记录。").font(.caption)
+            Section {
+                Toggle("开发者选项", isOn: $developerOptions)
+                if developerOptions {
+                    Button("检查最近跑步结构（脱敏）") { model.inspectRunningWorkout() }.disabled(model.busy)
+                    if let status = model.inspectionStatus { Text(status).font(.footnote) }
+                    Button("导入新恢复会话凭证") { importingRecovery = true }.disabled(model.busy)
+                    Text("旧会话将归档，仅重新导入健康 App 当前可见记录。").font(.caption)
+                }
+            } footer: {
+                Text("仅调试构建可见，日常使用无需打开。")
             }
             #endif
-            Section("手动连接") {
-                TextField("服务地址", text: $apiURL).textInputAutocapitalization(.never).autocorrectionDisabled()
-                TextField("采集器周期标识", text: $collector).textInputAutocapitalization(.never).autocorrectionDisabled()
-                SecureField("设备访问令牌", text: $token).textInputAutocapitalization(.never).autocorrectionDisabled()
-                Button("建立独立同步会话") {
-                    configurationStatus = nil
-                    Task {
-                    do {
-                        try await model.bindNewSession(baseURL: apiURL, collectorEpoch: collector, token: token)
-                        token = ""; model.error = nil
-                        configurationStatus = "会话已启用。请请求读取权限，然后同步。"
-                    } catch let failure as SyncFailure {
-                        let code: String
-                        switch failure {
-                        case .invalid(let value), .localState(let value): code = value
-                        case .receiptMismatch: code = "receipt_mismatch"
-                        }
-                        model.error = "配置未保存：\(UserFacingText.error(code))。"
-                    } catch { model.error = "会话未切换：连接或握手失败。" }
-                    }
-                }.disabled(model.busy)
-                if let configurationStatus { Text(configurationStatus).font(.footnote).foregroundStyle(.green) }
-                Text("更省事的做法：在电脑上运行 scripts/connect-link.py，把得到的 rai:// 链接发到手机并点开。").font(.caption)
-            }
         }
         #if DEBUG
         .fileImporter(isPresented: $importingRecovery, allowedContentTypes: [.json]) { result in
@@ -926,11 +959,37 @@ struct SyncView: View {
             }
         }
         #endif
-        .navigationTitle("同步与诊断")
+        .navigationTitle("服务器与健康授权")
+        .navigationBarTitleDisplayMode(.inline)
             .scrollContentBackground(.hidden)
             .raiScreen()
     }
+    private func pasteLink() {
+        configurationStatus = nil
+        guard let text = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let url = URL(string: text), url.scheme == "rai" else {
+            model.error = "剪贴板里没有 rai:// 连接链接。"
+            return
+        }
+        model.error = nil
+        model.receiveConnectLink(url)
+    }
+    private func connect() {
+        configurationStatus = nil
+        Task {
+            await model.waitUntilIdle()
+            do {
+                try await model.bindNewSession(baseURL: apiURL, collectorEpoch: collector, token: token)
+                token = ""; model.error = nil
+                configurationStatus = "已连接。接下来请授权读取健康数据。"
+            } catch let failure as SyncFailure {
+                let code: String
+                switch failure {
+                case .invalid(let value), .localState(let value): code = value
+                case .receiptMismatch: code = "receipt_mismatch"
+                }
+                model.error = "连接未保存：\(UserFacingText.error(code))。"
+            } catch { model.error = "连接失败：无法访问服务器或凭证不匹配。" }
+        }
+    }
 }
-
-
-

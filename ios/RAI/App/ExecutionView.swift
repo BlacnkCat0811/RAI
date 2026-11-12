@@ -15,14 +15,14 @@ struct ExecutionView: View {
             RAITheme.amber)
           Text(session.title).font(.system(.largeTitle, design: .rounded, weight: .bold))
           Text(prescription(session)).font(.title2).monospacedDigit()
-          Text("已冻结的训练处方").font(.caption).foregroundStyle(RAITheme.secondary)
+          Text("本次训练内容").font(.caption).foregroundStyle(RAITheme.secondary)
           if model.execution.string("status") == "started" {
             TimelineView(.periodic(from: .now, by: 1)) { context in
               Text(elapsed(at: context.date)).font(
                 .system(.largeTitle, design: .rounded, weight: .bold)
               ).monospacedDigit()
             }
-            Text("这是训练执行记录；运动测量来自健康数据。").font(.caption).foregroundStyle(RAITheme.secondary)
+            Text("计时仅供参考，实际数据以手表记录为准。").font(.caption).foregroundStyle(RAITheme.secondary)
           }
         }.padding(24).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
         let steps = session.raw["steps"].list
@@ -30,7 +30,7 @@ struct ExecutionView: View {
           let index = min(currentStep, steps.count - 1)
           let step = steps[index]
           VStack(alignment: .leading, spacing: 12) {
-            Text("当前步骤 · 手动切换").font(.subheadline).foregroundStyle(RAITheme.secondary)
+            Text("当前步骤").font(.subheadline).foregroundStyle(RAITheme.secondary)
             Text(stepTitle(step.string("kind"))).font(.title.bold())
             Text(
               "目标 \(ProductFormat.duration(step.number("durationS"))) · 自感用力 \(Int(step.number("effort") ?? 0))"
@@ -40,13 +40,13 @@ struct ExecutionView: View {
                 currentStep += 1
                 UserDefaults.standard.set(
                   currentStep, forKey: "executionStep:" + model.execution.string("executionID"))
-              }
+              }.buttonStyle(RAISecondaryButtonStyle())
             }
-          }.padding(22).raiGlass()
+          }.padding(22).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
         }
         if !steps.isEmpty {
           VStack(alignment: .leading, spacing: 12) {
-            CardHeading(title: "训练步骤 · 按处方执行", icon: "list.number")
+            CardHeading(title: "训练步骤", icon: "list.number")
             ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
               Text(
                 "\(index+1). \(stepTitle(step.string("kind"))) · \(ProductFormat.duration(step.number("durationS"))) · 自感用力 \(Int(step.number("effort") ?? 0))"
@@ -56,7 +56,7 @@ struct ExecutionView: View {
                   .font(.caption)
               }
             }
-          }.padding(22).raiGlass()
+          }.padding(22).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
         }
         if model.execution.string("status") == "started" {
           OrangeButton(title: "完成训练", icon: "checkmark") {
@@ -65,23 +65,26 @@ struct ExecutionView: View {
         }
         if model.execution.string("status") == "completed" {
           if model.execution.string("workoutID").isEmpty {
-            EmptyCard(title: "等待运动记录", detail: "运动同步后，请明确选择并关联此次运动。不会自动匹配。")
-            Button("选择运动记录") { candidates = true }.accessibilityIdentifier("execution.associate")
+            EmptyCard(title: "关联跑步记录", detail: "跑步同步后，选择这次训练对应的记录，就能看到完成情况。")
+            Button("选择跑步记录") { candidates = true }.buttonStyle(RAISecondaryButtonStyle()).accessibilityIdentifier("execution.associate")
           }
           FeedbackCard(feedback: model.execution["feedback"].list.last ?? .null)
         }
-        Button("刷新执行与反馈", systemImage: "arrow.clockwise") {
+        Button("刷新", systemImage: "arrow.clockwise") {
           Task { await model.refreshExecution() }
-        }.accessibilityIdentifier("execution.refresh")
-        if let error = model.error { Text(error).font(.footnote).foregroundStyle(RAITheme.amber) }
+        }.buttonStyle(RAISecondaryButtonStyle()).accessibilityIdentifier("execution.refresh")
+        if let error = model.error { RAINotice(text: error) }
       }.padding(20)
-    }.navigationTitle("训练执行").navigationBarTitleDisplayMode(.inline).raiScreen().task {
+    }.navigationTitle("训练").navigationBarTitleDisplayMode(.inline).raiScreen().task {
       await model.refreshExecution()
+      // The step is saved on every advance; pick it up again after a relaunch.
+      currentStep = UserDefaults.standard.integer(
+        forKey: "executionStep:" + model.execution.string("executionID"))
     }.sheet(isPresented: $candidates) {
       NavigationStack {
         ScrollView {
           VStack(spacing: 12) {
-            Text("请确认这条运动属于此次训练").font(.footnote)
+            Text("选择这次训练对应的跑步").font(.footnote).foregroundStyle(RAITheme.secondary)
             ForEach(model.data.workouts) { w in
               Button {
                 Task {
@@ -91,14 +94,14 @@ struct ExecutionView: View {
               } label: {
                 VStack(alignment: .leading, spacing: 8) {
                   ActivityRow(workout: w)
-                  Text("关联此次运动").font(.caption).foregroundStyle(RAITheme.orange)
-                }.padding(18).raiGlass()
+                  Text("选择这条").font(.caption.weight(.semibold)).foregroundStyle(RAITheme.orange)
+                }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
               }.accessibilityIdentifier("associate.candidate")
             }
-            if !model.data.next.isEmpty { Button("更多运动") { Task { await model.loadMore() } } }
-            if model.data.workouts.isEmpty { Text("运动尚未到达，请先同步。") }
+            if !model.data.next.isEmpty { Button("加载更多") { Task { await model.loadMore() } }.buttonStyle(RAISecondaryButtonStyle()) }
+            if model.data.workouts.isEmpty { Text("还没有已同步的跑步记录。").foregroundStyle(RAITheme.secondary) }
           }.padding(18)
-        }.raiScreen().navigationTitle("关联运动").toolbar { Button("关闭") { candidates = false } }
+        }.raiScreen().navigationTitle("关联跑步").navigationBarTitleDisplayMode(.inline).toolbar { Button("关闭") { candidates = false } }
       }
     }.accessibilityIdentifier("screen.execution")
   }
@@ -128,12 +131,12 @@ struct FeedbackCard: View {
         item(
           "距离完成度",
           ProductFormat.decimal(feedback["distance"].number("ratio").map { $0 * 100 }) + "%")
-        item("训练负荷", ProductFormat.decimal(feedback.number("actualLoad")) + " 负荷单位")
+        item("训练负荷", ProductFormat.decimal(feedback.number("actualLoad")))
         item("计划时长", ProductFormat.duration(feedback["duration"].number("planned")))
         item("实际时长", ProductFormat.duration(feedback["duration"].number("actual")))
       }
-      Text("数值来自服务端训练反馈；缺失数据会等待运动分析发布。").font(.caption).foregroundStyle(RAITheme.secondary)
-    }.padding(22).raiGlass().accessibilityIdentifier("feedback.card")
+      Text("缺少的数值会在跑步分析完成后补上。").font(.caption).foregroundStyle(RAITheme.secondary)
+    }.padding(22).frame(maxWidth: .infinity, alignment: .leading).raiGlass().accessibilityIdentifier("feedback.card")
   }
   func item(_ title: String, _ value: String) -> some View {
     VStack(alignment: .leading, spacing: 5) {
@@ -147,7 +150,7 @@ struct FeedbackCard: View {
 
 func feedbackStatus(_ status: String) -> String {
   [
-    "completed": "已完成，等待可比较数据", "under_target": "低于计划", "on_target": "达到计划", "over_target": "高于计划",
+    "completed": "已完成，等待跑步数据", "under_target": "低于计划", "on_target": "达到计划", "over_target": "高于计划",
     "mixed": "距离与时长表现不同", "skipped": "已跳过",
-  ][status] ?? "等待分析反馈"
+  ][status] ?? "等待分析"
 }
