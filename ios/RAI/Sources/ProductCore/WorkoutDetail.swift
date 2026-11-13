@@ -209,6 +209,20 @@ public struct WorkoutZoneSummary: Codable, Sendable {
   public let stimulusScores: [StimulusScore]
   public let explanationCodes: [String]
   public let paceZoneStatus: String
+  /// Running-fitness zones published the day before the run; nil bounds are open ends.
+  public let paceZoneProfileDate: String?
+  public let paceZones: [PaceZoneBand]?
+
+  public func paceBand(_ zone: String) -> PaceZoneBand? { paceZones?.first { $0.zone == zone } }
+}
+
+public struct PaceZoneBand: Codable, Sendable, Identifiable {
+  public let zone: String
+  public let label: String
+  public let fastPaceSecondsPerKm: Double?
+  public let slowPaceSecondsPerKm: Double?
+  public let support: String
+  public var id: String { zone }
 }
 
 public struct RoutePoint: Codable, Sendable, Identifiable {

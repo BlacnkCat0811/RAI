@@ -44,10 +44,15 @@ func ApplyField(s *Session, path string, v json.RawMessage) error {
 	case "date":
 		err = json.Unmarshal(v, &s.Date)
 	case "type":
+		old := s.Type
 		err = json.Unmarshal(v, &s.Type)
 		if err == nil && s.Type != "INTERVAL" {
 			s.Steps = nil
 		} // a changed type cannot retain interval structure
+		if err == nil && s.Type != old {
+			// A generated focus describes the old type only.
+			s.Focus, s.Purpose = "", ""
+		}
 	case "durationS":
 		oldDuration := s.DurationS
 		err = json.Unmarshal(v, &s.DurationS)
@@ -94,6 +99,30 @@ func ResolveEffectiveVersion(base Base, events []Override, version string) (Base
 		sessions[s.ID] = s
 	}
 	active := ActiveOverrides(events)
+	// A rolling (v4) base keeps only a window of days. A user change to a day
+	// that has left the window stays in the audit trail but is no longer part
+	// of the plan; without this it would come back as a removed-base conflict.
+	agedOut := map[string]bool{}
+	if out.WindowStart != "" {
+		last := map[string]string{}
+		for _, o := range active {
+			if o.Status != "active" || o.Operation == "revoke" || o.Anchor == nil {
+				continue
+			}
+			if _, seen := last[o.SessionID]; !seen {
+				last[o.SessionID] = o.Anchor.Date
+			}
+			var d string
+			if o.Operation == "move" && json.Unmarshal(o.Value, &d) == nil && d != "" {
+				last[o.SessionID] = d
+			}
+		}
+		for id, d := range last {
+			if _, ok := sessions[id]; !ok && d < out.WindowStart {
+				agedOut[id] = true
+			}
+		}
+	}
 	latest := map[string]string{}
 	if rebase {
 		for _, o := range active {
@@ -107,6 +136,9 @@ func ResolveEffectiveVersion(base Base, events []Override, version string) (Base
 			continue
 		}
 		if rebase && (o.Operation == "edit" || o.Operation == "move") && latest[o.SessionID+":"+o.Path] != o.ID {
+			continue
+		}
+		if agedOut[o.SessionID] {
 			continue
 		}
 		s, ok := sessions[o.SessionID]

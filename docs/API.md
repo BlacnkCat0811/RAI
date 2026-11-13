@@ -36,6 +36,14 @@
     `<60%`、`[60%,70%)`、`[70%,80%)`、`[80%,90%)`、`≥90%`，不回退到当前参数。
     重复观测只计一次，冲突、暂停和缺失区间不归类；积分超过记录总距离时统一缩小，少于总距离时不放大补齐。
     旧服务未提供该字段或分区读取失败时，客户端保留总跑量，将相应距离列为未分类。
+  - `/detail` 的 `zoneSummary` 配速区间（`paceExposure` / `paceCoverage`）按跑力六区间 Z1–Z6 划分，边界取**运动开始日之前、7 天内最近一个本地日**
+    已发布的跑力状态（`paceZoneProfileDate`；前一日缺发布时向前回退，区间 `validUntil` 早于运动日则不用），本次跑步不会用它自己塑造的边界给自己归类；`paceZones` 回显所用快端／慢端配速
+    （秒/公里，Z1 慢端、Z6 快端为开放端，`support` 为跑力原支持级别）。`paceExposure` 各项给出时长、距离与时长占比，
+    `paceCoverage` 为计入速度时长占移动时长（总历时扣除暂停，重叠暂停只扣一次）之比。只用原始 `RunningSpeed` 区间：不做坡度修正、不外推瞬时点，暂停、静止（速度 0）
+    与冲突重叠不计入，相同重叠只计一次。`paceZoneStatus`：`available`；`threshold_pace_unavailable`（训练前无已发布跑力区间，
+    包括冷启动或证据不足）；`zone_anchor_conflict`（Z1–Z5 快端缺失或不严格递增，不排序冒充）；`speed_unavailable`（无可用速度区间）。
+    非 `available` 时 `paceExposure` 为空。刺激类型评分仍只用心率，配速暴露仅作描述；无心率但配速可用时也返回 `zoneSummary`
+    （此时 `heartRateExposure` 为空，iOS 不显示心率区间卡，刺激类型说明为缺少心率区间）。
   - iOS 周／月统计完整读取列表游标链，仅请求所选周期跑步的详情；使用 overview 的数据集时区，周一为周起点，
     跨午夜跑步按开始日计入。分区百分比以本期已知总距离为分母，包含未分类距离，不是心率时长占比。
 - 分析：`GET /v2/analysis/parameters`、`/vo2max-sources`、`/athlete`、`/athlete/history`、`/athlete/diagnostics`、
@@ -172,7 +180,17 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
   `lowReadiness`，默认 50）；schema3 栈用 `schema3-v1`（消费 v4 complete 与 estimated 准备度，阈值固定 60；estimated 只走保守下调，
   不自动增加强度或里程；workout_only 不推断恢复正常）；schema4 栈用 `schema4-v1`（准备度同 schema3，另消费跑力的可排课区间配速）。
   生成器 `training_plan/v3`：轻松跑→Z2、长跑→Z2、恢复跑→Z1、节奏跑→Z4、间歇→Z5，取区间中点配速；区间不可排课时该课只给心率目标并在
-  `reasons` 记 `pace_zone_unavailable_hr_only`，不回退到其他区间或旧公式。旧栈不再提供配速目标。负荷焦点目前只作事实描述，不参与目标建议
+  `reasons` 记 `pace_zone_unavailable_hr_only`，不回退到其他区间或旧公式。旧栈不再提供配速目标。负荷焦点在 v3 中只作事实描述
+- 自适应计划（迁移 60）：`POST /v2/training/plans` 的 `config` 带 `"version":"training_config/v2"` 时必填 `startDate`（本周周一）、
+  `availableDays`（2–7 天）、`longRunDay`；`goal`（`type/date/distanceM`，可选 `targetTimeS`）与 `baselineWeeklyS` 可选，不接受
+  `weeks`、`baselineWeeklyM`、`previousLongM`。由 `training_plan/v4` + `coach_parameters/v2` 生成。`/changes` 的 `update_config`
+  可设置／更换／清除目标，版本与 `startDate` 不可改，新比赛日不得早于今天（否则 `422 invalid_training_config`）。
+  覆盖日期须在当前窗口内（`422 training_date_out_of_range`），v4 计划的覆盖会排队重算。
+- v4 有效版本新增：`asOf`、`windowStart`、`mode`（`race`／`fitness`）、`weeks[]`（`index/startDate/detail(past|current|next|outline)/
+  phase/state/levelS/budgetS/plannedS/actualS/hardFocus/reasonCodes` 等）、`goalStatus`（`category/phase/daysToRace/prepStartDate/
+  targetTimeS/predictedTimeS/gapRatio/assessment/racePaceSPerKM/completed/reasonCodes`）；课次新增 `focus`、`purpose`、
+  `changedFrom`（`date/type/focus/durationS/reasonCode`）、`outcome`。生成的跑步课 `durationS ≥ 1800`，`distanceM` 为按区间配速的估计；
+  轻松跑与长距离也可带 `steps`。字段均为增量，v3 计划的响应不变
 
 ## 限额
 读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分（突发 2）；可用 `RAI_RATE_BUDGETS` 覆盖，

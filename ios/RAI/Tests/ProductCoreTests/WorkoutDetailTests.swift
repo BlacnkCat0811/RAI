@@ -124,4 +124,30 @@ struct WorkoutDetailTests {
     #expect(!TrainingEffectText.isOverreaching(missingHR))
     #expect(TrainingEffectText.levelStatus("default") == "默认")
   }
+
+  @Test func decodesPaceZoneExposureAndOpenEndedBands() throws {
+    let json = """
+    {
+      "zoneProfileID": "", "stimulusType": "unclassified", "secondaryStimulusTypes": [], "stimulusConfidence": null,
+      "heartRateCoverage": 0, "paceCoverage": 0.83,
+      "heartRateExposure": [],
+      "paceExposure": [{"zone": "Z2", "durationSeconds": 200, "distanceMeters": 560, "fraction": 0.4}],
+      "stimulusScores": [], "explanationCodes": ["pace_zones_from_pre_run_fitness"],
+      "paceZoneStatus": "available", "paceZoneProfileDate": "2026-11-11",
+      "paceZones": [
+        {"zone": "Z1", "label": "recovery", "fastPaceSecondsPerKm": 400, "slowPaceSecondsPerKm": null, "support": "supported"},
+        {"zone": "Z2", "label": "aerobic_endurance", "fastPaceSecondsPerKm": 333.3, "slowPaceSecondsPerKm": 400, "support": "supported"},
+        {"zone": "Z6", "label": "anaerobic_power", "fastPaceSecondsPerKm": null, "slowPaceSecondsPerKm": 222.2, "support": "insufficient_evidence"}
+      ]
+    }
+    """
+    let zones = try JSONDecoder().decode(WorkoutZoneSummary.self, from: Data(json.utf8))
+    #expect(zones.paceZoneStatus == "available")
+    #expect(zones.paceZoneProfileDate == "2026-11-11")
+    #expect(zones.paceExposure.first?.distanceMeters == 560)
+    #expect(zones.paceBand("Z1")?.slowPaceSecondsPerKm == nil)
+    #expect(zones.paceBand("Z6")?.fastPaceSecondsPerKm == nil)
+    #expect(zones.paceBand("Z2")?.fastPaceSecondsPerKm == 333.3)
+    #expect(RunningFitnessText.zoneName("Z2") == "有氧耐力")
+  }
 }

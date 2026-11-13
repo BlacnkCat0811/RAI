@@ -48,6 +48,7 @@ type workoutDetailData struct {
 	RouteSealed []time.Time
 
 	RunFitness        *workoutdetail.RunFitness
+	PaceZoneProfile   *workoutdetail.PaceZoneProfile
 	FeatureArtifact   *workoutdetail.FeatureAnalysis
 	LoadFocus         *tl.WorkoutFocus
 	TrainingEffect    *te.Result
@@ -848,16 +849,25 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	} else if d.AnalysisAvailable && durationS > 0 && d.Execution != nil {
 		out.TrainingLoad = d.fallbackLoad(durationS, &workoutdetail.TrainingLoad{Source: "session_type_fallback/v1", StimulusType: "unclassified", MissingReasons: d.missingReasons()})
 	}
-	if d.AnalysisAvailable && d.ZoneMaxHR > 0 && d.ZoneRestHR > 0 {
-		out.ZoneSummary = workoutdetail.BuildHRZones(d.Start.UnixMicro(), d.End.UnixMicro(), elapsed, obsByType(d.Observations, workoutdetail.HeartRate), d.ZoneRestHR, d.ZoneMaxHR)
-		if out.ZoneSummary != nil {
-			if d.Execution != nil {
-				workoutdetail.ApplyStimulusScores(out.ZoneSummary, d.planContext(), out.ZoneSummary.HeartRateCoverage, elapsed)
+	if d.AnalysisAvailable {
+		var zones *workoutdetail.ZoneSummary
+		if d.ZoneMaxHR > 0 && d.ZoneRestHR > 0 {
+			zones = workoutdetail.BuildHRZones(d.Start.UnixMicro(), d.End.UnixMicro(), elapsed, obsByType(d.Observations, workoutdetail.HeartRate), d.ZoneRestHR, d.ZoneMaxHR)
+			if zones != nil && d.Execution != nil {
+				workoutdetail.ApplyStimulusScores(zones, d.planContext(), zones.HeartRateCoverage, elapsed)
 			}
-			out.Workout.StimulusType = out.ZoneSummary.StimulusType
-			out.Workout.StimulusConfidence = out.ZoneSummary.StimulusConfidence
+		}
+		pace := workoutdetail.BuildPaceZones(d.Start.UnixMicro(), d.End.UnixMicro(), elapsed, obsByType(d.Observations, workoutdetail.RunningSpeed), distanceEvents, d.PaceZoneProfile)
+		if zones == nil && pace.Status == workoutdetail.PaceZonesAvailable {
+			zones = workoutdetail.NewZoneSummary()
+		}
+		if zones != nil {
+			workoutdetail.AttachPaceZones(zones, pace)
+			out.ZoneSummary = zones
+			out.Workout.StimulusType = zones.StimulusType
+			out.Workout.StimulusConfidence = zones.StimulusConfidence
 			if out.TrainingLoad != nil {
-				out.TrainingLoad.StimulusType = out.ZoneSummary.StimulusType
+				out.TrainingLoad.StimulusType = zones.StimulusType
 			}
 		}
 	}

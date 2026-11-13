@@ -26,7 +26,7 @@ func (s *Store) StartTrainingRun(ctx context.Context, l Lease, in training.Input
 		return "", e
 	}
 	r, e := tx.Exec(ctx, `INSERT INTO training_generation_runs(dataset_id,id,plan_id,job_id,fencing_token,generation,config_revision,generator,parameter_version,input_hash,context,status)
- SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'RUNNING' WHERE EXISTS(SELECT 1 FROM jobs WHERE dataset_id=$1 AND id=$4 AND fencing_token=$5 AND state='running' AND lease_until>clock_timestamp())`, l.DatasetID, id, in.Plan.ID, l.ID, l.FencingToken, l.TargetGeneration, in.Plan.ConfigRevision, training.Generator, training.ParameterVersion, hash, trainingJSON(in.Context))
+ SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'RUNNING' WHERE EXISTS(SELECT 1 FROM jobs WHERE dataset_id=$1 AND id=$4 AND fencing_token=$5 AND state='running' AND lease_until>clock_timestamp())`, l.DatasetID, id, in.Plan.ID, l.ID, l.FencingToken, l.TargetGeneration, in.Plan.ConfigRevision, training.GeneratorFor(in.Plan.Config), training.ParameterVersionFor(in.Plan.Config), hash, trainingJSON(in.Context))
 	if e != nil {
 		return "", e
 	}

@@ -139,7 +139,7 @@ func Current() Manifest {
 	m.ConsumerVersions = []string{"ios/4", "training-adapter/4", "http/v2"}
 	m.AbilityEstimate = nil
 	m.Features.ConfigHash = digest("features:normalized-workout/v1;structure-ten-second-native5s-grade03/v1;" + wf.RunFitnessPolicy() + ";" + wf.EffortPolicy)
-	m.Load.ConfigHash = digest("load:tiers.98-30s/.80-180s;hrr-clamp-0-1;summary.35;ratio1;horizon180;reference-v2;overlap-knownness;workout-isolated;hrref-latest-effective-no-expiry;no-pace-approximation/v4")
+	m.Load.ConfigHash = digest("load:tiers.98-30s/.80-180s;hrr-clamp-0-1;summary.35;ratio1;horizon180;reference-v2;overlap-knownness;workout-isolated;hrref-latest-effective-no-expiry;rhr-baseline-pre-start-incl-run-day;no-pace-approximation/v4.1")
 	m.RunningAbility = Component{Name: "running_fitness", ModelID: "rai.running_fitness", Version: "v1", Schema: "rai.running_fitness/1", InputSchema: "rai.running_fitness.input/1", JobKind: StackJobKind, ArtifactKey: "running_fitness",
 		ConfigHash: rf.ConfigHash(), SourcePolicy: "recorded-running;stable-source-identity;hr-reference-at-event;effort-labels-known-at/v1", AnnotationMode: AnnotationPolicy, ConsumerSchema: "rai.running_fitness/1"}
 	m.LoadFocus.ConfigHash = digest("hrr-proxy.70;short-repeat3x20-120s;pre-workout-v6x1.0;recovery-v6x.78;native5s;measured-grade.03;unclassified-gap;local-days/v2")

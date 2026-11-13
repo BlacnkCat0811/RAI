@@ -49,3 +49,27 @@ func TestTrainingAllRequestRequiredFields(t *testing.T) {
 		}
 	}
 }
+
+func TestTrainingConfigRequiredFieldsByVersion(t *testing.T) {
+	for _, tc := range []struct {
+		name, config string
+		valid        bool
+	}{
+		{"v1", `{"startDate":"2026-11-16","weeks":8,"goal":{"type":"running","date":"2026-12-20","distanceM":10000},"availableDays":[2,4,7],"longRunDay":7}`, true},
+		{"v1_no_goal", `{"startDate":"2026-11-16","weeks":8,"availableDays":[2,4,7],"longRunDay":7}`, false},
+		{"v2_no_goal", `{"version":"training_config/v2","startDate":"2026-11-16","availableDays":[2,4,7],"longRunDay":7}`, true},
+		{"v2_goal", `{"version":"training_config/v2","startDate":"2026-11-16","availableDays":[2,4,7],"longRunDay":7,"goal":{"type":"running","date":"2027-03-21","distanceM":21097.5,"targetTimeS":6300},"baselineWeeklyS":9000}`, true},
+		{"v2_partial_goal", `{"version":"training_config/v2","startDate":"2026-11-16","availableDays":[2,4,7],"longRunDay":7,"goal":{"date":"2027-03-21"}}`, false},
+		{"v2_missing_days", `{"version":"training_config/v2","startDate":"2026-11-16","longRunDay":7}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var out training.CreateRequest
+			body := `{"commandID":"c","planID":"p","config":` + tc.config + `}`
+			r := httptest.NewRequest("POST", "/v2/training/plans", strings.NewReader(body))
+			r.Header.Set("Content-Type", "application/json")
+			if (trainingBody(httptest.NewRecorder(), r, &out) == nil) != tc.valid {
+				t.Fatal("config validation mismatch")
+			}
+		})
+	}
+}

@@ -73,35 +73,8 @@ func BuildDistanceDistribution(startUs, endUs int64, total *float64, obs []Obser
 			}
 		}
 	}
-	// Pause and motion-pause are independent channels. A resume for one does
-	// not clear the other. A missing resume conservatively excludes the tail.
-	for _, pair := range [][2]int64{{1, 2}, {5, 6}} {
-		sorted := append([]EventBoundary(nil), events...)
-		sort.Slice(sorted, func(i, j int) bool {
-			if sorted[i].StartUs == sorted[j].StartUs {
-				return sorted[i].Type < sorted[j].Type
-			}
-			return sorted[i].StartUs < sorted[j].StartUs
-		})
-		var paused bool
-		var at int64
-		for _, e := range sorted {
-			if e.Type == pair[0] {
-				if e.EndUs > e.StartUs {
-					add(e.StartUs, e.EndUs, 2, 1)
-					continue
-				}
-				if !paused {
-					paused, at = true, e.StartUs
-				}
-			} else if e.Type == pair[1] && paused {
-				add(at, e.StartUs, 2, 1)
-				paused = false
-			}
-		}
-		if paused {
-			add(at, endUs, 2, 1)
-		}
+	for _, p := range pauseIntervals(events, endUs) {
+		add(p[0], p[1], 2, 1)
 	}
 	sort.Slice(edges, func(i, j int) bool { return edges[i].at < edges[j].at })
 	active := [3]map[float64]int{{}, {}, {}}

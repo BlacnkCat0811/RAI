@@ -11,6 +11,7 @@ import (
 	"rai/server/internal/modelrelease"
 	"rai/server/internal/readiness"
 	rf "rai/server/internal/runfitness"
+	sr "rai/server/internal/sessionrecovery"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
 	tl "rai/server/internal/trainingload"
@@ -28,7 +29,9 @@ const trainingWorkoutsSelect = `SELECT w.workout_uuid::text,COALESCE(r.feature->
  (r.feature->'distance'->>'preferredDistanceM')::float8,(r.load->>'load')::float8,
  jsonb_build_array(jsonb_build_object('runID',COALESCE(r.feature->'evidence'->>'inputHash',''),'generation',r.fact_generation,
   'day',(w.event_start AT TIME ZONE $2)::date::text,'metric','workout_load','algorithm',COALESCE(r.load->>'model',''),
-  'algorithmVersion',COALESCE(r.load->>'modelVersion',''),'quality',COALESCE(r.load->>'quality','insufficient'),'value',(r.load->>'load')::float8))
+  'algorithmVersion',COALESCE(r.load->>'modelVersion',''),'quality',COALESCE(r.load->>'quality','insufficient'),'value',(r.load->>'load')::float8)),
+ (r.load->'loadFocus'->'buckets'->>'lowAerobicAU')::float8,(r.load->'loadFocus'->'buckets'->>'highAerobicAU')::float8,
+ (r.load->'loadFocus'->'buckets'->>'anaerobicProxyAU')::float8
  FROM workouts w
  JOIN model_workout_results r ON r.dataset_id=w.dataset_id AND r.workout_uuid=w.workout_uuid
  JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
@@ -41,6 +44,12 @@ const TrainingWorkoutSQL = trainingWorkoutsSelect + `AND w.workout_uuid=$3::uuid
 // TrainingWindow resolves local calendar dates before SQL. AddDate handles DST
 // and offset changes; subtracting 28*24h would choose different local dates.
 func TrainingWindow(zone, day string) (time.Time, time.Time, error) {
+	return trainingWindowDays(zone, day, 28)
+}
+
+// trainingWindowDays is the window of the given number of local days ending
+// with day. v3 plans read 28 days; v4 plans read their history parameter.
+func trainingWindowDays(zone, day string, days int) (time.Time, time.Time, error) {
 	loc, e := time.LoadLocation(zone)
 	if e != nil {
 		return time.Time{}, time.Time{}, training.ErrInvalid
@@ -49,16 +58,16 @@ func TrainingWindow(zone, day string) (time.Time, time.Time, error) {
 	if e != nil || end.Format("2006-01-02") != day {
 		return time.Time{}, time.Time{}, training.ErrInvalid
 	}
-	return end.AddDate(0, 0, -27).UTC(), end.AddDate(0, 0, 1).UTC(), nil
+	return end.AddDate(0, 0, 1-days).UTC(), end.AddDate(0, 0, 1).UTC(), nil
 }
 
-func loadTrainingWorkouts(ctx context.Context, q trainingDB, dataset, zone, day, id string) ([]training.Workout, error) {
+func loadTrainingWorkouts(ctx context.Context, q trainingDB, dataset, zone, day, id string, days int) ([]training.Workout, error) {
 	var rows pgx.Rows
 	var e error
 	if id != "" {
 		rows, e = q.Query(ctx, TrainingWorkoutSQL, dataset, zone, id)
 	} else {
-		start, end, err := TrainingWindow(zone, day)
+		start, end, err := trainingWindowDays(zone, day, days)
 		if err != nil {
 			return nil, err
 		}
@@ -72,7 +81,7 @@ func loadTrainingWorkouts(ctx context.Context, q trainingDB, dataset, zone, day,
 	for rows.Next() {
 		var w training.Workout
 		var mb []byte
-		if e = rows.Scan(&w.ID, &w.RunID, &w.Generation, &w.Date, &w.DurationS, &w.DistanceM, &w.Load, &mb); e != nil {
+		if e = rows.Scan(&w.ID, &w.RunID, &w.Generation, &w.Date, &w.DurationS, &w.DistanceM, &w.Load, &mb, &w.FocusLow, &w.FocusHigh, &w.FocusAnaerobic); e != nil {
 			return nil, e
 		}
 		if e = json.Unmarshal(mb, &w.Metrics); e != nil {
@@ -158,13 +167,24 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 	}
 	c := training.Context{PlanID: p.ID, Timezone: p.Timezone, AsOf: at.In(loc).Format("2006-01-02"), ConfigRevision: p.ConfigRevision, Config: p.Config, Signals: []training.Signal{}, Feedback: []training.Feedback{}}
 	var b []byte
-	if e = tx.QueryRow(ctx, `SELECT parameters FROM training_parameter_sets WHERE version=$1`, training.ParameterVersion).Scan(&b); e != nil {
+	if e = tx.QueryRow(ctx, `SELECT parameters FROM training_parameter_sets WHERE version=$1`, training.ParameterVersionFor(p.Config)).Scan(&b); e != nil {
 		return out, e
 	}
-	if e = json.Unmarshal(b, &c.Parameters); e != nil {
+	window := 28
+	if p.Config.V2() {
+		var coach training.CoachParameters
+		if e = json.Unmarshal(b, &coach); e != nil {
+			return out, e
+		}
+		c.Coach = &coach
+		window = coach.HistoryDays
+		if e = loadTrainingPrevious(ctx, tx, l.DatasetID, p, &c); e != nil {
+			return out, e
+		}
+	} else if e = json.Unmarshal(b, &c.Parameters); e != nil {
 		return out, e
 	}
-	c.Workouts, e = loadTrainingWorkouts(ctx, tx, l.DatasetID, p.Timezone, c.AsOf, "")
+	c.Workouts, e = loadTrainingWorkouts(ctx, tx, l.DatasetID, p.Timezone, c.AsOf, "", window)
 	if e != nil {
 		return out, e
 	}
@@ -195,6 +215,15 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 			return out, err
 		}
 		c.Signals = append(c.Signals, signals...)
+		if p.Config.V2() && binding.Adapter != "schema2-v2" {
+			sig, ok, err := loadTrainingSessionRecoverySignal(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
+			if err != nil {
+				return out, err
+			}
+			if ok {
+				c.Signals = append(c.Signals, sig)
+			}
+		}
 	}
 	rows, e := tx.Query(ctx, `SELECT id::text FROM training_executions WHERE dataset_id=$1 AND plan_id=$2 AND status IN ('completed','skipped') ORDER BY id LIMIT 4097`, l.DatasetID, p.ID)
 	if e != nil {
@@ -227,7 +256,7 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 		if ex.WorkoutID != "" {
 			x, ok := out.Workouts[ex.WorkoutID]
 			if !ok {
-				ws, e := loadTrainingWorkouts(ctx, tx, l.DatasetID, p.Timezone, c.AsOf, ex.WorkoutID)
+				ws, e := loadTrainingWorkouts(ctx, tx, l.DatasetID, p.Timezone, c.AsOf, ex.WorkoutID, 0)
 				if e != nil {
 					return out, e
 				}
@@ -334,7 +363,7 @@ func trainingPaceSignals(r rf.State) []training.Signal {
 			continue
 		}
 		switch z.Name {
-		case "Z1", "Z2", "Z4", "Z5":
+		case "Z1", "Z2", "Z3", "Z4", "Z5":
 			add(strings.ToLower(z.Name), (*z.FastPace+*z.SlowPace)/2, z.Support)
 		}
 	}
@@ -343,5 +372,90 @@ func trainingPaceSignals(r rf.State) []training.Signal {
 			add("marathon", *p.PaceSecKm, p.Support)
 		}
 	}
+	// Race predictions eligible as targets (direct or calibrated support)
+	// let a v4 race plan assess its goal; v3 ignores them.
+	for _, p := range r.Predictions {
+		if p.TargetEligible && p.Status == "available" && p.Seconds != nil && *p.Seconds > 0 {
+			add("predict_"+p.Distance, *p.Seconds, p.Support)
+		}
+	}
 	return out
+}
+
+// loadTrainingPrevious supplies a v4 plan with its current base: the days
+// before AsOf (frozen) and the week decisions already taken, plus the user's
+// active overrides, which adaptation must leave in place.
+func loadTrainingPrevious(ctx context.Context, q trainingDB, dataset string, p training.Plan, c *training.Context) error {
+	var b []byte
+	err := q.QueryRow(ctx, `SELECT b.base FROM training_plans p JOIN training_base_versions b ON b.dataset_id=p.dataset_id AND b.plan_id=p.id AND b.id=p.current_base_id
+ WHERE p.dataset_id=$1 AND p.id=$2`, dataset, p.ID).Scan(&b)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var base training.Base
+	if err = json.Unmarshal(b, &base); err != nil {
+		return err
+	}
+	loc, err := time.LoadLocation(p.Timezone)
+	if err != nil {
+		return training.ErrInvalid
+	}
+	asOf, err := time.ParseInLocation("2006-01-02", c.AsOf, loc)
+	if err != nil {
+		return training.ErrInvalid
+	}
+	from := asOf.AddDate(0, 0, -42).Format("2006-01-02")
+	for _, s := range base.Sessions {
+		if s.Date >= from && s.Date < c.AsOf {
+			c.PreviousSessions = append(c.PreviousSessions, s)
+		}
+	}
+	for _, w := range base.Weeks {
+		if w.Detail != "outline" {
+			c.PreviousWeeks = append(c.PreviousWeeks, w)
+		}
+	}
+	os, err := loadOverrides(ctx, q, dataset, p.ID, p.OverrideRevision)
+	if err != nil {
+		return err
+	}
+	for _, o := range training.ActiveOverrides(os) {
+		if o.Status == "active" && o.Operation != "revoke" {
+			c.Overrides = append(c.Overrides, o)
+		}
+	}
+	return nil
+}
+
+// loadTrainingSessionRecoverySignal reads today's session-recovery release
+// of the active stack and emits its readyAfter instant (unix microseconds).
+func loadTrainingSessionRecoverySignal(ctx context.Context, q trainingDB, dataset, stack, tz, day string, at time.Time) (training.Signal, bool, error) {
+	var sig training.Signal
+	scope := modelmanifest.DayScope(stack, day)
+	var a publishedModelArtifact
+	err := q.QueryRow(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),a.schema_version,r.algorithm_name,r.algorithm_version,r.target_generation,r.id::text,r.lineage->>'manifestSHA256'
+ FROM analysis_publications p
+ JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
+ JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=$4
+ JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day=$3::date`, dataset, scope, day, sr.Key).Scan(&a.Payload, &a.ContentHash, &a.Schema, &a.Algorithm, &a.Version, &a.Generation, &a.RunID, &a.ManifestSHA)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return sig, false, nil
+	}
+	if err != nil {
+		return sig, false, err
+	}
+	var r sr.Result
+	if !validHistoryArtifactForStack("sessionRecovery", dataset, tz, stack, a) || json.Unmarshal(a.Payload, &r) != nil {
+		return sig, false, nil
+	}
+	fresh, err := sr.Freshen(r, at.UnixMicro())
+	if err != nil || fresh.ReadyAfter == nil {
+		return sig, false, nil
+	}
+	v := float64(*fresh.ReadyAfter)
+	return training.Signal{RunID: a.RunID, Generation: a.Generation, Day: day, Name: "ready_after", Algorithm: training.SessionRecoveryAlgorithm, Version: a.Version, Quality: fresh.Status, Mode: fresh.Mode, Value: &v}, true, nil
 }

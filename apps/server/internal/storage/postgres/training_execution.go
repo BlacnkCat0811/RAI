@@ -167,7 +167,7 @@ func (s *Store) ChangeTrainingExecution(ctx context.Context, p syncing.Principal
 				if e != nil {
 					return nil, "", e
 				}
-				ws, e := loadTrainingWorkouts(ctx, tx, p.DatasetID, plan.Timezone, "", ex.WorkoutID)
+				ws, e := loadTrainingWorkouts(ctx, tx, p.DatasetID, plan.Timezone, "", ex.WorkoutID, 0)
 				if e != nil {
 					return nil, "", e
 				}

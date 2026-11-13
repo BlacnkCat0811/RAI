@@ -1013,15 +1013,8 @@ func heartZoneSupport(obs []Observation, restHR, maxHR float64) []Observation {
 }
 
 func BuildHRZones(startUs, endUs int64, elapsedS float64, heart []Observation, restHR, maxHR float64) *ZoneSummary {
-	out := &ZoneSummary{
-		StimulusType:           "unclassified",
-		SecondaryStimulusTypes: []string{},
-		HeartRateExposure:      []ZoneExposure{},
-		PaceExposure:           []ZoneExposure{},
-		StimulusScores:         []StimulusScore{},
-		ExplanationCodes:       []string{"hr_zones_from_parameter_set", "stimulus_requires_matched_plan", "pace_zone_threshold_unavailable"},
-		PaceZoneStatus:         "threshold_pace_unavailable",
-	}
+	out := NewZoneSummary()
+	out.ExplanationCodes = append([]string{"hr_zones_from_parameter_set"}, out.ExplanationCodes...)
 	if !valid(restHR) || !valid(maxHR) || maxHR <= restHR || elapsedS <= 0 {
 		return nil
 	}

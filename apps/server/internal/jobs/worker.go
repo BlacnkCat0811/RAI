@@ -253,7 +253,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		if err != nil {
 			errorCode = "training_failed"
 		}
-		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_hash", logIdentity(trainingPlanFromScope(l.ScopeKey)), "generation", l.TargetGeneration, "base_hash", logIdentity(baseID), "effective_hash", logIdentity(effectiveID), "job_hash", logIdentity(l.ID), "run_hash", logIdentity(id), "generator_version", training.Generator, "override_count", overrideCount, "duration_ms", elapsed().Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
+		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_hash", logIdentity(trainingPlanFromScope(l.ScopeKey)), "generation", l.TargetGeneration, "base_hash", logIdentity(baseID), "effective_hash", logIdentity(effectiveID), "job_hash", logIdentity(l.ID), "run_hash", logIdentity(id), "generator_version", training.GeneratorFor(in.Plan.Config), "override_count", overrideCount, "duration_ms", elapsed().Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
 		return
 	}
 	code := "analysis_unsupported_algorithm"

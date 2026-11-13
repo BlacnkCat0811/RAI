@@ -247,7 +247,11 @@ func (s *Store) ChangeTrainingPlan(ctx context.Context, p syncing.Principal, id 
 			if r.Config != nil {
 				r.Config.ModelBinding = v.Config.ModelBinding
 			}
-			if r.Config == nil || r.Config.Validate(v.Timezone) != nil || r.Config.StartDate != v.Config.StartDate || r.Config.Weeks != v.Config.Weeks {
+			if r.Config == nil || r.Config.Validate(v.Timezone) != nil || r.Config.StartDate != v.Config.StartDate || r.Config.Weeks != v.Config.Weeks || r.Config.Version != v.Config.Version {
+				return nil, "", syncing.Fail(422, "invalid_training_config")
+			}
+			// A goal set or changed on a rolling plan must not lie in the past.
+			if r.Config.V2() && r.Config.HasGoal() && r.Config.Goal.Date != v.Config.Goal.Date && !trainingGoalAhead(v.Timezone, r.Config.Goal.Date) {
 				return nil, "", syncing.Fail(422, "invalid_training_config")
 			}
 			v.ConfigRevision++
@@ -415,6 +419,18 @@ func (s *Store) PutTrainingOverride(ctx context.Context, p syncing.Principal, id
 		start := v.Config.StartDate
 		d, _ := time.Parse("2006-01-02", start)
 		end := d.AddDate(0, 0, v.Config.Weeks*7).Format("2006-01-02")
+		if v.Config.V2() {
+			// A rolling plan accepts dates inside its current window only.
+			start, end = base.WindowStart, ""
+			for _, s := range base.Sessions {
+				if s.Date >= end {
+					end = s.Date
+				}
+			}
+			if last, err := time.Parse("2006-01-02", end); err == nil {
+				end = last.AddDate(0, 0, 1).Format("2006-01-02")
+			}
+		}
 		for _, s := range merged.Sessions {
 			if s.Date < start || s.Date >= end {
 				return nil, "", syncing.Fail(422, "training_date_out_of_range")
@@ -431,6 +447,11 @@ func (s *Store) PutTrainingOverride(ctx context.Context, p syncing.Principal, id
 			return nil, "", e
 		}
 		eff, e := materialize(ctx, tx, p.DatasetID, v, v.Effective.BaseID, base)
+		if e == nil && v.Config.V2() {
+			// An adaptive plan rebalances the rest of the week around the user's
+			// change; the override itself is already effective.
+			_, e = tx.Exec(ctx, `SELECT rai_training_dirty($1,$2)`, p.DatasetID, id)
+		}
 		return eff, id, e
 	}, &out)
 	return out, e
@@ -488,3 +509,13 @@ func (s *Store) TrainingHistory(ctx context.Context, p syncing.Principal, id str
 	return out, rows.Err()
 }
 func trainingPlanID(l Lease) string { return strings.TrimPrefix(l.ScopeKey, "plan:") }
+
+// trainingGoalAhead reports whether a goal date is today or later in the
+// dataset's time zone.
+func trainingGoalAhead(zone, date string) bool {
+	loc, e := time.LoadLocation(zone)
+	if e != nil {
+		return false
+	}
+	return date >= time.Now().In(loc).Format("2006-01-02")
+}

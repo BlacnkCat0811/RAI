@@ -57,5 +57,6 @@
   "00056_model_optimization_v3.sql": "14a880d9ce9e16bc0c852f700137ccffa2a5ff9df139787d681387cc7b149ebf",
   "00057_running_fitness_v1.sql": "4fad38c6f1e0adc57f31bc2d16d9f8f9975dac3388b72cc63ec65c5827d921ba",
   "00058_recovery_v4.sql": "a10e98387dd49909a42a66b168291c208d763b7309550cf200429c3f07918183",
-  "00059_workout_analysis_outcomes.sql": "a9c8687992adb03164bf9c4f906336a767047dcc7b2155bbea2aa6d110b23a11"
+  "00059_workout_analysis_outcomes.sql": "a9c8687992adb03164bf9c4f906336a767047dcc7b2155bbea2aa6d110b23a11",
+  "00060_training_plan_v4.sql": "f08e6462229f766da074d5e6d74b803b406d2d79c3e8ef456c91027716eac0b2"
 }

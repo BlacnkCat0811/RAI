@@ -8,8 +8,21 @@ import (
 	"time"
 )
 
+// Generate dispatches on the plan's config version. A v1 config keeps the
+// fixed-length training_plan/v3 generator byte for byte; a v2 config uses
+// the rolling, adaptive training_plan/v4.
 func Generate(in Context) (Base, error) {
+	if in.Config.V2() {
+		return generateV4(in)
+	}
+	return generateV3(in)
+}
+
+func generateV3(in Context) (Base, error) {
 	out := Base{Sessions: []Session{}, Recommendations: []string{}}
+	if in.Config.Version != "" || in.Coach != nil {
+		return out, ErrInvalid
+	}
 	if in.Config.Validate(in.Timezone) != nil || in.Parameters != V1Parameters() {
 		return out, ErrInvalid
 	}

@@ -62,11 +62,11 @@ struct WorkoutDetail: View {
                 durationSeconds: detail.workout.elapsedS,
                 emptyNote: emptyNote(metric)
               )
-              if metric == .heartRate, let zones = detail.zoneSummary {
+              if metric == .heartRate, let zones = detail.zoneSummary, !zones.heartRateExposure.isEmpty {
                 WorkoutZoneCard(title: "心率区间", coverage: zones.heartRateCoverage, exposure: zones.heartRateExposure, isHeartRate: true)
               }
               if metric == .pace, let zones = detail.zoneSummary {
-                WorkoutZoneCard(title: "配速区间", coverage: zones.paceCoverage, exposure: zones.paceExposure, isHeartRate: false, unavailable: zones.paceZoneStatus == "threshold_pace_unavailable")
+                WorkoutPaceZoneCard(zones: zones)
               }
             }.padding(.vertical, 6)
               .accessibilityIdentifier("workout.metric.\(metric.rawValue)")
@@ -452,8 +452,12 @@ struct WorkoutDetail: View {
       } else if detail.workout.analysisStatus != "published" {
         Text("分析完成后显示刺激类型。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
-      } else if zones?.stimulusType == "unclassified" {
-        Text("这次跑步暂时无法归类刺激类型：还没有可用的阈值配速。")
+      } else if let zones, zones.stimulusType == "unclassified" {
+        // Stimulus is scored from heart-rate zones against a matched plan;
+        // pace zones are descriptive only and never classify it.
+        Text(zones.heartRateExposure.isEmpty
+             ? "这次跑步缺少心率区间，暂时无法归类刺激类型。"
+             : "这次跑步没有匹配的训练计划，暂不归类刺激类型。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       } else {
         Text("这次跑步暂无刺激类型数据").font(.footnote).foregroundStyle(RAITheme.secondary)
@@ -956,7 +960,6 @@ struct WorkoutZoneCard: View {
   let coverage: Double
   let exposure: [ZoneExposure]
   let isHeartRate: Bool
-  var unavailable = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
@@ -964,15 +967,11 @@ struct WorkoutZoneCard: View {
         Text("\(title) · 有效覆盖 \(percent(coverage))").font(.caption).foregroundStyle(RAITheme.secondary)
         Spacer()
       }
-      if unavailable {
-        Text("还没有阈值配速，暂无配速区间").font(.caption2).foregroundStyle(RAITheme.secondary)
-      } else {
-        ForEach(exposure) { zone in
-          if zone.durationSeconds > 0 {
-            WorkoutStatLine(label: isHeartRate ? heartRateZoneName(zone.zone) : paceZoneName(zone.zone),
-                            value: "\(percent(zone.fraction)) · \(ProductFormat.duration(zone.durationSeconds))",
-                            fraction: zone.fraction)
-          }
+      ForEach(exposure) { zone in
+        if zone.durationSeconds > 0 {
+          WorkoutStatLine(label: heartRateZoneName(zone.zone),
+                          value: "\(percent(zone.fraction)) · \(ProductFormat.duration(zone.durationSeconds))",
+                          fraction: zone.fraction)
         }
       }
     }.padding(.horizontal, 4).accessibilityIdentifier("workout.zones.\(isHeartRate ? "heartRate" : "pace")")
@@ -980,8 +979,60 @@ struct WorkoutZoneCard: View {
   private func heartRateZoneName(_ zone: String) -> String {
     ["recovery": "恢复区", "aerobic_base": "有氧基础", "aerobic_power": "有氧动力", "lactate_threshold": "乳酸阈值", "anaerobic": "无氧"][zone] ?? "其他"
   }
-  private func paceZoneName(_ zone: String) -> String {
-    ["easy": "轻松区", "marathon": "马拉松区", "lactate_threshold": "阈值区", "anaerobic_endurance": "无氧耐力区", "sprint": "冲刺区"][zone] ?? "其他"
+}
+
+/// Pace exposure against the running-fitness zones published before this run.
+struct WorkoutPaceZoneCard: View {
+  let zones: WorkoutZoneSummary
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text(zones.paceZoneStatus == "available" ? "配速区间 · 有效覆盖 \(percent(zones.paceCoverage))" : "配速区间")
+        .font(.caption).foregroundStyle(RAITheme.secondary)
+      if zones.paceZoneStatus == "available" {
+        ForEach(zones.paceExposure) { zone in
+          if zone.durationSeconds > 0 {
+            WorkoutStatLine(label: label(zone.zone),
+                            value: "\(percent(zone.fraction)) · \(ProductFormat.duration(zone.durationSeconds)) · \(ProductFormat.distance(zone.distanceMeters)) km",
+                            fraction: zone.fraction)
+          }
+        }
+        Text(footnote).font(.caption2).foregroundStyle(RAITheme.secondary)
+      } else {
+        Text(unavailableText).font(.caption2).foregroundStyle(RAITheme.secondary)
+      }
+    }.padding(.horizontal, 4).accessibilityIdentifier("workout.zones.pace")
+  }
+
+  private func label(_ zone: String) -> String {
+    let name = "\(zone) \(RunningFitnessText.zoneName(zone))"
+    guard let band = zones.paceBand(zone) else { return name }
+    switch (band.fastPaceSecondsPerKm, band.slowPaceSecondsPerKm) {
+    case let (fast?, slow?): return "\(name) \(paceText(fast))–\(paceText(slow))"
+    case let (fast?, nil): return "\(name) 慢于 \(paceText(fast))"
+    case let (nil, slow?): return "\(name) 快于 \(paceText(slow))"
+    default: return name
+    }
+  }
+
+  private func paceText(_ seconds: Double) -> String {
+    let s = Int(seconds.rounded())
+    return String(format: "%d′%02d″", s / 60, s % 60)
+  }
+
+  private var footnote: String {
+    var parts = ["按 \(zones.paceZoneProfileDate ?? "训练前") 的跑力配速区间划分", "实际速度，未做坡度修正"]
+    if zones.explanationCodes.contains("pace_zones_not_fully_supported") { parts.append("阈值附近区间仍是估计") }
+    if zones.explanationCodes.contains("stationary_speed_excluded") { parts.append("停步不计入") }
+    return parts.joined(separator: " · ")
+  }
+
+  private var unavailableText: String {
+    switch zones.paceZoneStatus {
+    case "zone_anchor_conflict": return "训练前的跑力配速区间依据互相矛盾，暂不划分"
+    case "speed_unavailable": return "这次跑步没有可用的速度记录，无法划分配速区间"
+    default: return "训练前还没有跑力配速区间，暂不划分"
+    }
   }
 }
 

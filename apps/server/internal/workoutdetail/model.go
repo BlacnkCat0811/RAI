@@ -122,6 +122,8 @@ type ZoneSummary struct {
 	StimulusScores         []StimulusScore `json:"stimulusScores"`
 	ExplanationCodes       []string        `json:"explanationCodes"`
 	PaceZoneStatus         string          `json:"paceZoneStatus"`
+	PaceZoneProfileDate    string          `json:"paceZoneProfileDate,omitempty"`
+	PaceZones              []PaceZoneBand  `json:"paceZones"`
 }
 
 type RoutePoint struct {

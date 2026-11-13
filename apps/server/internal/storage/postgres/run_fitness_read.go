@@ -84,6 +84,32 @@ func activeFitnessRelease(ctx context.Context, q fitnessQuerier, dataset string)
 	return a, nil
 }
 
+// paceProfileLookbackDays bounds how far before the run day a published
+// running-fitness state may supply the pace zones.
+const paceProfileLookbackDays = 7
+
+// latestPaceZoneProfile picks the most recent state published for a day
+// strictly before the run day: the run never classifies itself with
+// boundaries it helped shape. A missing yesterday (activation day, a
+// publication gap) falls back to an earlier day within the lookback; zones
+// whose evidence window ended before the run day are not used.
+func latestPaceZoneProfile(states map[string]rf.State, runDay string) *workoutdetail.PaceZoneProfile {
+	best := ""
+	for date := range states {
+		if date < runDay && date > best {
+			best = date
+		}
+	}
+	if best == "" {
+		return nil
+	}
+	zones := states[best].Zones
+	if zones.ValidUntil != "" && zones.ValidUntil < runDay {
+		return nil
+	}
+	return &workoutdetail.PaceZoneProfile{Date: best, Zones: zones}
+}
+
 // loadRunFitnessDetail attaches the single result published on the run's
 // local day and the fixed-policy reference of the day before it. A run whose
 // day has not been (re)published yet simply has no runFitness block.
@@ -101,10 +127,15 @@ func loadRunFitnessDetail(ctx context.Context, tx pgx.Tx, p syncing.Principal, i
 	}
 	day := d.Start.In(loc).Format(time.DateOnly)
 	before := d.Start.In(loc).AddDate(0, 0, -1).Format(time.DateOnly)
-	states, _, err := publishedFitnessDays(ctx, tx, p.DatasetID, act.stack, act.tz, []string{before, day})
+	days := make([]string, 0, paceProfileLookbackDays+1)
+	for i := paceProfileLookbackDays; i >= 0; i-- {
+		days = append(days, d.Start.In(loc).AddDate(0, 0, -i).Format(time.DateOnly))
+	}
+	states, _, err := publishedFitnessDays(ctx, tx, p.DatasetID, act.stack, act.tz, days)
 	if err != nil {
 		return err
 	}
+	d.PaceZoneProfile = latestPaceZoneProfile(states, day)
 	s, ok := states[day]
 	if !ok {
 		return nil

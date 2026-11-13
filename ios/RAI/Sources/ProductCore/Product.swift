@@ -20,7 +20,8 @@ public struct ProductSession: Identifiable, Hashable, Sendable {
   public var date: String { raw.string("date") }
   public var type: String { raw.string("type") }
   public var title: String {
-    [
+    if let t = AdaptivePlanText.focusTitle(raw.string("focus")) { return t }
+    return [
       "REST": "休息日", "EASY": "基础跑", "LONG": "长距离跑", "TEMPO": "节奏跑", "INTERVAL": "间歇训练",
       "RECOVERY": "恢复跑", "RACE": "比赛",
     ][type] ?? "训练"

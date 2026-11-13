@@ -140,6 +140,17 @@ func TestRunningFitnessV4HTTPNegotiationAndPublication(t *testing.T) {
 	if e != nil || len(after.Days) != 1 || after.Days[0].PublicationID == page.Days[0].PublicationID {
 		t.Fatalf("revised history did not move to the recomputed day: %v", e)
 	}
+	// Only today's (post-run) state is published here. The detail never borrows
+	// a state the run itself shaped, so pace zones stay unavailable instead of
+	// classifying the run with its own boundaries.
+	detail, e := f.s.WorkoutDetail(ctx, f.p, "f62f735b-fb16-43f9-b415-7a7041bca032")
+	if e != nil || detail.ZoneSummary == nil {
+		t.Fatalf("detail zones: %v", e)
+	}
+	if z := detail.ZoneSummary; z.PaceZoneStatus != "threshold_pace_unavailable" || z.PaceZoneProfileDate != "" || len(z.PaceExposure) != 0 || len(z.PaceZones) != 0 {
+		b, _ := json.Marshal(z)
+		t.Fatalf("post-run zones leaked into the detail: %s", b)
+	}
 	// A dirty generation hides all day products together, including new slots.
 	if _, e = f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,clock_timestamp())`, f.p.DatasetID, modelmanifest.StackID(), today.Format(time.DateOnly)); e != nil {
 		t.Fatal(e)

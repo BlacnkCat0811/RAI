@@ -577,3 +577,110 @@ final class SportStyleOfflineUITests: XCTestCase {
     add(attachment)
   }
 }
+
+/// Adaptive training plan (training_plan/v4) against an isolated local API.
+/// The runner passes the private config path as TEST_RUNNER_RAI_TRAINING_V4_CONFIG;
+/// screenshots are written next to it.
+@MainActor
+final class TrainingV4UITests: XCTestCase {
+  private var app: XCUIApplication!
+  private var root = ""
+  private func element(_ id: String) -> XCUIElement {
+    app.descendants(matching: .any).matching(identifier: id).firstMatch
+  }
+  private func tap(_ id: String) {
+    let e = element(id)
+    XCTAssertTrue(e.waitForExistence(timeout: 15), id)
+    for _ in 0..<6 where !e.isHittable { app.swipeUp() }
+    e.tap()
+  }
+  private func shot(_ name: String) throws {
+    let s = app.screenshot()
+    let a = XCTAttachment(screenshot: s)
+    a.name = name
+    a.lifetime = .keepAlways
+    add(a)
+    let dir = URL(fileURLWithPath: root).appendingPathComponent("screens")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    try s.pngRepresentation.write(to: dir.appendingPathComponent(name + ".png"))
+  }
+  /// Pulls to refresh until the element appears (the Worker publishes async).
+  private func waitRefreshing(_ id: String, timeout: TimeInterval = 90) -> Bool {
+    let end = Date().addingTimeInterval(timeout)
+    while Date() < end {
+      // The training screen polls while a generation is queued or running.
+      if element(id).waitForExistence(timeout: 10) { return true }
+      let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
+      start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)))
+    }
+    try? app.debugDescription.write(toFile: root + "/tree-\(id).txt", atomically: true, encoding: .utf8)
+    try? shot("timeout-" + id)
+    return false
+  }
+  func testAdaptivePlanCreateFitnessThenRaceGoal() throws {
+    continueAfterFailure = false
+    let config = try XCTUnwrap(ProcessInfo.processInfo.environment["RAI_TRAINING_V4_CONFIG"], "config path")
+    root = (config as NSString).deletingLastPathComponent
+    app = XCUIApplication()
+    app.launchEnvironment["RAI_SYNTHETIC_ACCEPTANCE"] = "1"
+    app.launchEnvironment["RAI_ACCEPTANCE_CONFIG"] = config
+    app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    app.launch()
+    XCTAssertTrue(element("screen.home").waitForExistence(timeout: 60))
+    app.tabBars.buttons["训练"].tap()
+    XCTAssertTrue(element("screen.training").waitForExistence(timeout: 15))
+    try shot("V4-01-Empty")
+    // Create a plan without a goal: training days and weekly time only.
+    tap("training.create")
+    XCTAssertTrue(app.switches["create.hasGoal"].waitForExistence(timeout: 10))
+    XCTAssertFalse(element("create.raceDate").exists, "goal fields hidden without a goal")
+    let baseline = app.textFields["create.baseline"]
+    for _ in 0..<6 where !baseline.isHittable { app.swipeUp() }
+    baseline.tap()
+    baseline.typeText("200")
+    try shot("V4-02-CreateForm")
+    tap("create.save")
+    XCTAssertTrue(waitRefreshing("training.week"), "fitness plan published")
+    try shot("V4-03-FitnessPlan")
+    XCTAssertTrue(app.staticTexts["自适应训练"].exists)
+    // Set a half-marathon goal with a target time on the same plan.
+    tap("training.editGoal")
+    let goal = app.switches["create.hasGoal"]
+    XCTAssertTrue(goal.waitForExistence(timeout: 10))
+    if (goal.value as? String) != "1" { goal.tap() }
+    if (goal.value as? String) != "1" { goal.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap() }
+    XCTAssertTrue(element("create.raceDate").waitForExistence(timeout: 10))
+    let target = app.textFields["create.targetTime"]
+    target.tap()
+    target.typeText("1:55:00")
+    try shot("V4-04-GoalForm")
+    tap("create.save")
+    XCTAssertTrue(waitRefreshing("training.phase"), "race plan published")
+    try shot("V4-05-RacePlan")
+    // Open the next scheduled run (not a rest day) and check its detail.
+    let f = DateFormatter()
+    f.calendar = Calendar(identifier: .gregorian)
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = "yyyy-MM-dd"
+    var opened = false
+    for offset in 1...7 where !opened {
+      let day = f.string(from: Calendar.current.date(byAdding: .day, value: offset, to: Date())!)
+      let chip = element("training.date." + day)
+      guard chip.waitForExistence(timeout: 5) else { continue }
+      if !chip.isHittable { app.swipeDown() }
+      chip.tap()
+      let run = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'session.' AND NOT (label CONTAINS '休息日')")).firstMatch
+      if run.waitForExistence(timeout: 3) {
+        try shot("V4-06-NextRun")
+        for _ in 0..<4 where !run.isHittable { app.swipeUp() }
+        XCTAssertTrue(run.label.contains("分钟"), "time-prescribed run: \(run.label)")
+        run.tap()
+        XCTAssertTrue(element("screen.session").waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '目的：'")).firstMatch.exists, "purpose shown")
+        try shot("V4-07-SessionDetail")
+        opened = true
+      }
+    }
+    XCTAssertTrue(opened, "a run within the next week")
+  }
+}

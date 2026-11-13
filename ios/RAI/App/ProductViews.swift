@@ -261,6 +261,13 @@ struct TrainingHero: View {
 func prescription(_ s: ProductSession) -> String {
   if s.type == "REST" { return "给身体一点恢复时间" }
   var parts: [String] = []
+  // Adaptive sessions are prescribed by time; the distance is an estimate
+  // from the pace zone. A race stays distance-first.
+  if !s.focus.isEmpty && s.type != "RACE" {
+    if s.duration > 0 { parts.append(ProductFormat.decimal(s.duration / 60) + " 分钟") }
+    if s.distance > 0 { parts.append("约 " + ProductFormat.distance(s.distance) + " 公里") }
+    return parts.joined(separator: " · ")
+  }
   if s.distance > 0 { parts.append(ProductFormat.distance(s.distance) + " 公里") }
   if s.duration > 0 { parts.append(ProductFormat.decimal(s.duration / 60) + " 分钟") }
   return parts.joined(separator: " · ")

@@ -483,4 +483,22 @@ func TestModelStackDayCachesWorkoutResults(t *testing.T) {
 	if d.RunFitness != nil && d.RunFitness.Single.WorkoutID != runs[1].id {
 		t.Fatal("run fitness of another Workout attached to the detail")
 	}
+	// Pace zones come only from the day before the run; a run never classifies
+	// itself with zones it helped shape, and conflicts never yield exposure.
+	if z := d.ZoneSummary; z != nil {
+		b, _ := json.Marshal(z)
+		switch z.PaceZoneStatus {
+		case "available":
+			if len(z.PaceExposure) != 6 || len(z.PaceZones) != 6 || z.PaceCoverage <= 0 || z.PaceZoneProfileDate == "" || (d.RunFitness != nil && z.PaceZoneProfileDate >= d.RunFitness.PublishedDate) {
+				t.Fatalf("pace zones: %s", b)
+			}
+		case "threshold_pace_unavailable", "zone_anchor_conflict", "speed_unavailable":
+			if len(z.PaceExposure) != 0 {
+				t.Fatalf("unavailable pace zones with exposure: %s", b)
+			}
+		default:
+			t.Fatalf("unknown pace zone status: %s", b)
+		}
+		t.Logf("pace zone status %s profile %s", z.PaceZoneStatus, z.PaceZoneProfileDate)
+	}
 }

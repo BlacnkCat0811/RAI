@@ -61,7 +61,12 @@ func trainingJSONFields(b []byte, typ reflect.Type) error {
 		case reflect.TypeOf(training.ExecutionChange{}):
 			required = []string{"commandID", "expectedRevision", "operation"}
 		case reflect.TypeOf(training.Config{}):
-			required = []string{"startDate", "weeks", "goal", "availableDays", "longRunDay"}
+			// training_config/v2 (adaptive) has an optional goal and no length.
+			if v, ok := fields["version"]; ok && string(bytes.TrimSpace(v)) == `"`+training.ConfigVersionV2+`"` {
+				required = []string{"version", "startDate", "availableDays", "longRunDay"}
+			} else {
+				required = []string{"startDate", "weeks", "goal", "availableDays", "longRunDay"}
+			}
 		case reflect.TypeOf(training.Goal{}):
 			required = []string{"type", "date", "distanceM"}
 		case reflect.TypeOf(training.ManualSession{}):

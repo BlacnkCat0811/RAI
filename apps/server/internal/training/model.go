@@ -51,16 +51,43 @@ type ModelBinding struct {
 	Missing           []string `json:"missing,omitempty"`
 }
 
+// Config is versioned. An empty Version is the original fixed-length,
+// goal-required plan (training_plan/v3). ConfigVersionV2 is the rolling,
+// adaptive plan (training_plan/v4): the goal is optional, StartDate is only the
+// Monday anchor of slot numbering and Weeks stays zero.
 type Config struct {
+	Version         string        `json:"version,omitempty"`
 	StartDate       string        `json:"startDate"`
-	Weeks           int           `json:"weeks"`
-	Goal            Goal          `json:"goal"`
+	Weeks           int           `json:"weeks,omitempty"`
+	Goal            Goal          `json:"goal,omitzero"`
 	AvailableDays   []int         `json:"availableDays"` // ISO Monday=1 ... Sunday=7
 	LongRunDay      int           `json:"longRunDay"`
 	BaselineWeeklyM *float64      `json:"baselineWeeklyM,omitempty"`
 	PreviousLongM   *float64      `json:"previousLongM,omitempty"`
+	BaselineWeeklyS *float64      `json:"baselineWeeklyS,omitempty"`
 	ModelBinding    *ModelBinding `json:"modelBinding,omitempty"`
 }
+
+// HasGoal reports whether a v2 config carries a race goal.
+func (c Config) HasGoal() bool { return c.Goal.Type != "" }
+
+// V2 reports whether the config selects the adaptive generator.
+func (c Config) V2() bool { return c.Version == ConfigVersionV2 }
+
+// GeneratorFor and ParameterVersionFor bind a plan to its generator lineage.
+func GeneratorFor(c Config) string {
+	if c.V2() {
+		return GeneratorV4
+	}
+	return Generator
+}
+func ParameterVersionFor(c Config) string {
+	if c.V2() {
+		return ParameterVersionV2
+	}
+	return ParameterVersion
+}
+
 type Step struct {
 	Kind      string `json:"kind"`
 	DurationS int    `json:"durationS"`
@@ -85,6 +112,24 @@ type Session struct {
 	Reasons    []string `json:"reasonCodes"`
 	Modified   bool     `json:"modifiedByUser"`
 	Conflicts  []string `json:"conflicts,omitempty"`
+	// v4 only. Focus names the workout within its type (threshold, vo2max,
+	// strides ...); Purpose is the fixed explanation code of that focus.
+	Focus       string       `json:"focus,omitempty"`
+	Purpose     string       `json:"purpose,omitempty"`
+	ChangedFrom *ChangedFrom `json:"changedFrom,omitempty"`
+	// Outcome annotates past days of a v4 plan from recorded runs: done,
+	// partial, missed or extra (a run on a rest day). It is recomputed from
+	// facts each generation; the prescription itself stays frozen.
+	Outcome string `json:"outcome,omitempty"`
+}
+
+// ChangedFrom records what a v4 adaptation replaced on this day.
+type ChangedFrom struct {
+	Date      string  `json:"date"`
+	Type      string  `json:"type"`
+	Focus     string  `json:"focus,omitempty"`
+	DurationS float64 `json:"durationS"`
+	Reason    string  `json:"reasonCode"`
 }
 type Signal struct {
 	Mode            string   `json:"mode,omitempty"`
@@ -111,6 +156,10 @@ type Workout struct {
 	DurationS  *float64 `json:"durationS"`
 	DistanceM  *float64 `json:"distanceM"`
 	Load       *float64 `json:"load"`
+	// Load focus buckets of the run (rai.load_focus), when the stack has them.
+	FocusLow       *float64 `json:"focusLowAU,omitempty"`
+	FocusHigh      *float64 `json:"focusHighAU,omitempty"`
+	FocusAnaerobic *float64 `json:"focusAnaerobicAU,omitempty"`
 }
 type Context struct {
 	PlanID               string        `json:"planID"`
@@ -123,10 +172,24 @@ type Context struct {
 	ObservedModelBinding *ModelBinding `json:"observedModelBinding,omitempty"`
 	Signals              []Signal      `json:"signals"`
 	Feedback             []Feedback    `json:"feedback"`
+	// v4 inputs. Coach replaces Parameters; the previous base supplies the
+	// frozen past days and the week decisions already taken; overrides are
+	// the user's active changes, which adaptation must not move.
+	Coach            *CoachParameters `json:"coach,omitempty"`
+	PreviousSessions []Session        `json:"previousSessions,omitempty"`
+	PreviousWeeks    []WeekSummary    `json:"previousWeeks,omitempty"`
+	Overrides        []Override       `json:"overrides,omitempty"`
 }
 type Base struct {
 	Sessions        []Session `json:"sessions"`
 	Recommendations []string  `json:"recommendations"`
+	// v4 only: the generation day, the first day kept in the rolling window,
+	// the plan mode, week summaries and the goal assessment.
+	AsOf        string        `json:"asOf,omitempty"`
+	WindowStart string        `json:"windowStart,omitempty"`
+	Mode        string        `json:"mode,omitempty"`
+	Weeks       []WeekSummary `json:"weeks,omitempty"`
+	GoalStatus  *GoalStatus   `json:"goalStatus,omitempty"`
 }
 type Override struct {
 	ID        string          `json:"overrideID"`
@@ -307,6 +370,13 @@ func StableID(plan string, slot int) string {
 	return s[:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:]
 }
 func (c Config) Validate(timezone string) error {
+	switch c.Version {
+	case "":
+	case ConfigVersionV2:
+		return c.validateV2(timezone)
+	default:
+		return ErrInvalid
+	}
 	loc, e := time.LoadLocation(timezone)
 	if e != nil {
 		return ErrInvalid
@@ -370,7 +440,9 @@ func ValidateSession(s Session) error {
 		return ErrInvalid
 	}
 	totalStepS := 0
-	if len(s.Steps) > 0 && s.Type != "INTERVAL" && s.Type != "TEMPO" {
+	// Easy and long runs may carry structure too (strides, a race-pace block
+	// inside a long run); rest, recovery and race days never do.
+	if len(s.Steps) > 0 && s.Type != "INTERVAL" && s.Type != "TEMPO" && s.Type != "EASY" && s.Type != "LONG" {
 		return ErrInvalid
 	}
 	for _, v := range s.Steps {

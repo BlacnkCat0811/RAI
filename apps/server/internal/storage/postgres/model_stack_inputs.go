@@ -301,18 +301,20 @@ func dailyRHRFacts(in *rc.Input, workoutStart int64, epoch string, loc *time.Loc
 	}
 	start := time.UnixMicro(workoutStart).In(loc)
 	from := start.AddDate(0, 0, -29)
-	through := start.AddDate(0, 0, -1)
 	byDate := map[string]hrref.DailyRHR{}
 	known := map[string]int64{}
+	// Every reading whose whole interval ends before the run is a pre-workout
+	// observation, including the run day's own morning reading. HealthKit's
+	// daily resting HR sample starts at midnight but ends when it was
+	// computed, so a sample still open at the start may already contain
+	// post-run heart rate and is excluded, as is any later version of the day.
+	// hrref applies the 28-day and recent-7-day rules.
 	for _, f := range in.Facts {
-		if f.Type != rc.RHR || f.Value == nil || f.Start < from.UnixMicro() || f.Start >= start.UnixMicro() {
+		end := max(f.End, f.Start)
+		if f.Type != rc.RHR || f.Value == nil || f.Start < from.UnixMicro() || f.Start >= start.UnixMicro() || end > start.UnixMicro() {
 			continue
 		}
-		day := time.UnixMicro(f.Start).In(loc)
-		if day.Before(from) || day.After(through) {
-			continue
-		}
-		key := day.Format(time.DateOnly)
+		key := time.UnixMicro(f.Start).In(loc).Format(time.DateOnly)
 		if old, ok := known[key]; ok && old >= f.KnownAt {
 			continue
 		}
