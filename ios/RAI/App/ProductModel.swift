@@ -140,11 +140,32 @@ final class ProductModel {
       statisticsError = "跑量统计加载失败，请重试。"
     }
   }
+  #if DEBUG
+  private var localAcceptanceNamespace: String?
+  /// Uses an explicit, already-verified local handshake. Never loads or binds
+  /// the normal session, its Keychain account, journal or home cache.
+  func configureLocalAcceptance(secret: ClientConfiguration.Secret, namespace: UUID, hello: JSON, expectedDatasetSHA256: String) async throws {
+    guard hello.string("collectorEpoch") == secret.configuration.collectorEpoch,
+      Wire.hash(Data(hello.string("datasetID").utf8)) == expectedDatasetSHA256 else {
+      throw SyncFailure.invalid("local_acceptance_identity_mismatch")
+    }
+    let journalNamespace = "local-acceptance-" + namespace.uuidString.lowercased()
+    localAcceptanceNamespace = journalNamespace
+    let client = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token)
+    try await bindProduct(secret: secret, api: ProductAPI(client: client), hello: hello, namespace: journalNamespace)
+  }
+  #endif
   private var api: ProductAPI?
   private var journal: ProductJournal?
   private let log = Logger(subsystem: "com.rai.v2.ios", category: "product.performance")
   func configure() async {
     guard api == nil, !previewOnly else { return }
+    #if DEBUG
+    if localAcceptanceNamespace != nil {
+      error = "本机验收连接已关闭，请重新打开验收页面。"
+      return
+    }
+    #endif
     do {
       #if DEBUG && targetEnvironment(simulator)
         // A private test configuration points at a real isolated API. No
@@ -183,22 +204,8 @@ final class ProductModel {
       let client = RAIAPIClient(baseURL: secret.configuration.baseURL, token: secret.token)
       let productAPI = ProductAPI(client: client)
       let hello = try await productAPI.get("/v2/handshake")
-      let directory = try FileManager.default.url(
-        for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-      ).appendingPathComponent("RAIV2Product").appendingPathComponent(try ClientConfiguration.activeDescriptor()?.sessionID ?? "unconfigured")
-      let store = try ProductJournal(directory: directory)
-      try await store.bind(
-        secret.configuration.baseURL.absoluteString + ":" + hello.string("serviceID") + ":"
-          + hello.string("datasetID") + ":" + hello.string("datasetEpoch"))
-      api = productAPI
-      journal = store
-      configured = true
-      pending = await store.pending()
-      pendingModelInput = await store.pendingModelInput()
-      executionIDs = await store.executionIDs()
-      if let id = executionIDs.last {
-        execution = (try? await productAPI.get("/v2/training/executions/" + id)) ?? .null
-      }
+      try await bindProduct(secret: secret, api: productAPI, hello: hello,
+        namespace: try ClientConfiguration.activeDescriptor()?.sessionID ?? "unconfigured")
     } catch let failure as UploadError {
       log.error("product_bootstrap_transport=\(failure.code, privacy: .public)")
       error = "暂时连不上服务器：\(UserFacingText.error(failure.code))。"
@@ -215,6 +222,23 @@ final class ProductModel {
       self.error = "暂时连不上服务器，可稍后下拉重试。"
     }
   }
+  private func bindProduct(secret: ClientConfiguration.Secret, api productAPI: ProductAPI, hello: JSON, namespace: String) async throws {
+    let directory = try FileManager.default.url(
+      for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+    ).appendingPathComponent("RAIV2Product").appendingPathComponent(namespace)
+    let store = try ProductJournal(directory: directory)
+    try await store.bind(secret.configuration.baseURL.absoluteString + ":" + hello.string("serviceID") + ":"
+      + hello.string("datasetID") + ":" + hello.string("datasetEpoch"))
+    api = productAPI
+    journal = store
+    configured = true
+    pending = await store.pending()
+    pendingModelInput = await store.pendingModelInput()
+    executionIDs = await store.executionIDs()
+    if let id = executionIDs.last {
+      execution = (try? await productAPI.get("/v2/training/executions/" + id)) ?? .null
+    }
+  }
   func reconnect() async {
     guard !loading else { return }
     statisticsRequests.invalidate()
@@ -227,7 +251,13 @@ final class ProductModel {
     await refresh()
   }
   private var cacheRestored = false
-  private static func cacheURL() -> URL? {
+  private func cacheURL() -> URL? {
+    #if DEBUG
+    if let namespace = localAcceptanceNamespace {
+      return FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+        .appendingPathComponent("RAIProductHome-" + namespace + ".json")
+    }
+    #endif
     guard let session = try? ClientConfiguration.activeDescriptor()?.sessionID,
       let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
     else { return nil }
@@ -253,7 +283,7 @@ final class ProductModel {
           previewOnly = true
         }
       #endif
-      if !previewOnly, let url = Self.cacheURL(), let bytes = try? Data(contentsOf: url),
+      if !previewOnly, let url = cacheURL(), let bytes = try? Data(contentsOf: url),
         let cached = ProductSnapshotCache.decode(bytes)
       {
         data = cached
@@ -263,7 +293,7 @@ final class ProductModel {
     await configure()
     guard let api else { return }
     let loaded = await api.load().keepingLastGood(from: data)
-    if !ProductLoadFailures.needsRetry(loaded.failures), let url = Self.cacheURL(), let bytes = ProductSnapshotCache.encode(loaded) {
+    if !ProductLoadFailures.needsRetry(loaded.failures), let url = cacheURL(), let bytes = ProductSnapshotCache.encode(loaded) {
       try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
     let stateStart = Date()
@@ -381,7 +411,7 @@ final class ProductModel {
       if !Task.isCancelled { data.failures["athlete"] = "athlete_response_invalid" }
     }
     if !Task.isCancelled, !data.athleteRefreshFailed,
-      let url = Self.cacheURL(), let bytes = ProductSnapshotCache.encode(data) {
+      let url = cacheURL(), let bytes = ProductSnapshotCache.encode(data) {
       try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
   }

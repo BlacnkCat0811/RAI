@@ -3,10 +3,11 @@ package training
 import "time"
 
 // training_plan/v4 is the rolling, adaptive plan. It is selected by a
-// training_config/v2 config and parameterised by coach_parameters/v2.
+// training_config/v2 config. Parameter revisions retain their frozen behavior.
 const (
 	GeneratorV4        = "training_plan/v4"
 	ParameterVersionV2 = "coach_parameters/v2"
+	ParameterVersionV3 = "coach_parameters/v3"
 	ConfigVersionV2    = "training_config/v2"
 )
 
@@ -49,6 +50,8 @@ type CoachParameters struct {
 	ACWRHold         float64 `json:"acwrHold"`
 	ACWRRecover      float64 `json:"acwrRecover"`
 	ReturnGapDays    int     `json:"returnGapDays"`
+	// Baseline: median of the active weeks among this many full weeks.
+	BaselineWeeks int `json:"baselineWeeks,omitempty"`
 	// Day layer.
 	ReadinessLow     float64 `json:"readinessLow"`
 	ReadinessRest    float64 `json:"readinessRest"`
@@ -71,8 +74,7 @@ type CoachParameters struct {
 	WindowWeeks int `json:"windowWeeks"`
 }
 
-// V2Parameters is coach_parameters/v2. Migration 60 stores the same values;
-// the generator refuses any other set.
+// V2Parameters preserves migration 60 and the original four-week mean policy.
 func V2Parameters() CoachParameters {
 	return CoachParameters{
 		Version:     ParameterVersionV2,
@@ -88,6 +90,17 @@ func V2Parameters() CoachParameters {
 		GoalOnTrack: .03, GoalAmbitious: .08,
 		HistoryDays: 56, WindowWeeks: 4,
 	}
+}
+
+// V3Parameters gives the eight-week active-week median its own immutable
+// revision. The remaining prescription and safety thresholds are unchanged.
+func V3Parameters() CoachParameters {
+	p := V2Parameters()
+	p.Version = ParameterVersionV3
+	p.BaselineWeeks = 8
+	// 63 days hold the eight full weeks before the current one.
+	p.HistoryDays = 63
+	return p
 }
 
 // WeekSummary is one week of a v4 plan. Past and current weeks are frozen

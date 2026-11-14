@@ -7,10 +7,10 @@
 缺失记录或未覆盖的分区不补成零强度，也不以整次平均配速或平均心率代替分区。
 
 - 当前架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- 自适应训练计划（`training_plan/v4`，迁移 60，**未部署**）：参照佳明教练，有比赛目标时按比赛日期倒排基础／提升／巅峰／减量阶段，
+- 自适应训练计划（`training_plan/v4`，迁移 60／61，**未部署**）：参照佳明教练，有比赛目标时按比赛日期倒排基础／提升／巅峰／减量阶段，
   没有目标时按近期完成量、负荷、恢复与负荷焦点逐周自动排课；错过、多跑、准备度低、恢复未结束时周内自动调整；
-  每次跑步课不少于 30 分钟。见 [ARCHITECTURE](docs/ARCHITECTURE.md#自适应训练计划training_planv4迁移-60未部署) 与
-  [优化方案](RAI-训练计划自适应排课优化方案-2026-11-13.md)。旧计划不迁移，App 中“改用自适应计划”新建。参数为未校准的设计值。
+  每次跑步课不少于 30 分钟。见 [ARCHITECTURE](docs/ARCHITECTURE.md) 与
+  [优化方案](RAI-训练计划自适应排课优化方案-2026-11-13.md)。旧计划不迁移，App 中“改用自适应计划”新建。参数为未校准的设计值。迁移 61 用不可变的 `coach_parameters/v3` 保存近 8 个完整周中活跃周的时长中位数基线；迁移 60 与旧参数保留回放。
 - 静息心率基线计入跑步当天开跑前的读数（无迁移，新栈 `rai-v2-d015a2025ccc6476`，**尚未部署、未激活**）：近 7 天漏戴手表时，当天晨间读数可补足“近 7 天 ≥3 天”，避免负荷因 `reference_missing` 为空。
 - 跑步分析卡住修复（迁移 59，已于 2026-11-12 部署并激活）：支持数千个 HealthKit 单点序列，保留总点数预算；单条失败明确展示。旧模型 previous 停止排程，已失败任务保留审计。
 - 生理恢复 v4：已实现最近 7 次有效观测均值及默认基准估计，支持漏戴手表时继续估计准备度；取消缺测扣分及估计模式 75 分封顶，保留估计标注与置信度。需要迁移 58，与训练效果同栈发布，已于 2026-11-12 部署并激活。
@@ -42,6 +42,7 @@ scripts/local/bootstrap.sh
 ```bash
 scripts/local/test.sh quick          # Go 单测 + vet + 依赖边界
 scripts/local/test.sh swift          # iOS 包单测（SyncCore / ProductCore）
+scripts/local/test.sh training-ui    # 自适应计划 UI → 本机 API/Worker → 一次性 PG18
 scripts/local/test.sh integration    # 隔离 PG18 集成测试（改 SQL/事务时跑）
 scripts/local/test.sh gate           # 完成门禁：race + vet + 边界 + admin 迁移
 ```
@@ -54,6 +55,38 @@ scripts/local/test.sh swift --filter 'AthleteRefreshTests|AthleteModel|RunningFi
 ```
 
 上述定向检查不替代 `gate`，也不代表已完成真机或线上验收。
+
+当前本机验证（2026-11-13，仅合成数据）：`gate` 已通过（含 18 个 admin 迁移集成测试），
+训练／模型发布／日常健康／跑力相关的 20 个隔离 PG18 顶层集成测试通过；Swift 包 203 项通过。
+App 模拟器回归 86 项通过（含跑力普通／辅助功能字号布局及独立连接身份／重连保护），6 项跳过；
+跳过项为需专用 VO2／外部闭环／上传后端的独立验收测试，本轮未执行。
+`training-ui` 两个 UI 场景已通过无目标建计划、设置半马目标、重算发布与课程详情的真实 TCP/API/Worker/PG18 流程；
+独立训练入口另用一套测试数据库，验证原会话 manifest 不变、没有向正常后端发请求，报告不输出健康值。
+这些结果不代表真实 HealthKit、连续自然日真机、自有数据校准或生产部署通过；v4 与静息心率新栈仍未部署。
+
+本机真机验收准备（2026-11-13）：独立状态为 `.local/device-plan-v4-20261113-b`，PG18 仅监听本机 55434，
+API 使用 Mac 私网 18084，schema 61；API/Worker readiness、真机 Debug 包签名及本机主机配置均已验证。
+目前无可用 USB iPhone，尚未安装、执行手机连通检查或读取 HealthKit；自然日观察尚未开始。
+原云端及旧本机验收状态保持不变，模型仅完成构建，未进行线上部署或激活。
+继续本次验收时为 `scripts/local/device.py` 设置 `RAI_LOCAL_DEVICE_RUN=$PWD/.local/device-plan-v4-20261113-b`、
+`RAI_LOCAL_DEVICE_PG_PORT=55434`、`RAI_LOCAL_DEVICE_HTTP_PORT=18084`，避免使用原验收目录。
+
+真机连接后使用以下独立入口（均需上述环境变量）：
+
+```bash
+python3 scripts/local/device.py install
+python3 scripts/local/device.py probe    # 仅验证 iPhone → Mac 与数据集身份
+python3 scripts/local/device.py daily    # 只读 HealthKit，沿用 90 天回溯；一次有时间预算的同步轮次
+python3 scripts/local/device.py report   # 只输出状态、锚点/待办计数和版本计数
+python3 scripts/local/device.py training # 打开原有训练页面，使用独立命令日志和缓存，不切换正常会话
+```
+
+`training` 本身不请求 HealthKit 授权，也不读正常会话凭证；`daily` 与 `single` 复用独立 Outbox，
+真实原始载荷仅保存在受保护的手机状态和本机 PG 中。同步轮次结束不代表回溯已完整，待办会留到下轮继续。
+已退役的 Workout `completeness` v2 命令会在读取设备或凭证之前明确拒绝，不可用于当前协议验收。
+没有手机时可运行 `scripts/local/test.sh training-ui`，但模拟器通过不替代真机和自然日验收。
+
+
 
 本机起一个后端用于手机/模拟器联调：`scripts/local/stack.sh`（见该脚本头部说明）。
 

@@ -83,7 +83,7 @@ func GeneratorFor(c Config) string {
 }
 func ParameterVersionFor(c Config) string {
 	if c.V2() {
-		return ParameterVersionV2
+		return ParameterVersionV3
 	}
 	return ParameterVersion
 }

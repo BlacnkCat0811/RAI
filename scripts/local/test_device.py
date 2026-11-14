@@ -37,6 +37,36 @@ class DeviceToolSafetyTests(unittest.TestCase):
             self.assertNotIn('heartRate', report)
             self.assertNotIn('workoutID', report)
 
+    def test_retired_completeness_is_rejected_before_device_or_credentials(self):
+        with patch.object(device, 'load') as load, patch.object(device, 'device') as phone:
+            with self.assertRaisesRegex(RuntimeError, 'retired'):
+                device.launch('completeness')
+            load.assert_not_called()
+            phone.assert_not_called()
+
+    def test_training_and_daily_reports_keep_only_typed_aggregate_fields(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(device, 'RUN', pathlib.Path(directory)), patch.object(device, 'copy'):
+            raw = {'result': 'TRAINING_UI_READY', 'trainingPlanPresent': True, 'trainingPlanPublished': True,
+                   'trainingReadFailed': False, 'trainingGenerationState': 'succeeded', 'trainingConfigRevision': 2,
+                   'trainingEffectiveVersion': 3, 'dailyAnchorCount': 3, 'dailyPendingCount': 0,
+                   'dailyBlockedCount': 0, 'dailyBackfillCompleteCount': 3,
+                   'readinessScore': 71, 'sessions': [{'notes': 'synthetic-private-value'}], 'token': 'synthetic-secret'}
+            (device.RUN / 'device-report.json').write_text(json.dumps(raw))
+            result = device.report({})
+            self.assertTrue(result['trainingPlanPublished'])
+            self.assertEqual(result['trainingConfigRevision'], 2)
+            self.assertEqual(result['dailyAnchorCount'], 3)
+            self.assertNotIn('readinessScore', result)
+            self.assertNotIn('sessions', result)
+            self.assertNotIn('token', result)
+            raw.update(trainingConfigRevision=True, trainingEffectiveVersion=-1,
+                       dailyAnchorCount='synthetic-private-value', trainingPlanPresent='synthetic-private-value',
+                       trainingGenerationState='synthetic-private-value')
+            (device.RUN / 'device-report.json').write_text(json.dumps(raw))
+            result = device.report({})
+            for key in ('trainingConfigRevision', 'trainingEffectiveVersion', 'dailyAnchorCount', 'trainingPlanPresent', 'trainingGenerationState'):
+                self.assertNotIn(key, result)
+
     def test_failed_atomic_replace_preserves_previous_state(self):
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / 'run.json'

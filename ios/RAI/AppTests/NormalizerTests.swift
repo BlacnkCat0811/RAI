@@ -1203,3 +1203,32 @@ final class WorkoutMetadataRegistryNativeTests: XCTestCase {
         XCTAssertNoThrow(try Normalizer.workoutMetadata(all, scope: .activity))
     }
 }
+
+extension NormalizerTests {
+    @MainActor func testLocalTrainingRejectsWrongDatasetAndReconnectCannotUseNormalSession() async throws {
+        let dataset = UUID().uuidString.lowercased(), epoch = UUID().uuidString.lowercased()
+        let namespace = UUID()
+        let secret = try ClientConfiguration.validatedSecret(baseURL: "https://synthetic.invalid", collectorEpoch: epoch, token: "synthetic-local-token")
+        let hello = JSON.object(["datasetID": .string(dataset), "collectorEpoch": .string(epoch),
+            "serviceID": .string(UUID().uuidString.lowercased()), "datasetEpoch": .string(UUID().uuidString.lowercased())])
+        let model = ProductModel()
+        do {
+            try await model.configureLocalAcceptance(secret: secret, namespace: namespace, hello: hello, expectedDatasetSHA256: String(repeating: "0", count: 64))
+            XCTFail("wrong dataset accepted")
+        } catch { XCTAssertEqual(error as? SyncFailure, .invalid("local_acceptance_identity_mismatch")) }
+        XCTAssertFalse(model.configured)
+        let name = "local-acceptance-" + namespace.uuidString.lowercased()
+        let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        defer {
+            try? FileManager.default.removeItem(at: support.appendingPathComponent("RAIV2Product").appendingPathComponent(name))
+            if let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+                try? FileManager.default.removeItem(at: cache.appendingPathComponent("RAIProductHome-" + name + ".json"))
+            }
+        }
+        try await model.configureLocalAcceptance(secret: secret, namespace: namespace, hello: hello, expectedDatasetSHA256: Wire.hash(Data(dataset.utf8)))
+        XCTAssertTrue(model.configured)
+        await model.reconnect()
+        XCTAssertFalse(model.configured)
+        XCTAssertEqual(model.error, "本机验收连接已关闭，请重新打开验收页面。")
+    }
+}

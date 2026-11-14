@@ -154,7 +154,7 @@ iOS 优先显示 `primaryReason`，旧服务端没有该字段时取 `productRea
 计算成功的产物可以因证据不足没有数值；读失败不能叫 estimated。模型级新原因码（`night_data_missing`、`night_sparse`、
 `recent_trend_used`、`estimate_expired`、`regularity_collecting`、`session_intensity_unknown`、`submax_prior_used`、
 `ability_source_disagreement`、`load_baseline_insufficient`、`short_repetition_unsupported` 等）保留在 `reasonCodes` 供审计；
-恢复 v4（`rai.recovery.physiological/4`，需要迁移 58，新栈尚未部署）沿用恢复组件结构，新增可选 `inputBasis`、`meanSamples`、
+恢复 v4（`rai.recovery.physiological/4`，需要迁移 58，已于 2026-11-12 部署并激活）沿用恢复组件结构，新增可选 `inputBasis`、`meanSamples`、
 `baselineCenter`、`baselineScale`。`inputBasis` 为 `recent_mean`（最近最多 7 个有效夜／日的算术均值）、`observed`
 （当晚睡眠）、`user_entered`（静息心率）或 `default_baseline`（HRV 50 ms／RHR 60 bpm／睡眠 8h）。历史查询有界为
 180 天；`observed=null` 保留当晚缺测语义，`used` 才是实际计算值。缺测可返回 `available` + `mode=estimated`，
@@ -181,9 +181,11 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
   不自动增加强度或里程；workout_only 不推断恢复正常）；schema4 栈用 `schema4-v1`（准备度同 schema3，另消费跑力的可排课区间配速）。
   生成器 `training_plan/v3`：轻松跑→Z2、长跑→Z2、恢复跑→Z1、节奏跑→Z4、间歇→Z5，取区间中点配速；区间不可排课时该课只给心率目标并在
   `reasons` 记 `pace_zone_unavailable_hr_only`，不回退到其他区间或旧公式。旧栈不再提供配速目标。负荷焦点在 v3 中只作事实描述
-- 自适应计划（迁移 60）：`POST /v2/training/plans` 的 `config` 带 `"version":"training_config/v2"` 时必填 `startDate`（本周周一）、
+- 自适应计划（迁移 60／61，未部署）：`POST /v2/training/plans` 的 `config` 带 `"version":"training_config/v2"` 时必填 `startDate`（本周周一）、
   `availableDays`（2–7 天）、`longRunDay`；`goal`（`type/date/distanceM`，可选 `targetTimeS`）与 `baselineWeeklyS` 可选，不接受
-  `weeks`、`baselineWeeklyM`、`previousLongM`。由 `training_plan/v4` + `coach_parameters/v2` 生成。`/changes` 的 `update_config`
+  `weeks`、`baselineWeeklyM`、`previousLongM`。由 `training_plan/v4` + `coach_parameters/v3` 生成。
+  迁移 61 追加 8 个完整周中活跃周的时长中位数参数，历史读取窗口为 63 天；迁移 60 的 `coach_parameters/v2` 与既有发布
+  保留用于回放，不自动迁移旧 v3 计划。`/changes` 的 `update_config`
   可设置／更换／清除目标，版本与 `startDate` 不可改，新比赛日不得早于今天（否则 `422 invalid_training_config`）。
   覆盖日期须在当前窗口内（`422 training_date_out_of_range`），v4 计划的覆盖会排队重算。
 - v4 有效版本新增：`asOf`、`windowStart`、`mode`（`race`／`fitness`）、`weeks[]`（`index/startDate/detail(past|current|next|outline)/
@@ -191,6 +193,9 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
   targetTimeS/predictedTimeS/gapRatio/assessment/racePaceSPerKM/completed/reasonCodes`）；课次新增 `focus`、`purpose`、
   `changedFrom`（`date/type/focus/durationS/reasonCode`）、`outcome`。生成的跑步课 `durationS ≥ 1800`，`distanceM` 为按区间配速的估计；
   轻松跑与长距离也可带 `steps`。字段均为增量，v3 计划的响应不变
+
+本机独立 Debug 验收的 `training` 入口调用上述相同训练接口，`daily` 调用既有 daily-facts/VO2 同步接口；
+不增加 API 路径。工具报告只导出状态和计数，日常同步轮次结束不构成所有流回溯完成的证明。
 
 ## 限额
 读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分（突发 2）；可用 `RAI_RATE_BUDGETS` 覆盖，

@@ -89,6 +89,10 @@ final class SyncModel {
     var coordinator: SyncCoordinator?
     var store: OutboxStore?
     var task: Task<Void, Never>?
+    #if DEBUG
+    var localAcceptanceProduct: ProductModel?
+    var localAcceptanceOriginalManifestSHA: String?
+    #endif
     init(syncScheduler: ForegroundSyncScheduler = ForegroundSyncScheduler(),
          workoutScheduler: ForegroundSyncScheduler = ForegroundSyncScheduler()) {
         self.syncScheduler = syncScheduler

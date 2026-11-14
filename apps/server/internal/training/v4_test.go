@@ -14,7 +14,7 @@ import (
 
 const v4Plan = "00000000-0000-4000-8000-0000000000a4"
 
-func coachPtr() *CoachParameters { c := V2Parameters(); return &c }
+func coachPtr() *CoachParameters { c := V3Parameters(); return &c }
 
 func day(base string, add int) string {
 	d, _ := time.Parse("2006-01-02", base)
@@ -604,21 +604,98 @@ func TestV4MergeDropsOverridesThatLeftTheWindow(t *testing.T) {
 	}
 }
 
-// The migration stores coach_parameters/v2; the generator refuses anything but
-// V2Parameters, so both must be the same values.
+// Both revisions must match the frozen rows the database will actually load.
 func TestV4MigrationParametersMatch(t *testing.T) {
-	b, e := os.ReadFile("../../migrations/00060_training_plan_v4.sql")
+	for _, tc := range []struct {
+		file string
+		want CoachParameters
+	}{
+		{"00060_training_plan_v4.sql", V2Parameters()},
+		{"00061_training_baseline_parameters.sql", V3Parameters()},
+	} {
+		t.Run(tc.want.Version, func(t *testing.T) {
+			b, e := os.ReadFile("../../migrations/" + tc.file)
+			if e != nil {
+				t.Fatal(e)
+			}
+			m := regexp.MustCompile(`'` + regexp.QuoteMeta(tc.want.Version) + `','(\{[^']*\})'`).FindSubmatch(b)
+			if m == nil {
+				t.Fatal("parameters not found")
+			}
+			dec := json.NewDecoder(bytes.NewReader(m[1]))
+			dec.DisallowUnknownFields()
+			var c CoachParameters
+			if e = dec.Decode(&c); e != nil || c != tc.want {
+				t.Fatalf("migration parameters differ: %v", e)
+			}
+		})
+	}
+}
+
+// Captured from cce810c, before the baseline change. These hashes pin both the
+// old JSON context and complete generated output, including return-after-break.
+func TestV4FrozenV2Replay(t *testing.T) {
+	for _, tc := range []struct{ name, input, output string }{
+		{"steady", "6961f8570381e7fca2c85a74961ec16159a5f535b1ee432c9257c723010bca8c", "fbafdf214ac774961b730adf3878106d2533a5b58a1250f9bec68ff6c9549883"},
+		{"irregular", "fbbd0d79f91c6b80afd40210c838acffba72a4b1a2c75b951dab43004f76b489", "4ac1d7b84e253def6b83075633a461e2726424810cf8cbe964268f6800f501cd"},
+		{"return", "7fa1848a39c49bfc34638828546e2d0e5e3d8a6cea056d0fd9c94f298780de87", "b053c52fb24cfaaeacdb946dd6fca25f976318eda8e1369ed7cda574ad4df955"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := v4Context("2026-11-16")
+			p := V2Parameters()
+			in.Coach = &p
+			if tc.name == "irregular" {
+				in.Workouts = append(history("2026-11-16", 1, []int{2, 4}, 50), history("2026-11-16", 8, []int{7}, 40)...)
+			}
+			if tc.name == "return" {
+				in.Workouts = history("2026-10-26", 4, []int{2, 4, 7}, 50)
+			}
+			b, e := Generate(in)
+			if e != nil {
+				t.Fatal(e)
+			}
+			ih, _ := Hash(in)
+			oh, _ := Hash(b)
+			if fmt.Sprintf("%x", ih) != tc.input || fmt.Sprintf("%x", oh) != tc.output {
+				t.Fatalf("frozen replay changed: input=%x output=%x", ih, oh)
+			}
+		})
+	}
+}
+
+func TestV4ActiveWeekBaseline(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		weeks map[int]float64
+		want  float64
+	}{
+		{"even median ignores breaks and partial oldest week", map[int]float64{-9: 30000, -8: 6000, -6: 9000, -3: 12000, -1: 24000}, 10500},
+		{"odd median", map[int]float64{-8: 6000, -3: 12000, -1: 24000}, 12000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := v4Context("2026-11-16")
+			in.Workouts = nil
+			for w, seconds := range tc.weeks {
+				in.Workouts = append(in.Workouts, Workout{ID: fmt.Sprint(w), Date: day(in.Config.StartDate, w*7+1), DurationS: Ptr(seconds)})
+			}
+			// A run in this week must not inflate the baseline from full weeks.
+			in.Workouts = append(in.Workouts, Workout{ID: "today", Date: in.AsOf, DurationS: Ptr(30000)})
+			out, e := Generate(in)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if got := week(out, "current").LevelS; got != tc.want {
+				t.Fatalf("baseline %.0f, want %.0f", got, tc.want)
+			}
+		})
+	}
+	in := v4Context("2026-11-16")
+	in.Workouts = history("2026-11-02", 1, []int{2, 4, 7}, 60)
+	b, e := Generate(in)
 	if e != nil {
 		t.Fatal(e)
 	}
-	m := regexp.MustCompile(`'coach_parameters/v2','(\{[^']*\})'`).FindSubmatch(b)
-	if m == nil {
-		t.Fatal("parameters not found")
-	}
-	dec := json.NewDecoder(bytes.NewReader(m[1]))
-	dec.DisallowUnknownFields()
-	var c CoachParameters
-	if e = dec.Decode(&c); e != nil || c != V2Parameters() {
-		t.Fatalf("migration parameters differ: %v", e)
+	if w := week(b, "current"); w.State != "return" || w.LevelS != 7560 {
+		t.Fatalf("return must use 70%% of the active-week median: %+v", w)
 	}
 }

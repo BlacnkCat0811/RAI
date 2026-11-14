@@ -342,12 +342,24 @@ def report(state):
                'originalSessionManifestPresent', 'originalSessionManifestUnchanged',
                'handshakeVerified', 'command', 'wallMs', 'workoutReceiptVerified', 'stateBytes',
                'generation', 'committedAnchorCount', 'systemCode',
+               'dailyAnchorCount', 'dailyPendingCount', 'dailyBlockedCount', 'dailyBackfillCompleteCount',
+               'trainingPlanPresent', 'trainingPlanPublished', 'trainingReadFailed',
+               'trainingGenerationState', 'trainingConfigRevision', 'trainingEffectiveVersion',
                # Counts and digests only: never a Workout identity or health value.
                'visibleWorkoutCount', 'eligibleWorkoutCount', 'excludedWorkoutCount',
                'unclassifiedWorkoutCount', 'capturedWorkoutCount', 'processedWorkoutCount',
                'committedWorkoutCount', 'cyclePending', 'manifestPending', 'manifestSHA256',
                'cutoffSHA256', 'sourcePolicyVersion', 'sourceClassificationCounts')
     result = {k: raw[k] for k in allowed if k in raw}
+    for key in ('dailyAnchorCount', 'dailyPendingCount', 'dailyBlockedCount', 'dailyBackfillCompleteCount',
+                'trainingConfigRevision', 'trainingEffectiveVersion'):
+        if key in result and (type(result[key]) is not int or result[key] < 0):
+            result.pop(key)
+    for key in ('trainingPlanPresent', 'trainingPlanPublished', 'trainingReadFailed'):
+        if key in result and type(result[key]) is not bool:
+            result.pop(key)
+    if result.get('trainingGenerationState') not in ('pending', 'queued', 'running', 'succeeded', 'failed', 'dirty'):
+        result.pop('trainingGenerationState', None)
     if re.fullmatch(r'[a-z0-9_:-]{1,128}', raw.get('reason', '')):
         result['reason'] = raw['reason']
     if isinstance(raw.get('workoutList'), list):
@@ -384,6 +396,10 @@ def report(state):
 
 
 def launch(command, workout=None, streams=None, port=None):
+    if command == 'completeness':
+        raise RuntimeError('Workout completeness v2 is retired; use single for a Workout, daily for daily health, or training for the isolated plan screen')
+    if command not in ('probe', 'single', 'list', 'structure', 'daily', 'training'):
+        raise RuntimeError('Unsupported local device command')
     state = load()
     identifier = device(state)
     package = json.loads((RUN / 'enrollment.json').read_text())
@@ -891,7 +907,7 @@ def stop():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['prepare', 'reset', 'install', 'probe', 'list', 'single', 'completeness',
+    parser.add_argument('command', choices=['prepare', 'reset', 'install', 'probe', 'list', 'single', 'completeness', 'daily', 'training',
                                             'workouts', 'failbundle', 'capturebundle', 'taskstate', 'lostack', 'clientstate', 'structure', 'report', 'status', 'stop'])
     parser.add_argument('--workout', help='private Workout selector for the single command')
     parser.add_argument('--streams', type=int, choices=(1, 2, 4),
@@ -913,7 +929,7 @@ def main():
         reset()
     elif args.command == 'install':
         install()
-    elif args.command in ('probe', 'list', 'single', 'completeness'):
+    elif args.command in ('probe', 'list', 'single', 'completeness', 'daily', 'training'):
         launch(args.command, getattr(args, 'workout', None), getattr(args, 'streams', None))
     elif args.command == 'structure':
         structure(getattr(args, 'workout', None))

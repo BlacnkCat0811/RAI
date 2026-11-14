@@ -8,7 +8,14 @@ struct RootContent: View {
     var body: some View {
         #if DEBUG
         if ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" {
-            VStack(spacing: 16) { Text("RAI 本机独立验收").font(.headline); Text(model.status) }
+            if let product = model.localAcceptanceProduct {
+                NavigationStack { TrainingView(model: product) }
+                    .tint(RAITheme.orange).preferredColorScheme(.light)
+                    .safeAreaInset(edge: .top) { Text("本机独立验收").font(.caption).padding(6) }
+                    .onChange(of: product.data.plan) { _, _ in model.writeLocalTrainingReport() }
+            } else {
+                VStack(spacing: 16) { Text("RAI 本机独立验收").font(.headline); Text(model.status) }
+            }
         } else if DailyDeviceDiagnostics.enabled {
             NavigationStack { SyncView(model: model) }.tint(RAITheme.orange).preferredColorScheme(.light)
         } else {
@@ -35,7 +42,11 @@ extension SyncModel {
     func sceneBecameActive() {
         #if DEBUG
         let environment = ProcessInfo.processInfo.environment
-        if environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" || environment["RAI_UA1_R_VO2"] != nil { return }
+        if environment["RAI_LOCAL_DEVICE_ACCEPTANCE"] == "1" {
+            if let product = localAcceptanceProduct { Task { await product.refresh(); writeLocalTrainingReport() } }
+            return
+        }
+        if environment["RAI_UA1_R_VO2"] != nil { return }
         if DailyDeviceDiagnostics.enabled { Task { try? await DailyDeviceDiagnostics.shared.event("scene_active") } }
         #endif
         scanHealthChanges(newWake: true)
@@ -64,6 +75,7 @@ extension SyncModel {
         let reportURL = documents.appendingPathComponent("local-device-report.json")
         let sessionManifestURL = try? ClientConfiguration.sessionRoot().appendingPathComponent("sessions.json")
         let originalManifestHash = sessionManifestURL.flatMap { try? Data(contentsOf: $0) }.map(Wire.hash)
+        localAcceptanceOriginalManifestSHA = originalManifestHash
         let started = Date()
         var report: [String: JSON] = ["environment": .string("local-mac-device/v1"), "result": .string("RUNNING"),
             "healthValuesExported": .bool(false)]
@@ -81,15 +93,27 @@ extension SyncModel {
             report["originalSessionManifestUnchanged"] = .bool(originalManifestHash == afterHash)
             report["wallMs"] = .number(Date().timeIntervalSince(started) * 1000)
             try? OutboxStore.write(JSON.object(report).data(), to: reportURL)
+            if localAcceptanceProduct != nil { writeLocalTrainingReport() }
         }
         do {
             try checkpoint("configuration")
-            let config = try JSON.decode(Data(contentsOf: configURL))
+            let config: JSON
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.environment["RAI_SYNTHETIC_ACCEPTANCE"] == "1",
+              let raw = ProcessInfo.processInfo.environment["RAI_LOCAL_DEVICE_TEST_CONFIG"] {
+                config = try JSON.decode(Data(raw.utf8))
+            } else {
+                config = try JSON.decode(Data(contentsOf: configURL))
+                try FileManager.default.removeItem(at: configURL)
+            }
+            #else
+            config = try JSON.decode(Data(contentsOf: configURL))
             try FileManager.default.removeItem(at: configURL)
+            #endif
             guard config["environment"].text == "local-mac-device/v1",
                   let namespace = config["outboxNamespace"].text.flatMap(UUID.init(uuidString:)),
                   let expected = config["datasetSHA256"].text,
-                  let command = config["command"].text, ["probe", "single", "list", "structure"].contains(command) else {
+                  let command = config["command"].text, ["probe", "single", "list", "structure", "daily", "training"].contains(command) else {
                 throw SyncFailure.invalid("local_acceptance_config_invalid")
             }
             let secret = try ClientConfiguration.validatedSecret(baseURL: config["baseURL"].text ?? "",
@@ -98,7 +122,11 @@ extension SyncModel {
             let octets = host.split(separator: ".").compactMap { Int($0) }
             let privateIPv4 = octets.count == 4 && octets.allSatisfy { (0...255).contains($0) } &&
                 (octets[0] == 10 || octets[0] == 192 && octets[1] == 168 || octets[0] == 172 && (16...31).contains(octets[1]) || octets[0] == 169 && octets[1] == 254)
-            guard secret.configuration.baseURL.scheme == "http", privateIPv4,
+            var allowedHost = privateIPv4
+            #if targetEnvironment(simulator)
+            if ProcessInfo.processInfo.environment["RAI_SYNTHETIC_ACCEPTANCE"] == "1", host == "127.0.0.1" { allowedHost = true }
+            #endif
+            guard secret.configuration.baseURL.scheme == "http", allowedHost,
                   host == Bundle.main.object(forInfoDictionaryKey: "RAIDevelopmentHTTPHost") as? String else {
                 throw SyncFailure.invalid("local_acceptance_requires_configured_lan_host")
             }
@@ -115,6 +143,14 @@ extension SyncModel {
             report["handshakeVerified"] = .bool(true)
             report["command"] = .string(command)
             if command == "probe" { report["result"] = .string("PROBE_VERIFIED"); return }
+            if command == "training" {
+                let product = ProductModel()
+                try await product.configureLocalAcceptance(secret: secret, namespace: namespace, hello: hello, expectedDatasetSHA256: expected)
+                localAcceptanceProduct = product
+                await product.refresh()
+                report["result"] = .string("TRAINING_UI_READY")
+                return
+            }
 
             let directory = try ClientConfiguration.sessionRoot().appendingPathComponent("local-acceptance-" + namespace.uuidString.lowercased())
             let store = try OutboxStore(directory: directory)
@@ -134,7 +170,17 @@ extension SyncModel {
                 return
             }
             let watchdog = MainThreadWatchdog()
-            if command == "list" {
+            if command == "daily" {
+                try checkpoint("daily_health_sync")
+                try await coordinator.syncDaily(secret: secret, transfers: transfers)
+                let state = await store.snapshot()
+                let flows = Array((state.daily ?? [:]).values)
+                report["dailyAnchorCount"] = .int(Int64(flows.filter { $0.anchor != nil }.count))
+                report["dailyPendingCount"] = .int(Int64(flows.filter { $0.pending != nil }.count))
+                report["dailyBlockedCount"] = .int(Int64(flows.filter { $0.error != nil }.count))
+                report["dailyBackfillCompleteCount"] = .int(Int64(flows.filter { $0.bootstrapComplete }.count))
+                report["result"] = .string("DAILY_SYNC_ROUND_FINISHED")
+            } else if command == "list" {
                 try checkpoint("list_workouts")
                 await health.resetWorkoutListEvidence()
                 let summaries = try await health.recentWorkouts(limit: 25)
@@ -201,6 +247,30 @@ extension SyncModel {
             report["systemCode"] = .int(Int64((error as NSError).code))
             status = "本机验收尚未完成"
         }
+    }
+    /// Exports only plan state, version counters and isolation flags. Scores,
+    /// prescriptions, Workout identities and credentials never enter this report.
+    func writeLocalTrainingReport() {
+        guard let product = localAcceptanceProduct else { return }
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let url = documents.appendingPathComponent("local-device-report.json")
+        let manifest = try? ClientConfiguration.sessionRoot().appendingPathComponent("sessions.json")
+        let current = manifest.flatMap { try? Data(contentsOf: $0) }.map(Wire.hash)
+        var report: [String: JSON] = [:]
+        report["environment"] = .string("local-mac-device/v1")
+        report["command"] = .string("training")
+        report["result"] = .string("TRAINING_UI_READY")
+        report["healthValuesExported"] = .bool(false)
+        report["trainingPlanPresent"] = .bool(product.data.plan != .null)
+        report["trainingPlanPublished"] = .bool(product.data.effective != .null)
+        report["trainingReadFailed"] = .bool(product.error != nil)
+        report["originalSessionManifestPresent"] = .bool(localAcceptanceOriginalManifestSHA != nil)
+        report["originalSessionManifestUnchanged"] = .bool(current == localAcceptanceOriginalManifestSHA)
+        let state = product.data.plan.string("generationState")
+        if ["pending", "queued", "running", "succeeded", "failed", "dirty"].contains(state) { report["trainingGenerationState"] = .string(state) }
+        if let version = product.data.plan["configRevision"].integer { report["trainingConfigRevision"] = .int(version) }
+        if let version = product.data.effective["version"].integer { report["trainingEffectiveVersion"] = .int(version) }
+        try? OutboxStore.write(JSON.object(report).data(), to: url)
     }
     func runUA1RVO2Acceptance() async {
         guard let expected = ProcessInfo.processInfo.environment["RAI_UA1_R_DATASET_SHA256"],

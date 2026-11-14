@@ -72,7 +72,7 @@ type v4 struct {
 
 func generateV4(in Context) (Base, error) {
 	out := Base{Sessions: []Session{}, Recommendations: []string{}}
-	if in.Coach == nil || *in.Coach != V2Parameters() || in.Config.Validate(in.Timezone) != nil {
+	if in.Coach == nil || (*in.Coach != V2Parameters() && *in.Coach != V3Parameters()) || in.Config.Validate(in.Timezone) != nil {
 		return out, ErrInvalid
 	}
 	g, e := newV4(in)
@@ -333,24 +333,48 @@ func (g *v4) weekActual(w int) float64 {
 	return sum
 }
 
-// history averages the four weeks before w, counting only weeks since the
-// first recorded run in the history window so a new user is not diluted by
-// weeks before they started recording.
-func (g *v4) history(w int) (avg, peak float64, ok bool) {
-	n := 0
-	for k := w - 4; k < w; k++ {
-		if !g.hasRuns || k < g.firstWeek || 7*k > g.today {
+// baseline is the median running time of the active weeks (weeks with at
+// least one run) among the BaselineWeeks weeks ending with week end. Weeks
+// without runs are left out: intermittent runners train in blocks separated
+// by breaks, and averaging the empty weeks in would put the level far below
+// what a training week actually holds. Breaks are handled by the return
+// state, not by diluting the volume. Weeks that start in the future or are
+// not wholly inside the history window are not counted either.
+func (g *v4) baseline(end int) (float64, bool) {
+	// Replay the original v2 policy, including zero weeks after the first
+	// recorded run. The revision is part of the immutable generation context.
+	if g.p.Version == ParameterVersionV2 {
+		sum, n := 0.0, 0
+		for k := end - 3; k <= end; k++ {
+			if !g.hasRuns || k < g.firstWeek || 7*k > g.today {
+				continue
+			}
+			sum += g.weekActual(k)
+			n++
+		}
+		if n == 0 {
+			return 0, false
+		}
+		return sum / float64(n), true
+	}
+	var xs []float64
+	for k := end - g.p.BaselineWeeks + 1; k <= end; k++ {
+		if 7*k > g.today || 7*k <= g.today-g.p.HistoryDays {
 			continue
 		}
-		a := g.weekActual(k)
-		avg += a
-		peak = max(peak, a)
-		n++
+		if a := g.weekActual(k); a > 0 {
+			xs = append(xs, a)
+		}
 	}
-	if n == 0 {
-		return 0, 0, false
+	if len(xs) == 0 {
+		return 0, false
 	}
-	return avg / float64(n), peak, true
+	slices.Sort(xs)
+	n := len(xs)
+	if n%2 == 1 {
+		return xs[n/2], true
+	}
+	return (xs[n/2-1] + xs[n/2]) / 2, true
 }
 
 func (g *v4) lastRun(at int) (int, bool) {
@@ -394,7 +418,7 @@ func (g *v4) sessionCount(s WeekSummary) int {
 func (g *v4) decide(w int, prev *WeekSummary, at int, preview bool) WeekSummary {
 	p := g.p
 	s := WeekSummary{Index: w, Start: g.date(7 * w), Phase: g.phase(w), DecidedOn: g.date(at), ConfigRevision: g.in.ConfigRevision, Reasons: []string{}}
-	avg, _, hist := g.history(w)
+	avg, hist := g.baseline(w - 1)
 	level := 0.0
 	if prev != nil {
 		level = prev.LevelS
@@ -408,22 +432,14 @@ func (g *v4) decide(w int, prev *WeekSummary, at int, preview bool) WeekSummary 
 	if ran {
 		gap = at - last
 	}
-	// Return after a break: a share of the volume before it, by the length of
-	// the break; six weeks or more start over from the cold-start week.
+	// Return after a break: a share of the active-week baseline before it, by
+	// the length of the break; six weeks or more start over from the
+	// cold-start week.
 	returning := func() {
 		s.State = "return"
-		ref, n := 0.0, 0
+		ref := 0.0
 		if ran {
-			lw := floorDiv(last, 7)
-			for k := lw - 3; k <= lw; k++ {
-				if k >= g.firstWeek {
-					ref += g.weekActual(k)
-					n++
-				}
-			}
-		}
-		if n > 0 {
-			ref /= float64(n)
+			ref, _ = g.baseline(floorDiv(last, 7))
 		}
 		f := 0.0
 		switch {

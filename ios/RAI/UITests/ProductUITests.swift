@@ -617,13 +617,37 @@ final class TrainingV4UITests: XCTestCase {
     try? shot("timeout-" + id)
     return false
   }
+  func testIsolatedTrainingScreenCreatesPlanWithoutNormalSessionSwitch() throws {
+    continueAfterFailure = false
+    let config = try XCTUnwrap(ProcessInfo.processInfo.environment["RAI_LOCAL_TRAINING_CONFIG"])
+    root = (config as NSString).deletingLastPathComponent
+    app = XCUIApplication()
+    app.launchEnvironment["RAI_LOCAL_DEVICE_ACCEPTANCE"] = "1"
+    app.launchEnvironment["RAI_SYNTHETIC_ACCEPTANCE"] = "1"
+    app.launchEnvironment["RAI_LOCAL_DEVICE_TEST_CONFIG"] = try String(contentsOfFile: config, encoding: .utf8)
+    app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+    app.launch()
+    XCTAssertTrue(element("screen.training").waitForExistence(timeout: 60))
+    XCTAssertFalse(element("screen.home").exists)
+    tap("training.create")
+    let baseline = app.textFields["create.baseline"]
+    for _ in 0..<6 where !baseline.isHittable { app.swipeUp() }
+    baseline.tap()
+    baseline.typeText("180")
+    tap("create.save")
+    XCTAssertTrue(waitRefreshing("training.week"))
+    try shot("Local-Training-Isolated")
+    // A second command must use the isolated ProductJournal as well.
+    tap("training.recalculate")
+    XCTAssertTrue(waitRefreshing("training.week"))
+  }
   func testAdaptivePlanCreateFitnessThenRaceGoal() throws {
     continueAfterFailure = false
     let config = try XCTUnwrap(ProcessInfo.processInfo.environment["RAI_TRAINING_V4_CONFIG"], "config path")
     root = (config as NSString).deletingLastPathComponent
     app = XCUIApplication()
     app.launchEnvironment["RAI_SYNTHETIC_ACCEPTANCE"] = "1"
-    app.launchEnvironment["RAI_ACCEPTANCE_CONFIG"] = config
+    app.launchEnvironment["RAI_ACCEPTANCE_CONFIG"] = try String(contentsOfFile: config, encoding: .utf8)
     app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
     app.launch()
     XCTAssertTrue(element("screen.home").waitForExistence(timeout: 60))

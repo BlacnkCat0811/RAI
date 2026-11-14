@@ -6,7 +6,7 @@ umask 077
 
 usage() {
   cat <<'USAGE'
-usage: scripts/local/test.sh [quick|gate|unit|integration|full|syncperf|swift|simulator|simupload|e2e|perf] [test arguments]
+usage: scripts/local/test.sh [quick|gate|unit|integration|full|syncperf|swift|simulator|training-ui|simupload|e2e|perf] [test arguments]
   quick        cached Go unit tests, vet and dependency boundaries (default)
   gate         cached Go race, vet and boundaries plus isolated PG admin migration tests
   unit         Go unit tests; accepts -run and package arguments
@@ -14,6 +14,7 @@ usage: scripts/local/test.sh [quick|gate|unit|integration|full|syncperf|swift|si
   full         uncached Go race, vet, build, sqlc, full isolated PG regression
   swift        native Swift package tests; accepts --filter
   simulator    synthetic App XCTest on a dedicated local Simulator
+  training-ui  adaptive-plan UI -> local Go API/Worker -> disposable PG18
   simupload    Simulator App upload of protocol-6 Workouts over real TCP to a
                local Go API + isolated PG18. Starts and stops that stack itself;
                add --drop to remove the database and credential afterwards.
@@ -76,6 +77,12 @@ case "$rai_profile" in
   swift)
     rai_xcode_env
     xcrun swift test --package-path "$rai_root/ios/RAI" "$@"
+    ;;
+  training-ui)
+    [[ $# == 0 ]] || { usage >&2; exit 2; }
+    rai_require_toolchain
+    prepare_simulator
+    pg_tests -tags=integration,traininguisim -run '^TestTrainingPlanV4SimulatorHTTPPostgres$' -v ./integration
     ;;
   simulator|e2e)
     [[ $# == 0 ]] || { usage >&2; exit 2; }
