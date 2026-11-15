@@ -894,9 +894,9 @@ knownWorkoutAU = lowAerobicAU + highAerobicAU + anaerobicProxyAU + unclassifiedA
 读取输入的分析类失败返回不可用状态，数据库错误仍按正常错误处理。刺激评分仍由已发布的心率与计划上下文决定。
 `distanceDistribution` 保留固定绝对配速、距离占比和原始区间语义，不随个人分区策略改变。
 
-#### 配速区间 v3 重设计（2026-11-15，已实现未部署）
+#### 配速区间 v3 重设计（2026-11-15，已部署，未真机验收）
 
-**状态：核心运行链路已实现，未部署／真机验收。** 新增 `paceAnalysis` 独立于旧字段；参考按有界事实读时计算，无新表、写事务或后台准备任务。Go／Swift 共用已有分区摘要类型，具体已实现契约见 API 文档。以下保留设计目标；持久化预计算仅为后续性能优化，并非本次前置条件。 上文 `pace-zones/2` 是旧客户端及当前部署行为，新卡片通过可选 v3 字段提供。保留原模型方案和既有发布语义。
+**状态：已于 2026-11-15 部署到云端（镜像 `720d588`），未真机验收。** 新增 `paceAnalysis` 独立于旧字段；参考按有界事实读时计算，无新表、写事务或后台准备任务。Go／Swift 共用已有分区摘要类型，具体已实现契约见 API 文档。以下保留设计目标；持久化预计算仅为后续性能优化，并非本次前置条件。 上文 `pace-zones/2` 仍是旧客户端读取的字段，新卡片通过可选 v3 字段提供。保留原模型方案和既有发布语义。
 
 **产品目标。** 每次跑步复盘都提供配速分布；有个人依据时进一步解释个人 Z1–Z6。停跑一周、首次使用、历史日期没有日模型发布、当天分析待完成，都不应要求用户先手动重算才能使用。必须区分“实际跑了哪些配速”和“这些配速对应个人什么区间”。仅有平均配速、速度记录缺失或冲突时，展示已知信息及缺失原因，不能承诺凭空生成分段占比。
 
@@ -1390,6 +1390,36 @@ schema 61，并以所有者授权把新栈 `rai-v2-d015a2025ccc6476` 在唯一�
 - 未验证：未读取或改动真实健康数据；App 侧新设置页与详情说明需重新构建安装后才能看到；真机 HealthKit、
   连续自然日观察与本轮模型参数校准仍未执行。`rai version` 的 `coach_parameters_adaptive` 显示瑕疵已在本次
   代码中修正（`apps/server/cmd/rai/main.go`）。部署与激活不代表真机、模型或产品验收。
+
+### 部署记录 — rai-coach-20261108（2026-11-15，镜像 720d588，配速区间 v3 部署）
+
+用户再次要求“推送改动到远程仓库，更新部署到云服务器，并且激活所有最新模型”。按此执行：本机完成门禁后推送
+`720d588` 并部署镜像；本轮无新迁移、模型 manifest 未变，模型栈仍为 `rai-v2-be2ffee8ea215e14` 且保持 active，
+已核实它就是当前代码栈。
+
+- 源码与提交：`720d588`（配速区间 v3：读时参考与绝对配速分布），13 文件 252+/4-，已 push 到 `origin/main`
+  （`c59c23b..720d588`）。无新迁移（schema 保持 62）；`modelmanifest` 未改，栈 hash 仍为
+  `be2ffee8ea215e14c0a0cb052d7c1b94ba351b431981ae75e073fe5eb77c6641`；OpenAPI 1.14.0 内新增可选 `paceAnalysis`。
+- 门禁：`scripts/local/test.sh gate`（`PASS profile=gate elapsed_seconds=20`）与 `full`
+  （`PASS profile=full elapsed_seconds=248`，uncached race、vet、依赖边界、`sqlc diff`、真实隔离 PG18 全量回归）
+  通过；`swift` 207 项通过。未运行 simulator 与真机。
+- 构建：Go 1.27.3 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`，`-trimpath -buildvcs=false -ldflags='-s -w -X
+  main.sourceCommit=720d588'`，二进制 SHA-256 `3840d500088c1b3c8d4e7327a3857b55095038bcebe987aa0cf78f7b003db9de`
+  （17,289,376 B），上传后服务器 `sha256sum` 一致。镜像 `rai-coach:20261115-720d588`（ID `b2490312dda7`）。
+- 备份：`/opt/rai-coach-20261108/backup-before-720d588-20261115-092318.dump`（120,080,672 B，PGDMP magic 与
+  `pg_dump 18.6 -Fc` 校验通过）；旧二进制保留 `rai.bak-188eeb3`，`environment` 保留 `environment.bak-720d588`。
+- 迁移：无新迁移；`migrate-status` 仍为 62 版全部 `applied`，未触达 `goose_db_version`。
+- 运行态：`./dc up -d --wait api worker` 后 api/worker/postgres 均 healthy；容器内 `probe --ready` 与
+  `worker-ready` 退出码 0；`rai version` 报告 `schema=62`、`source_commit=720d588`、
+  `model_stack=rai-v2-be2ffee8ea215e14`、`coach_parameters_adaptive=coach_parameters/v3`、`openapi=1.14.0`。
+  公网 `/ready`、`/health` 均 200；重启窗口内 API/Worker 日志 WARN/ERROR 计数 0。
+- 模型激活：`analysis model-stack identity` 返回的栈与 active 通道（`assignment_version=9`）一致，
+  `health --days 30 --channel active` 报 `channelStackIsCurrentCode=true`；当日八个 family 均有发布，
+  `workoutsDryRun` 试算 3 次训练且 `inputFailures` 为空（含预期内的 `rhr_manual_review_due`）。因 manifest 未变，
+  本轮无需 prepare/activate 新栈，也未改写 `analysis_model_channels`。
+- 未验证：未用设备凭据读取真实健康值或真实详情响应，`paceAnalysis` 的生产表现目前只由合成数据集成测试与
+  本机门禁覆盖；App 新卡片需重新构建安装后才可见；真机 HealthKit、连续自然日观察与生理校准仍未执行。
+  部署与激活不代表真机、模型或产品验收。
 
 ## 心率参考 v3 重设计（已部署并激活，2026-11-15）
 
