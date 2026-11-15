@@ -208,11 +208,11 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 本机独立 Debug 验收的 `training` 入口调用上述相同训练接口，`daily` 调用既有 daily-facts/VO2 同步接口；
 不增加 API 路径。工具报告只导出状态和计数，日常同步轮次结束不构成所有流回溯完成的证明。
 
-## 心率参考 v3 契约（已实施，未部署）
+## 心率参考 v3 契约（已部署并激活）
 
-**迁移 62／OpenAPI 1.14.0 已在本机实现；线上尚未部署。现有 `/2` 请求与读取契约保持不变。**
+**迁移 62／OpenAPI 1.14.0 已于 2026-11-15 部署到云端（镜像 `188eeb3`），新栈 `rai-v2-be2ffee8ea215e14` 已激活为 active；现有 `/2` 请求与读取契约保持不变。**
 解析、时间语义、默认模式和验收规则见
-[心率参考 v3 重设计](ARCHITECTURE.md#心率参考-v3-重设计已实施未部署2026-11-15)。
+[心率参考 v3 重设计](ARCHITECTURE.md#心率参考-v3-重设计已部署并激活2026-11-15)。
 
 - 继续使用 `POST /v2/model-inputs/hr-references`。model-input 请求增加可选 `schemaVersion`，
   缺省维持既有 `/2`；明确选择 `rai.hr_reference/3` 才接受新 payload。支持版本通过握手能力

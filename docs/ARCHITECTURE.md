@@ -360,7 +360,8 @@ StackID 匹配。当前注册范围如下；注册表之外的版本明确返回
 | 跑力 v1（schema4：`running_fitness`，负荷焦点 v6，取消配速负荷） | `rai-v2-c3441e6edc485d9e` | 冻结配置读取（2026-11-12 部署并激活，现为 previous） |
 | 恢复 v4 / 准备度 v4.1（schema4） | `rai-v2-df81d988ae579587` | 冻结配置读取（未部署，由下一行取代） |
 | 恢复 v4 + 训练效果 v1（schema4，新增 `trainingEffect` 组件与特征 `effort` 块） | `rai-v2-69efefa730b47818` | 冻结配置读取（2026-11-12 部署并激活，2026-11-15 起为 previous） |
-| 静息心率基线计入当天开跑前读数（仅负荷参考策略变化） | `rai-v2-d015a2025ccc6476`（`modelmanifest.StackID()`） | 冻结配置读取（2026-11-15 部署并激活，当前 active） |
+| 静息心率基线计入当天开跑前读数（仅负荷参考策略变化） | `rai-v2-d015a2025ccc6476`（`modelmanifest.StackID()`） | 冻结配置读取（2026-11-15 部署并激活，同日由心率参考 v3 栈取代为 previous） |
+| 心率参考 v3（`rai.hr_reference/3`、负荷参考策略 v4.2） | `rai-v2-be2ffee8ea215e14`（`modelmanifest.StackID()`） | 冻结配置读取（2026-11-15 部署并激活，当前 active） |
 
 产品当前值、历史和训练输入按 active stack 的 `model/<stack>/athlete/day/v2/<date>` 路径定位产物，校验
 该发布的真实计算配置、manifest、dataset、generation 和内容哈希。只读取发布指针与脏范围代数一致的干净结果；
@@ -1286,9 +1287,57 @@ schema 61，并以所有者授权把新栈 `rai-v2-d015a2025ccc6476` 在唯一�
   仍待观察；`rai version` 的 `coach_parameters_adaptive` 字段仍硬编码显示 `coach_parameters/v2`（实际 v4 计划使用
   `coach_parameters/v3`），属已知显示瑕疵，未在本次修改。部署与激活不代表真机、模型或产品验收。
 
-## 心率参考 v3 重设计（已实施，未部署，2026-11-15）
+### 部署记录 — rai-coach-20261108（2026-11-15，镜像 188eeb3，迁移 62 与心率参考 v3 新栈激活）
 
-**状态：本机实现完成，迁移 62，模型栈 `rai-v2-be2ffee8ea215e14`，OpenAPI 1.14.0；尚未部署或激活真实数据集。**
+用户再次要求“推送改动到远程仓库，更新部署到云服务器，并且激活所有最新模型”。按此执行：本机跑完成门禁后推送
+`188eeb3`、部署镜像、迁移到 schema 62，并以所有者授权把新栈 `rai-v2-be2ffee8ea215e14` 在唯一真实数据集上激活。
+
+- 源码与提交：`188eeb3`（心率参考 v3、配速区间 v2 与 iOS 设置页），58 文件 2603+/271-，已 push 到 `origin/main`
+  （`a7d3759..188eeb3`）。新增迁移 62（`athlete_model_inputs.commit_order` 与同有效日唯一索引、`rai.hr_reference/3`
+  白名单分流；Down 拒绝回滚）；`modelmanifest` 改为 `...;hrref-policy-v3-manual-persistent-sparse3-dates/v4.2`，
+  产生新栈 `rai-v2-be2ffee8ea215e14`（manifest `be2ffee8ea215e14c0a0cb052d7c1b94ba351b431981ae75e073fe5eb77c6641`）；
+  `RequiredSchemaVersion` 61 → 62；OpenAPI 1.14.0。
+- 门禁：`scripts/local/test.sh gate`（`PASS profile=gate elapsed_seconds=14`）与 `full`
+  （`PASS profile=full elapsed_seconds=231`，uncached race、vet、依赖边界、`sqlc diff`、真实隔离 PG18 全量回归）
+  通过；`swift` 206 项通过；`simulator` 通过。
+- 构建：Go 1.27.3 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`，`-trimpath -buildvcs=false -ldflags='-s -w -X
+  main.sourceCommit=188eeb3'`，二进制 SHA-256 `521452b117ca0504dd0ce7d7caae5ea4b8714923d51b9ad9978a503e59ef7c65`
+  （17,260,704 B），上传后服务器 `sha256sum` 一致。镜像 `rai-coach:20261115-188eeb3`（ID `05cf2348f4b8`）。
+- 备份：`/opt/rai-coach-20261108/backup-before-188eeb3-20261115-081537.dump`（116,539,937 B，PGDMP magic 与
+  659 个 TOC 项校验通过）；旧二进制保留 `rai.bak-dd5b365`，`environment` 保留 `environment.bak-188eeb3`。
+- 迁移：`admin migrate` 退出码 0，`migrate-status` 显示 `00062_hr_reference_v3.sql` 已 `applied`
+  （AppliedAt 2026-11-15T08:16:41Z），`goose_db_version` 63 行。
+- 运行态：`./dc up -d --wait api worker` 后 api/worker/postgres 均 healthy；容器内 `probe --ready` 与
+  `worker-ready` 退出码 0；`rai version` 报告 `schema=62`、`source_commit=188eeb3`、
+  `model_stack=rai-v2-be2ffee8ea215e14`、`coach_parameters_adaptive=coach_parameters/v3`、`openapi=1.14.0`。
+  公网 `/ready`、`/health` 均 200；重启窗口内 API/Worker 日志 WARN/ERROR 计数 0。
+- 新栈激活（所有者授权，仅真实数据集）：授权文件
+  `owner-activation-hrref-v3-20261115.json`（`chown 65532:65532`、`chmod 600`，
+  `authorizationSHA256=f125b29b110495e62975d735562270ab7ffe8231d90d11ee114a4abf2f7556b0`，
+  有效期至 2026-11-22T08:17:26Z）→ `analysis model-stack prepare-real`（job
+  `b5fec793-a8c9-4801-b256-efe5e3099443`，scope `model/rai-v2-be2ffee8ea215e14/athlete/day/v2/2026-11-15`，
+  首次尝试 `succeeded`）→ `activate-real --actor tpandmr --confirm-phrase ACTIVATE-REAL-DATASET`：
+  `Revision=9`、`promote`、`rai-v2-d015a2025ccc6476` → `rai-v2-be2ffee8ea215e14`，`ownerAuthorized=true`、
+  `syntheticDataset=false`、`standardGatesVerified=false`（仅所有者授权门）。
+- 激活后状态：`analysis_model_channels` 为 `active=rai-v2-be2ffee8ea215e14`（assignment_version 9）、
+  `previous=rai-v2-d015a2025ccc6476`（8）；`analysis_assignment_audit` revision 9 记录 `promote`。candidate 与
+  active 两轮 `analysis model-stack health --days 30` 均报 `channelStackIsCurrentCode=true`，当日八个 family
+  均有发布：`load_state` `acute_and_chronic`/`partial`、`load_focus` `none`、`physiological_recovery`
+  `available`/`estimated`、`session_recovery` `available`、`training_readiness` `available`/`estimated`、
+  `running_fitness` `established`、`vo2max_external_projection` `source_selection_required`（待选择来源）、
+  `vo2max_submax` `collecting`；`workoutsDryRun` 试算 3 次训练且无输入失败。当天 `analysis_publications`
+  新栈一套（`workout_features` 32 条 + 各 family 1 条），旧栈一套保留为历史。
+- 行为变化：v3 取消手填静息心率的 90 天硬失效后，超期参考不再使负荷出分失败，而是在产物中标注
+  `rhr_manual_review_due`（本次 3 次训练的试算均带该原因，属预期）；`hr_reference_estimated` 同时出现，
+  表示使用了估计参考。未改写任何用户设置或真实健康数据。
+- 未验证：未读取或改动真实健康数据；App 侧新设置页与详情说明需重新构建安装后才能看到；真机 HealthKit、
+  连续自然日观察与本轮模型参数校准仍未执行。`rai version` 的 `coach_parameters_adaptive` 显示瑕疵已在本次
+  代码中修正（`apps/server/cmd/rai/main.go`）。部署与激活不代表真机、模型或产品验收。
+
+## 心率参考 v3 重设计（已部署并激活，2026-11-15）
+
+**状态：迁移 62、模型栈 `rai-v2-be2ffee8ea215e14`、OpenAPI 1.14.0 已于 2026-11-15 部署到云端并激活为 active**
+（部署细节见上一节；`previous` 为 `rai-v2-d015a2025ccc6476`）。
 `hrref.ResolveV3`／`ResolveSettings` 已接入单次负荷、训练效果、跑力／VO2、详情、设置与训练输入。
 输入 `/3` 是按组件保留的不可变变更；`/2` 原始内容不改，旧栈发布契约仍保留。App 新增独立日期和模式选择，
 旧服务端不支持时禁用新版提交。以下为已实现规则，设计参数仍未经过真实数据校准。
@@ -1382,7 +1431,7 @@ Apple 明确区分 `restingHeartRate` 与带 sedentary 上下文的普通心率�
 或“缺少静息参考，可同步健康数据或设置备用值”。分析完成但输入不足时显示“分析完成，缺少××”，
 与 `pending` / `running` / 技术失败区分。负荷、有氧和无氧各有独立说明和适用的操作入口。
 
-接口见 [API 心率参考 v3](API.md#心率参考-v3-契约已实施未部署)。当前设置使用只读一致性快照调用同一纯解析器；
+接口见 [API 心率参考 v3](API.md#心率参考-v3-契约已部署并激活)。当前设置使用只读一致性快照调用同一纯解析器；
 训练详情只读已发布负荷中的参考证据。HTTP 读取不写库、不触发重算；App 不自行复刻服务端规则。旧接口字段保留兼容，新字段不与旧字段含义混用。
 
 ### 版本、实现与验收
@@ -1412,7 +1461,7 @@ Apple 明确区分 `restingHeartRate` 与带 sedentary 上下文的普通心率�
 - 旧输入与冻结发布回放保留单测；幂等回执、组件保留、清除／撤销、缓存失效、下游重算和 HTTP 读取有真实隔离 PG18 集成覆盖。
 
 实施完成门禁仍为受影响 Go／Swift／App 测试、受影响 SQL／事务的真实隔离 PG18 集成测试，以及
-`scripts/local/test.sh gate`；真机验收单独说明。本机 Go 完成门禁、受影响隔离 PG18 集成测试及 Swift/App 回归已执行；未部署、未激活真实栈，未改写个人设置或读取生产数据库。真机 HealthKit、新界面真机交互及真实数据校准仍未验收。
+`scripts/local/test.sh gate`；真机验收单独说明。本机 Go 完成门禁、受影响隔离 PG18 集成测试及 Swift/App 回归已执行；已于 2026-11-15 部署镜像 `188eeb3`（迁移 62）并把新栈切为 active，未改写个人设置或读取生产数据库。真机 HealthKit、新界面真机交互及真实数据校准仍未验收。
 
 实现入口：`internal/hrref/settings.go`（组件历史／参考证据）、`internal/modelinput/hr_v3.go`（严格版本校验）、
 `internal/storage/postgres/model_input.go`（数据集锁下检查与原回执）、`model_stack_inputs.go`（计算接入）、
