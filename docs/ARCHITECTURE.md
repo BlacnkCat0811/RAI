@@ -1423,6 +1423,36 @@ schema 61，并以所有者授权把新栈 `rai-v2-d015a2025ccc6476` 在唯一�
   本机门禁覆盖；App 新卡片需重新构建安装后才可见；真机 HealthKit、连续自然日观察与生理校准仍未执行。
   部署与激活不代表真机、模型或产品验收。
 
+### 部署记录 — rai-coach-20261108（2026-11-15，镜像 054fabd，心率设置简化与静息心率建议）
+
+用户再次要求“推送改动到远程仓库，更新部署到云服务器，并且激活所有最新模型”。按此执行：本机完成门禁后推送
+`054fabd` 并部署镜像；本轮无新迁移、模型 manifest 未变，模型栈仍为 `rai-v2-be2ffee8ea215e14` 且保持 active。
+
+- 源码与提交：`054fabd`（心率设置简化、`rai.hr_suggestions/1` 只读静息建议、iOS 详情仅展示个人配速区间），
+  19 文件 287+/149-，已 push 到 `origin/main`（`0e6587a..054fabd`）。无新迁移（schema 保持 62）；
+  `modelmanifest` 未改，栈 hash 仍为 `be2ffee8ea215e14c0a0cb052d7c1b94ba351b431981ae75e073fe5eb77c6641`；
+  OpenAPI 1.14.0 内新增可选 `observedRestingHR`（`RestingHRSuggestion`）。
+- 门禁：`gate`（`PASS profile=gate elapsed_seconds=15`）与 `full`（`PASS profile=full elapsed_seconds=248`，
+  uncached race、vet、依赖边界、`sqlc diff`、真实隔离 PG18 全量回归）通过；`swift` 210 项通过。
+  未运行 simulator 与真机。
+- 构建：Go 1.27.3 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64`，`-trimpath -buildvcs=false -ldflags='-s -w -X
+  main.sourceCommit=054fabd'`，二进制 SHA-256 `27b244de8181b93e117802d70f9ce4be910668eccf9ed34b99490ba8d0f74a87`
+  （17,301,664 B），上传后服务器 `sha256sum` 一致。镜像 `rai-coach:20261115-054fabd`（ID `ef60e3aeadd6`）。
+- 备份：`/opt/rai-coach-20261108/backup-before-054fabd-20261115-113623.dump`（121,116,276 B，PGDMP magic 校验通过）；
+  旧二进制保留 `rai.bak-720d588`，`environment` 保留 `environment.bak-054fabd`。
+- 迁移：无新迁移；`migrate-status` 仍为 62 版全部 `applied`。
+- 运行态：`./dc up -d --wait api worker` 后 api/worker/postgres 均 healthy；`probe --ready` 与
+  `worker-ready` 退出码 0；`rai version` 报告 `schema=62`、`source_commit=054fabd`、
+  `model_stack=rai-v2-be2ffee8ea215e14`、`openapi=1.14.0`。公网 `/ready`、`/health` 均 200；
+  重启窗口内 API/Worker 日志 WARN/ERROR 计数 0。
+- 模型激活：`analysis model-stack identity` 返回 `rai-v2-be2ffee8ea215e14`（manifest `be2ffee8…c6641`），
+  与 active 通道（`assignment_version=9`）一致；`health --days 30 --channel active` 报
+  `channelStackIsCurrentCode=true`，八个 family 当日均有发布，`workoutsDryRun` 试算 3 次训练且
+  `inputFailures` 为空。因 manifest 未变，本轮无需 prepare/activate 新栈，也未改写 `analysis_model_channels`。
+- 未验证：未用设备凭据读取真实健康值或真实 `/parameters`、`/detail` 响应，静息建议与简化表单的生产表现
+  目前只由合成数据集成测试与本机门禁覆盖；App 新设置页与建议入口需重新构建安装后才可见；真机 HealthKit、
+  连续自然日观察与推荐门槛校准仍未执行。部署与激活不代表真机、模型或产品验收。
+
 ## 心率参考 v3 重设计（已部署并激活，2026-11-15）
 
 **状态：迁移 62、模型栈 `rai-v2-be2ffee8ea215e14`、OpenAPI 1.14.0 已于 2026-11-15 部署到云端并激活为 active**
@@ -1523,7 +1553,7 @@ Apple 明确区分 `restingHeartRate` 与带 sedentary 上下文的普通心率�
 至少 80% 日值在中位数 ±5 bpm 内，近 7 天中位数与整体相差 ≤3 bpm，取整体中位数四舍五入。
 多个合格来源按最新观测、日数、来源身份确定，绝不拼凑多个来源凑足天数。
 App 只在与填写静息值相差 ≥3 bpm 时提示。门槛为待校准产品策略，不作为医学有效性声明，不改变分析栈或自动基线。
-读取建议不会写设置或排队；采用后保存为计算设置，真实观测日期保留在原始事实中。上述界面与静息推荐尚未部署，真机未验收。
+读取建议不会写设置或排队；采用后保存为计算设置，真实观测日期保留在原始事实中。上述界面与静息推荐已于 2026-11-15 部署到云端（镜像 `054fabd`），真机未验收。
 
 详情页解释**这次训练**的参考来源与缺失环节：例如“使用手填静息心率，建议复核”“按近期 5 天数据估计”
 或“缺少静息参考，可同步健康数据或设置备用值”。分析完成但输入不足时显示“分析完成，缺少××”，

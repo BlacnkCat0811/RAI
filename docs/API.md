@@ -233,7 +233,7 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
   新增 `savedHRSettings`（独立组件的保存值／模式／有效期）和 `resolvedHRReference`（当前目标时刻
   在 active 新模型下实际采用的参考，由只读一致性快照运行同一纯解析器；active 为旧栈时为空，不宣称旧栈已采用新规则）。`GET /v2/workouts/{id}/detail` 新增 `heartRateReference`，
   读取这次训练已发布产物中的解析证据；未算到时为空并携带待算状态，不能拿当前参考填充。
-- 本地新增（尚未部署）：`/parameters.observedRestingHR` 返回稳定静息心率建议，或 `null`；包含
+- 2026-11-15 已部署（镜像 `054fabd`）：`/parameters.observedRestingHR` 返回稳定静息心率建议，或 `null`；包含
   `value`、`sampleDays`、`latestSampleAt`、`policyVersion=rai.hr_suggestions/1`。它独立于保存值和 active 栈的
   解析证据，不写设置、不排分析任务。读取只使用已完成、未删除、非手填的 HealthKit 静息心率样本，按稳定来源
   分组，每个本地日最多一个；28 天内至少 14 天、近 7 天至少 3 天、最近观测不超过 3 天，至少 80% 的日值
