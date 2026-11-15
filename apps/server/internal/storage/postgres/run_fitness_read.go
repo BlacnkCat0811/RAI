@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"rai/server/internal/analysis"
 	am "rai/server/internal/athletemodel"
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/modelrelease"
@@ -94,9 +95,14 @@ const paceProfileLookbackDays = 7
 // publication gap) falls back to an earlier day within the lookback; zones
 // whose evidence window ended before the run day are not used.
 func latestPaceZoneProfile(states map[string]rf.State, runDay string) *workoutdetail.PaceZoneProfile {
+	day, err := time.Parse(time.DateOnly, runDay)
+	if err != nil {
+		return nil
+	}
+	earliest := day.AddDate(0, 0, -paceProfileLookbackDays).Format(time.DateOnly)
 	best := ""
 	for date := range states {
-		if date < runDay && date > best {
+		if date >= earliest && date < runDay && date > best {
 			best = date
 		}
 	}
@@ -104,10 +110,7 @@ func latestPaceZoneProfile(states map[string]rf.State, runDay string) *workoutde
 		return nil
 	}
 	zones := states[best].Zones
-	if zones.ValidUntil != "" && zones.ValidUntil < runDay {
-		return nil
-	}
-	return &workoutdetail.PaceZoneProfile{Date: best, Zones: zones}
+	return &workoutdetail.PaceZoneProfile{Date: best, Zones: zones, Expired: zones.ValidUntil != "" && zones.ValidUntil < runDay}
 }
 
 // loadRunFitnessDetail attaches the single result published on the run's
@@ -131,11 +134,35 @@ func loadRunFitnessDetail(ctx context.Context, tx pgx.Tx, p syncing.Principal, i
 	for i := paceProfileLookbackDays; i >= 0; i-- {
 		days = append(days, d.Start.In(loc).AddDate(0, 0, -i).Format(time.DateOnly))
 	}
-	states, _, err := publishedFitnessDays(ctx, tx, p.DatasetID, act.stack, act.tz, days)
+	states, arts, err := publishedFitnessDays(ctx, tx, p.DatasetID, act.stack, act.tz, days)
 	if err != nil {
 		return err
 	}
 	d.PaceZoneProfile = latestPaceZoneProfile(states, day)
+	if profile := d.PaceZoneProfile; profile != nil {
+		artifact := arts[profile.Date]
+		profile.PublicationID, profile.ContentHash = artifact.RunID, artifact.ContentHash
+		var generation int64
+		if err := tx.QueryRow(ctx, `SELECT generation FROM dirty_scopes WHERE dataset_id=$1 AND scope_key='workout:HKWorkoutTypeIdentifier:'||$2`, p.DatasetID, id).Scan(&generation); err != nil {
+			return err
+		}
+		raw, err := stackRaw(ctx, tx, Lease{DatasetID: p.DatasetID, TargetGeneration: generation}, act.stack, id, time.Now().UTC(), 0)
+		if err != nil {
+			var failure *analysis.Failure
+			if !errors.As(err, &failure) {
+				return err
+			}
+			_, events := d.measured()
+			result := workoutdetail.BuildPaceZones(d.Start.UnixMicro(), d.End.UnixMicro(), d.End.Sub(d.Start).Seconds(), nil, events, profile)
+			result.PolicyVersion = workoutdetail.PaceZonePolicyV2
+			result.Status = "input_unavailable"
+			result.Codes = append(result.Codes, failure.Code)
+			d.PaceZoneResult = &result
+		} else {
+			result := workoutdetail.BuildSupportedPaceZones(*raw, profile)
+			d.PaceZoneResult = &result
+		}
+	}
 	s, ok := states[day]
 	if !ok {
 		return nil

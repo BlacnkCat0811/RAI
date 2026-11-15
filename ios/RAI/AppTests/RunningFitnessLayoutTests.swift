@@ -75,4 +75,41 @@ final class RunningFitnessLayoutTests: XCTestCase {
       }
     }
   }
+  @MainActor func testPaceZoneCardsRenderAllStates() throws {
+    let statuses = ["available", "threshold_pace_unavailable", "profile_expired", "zone_anchor_conflict", "speed_unavailable", "zone_evidence_insufficient", "timing_unavailable", "input_unavailable"]
+    for status in statuses {
+      let bands: [[String: Any]] = (1...6).map { i in
+        ["zone": "Z\(i)", "label": "synthetic", "support": i == 6 ? "insufficient_evidence" : (i == 4 ? "estimated" : "supported"),
+         "fastPaceSecondsPerKm": 420 - i * 25, "slowPaceSecondsPerKm": 445 - i * 25]
+      }
+      let exposure: [[String: Any]] = (1...6).map { i in
+        ["zone": "Z\(i)", "durationSeconds": i == 2 ? 1200 : 0, "distanceMeters": i == 2 ? 3600 : 0, "fraction": i == 2 ? 1 : 0]
+      }
+      let data: [String: Any] = ["zoneProfileID": "", "stimulusType": "unclassified", "secondaryStimulusTypes": [],
+        "heartRateCoverage": 0, "paceCoverage": 0.8, "heartRateExposure": [], "paceExposure": exposure,
+        "stimulusScores": [], "explanationCodes": ["pace_zone_evidence_insufficient", "pace_zones_not_fully_supported"],
+        "paceZoneStatus": status, "paceZoneProfileDate": "2026-11-14", "paceZones": bands,
+        "paceUnknownSeconds": 300, "paceReconstructedSeconds": 1200, "paceZonePolicyVersion": "pace-zones/2"]
+      let zones = try JSONDecoder().decode(WorkoutZoneSummary.self, from: JSONSerialization.data(withJSONObject: data))
+      XCTAssertFalse(try XCTUnwrap(zones.paceBand("Z6")).canClassify)
+      for (name, size) in [("normal", DynamicTypeSize.large), ("accessibility", .accessibility3)] {
+        let content = WorkoutPaceZoneCard(zones: zones).padding(16).frame(width: 320)
+          .background(RAITheme.background).foregroundStyle(RAITheme.primary)
+          .environment(\.locale, Locale(identifier: "zh-Hans-CN")).environment(\.dynamicTypeSize, size)
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = 2
+        let image = try XCTUnwrap(renderer.uiImage)
+        XCTAssertEqual(image.size.width, 320)
+        XCTAssertGreaterThan(image.size.height, 40)
+        if let dir = ProcessInfo.processInfo.environment["RAI_LAYOUT_OUTPUT"], let png = image.pngData() {
+          try png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("pace-\(status)-\(name).png"))
+        }
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "pace-\(status)-\(name)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+      }
+    }
+  }
+
 }

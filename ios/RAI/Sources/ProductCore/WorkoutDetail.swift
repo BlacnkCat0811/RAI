@@ -5,6 +5,7 @@ import SyncCore
 // unpublished analysis legitimately has no value; the UI must distinguish
 // "not computed yet" from a measured zero.
 public struct WorkoutDetailResponse: Codable, Sendable {
+  public var heartRateReference: WorkoutHeartRateReference? = nil
   public let workout: WorkoutFacts
   public let analysis: WorkoutFeatureAnalysis?
   public let environment: WorkoutEnvironment?
@@ -208,8 +209,17 @@ public struct WorkoutZoneSummary: Codable, Sendable {
   public let paceExposure: [ZoneExposure]
   public let stimulusScores: [StimulusScore]
   public let explanationCodes: [String]
+  public let paceZonePublicationID: String?
+  public let paceZoneContentHash: String?
+  public let paceObservedSeconds: Double?
+  public let paceReconstructedSeconds: Double?
+  public let paceZonePolicyVersion: String?
+  public let paceClassifiedSeconds: Double?
+  public let paceUnknownSeconds: Double?
+  public let paceAnalyzableSeconds: Double?
   public let paceZoneStatus: String
-  /// Running-fitness zones published the day before the run; nil bounds are open ends.
+  /// Revised running-fitness profile from a prior local day within seven days.
+  /// Nil bounds are open ends only for classifiable bands.
   public let paceZoneProfileDate: String?
   public let paceZones: [PaceZoneBand]?
 
@@ -217,6 +227,8 @@ public struct WorkoutZoneSummary: Codable, Sendable {
 }
 
 public struct PaceZoneBand: Codable, Sendable, Identifiable {
+  public var canClassify: Bool { ["supported", "estimated", "limited", "prior_based"].contains(support) }
+  public var isEstimated: Bool { canClassify && support != "supported" }
   public let zone: String
   public let label: String
   public let fastPaceSecondsPerKm: Double?

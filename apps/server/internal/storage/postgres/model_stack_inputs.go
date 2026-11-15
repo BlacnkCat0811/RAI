@@ -27,6 +27,8 @@ import (
 
 type stackInput struct {
 	ID, Kind, Hash, Provenance string
+	Schema                     string
+	Order                      int64
 	From, Known                time.Time
 	Through                    *time.Time
 	Supersedes, Revokes        string
@@ -35,9 +37,9 @@ type stackInput struct {
 
 func stackInputs(ctx context.Context, tx pgx.Tx, dataset string, captured time.Time) ([]stackInput, error) {
 	rows, err := tx.Query(ctx, `SELECT id::text,kind,encode(content_sha256,'hex'),provenance,effective_from,created_at,effective_through,
- COALESCE(supersedes_id::text,''),COALESCE(revokes_id::text,''),payload FROM athlete_model_inputs
- WHERE dataset_id=$1 AND input_schema IN ('rai.hr_reference/2','rai.sleep_target/1','rai.workout_effort/1',
- 'rai.workout_overlap_resolution/1','rai.source_context_selection/1') AND created_at<=$2 ORDER BY created_at,id LIMIT 1025`, dataset, captured)
+ COALESCE(supersedes_id::text,''),COALESCE(revokes_id::text,''),payload,input_schema,commit_order FROM athlete_model_inputs
+ WHERE dataset_id=$1 AND input_schema IN ('rai.hr_reference/3','rai.hr_reference/2','rai.sleep_target/1','rai.workout_effort/1',
+ 'rai.workout_overlap_resolution/1','rai.source_context_selection/1') AND created_at<=$2 ORDER BY created_at,commit_order,id LIMIT 1025`, dataset, captured)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +47,7 @@ func stackInputs(ctx context.Context, tx pgx.Tx, dataset string, captured time.T
 	out := []stackInput{}
 	for rows.Next() {
 		var x stackInput
-		if err := rows.Scan(&x.ID, &x.Kind, &x.Hash, &x.Provenance, &x.From, &x.Known, &x.Through, &x.Supersedes, &x.Revokes, &x.Payload); err != nil {
+		if err := rows.Scan(&x.ID, &x.Kind, &x.Hash, &x.Provenance, &x.From, &x.Known, &x.Through, &x.Supersedes, &x.Revokes, &x.Payload, &x.Schema, &x.Order); err != nil {
 			return nil, err
 		}
 		out = append(out, x)
@@ -229,7 +231,7 @@ func workoutReference(w stackWorkout, inputs []stackInput, captured time.Time, d
 	start := time.UnixMicro(w.start)
 	var refs []hrref.Reference
 	for _, row := range effectiveStackInputs(inputs, start, captured) {
-		if row.Kind != "hr_reference" {
+		if row.Kind != "hr_reference" || row.Schema == hrref.InputSchemaV3 {
 			continue
 		}
 		var x struct {
@@ -591,7 +593,14 @@ func stackWorkoutLoad(w stackWorkout, inputs []stackInput, captured time.Time, r
 		return stackLoad{load: failedStackLoad(w, loc, stack, generation, w.failure), failure: w.failure}
 	}
 	start, end := time.UnixMicro(w.start), time.UnixMicro(w.end)
-	ref, err := workoutReference(w, inputs, captured, dailyRHRFacts(restingHR, w.start, w.sourceEpoch, loc))
+	var ref hrref.Snapshot
+	var err error
+	daily := dailyRHRFacts(restingHR, w.start, w.sourceEpoch, loc)
+	if stack == modelmanifest.StackID() {
+		ref, _, err = hrref.ResolveSettings(referenceEvents(inputs, time.UnixMicro(w.start), captured), hrref.Input{AsOf: captured.UnixMicro(), WorkoutStart: w.start, SourceEpoch: w.sourceEpoch, DailyRHR: daily}, stack)
+	} else {
+		ref, err = workoutReference(w, inputs, captured, daily)
+	}
 	conflict := errors.Is(err, hrref.ErrConflict)
 	invalidRef := err != nil && !conflict && !errors.Is(err, hrref.ErrNotEffective)
 	var doseRef *tl.Reference
@@ -604,6 +613,24 @@ func stackWorkoutLoad(w stackWorkout, inputs []stackInput, captured time.Time, r
 	}, Reference: doseRef, ReferenceConflict: conflict, ReferenceInvalid: invalidRef, OverlapUnknown: ambiguous}, generation)
 	if err != nil {
 		return stackLoad{load: failedStackLoad(w, loc, stack, generation, "analysis_invalid_input"), failure: "analysis_invalid_input"}
+	}
+	load.ReferenceEvidence = ref.Evidence
+	if ref.Evidence != nil {
+		if load.Evidence == nil {
+			load.Evidence = map[string]string{}
+		}
+		load.Evidence["referencePolicy"] = hrref.PolicyV3
+		load.Evidence["referenceInputHash"] = ref.Evidence.InputHash
+		load.ReasonCodes = append(load.ReasonCodes, ref.Evidence.MaxHR.Reasons...)
+		load.ReasonCodes = append(load.ReasonCodes, ref.Evidence.RestingHR.Reasons...)
+		slices.Sort(load.ReasonCodes)
+		load.ReasonCodes = slices.Compact(load.ReasonCodes)
+		if load.Load != nil && (ref.Evidence.MaxHR.Status == "estimated" || ref.Evidence.RestingHR.Status == "estimated") {
+			load.Quality = "estimated"
+			for i := range load.Days {
+				load.Days[i].Quality = "estimated"
+			}
+		}
 	}
 	load.Scope = tl.ScopeV2For(w.id, stack)
 	return stackLoad{load: load, ref: ref, doseRef: doseRef, refConflict: conflict}
@@ -626,6 +653,9 @@ func doseReference(ref hrref.Snapshot) *tl.Reference {
 		Max, Rest *hrref.Resolved
 		Epoch     string
 	}{ref.HRMax, rest, ref.SourceEpoch})
+	if ref.Evidence != nil {
+		stableHash = hrref.Hash(struct{ Identity, Policy string }{stableHash, hrref.PolicyV3})
+	}
 	out := &tl.Reference{ID: ref.HRMax.ReferenceID, Hash: stableHash, RestHR: ref.RestingHR.Value, MaxHR: ref.HRMax.Value,
 		MeasuredAt: ref.HRMax.MeasuredAt, RecordedAt: ref.HRMax.RecordedAt, Provenance: ref.HRMax.Method, SourceEpoch: ref.SourceEpoch}
 	if ref.RestingHR.Baseline {
@@ -761,7 +791,7 @@ func stackVO2Evidence(w stackWorkout, dose tl.Reference, ref hrref.Snapshot, loc
 	if !v.Qualified {
 		return nil, nil
 	}
-	return &vo2.Evidence{WorkoutID: v.WorkoutID, Day: v.Day, At: v.End, SourceEpoch: v.SourceEpoch, ReferenceHash: v.ReferenceHash,
+	return &vo2.Evidence{ReferenceEstimated: ref.Evidence != nil && (ref.Evidence.MaxHR.Status == "estimated" || ref.Evidence.RestingHR.Status == "estimated"), WorkoutID: v.WorkoutID, Day: v.Day, At: v.End, SourceEpoch: v.SourceEpoch, ReferenceHash: v.ReferenceHash,
 		V: *v.CandidateV, Q: v.Quality, HRMean: *v.MedianHR, SpeedMPS: *v.MedianSpeedMPS, MaxHR: v.MaxHR, RestHR: v.RestHR,
 		KnownAt: max(v.KnownAt, v.End), EnvironmentKnown: v.EnvironmentKnown}, nil
 }

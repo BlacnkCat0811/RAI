@@ -15,6 +15,7 @@ type Reference struct {
 	MaxBasis  string  `json:"maxBasis"`  // measured | age_estimated
 	RestBasis string  `json:"restBasis"` // user | baseline
 	Hash      string  `json:"hash"`
+	Estimated bool    `json:"estimated,omitempty"`
 }
 
 // Effort is a user-confirmed effort label. Labels change the model input only;
@@ -261,6 +262,9 @@ func Single(in SingleInput) SingleResult {
 	}
 	if ref != nil {
 		out.ReferenceHash = ref.Hash
+		if ref.Estimated {
+			out.Reasons = addReason(out.Reasons, "hr_reference_estimated")
+		}
 		if ref.MaxBasis == "age_estimated" {
 			out.Reasons = addReason(out.Reasons, "age_estimated_hrmax")
 		}
@@ -308,7 +312,7 @@ func Single(in SingleInput) SingleResult {
 
 func singleReliable(out SingleResult, f *wf.RunFitnessFeatures) bool {
 	h := out.HR
-	if h.Mode != "adjusted" || f.DistanceCheck != "consistent" || slices.Contains(out.Reasons, "age_estimated_hrmax") || h.ScoreRange.High-h.ScoreRange.Low > 20 {
+	if h.Mode != "adjusted" || f.DistanceCheck != "consistent" || (slices.Contains(out.Reasons, "age_estimated_hrmax") || slices.Contains(out.Reasons, "hr_reference_estimated")) || h.ScoreRange.High-h.ScoreRange.Low > 20 {
 		return false
 	}
 	for _, s := range h.Segments {
@@ -467,7 +471,7 @@ func singleHR(p Policy, f *wf.RunFitnessFeatures, ref Reference, indoor bool, co
 	h.A = aFor(used, ref.RestHR, ref.MaxHR, 1, p.Beta)
 	h.Score, h.RawScore, h.Saturation = ScoreA(h.A)
 	maxSens := p.MaxSensitivity
-	if ref.MaxBasis == "age_estimated" {
+	if ref.MaxBasis == "age_estimated" || ref.Estimated {
 		maxSens = p.AgeMaxSensitive
 	}
 	speedSens := p.SpeedSensitivity

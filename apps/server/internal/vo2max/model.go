@@ -128,20 +128,21 @@ type WorkoutEvidence struct {
 }
 
 type Evidence struct {
-	WorkoutID        string  `json:"workoutID"`
-	Day              string  `json:"localDay"`
-	At               int64   `json:"startUs"`
-	SourceEpoch      string  `json:"sourceEpoch"`
-	Context          string  `json:"context"`
-	ReferenceHash    string  `json:"referenceHash"`
-	V                float64 `json:"vo2"` // mL/kg/min
-	Q                float64 `json:"quality"`
-	HRMean           float64 `json:"meanHR"`
-	SpeedMPS         float64 `json:"meanSpeedMPS"`
-	MaxHR            float64 `json:"maxHR"`
-	RestHR           float64 `json:"restHR"`
-	KnownAt          int64   `json:"knownAtUs"`
-	EnvironmentKnown bool    `json:"environmentKnown"`
+	ReferenceEstimated bool    `json:"referenceEstimated,omitempty"`
+	WorkoutID          string  `json:"workoutID"`
+	Day                string  `json:"localDay"`
+	At                 int64   `json:"startUs"`
+	SourceEpoch        string  `json:"sourceEpoch"`
+	Context            string  `json:"context"`
+	ReferenceHash      string  `json:"referenceHash"`
+	V                  float64 `json:"vo2"` // mL/kg/min
+	Q                  float64 `json:"quality"`
+	HRMean             float64 `json:"meanHR"`
+	SpeedMPS           float64 `json:"meanSpeedMPS"`
+	MaxHR              float64 `json:"maxHR"`
+	RestHR             float64 `json:"restHR"`
+	KnownAt            int64   `json:"knownAtUs"`
+	EnvironmentKnown   bool    `json:"environmentKnown"`
 }
 
 type AggregateInput struct {

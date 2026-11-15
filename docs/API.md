@@ -36,14 +36,25 @@
     `<60%`、`[60%,70%)`、`[70%,80%)`、`[80%,90%)`、`≥90%`，不回退到当前参数。
     重复观测只计一次，冲突、暂停和缺失区间不归类；积分超过记录总距离时统一缩小，少于总距离时不放大补齐。
     旧服务未提供该字段或分区读取失败时，客户端保留总跑量，将相应距离列为未分类。
-  - `/detail` 的 `zoneSummary` 配速区间（`paceExposure` / `paceCoverage`）按跑力六区间 Z1–Z6 划分，边界取**运动开始日之前、7 天内最近一个本地日**
-    已发布的跑力状态（`paceZoneProfileDate`；前一日缺发布时向前回退，区间 `validUntil` 早于运动日则不用），本次跑步不会用它自己塑造的边界给自己归类；`paceZones` 回显所用快端／慢端配速
-    （秒/公里，Z1 慢端、Z6 快端为开放端，`support` 为跑力原支持级别）。`paceExposure` 各项给出时长、距离与时长占比，
-    `paceCoverage` 为计入速度时长占移动时长（总历时扣除暂停，重叠暂停只扣一次）之比。只用原始 `RunningSpeed` 区间：不做坡度修正、不外推瞬时点，暂停、静止（速度 0）
-    与冲突重叠不计入，相同重叠只计一次。`paceZoneStatus`：`available`；`threshold_pace_unavailable`（训练前无已发布跑力区间，
-    包括冷启动或证据不足）；`zone_anchor_conflict`（Z1–Z5 快端缺失或不严格递增，不排序冒充）；`speed_unavailable`（无可用速度区间）。
-    非 `available` 时 `paceExposure` 为空。刺激类型评分仍只用心率，配速暴露仅作描述；无心率但配速可用时也返回 `zoneSummary`
-    （此时 `heartRateExposure` 为空，iOS 不显示心率区间卡，刺激类型说明为缺少心率区间）。
+  - `/detail` 的 `zoneSummary` 配速区间使用 `paceZonePolicyVersion=pace-zones/2`，按个人跑力 Z1–Z6 划分。
+    边界来自运动开始日之前 7 个本地日内最近一次干净发布的跑力状态，回显 `paceZoneProfileDate`、
+    `paceZonePublicationID`（发布 run ID）、`paceZoneContentHash`；不使用当天或之后的状态。
+    历史日期使用当前有效发布，重新分析历史可能改变旧训练分区，并非训练开始时已知信息的冻结快照。
+    `paceZones` 回显各区快／慢端（秒/公里）与 `support`；Z1 慢端及可分类 Z6 快端开放。
+    `supported` 可直接描述，`estimated` / `limited` / `prior_based` 标注估计；其他支持状态不分类，边界置 null。
+    五个内部速度边界须严格递增，可分类区间慢端须与前一快端一致，缺失或冲突不通过排序修补。
+    速度使用完整原始事实和 sealed series，经现有 `workoutfeatures.BuildSignal` 统一处理：同来源、同活动段内
+    相邻瞬时点间隔 ≤15 秒可线性插值，不外推首尾、不跨暂停、长断点、来源切换或冲突；异常值与来源策略同特征基础。
+    线性速度穿过边界时精确拆段，分别积分时长和距离。使用实际速度，不做坡度修正；不使用展示抽样点。
+    `paceAnalyzableSeconds` 为有效活动时长，`paceClassifiedSeconds` 为成功分类时长，`paceUnknownSeconds` 为两者之差；
+    `paceCoverage` 为已分类／可分析时长。`paceExposure.fraction` 以已分类时长为分母；各项含时长与速度积分距离。
+    `paceObservedSeconds` / `paceReconstructedSeconds` 分别为有效原始区间／插值速度支持时长（在区间证据过滤前），
+    因证据不足未分类的速度支持仍计入这两项；尚未评估速度（如缺少个人边界）时省略这两项。距离不放大补齐 HealthKit 总距离。
+    `paceZoneStatus`：`available`、`threshold_pace_unavailable`（训练前无发布）、`profile_expired`、
+    `zone_anchor_conflict`、`speed_unavailable`、`zone_evidence_insufficient`（有效速度均落在不可分类区间）、
+    `timing_unavailable`（暂停／时长不确定，可分析时长为 0）、`input_unavailable`（分析输入不可读或超限）。
+    非 `available` 时 `paceExposure` 为空。配速分区独立于当天分析与心率发布；未发布分析的 `zoneSummary` 心率／刺激字段保持空或未分类。
+    iOS 显示零暴露区间、证据不足的“—”、未分类时长；速度积分距离收在展开项。旧服务缺字段时显示可用信息或刷新提示。
   - iOS 周／月统计完整读取列表游标链，仅请求所选周期跑步的详情；使用 overview 的数据集时区，周一为周起点，
     跨午夜跑步按开始日计入。分区百分比以本期已知总距离为分母，包含未分类距离，不是心率时长占比。
 - 分析：`GET /v2/analysis/parameters`、`/vo2max-sources`、`/athlete`、`/athlete/history`、`/athlete/diagnostics`、
@@ -196,6 +207,44 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 
 本机独立 Debug 验收的 `training` 入口调用上述相同训练接口，`daily` 调用既有 daily-facts/VO2 同步接口；
 不增加 API 路径。工具报告只导出状态和计数，日常同步轮次结束不构成所有流回溯完成的证明。
+
+## 心率参考 v3 契约（已实施，未部署）
+
+**迁移 62／OpenAPI 1.14.0 已在本机实现；线上尚未部署。现有 `/2` 请求与读取契约保持不变。**
+解析、时间语义、默认模式和验收规则见
+[心率参考 v3 重设计](ARCHITECTURE.md#心率参考-v3-重设计已实施未部署2026-11-15)。
+
+- 继续使用 `POST /v2/model-inputs/hr-references`。model-input 请求增加可选 `schemaVersion`，
+  缺省维持既有 `/2`；明确选择 `rai.hr_reference/3` 才接受新 payload。支持版本通过握手能力
+  `hrReferenceInputSchemas` 公告；服务端不支持时客户端禁止静默丢字段回退。
+- `/3` 的 `payload.maxHR` 为独立对象，包含 `value`、`basis=measured|user_setting`、`method`、可选
+  `measuredAt`、`unit=bpm`；`basis=measured` 时必须有测量日期。静息对象用 `payload.restingHR`，
+  包含 `mode=automatic|manual` 和可选 `manualValue`（与最大心率值对象使用相同的日期／依据字段）。
+  `automatic` 下 `manualValue` 是备用值，`manual` 下是固定值且必填。
+- 外层 `effectiveFrom`／`effectiveThrough` 与测量日期独立；`recordedAt` 由服务器生成。
+  `/3` 输入按独立组件的明确变更应用：至少提交一个组件；未提交的组件保持原设置；静息模式明确提交，
+  清除备用值须显式 `manualValue:null`（仅自动模式允许），不能把字段缺席解释为清除。
+  按目标生效时刻解析后的组合仍须满足最大心率高于静息设置；已保存测量时间不得因修改另一组件刷新。
+  原样规范化并保存不可变变更，不将“当前设置”复制进省略字段；内容哈希和重试身份只依赖这次变更。
+  `/3` 不接受 `supersedesId`；使用不可变组件变更及独立撤销接口。
+  解析时分别按组件有效日期、服务端提交顺序确定选中事件，显式清除必须遮蔽更早备用值，不能复活旧值；
+  回溯更新、撤销及晚到变更均按同一规则重放并保留血缘，不按客户端时钟决定提交顺序。
+- `GET /v2/analysis/parameters` 保留旧 `hrReference`（已保存的旧格式输入视图，非计算采用证明），
+  新增 `savedHRSettings`（独立组件的保存值／模式／有效期）和 `resolvedHRReference`（当前目标时刻
+  在 active 新模型下实际采用的参考，由只读一致性快照运行同一纯解析器；active 为旧栈时为空，不宣称旧栈已采用新规则）。`GET /v2/workouts/{id}/detail` 新增 `heartRateReference`，
+  读取这次训练已发布产物中的解析证据；未算到时为空并携带待算状态，不能拿当前参考填充。
+- 解析对象包含 `schemaVersion`、`policyVersion`、`stackID`、`targetAtUs`、`evaluatedAtUs`、
+  `inputHash`；`maxHR`／`restingHR` 各自包含 `value`（可空）、`source`、`basis`、`status`、
+  `referenceID`（若有）、`effectiveFrom`、`measuredAt`（可空）、`recordedAt`、`ageDays`（日期未知时空）、
+  `sampleDays`／`latestSampleAt`（自动参考）、`reviewRecommended`、`reasonCodes`。
+  来源区分 `manual`／`manual_fallback`／`baseline_28d`／`baseline_sparse`／`unavailable`，
+  状态区分 `complete`／`estimated`／`unavailable`；不能用“已保存”状态替代解析状态。
+- 新增精确原因码：`rhr_manual_review_due`、`rhr_measurement_date_unknown`、`rhr_sparse_baseline`、
+  `rhr_manual_fallback`、`rhr_observations_insufficient`、`legacy_date_semantics`、`historical_assumption`。
+  最大心率缺失和真实参考冲突仍独立返回。原因码是状态解释，不产生 0 分或默认健康值。
+- `trainingLoad`／`trainingEffect` 继续遵守缺失为 `null` 的规则，新增参考质量与原因的传递，
+  不覆盖采样质量；有氧与无氧独立返回状态。旧栈中缺少解析对象不得由 App 猜测原因。
+  `/parameters` 和 `/detail` 都是读取路径，不因读取创建分析任务或改写输入。
 
 ## 限额
 读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分（突发 2）；可用 `RAI_RATE_BUDGETS` 覆盖，

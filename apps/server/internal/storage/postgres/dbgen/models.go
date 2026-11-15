@@ -177,6 +177,7 @@ type AthleteModelInput struct {
 	CreatedAt        pgtype.Timestamptz
 	RevokesID        *string
 	InputSchema      pgtype.Text
+	CommitOrder      int64
 }
 
 type ChangeEvent struct {

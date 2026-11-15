@@ -64,8 +64,13 @@ func TestModelStackDayPreRunRestingReadingDeletion(t *testing.T) {
 		t.Fatal("daily deletion did not regenerate the stack")
 	}
 	read("training_readiness", &ready)
-	if ready.KnownLoads != 0 || ready.UnknownLoads != 1 {
-		t.Fatal("deleted or post-start reading still supplies the baseline")
+	if ready.KnownLoads != 1 || ready.UnknownLoads != 0 {
+		t.Fatal("remaining sparse baseline should keep the load known")
+	}
+	var source string
+	var days int
+	if err := f.s.Pool.QueryRow(ctx, `SELECT load->'heartRateReference'->'restingHR'->>'source',(load->'heartRateReference'->'restingHR'->>'sampleDays')::int FROM model_workout_results WHERE dataset_id=$1 ORDER BY updated_at DESC LIMIT 1`, f.p.DatasetID).Scan(&source, &days); err != nil || source != "baseline_sparse" || days != len(ages) {
+		t.Fatalf("deleted/post-start sample affected sparse evidence: source=%s days=%d err=%v", source, days, err)
 	}
 	var recovery rc.V4Result
 	read("physiological_recovery", &recovery)

@@ -907,6 +907,13 @@ func Aggregate(in AggregateInput) (Result, error) {
 	} else {
 		r.Quality = "partial"
 	}
+	for _, e := range pool {
+		if e.ReferenceEstimated {
+			r.Quality = "partial"
+			r.Reasons = append(r.Reasons, "hr_reference_estimated")
+			break
+		}
+	}
 	// Sensitivity: 8 corners, every corner must be defined.
 	var corners []float64
 	unbounded := false

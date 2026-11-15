@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+ A113C345D721F15D92300891 /* HeartRateSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A113C345D721F15D92300892 /* HeartRateSettingsView.swift */; };
 		FA1112223334445556668802 /* RunningFitnessLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1112223334445556668801 /* RunningFitnessLayoutTests.swift */; };
 		FA1112223334445556667702 /* RunningFitnessComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1112223334445556667701 /* RunningFitnessComponents.swift */; };
 		D151AA110022334455667702 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D151AA110022334455667701 /* StatisticsView.swift */; };
@@ -58,6 +59,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+ A113C345D721F15D92300892 /* HeartRateSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateSettingsView.swift; sourceTree = "<group>"; };
 		FA1112223334445556668801 /* RunningFitnessLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningFitnessLayoutTests.swift; sourceTree = "<group>"; };
 		FA1112223334445556667701 /* RunningFitnessComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningFitnessComponents.swift; sourceTree = "<group>"; };
 		D151AA110022334455667701 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
@@ -173,6 +175,7 @@
 				AABBCCDD0011223344557701 /* VO2MaxNormalizer.swift */,
 				CC0CE59185A6582157B523D9 /* ProductModel.swift */,
 				07A341B735C9EDE82516D5B7 /* ProductViews.swift */,
+ A113C345D721F15D92300892 /* HeartRateSettingsView.swift */,
 				FA1112223334445556667701 /* RunningFitnessComponents.swift */,
 				6C2FDB10010A581B0F9F5385 /* WorkoutDetailView.swift */,
 				3F1C943D1E266CB2CE42EA95 /* RAIApp.swift */,
@@ -367,6 +370,7 @@
 				AABBCCDD0011223344557702 /* VO2MaxNormalizer.swift in Sources */,
 				017785EB305BF2D0F0C922C8 /* ProductModel.swift in Sources */,
 				E643ACCBB0EEE14443B39F98 /* ProductViews.swift in Sources */,
+ A113C345D721F15D92300891 /* HeartRateSettingsView.swift in Sources */,
 				FA1112223334445556667702 /* RunningFitnessComponents.swift in Sources */,
 				96528C42F0F2AF0B7AB0C666 /* WorkoutDetailView.swift in Sources */,
 				AA50E8F4DA8B6A9BE235AD89 /* RAIApp.swift in Sources */,

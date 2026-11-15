@@ -136,6 +136,7 @@ type Resolved struct {
 }
 
 type Snapshot struct {
+	Evidence    *Evidence `json:"evidence,omitempty"`
 	Schema      string    `json:"schemaVersion"`
 	AsOf        int64     `json:"asOfUs"`
 	WorkoutAt   int64     `json:"workoutStartUs"`
@@ -260,6 +261,10 @@ func measurement(r Reference, isMax bool) Measurement {
 }
 
 func baselineRHR(in Input) (*Resolved, string) {
+	return baselineWithMinimum(in, MinBaseline, RecentMin)
+}
+
+func baselineWithMinimum(in Input, minimum, recentMinimum int) (*Resolved, string) {
 	if in.SourceEpoch == "" {
 		return nil, "rhr_missing"
 	}
@@ -274,7 +279,7 @@ func baselineRHR(in Input) (*Resolved, string) {
 			byDate[d.Date] = d
 		}
 	}
-	if len(byDate) < MinBaseline {
+	if len(byDate) < minimum {
 		return nil, "rhr_baseline_insufficient"
 	}
 	ds := make([]DailyRHR, 0, len(byDate))
@@ -296,7 +301,7 @@ func baselineRHR(in Input) (*Resolved, string) {
 		}
 		lineage = append(lineage, Lineage{ID: d.Date, RunID: d.RunID, Hash: d.Hash, Day: d.Date})
 	}
-	if recentN < RecentMin {
+	if recentN < recentMinimum {
 		return nil, "rhr_baseline_recent_insufficient"
 	}
 	sort.Float64s(vals)

@@ -7,6 +7,7 @@
 缺失记录或未覆盖的分区不补成零强度，也不以整次平均配速或平均心率代替分区。
 
 - 当前架构：[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 心率参考 v3（2026-11-15，已实施、未部署，迁移 62）：分开测量日期与历史生效日期，取消手填静息心率的 90 天硬失效，明确自动／手动模式及估计来源。见 [设计与验收规则](docs/ARCHITECTURE.md#心率参考-v3-重设计已实施未部署2026-11-15)；新模型栈 `rai-v2-be2ffee8ea215e14`；代码已接入 Go 分析、事务输入和 iOS，线上仍保持原栈。
 - 自适应训练计划（`training_plan/v4`，迁移 60／61，已于 2026-11-15 部署；服务端与 `coach_parameters/v3` 就绪，App 内新建计划即用 v4）：参照佳明教练，有比赛目标时按比赛日期倒排基础／提升／巅峰／减量阶段，
   没有目标时按近期完成量、负荷、恢复与负荷焦点逐周自动排课；错过、多跑、准备度低、恢复未结束时周内自动调整；
   每次跑步课不少于 30 分钟。见 [ARCHITECTURE](docs/ARCHITECTURE.md) 与
@@ -122,3 +123,5 @@ python3 scripts/connect-link.py /绝对路径/凭证文件.json
 发布模板在 `deploy/release/`（compose：postgres + api + worker + admin），本机/NAS 自部署说明见
 `deploy/local/README.md`。`rai` 二进制模式：`api` / `worker` / `migrate` / `init` / `admin` / `ops`。
 API 与 Worker 同一镜像；API 不自动迁移、不自动创建数据集。
+
+跑步详情配速区间使用个人训练前跑力 Z1–Z6（`pace-zones/2`），支持同源短间隔瞬时速度重建、明确覆盖率与未分类时长；独立于当天分析／心率发布，证据不足不伪装为零。具体口径见 `docs/API.md`。

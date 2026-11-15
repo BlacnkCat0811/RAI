@@ -68,6 +68,7 @@ func fitnessReference(ref hrref.Snapshot, conflict bool) (*rf.Reference, bool) {
 		return nil, false
 	}
 	out := &rf.Reference{MaxHR: ref.HRMax.Value, RestHR: ref.RestingHR.Value, MaxBasis: "measured", RestBasis: "user"}
+	out.Estimated = ref.Evidence != nil && (ref.Evidence.MaxHR.Status == "estimated" || ref.Evidence.RestingHR.Status == "estimated")
 	if ref.HRMax.Method == "age_estimated" {
 		out.MaxBasis = "age_estimated"
 	}
@@ -80,6 +81,12 @@ func fitnessReference(ref hrref.Snapshot, conflict bool) (*rf.Reference, bool) {
 		MaxBasis, RestBasis string
 		MaxID               string
 	}{out.MaxHR, out.RestHR, out.MaxBasis, out.RestBasis, ref.HRMax.ReferenceID})
+	if ref.Evidence != nil {
+		out.Hash = rf.Hash(struct {
+			Identity  string
+			Estimated bool
+		}{out.Hash, out.Estimated})
+	}
 	return out, false
 }
 

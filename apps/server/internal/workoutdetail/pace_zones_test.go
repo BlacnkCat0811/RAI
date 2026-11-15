@@ -131,3 +131,12 @@ func TestBuildPaceZonesCoverageExcludesPausedTime(t *testing.T) {
 		t.Fatalf("coverage %v status %s", r.Coverage, r.Status)
 	}
 }
+
+func TestUnavailablePaceRetainsAnalyzableTime(t *testing.T) {
+	r := BuildPaceZones(0, 600e6, 600, nil, []EventBoundary{{Type: 1, StartUs: 100e6}, {Type: 2, StartUs: 200e6}, {Type: 5, StartUs: 150e6}, {Type: 6, StartUs: 250e6}}, nil)
+	z := NewZoneSummary()
+	AttachPaceZones(z, r)
+	if z.PaceAnalyzableSeconds != 450 || z.PaceUnknownSeconds != 450 || z.PaceClassifiedSeconds != 0 || z.PaceZonePolicyVersion != "pace-zones/1" {
+		t.Fatalf("summary %+v", z)
+	}
+}

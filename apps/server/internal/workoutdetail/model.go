@@ -4,6 +4,7 @@
 package workoutdetail
 
 import (
+	"rai/server/internal/hrref"
 	rf "rai/server/internal/runfitness"
 	te "rai/server/internal/trainingeffect"
 	tl "rai/server/internal/trainingload"
@@ -111,19 +112,27 @@ type StimulusScore struct {
 }
 
 type ZoneSummary struct {
-	ZoneProfileID          string          `json:"zoneProfileID"`
-	StimulusType           string          `json:"stimulusType"`
-	SecondaryStimulusTypes []string        `json:"secondaryStimulusTypes"`
-	StimulusConfidence     *float64        `json:"stimulusConfidence"`
-	HeartRateCoverage      float64         `json:"heartRateCoverage"`
-	PaceCoverage           float64         `json:"paceCoverage"`
-	HeartRateExposure      []ZoneExposure  `json:"heartRateExposure"`
-	PaceExposure           []ZoneExposure  `json:"paceExposure"`
-	StimulusScores         []StimulusScore `json:"stimulusScores"`
-	ExplanationCodes       []string        `json:"explanationCodes"`
-	PaceZoneStatus         string          `json:"paceZoneStatus"`
-	PaceZoneProfileDate    string          `json:"paceZoneProfileDate,omitempty"`
-	PaceZones              []PaceZoneBand  `json:"paceZones"`
+	ZoneProfileID            string          `json:"zoneProfileID"`
+	StimulusType             string          `json:"stimulusType"`
+	SecondaryStimulusTypes   []string        `json:"secondaryStimulusTypes"`
+	StimulusConfidence       *float64        `json:"stimulusConfidence"`
+	HeartRateCoverage        float64         `json:"heartRateCoverage"`
+	PaceCoverage             float64         `json:"paceCoverage"`
+	HeartRateExposure        []ZoneExposure  `json:"heartRateExposure"`
+	PaceExposure             []ZoneExposure  `json:"paceExposure"`
+	StimulusScores           []StimulusScore `json:"stimulusScores"`
+	ExplanationCodes         []string        `json:"explanationCodes"`
+	PaceZonePublicationID    string          `json:"paceZonePublicationID,omitempty"`
+	PaceZoneContentHash      string          `json:"paceZoneContentHash,omitempty"`
+	PaceObservedSeconds      *float64        `json:"paceObservedSeconds,omitempty"`
+	PaceReconstructedSeconds *float64        `json:"paceReconstructedSeconds,omitempty"`
+	PaceZonePolicyVersion    string          `json:"paceZonePolicyVersion"`
+	PaceClassifiedSeconds    float64         `json:"paceClassifiedSeconds"`
+	PaceUnknownSeconds       float64         `json:"paceUnknownSeconds"`
+	PaceAnalyzableSeconds    float64         `json:"paceAnalyzableSeconds"`
+	PaceZoneStatus           string          `json:"paceZoneStatus"`
+	PaceZoneProfileDate      string          `json:"paceZoneProfileDate,omitempty"`
+	PaceZones                []PaceZoneBand  `json:"paceZones"`
 }
 
 type RoutePoint struct {
@@ -205,6 +214,7 @@ type Qualification struct {
 }
 
 type Detail struct {
+	HeartRateReference   *hrref.Evidence       `json:"heartRateReference,omitempty"`
 	RunFitness           *RunFitness           `json:"runFitness,omitempty"`
 	LoadFocus            *tl.WorkoutFocus      `json:"loadFocus,omitempty"`
 	TrainingEffect       *te.Result            `json:"trainingEffect,omitempty"`

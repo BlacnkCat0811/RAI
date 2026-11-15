@@ -76,9 +76,10 @@ public enum TrainingEffectText {
   /// One actionable line explaining why a score is missing or limited.
   public static func reason(_ code: String) -> String? {
     [
-      "hr_reference_missing": "填写最大心率后可计算训练效果",
+      "hr_reference_estimated": "心率参考为估计，训练效果也为估计",
+      "hr_reference_missing": "缺少可用的最大／静息心率参考，请检查心率设置",
       "hr_exposure_insufficient": "心率数据不足，无法计算有氧训练效果",
-      "speed_reference_unavailable": "积累几次跑步、形成跑力后显示无氧评分",
+      "speed_reference_unavailable": "缺少这次跑步之前可用的速度能力基准",
       "effort_features_missing": "这次跑步的分析版本较旧，重新分析后显示",
       "speed_missing": "缺少速度数据，无法计算无氧评分",
       "short_sprint_uncorroborated": "短冲刺缺少功率或步频佐证，未计入",

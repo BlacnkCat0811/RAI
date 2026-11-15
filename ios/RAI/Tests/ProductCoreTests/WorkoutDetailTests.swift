@@ -105,7 +105,7 @@ struct WorkoutDetailTests {
     #expect(e.aerobic?.value == 3.7)
     #expect(TrainingEffectText.label(e.aerobic!) == "提升")
     #expect(e.anaerobic?.value == nil)
-    #expect(TrainingEffectText.reasons(e.anaerobic!) == ["积累几次跑步、形成跑力后显示无氧评分"])
+    #expect(TrainingEffectText.reasons(e.anaerobic!) == ["缺少这次跑步之前可用的速度能力基准"])
     #expect(e.bouts == 0 && e.trainingLevel == 6.2)
 
     // Missing fields and an unknown label still decode; the value decides the band.
@@ -120,7 +120,7 @@ struct WorkoutDetailTests {
 
     let missingHR = TrainingEffectScore(value: nil, label: "", status: "unavailable", reasonCodes: ["hr_reference_missing"])
     #expect(TrainingEffectText.label(missingHR) == "暂无")
-    #expect(TrainingEffectText.reasons(missingHR) == ["填写最大心率后可计算训练效果"])
+    #expect(TrainingEffectText.reasons(missingHR) == ["缺少可用的最大／静息心率参考，请检查心率设置"])
     #expect(!TrainingEffectText.isOverreaching(missingHR))
     #expect(TrainingEffectText.levelStatus("default") == "默认")
   }
@@ -134,6 +134,9 @@ struct WorkoutDetailTests {
       "paceExposure": [{"zone": "Z2", "durationSeconds": 200, "distanceMeters": 560, "fraction": 0.4}],
       "stimulusScores": [], "explanationCodes": ["pace_zones_from_pre_run_fitness"],
       "paceZoneStatus": "available", "paceZoneProfileDate": "2026-11-11",
+      "paceZonePolicyVersion":"pace-zones/2", "paceClassifiedSeconds":500, "paceUnknownSeconds":100,
+      "paceAnalyzableSeconds":600, "paceObservedSeconds":200, "paceReconstructedSeconds":300,
+      "paceZonePublicationID":"synthetic-publication", "paceZoneContentHash":"synthetic-hash",
       "paceZones": [
         {"zone": "Z1", "label": "recovery", "fastPaceSecondsPerKm": 400, "slowPaceSecondsPerKm": null, "support": "supported"},
         {"zone": "Z2", "label": "aerobic_endurance", "fastPaceSecondsPerKm": 333.3, "slowPaceSecondsPerKm": 400, "support": "supported"},
@@ -143,6 +146,12 @@ struct WorkoutDetailTests {
     """
     let zones = try JSONDecoder().decode(WorkoutZoneSummary.self, from: Data(json.utf8))
     #expect(zones.paceZoneStatus == "available")
+    #expect(zones.paceZonePolicyVersion == "pace-zones/2")
+    #expect(zones.paceUnknownSeconds == 100)
+    #expect(zones.paceReconstructedSeconds == 300)
+    #expect(zones.paceZonePublicationID == "synthetic-publication")
+    #expect(zones.paceBand("Z6")?.canClassify == false)
+    #expect(zones.paceBand("Z2")?.canClassify == true)
     #expect(zones.paceZoneProfileDate == "2026-11-11")
     #expect(zones.paceExposure.first?.distanceMeters == 560)
     #expect(zones.paceBand("Z1")?.slowPaceSecondsPerKm == nil)

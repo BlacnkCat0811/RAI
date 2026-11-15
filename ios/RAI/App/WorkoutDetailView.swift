@@ -44,6 +44,7 @@ struct WorkoutDetail: View {
           routePanel(detail)
           summaryPanel(detail)
           trainingEffectPanel(detail)
+          referencePanel(detail)
           effectPanel(detail)
           if let feature = detail.analysis, feature.schemaVersion == "rai.workout_features/1" {
             VStack(alignment: .leading, spacing: 8) {
@@ -65,8 +66,14 @@ struct WorkoutDetail: View {
               if metric == .heartRate, let zones = detail.zoneSummary, !zones.heartRateExposure.isEmpty {
                 WorkoutZoneCard(title: "心率区间", coverage: zones.heartRateCoverage, exposure: zones.heartRateExposure, isHeartRate: true)
               }
-              if metric == .pace, let zones = detail.zoneSummary {
-                WorkoutPaceZoneCard(zones: zones)
+              if metric == .pace {
+                if let zones = detail.zoneSummary {
+                  WorkoutPaceZoneCard(zones: zones)
+                } else {
+                  Text("配速区间暂不可用，请刷新详情后重试")
+                    .font(.caption).foregroundStyle(RAITheme.secondary)
+                    .accessibilityIdentifier("workout.zones.pace")
+                }
               }
             }.padding(.vertical, 6)
               .accessibilityIdentifier("workout.metric.\(metric.rawValue)")
@@ -374,6 +381,27 @@ struct WorkoutDetail: View {
 
   /// Aerobic and anaerobic training effect, each 0.0-5.0. Unavailable scores
   /// show "—" with an actionable reason; the stimulus-type card stays separate.
+  @ViewBuilder private func referencePanel(_ detail: WorkoutDetailResponse) -> some View {
+    if let reference = detail.heartRateReference {
+      VStack(alignment: .leading, spacing: 8) {
+        CardHeading(title: "本次心率参考", icon: "heart")
+        ForEach([("最大心率", reference.maxHR), ("静息心率", reference.restingHR)], id: \.0) { title, component in
+          Text(title + " · " + HeartRateReferenceText.source(component.source)).font(.subheadline)
+          if let raw = component.effectiveFrom { Text("适用起始：" + String(raw.prefix(10))).font(.caption) }
+          if let raw = component.measuredAt { Text("测量日期：" + String(raw.prefix(10))).font(.caption) }
+          if let raw = component.latestSampleAt { Text("最近观测：" + String(raw.prefix(10))).font(.caption) }
+          if let n = component.sampleDays, n > 0 { Text("有效观测 \(n) 天").font(.caption) }
+          if component.status == "estimated" { Text("估计参考").font(.caption) }
+          ForEach(Array(Set((component.reasonCodes ?? []).compactMap(HeartRateReferenceText.reason))).sorted(), id: \.self) { Text($0).font(.caption).foregroundStyle(RAITheme.secondary) }
+        }
+        if reference.maxHR.status == "unavailable" || reference.restingHR.status == "unavailable" {
+          Text("分析完成，缺少可用心率参考。").font(.footnote)
+          NavigationLink("检查心率设置") { HeartRateSettingsView(model: model) }
+        }
+      }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass().accessibilityIdentifier("workout.heartRateReference")
+    }
+  }
+
   @ViewBuilder private func trainingEffectPanel(_ detail: WorkoutDetailResponse) -> some View {
     VStack(alignment: .leading, spacing: 12) {
       CardHeading(title: "训练效果", icon: "flame")
@@ -984,6 +1012,7 @@ struct WorkoutZoneCard: View {
 /// Pace exposure against the running-fitness zones published before this run.
 struct WorkoutPaceZoneCard: View {
   let zones: WorkoutZoneSummary
+  @State private var showDistances = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
@@ -991,11 +1020,24 @@ struct WorkoutPaceZoneCard: View {
         .font(.caption).foregroundStyle(RAITheme.secondary)
       if zones.paceZoneStatus == "available" {
         ForEach(zones.paceExposure) { zone in
-          if zone.durationSeconds > 0 {
-            WorkoutStatLine(label: label(zone.zone),
-                            value: "\(percent(zone.fraction)) · \(ProductFormat.duration(zone.durationSeconds)) · \(ProductFormat.distance(zone.distanceMeters)) km",
-                            fraction: zone.fraction)
+          let band = zones.paceBand(zone.zone)
+          VStack(alignment: .leading, spacing: 4) {
+            Text(label(zone.zone)).font(.caption).foregroundStyle(RAITheme.secondary)
+              .fixedSize(horizontal: false, vertical: true)
+            WorkoutStatLine(label: band?.isEstimated == true ? "估计" : "",
+                            value: band?.canClassify == false ? "—" : "\(ProductFormat.duration(zone.durationSeconds)) · \(percent(zone.fraction))",
+                            fraction: band?.canClassify == false ? nil : zone.fraction)
           }
+        }
+        DisclosureGroup("速度积分距离", isExpanded: $showDistances) {
+          ForEach(zones.paceExposure) { zone in
+            LabeledContent(zone.zone, value: zones.paceBand(zone.zone)?.canClassify == false ? "—" : "\(ProductFormat.distance(zone.distanceMeters)) km")
+          }
+          Text("由有效速度积分，可能与运动记录总距离不同").font(.caption2)
+        }.font(.caption)
+        if let unknown = zones.paceUnknownSeconds, unknown > 0 {
+          Text("另有 \(ProductFormat.duration(unknown)) 未分类")
+            .font(.caption2).foregroundStyle(RAITheme.secondary)
         }
         Text(footnote).font(.caption2).foregroundStyle(RAITheme.secondary)
       } else {
@@ -1007,6 +1049,7 @@ struct WorkoutPaceZoneCard: View {
   private func label(_ zone: String) -> String {
     let name = "\(zone) \(RunningFitnessText.zoneName(zone))"
     guard let band = zones.paceBand(zone) else { return name }
+    if !band.canClassify { return name + " · 证据不足" }
     switch (band.fastPaceSecondsPerKm, band.slowPaceSecondsPerKm) {
     case let (fast?, slow?): return "\(name) \(paceText(fast))–\(paceText(slow))"
     case let (fast?, nil): return "\(name) 慢于 \(paceText(fast))"
@@ -1022,7 +1065,10 @@ struct WorkoutPaceZoneCard: View {
 
   private var footnote: String {
     var parts = ["按 \(zones.paceZoneProfileDate ?? "训练前") 的跑力配速区间划分", "实际速度，未做坡度修正"]
-    if zones.explanationCodes.contains("pace_zones_not_fully_supported") { parts.append("阈值附近区间仍是估计") }
+    if zones.explanationCodes.contains("pace_zones_not_fully_supported") { parts.append("部分区间仍是估计") }
+    parts.append("占比按已分类时长计算")
+    if let seconds = zones.paceReconstructedSeconds, seconds > 0 { parts.append("包含短间隔速度插值") }
+    if zones.explanationCodes.contains("pace_zone_evidence_insufficient") { parts.append("证据不足区间未分类") }
     if zones.explanationCodes.contains("stationary_speed_excluded") { parts.append("停步不计入") }
     return parts.joined(separator: " · ")
   }
@@ -1030,6 +1076,10 @@ struct WorkoutPaceZoneCard: View {
   private var unavailableText: String {
     switch zones.paceZoneStatus {
     case "zone_anchor_conflict": return "训练前的跑力配速区间依据互相矛盾，暂不划分"
+    case "input_unavailable": return "速度分析输入暂不可用，请刷新详情后重试"
+    case "timing_unavailable": return "暂停与运动时长记录存在冲突，暂不划分"
+    case "profile_expired": return "训练前的个人配速区间已过期，暂不划分"
+    case "zone_evidence_insufficient": return "速度记录落在证据不足的区间内，暂不划分"
     case "speed_unavailable": return "这次跑步没有可用的速度记录，无法划分配速区间"
     default: return "训练前还没有跑力配速区间，暂不划分"
     }
@@ -1051,7 +1101,7 @@ struct WorkoutStatLine: View {
       if let fraction {
         GeometryReader { g in
           Capsule().fill(RAITheme.primary.opacity(0.10)).frame(height: 4).overlay(alignment: .leading) {
-            Capsule().fill(RAITheme.blue).frame(width: max(2, g.size.width * min(1, max(0, fraction))), height: 4)
+            Capsule().fill(RAITheme.blue).frame(width: g.size.width * min(1, max(0, fraction)), height: 4)
           }
         }.frame(height: 4)
       }

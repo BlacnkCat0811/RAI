@@ -43,6 +43,7 @@ var sourceEpochRE = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 type Payload map[string]any
 
 type Request struct {
+	SchemaVersion    string  `json:"schemaVersion,omitempty"`
 	ID               string  `json:"id"`
 	Kind             string  `json:"kind"`
 	SubjectKey       string  `json:"subjectKey"`
@@ -128,6 +129,16 @@ func Validate(r Request, now time.Time) (Canonical, error) {
 	schema := ""
 	switch r.Kind {
 	case "hr_reference":
+		if r.SchemaVersion == SchemaHRReferenceV3 {
+			if r.SupersedesID != nil {
+				return c, ErrInvalid
+			}
+			if err = validateHRV3(r.Payload, now); err != nil {
+				return c, err
+			}
+			schema = SchemaHRReferenceV3
+			break
+		}
 		if err = validateHR(r.Payload, now); err != nil {
 			return c, err
 		}
@@ -173,6 +184,9 @@ func Validate(r Request, now time.Time) (Canonical, error) {
 	default:
 		return c, ErrInvalid
 	}
+	if r.SchemaVersion != "" && r.SchemaVersion != schema {
+		return c, ErrInvalid
+	}
 	// Include every identity field in the hash, using the same precision as PG.
 	r.ID = strings.ToLower(r.ID)
 	payload := make(Payload, len(r.Payload))
@@ -181,7 +195,9 @@ func Validate(r Request, now time.Time) (Canonical, error) {
 		case "workoutID", "primaryWorkoutID", "duplicateWorkoutID":
 			value = strings.ToLower(value.(string))
 		case "hours", "maxHR", "restingHR", "coefficientA", "coefficientB":
-			value, _ = number(r.Payload, key)
+			if schema != SchemaHRReferenceV3 {
+				value, _ = number(r.Payload, key)
+			}
 		}
 		payload[key] = value
 	}
@@ -306,7 +322,7 @@ func validateRevocation(m map[string]any) (string, error) {
 		return "", ErrInvalid
 	}
 	switch v {
-	case SchemaHRReference, "rai.hr_reference/1", "rai.vo2max.source_selection/1", SchemaSleepTarget, SchemaWorkoutEffort, SchemaOverlap, SchemaSourceSelection:
+	case SchemaHRReferenceV3, SchemaHRReference, "rai.hr_reference/1", "rai.vo2max.source_selection/1", SchemaSleepTarget, SchemaWorkoutEffort, SchemaOverlap, SchemaSourceSelection:
 	default:
 		return "", ErrInvalid
 	}

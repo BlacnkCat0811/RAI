@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"rai/server/internal/hrref"
 	"sort"
 	"strings"
 	"time"
@@ -49,8 +50,10 @@ type workoutDetailData struct {
 
 	RunFitness        *workoutdetail.RunFitness
 	PaceZoneProfile   *workoutdetail.PaceZoneProfile
+	PaceZoneResult    *workoutdetail.PaceZoneResult
 	FeatureArtifact   *workoutdetail.FeatureAnalysis
 	LoadFocus         *tl.WorkoutFocus
+	ReferenceEvidence *hrref.Evidence
 	TrainingEffect    *te.Result
 	Qualification     *workoutdetail.ModelQualification
 	Published         []analysis.Metric
@@ -365,7 +368,7 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		}
 		m := analysis.Metric{Name: "workout_load", Algorithm: load.Model, Version: load.ModelVersion, Value: load.Load, Unit: load.Unit, Quality: "insufficient", Details: map[string]any{"qualityTier": load.QualityTier, "method": load.Method}}
 		switch {
-		case load.Load != nil && load.QualityTier == tl.TierComplete:
+		case load.Load != nil && load.QualityTier == tl.TierComplete && load.Quality != "estimated":
 			m.Quality = "available"
 		case load.Load != nil:
 			m.Quality = "partial"
@@ -737,7 +740,7 @@ func loadModelQualification(ctx context.Context, tx pgx.Tx, p syncing.Principal,
 			return analysis.Invalid()
 		}
 		switch {
-		case r.Load != nil && r.QualityTier == tl.TierComplete:
+		case r.Load != nil && r.QualityTier == tl.TierComplete && r.Quality != "estimated":
 			load.Status = "eligible"
 		case r.Load != nil:
 			load.Status = "conditional"
@@ -746,7 +749,19 @@ func loadModelQualification(ctx context.Context, tx pgx.Tx, p syncing.Principal,
 		}
 		d.LoadFocus = r.Focus
 		d.TrainingEffect = r.Effect
+		d.ReferenceEvidence = r.ReferenceEvidence
 		load.ReasonCodes = append(load.ReasonCodes, r.ReasonCodes...)
+	}
+	if d.ReferenceEvidence != nil {
+		d.ZoneRestHR, d.ZoneMaxHR, d.HistoricalRestHR, d.HistoricalMaxHR = 0, 0, 0, 0
+		if d.ReferenceEvidence.MaxHR.Value != nil {
+			d.ZoneMaxHR = *d.ReferenceEvidence.MaxHR.Value
+			d.HistoricalMaxHR = d.ZoneMaxHR
+		}
+		if d.ReferenceEvidence.RestingHR.Value != nil {
+			d.ZoneRestHR = *d.ReferenceEvidence.RestingHR.Value
+			d.HistoricalRestHR = d.ZoneRestHR
+		}
 	}
 	d.Qualification = &workoutdetail.ModelQualification{TrainingLoad: load}
 	return nil
@@ -775,6 +790,7 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	out.RunFitness = d.RunFitness
 	out.LoadFocus = d.LoadFocus
 	out.TrainingEffect = d.TrainingEffect
+	out.HeartRateReference = d.ReferenceEvidence
 	if durationS > 0 && distance != nil && *distance > 0 {
 		out.Workout.AveragePaceSPerKm = workoutdetail.Ptr(round1(durationS / (*distance / 1000)))
 	}
@@ -849,20 +865,27 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 	} else if d.AnalysisAvailable && durationS > 0 && d.Execution != nil {
 		out.TrainingLoad = d.fallbackLoad(durationS, &workoutdetail.TrainingLoad{Source: "session_type_fallback/v1", StimulusType: "unclassified", MissingReasons: d.missingReasons()})
 	}
-	if d.AnalysisAvailable {
+	{
 		var zones *workoutdetail.ZoneSummary
-		if d.ZoneMaxHR > 0 && d.ZoneRestHR > 0 {
+		if d.AnalysisAvailable && d.ZoneMaxHR > 0 && d.ZoneRestHR > 0 {
 			zones = workoutdetail.BuildHRZones(d.Start.UnixMicro(), d.End.UnixMicro(), elapsed, obsByType(d.Observations, workoutdetail.HeartRate), d.ZoneRestHR, d.ZoneMaxHR)
 			if zones != nil && d.Execution != nil {
 				workoutdetail.ApplyStimulusScores(zones, d.planContext(), zones.HeartRateCoverage, elapsed)
 			}
 		}
-		pace := workoutdetail.BuildPaceZones(d.Start.UnixMicro(), d.End.UnixMicro(), elapsed, obsByType(d.Observations, workoutdetail.RunningSpeed), distanceEvents, d.PaceZoneProfile)
-		if zones == nil && pace.Status == workoutdetail.PaceZonesAvailable {
+		pace := workoutdetail.BuildPaceZones(d.Start.UnixMicro(), d.End.UnixMicro(), elapsed, nil, distanceEvents, d.PaceZoneProfile)
+		pace.PolicyVersion = workoutdetail.PaceZonePolicyV2
+		if d.PaceZoneResult != nil {
+			pace = *d.PaceZoneResult
+		}
+		if zones == nil {
 			zones = workoutdetail.NewZoneSummary()
 		}
 		if zones != nil {
 			workoutdetail.AttachPaceZones(zones, pace)
+			if profile := d.PaceZoneProfile; profile != nil {
+				zones.PaceZonePublicationID, zones.PaceZoneContentHash = profile.PublicationID, profile.ContentHash
+			}
 			out.ZoneSummary = zones
 			out.Workout.StimulusType = zones.StimulusType
 			out.Workout.StimulusConfidence = zones.StimulusConfidence

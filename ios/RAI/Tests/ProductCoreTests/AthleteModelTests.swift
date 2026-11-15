@@ -155,7 +155,7 @@ import Testing
     #expect(RunningFitnessText.raceTime(3725) == "1:02:05")
     #expect(RunningFitnessText.dimensionStatus("lower_bound_only") == "仅已展示下限")
     #expect(RunningFitnessText.predictionSupport("prior_based") == "理论范围")
-    #expect(RunningFitnessText.singleReason(["hr_reference_missing"]) == "缺少最大心率设置")
+    #expect(RunningFitnessText.singleReason(["hr_reference_missing"]) == "缺少可用心率参考")
   }
 
   private func snapshot() throws -> AthleteModelSnapshot {

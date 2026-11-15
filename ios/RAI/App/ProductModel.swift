@@ -307,17 +307,19 @@ final class ProductModel {
   }
   /// Submits one user-entered model input. The server assigns receipt time and
   /// known-at; the app never edits or deletes an accepted input locally.
-  func submitModelInput(kind: String, payload: [String: JSON], effectiveFrom: Date) async -> String? {
+  func submitModelInput(kind: String, payload: [String: JSON], effectiveFrom: Date, schemaVersion: String? = nil) async -> String? {
     guard let journal else { return "请先连接服务器。" }
     let formatter = ISO8601DateFormatter()
-    let body = JSON.object([
+    var fields: [String: JSON] = [
       "id": .string(UUID().uuidString.lowercased()),
       "kind": .string(kind),
       "subjectKey": .string("athlete"),
       "effectiveFrom": .string(formatter.string(from: effectiveFrom)),
       "provenance": .string("ios_user_entered"),
       "payload": .object(payload),
-    ])
+    ]
+    if let schemaVersion { fields["schemaVersion"] = .string(schemaVersion) }
+    let body = JSON.object(fields)
     let path: String
     switch kind {
     case "hr_reference": path = "/v2/model-inputs/hr-references"
@@ -374,6 +376,14 @@ final class ProductModel {
       case .object = response["observedMaxHR"]
     else { return nil }
     return response["observedMaxHR"]
+  }
+  func loadHRSettingsV3() async -> (JSON?, Bool) {
+    guard let api else { return (nil, false) }
+    do {
+      let hello = try await api.get("/v2/handshake")
+      let supported = hello["capabilities"]["hrReferenceInputSchemas"].list.contains { $0.text == "rai.hr_reference/3" }
+      return (try await api.get("/v2/analysis/parameters"), supported)
+    } catch { return (nil, false) }
   }
   /// The HR reference effective now (`hr_reference/2`), or nil.
   func loadHRReference() async -> JSON? {

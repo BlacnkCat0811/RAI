@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"rai/server/internal/hrref"
 	te "rai/server/internal/trainingeffect"
 	wf "rai/server/internal/workoutfeatures"
 	"time"
@@ -71,7 +72,8 @@ type ExternalExposure struct {
 	DistanceM     *float64 `json:"distanceM"`
 }
 type Result struct {
-	Focus *WorkoutFocus `json:"loadFocus,omitempty"`
+	ReferenceEvidence *hrref.Evidence `json:"heartRateReference,omitempty"`
+	Focus             *WorkoutFocus   `json:"loadFocus,omitempty"`
 	// Effect is the run's training effect (stack with a TrainingEffect
 	// component only); omitted so older stacks' rows stay byte-identical.
 	Effect          *te.Result `json:"trainingEffect,omitempty"`

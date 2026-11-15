@@ -476,7 +476,7 @@ func TestModelStackDayCachesWorkoutResults(t *testing.T) {
 	// The detail says whether the active stack admits the run, and why not.
 	q := d.ModelQualification
 	known := map[string]bool{"eligible": true, "conditional": true, "ineligible": true}
-	if q == nil || !known[q.TrainingLoad.Status] || q.TrainingLoad.Status != "eligible" || q.TrainingLoad.ReasonCodes == nil {
+	if q == nil || !known[q.TrainingLoad.Status] || q.TrainingLoad.Status != "conditional" || q.TrainingLoad.ReasonCodes == nil {
 		b, _ := json.Marshal(q)
 		t.Fatalf("workout detail qualification: %s", b)
 	}
@@ -492,7 +492,7 @@ func TestModelStackDayCachesWorkoutResults(t *testing.T) {
 			if len(z.PaceExposure) != 6 || len(z.PaceZones) != 6 || z.PaceCoverage <= 0 || z.PaceZoneProfileDate == "" || (d.RunFitness != nil && z.PaceZoneProfileDate >= d.RunFitness.PublishedDate) {
 				t.Fatalf("pace zones: %s", b)
 			}
-		case "threshold_pace_unavailable", "zone_anchor_conflict", "speed_unavailable":
+		case "threshold_pace_unavailable", "zone_anchor_conflict", "speed_unavailable", "profile_expired", "zone_evidence_insufficient", "timing_unavailable", "input_unavailable":
 			if len(z.PaceExposure) != 0 {
 				t.Fatalf("unavailable pace zones with exposure: %s", b)
 			}

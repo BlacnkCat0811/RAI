@@ -66,8 +66,11 @@ func TestDetailDerivedFieldsRequirePublication(t *testing.T) {
 		if v.Workout.AnalysisStatus != status || v.Workout.AveragePaceSPerKm == nil || v.Environment.TemperatureC == nil {
 			t.Fatal("raw facts not available")
 		}
-		if v.Summary.GradeAdjustedPaceSPerKm != nil || v.Summary.ElevationGainM != nil || v.Summary.RouteQuality != nil || v.TrainingLoad != nil || v.ZoneSummary != nil || v.Environment.Correction != nil || v.Environment.Adjusted != nil || v.Workout.QualityScore != nil || v.Workout.SourceConfidence != nil || v.Workout.HeartRateCoverage != nil {
+		if v.Summary.GradeAdjustedPaceSPerKm != nil || v.Summary.ElevationGainM != nil || v.Summary.RouteQuality != nil || v.TrainingLoad != nil || v.Environment.Correction != nil || v.Environment.Adjusted != nil || v.Workout.QualityScore != nil || v.Workout.SourceConfidence != nil || v.Workout.HeartRateCoverage != nil {
 			t.Fatal("unpublished derived field exposed")
+		}
+		if v.ZoneSummary == nil || len(v.ZoneSummary.HeartRateExposure) != 0 || v.ZoneSummary.PaceZonePolicyVersion != workoutdetail.PaceZonePolicyV2 {
+			t.Fatal("pace state missing before publication or unpublished HR exposed")
 		}
 		s := d.buildSeries()
 		if s.Grade != nil || s.Dynamics != nil || len(s.Splits) != 2 || len(s.Series.Pace.Points) == 0 {

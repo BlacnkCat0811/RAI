@@ -345,7 +345,8 @@ public enum RunningFitnessText {
   public static func singleReason(_ codes: [String]) -> String {
     for code in codes {
       switch code {
-      case "hr_reference_missing": return "缺少最大心率设置"
+      case "hr_reference_missing": return "缺少可用心率参考"
+      case "hr_reference_estimated": return "心率参考为估计"
       case "hr_reference_conflict": return "心率设置存在冲突"
       case "distance_mismatch": return "速度来源不可靠"
       case "steady_support_low", "net_support_short": return "没有足够长的稳定跑步片段"

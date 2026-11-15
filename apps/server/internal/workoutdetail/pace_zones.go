@@ -14,12 +14,15 @@ const (
 	PaceZonesSpeedUnavailable = "speed_unavailable"          // zones exist, but no usable speed intervals
 )
 
-// PaceZoneProfile is the running-fitness pace-zone set published for the local
-// day before the Workout started. The run itself never shapes the zones it is
-// classified into.
+// PaceZoneProfile is the latest clean running-fitness state within seven local
+// days strictly before the Workout day. Revised historical publications may
+// change the profile; the Workout day itself never supplies its boundaries.
 type PaceZoneProfile struct {
-	Date  string
-	Zones rf.Zones
+	Date          string
+	Zones         rf.Zones
+	Expired       bool
+	PublicationID string
+	ContentHash   string
 }
 
 // PaceZoneBand echoes the boundaries used for classification so the client can
@@ -34,12 +37,18 @@ type PaceZoneBand struct {
 
 // PaceZoneResult is attached to a ZoneSummary by AttachPaceZones.
 type PaceZoneResult struct {
-	Status      string
-	ProfileDate string
-	Coverage    float64
-	Bands       []PaceZoneBand
-	Exposure    []ZoneExposure
-	Codes       []string
+	SpeedEvaluated       bool
+	PolicyVersion        string
+	ObservedSeconds      float64
+	ReconstructedSeconds float64
+	Status               string
+	ProfileDate          string
+	AnalyzableSeconds    float64
+	ClassifiedSeconds    float64
+	Coverage             float64
+	Bands                []PaceZoneBand
+	Exposure             []ZoneExposure
+	Codes                []string
 }
 
 // paceBoundaries returns the five internal speed boundaries (m/s, ascending)
@@ -51,6 +60,11 @@ func paceBoundaries(z rf.Zones) ([]float64, bool) {
 		return nil, false
 	}
 	out := make([]float64, 0, 5)
+	for i, zone := range z.Zones {
+		if zone.Name != "Z"+string(rune('1'+i)) {
+			return nil, false
+		}
+	}
 	for i := 0; i < 5; i++ {
 		fast := z.Zones[i].FastSpeed
 		if fast == nil || !valid(*fast) || *fast <= 0 {
@@ -70,11 +84,29 @@ func paceBoundaries(z rf.Zones) ([]float64, bool) {
 // not grade-adjusted.
 func BuildPaceZones(startUs, endUs int64, elapsedS float64, obs []Observation, events []EventBoundary, profile *PaceZoneProfile) PaceZoneResult {
 	out := PaceZoneResult{Status: PaceZonesProfileMissing, Bands: []PaceZoneBand{}, Exposure: []ZoneExposure{}, Codes: []string{}}
+	// Compute the denominator even when no profile is available.
+	pauses := pauseIntervals(events, endUs)
+	sort.Slice(pauses, func(i, j int) bool { return pauses[i][0] < pauses[j][0] })
+	cursor := startUs
+	var pauseSeconds float64
+	for _, pause := range pauses {
+		a, b := max64(max64(pause[0], startUs), cursor), min64(pause[1], endUs)
+		if b > a {
+			pauseSeconds += float64(b-a) / 1e6
+			cursor = b
+		}
+	}
+	out.AnalyzableSeconds = max(0, elapsedS-pauseSeconds)
 	if profile == nil {
 		out.Codes = append(out.Codes, "pace_zone_profile_unavailable")
 		return out
 	}
 	out.ProfileDate = profile.Date
+	if profile.Expired {
+		out.Status = "profile_expired"
+		out.Codes = append(out.Codes, "pace_zone_profile_expired")
+		return out
+	}
 	bounds, ok := paceBoundaries(profile.Zones)
 	if !ok {
 		allMissing := true
@@ -184,6 +216,8 @@ func BuildPaceZones(startUs, endUs int64, elapsedS float64, obs []Observation, e
 	if stationary {
 		out.Codes = append(out.Codes, "stationary_speed_excluded")
 	}
+	out.AnalyzableSeconds = max(0, elapsedS-paused)
+	out.ClassifiedSeconds = covered
 	if covered <= 0 || !valid(covered) {
 		out.Status = PaceZonesSpeedUnavailable
 		out.Codes = append(out.Codes, "speed_intervals_unavailable")
@@ -224,6 +258,18 @@ func AttachPaceZones(z *ZoneSummary, r PaceZoneResult) {
 	if z == nil {
 		return
 	}
+	z.PaceZonePolicyVersion = r.PolicyVersion
+	if z.PaceZonePolicyVersion == "" {
+		z.PaceZonePolicyVersion = "pace-zones/1"
+	}
+	z.PaceObservedSeconds, z.PaceReconstructedSeconds = nil, nil
+	if r.SpeedEvaluated {
+		z.PaceObservedSeconds = Ptr(round(r.ObservedSeconds, 1))
+		z.PaceReconstructedSeconds = Ptr(round(r.ReconstructedSeconds, 1))
+	}
+	z.PaceAnalyzableSeconds = round(r.AnalyzableSeconds, 1)
+	z.PaceClassifiedSeconds = round(r.ClassifiedSeconds, 1)
+	z.PaceUnknownSeconds = round(max(0, r.AnalyzableSeconds-r.ClassifiedSeconds), 1)
 	z.PaceZoneStatus = r.Status
 	z.PaceZoneProfileDate = r.ProfileDate
 	z.PaceCoverage = r.Coverage

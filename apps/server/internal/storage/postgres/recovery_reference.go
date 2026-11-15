@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"encoding/json"
+	"rai/server/internal/hrref"
 	"sort"
 	"time"
 
@@ -11,6 +12,23 @@ import (
 // Effective/revoked input semantics are shared with Workout references. For
 // recovery only the explicitly entered RHR is needed; HRmax is not an input.
 func recoveryRestingHR(inputs []stackInput, at, captured time.Time) (*rc.TypedRHR, bool) {
+	for _, row := range inputs {
+		if row.Schema == hrref.InputSchemaV3 {
+			_, r := hrref.Selected(referenceEvents(inputs, at, captured), at, captured)
+			if r == nil || r.Patch.RestingHR.ManualValue == nil {
+				return nil, false
+			}
+			v := r.Patch.RestingHR.ManualValue
+			measured := r.From
+			if v.MeasuredAt != nil {
+				measured = *v.MeasuredAt
+			}
+			if measured.After(at) {
+				return nil, false
+			}
+			return &rc.TypedRHR{Value: v.Value, ID: r.ID, Hash: r.Hash, MeasuredAt: measured.UnixMicro(), KnownAt: r.Known.UnixMicro()}, false
+		}
+	}
 	rows := effectiveStackInputs(inputs, at, captured)
 	sort.Slice(rows, func(i, j int) bool {
 		if !rows[i].From.Equal(rows[j].From) {

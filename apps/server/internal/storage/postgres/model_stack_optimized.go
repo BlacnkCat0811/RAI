@@ -135,7 +135,12 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 		if r.doseRef != nil {
 			effectInput.HR = &te.HRReference{RestHR: r.doseRef.RestHR, MaxHR: r.doseRef.MaxHR, Hash: r.doseRef.Hash}
 		}
-		effects[w.id] = te.Calculate(effectInput)
+		effect := te.Calculate(effectInput)
+		if r.ref.Evidence != nil && (r.ref.Evidence.MaxHR.Status == "estimated" || r.ref.Evidence.RestingHR.Status == "estimated") && effect.Aerobic.Value != nil {
+			effect.Aerobic.Status = "estimated"
+			effect.Aerobic.ReasonCodes = append(effect.Aerobic.ReasonCodes, "hr_reference_estimated")
+		}
+		effects[w.id] = effect
 		// B and longRef use only completed, comparable runs before this run's
 		// start; current-day evidence cannot redefine its own fatigue pulse.
 		// The 28 days before the run are preferred. After a break they hold too

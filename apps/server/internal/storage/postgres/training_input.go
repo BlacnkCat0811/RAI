@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"rai/server/internal/hrref"
 	"strings"
 	"time"
 
@@ -335,6 +336,38 @@ func loadTrainingTargetSignals(ctx context.Context, q trainingDB, dataset, stack
 				out = append(out, s)
 			}
 		}
+	}
+	if stack == modelmanifest.StackID() {
+		rows, err := q.Query(ctx, `SELECT id::text,kind,encode(content_sha256,'hex'),provenance,effective_from,created_at,effective_through,COALESCE(supersedes_id::text,''),COALESCE(revokes_id::text,''),payload,input_schema,commit_order FROM athlete_model_inputs WHERE dataset_id=$1 AND kind IN ('hr_reference','revocation') AND created_at<=$2 ORDER BY created_at,commit_order,id LIMIT 1025`, dataset, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		var inputs []stackInput
+		for rows.Next() {
+			var x stackInput
+			if err := rows.Scan(&x.ID, &x.Kind, &x.Hash, &x.Provenance, &x.From, &x.Known, &x.Through, &x.Supersedes, &x.Revokes, &x.Payload, &x.Schema, &x.Order); err != nil {
+				return nil, err
+			}
+			inputs = append(inputs, x)
+		}
+		if rows.Err() != nil {
+			return nil, rows.Err()
+		}
+		if len(inputs) > 1024 {
+			return nil, syncing.Fail(503, "analysis_input_limit")
+		}
+		events := referenceEvents(inputs, at, time.Now())
+		saved := hrref.Saved(events, at, time.Now())
+		if saved.MaxHR != nil {
+			value := saved.MaxHR.Value
+			out = append(out, training.Signal{RunID: hrref.Hash(saved), Day: day, Name: "hr_max", Algorithm: "hr_reference", Version: "v3", Quality: "estimated", Value: &value})
+		}
+		if saved.RestingHR != nil && saved.RestingHR.ManualValue != nil {
+			value := saved.RestingHR.ManualValue.Value
+			out = append(out, training.Signal{RunID: hrref.Hash(saved), Day: day, Name: "hr_rest", Algorithm: "hr_reference", Version: "v3", Quality: "estimated", Value: &value})
+		}
+		return out, nil
 	}
 	ref, err := hrReferenceAt(ctx, q, dataset, at)
 	if err != nil {

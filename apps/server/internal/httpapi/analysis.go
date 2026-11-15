@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"rai/server/internal/analysis"
+	"rai/server/internal/hrref"
 	"rai/server/internal/modelinput"
 	"rai/server/internal/syncing"
 	ve "rai/server/internal/vo2maxexternal"
@@ -17,6 +18,10 @@ type analysisParametersReader interface {
 type hrReferenceReader interface {
 	CurrentHRReference(context.Context, syncing.Principal) (*modelinput.HRReference, error)
 	ObservedMaxHR(context.Context, syncing.Principal) (*modelinput.ObservedMaxHR, error)
+}
+
+type hrSettingsReader interface {
+	HRSettings(context.Context, syncing.Principal) (hrref.SettingsResponse, error)
 }
 
 func (a *API) analysisParameters(w http.ResponseWriter, r *http.Request, p syncing.Principal) error {
@@ -43,6 +48,14 @@ func (a *API) analysisParameters(w http.ResponseWriter, r *http.Request, p synci
 			return err
 		}
 		out["observedMaxHR"] = observed
+	}
+	if reader, ok := a.store.(hrSettingsReader); ok {
+		settings, err := reader.HRSettings(r.Context(), p)
+		if err != nil {
+			return err
+		}
+		out["savedHRSettings"] = settings.Saved
+		out["resolvedHRReference"] = settings.Resolved
 	}
 	respond(w, 200, out)
 	return nil
