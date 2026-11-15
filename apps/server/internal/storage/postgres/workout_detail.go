@@ -50,6 +50,7 @@ type workoutDetailData struct {
 
 	RunFitness        *workoutdetail.RunFitness
 	PaceZoneProfile   *workoutdetail.PaceZoneProfile
+	PaceAnalysis      *workoutdetail.PaceAnalysis
 	PaceZoneResult    *workoutdetail.PaceZoneResult
 	FeatureArtifact   *workoutdetail.FeatureAnalysis
 	LoadFocus         *tl.WorkoutFocus
@@ -332,6 +333,9 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		return nil, err
 	}
 
+	if err = loadPaceAnalysis(ctx, tx, p, id, d); err != nil {
+		return nil, err
+	}
 	if err = loadRunFitnessDetail(ctx, tx, p, id, d); err != nil {
 		return nil, err
 	}
@@ -886,6 +890,7 @@ func (d *workoutDetailData) buildDetail() workoutdetail.Detail {
 			if profile := d.PaceZoneProfile; profile != nil {
 				zones.PaceZonePublicationID, zones.PaceZoneContentHash = profile.PublicationID, profile.ContentHash
 			}
+			out.PaceAnalysis = d.PaceAnalysis
 			out.ZoneSummary = zones
 			out.Workout.StimulusType = zones.StimulusType
 			out.Workout.StimulusConfidence = zones.StimulusConfidence

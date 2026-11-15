@@ -160,3 +160,14 @@ struct WorkoutDetailTests {
     #expect(RunningFitnessText.zoneName("Z2") == "有氧耐力")
   }
 }
+
+struct WorkoutPaceAnalysisContractTests {
+  @Test func decodesReviewWithoutPersonalReference() throws {
+    let summary = #"{"zoneProfileID":"","stimulusType":"unknown","secondaryStimulusTypes":[],"heartRateCoverage":0,"paceCoverage":0,"heartRateExposure":[],"paceExposure":[],"stimulusScores":[],"explanationCodes":[],"paceZoneStatus":"speed_unavailable"}"#
+    let json = "{\"schemaVersion\":\"rai.workout_pace_analysis/1\",\"policyVersion\":\"pace-zones/3\",\"defaultView\":\"summary\",\"reference\":null,\"personal\":\(summary),\"absolute\":\(summary)}"
+    let review = try JSONDecoder().decode(WorkoutPaceAnalysis.self, from: Data(json.utf8))
+    #expect(review.reference == nil)
+    #expect(review.absolute.paceExposure.isEmpty)
+    #expect(review.defaultView == "summary")
+  }
+}

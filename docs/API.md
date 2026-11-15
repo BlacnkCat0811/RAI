@@ -246,6 +246,20 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
   不覆盖采样质量；有氧与无氧独立返回状态。旧栈中缺少解析对象不得由 App 猜测原因。
   `/parameters` 和 `/detail` 都是读取路径，不因读取创建分析任务或改写输入。
 
+## 配速区间 v3 契约（已实现，未部署）
+
+`GET /v2/workouts/{id}/detail` 新增可选 `paceAnalysis`，`schemaVersion=rai.workout_pace_analysis/1`、`policyVersion=pace-zones/3`。旧 `zoneSummary` 的 `pace-zones/2` 及 `distanceDistribution` 保持原义。
+
+- `defaultView`：`personal`（有成功个人分类）、`absolute`（只有实际配速分布可用）、`summary`（没有可用速度分段）。
+- `personal` / `absolute` 复用 `WorkoutZoneSummary` 类型，仅消费其中的配速字段；无心率／刺激推断。状态沿用具体原因，另有 `personal_evidence_insufficient` 和 `model_version_unsupported`。不存在后台参考准备任务，缓存未命中直接纯计算，不输出虚假 pending。
+- `reference` 无个人边界时为 null；否则含 `source=pre_run|post_run_estimate`、`evidenceCutoffAtUs`、`latestEvidenceAtUs`（可空）、`includesTargetWorkout`、`view=revised`、`freshness`、`inputHash`、确定性 `profileID`、`stackID`、`manifestSHA256`、跑力 `policyHash`、`purpose=workout_review`。时间戳为 UTC epoch 微秒。参考为本次复盘用途，不提供给处方生成器。
+- 训练前参考仅含本次开始前已结束的训练；无可用边界时允许本次结束时的估计。普通证据窗口 42 本地日、比赛 90 本地日，沿用现有资格／衰减；训练后的事实不参与。有效性相对目标训练而非今天评估。日发布不是前提。补传及有效设置修订可改变修订结果。
+- `absolute.paceZonePolicyVersion=absolute-pace-support/1`；采用与个人区间相同的完整速度支持策略，固定分组 `under_4`、`4_to_5`、`5_to_6`、`6_to_7`、`over_7`，秒/公里边界 `[0,240)`、`[240,300)`、`[300,360)`、`[360,420)`、`[420,+∞)`。服务端可以按慢到快返回；客户端以标识和边界解释，不依赖数组索引。
+- 两个结果均返回逐段时间、积分距离、占比和覆盖；占比分母为各自成功分类时长，覆盖分母为有效活动时间。受限插值、暂停、来源冲突和异常策略同现有基础。暂停时长冲突返回 `timing_unavailable`，该状态下旧共用类型中的数值占位不表示测得零，客户端不展示分区或覆盖。无速度时不以平均值补轨迹。
+- 数据库错误正常向上传播；受预算限制的分析失败返回 `input_unavailable` 和具体原因。个人计算失败保留独立算出的实际配速分布。GET 不写库或创建任务。
+
+原生 iOS 在同一卡片切换“个人区间／配速分布”，首次默认显示服务端推荐视图，用户选择保留在当前卡片内；本次估计明确标注“根据本次及此前记录估计，仅供本次复盘”。旧服务不含新字段时继续旧卡片。旧统计的 `distance-zones/v1` 仍按原始区间距离计量，不混入新详情时长口径。尚未部署和真机验收。
+
 ## 限额
 读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分（突发 2）；可用 `RAI_RATE_BUDGETS` 覆盖，
 真机验收后端 `scripts/local/device.py` 把上传放宽到 120/分、突发 12）。设备桶先判、数据集桶后判，两者都允许才同时扣额；

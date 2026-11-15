@@ -214,6 +214,7 @@ type Qualification struct {
 }
 
 type Detail struct {
+	PaceAnalysis         *PaceAnalysis         `json:"paceAnalysis,omitempty"`
 	HeartRateReference   *hrref.Evidence       `json:"heartRateReference,omitempty"`
 	RunFitness           *RunFitness           `json:"runFitness,omitempty"`
 	LoadFocus            *tl.WorkoutFocus      `json:"loadFocus,omitempty"`

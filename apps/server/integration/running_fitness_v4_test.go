@@ -151,6 +151,10 @@ func TestRunningFitnessV4HTTPNegotiationAndPublication(t *testing.T) {
 		b, _ := json.Marshal(z)
 		t.Fatalf("post-run zones leaked into the detail: %s", b)
 	}
+	// HR-only input retains a visible but unavailable review, never fabricates speed.
+	if detail.PaceAnalysis == nil || detail.PaceAnalysis.DefaultView != "summary" {
+		t.Fatal("HR-only run fabricated pace")
+	}
 	// A dirty generation hides all day products together, including new slots.
 	if _, e = f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,clock_timestamp())`, f.p.DatasetID, modelmanifest.StackID(), today.Format(time.DateOnly)); e != nil {
 		t.Fatal(e)
@@ -158,5 +162,93 @@ func TestRunningFitnessV4HTTPNegotiationAndPublication(t *testing.T) {
 	s, e := f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
 	if e != nil || s.SessionRecovery.Value != nil || s.LoadFocus.Value != nil || s.TrainingReadiness.Value != nil || s.RunningFitness.Value != nil {
 		t.Fatal("mixed generation survived invalidation", e)
+	}
+}
+
+func TestPaceReviewAfterRestNeedsNoHistoricalPublication(t *testing.T) {
+	f := setup(t)
+	older := "f62f735b-fb16-43f9-b415-7a7041bca031"
+	target := "f62f735b-fb16-43f9-b415-7a7041bca032"
+	runStackDay(t, f, []stackDayRun{{id: older, day: -10, version: "11.0", hr: steadyHR}, {id: target, day: -1, version: "11.0", hr: steadyHR}}, stackDayOptions{payloads: map[string]func(*fixture, string, time.Time) []byte{older: stackPacePayload(t), target: stackPacePayload(t)}})
+	hash, _ := modelmanifest.CurrentHash()
+	setModelChannel(t, f, "active", modelmanifest.StackID(), hash)
+	d, err := f.s.WorkoutDetail(context.Background(), f.p, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := d.PaceAnalysis
+	if a == nil || a.Reference == nil || a.Reference.Source != "pre_run" || a.DefaultView != "personal" {
+		t.Fatalf("rest gap blocked review: personal=%s codes=%v absolute=%s", a.Personal.PaceZoneStatus, a.Personal.ExplanationCodes, a.Absolute.PaceZoneStatus)
+	}
+	if a.Reference.IncludesTargetWorkout || a.Reference.LatestEvidenceAtUs == nil || *a.Reference.LatestEvidenceAtUs >= a.Reference.EvidenceCutoffAtUs {
+		t.Fatal("future evidence leaked")
+	}
+}
+
+func stackPacePayload(t *testing.T) func(*fixture, string, time.Time) []byte {
+	return func(f *fixture, id string, start time.Time) []byte {
+		var body map[string]any
+		if err := json.Unmarshal(stackRun(t, f, id, start, "11.0", steadyHR), &body); err != nil {
+			t.Fatal(err)
+		}
+		streams := body["streams"].([]any)
+		streams = append(streams, map[string]any{"type": "HKQuantityTypeIdentifierRunningSpeed", "unit": "m/s", "status": "complete", "samples": [][]any{{int64(0), int64(1800e6), 3.2}}})
+		body["streams"] = streams
+		raw, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+}
+
+func TestPaceReviewFirstRunUsesExplicitPostRunEstimate(t *testing.T) {
+	f := setup(t)
+	id := "f62f735b-fb16-43f9-b415-7a7041bca032"
+	runStackDay(t, f, []stackDayRun{{id: id, day: -1, version: "11.0", hr: steadyHR}}, stackDayOptions{payloads: map[string]func(*fixture, string, time.Time) []byte{id: stackPacePayload(t)}})
+	hash, _ := modelmanifest.CurrentHash()
+	setModelChannel(t, f, "active", modelmanifest.StackID(), hash)
+	d, err := f.s.WorkoutDetail(context.Background(), f.p, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := d.PaceAnalysis
+	if a == nil || a.Reference == nil || a.Reference.Source != "post_run_estimate" || !a.Reference.IncludesTargetWorkout || a.DefaultView != "personal" {
+		t.Fatal("first-run estimate unavailable")
+	}
+	encoded, err := json.Marshal(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), `"paceExposure":null`) {
+		t.Fatal("required client array encoded as null")
+	}
+}
+
+func TestPaceReviewSpeedOnlyRetainsAbsoluteDistribution(t *testing.T) {
+	f := setup(t)
+	id := "f62f735b-fb16-43f9-b415-7a7041bca032"
+	speedOnly := func(f *fixture, id string, start time.Time) []byte {
+		var body map[string]any
+		if err := json.Unmarshal(stackPacePayload(t)(f, id, start), &body); err != nil {
+			t.Fatal(err)
+		}
+		body["streams"] = body["streams"].([]any)[1:]
+		raw, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	runStackDay(t, f, []stackDayRun{{id: id, day: -1, version: "11.0", hr: steadyHR}}, stackDayOptions{payloads: map[string]func(*fixture, string, time.Time) []byte{id: speedOnly}})
+	hash, _ := modelmanifest.CurrentHash()
+	setModelChannel(t, f, "active", modelmanifest.StackID(), hash)
+	d, err := f.s.WorkoutDetail(context.Background(), f.p, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := d.PaceAnalysis
+	if a == nil || a.Reference != nil || a.DefaultView != "absolute" || len(a.Absolute.PaceExposure) != 5 {
+		t.Fatal("speed-only run lost descriptive distribution")
 	}
 }

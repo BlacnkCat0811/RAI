@@ -5,6 +5,7 @@ import SyncCore
 // unpublished analysis legitimately has no value; the UI must distinguish
 // "not computed yet" from a measured zero.
 public struct WorkoutDetailResponse: Codable, Sendable {
+  public var paceAnalysis: WorkoutPaceAnalysis? = nil
   public var heartRateReference: WorkoutHeartRateReference? = nil
   public let workout: WorkoutFacts
   public let analysis: WorkoutFeatureAnalysis?
@@ -520,4 +521,20 @@ extension WorkoutSeriesBundle {
     groundContactTime: WorkoutMetricSeries(unit: "ms", totalSamples: 0, points: []),
     verticalOscillation: WorkoutMetricSeries(unit: "cm", totalSamples: 0, points: []),
     elevation: WorkoutMetricSeries(unit: "m", totalSamples: 0, points: []))
+}
+
+public struct WorkoutPaceAnalysis: Codable, Sendable {
+  public let schemaVersion: String
+  public let policyVersion: String
+  public let defaultView: String
+  public let reference: WorkoutPaceReference?
+  public let personal: WorkoutZoneSummary
+  public let absolute: WorkoutZoneSummary
+}
+public struct WorkoutPaceReference: Codable, Sendable {
+  public let source: String
+  public let evidenceCutoffAtUs: Int64
+  public let latestEvidenceAtUs: Int64?
+  public let includesTargetWorkout: Bool
+  public let purpose: String
 }
