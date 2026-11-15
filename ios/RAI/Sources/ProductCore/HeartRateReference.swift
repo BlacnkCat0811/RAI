@@ -2,6 +2,30 @@ import Foundation
 import SyncCore
 
 public enum HRSettingDraft {
+  /// Preserve untouched evidence. New values are calculation settings; saving
+  /// must never invent a measurement date or refresh the other component.
+  public static func simplePatch(maximum: Double, resting: Double?, originalMaximum: JSON?, originalResting: JSON?, originalMode: String, suggestedMaximum: Double? = nil, suggestedResting: Double? = nil) -> [String: JSON] {
+    func setting(_ n: Double, original: JSON?, suggestion: Double?) -> JSON {
+      if let original, original.number("value") == n { return original }
+      return value(n, method: suggestion == n ? "wearable_estimate" : "user_entered", basis: "user_setting", measuredAt: nil)
+    }
+    return patch(maximum: setting(maximum, original: originalMaximum, suggestion: suggestedMaximum),
+      resting: resting.map { setting($0, original: originalResting, suggestion: suggestedResting) },
+      mode: resting == nil ? "automatic" : "manual", originalMaximum: originalMaximum, originalResting: originalResting, originalMode: originalMode)
+  }
+
+  public static func maximumSuggestion(_ observed: JSON?, current: Double?) -> Double? {
+    guard let value = observed?.number("value"), value.isFinite, value >= 30, value < 220,
+      current.map({ value > $0 }) ?? true else { return nil }
+    return value
+  }
+
+  public static func restingSuggestion(_ observed: JSON?, current: Double?, maximum: Double?) -> Double? {
+    guard let value = observed?.number("value"), value.isFinite, value >= 30, value < 220,
+      maximum.map({ value < $0 }) ?? true, current.map({ abs(value - $0) >= 3 }) ?? true else { return nil }
+    return value
+  }
+
   public static func date(_ raw: String) -> Date? {
     let formatter = ISO8601DateFormatter()
     if let date = formatter.date(from: raw) { return date }

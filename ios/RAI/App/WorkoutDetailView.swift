@@ -46,14 +46,6 @@ struct WorkoutDetail: View {
           trainingEffectPanel(detail)
           referencePanel(detail)
           effectPanel(detail)
-          if let feature = detail.analysis, feature.schemaVersion == "rai.workout_features/1" {
-            VStack(alignment: .leading, spacing: 8) {
-              CardHeading(title: "数据覆盖", icon: "waveform.path")
-              LabeledContent("有效运动时长", value: ProductFormat.duration(feature.activeSeconds)).accessibilityIdentifier("model.workout.active")
-              LabeledContent("心率覆盖", value: feature.heartRateCoverage.formatted(.percent.precision(.fractionLength(0))))
-              LabeledContent("速度覆盖", value: feature.speedCoverage.formatted(.percent.precision(.fractionLength(0))))
-            }.padding(16).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
-          }
           ForEach(WorkoutMetricKind.allCases) { metric in
             VStack(alignment: .leading, spacing: 8) {
               WorkoutSeriesChart(
@@ -156,6 +148,8 @@ struct WorkoutDetail: View {
         if let suggestion = single.hrMaxSuggestion {
           Text("这次跑步持续 15 秒以上心率达到 \(Int(suggestion)) bpm，高于当前最大心率设置；可在「我的 → 静息与最大心率」确认是否更新。")
             .font(.caption2).foregroundStyle(RAITheme.amber)
+          NavigationLink("查看心率建议") { HeartRateSettingsView(model: model) }
+            .font(.caption).accessibilityIdentifier("workout.hr-suggestions")
         }
         Text("单次分按统一的默认耐力假设换算，不代表这次能跑出的全马成绩。")
           .font(.caption2).foregroundStyle(RAITheme.secondary)
@@ -328,9 +322,14 @@ struct WorkoutDetail: View {
           Text("负荷构成：低强度有氧 \(num(focus.buckets.lowAerobicAU, digits: 0)) · 高强度有氧 \(num(focus.buckets.highAerobicAU, digits: 0)) · 无氧 \(num(focus.buckets.anaerobicProxyAU, digits: 0)) · 未分类 \(num(focus.buckets.unclassifiedAU, digits: 0))")
             .font(.caption2).foregroundStyle(RAITheme.secondary)
         }
-        if let zones = detail.zoneSummary {
-          Text("区间覆盖：心率 \(percent(zones.heartRateCoverage)) · 配速 \(percent(zones.paceCoverage))")
-            .font(.caption).foregroundStyle(RAITheme.secondary)
+        if !detail.zoneCoverageSummaries.isEmpty {
+          VStack(alignment: .leading, spacing: 2) {
+            Text("区间覆盖")
+            ForEach(detail.zoneCoverageSummaries, id: \.label) { row in
+              Text("\(row.label)：\(row.coverage.map { percent($0) } ?? "暂不可用")")
+            }
+          }.font(.caption).foregroundStyle(RAITheme.secondary)
+            .accessibilityIdentifier("workout.summary.zoneCoverage")
         }
         if let q = detail.modelQualification {
           VStack(alignment: .leading, spacing: 2) {
@@ -1049,8 +1048,6 @@ struct WorkoutPaceZoneCard: View {
   }
 
   private func label(_ zone: String) -> String {
-    let absoluteNames = ["under_4": "快于 4′00″", "4_to_5": "4′00″–5′00″", "5_to_6": "5′00″–6′00″", "6_to_7": "6′00″–7′00″", "over_7": "7′00″及更慢"]
-    if let name = absoluteNames[zone] { return name }
     let name = "\(zone) \(RunningFitnessText.zoneName(zone))"
     guard let band = zones.paceBand(zone) else { return name }
     if !band.canClassify { return name + " · 证据不足" }
@@ -1068,7 +1065,6 @@ struct WorkoutPaceZoneCard: View {
   }
 
   private var footnote: String {
-    if zones.paceZonePolicyVersion == "absolute-pace-support/1" { return "实际配速分布 · 占比按已分类时长计算" }
     var parts = ["按 \(zones.paceZoneProfileDate ?? "训练前") 的跑力配速区间划分", "实际速度，未做坡度修正"]
     if zones.explanationCodes.contains("pace_zones_not_fully_supported") { parts.append("部分区间仍是估计") }
     parts.append("占比按已分类时长计算")
@@ -1080,9 +1076,9 @@ struct WorkoutPaceZoneCard: View {
 
   private var unavailableText: String {
     switch zones.paceZoneStatus {
-    case "personal_evidence_insufficient": return "个人区间依据不足，可切换查看配速分布"
-    case "model_version_unsupported": return "当前服务模型不支持个人区间，可查看配速分布"
-    case "zone_anchor_conflict": return "个人跑力配速区间依据互相矛盾，可查看配速分布"
+    case "personal_evidence_insufficient": return "个人区间依据不足，暂不划分"
+    case "model_version_unsupported": return "当前服务模型不支持个人区间"
+    case "zone_anchor_conflict": return "个人跑力配速区间依据互相矛盾，暂不划分"
     case "input_unavailable": return "速度分析输入暂不可用，请刷新详情后重试"
     case "timing_unavailable": return "暂停与运动时长记录存在冲突，暂不划分"
     case "profile_expired": return "训练前的个人配速区间已过期，暂不划分"
@@ -1119,22 +1115,14 @@ struct WorkoutStatLine: View {
 
 private struct WorkoutPaceAnalysisCard: View {
   let analysis: WorkoutPaceAnalysis
-  @State private var selection: String? = nil
   var body: some View {
-    let mode = selection ?? analysis.defaultView
     VStack(alignment: .leading, spacing: 8) {
-      Picker("配速区间", selection: Binding(get: { mode == "personal" ? "personal" : "absolute" }, set: { selection = $0 })) {
-        Text("个人区间").tag("personal")
-        Text("配速分布").tag("absolute")
-      }.pickerStyle(.segmented)
       if analysis.reference?.source == "post_run_estimate" {
         Text("根据本次及此前记录估计，仅供本次复盘").font(.caption)
       } else if analysis.reference != nil {
         Text("按训练前个人跑力划分").font(.caption)
-      } else {
-        Text(analysis.personal.paceZoneStatus == "input_unavailable" ? "个人区间输入暂不可用，先查看实际配速分布" : "个人区间依据不足，先查看实际配速分布").font(.caption)
       }
-      WorkoutPaceZoneCard(zones: mode == "personal" ? analysis.personal : analysis.absolute)
+      WorkoutPaceZoneCard(zones: analysis.personal)
     }
   }
 }

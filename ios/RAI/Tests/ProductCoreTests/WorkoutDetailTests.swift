@@ -41,13 +41,51 @@ struct WorkoutDetailTests {
       "override": null
     }
     """
-    let detail = try JSONDecoder().decode(WorkoutDetailResponse.self, from: Data(detailJSON.utf8))
+    var detail = try JSONDecoder().decode(WorkoutDetailResponse.self, from: Data(detailJSON.utf8))
     #expect(detail.workout.workoutID.hasPrefix("1111"))
     #expect(detail.workout.averagePaceSPerKm == 360)
     #expect(detail.environment?.status == "applied")
     #expect(detail.zoneSummary?.stimulusScores.first?.score == 0.35)
     #expect(detail.trainingLoad?.load == 120)
     #expect(detail.route.points.count == 1)
+    #expect(detail.zoneCoverageSummaries.map(\.label) == ["心率区间", "个人配速区间"])
+    #expect(detail.zoneCoverageSummaries.map(\.coverage) == [0.95, nil])
+
+    // A review can classify the whole run while the legacy pre-run profile is
+    // unavailable. Summary coverage must follow the personal review even
+    // when absolute distribution is available but personal evidence is not.
+    func paceSummary(_ coverage: Double, _ status: String) -> String {
+      """
+      {"zoneProfileID":"","stimulusType":"unclassified","secondaryStimulusTypes":[],
+       "heartRateCoverage":0,"paceCoverage":\(coverage),"heartRateExposure":[],
+       "paceExposure":[],"stimulusScores":[],"explanationCodes":[],"paceZoneStatus":"\(status)"}
+      """
+    }
+    for (personalCoverage, personalStatus, absoluteCoverage, absoluteStatus, expected) in [
+      (1.0, "available", 1.0, "available", [0.95, 1.0] as [Double?]),
+      (0.0, "personal_evidence_insufficient", 1.0, "available", [0.95, nil]),
+      (0.4, "available", 1.0, "available", [0.95, 0.4]),
+      (0.0, "input_unavailable", 0.0, "speed_unavailable", [0.95, nil])
+    ] {
+      let reviewJSON = """
+      {"schemaVersion":"rai.workout_pace_analysis/1","policyVersion":"pace-zones/3",
+       "defaultView":"personal","reference":null,
+       "personal":\(paceSummary(personalCoverage, personalStatus)),
+       "absolute":\(paceSummary(absoluteCoverage, absoluteStatus))}
+      """
+      detail.paceAnalysis = try JSONDecoder().decode(WorkoutPaceAnalysis.self, from: Data(reviewJSON.utf8))
+      #expect(detail.zoneCoverageSummaries.map(\.label) == ["心率区间", "个人配速区间"])
+      #expect(detail.zoneCoverageSummaries.map(\.coverage) == expected)
+      #expect(detail.zoneSummary?.paceCoverage == 0)
+    }
+
+    // Old servers with a valid personal profile retain their measured coverage.
+    detail.paceAnalysis = nil
+    let availableLegacyJSON = detailJSON
+      .replacingOccurrences(of: "\"paceCoverage\": 0", with: "\"paceCoverage\": 0.7")
+      .replacingOccurrences(of: "threshold_pace_unavailable", with: "available")
+    let legacy = try JSONDecoder().decode(WorkoutDetailResponse.self, from: Data(availableLegacyJSON.utf8))
+    #expect(legacy.zoneCoverageSummaries.map(\.coverage) == [0.95, 0.7])
 
     let seriesJSON = """
     {

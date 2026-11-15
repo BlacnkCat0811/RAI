@@ -788,6 +788,7 @@ struct ProfileView: View {
   @Bindable var sync: SyncModel
   @AppStorage("runnerName") private var name = "跑者"
   @State private var showingModelInput = false
+  @State private var hasHeartRateSuggestion = false
   var body: some View {
     Form {
       Section("个人资料") {
@@ -799,7 +800,13 @@ struct ProfileView: View {
         NavigationLink {
           HeartRateSettingsView(model: model)
         } label: {
-          Label("静息与最大心率", systemImage: "heart")
+          VStack(alignment: .leading, spacing: 4) {
+            Label("静息与最大心率", systemImage: "heart")
+            if hasHeartRateSuggestion {
+              Text("发现新的心率建议，点此确认").font(.caption).foregroundStyle(RAITheme.blue)
+                .accessibilityIdentifier("profile.hr-suggestion")
+            }
+          }
         }.accessibilityIdentifier("profile.hr-settings")
         Button {
           showingModelInput = true
@@ -874,6 +881,15 @@ struct ProfileView: View {
     }.scrollContentBackground(.hidden).navigationTitle("我的").raiScreen().accessibilityIdentifier(
       "screen.profile")
       .sheet(isPresented: $showingModelInput) { ModelInputSheet(model: model) }
+      .task(id: model.statisticsRevision) {
+        let (response, supported) = await model.loadHRSettingsV3()
+        guard let response, supported else { hasHeartRateSuggestion = false; return }
+        let saved = response["savedHRSettings"]
+        let maximum = saved["maxHR"].number("value") ?? response["hrReference"].number("maxHR")
+        let resting = saved["restingHR"]["manualValue"].number("value") ?? response["hrReference"].number("restingHR")
+        hasHeartRateSuggestion = HRSettingDraft.maximumSuggestion(response["observedMaxHR"], current: maximum) != nil
+          || HRSettingDraft.restingSuggestion(response["observedRestingHR"], current: resting, maximum: maximum) != nil
+      }
   }
   private var appVersion: String {
     let info = Bundle.main.infoDictionary

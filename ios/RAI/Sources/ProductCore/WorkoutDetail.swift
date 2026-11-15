@@ -26,6 +26,36 @@ public struct WorkoutDetailResponse: Codable, Sendable {
   /// Aerobic/anaerobic training effect (0.0-5.0) of this run; absent for
   /// older model stacks and runs the stack has not computed yet.
   public let trainingEffect: WorkoutTrainingEffect?
+
+  /// Match the personal pace card's review result. Legacy coverage is only
+  /// for older servers; absolute pace distribution is not displayed in detail.
+  public var zoneCoverageSummaries: [WorkoutZoneCoverageSummary] {
+    var rows: [WorkoutZoneCoverageSummary] = []
+    if let zones = zoneSummary {
+      rows.append(.init(label: "心率区间", coverage: zones.heartRateCoverage))
+    }
+    if let review = paceAnalysis {
+      rows.append(.init(label: "个人配速区间", zones: review.personal))
+    } else if let zones = zoneSummary {
+      rows.append(.init(label: "个人配速区间", zones: zones))
+    }
+    return rows
+  }
+}
+
+public struct WorkoutZoneCoverageSummary: Sendable {
+  public let label: String
+  /// An unavailable classification is not a measured zero coverage.
+  public let coverage: Double?
+
+  init(label: String, coverage: Double?) {
+    self.label = label
+    self.coverage = coverage
+  }
+
+  init(label: String, zones: WorkoutZoneSummary) {
+    self.init(label: label, coverage: zones.paceZoneStatus == "available" ? zones.paceCoverage : nil)
+  }
 }
 
 /// RAI's own training-effect estimate (rai.training_effect/1). Every field

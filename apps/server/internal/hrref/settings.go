@@ -289,6 +289,7 @@ func ResolveSettings(events []Event, in Input, stack string) (Snapshot, *Evidenc
 func (v V3Result) RestingHRIsBaseline() bool { return v.RestingHR != nil && v.RestingHR.Baseline }
 
 type SettingsResponse struct {
-	Saved    SavedSettings `json:"savedHRSettings"`
-	Resolved *Evidence     `json:"resolvedHRReference"`
+	Saved           SavedSettings      `json:"savedHRSettings"`
+	Resolved        *Evidence          `json:"resolvedHRReference"`
+	ObservedResting *RestingSuggestion `json:"observedRestingHR"`
 }

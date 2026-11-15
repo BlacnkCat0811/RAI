@@ -233,6 +233,17 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
   新增 `savedHRSettings`（独立组件的保存值／模式／有效期）和 `resolvedHRReference`（当前目标时刻
   在 active 新模型下实际采用的参考，由只读一致性快照运行同一纯解析器；active 为旧栈时为空，不宣称旧栈已采用新规则）。`GET /v2/workouts/{id}/detail` 新增 `heartRateReference`，
   读取这次训练已发布产物中的解析证据；未算到时为空并携带待算状态，不能拿当前参考填充。
+- 本地新增（尚未部署）：`/parameters.observedRestingHR` 返回稳定静息心率建议，或 `null`；包含
+  `value`、`sampleDays`、`latestSampleAt`、`policyVersion=rai.hr_suggestions/1`。它独立于保存值和 active 栈的
+  解析证据，不写设置、不排分析任务。读取只使用已完成、未删除、非手填的 HealthKit 静息心率样本，按稳定来源
+  分组，每个本地日最多一个；28 天内至少 14 天、近 7 天至少 3 天、最近观测不超过 3 天，至少 80% 的日值
+  距中位数不超过 5 bpm，近 7 天中位数与整体相差不超过 3 bpm；取整体中位数并四舍五入。
+  这些是待校准的产品推荐门槛，不改变模型基线规则。App 仅在与填写值相差至少 3 bpm 时提示。
+- App 心率表单仅填写最大／静息心率，不再展示年龄、测量日期、依据、模式或适用日期控件。
+  新值按 `basis=user_setting` 保存，不捏造 `measuredAt`；外层 `effectiveFrom` 自动取保存当天零点。
+  静息值填写后使用 `manual`；清空并保存显式切回 `automatic`、`manualValue:null`。
+  未改数值保留原证据；推荐只填入草稿，经保存确认才提交，采用的新值标记 `wearable_estimate`。
+  最大心率建议沿用连续 30 秒支持窗口的中位数候选，仅提示高于当前填写值的数值。
 - 解析对象包含 `schemaVersion`、`policyVersion`、`stackID`、`targetAtUs`、`evaluatedAtUs`、
   `inputHash`；`maxHR`／`restingHR` 各自包含 `value`（可空）、`source`、`basis`、`status`、
   `referenceID`（若有）、`effectiveFrom`、`measuredAt`（可空）、`recordedAt`、`ageDays`（日期未知时空）、
@@ -258,7 +269,7 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 - 两个结果均返回逐段时间、积分距离、占比和覆盖；占比分母为各自成功分类时长，覆盖分母为有效活动时间。受限插值、暂停、来源冲突和异常策略同现有基础。暂停时长冲突返回 `timing_unavailable`，该状态下旧共用类型中的数值占位不表示测得零，客户端不展示分区或覆盖。无速度时不以平均值补轨迹。
 - 数据库错误正常向上传播；受预算限制的分析失败返回 `input_unavailable` 和具体原因。个人计算失败保留独立算出的实际配速分布。GET 不写库或创建任务。
 
-原生 iOS 在同一卡片切换“个人区间／配速分布”，首次默认显示服务端推荐视图，用户选择保留在当前卡片内；本次估计明确标注“根据本次及此前记录估计，仅供本次复盘”。旧服务不含新字段时继续旧卡片。旧统计的 `distance-zones/v1` 仍按原始区间距离计量，不混入新详情时长口径。已于 2026-11-15 部署到云端（镜像 `720d588`），仍未真机验收。
+原生 iOS 跑步详情仅展示 `paceAnalysis.personal` 个人配速区间，不展示配速分布，也不提供切换；个人区间不可用时保留具体原因，不自动回退到 `absolute`。本次估计明确标注“根据本次及此前记录估计，仅供本次复盘”。“更多指标”的区间覆盖同样读取个人区间结果，分类不可用时显示“暂不可用”，不把旧 `zoneSummary.paceCoverage` 的零值混入新版复盘。旧服务不含新字段时继续旧个人区间卡片及旧覆盖来源。重复的“数据覆盖”卡片已移除。服务端仍保留 `absolute`、`defaultView` 及旧统计 `distance-zones/v1` 契约。服务端已于 2026-11-15 部署到云端（镜像 `720d588`），仍未真机验收；本次 iOS 展示调整尚未真机验收。
 
 ## 限额
 读 / 写 / 上传三条车道，设备与数据集各一个进程内令牌桶（设备默认：读 120/分、写 60/分、上传 30/分（突发 2）；可用 `RAI_RATE_BUDGETS` 覆盖，

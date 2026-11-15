@@ -526,9 +526,9 @@ final class ModelStackLiveUITests: XCTestCase {
     let workout = app.descendants(matching: .any).matching(identifier: "workout.row").firstMatch
     XCTAssertTrue(workout.waitForExistence(timeout: 12))
     workout.tap()
-    let feature = app.descendants(matching: .any).matching(identifier: "model.workout.active").firstMatch
-    for _ in 0..<3 where !feature.exists { app.swipeUp() }
-    XCTAssertTrue(feature.waitForExistence(timeout: 12))
+    let personalPace = app.descendants(matching: .any).matching(identifier: "workout.zones.pace").firstMatch
+    for _ in 0..<3 where !personalPace.exists { app.swipeUp() }
+    XCTAssertTrue(personalPace.waitForExistence(timeout: 12))
 
     app.tabBars.buttons["首页"].tap()
     XCTAssertTrue(model.waitForExistence(timeout: 10))

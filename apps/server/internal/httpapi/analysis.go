@@ -56,6 +56,7 @@ func (a *API) analysisParameters(w http.ResponseWriter, r *http.Request, p synci
 		}
 		out["savedHRSettings"] = settings.Saved
 		out["resolvedHRReference"] = settings.Resolved
+		out["observedRestingHR"] = settings.ObservedResting
 	}
 	respond(w, 200, out)
 	return nil

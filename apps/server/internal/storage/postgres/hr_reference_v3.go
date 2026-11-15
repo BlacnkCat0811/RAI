@@ -64,13 +64,18 @@ func (s *Store) HRSettings(ctx context.Context, p syncing.Principal) (hrref.Sett
 	if err != nil {
 		return out, err
 	}
-	// Old active stacks have no v3 calculation evidence; do not claim they use it.
-	if stack != modelmanifest.StackID() {
-		return out, nil
-	}
 	loc, err := time.LoadLocation(tz)
 	if err != nil {
 		return out, err
+	}
+	out.ObservedResting, err = restingHRSuggestion(ctx, tx, p.DatasetID, now, loc)
+	if err != nil {
+		return out, err
+	}
+	// Suggestions are independent of the active calculation stack. Old stacks
+	// still have no v3 calculation evidence; do not claim they use it.
+	if stack != modelmanifest.StackID() {
+		return out, tx.Commit(ctx)
 	}
 	facts, err := stackRestingHRFacts(ctx, tx, p.DatasetID, now.AddDate(0, 0, -29), now, now)
 	if err != nil {
