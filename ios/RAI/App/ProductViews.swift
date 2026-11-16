@@ -46,7 +46,6 @@ struct HomeView: View {
   @Bindable var model: ProductModel
   @Bindable var sync: SyncModel
   @Binding var tab: Int
-  @AppStorage("runnerName") private var name = "跑者"
   @Namespace private var hero
   @State private var selectedSession: ProductSession?
   @Environment(\.dynamicTypeSize) private var typeSize
@@ -59,20 +58,37 @@ struct HomeView: View {
           SetupCard(sync: sync, connected: sync.activeSessionID != nil, authorized: authorized)
         }
         if connected {
-          WeeklyCard(overview: model.data.overview)
           if let session = model.data.todaySession {
             Button {
               selectedSession = session
             } label: {
-              TrainingHero(session: session)
+              TodayTrainingStrip(session: session)
             }.buttonStyle(RAIPressStyle()).matchedTransitionSource(id: session.id, in: hero)
               .accessibilityIdentifier("home.hero")
           } else if model.data.plan == .null {
             Button { tab = 2 } label: {
               RAIRowLabel(title: "今日训练", icon: "figure.run", detail: "还没有训练计划，去「训练」创建一个。")
             }.buttonStyle(RAIPressStyle())
+          }
+          if let athlete = model.data.athlete, athlete.supportsPresentation {
+            HomeMetricGrid(model: model, snapshot: athlete)
+              .accessibilityElement(children: .contain).accessibilityIdentifier("model.home.active")
           } else {
-            EmptyCard(title: "今日训练", detail: "今天没有训练安排，好好休息。")
+            NavigationLink {
+              AnalysisView(model: model)
+            } label: {
+              EmptyCard(title: "运动模型", detail: athleteAbsenceDetail(model.data))
+            }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("home.status")
+          }
+          if let athlete = model.data.athlete, athlete.supportsPresentation {
+            NavigationLink {
+              TrainingLoadDetailView(model: model)
+            } label: {
+              HomeLoadCard(overview: model.data.overview, load: athlete.trainingLoad, points: model.trainingLoadPoints)
+            }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("home.load")
+            if let window = athlete.loadFocus?.presentationValue?.windows.max(by: { $0.windowDays < $1.windowDays }) {
+              HomeLoadFocusCard(window: window)
+            }
           }
           VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -84,22 +100,13 @@ struct HomeView: View {
               NavigationLink {
                 WorkoutDetail(model: model, workout: workout)
               } label: {
-                ActivityRow(workout: workout)
-              }
+                HomeRecentWorkoutCard(workout: workout, route: model.homeRoutes[workout.id] ?? (model.previewOnly ? [] : nil))
+              }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("home.recent")
+                .task(id: workout.id) { await model.loadHomeRoute(workout.id) }
             } else {
               Text("还没有已同步的跑步记录").font(.subheadline).foregroundStyle(RAITheme.secondary)
             }
           }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
-          NavigationLink {
-            AnalysisView(model: model)
-          } label: {
-            if let athlete = model.data.athlete, athlete.supportsPresentation {
-              AthleteModelCard(snapshot: athlete, summary: true)
-            } else {
-              EmptyCard(title: "运动模型", detail: athleteAbsenceDetail(model.data))
-            }
-          }.buttonStyle(RAIPressStyle())
-            .accessibilityIdentifier(model.data.athlete?.supportsPresentation == true ? "model.home.active" : "home.status")
           AthleteRefreshNotice(snapshot: model.data)
         }
         // Only the very first load shows a spinner; later refreshes are silent.
@@ -110,7 +117,9 @@ struct HomeView: View {
           RAINotice(text: error).accessibilityIdentifier("product.error")
         }
       }.padding(.horizontal, 18).padding(.top, 8).padding(.bottom, 22)
-    }.raiScreen().refreshable { await model.refresh() }.toolbar(.hidden, for: .navigationBar)
+    }.raiScreen().refreshable { await model.refresh(); await model.loadTrainingLoadHistory() }
+      .toolbar(.hidden, for: .navigationBar)
+      .task(id: model.data.athlete?.assignment.version) { await model.loadTrainingLoadHistory() }
       // The bar is hidden, so nothing keeps scrolled cards out of the status bar.
       .safeAreaInset(edge: .top, spacing: 0) {
         Color.clear.frame(height: 0).background(RAITheme.background).accessibilityHidden(true)
@@ -147,8 +156,8 @@ struct HomeView: View {
   private var identity: some View {
     HStack(alignment: .center, spacing: 12) {
       VStack(alignment: .leading, spacing: 2) {
-        Text(greetingText).font(.subheadline).foregroundStyle(RAITheme.secondary)
-        Text(name).font(.system(.title, design: .rounded, weight: .bold))
+        Text(HomeDates.header.string(from: Date())).font(.subheadline).foregroundStyle(RAITheme.secondary)
+        Text("今天").font(.system(.largeTitle, design: .rounded, weight: .bold))
       }
     }
   }
@@ -172,10 +181,6 @@ struct HomeView: View {
       lastUploadAt: sync.lastUploadAt,
       pendingChanges: sync.pendingChanges
     ).text
-  }
-  private var greetingText: String {
-    let h = Calendar.current.component(.hour, from: Date())
-    return h < 11 ? "早上好，" : h < 18 ? "下午好，" : "晚上好，"
   }
 }
 /// First-run guide: the three things needed before the app shows anything.
@@ -229,35 +234,6 @@ struct SetupCard: View {
       .accessibilityValue(done ? "已完成" : "未完成")
   }
 }
-struct TrainingHero: View {
-  let session: ProductSession
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        Label("今日训练", systemImage: "figure.run").font(.subheadline.weight(.semibold))
-        Image(systemName: "chevron.right").font(.caption)
-        Spacer()
-      }
-      Spacer(minLength: 4)
-      Text(session.title).font(.system(.largeTitle, design: .rounded, weight: .bold))
-      Text(prescription(session)).font(.title3).monospacedDigit()
-      HStack {
-        Text(trainingTag(session.type))
-        if session.type != "REST" { Text("自感用力 \(Int(session.raw.number("effort") ?? 0))") }
-        if session.modified { Text("已调整").foregroundStyle(RAITheme.amber) }
-      }.font(.caption).foregroundStyle(RAITheme.secondary)
-      HStack {
-        Spacer()
-        Label(
-          session.runnable ? "查看并开始训练" : "查看训练安排",
-          systemImage: session.runnable ? "play.fill" : "chevron.right")
-        Spacer()
-      }.font(.headline).padding(.vertical, 14).background(RAITheme.lemon, in: Capsule())
-    }.padding(20).frame(minHeight: 235, alignment: .leading).background {
-      HeroScene().clipShape(RoundedRectangle(cornerRadius: RAITheme.radius))
-    }.raiGlass().foregroundStyle(RAITheme.primary)
-  }
-}
 func prescription(_ s: ProductSession) -> String {
   if s.type == "REST" { return "给身体一点恢复时间" }
   var parts: [String] = []
@@ -271,90 +247,6 @@ func prescription(_ s: ProductSession) -> String {
   if s.distance > 0 { parts.append(ProductFormat.distance(s.distance) + " 公里") }
   if s.duration > 0 { parts.append(ProductFormat.decimal(s.duration / 60) + " 分钟") }
   return parts.joined(separator: " · ")
-}
-struct WeeklyCard: View {
-  @Environment(\.dynamicTypeSize) private var typeSize
-  @ScaledMetric(relativeTo: .caption2) private var fallbackChartHeight = 56.0
-  let overview: JSON
-  @State private var appeared = false
-  @Environment(\.accessibilityReduceMotion) private var reduced
-  var days: [JSON] { Array(overview["days"].list.suffix(7)) }
-  func total(_ key: String) -> Double? {
-    let valid = days.filter { $0.string("date") <= overview.string("today") }
-    guard !valid.isEmpty, valid.allSatisfy({ $0.number(key) != nil }) else { return nil }
-    return valid.reduce(0) { $0 + ($1.number(key) ?? 0) }
-  }
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      if typeSize.isAccessibilitySize {
-        VStack(alignment: .leading, spacing: 8) { heading }
-      } else {
-        HStack { heading }
-      }
-      if typeSize.isAccessibilitySize {
-        VStack(spacing: 18) {
-          column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "公里")
-          column("训练负荷", "load", ProductFormat.decimal(total("load")), "")
-        }
-      } else {
-        ViewThatFits(in: .horizontal) {
-          HStack(alignment: .top, spacing: 20) {
-            column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "公里")
-            column("训练负荷", "load", ProductFormat.decimal(total("load")), "")
-          }
-          VStack(spacing: 18) {
-            column("跑步距离", "distanceM", ProductFormat.distance(total("distanceM")), "公里")
-            column("训练负荷", "load", ProductFormat.decimal(total("load")), "")
-          }
-        }
-      }
-    }.padding(22).frame(maxWidth: .infinity, alignment: .leading).raiGlass().onAppear {
-      if !appeared { withAnimation(reduced ? nil : .easeOut(duration: 0.3)) { appeared = true } }
-    }
-  }
-  @ViewBuilder private var heading: some View {
-    CardHeading(title: "本周跑量", icon: "chart.bar")
-    if !typeSize.isAccessibilitySize { Spacer() }
-    if !days.isEmpty {
-      Text("\(days.filter{($0.number("count") ?? 0)>0}.count)/7 天").font(.caption)
-        .foregroundStyle(RAITheme.secondary)
-    }
-  }
-  private func column(_ label: String, _ key: String, _ value: String, _ unit: String) -> some View
-  {
-    VStack(alignment: .leading, spacing: 4) {
-      Text(label).font(.caption).foregroundStyle(RAITheme.secondary)
-      HStack(alignment: .firstTextBaseline, spacing: 3) {
-        Text(value).font(.system(.largeTitle, design: .rounded, weight: .bold)).monospacedDigit()
-        Text(unit).font(.caption).foregroundStyle(RAITheme.secondary)
-      }
-      if days.isEmpty {
-        EmptyView()
-      } else if !RAIRenderer.metalAvailable {
-        RecordedBars(
-          values: Array(days.enumerated()).map { index, day in
-            (["一", "二", "三", "四", "五", "六", "日"][index], day.number(key))
-          }
-        ).frame(height: fallbackChartHeight)
-      } else {
-        Chart(Array(days.enumerated()), id: \.offset) { index, day in
-          if let n = day.number(key) {
-            BarMark(x: .value("日", index), y: .value(label, appeared ? n : 0), width: .ratio(0.46))
-              .foregroundStyle(
-                LinearGradient(
-                  colors: [RAITheme.orange.opacity(0.80), RAITheme.orange], startPoint: .top, endPoint: .bottom)
-              ).cornerRadius(3)
-          }
-        }.chartXAxis {
-          AxisMarks(values: Array(0...6)) { v in
-            AxisValueLabel {
-              Text(["一", "二", "三", "四", "五", "六", "日"][v.as(Int.self) ?? 0]).font(.caption2)
-            }
-          }
-        }.chartXScale(domain: -0.5...6.5).chartYAxis(.hidden).frame(height: 48)
-      }
-    }.frame(minWidth: 130, maxWidth: .infinity, alignment: .leading)
-  }
 }
 /// Why there is no athlete model yet, in terms of what the runner can do.
 func athleteAbsenceDetail(_ snapshot: ProductSnapshot) -> String {
@@ -1748,7 +1640,7 @@ struct TrainingLoadDetailView: View {
   }
 
   private var weekly: some View {
-    let days = Array(model.data.overview["days"].list.suffix(7))
+    let days = HomeDates.rollingWeek(model.data.overview)
     return VStack(alignment: .leading, spacing: 12) {
       CardHeading(title: "近 7 天负荷", icon: "chart.bar")
       if days.isEmpty {

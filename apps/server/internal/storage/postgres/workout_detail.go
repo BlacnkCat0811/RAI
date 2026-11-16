@@ -94,7 +94,12 @@ type executionRow struct {
 	Version     int64
 }
 
-func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, id string) (*workoutDetailData, error) {
+// withAnalysis adds the read-time model views only the detail page shows
+// (pace zones replay the 90-day running-fitness state, run fitness, feature
+// artifact, qualification and HR references). Series and freshness reads skip
+// them: they are by far the most expensive part of the snapshot and freshness
+// is polled while the page is open.
+func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, id string, withAnalysis bool) (*workoutDetailData, error) {
 	tx, err := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return nil, err
@@ -329,18 +334,19 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		}
 	}
 
-	if err = loadFeatureAnalysis(ctx, tx, p, id, d); err != nil {
-		return nil, err
-	}
-
-	if err = loadPaceAnalysis(ctx, tx, p, id, d); err != nil {
-		return nil, err
-	}
-	if err = loadRunFitnessDetail(ctx, tx, p, id, d); err != nil {
-		return nil, err
-	}
-	if err = loadModelQualification(ctx, tx, p, id, d); err != nil {
-		return nil, err
+	if withAnalysis {
+		if err = loadFeatureAnalysis(ctx, tx, p, id, d); err != nil {
+			return nil, err
+		}
+		if err = loadPaceAnalysis(ctx, tx, p, id, d); err != nil {
+			return nil, err
+		}
+		if err = loadRunFitnessDetail(ctx, tx, p, id, d); err != nil {
+			return nil, err
+		}
+		if err = loadModelQualification(ctx, tx, p, id, d); err != nil {
+			return nil, err
+		}
 	}
 
 	// The v2 model stack's latest day release records this Workout's load in
@@ -388,27 +394,9 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		d.AnalysisAvailable, d.AnalysisStatus = true, "published"
 	}
 
-	var version int64
-	var rest, maxHR, a, b float64
-	var provenance string
-	err = tx.QueryRow(ctx, `SELECT version,resting_hr,max_hr,coefficient_a,coefficient_b,provenance FROM analysis_parameter_sets WHERE dataset_id=$1 ORDER BY version DESC LIMIT 1`, p.DatasetID).Scan(&version, &rest, &maxHR, &a, &b, &provenance)
-	if err == nil {
-		d.Parameters = &analysis.Parameters{Version: version, RestHR: rest, MaxHR: maxHR, A: a, B: b, Provenance: provenance}
-		d.ZoneRestHR, d.ZoneMaxHR = rest, maxHR
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
-	}
-	// HR zones use the same HR reference as the model stack when one is
-	// effective at the Workout start; the legacy TRIMP set is only a fallback.
-	ref, err := hrReferenceAt(ctx, tx, p.DatasetID, d.Start)
-	if err != nil {
-		return nil, err
-	}
-	if ref != nil {
-		d.ZoneMaxHR = ref.MaxHR
-		if ref.RestingHR != nil {
-			d.ZoneRestHR = *ref.RestingHR
-			d.HistoricalRestHR, d.HistoricalMaxHR = *ref.RestingHR, ref.MaxHR
+	if withAnalysis {
+		if err = loadDetailReferences(ctx, tx, p, d); err != nil {
+			return nil, err
 		}
 	}
 
@@ -430,6 +418,35 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		return nil, err
 	}
 	return d, tx.Commit(ctx)
+}
+
+// loadDetailReferences resolves the HR zone bounds of the detail page: the
+// effective HR reference at the Workout start, else the legacy TRIMP set.
+func loadDetailReferences(ctx context.Context, tx pgx.Tx, p syncing.Principal, d *workoutDetailData) error {
+	var version int64
+	var rest, maxHR, a, b float64
+	var provenance string
+	err := tx.QueryRow(ctx, `SELECT version,resting_hr,max_hr,coefficient_a,coefficient_b,provenance FROM analysis_parameter_sets WHERE dataset_id=$1 ORDER BY version DESC LIMIT 1`, p.DatasetID).Scan(&version, &rest, &maxHR, &a, &b, &provenance)
+	if err == nil {
+		d.Parameters = &analysis.Parameters{Version: version, RestHR: rest, MaxHR: maxHR, A: a, B: b, Provenance: provenance}
+		d.ZoneRestHR, d.ZoneMaxHR = rest, maxHR
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	// HR zones use the same HR reference as the model stack when one is
+	// effective at the Workout start; the legacy TRIMP set is only a fallback.
+	ref, err := hrReferenceAt(ctx, tx, p.DatasetID, d.Start)
+	if err != nil {
+		return err
+	}
+	if ref != nil {
+		d.ZoneMaxHR = ref.MaxHR
+		if ref.RestingHR != nil {
+			d.ZoneRestHR = *ref.RestingHR
+			d.HistoricalRestHR, d.HistoricalMaxHR = *ref.RestingHR, ref.MaxHR
+		}
+	}
+	return nil
 }
 
 func rememberObservationTime(d *workoutDetailData, o workoutdetail.Observation) {
@@ -1186,7 +1203,7 @@ func (s *Store) WorkoutDetail(ctx context.Context, p syncing.Principal, id strin
 	if !syncing.ValidID(id) {
 		return workoutdetail.Detail{}, syncing.Fail(422, "invalid_workout_id")
 	}
-	d, err := s.loadWorkoutDetailData(ctx, p, id)
+	d, err := s.loadWorkoutDetailData(ctx, p, id, true)
 	if err != nil {
 		return workoutdetail.Detail{}, err
 	}
@@ -1197,7 +1214,7 @@ func (s *Store) WorkoutSeries(ctx context.Context, p syncing.Principal, id strin
 	if !syncing.ValidID(id) {
 		return workoutdetail.SeriesResponse{}, syncing.Fail(422, "invalid_workout_id")
 	}
-	d, err := s.loadWorkoutDetailData(ctx, p, id)
+	d, err := s.loadWorkoutDetailData(ctx, p, id, false)
 	if err != nil {
 		return workoutdetail.SeriesResponse{}, err
 	}
@@ -1208,7 +1225,7 @@ func (s *Store) WorkoutFreshness(ctx context.Context, p syncing.Principal, id st
 	if !syncing.ValidID(id) {
 		return workoutdetail.Freshness{}, syncing.Fail(422, "invalid_workout_id")
 	}
-	d, err := s.loadWorkoutDetailData(ctx, p, id)
+	d, err := s.loadWorkoutDetailData(ctx, p, id, false)
 	if err != nil {
 		return workoutdetail.Freshness{}, err
 	}

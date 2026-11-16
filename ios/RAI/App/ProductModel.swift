@@ -281,6 +281,20 @@ final class ProductModel {
           data = cached
           configured = true
           previewOnly = true
+          // Optional synthetic extras the preview cannot fetch: home route
+          // thumbnails and the training-load history.
+          if let extras = ProcessInfo.processInfo.environment["RAI_PREVIEW_HOME_EXTRAS"],
+            let bytes = try? Data(contentsOf: URL(fileURLWithPath: extras))
+          {
+            struct Extras: Decodable {
+              var routes: [String: [ProductCore.RoutePoint]]?
+              var trainingLoad: [AthleteHistoryPoint]?
+            }
+            if let decoded = try? JSONDecoder().decode(Extras.self, from: bytes) {
+              homeRoutes = (decoded.routes ?? [:]).mapValues { HomeRouteShape.downsample($0) }
+              trainingLoadPoints = TrainingLoadSeries.points(fromAthlete: decoded.trainingLoad ?? [])
+            }
+          }
         }
       #endif
       if !previewOnly, let url = cacheURL(), let bytes = try? Data(contentsOf: url),
@@ -521,23 +535,44 @@ final class ProductModel {
     }
     workoutDetailLoading = true
     defer { workoutDetailLoading = false }
+    // The three reads run in parallel, but the page paints as soon as the
+    // detail arrives; charts and freshness fill in when their own reads land.
     async let detailResult = Self.capture { try await api.workoutDetail(id) }
     async let seriesResult = Self.capture { try await api.workoutSeries(id) }
     async let freshnessResult = Self.capture { try await api.workoutFreshness(id) }
-    let (detailOutcome, series, freshness) = await (detailResult, seriesResult, freshnessResult)
     do {
-      let detail = try detailOutcome.get()
+      let detail = try await detailResult.get()
       guard detail.workout.workoutID == id else { throw SyncFailure.invalid("invalid_response") }
       workoutDetail = detail
       workoutDetailError = nil
-      if let value = try? series.get() { workoutSeries = value }
-      if let value = try? freshness.get() { workoutFreshness = value }
+      detailCache[id] = (detail, workoutSeries, workoutFreshness)
+      let (series, freshness) = await (seriesResult, freshnessResult)
+      // The user may have opened another Workout meanwhile.
+      guard workoutDetail?.workout.workoutID == id else { return }
+      if let value = try? series.get(), value.workoutID == id { workoutSeries = value }
+      if let value = try? freshness.get(), value.workoutID == id { workoutFreshness = value }
       detailCache[id] = (detail, workoutSeries, workoutFreshness)
     } catch let failure as UploadError {
       workoutDetailError = "跑步详情暂不可用：\(UserFacingText.error(failure.code))"
     } catch {
       workoutDetailError = "跑步详情暂不可用，请稍后重试。"
     }
+  }
+  /// Downsampled route of a Workout for the home thumbnail. Kept apart from
+  /// `workoutDetail` so the home card never disturbs an open detail page.
+  /// An empty array means the Workout has no usable route.
+  var homeRoutes: [String: [ProductCore.RoutePoint]] = [:]
+  func loadHomeRoute(_ id: String) async {
+    guard homeRoutes[id] == nil, let api else { return }
+    if let cached = detailCache[id] {
+      homeRoutes[id] = HomeRouteShape.downsample(cached.detail.route.points)
+      return
+    }
+    guard let detail = try? await api.workoutDetail(id), detail.workout.workoutID == id else { return }
+    homeRoutes[id] = HomeRouteShape.downsample(detail.route.points)
+    // Opening this Workout then paints the fetched detail at once and only
+    // revalidates behind it.
+    if detailCache[id] == nil { detailCache[id] = (detail, nil, nil) }
   }
   private nonisolated static func capture<T: Sendable>(_ body: @Sendable () async throws -> T) async -> Result<T, any Error> {
     do { return .success(try await body()) } catch { return .failure(error) }
