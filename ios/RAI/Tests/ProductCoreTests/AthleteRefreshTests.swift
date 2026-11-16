@@ -44,13 +44,29 @@ private final class AthleteRefreshProtocol: URLProtocol, @unchecked Sendable {
     #expect(merged.athleteAbsenceText != "尚未启用")
   }
 
-  @Test func unsupportedSchemaKeepsLastGood() async throws {
+  @Test func newerServerSchemaKeepsLastGoodAndAsksForAppUpdate() async throws {
     let old = try previous()
     var future = try #require(old.athlete)
     future.schemaVersion = "rai.athlete_model/99"
     let loaded = await api(body: try JSONEncoder().encode(future)).load()
-    #expect(loaded.failures["athlete"] == "athlete_response_invalid")
-    #expect(loaded.keepingLastGood(from: old).athlete == old.athlete)
+    #expect(loaded.failures["athlete"] == ProductSnapshot.athleteUpdateRequired)
+    #expect(!ProductLoadFailures.needsRetry(loaded.failures))
+    let merged = loaded.keepingLastGood(from: old)
+    #expect(merged.athlete == old.athlete)
+    #expect(merged.athleteNeedsAppUpdate)
+    #expect(!merged.athleteRefreshFailed)
+    var outdated = ProductSnapshot()
+    outdated.failures["athlete"] = ProductSnapshot.athleteUpdateRequired
+    #expect(outdated.athleteAbsenceText == "有新功能，请更新 App")
+  }
+
+  @Test func unknownModelVersionAsksForAppUpdateOnly() throws {
+    var envelope = try #require(try previous().athlete).trainingLoad.envelope
+    #expect(envelope.modelVersionKnown)
+    envelope.modelVersion = "rai.training_load.hrr_integral/v99"
+    #expect(!envelope.supportsPresentation)
+    #expect(envelope.displayReason?.rawValue == "model_update_required")
+    #expect(ProductReasonText.text(for: envelope.displayReason?.rawValue) == "有新功能，请更新 App")
   }
 
   @Test func explicitNonActivationClearsCachedModel() async throws {
@@ -73,10 +89,11 @@ private final class AthleteRefreshProtocol: URLProtocol, @unchecked Sendable {
     #expect(merged.athlete == old.athlete)
     #expect(!merged.athleteRefreshFailed)
     #expect(merged.failures["athlete"] == nil)
-    #expect(ProductSnapshot().athleteAbsenceText == "结果尚未就绪")
-    #expect(ProductReasonText.text(for: "model_result_pending") == "结果尚未就绪")
-    #expect(ProductReasonText.text(for: "model_update_required") == "模型需要更新")
-    #expect(ProductReasonText.text(for: "unsupported") == "模型版本需升级")
-    #expect(ProductReasonText.text(for: "technical_failure") == "模型结果读取失败")
+    #expect(ProductSnapshot().athleteAbsenceText == "正在计算")
+    #expect(ProductReasonText.text(for: "model_result_pending") == "正在计算")
+    #expect(ProductReasonText.text(for: "model_update_required") == "有新功能，请更新 App")
+    #expect(ProductReasonText.text(for: "unsupported") == "服务器正在更新模型，稍后自动恢复")
+    #expect(ProductReasonText.text(for: "model_switching") == "服务器正在更新模型，稍后自动恢复")
+    #expect(ProductReasonText.text(for: "technical_failure") == "读取失败，下拉重试")
   }
 }

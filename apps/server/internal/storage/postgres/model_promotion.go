@@ -27,17 +27,20 @@ type AssignmentAudit struct {
 }
 
 func (s *Store) PromoteModelStack(ctx context.Context, dataset, actor, stack string, gate am.PromotionGate, manifestSHA string) (AssignmentAudit, error) {
-	return s.promoteModelStack(ctx, dataset, actor, stack, manifestSHA, &gate, nil)
+	return s.promoteModelStack(ctx, dataset, actor, stack, manifestSHA, &gate, nil, false)
 }
 
 // PromoteModelStackAuthorized activates a real dataset only with an explicit
 // owner authorization bound to the exact dataset, stack and manifest. It does
 // not claim the synthetic acceptance gates were passed.
 func (s *Store) PromoteModelStackAuthorized(ctx context.Context, dataset, actor, stack, manifestSHA string, authorization []byte) (AssignmentAudit, error) {
-	return s.promoteModelStack(ctx, dataset, actor, stack, manifestSHA, nil, authorization)
+	return s.promoteModelStack(ctx, dataset, actor, stack, manifestSHA, nil, authorization, false)
 }
 
-func (s *Store) promoteModelStack(ctx context.Context, dataset, actor, stack, manifestSHA string, gate *am.PromotionGate, authorization []byte) (AssignmentAudit, error) {
+// promoteModelStack moves the prepared candidate to active. Exactly one
+// authority applies: a synthetic gate, an owner authorization file, or auto
+// (the deployment-time activation run with the owner database role).
+func (s *Store) promoteModelStack(ctx context.Context, dataset, actor, stack, manifestSHA string, gate *am.PromotionGate, authorization []byte, auto bool) (AssignmentAudit, error) {
 	var out AssignmentAudit
 	expected, err := modelmanifest.CurrentHash()
 	m := modelmanifest.Current()
@@ -49,7 +52,7 @@ func (s *Store) promoteModelStack(ctx context.Context, dataset, actor, stack, ma
 			gate.MappingVersion != m.MappingVersion || gate.ConsumerSchema != m.ProductSchema || gate.FeatureSchema != m.Features.Schema || gate.SourcePolicy != m.VO2Max.SourcePolicy || gate.InputRegistry != m.InputRegistry {
 			return out, am.ErrGateClosed
 		}
-	} else if len(authorization) == 0 {
+	} else if len(authorization) == 0 && !auto {
 		return out, am.ErrOwnerAuthorizationInvalid
 	}
 	tx, err := s.Pool.Begin(ctx)
@@ -70,6 +73,13 @@ func (s *Store) promoteModelStack(ctx context.Context, dataset, actor, stack, ma
 			return out, err
 		}
 		gateJSON, _ = json.Marshal(gate)
+	} else if auto {
+		gateJSON, _ = json.Marshal(map[string]any{
+			"autoActivated":         true,
+			"trigger":               "deploy",
+			"syntheticDataset":      synthetic,
+			"standardGatesVerified": false,
+		})
 	} else {
 		var auth am.OwnerAuthorization
 		if synthetic || json.Unmarshal(authorization, &auth) != nil || auth.Validate(time.Now().UTC(), dataset, stack, manifestSHA) != nil {
@@ -243,17 +253,17 @@ func (s *Store) rollbackModelStack(ctx context.Context, dataset, actor, manifest
 }
 
 func (s *Store) PrepareModelStack(ctx context.Context, dataset string) (string, error) {
-	return s.prepareModelStack(ctx, dataset, nil)
+	return s.prepareModelStack(ctx, dataset, nil, false)
 }
 
 // PrepareModelStackAuthorized registers the candidate for a real dataset. The
 // exact authorization bytes are parsed and validated while the dataset row is
 // locked; the candidate remains invisible until an authorized promotion.
 func (s *Store) PrepareModelStackAuthorized(ctx context.Context, dataset string, authorization []byte) (string, error) {
-	return s.prepareModelStack(ctx, dataset, authorization)
+	return s.prepareModelStack(ctx, dataset, authorization, false)
 }
 
-func (s *Store) prepareModelStack(ctx context.Context, dataset string, ownerAuthorization []byte) (string, error) {
+func (s *Store) prepareModelStack(ctx context.Context, dataset string, ownerAuthorization []byte, auto bool) (string, error) {
 	stack := modelmanifest.StackID()
 	manifest, err := modelmanifest.CurrentHash()
 	if err != nil {
@@ -270,7 +280,10 @@ func (s *Store) prepareModelStack(ctx context.Context, dataset string, ownerAuth
  WHERE id=$1 AND retired_at IS NULL FOR UPDATE`, dataset).Scan(&synthetic, &today); err != nil {
 		return "", err
 	}
-	if ownerAuthorization == nil {
+	if auto {
+		// Deployment-time activation: the owner role running it is the
+		// authority, for real and synthetic datasets alike.
+	} else if ownerAuthorization == nil {
 		if !synthetic {
 			return "", am.ErrGateClosed
 		}
@@ -286,7 +299,15 @@ func (s *Store) prepareModelStack(ctx context.Context, dataset string, ownerAuth
 		return "", err
 	}
 	if existing != "" && existing != stack {
-		return "", am.ErrGateClosed
+		if !auto {
+			return "", am.ErrGateClosed
+		}
+		// A candidate left by an earlier image is never readable; the
+		// deployed code replaces it with its own stack.
+		if _, err = tx.Exec(ctx, `DELETE FROM analysis_model_channels WHERE dataset_id=$1 AND channel='candidate'`, dataset); err != nil {
+			return "", err
+		}
+		existing = ""
 	}
 	if existing == "" {
 		var alreadyActive bool
@@ -361,16 +382,9 @@ func ensureModelStackReady(ctx context.Context, tx pgx.Tx, dataset, stack, manif
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	want := modelProductSlots
-	switch release.Manifest.ProductSchema {
-	case am.Schema4:
-		want += 2 // session recovery, load focus
-	case am.Schema3:
-		want += 2 - 1 // session recovery, load focus; no retired ability
-	default:
-		want-- // no retired ability
-	}
-	if len(seen) != want {
+	// Only schema4 releases are retained: six slots plus session recovery
+	// and load focus.
+	if release.Manifest.ProductSchema != am.Schema4 || len(seen) != modelProductSlots+2 {
 		return am.ErrGateClosed
 	}
 	return nil

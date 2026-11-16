@@ -1,4 +1,7 @@
 public enum ProductReasonText {
+  /// The one prompt that asks for an App update: the server has something
+  /// this build cannot show. Everything server-side reads differently.
+  public static let updateApp = "有新功能，请更新 App"
   public static let independenceNotice = "RAI VO₂ 与外部 VO₂ 为独立来源；外部值不是 RAI 模型的标签或生理真值。"
   public static let experimentalLabel = "实验"
   public static func lowReadinessNotice(score: Double?) -> String? {
@@ -27,21 +30,21 @@ public enum ProductReasonText {
     if let code {
       switch code {
       case "not_enough_history": return "历史不足"
-      case "insufficient_evidence": return "证据不足"
+      case "insufficient_evidence": return "数据还不够"
       case "data_sync_incomplete": return "同步未完成"
-      case "model_result_pending": return "结果尚未就绪"
-      case "model_update_required": return "模型需要更新"
-      case "unsupported": return "模型版本需升级"
-      case "technical_failure": return "模型结果读取失败"
-      case "source_conflict": return "来源冲突"
-      case "source_selection_required": return "需要选择来源"
-      case "data_stale": return "数据已过期"
+      case "model_result_pending": return "正在计算"
+      case "model_update_required": return ProductReasonText.updateApp
+      case "unsupported", "model_switching": return "服务器正在更新模型，稍后自动恢复"
+      case "technical_failure": return "读取失败，下拉重试"
+      case "source_conflict": return "多个设备的数据不一致"
+      case "source_selection_required": return "正在确定数据来源"
+      case "data_stale": return "近期没有新数据"
       case "missing_heart_rate": return "缺少心率"
       case "recovery_data_incomplete": return "恢复数据不完整"
-      case "training_load_unknown": return "负荷未知"
+      case "training_load_unknown": return "缺少训练负荷"
       case "not_product_activated": return "尚未启用"
       case "deleted": return "已删除"
-      case "sensitivity_unbounded": return "敏感性范围不可定义"
+      case "sensitivity_unbounded": return "数据还不够"
       default: return "暂不可用"
       }
     }
@@ -80,7 +83,7 @@ public enum TrainingEffectText {
       "hr_reference_missing": "缺少可用的最大／静息心率参考，请检查心率设置",
       "hr_exposure_insufficient": "心率数据不足，无法计算有氧训练效果",
       "speed_reference_unavailable": "缺少这次跑步之前可用的速度能力基准",
-      "effort_features_missing": "这次跑步的分析版本较旧，重新分析后显示",
+      "effort_features_missing": "结果更新中，稍后自动显示",
       "speed_missing": "缺少速度数据，无法计算无氧评分",
       "short_sprint_uncorroborated": "短冲刺缺少功率或步频佐证，未计入",
       "bout_uncorroborated": "部分快速段心率没有响应，未计入",

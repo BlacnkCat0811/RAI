@@ -55,7 +55,7 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
-	return Config{Schema: "rai.vo2max.external_config/1", FreshUs: 30 * DayUs, ExpireUs: 90 * DayUs, OriginRule: "rai.healthkit.vo2max.origin/1", SelectionRule: "explicit_epoch/1", ConflictRule: "exact_end_support/1", CanonicalVersion: "v1", InputSchema: InputSchema, OriginFilter: Apple, MaxRefs: MaxRefs, MaxEpochs: MaxEpochs, MaxTies: MaxTies, ReasonCodesVersion: "rai.vo2max.external_reasons/1"}
+	return Config{Schema: "rai.vo2max.external_config/1", FreshUs: 30 * DayUs, ExpireUs: 90 * DayUs, OriginRule: "rai.healthkit.vo2max.origin/1", SelectionRule: "explicit_epoch_or_latest_apple_epoch/2", ConflictRule: "exact_end_support/1", CanonicalVersion: "v1", InputSchema: InputSchema, OriginFilter: Apple, MaxRefs: MaxRefs, MaxEpochs: MaxEpochs, MaxTies: MaxTies, ReasonCodesVersion: "rai.vo2max.external_reasons/1"}
 }
 func (c Config) Hash() string { return Hash(c) }
 

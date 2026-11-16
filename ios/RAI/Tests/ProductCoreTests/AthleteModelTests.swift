@@ -123,7 +123,7 @@ import Testing
     #expect(copy.runningAbility.envelope.primaryReason == nil)
     #expect(ProductReasonText.runningFitness(modelStatus: "collecting", reason: nil, state: "collecting")
       == "完成一次带心率、5 分钟以上的稳定跑步即可开始估计")
-    #expect(ProductReasonText.runningFitness(modelStatus: "stale", reason: "data_stale", state: "stale") == "数据已过期")
+    #expect(ProductReasonText.runningFitness(modelStatus: "stale", reason: "data_stale", state: "stale") == "近期没有新数据")
   }
 }
 

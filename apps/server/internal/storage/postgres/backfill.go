@@ -91,7 +91,7 @@ func (s *Store) CreateBackfillOperation(ctx context.Context, dataset, actor stri
 	var today string
 	var eligible bool
 	if err = tx.QueryRow(ctx, `SELECT (clock_timestamp() AT TIME ZONE d.timezone)::date::text,
- d.synthetic_test AND EXISTS(SELECT 1 FROM analysis_model_channels m WHERE m.dataset_id=d.id AND m.stack_id=$2 AND m.channel='candidate'
+ EXISTS(SELECT 1 FROM analysis_model_channels m WHERE m.dataset_id=d.id AND m.stack_id=$2 AND m.channel='candidate'
  AND m.extension_configs->>'rai.model_manifest/1'=$3 AND m.config_sha256=decode($3,'hex'))
  FROM datasets d WHERE d.id=$1 AND d.retired_at IS NULL FOR UPDATE`, dataset, req.StackID, req.ManifestSHA).Scan(&today, &eligible); err != nil {
 		return zero, err

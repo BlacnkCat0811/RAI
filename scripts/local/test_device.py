@@ -14,6 +14,19 @@ spec.loader.exec_module(device)
 
 
 class DeviceToolSafetyTests(unittest.TestCase):
+    def test_settings_come_from_config_file_and_env_overrides_one_value(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / 'device.json'
+            path.write_text(json.dumps({'run': '.local/device-x', 'pgPort': 55434, 'httpPort': 18084}))
+            settings = device.load_settings(path, {})
+            self.assertEqual(settings['run'], (device.ROOT / '.local/device-x').resolve())
+            self.assertEqual(settings['derived'], (device.ROOT / '.local/device-x/DerivedData').resolve())
+            self.assertEqual((settings['pgPort'], settings['httpPort']), (55434, 18084))
+            override = device.load_settings(path, {'RAI_LOCAL_DEVICE_HTTP_PORT': '18090'})
+            self.assertEqual((override['pgPort'], override['httpPort']), (55434, 18090))
+            defaults = device.load_settings(pathlib.Path(directory) / 'missing.json', {})
+            self.assertEqual((defaults['pgPort'], defaults['httpPort']), (55433, 18080))
+
     def test_explicit_host_rejects_public_loopback_names_and_invalid_addresses(self):
         for host in ('8.8.8.8', '127.0.0.1', '0.0.0.0', 'rai-fnos', '192.168.1.1.invalid', '10.1.2.300'):
             with self.subTest(host=host), patch.dict(os.environ, {'RAI_LOCAL_DEVICE_HOST': host}), \

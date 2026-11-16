@@ -50,17 +50,11 @@ func loadTrainingModelBinding(ctx context.Context, q trainingDB, dataset string)
 	if err != nil {
 		return training.ModelBinding{}, err
 	}
-	b := training.ModelBinding{Assignment: stack, AssignmentVersion: version, ManifestSHA: manifest, Model: "rai.athlete_model/2", AsOf: assigned.UTC().Format(time.RFC3339), Adapter: "schema2-v2"}
-	if release, ok := modelrelease.Lookup(stack, manifest, "UTC"); ok && release.Manifest.ProductSchema == "rai.athlete_model/3" {
-		b.Model = "rai.athlete_model/3"
-		b.Adapter = "schema3-v1"
-	} else if ok && release.Manifest.ProductSchema == "rai.athlete_model/4" {
-		b.Model = "rai.athlete_model/4"
-		b.Adapter = "schema4-v1"
-	}
-	if stack == "legacy" {
-		b.Model = "rai.athlete_model/1"
-		b.Adapter = "legacy-v1"
+	// Only schema4 releases are readable. Anything else plans without model
+	// signals; stored plans keep the adapter they were generated with.
+	b := training.ModelBinding{Assignment: stack, AssignmentVersion: version, ManifestSHA: manifest, Model: "rai.athlete_model/4", AsOf: assigned.UTC().Format(time.RFC3339), Adapter: "schema4-v1"}
+	if release, ok := modelrelease.Lookup(stack, manifest, "UTC"); !ok || release.Manifest.ProductSchema != "rai.athlete_model/4" {
+		b.Model, b.Adapter, b.Missing = "rai.athlete_model/1", "legacy-v1", []string{"model_release_unsupported"}
 	}
 	return b, nil
 }

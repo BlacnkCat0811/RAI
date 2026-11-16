@@ -19,9 +19,11 @@ type Release struct {
 	ReadinessConfig   rd.Config              `json:"readinessConfig"`
 }
 
-// Frozen directly from caca7f4, 975b912, ccbe328 and the recovery v2.3
-// evaluation-day tombstone release. Add a release when its manifest changes;
-// never rewrite an existing entry to match newer code.
+// Holds the current release and the one before it (the rollback target).
+// When the manifest changes, append the new release and drop the oldest; never
+// rewrite an entry to match newer code. Older stacks are no longer readable:
+// their datasets move to the current stack through auto-activation, which
+// recomputes history instead of reading old artifacts.
 //
 //go:embed releases.json
 var frozen []byte

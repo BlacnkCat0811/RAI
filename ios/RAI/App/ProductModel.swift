@@ -292,6 +292,9 @@ final class ProductModel {
     if previewOnly { return }
     await configure()
     guard let api else { return }
+    loading = false
+    await resumePendingWrites()
+    loading = true
     let loaded = await api.load().keepingLastGood(from: data)
     if !ProductLoadFailures.needsRetry(loaded.failures), let url = cacheURL(), let bytes = ProductSnapshotCache.encode(loaded) {
       try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
@@ -309,6 +312,9 @@ final class ProductModel {
   /// known-at; the app never edits or deletes an accepted input locally.
   func submitModelInput(kind: String, payload: [String: JSON], effectiveFrom: Date, schemaVersion: String? = nil) async -> String? {
     guard let journal else { return "请先连接服务器。" }
+    if pendingModelInput != nil, let failure = await retryModelInput() {
+      return failure
+    }
     let formatter = ISO8601DateFormatter()
     var fields: [String: JSON] = [
       "id": .string(UUID().uuidString.lowercased()),
@@ -339,23 +345,25 @@ final class ProductModel {
       return "保存失败，请稍后重试。"
     }
   }
-  func retryModelInput() async -> String? {
-    guard let api, let journal, let command = pendingModelInput else { return "没有需要重新提交的内容。" }
+  func retryModelInput(refreshing: Bool = true) async -> String? {
+    guard let api, let journal, let command = pendingModelInput else { return nil }
     do {
       let receipt = try await api.sendModelInput(path: command.path, body: command.body)
       guard receipt.string("inputID") == command.body.string("id"),
         !receipt.string("contentSHA256").isEmpty else { throw SyncFailure.receiptMismatch }
       try await journal.finishModelInput(command)
       pendingModelInput = nil
-      await refresh()
+      if refreshing { await refresh() }
       return nil
     } catch let failure as UploadError {
       if [404, 409, 413, 422].contains(failure.status) {
         if (try? await journal.finishModelInput(command)) != nil { pendingModelInput = nil }
       }
+      if pendingModelInput != nil { scheduleWriteResume() }
       return "保存失败：" + UserFacingText.error(failure.code)
     } catch {
-      return "没有收到服务器的确认，请重试；不会重复保存。"
+      scheduleWriteResume()
+      return Self.queuedWriteNotice
     }
   }
   /// Apple VO₂ sources of the last year, one per device/app.
@@ -403,7 +411,11 @@ final class ProductModel {
     do {
       let json = try await api.get("/v2/analysis/athlete", query: ["schemaVersion": "rai.athlete_model/4"])
       let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: json.data())
-      guard snapshot.supportsPresentation else { throw SyncFailure.invalid("unsupported_athlete_schema") }
+      guard snapshot.supportsPresentation else {
+        // Newer server contract: keep the last result, ask for an App update.
+        if !Task.isCancelled { data.failures["athlete"] = ProductSnapshot.athleteUpdateRequired }
+        return
+      }
       if !Task.isCancelled {
         data.athlete = snapshot
         data.failures.removeValue(forKey: "athlete")
@@ -441,31 +453,6 @@ final class ProductModel {
   func loadRunningFitnessHistory() async throws -> RunningFitnessHistory {
     guard let api else { throw SyncFailure.invalid("configure_development_api_first") }
     return try await api.runningFitnessHistory()
-  }
-  /// The last re-analysis this device requested (status is read from the server).
-  var fitnessReanalysis: RunningFitnessReanalysis?
-  var fitnessReanalysisError: String?
-  /// Asks the server to recompute running fitness with the active algorithm,
-  /// either for some runs or for a local date range. Nothing is reported as
-  /// finished until the server says so.
-  func requestFitnessReanalysis(workoutIDs: [String] = [], from: String? = nil, to: String? = nil) async {
-    guard let api else {
-      fitnessReanalysisError = "请先连接服务器。"
-      return
-    }
-    let key = "ios-" + UUID().uuidString.lowercased()
-    do {
-      fitnessReanalysis = try await api.requestRunningFitnessReanalysis(workoutIDs: workoutIDs, from: from, to: to, key: key)
-      fitnessReanalysisError = nil
-    } catch let failure as UploadError {
-      fitnessReanalysisError = failure.code == "not_product_activated" ? "跑力尚未启用。" : "重算请求未被接受，请稍后重试。"
-    } catch {
-      fitnessReanalysisError = "重算请求失败，请稍后重试。"
-    }
-  }
-  func refreshFitnessReanalysis() async {
-    guard let api, let id = fitnessReanalysis?.operationID else { return }
-    if let op = try? await api.runningFitnessReanalysis(id: id) { fitnessReanalysis = op }
   }
   func loadAthleteDiagnostics() async {
     guard let api, let assignment = data.athlete?.assignment else {
@@ -613,9 +600,17 @@ final class ProductModel {
   {
     guard let api, let journal else { return false }
     guard !loading else { return false }
+    // An earlier write the server never acknowledged goes first, on its own;
+    // its idempotency key makes the resend safe. Only a conflict stops here.
+    if let earlier = pending, earlier != proposed {
+      guard !conflict, await submit(earlier) else {
+        if !conflict { self.error = "上一次修改还在等待提交，联网后会自动完成。" }
+        return false
+      }
+    }
     let command: ProductCommand
     do { command = try proposed.resolvingPending(pending) } catch {
-      self.error = "上一次修改还没保存成功，请先重新提交。"
+      self.error = "上一次修改还在等待提交，联网后会自动完成。"
       return false
     }
     loading = true
@@ -663,10 +658,37 @@ final class ProductModel {
         }
         error = "修改未被接受：\(UserFacingText.error(e.code))。请调整后重试。"
       } else {
-        error = conflict ? "训练计划已更新。草稿已保留，请查看最新计划后再次确认。" : "没有收到服务器的确认：\(UserFacingText.error(e.code))。请重试。"
+        error = conflict ? "训练计划已更新。草稿已保留，请查看最新计划后再次确认。" : Self.queuedWriteNotice
+        if !conflict { scheduleWriteResume() }
       }
-    } catch { self.error = "提交未完成，内容已保留，请重试。" }
+    } catch {
+      self.error = Self.queuedWriteNotice
+      scheduleWriteResume()
+    }
     return false
+  }
+  static let queuedWriteNotice = "网络不稳定，修改已保存在手机上，联网后会自动提交。"
+  private var writeResumeTask: Task<Void, Never>?
+  /// Unacknowledged writes are resent by themselves: on every refresh (app
+  /// launch and return to foreground) and after a short back-off following a
+  /// transient failure. Each command keeps its idempotency key, so a resend
+  /// never duplicates. A conflict is never resent; it waits for the user.
+  private func scheduleWriteResume() {
+    writeResumeTask?.cancel()
+    writeResumeTask = Task { [weak self] in
+      for delay in [5.0, 20.0, 60.0] {
+        try? await Task.sleep(for: .seconds(delay))
+        guard !Task.isCancelled, let self else { return }
+        if await self.resumePendingWrites() { return }
+      }
+    }
+  }
+  /// Returns true when nothing is left to resend.
+  @discardableResult func resumePendingWrites() async -> Bool {
+    guard api != nil, !loading else { return false }
+    if pendingModelInput != nil { _ = await retryModelInput(refreshing: false) }
+    if let pending, !conflict { _ = await submit(pending) }
+    return pendingModelInput == nil && (pending == nil || conflict)
   }
   func reviewConflict() async {
     guard conflict, let journal, let api else { return }
@@ -683,12 +705,6 @@ final class ProductModel {
       conflict = false
       error = nil
     } catch { self.error = "最新计划暂不可用，草稿仍保留。" }
-  }
-  @discardableResult func retryPending() async -> Bool {
-    guard let pending else { return false }
-    guard await submit(pending) else { return false }
-    await refresh()
-    return true
   }
   func override(
     session: String, operation: String, path: String = "", value: JSON = .null,

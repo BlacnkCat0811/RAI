@@ -65,10 +65,10 @@ func TestRunningFitnessV4HTTPNegotiationAndPublication(t *testing.T) {
 		query  string
 		code   int
 		schema string
-	}{{"", 200, am.Schema2}, {"?schemaVersion=rai.athlete_model/3", 200, am.Schema3}, {"?schemaVersion=rai.athlete_model/4", 200, am.Schema4}, {"?schemaVersion=rai.athlete_model/99", 422, ""}, {"?schemaVersion=rai.athlete_model/4&schemaVersion=rai.athlete_model/4", 422, ""}} {
+	}{{"", 200, am.Schema2}, {"?schemaVersion=rai.athlete_model/2", 200, am.Schema2}, {"?schemaVersion=rai.athlete_model/3", 200, am.Schema3}, {"?schemaVersion=rai.athlete_model/4", 200, am.Schema4}, {"?schemaVersion=rai.athlete_model/99", 422, ""}, {"?schemaVersion=rai.athlete_model/4&schemaVersion=rai.athlete_model/4", 422, ""}} {
 		res := call("GET", "/v2/analysis/athlete"+tc.query, "", "")
 		if res.Code != tc.code {
-			t.Fatalf("schema negotiation status=%d want=%d", res.Code, tc.code)
+			t.Fatalf("athlete query %q status=%d want=%d", tc.query, res.Code, tc.code)
 		}
 		if tc.code != 200 {
 			continue
@@ -77,8 +77,11 @@ func TestRunningFitnessV4HTTPNegotiationAndPublication(t *testing.T) {
 		if json.Unmarshal(res.Body.Bytes(), &s) != nil || s.SchemaVersion != tc.schema {
 			t.Fatal("schema mismatch")
 		}
-		if tc.schema != am.Schema4 && (s.TrainingReadiness.Envelope.ModelStatus != "model_update_required" || s.RunningFitness != nil) {
-			t.Fatal("new model disguised as an old contract")
+		// Older Apps get their own schema projected from today's schema4
+		// result: the training load they know is still a real value.
+		if tc.schema != am.Schema4 && (s.RunningFitness != nil || s.TrainingLoad.Envelope.ModelStatus == "model_update_required" ||
+			(tc.schema == am.Schema3) != (s.SessionRecovery != nil)) {
+			t.Fatalf("older App projection %s", tc.schema)
 		}
 		if tc.schema == am.Schema4 && (s.SessionRecovery == nil || s.LoadFocus == nil || s.LoadFocus.Value == nil || s.RunningFitness == nil || s.RunningFitness.Value == nil ||
 			s.RunningAbility.Value != nil || s.RunningAbility.Envelope.ModelStatus != "model_update_required") {

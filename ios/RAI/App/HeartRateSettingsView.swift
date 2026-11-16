@@ -66,13 +66,10 @@ struct HeartRateSettingsView: View {
         if let validationMessage { Text(validationMessage).font(.footnote).foregroundStyle(.red) }
         if let message { Text(message).font(.footnote) }
         Button(busy ? "保存中…" : "保存") { save() }
-          .disabled(!valid || busy || loading || !supported || loadFailed || model.pendingModelInput != nil)
+          .disabled(!valid || busy || loading || !supported || loadFailed)
           .accessibilityIdentifier("hr-settings.save")
         if model.pendingModelInput != nil {
-          Button("重新提交上一次修改") {
-            busy = true
-            Task { message = await model.retryModelInput(); busy = false; if message == nil { await load() } }
-          }.disabled(busy || loading || !supported)
+          Text("上一次修改正在提交，联网后会自动完成。").font(.footnote).foregroundStyle(.secondary)
         }
       }
     }.navigationTitle("静息与最大心率").raiScreen().accessibilityIdentifier("screen.hr-settings")

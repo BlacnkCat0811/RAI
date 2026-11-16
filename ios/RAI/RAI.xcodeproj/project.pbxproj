@@ -10,6 +10,7 @@
  A113C345D721F15D92300891 /* HeartRateSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A113C345D721F15D92300892 /* HeartRateSettingsView.swift */; };
 		FA1112223334445556668802 /* RunningFitnessLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1112223334445556668801 /* RunningFitnessLayoutTests.swift */; };
 		FA1112223334445556667702 /* RunningFitnessComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1112223334445556667701 /* RunningFitnessComponents.swift */; };
+		FB2223334445556667778802 /* MetricsExplainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2223334445556667778801 /* MetricsExplainerView.swift */; };
 		D151AA110022334455667702 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D151AA110022334455667701 /* StatisticsView.swift */; };
 		AABBCCDD0011223344556602 /* DailyHealthNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0011223344556601 /* DailyHealthNormalizer.swift */; };
 		AABBCCDD0011223344557702 /* VO2MaxNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABBCCDD0011223344557701 /* VO2MaxNormalizer.swift */; };
@@ -62,6 +63,7 @@
  A113C345D721F15D92300892 /* HeartRateSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeartRateSettingsView.swift; sourceTree = "<group>"; };
 		FA1112223334445556668801 /* RunningFitnessLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningFitnessLayoutTests.swift; sourceTree = "<group>"; };
 		FA1112223334445556667701 /* RunningFitnessComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunningFitnessComponents.swift; sourceTree = "<group>"; };
+		FB2223334445556667778801 /* MetricsExplainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsExplainerView.swift; sourceTree = "<group>"; };
 		D151AA110022334455667701 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
 		AABBCCDD0011223344556601 /* DailyHealthNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyHealthNormalizer.swift; sourceTree = "<group>"; };
 		AABBCCDD0011223344557701 /* VO2MaxNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VO2MaxNormalizer.swift; sourceTree = "<group>"; };
@@ -177,6 +179,7 @@
 				07A341B735C9EDE82516D5B7 /* ProductViews.swift */,
  A113C345D721F15D92300892 /* HeartRateSettingsView.swift */,
 				FA1112223334445556667701 /* RunningFitnessComponents.swift */,
+				FB2223334445556667778801 /* MetricsExplainerView.swift */,
 				6C2FDB10010A581B0F9F5385 /* WorkoutDetailView.swift */,
 				3F1C943D1E266CB2CE42EA95 /* RAIApp.swift */,
 				905313EC20F247608BE730C7 /* DebugAcceptance.swift */,
@@ -372,6 +375,7 @@
 				E643ACCBB0EEE14443B39F98 /* ProductViews.swift in Sources */,
  A113C345D721F15D92300891 /* HeartRateSettingsView.swift in Sources */,
 				FA1112223334445556667702 /* RunningFitnessComponents.swift in Sources */,
+				FB2223334445556667778802 /* MetricsExplainerView.swift in Sources */,
 				96528C42F0F2AF0B7AB0C666 /* WorkoutDetailView.swift in Sources */,
 				AA50E8F4DA8B6A9BE235AD89 /* RAIApp.swift in Sources */,
 				2E32366AAA23ACBD5A7E26F3 /* DebugAcceptance.swift in Sources */,

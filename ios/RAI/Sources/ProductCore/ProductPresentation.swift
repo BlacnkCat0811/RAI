@@ -6,6 +6,8 @@ import Foundation
 public enum ProductLoadFailures {
   public static let expectedAbsence: Set<String> = [
     "analysis_not_ready", "training_not_found", "not_product_activated",
+    // Retrying cannot fix a newer server contract; the App needs an update.
+    ProductSnapshot.athleteUpdateRequired,
   ]
   public static func needsRetry(_ failures: [String: String]) -> Bool {
     failures.values.contains { !expectedAbsence.contains($0) }

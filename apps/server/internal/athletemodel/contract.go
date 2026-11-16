@@ -52,7 +52,7 @@ func MapProductState(status, freshness string, supported bool) ProductMetricStat
 // missing history, then specific inputs, and staleness last among causes.
 // productReasonCodes stays in its frozen lexicographic order; primaryReason is
 // the one to show.
-var reasonPriority = []ProductReasonCode{"not_product_activated", "unsupported", "technical_failure", "model_update_required",
+var reasonPriority = []ProductReasonCode{"not_product_activated", "unsupported", "technical_failure", "model_switching", "model_update_required",
 	"model_result_pending", "deleted", "source_selection_required", "source_conflict", "data_sync_incomplete", "not_enough_history",
 	"missing_heart_rate", "training_load_unknown", "recovery_data_incomplete", "data_stale", "insufficient_evidence", "no_sample", "metric_unavailable"}
 
@@ -96,6 +96,10 @@ func MapReasons(status string, reasons []string) []ProductReasonCode {
 			out = append(out, "model_result_pending")
 		case "model_update_required":
 			out = append(out, "model_update_required")
+		case "model_switching":
+			// Server-side: the active stack is not the built one (between a
+			// deployment and its auto-activation, or after a rollback).
+			out = append(out, "model_switching")
 		case "sync_incomplete", "load_sync_incomplete", "daily_coverage_incomplete", "candidate_superseded":
 			out = append(out, "data_sync_incomplete")
 		case "source_conflict", "ability_source_disagreement", "hrv_source_conflict", "rhr_source_conflict", "sleep_source_conflict", "parameter_conflict", "load_parameter_conflict", "recovery_source_conflict":

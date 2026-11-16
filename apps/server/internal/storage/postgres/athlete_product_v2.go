@@ -52,18 +52,14 @@ func stampArtifact[T any](m *am.Metric[T], a publishedModelArtifact) {
 	am.StampPublication(m, a.PublishedAt.UnixMicro(), computed, validation)
 }
 
+// ReadAthleteProduct serves the only product contract, schema4. Older client
+// contracts are not negotiated any more; the App always reads schema4.
 func (s *Store) ReadAthleteProduct(ctx context.Context, p syncing.Principal, at time.Time) (am.AthleteModelSnapshot, error) {
-	return s.readAthleteProduct(ctx, p, at, am.Schema2)
-}
-func (s *Store) ReadAthleteProductV3(ctx context.Context, p syncing.Principal, at time.Time) (am.AthleteModelSnapshot, error) {
-	return s.readAthleteProduct(ctx, p, at, am.Schema3)
+	return s.ReadAthleteProductV4(ctx, p, at)
 }
 
 // ReadAthleteProductV4 is the running-fitness product contract.
 func (s *Store) ReadAthleteProductV4(ctx context.Context, p syncing.Principal, at time.Time) (am.AthleteModelSnapshot, error) {
-	return s.readAthleteProduct(ctx, p, at, am.Schema4)
-}
-func (s *Store) readAthleteProduct(ctx context.Context, p syncing.Principal, at time.Time, schema string) (am.AthleteModelSnapshot, error) {
 	if !syncing.ValidID(p.DatasetID) || at.IsZero() {
 		return am.AthleteModelSnapshot{}, ErrModelProjection
 	}
@@ -81,14 +77,7 @@ func (s *Store) readAthleteProduct(ctx context.Context, p syncing.Principal, at 
 	if c.assignment.StackID == "" || c.assignment.StackID == "legacy" {
 		return out, am.ErrNotActivated
 	}
-	switch schema {
-	case am.Schema4:
-		out = am.NewSnapshotV4(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
-	case am.Schema3:
-		out = am.NewSnapshotV3(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
-	default:
-		out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
-	}
+	out = am.NewSnapshotV4(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
 	out, err = readPublishedModelStack(ctx, tx, p.DatasetID, "active", c.assignment.StackID, out, c, at)
 	if err != nil {
 		return am.AthleteModelSnapshot{}, err
@@ -105,21 +94,12 @@ func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, s
 		am.SetProjectedResponseState(&out)
 		return out, nil
 	}
-	// A client older than the active release cannot receive new semantics
-	// under old names; a newer client reading an older release gets that
-	// release's own contract.
-	rank := map[string]int{am.Schema2: 2, am.Schema3: 3, am.Schema4: 4}
-	if rank[release.Manifest.ProductSchema] > rank[out.SchemaVersion] {
-		am.SetMissingMetricsV2(&out, "model_update_required")
+	// Only schema4 releases are retained (current and previous); anything
+	// else is not read.
+	if release.Manifest.ProductSchema != am.Schema4 || out.SchemaVersion != am.Schema4 {
+		am.SetMissingMetricsV2(&out, "unsupported")
 		am.SetProjectedResponseState(&out)
 		return out, nil
-	}
-	if rank[release.Manifest.ProductSchema] < rank[out.SchemaVersion] {
-		if release.Manifest.ProductSchema == am.Schema3 {
-			out = am.NewSnapshotV3(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
-		} else {
-			out = am.NewSnapshotV2(at.UnixMicro(), c.revision, c.timezone, out.CalendarDate, c.assignment)
-		}
 	}
 	var assignedManifest string
 	if json.Unmarshal(c.extensions[modelmanifest.Schema], &assignedManifest) != nil || assignedManifest != c.configHash {
@@ -132,19 +112,14 @@ func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, s
 	day := at.In(loc).Format("2006-01-02")
 	if stack != modelmanifest.StackID() {
 		// Only the current release can be computed by this worker. Retained
-		// clean artifacts remain readable; absent ones require an upgrade.
-		am.SetMissingMetricsV2(&out, "model_update_required")
+		// clean artifacts remain readable; absent ones wait for the switch to
+		// the built stack. This is a server state, never "update the App".
+		am.SetMissingMetricsV2(&out, "model_switching")
 	}
 	// One bounded batch read for all six slots keeps the product request at a
 	// fixed SELECT count and avoids N+1 artifact lookups.
-	artifactKeys := map[string]string{"loadState": "load_state", "vo2": ve.ArtifactKey, "raiVO2": vo2.ArtifactKey, "recovery": "physiological_recovery", "readiness": "training_readiness"}
-	if release.Manifest.ProductSchema == am.Schema3 || release.Manifest.ProductSchema == am.Schema4 {
-		artifactKeys["session"] = sr.Key
-		artifactKeys["focus"] = "load_focus"
-	}
-	if release.Manifest.ProductSchema == am.Schema4 {
-		artifactKeys["fitness"] = rf.ArtifactKey
-	}
+	artifactKeys := map[string]string{"loadState": "load_state", "vo2": ve.ArtifactKey, "raiVO2": vo2.ArtifactKey, "recovery": "physiological_recovery",
+		"readiness": "training_readiness", "session": sr.Key, "focus": "load_focus", "fitness": rf.ArtifactKey}
 	// The v60 running ability was retired with running fitness v1; retained
 	// releases cannot serve it any more and say so.
 	out.RunningAbility = am.Missing[am.RunningAbilityValue]("runningAbility", at.UnixMicro(), "model_update_required")
@@ -289,10 +264,8 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 			}
 		}
 	}
-	if release.Manifest.ProductSchema == am.Schema3 || release.Manifest.ProductSchema == am.Schema4 {
-		projectOptimizedArtifacts(&out, rows, dataset, c.timezone, release, at.UnixMicro())
-	}
-	if a, ok := rows["fitness"]; ok && out.SchemaVersion == am.Schema4 {
+	projectOptimizedArtifacts(&out, rows, dataset, c.timezone, release, at.UnixMicro())
+	if a, ok := rows["fitness"]; ok {
 		var r rf.State
 		m := am.Missing[am.RunningFitnessValue]("runningFitness", at.UnixMicro(), "technical_failure")
 		if validHistoryArtifactForRelease("runningFitness", dataset, c.timezone, a, release) && json.Unmarshal(a.Payload, &r) == nil {

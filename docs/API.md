@@ -61,28 +61,26 @@
   `/running-fitness/current`、`/running-fitness/history`、`/running-fitness/evidence`；`POST /running-fitness/reanalyses`、
   `GET /running-fitness/reanalyses/{operationID}`（见下方“跑力”）
   （旧链路的 `/v2/analysis/state`、`/history`、`/workouts/{id}` 已删除，返回 404）
-  - 运动列表的 `metrics` 只含 active stack 的 `workout_load`（单位 `RAI_AU`，`details.qualityTier`/`method`）；尚未产出结果时 `analysisStatus=pending`；当前事实代次的单条输入分析失败时为 `failed`，已发布为 `published`。失败不会作为等待状态展示，也不覆盖原始记录；成功重新分析会清除失败状态（迁移 59，已于 2026-11-12 部署）
+  - 运动列表的 `metrics` 只含 active stack 的 `workout_load`（单位 `RAI_AU`，`details.qualityTier`/`method`）；尚未产出结果时 `analysisStatus=pending`；当前事实代次的单条输入分析失败时为 `failed`，已发布为 `published`。失败不会作为等待状态展示，也不覆盖原始记录；成功重新分析会清除失败状态
   - 训练回执的 `analysisStatus=queued` 表示 v2 日模型栈已失效待算，`analysisJobIDs` 为空
   - `/parameters` 返回 `parameters`（旧 TRIMP 参数）、`hrReference`（当前生效的 `hr_reference`，用户本人录入值）与 `observedMaxHR`（近一年 30 秒心率中位数最大值，仅作建议）
-  - `/vo2max-sources` 返回近一年的 Apple VO₂ 来源，每个设备/App 一项，`sourceEpoch` 即选择时提交的值
-  - `/athlete` 缺省按 schema2 契约读取；接受的查询只有 `schemaVersion=rai.athlete_model/3` 或 `rai.athlete_model/4`，
-    其他取值、重复或多余参数返回 `422 invalid_athlete_query`。请求的 schema 新于 active 栈时按该栈自己的契约输出；
-    active 栈新于请求的 schema 时，所有指标返回既有可解码的 `model_update_required`，不把新语义塞进旧字段名。
-    iOS 已按 schema4 请求
+  - `/vo2max-sources` 返回近一年的 Apple VO₂ 来源，每个设备/App 一项，`sourceEpoch` 即选择时提交的值；没有显式选择时外部 VO₂ 自动使用最近记录的来源（原因码 `source_auto_selected`），选择接口只在同一时刻多来源冲突时需要
+  - `/athlete` 服务端只计算 schema4。`schemaVersion=rai.athlete_model/4`（当前 App）返回完整快照；不带参数（schema2）或
+    `/2`、`/3`（旧 App）返回从 schema4 投影出的旧 schema：schema3 去掉 `runningFitness`；schema2 再去掉 `sessionRecovery`／`loadFocus`，
+    恢复与准备度只在 `mode=complete` 时保留数值，估计值改为 `model_update_required`（旧契约表达不了估计）。其余指标照常有值，
+    旧 App 不会整页空白。其他取值、重复或多余参数返回 `422 invalid_athlete_query`
   - schema4（跑力 v1 栈）新增 `runningFitness` 指标（`modelVersion=rai.running_fitness/v1`，`mappingVersion=rai.product_metric_mapping/4`，
     `mode` 为阶段 `initial`/`preliminary`/`established`/`race_only`/`insufficient_evidence`/`conflict`）；旧 `runningAbility` 槽位保留可解码，
     但在任何栈上都只返回 `model_update_required`、`value=null`（旧 v60 跑力已退出运行链路，旧栈的旧跑力产物只作审计行保留）
-  - schema3 新增 `sessionRecovery`（`remainingHours`/`range`/`readyAfter`/`overflow`/`scope`，估计的下次高强度前恢复时间）
+  - 快照另含 `sessionRecovery`（`remainingHours`/`range`/`readyAfter`/`overflow`/`scope`，估计的下次高强度前恢复时间）
     与 `loadFocus`（7/28 天 `windows`：`lowAerobicAU`/`highAerobicAU`/`anaerobicProxyAU`/`unclassifiedAU`、
-    `unknownWorkouts`、`classifiedCoverage`、`classificationMethod`）；`runningAbility.value` 携带
-    `demonstrated`/`maximalSupported`/`submaxEstimated` 三分支、`selectedMode` 与积累 `progress`
-    （workouts/spanDays/shortWorkouts/longWorkouts/targetDays），估计分支没有 gamma；
+    `unknownWorkouts`、`classifiedCoverage`、`classificationMethod`）；
     `physiologicalRecovery.value` 增加 `components`/`missingComponents`/`baselineNights`/`trendNights`，
     `trainingReadiness.value` 增加 `range`/`physiologicalCap`/`sessionCap`/`weeklyCap`；
     envelope 增加 `mode`（数值性质，如 `complete`/`estimated`/`workout_only`/`pending`，随指标而异）、
-    `evidenceAt`、`validBefore`。schema3 的 `complete_response` 要求八项指标均 available
+    `evidenceAt`、`validBefore`。`complete_response` 要求八项指标均 available
   - `/athlete/history?metric=trainingLoad` 的点以急性负荷为 `value`，`components` 携带 `chronic`、`balance`、`dailyLoad`；
-    schema3/4 栈另支持 `metric=sessionRecovery`/`loadFocus`，schema4 栈支持 `metric=runningFitness`（`value` 为长期总分，`components`
+    另支持 `metric=sessionRecovery`/`loadFocus`/`runningFitness`（`value` 为长期总分，`components`
     含 `referenceDailyScore`、`a70MPS`、`vTMPS`、`v6MPS`、`v90sMPS`、`bL`、`rangeLow`、`rangeHigh`）；
     `metric=runningAbility`/`abilityEstimate` 在任何栈上都返回 `409 model_version_unsupported`
   - 运动模型的激活、产物缺失与读取故障分别表达，见下方状态表
@@ -101,7 +99,7 @@
     `hr_exposure_insufficient`、`speed_reference_unavailable`、`effort_features_missing`、`short_sprint_uncorroborated`、
     `bout_uncorroborated`、`indoor_speed`、`ability_reference_exceeded`、`training_level_estimated|default`。
     旧栈、未分析或栈尚未算到这次跑步时省略。RAI 自有模型，不是手表厂商的训练效果
-  - schema3 栈的 `/detail` 另含可选 `loadFocus`：这次课次的 `knownAU`、四桶 `buckets`、区间秒数 `seconds`、
+  - `/detail` 另含可选 `loadFocus`：这次课次的 `knownAU`、四桶 `buckets`、区间秒数 `seconds`、
     跨午夜按日切分 `days`、`classificationMethod` 与 `reasonCodes`；旧栈或栈尚未算到这次跑步时省略，
     负荷未知时 `knownAU=null`（原因 `load_unknown`），不把未知当低强度
 - 首页：`GET /v2/product/overview`
@@ -150,34 +148,34 @@ iOS 优先显示 `primaryReason`，旧服务端没有该字段时取 `productRea
 | 条件 | HTTP / 模型状态 | 产品原因码或错误码 | iOS 文案 |
 |---|---|---|---|
 | 无 active assignment 或 active 为 legacy | 409 | `not_product_activated` | 尚未启用 |
-| 当前栈当天无可读发布，且没有该代数的终止失败任务 | 200 / `pending` | `model_result_pending` | 结果尚未就绪 |
-| 当前栈无可读发布且该代数任务已失败，或某项产物校验失败 | 200 / `technical_failure` | `technical_failure` | 模型结果读取失败 |
-| 支持的旧栈产物缺失或失效，当前 Worker 无法重算 | 200 / `model_update_required` | `model_update_required` | 模型需要更新 |
-| 激活栈未匹配冻结发布注册表 | 200 / `unsupported` | `unsupported` | 模型版本需升级 |
-| 计算结果证据不足或已过期 | 200 / 对应模型实际状态 | `insufficient_evidence` / `data_stale` 等 | 证据不足 / 数据已过期 |
+| 当前栈当天无可读发布，且没有该代数的终止失败任务 | 200 / `pending` | `model_result_pending` | 正在计算 |
+| 当前栈无可读发布且该代数任务已失败，或某项产物校验失败 | 200 / `technical_failure` | `technical_failure` | 读取失败，下拉重试 |
+| active 为上一版栈（自动激活完成前或回滚后）且当天无可读结果 | 200 / `model_switching` | `model_switching` | 服务器正在更新模型，稍后自动恢复 |
+| 激活栈不在发布注册表（只保留当前与上一版） | 200 / `unsupported` | `unsupported` | 服务器正在更新模型，稍后自动恢复 |
+| 旧 App 的 schema 表达不了该指标（如 schema2 遇到估计分数），或 App 不认识的模型版本／顶层 schema | 200 / `model_update_required`（后两者由 App 判定） | `model_update_required` | 有新功能，请更新 App |
+| 计算结果证据不足或已过期 | 200 / 对应模型实际状态 | `insufficient_evidence` / `data_stale` 等 | 数据还不够 / 近期没有新数据 |
 
 前五种情况中，200 响应的缺失指标 `value=null`；不会用零补齐。全无 `state=available` 的指标时
 `responseState=unavailable_response`，部分为 `partial_response`，全部可用才为 `complete_response`。
 数据库或 assignment 元数据等读取故障可返回 `503 athlete_model_unavailable`，不等同于未激活。
 
-保留的 schema3 栈中，`envelope.mode` 与技术状态正交：`estimated` 表示输入缺失下的有限估计（恢复总分≤75、置信度≤0.40；
+`envelope.mode` 与技术状态正交：`estimated` 表示输入缺失下的有限估计（恢复总分≤75、置信度≤0.40；
 准备度区间宽度≤10 才给点估计并取保守端），`workout_only` 表示仅有训练负担信息（准备度 `score=null`，疲劳/负荷仍可独立展示）。
 计算成功的产物可以因证据不足没有数值；读失败不能叫 estimated。模型级新原因码（`night_data_missing`、`night_sparse`、
 `recent_trend_used`、`estimate_expired`、`regularity_collecting`、`session_intensity_unknown`、`submax_prior_used`、
 `ability_source_disagreement`、`load_baseline_insufficient`、`short_repetition_unsupported` 等）保留在 `reasonCodes` 供审计；
-恢复 v4（`rai.recovery.physiological/4`，需要迁移 58，已于 2026-11-12 部署并激活）沿用恢复组件结构，新增可选 `inputBasis`、`meanSamples`、
+恢复 v4（`rai.recovery.physiological/4`）沿用恢复组件结构，新增可选 `inputBasis`、`meanSamples`、
 `baselineCenter`、`baselineScale`。`inputBasis` 为 `recent_mean`（最近最多 7 个有效夜／日的算术均值）、`observed`
 （当晚睡眠）、`user_entered`（静息心率）或 `default_baseline`（HRV 50 ms／RHR 60 bpm／睡眠 8h）。历史查询有界为
 180 天；`observed=null` 保留当晚缺测语义，`used` 才是实际计算值。缺测可返回 `available` + `mode=estimated`，
 取消估计模式的 75 分封顶及每缺失组件扣 5 分，分数使用同一 0–100 公式，估计状态与置信度独立表达证据质量。
 健康数据缺失不再要求最近 7 天或 48h 内有证据；日界到期仍返回 expired。训练准备度模型保持 v4，当前 v4.1 policy
-也取消估计模式 75 分封顶，继续遵守训练负荷与课次疲劳可用性要求。新 configHash/stack 区分策略修订，
-旧恢复 v3 及原带封顶 v4 的发布产物按其冻结配置读取，不重算或改写历史分数。
+也取消估计模式 75 分封顶，继续遵守训练负荷与课次疲劳可用性要求。新 configHash/stack 区分策略修订。
 
 `productReasonCodes` 经 `MapReasons` 映射到冻结字典（恢复相关新码 → `recovery_data_incomplete`、
 `ability_source_disagreement` → `source_conflict`、`load_baseline_insufficient` → `not_enough_history` 等），iOS 用既有文案本地化。
 
-历史接口继续绑定 active assignment：支持的旧栈按该发布配置校验，未知版本返回 `409 model_version_unsupported`；
+历史接口绑定 active assignment：注册表内的栈按该发布配置校验，其他版本返回 `409 model_version_unsupported`；
 `view=as_known` 返回 `409 historical_input_unavailable`，不能由当前发布指针重建过去的已知视图。
 历史分页游标绑定数据集、指标、栈和 assignment version 等上下文，切换后旧游标返回 `409 history_cursor_mismatch`。
 
@@ -187,12 +185,12 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 ## 训练
 - 读取：`GET /v2/training/plans/current`、`/plans/{id}`、`/effective[/{version}[/audit|/detail]]`、`/history[/versions]`、`/executions/{id}`
 - 写入：`POST /v2/training/plans`、`/plans/{id}/changes`、`/plans/{id}/overrides`、`/executions`、`/executions/{id}/changes`
-- 训练输入适配器按 active 栈版本绑定：schema2 栈用 `schema2-v2`（只消费 complete 准备度，低准备度阈值取计划参数
-  `lowReadiness`，默认 50）；schema3 栈用 `schema3-v1`（消费 v4 complete 与 estimated 准备度，阈值固定 60；estimated 只走保守下调，
-  不自动增加强度或里程；workout_only 不推断恢复正常）；schema4 栈用 `schema4-v1`（准备度同 schema3，另消费跑力的可排课区间配速）。
+- 训练输入适配器：schema4 栈用 `schema4-v1`（消费 v4 complete 与 estimated 准备度，阈值固定 60；estimated 只走保守下调，
+  不自动增加强度或里程；workout_only 不推断恢复正常；另消费跑力的可排课区间配速）。没有可读的 schema4 栈时用 `legacy-v1`
+  （无模型信号）；已生成的计划保留生成时的适配器（含旧的 `schema2-v2`／`schema3-v1`）以便回放。
   生成器 `training_plan/v3`：轻松跑→Z2、长跑→Z2、恢复跑→Z1、节奏跑→Z4、间歇→Z5，取区间中点配速；区间不可排课时该课只给心率目标并在
   `reasons` 记 `pace_zone_unavailable_hr_only`，不回退到其他区间或旧公式。旧栈不再提供配速目标。负荷焦点在 v3 中只作事实描述
-- 自适应计划（迁移 60／61，已于 2026-11-15 部署）：`POST /v2/training/plans` 的 `config` 带 `"version":"training_config/v2"` 时必填 `startDate`（本周周一）、
+- 自适应计划：`POST /v2/training/plans` 的 `config` 带 `"version":"training_config/v2"` 时必填 `startDate`（本周周一）、
   `availableDays`（2–7 天）、`longRunDay`；`goal`（`type/date/distanceM`，可选 `targetTimeS`）与 `baselineWeeklyS` 可选，不接受
   `weeks`、`baselineWeeklyM`、`previousLongM`。由 `training_plan/v4` + `coach_parameters/v3` 生成。
   迁移 61 追加 8 个完整周中活跃周的时长中位数参数，历史读取窗口为 63 天；迁移 60 的 `coach_parameters/v2` 与既有发布
@@ -208,11 +206,11 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 本机独立 Debug 验收的 `training` 入口调用上述相同训练接口，`daily` 调用既有 daily-facts/VO2 同步接口；
 不增加 API 路径。工具报告只导出状态和计数，日常同步轮次结束不构成所有流回溯完成的证明。
 
-## 心率参考 v3 契约（已部署并激活）
+## 心率参考 v3 契约
 
-**迁移 62／OpenAPI 1.14.0 已于 2026-11-15 部署到云端（镜像 `188eeb3`），新栈 `rai-v2-be2ffee8ea215e14` 已激活为 active；现有 `/2` 请求与读取契约保持不变。**
+现有 `/2` 输入请求与读取契约保持不变。
 解析、时间语义、默认模式和验收规则见
-[心率参考 v3 重设计](ARCHITECTURE.md#心率参考-v3-重设计已部署并激活2026-11-15)。
+[心率参考 v3](ARCHITECTURE.md#心率参考-v3)。
 
 - 继续使用 `POST /v2/model-inputs/hr-references`。model-input 请求增加可选 `schemaVersion`，
   缺省维持既有 `/2`；明确选择 `rai.hr_reference/3` 才接受新 payload。支持版本通过握手能力
@@ -257,7 +255,7 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
   不覆盖采样质量；有氧与无氧独立返回状态。旧栈中缺少解析对象不得由 App 猜测原因。
   `/parameters` 和 `/detail` 都是读取路径，不因读取创建分析任务或改写输入。
 
-## 配速区间 v3 契约（2026-11-15 已部署）
+## 配速区间 v3 契约
 
 `GET /v2/workouts/{id}/detail` 新增可选 `paceAnalysis`，`schemaVersion=rai.workout_pace_analysis/1`、`policyVersion=pace-zones/3`。旧 `zoneSummary` 的 `pace-zones/2` 及 `distanceDistribution` 保持原义。
 

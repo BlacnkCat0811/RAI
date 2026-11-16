@@ -92,7 +92,7 @@ func baselineManifest() Manifest {
 			{Name: "critical_speed", ModelID: "rai.critical_speed", Version: "v1", Schema: "rai.critical_speed/1", ConfigHash: digest("cs:42d;3-15min;3workouts;3durations;2.5;wls;loo.05/rmse.03/v1"), SourcePolicy: "recorded-running;source-epoch/v1", ConsumerSchema: "rai.critical_speed/1"},
 			{Name: "load_settling", ModelID: "rai.load_settling", Version: "v1", Schema: "rai.load_settling/1", ConfigHash: digest("settling:36h;ln(D/.25B);P85;buckets12/24/36/48/v1"), SourcePolicy: "recorded-running;load-v2/v1", ConsumerSchema: "rai.load_settling/1"},
 		},
-		ExternalVO2:      Component{Name: "external_vo2max", ModelID: "rai.vo2max.external_projection", Version: "v1", Schema: "rai.vo2max.external_projection/1", InputSchema: "rai.vo2max.external_input/1", JobKind: StackJobKind, ArtifactKey: "vo2max_external_projection", ConfigHash: digest("external:apple-healthkit;no-calibration;stable-source-selection/v1.1"), SourcePolicy: "healthkit-readonly;external/v1", ConsumerSchema: "rai.vo2max.external_projection/1"},
+		ExternalVO2:      Component{Name: "external_vo2max", ModelID: "rai.vo2max.external_projection", Version: "v1", Schema: "rai.vo2max.external_projection/1", InputSchema: "rai.vo2max.external_input/1", JobKind: StackJobKind, ArtifactKey: "vo2max_external_projection", ConfigHash: digest("external:apple-healthkit;no-calibration;stable-source-selection;auto-latest-apple-epoch/v1.2"), SourcePolicy: "healthkit-readonly;external/v1", ConsumerSchema: "rai.vo2max.external_projection/1"},
 		ProductSchema:    ProductSchema,
 		MappingVersion:   MappingVersion,
 		InputRegistry:    InputRegistry,

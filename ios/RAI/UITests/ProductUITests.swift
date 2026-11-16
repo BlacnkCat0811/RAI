@@ -276,7 +276,7 @@ final class ProductUITests: XCTestCase {
     XCTAssertTrue(element("session.revoke").exists)
     try screen("AuditPagination")
   }
-  func test07PendingSessionLocksDraftAndRetriesOriginalAfterRestart() async throws {
+  func test07PendingSessionResendsOriginalAutomaticallyAfterRestart() async throws {
     try await freshPlan(includingToday: true)
     let plan = try await call("/v2/training/plans/current")
     let overview = try await call("/v2/product/overview")
@@ -302,13 +302,15 @@ final class ProductUITests: XCTestCase {
     try launchApp()
     try tap("home.hero")
     try tap("session.edit")
-    value = app.textFields["edit.value"]
-    XCTAssertTrue(element("pending.retry").waitForExistence(timeout: 20))
-    XCTAssertFalse(value.isEnabled)
-    XCTAssertEqual(Double(value.value as? String ?? ""), 5000)
-    try tap("pending.retry")
+    // The relaunch resends the original command by itself; no retry button.
+    XCTAssertFalse(app.buttons["pending.retry"].exists)
+    var confirmed = try await call("/v2/training/plans/current")
+    for _ in 0..<30 where confirmed["overrideRevision"] as? Int != 1 {
+      try await Task.sleep(for: .seconds(1))
+      confirmed = try await call("/v2/training/plans/current")
+    }
+    if !element("session.edit").exists { app.buttons["关闭"].firstMatch.tap() }
     XCTAssertTrue(element("session.edit").waitForExistence(timeout: 30))
-    let confirmed = try await call("/v2/training/plans/current")
     XCTAssertEqual(confirmed["overrideRevision"] as? Int, 1)
     try tap("session.edit")
     value = app.textFields["edit.value"]
@@ -351,7 +353,7 @@ final class ProductUITests: XCTestCase {
     XCTAssertFalse(app.buttons["create.save"].isEnabled)
     let accepted = try await call("/v2/training/plans/current")
     XCTAssertNotNil(accepted["planID"] as? String)
-    try tap("pending.retry")
+    // Resent automatically after a short back-off; the sheet closes itself.
     let closed = XCTNSPredicateExpectation(
       predicate: NSPredicate(format: "exists == false"), object: target)
     XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 30), .completed)

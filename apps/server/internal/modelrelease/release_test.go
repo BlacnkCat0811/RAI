@@ -46,7 +46,9 @@ func TestRetainedReleaseIdentityAndConfigAreIndependentOfCurrentCode(t *testing.
 			t.Fatal("wrong stack accepted")
 		}
 	}
-	if len(seen) < 3 {
-		t.Fatal("read compatibility lost")
+	// Only the current release and the one before it (for rollback) are kept;
+	// a deployment that adds a release drops the oldest.
+	if len(seen) > 2 || !seen[modelmanifest.StackID()] {
+		t.Fatalf("keep exactly the current release and at most one previous, have %d", len(seen))
 	}
 }

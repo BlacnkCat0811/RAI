@@ -1,3 +1,9 @@
+## 2026-11-16 — 运动模型只计算 schema4，旧 App 降级读取 / OpenAPI 1.15.0
+
+- 服务端只计算 schema4。`GET /v2/analysis/athlete` 不带参数（schema2）或 `schemaVersion=rai.athlete_model/2`／`3` 时，从当前 schema4 结果投影出旧 schema：schema3 去掉 `runningFitness`；schema2 再去掉 `sessionRecovery`／`loadFocus`，恢复与准备度只在 `mode` 为 complete 时保留数值，否则为 `model_update_required`。其他取值仍为 422。
+- 新增产品原因码 `model_switching`：active 为上一版栈且当天无可读结果（部署后自动激活完成前或回滚后），属服务端状态，与需要更新 App 的 `model_update_required` 区分。
+- 模型发布注册表只保留当前栈与上一版（回滚目标）；更早的栈返回 `unsupported`，历史接口返回 409 `model_version_unsupported`。
+
 ## 2026-11-10 — Workout completeness 控制面下线（OpenAPI 1.13.3）
 
 - 按产品决定取消 Workout 集合完整性证明：服务端只按上传是否提交（`workout_ingests.state='committed'`）判定 Workout，与 RQrun 一致。`POST /v2/sync/workout-completeness`、`WorkoutCompletenessManifest{,V2}`/`WorkoutCompletenessReceipt{,V2}`/`WorkoutCompletenessPage|Stream|Series|Workout`/`CompletenessInventory`/`CompletenessExclusion`/`SourcePolicyEvidence` schema、握手能力 `workoutSyncCompletenessVersion`/`workoutSyncCompletenessV2Version`/`workoutStreamSetVersion` 与 `contracts/fixtures/workout-completeness-*` 全部移除。未知旧客户端请求该路径得到 404（端点已不存在），不再返回 422 `unsupported_version`。

@@ -241,7 +241,7 @@ public struct FitnessBasicMetric: Equatable, Sendable, Identifiable {
       .init(id: "vo2max", title: "VO₂max", text: ProductFormat.decimal(vo2, digits: 1), unit: "mL/kg/min",
         note: vo2 == nil ? "暂无可用估计" : (useExternal ? "Apple 健康 · 外部估计" : "RAI 估计 · 实验性")),
       .init(id: "thresholdPace", title: "乳酸阈值配速", text: RunningFitnessText.pace(pace), unit: "/km",
-        note: pace == nil ? "证据不足" : (threshold?.status == "supported" ? "有训练或比赛校准" : "模型估计 · 仅供参考")),
+        note: pace == nil ? "数据还不够" : (threshold?.status == "supported" ? "有训练或比赛校准" : "模型估计 · 仅供参考")),
       .init(id: "thresholdHeartRate", title: "乳酸阈心率", text: "--", unit: "bpm", note: "暂未提供")
     ]
   }
@@ -314,7 +314,7 @@ public enum RunningFitnessText {
     case "direct": return "有同距离成绩"
     case "calibrated": return "有成绩校准"
     case "prior_based": return "理论范围"
-    default: return "证据不足"
+    default: return "数据还不够"
     }
   }
   public static func distanceName(_ raw: String) -> String {
@@ -338,7 +338,7 @@ public enum RunningFitnessText {
     case "supported": return "可靠"
     case "limited": return "有限"
     case "unavailable": return "无法分析"
-    default: return "证据不足"
+    default: return "数据还不够"
     }
   }
   /// Why a run produced no single-run score, in runner words.

@@ -90,6 +90,22 @@ services:
       retries: 3
     mem_limit: 1g
     cpus: 1.0
+  # One-shot, owner role: after the Worker is up, activates the model stack
+  # built into this image for every dataset (no-op when already active). The
+  # Worker keeps its read-only channel grants. Exit code non-zero means the
+  # previous stack stays active; see its JSON output.
+  model-activate:
+    <<: *app
+    restart: 'no'
+    command: [analysis, model-stack, auto-activate]
+    environment:
+      RAI_DATABASE_URL_FILE: /run/secrets/owner_dsn
+    secrets: [owner_dsn]
+    networks: [database]
+    depends_on:
+      worker: {condition: service_healthy}
+    mem_limit: 256m
+    cpus: 0.5
   admin:
     <<: *app
     profiles: [tools]

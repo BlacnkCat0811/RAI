@@ -33,7 +33,7 @@ func readOwnerAuthorization(path string) ([]byte, error) {
 // values, confidence numbers, identifiers and internal health/model parameters.
 func ModelStackCommand(ctx context.Context, url string, args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("model-stack inspect --dataset --evaluation-at | health --dataset [--days 90] [--channel active] | identity | promotion-plan | prepare-synthetic | prepare-real | activate-real | rollback-real")
+		return errors.New("model-stack inspect --dataset --evaluation-at | health --dataset [--days 90] [--channel active] | identity | auto-activate [--timeout 2h] | promotion-plan | prepare-synthetic | prepare-real | activate-real | rollback-real")
 	}
 	if args[0] == "identity" {
 		if len(args) != 1 {
@@ -50,6 +50,21 @@ func ModelStackCommand(ctx context.Context, url string, args []string, out io.Wr
 			return errors.New("promotion-plan takes no flags")
 		}
 		return json.NewEncoder(out).Encode(am.PromotionPlan())
+	}
+	if args[0] == "auto-activate" {
+		fs := flag.NewFlagSet("auto-activate", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		timeout := fs.Duration("timeout", 2*time.Hour, "")
+		interval := fs.Duration("interval", 5*time.Second, "")
+		if fs.Parse(args[1:]) != nil || fs.NArg() != 0 || *timeout <= 0 || *interval <= 0 {
+			return errors.New("auto-activate takes only --timeout and --interval")
+		}
+		s, err := postgres.Open(ctx, url, 2)
+		if err != nil {
+			return errors.New("model-stack database configuration failed")
+		}
+		defer s.Pool.Close()
+		return autoActivate(ctx, s, *timeout, *interval, out)
 	}
 	if args[0] == "prepare-synthetic" {
 		fs := flag.NewFlagSet("prepare-synthetic", flag.ContinueOnError)

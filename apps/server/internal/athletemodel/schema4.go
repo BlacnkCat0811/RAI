@@ -128,3 +128,42 @@ func ProjectRunningFitness(s rf.State, publication string, updated, at int64) Me
 		Predictions: s.Predictions, Zones: s.Zones, RacePaces: s.RacePaces, Preparation: s.Preparation, Support: s.Support, Stability: s.Stability, Observations: s.Observations, ReasonCodes: s.Reasons}
 	return m
 }
+
+// Downgrade serves an older App the schema it asked for from the current
+// schema4 snapshot, keeping every metric whose meaning is unchanged so the old
+// App still shows numbers. Slots the old contract cannot express truthfully
+// become "model_update_required": the one case where updating the App helps.
+//   - schema3: drops runningFitness (new in schema4); everything else as is.
+//   - schema2: also drops sessionRecovery and loadFocus, and keeps recovery
+//     and readiness only when computed from complete inputs, because schema2
+//     has no notion of an estimated score.
+func Downgrade(s AthleteModelSnapshot, schema string) AthleteModelSnapshot {
+	if s.SchemaVersion != Schema4 || (schema != Schema3 && schema != Schema2) {
+		return s
+	}
+	s.SchemaVersion = Schema3
+	s.RunningFitness = nil
+	s.PresentationOrder = []string{"trainingReadiness", "physiologicalRecovery", "sessionRecovery", "trainingLoad", "loadFocus", "runningAbility", "raiVO2Max", "externalVO2Max"}
+	if schema == Schema2 {
+		s.SchemaVersion = Schema2
+		s.SessionRecovery, s.LoadFocus = nil, nil
+		s.PresentationOrder = []string{"trainingReadiness", "physiologicalRecovery", "trainingLoad", "runningAbility", "raiVO2Max", "externalVO2Max"}
+		at := s.EvaluationAt
+		if !completeMode(s.PhysiologicalRecovery.Envelope) {
+			s.PhysiologicalRecovery = Missing[RecoveryValue]("physiologicalRecovery", at, "model_update_required")
+			s.PhysiologicalRecovery.Envelope.MappingVersion = MappingVersion2
+		}
+		if !completeMode(s.TrainingReadiness.Envelope) {
+			s.TrainingReadiness = Missing[ReadinessValue]("trainingReadiness", at, "model_update_required")
+			s.TrainingReadiness.Envelope.MappingVersion = MappingVersion2
+		}
+	}
+	SetProjectedResponseState(&s)
+	return s
+}
+
+// completeMode is true for a metric with a value computed from complete
+// inputs, and for one without a value (its missing reason is still valid).
+func completeMode(e Envelope) bool {
+	return e.State != Available && e.State != Limited || e.Mode == "" || e.Mode == "complete"
+}

@@ -110,7 +110,7 @@ public enum WorkoutQualificationText {
     [
       "missing_hr": "缺少心率", "hr_missing": "缺少心率", "hr_coverage_low": "心率覆盖不足", "active_time_uncertain": "运动时间不确定",
       "speed_gap": "速度数据断档", "route_accuracy_low": "路线精度低", "grade_unknown": "坡度未知", "distance_mismatch": "距离不一致",
-      "distance_missing": "缺少距离", "pause_contaminated": "暂停影响分段", "source_conflict": "来源冲突", "source_unknown": "来源未知",
+      "distance_missing": "缺少距离", "pause_contaminated": "暂停影响分段", "source_conflict": "多个设备的数据不一致", "source_unknown": "来源未知",
       "duration_too_short": "时长过短", "environment_unknown": "环境未知", "parameter_missing": "缺少心率参数",
       "parameter_conflict": "心率参数冲突", "invalid_observation": "数据异常", "signal_outlier": "信号异常",
       "unsupported_input": "不支持的数据", "effort_unconfirmed": "未确认为全力", "cross_workout_evidence_required": "需要其他训练印证",

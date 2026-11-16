@@ -1,0 +1,6 @@
+{
+  "run": ".local/device-acceptance",
+  "pgPort": 55433,
+  "httpPort": 18080,
+  "host": ""
+}

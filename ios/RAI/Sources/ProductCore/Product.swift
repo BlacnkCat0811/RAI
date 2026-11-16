@@ -53,11 +53,16 @@ public struct ProductSnapshot: Sendable {
   public var failures: [String: String] = [:]
   public var athleteAbsenceText: String {
     if failures["athlete"] == "not_product_activated" { return "尚未启用" }
-    return failures["athlete"] == nil ? "结果尚未就绪" : "模型结果读取失败，请稍后重试"
+    if failures["athlete"] == Self.athleteUpdateRequired { return ProductReasonText.updateApp }
+    return failures["athlete"] == nil ? "正在计算" : "读取失败，下拉重试"
   }
   public var athleteRefreshFailed: Bool {
-    failures["athlete"].map { $0 != "not_product_activated" } ?? false
+    failures["athlete"].map { $0 != "not_product_activated" && $0 != Self.athleteUpdateRequired } ?? false
   }
+  /// The server answered with an athlete schema this build cannot read: not a
+  /// failure to retry, but new functionality that needs an App update.
+  public static let athleteUpdateRequired = "athlete_update_required"
+  public var athleteNeedsAppUpdate: Bool { failures["athlete"] == Self.athleteUpdateRequired }
   public init() {}
   public var effective: JSON { plan["effective"] }
   public var sessions: [ProductSession] { effective["sessions"].list.map(ProductSession.init) }
@@ -150,7 +155,10 @@ public actor ProductAPI {
         case "athlete":
           do {
             let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: value.data())
-            guard snapshot.supportsPresentation else { throw SyncFailure.invalid("unsupported_athlete_schema") }
+            guard snapshot.supportsPresentation else {
+              out.failures[key] = ProductSnapshot.athleteUpdateRequired
+              continue
+            }
             out.athlete = snapshot
           } catch {
             out.failures[key] = "athlete_response_invalid"

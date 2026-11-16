@@ -25,11 +25,40 @@ import urllib.request
 import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-RUN = pathlib.Path(os.environ.get('RAI_LOCAL_DEVICE_RUN') or (ROOT / '.local/device-acceptance')).resolve()
-DERIVED = pathlib.Path(os.environ.get('RAI_LOCAL_DEVICE_DERIVED') or (RUN / 'DerivedData')).resolve()
-CONFIGURATION = os.environ.get('RAI_LOCAL_DEVICE_CONFIGURATION', 'Debug')
-PG_PORT = int(os.environ.get('RAI_LOCAL_DEVICE_PG_PORT', '55433'))
-HTTP_PORT = int(os.environ.get('RAI_LOCAL_DEVICE_HTTP_PORT', '18080'))
+# Settings come from the gitignored `.local/device.json` (keys: run, derived,
+# configuration, pgPort, httpPort, host); an RAI_LOCAL_DEVICE_* variable still
+# overrides one value for a single run. Relative paths are resolved from ROOT.
+CONFIG_FILE = ROOT / '.local/device.json'
+
+
+def load_settings(path=CONFIG_FILE, env=os.environ):
+    try:
+        file = json.loads(path.read_text()) if path.exists() else {}
+    except (OSError, ValueError) as error:
+        raise SystemExit(f'{path} is not valid JSON: {error}')
+    if not isinstance(file, dict):
+        raise SystemExit(f'{path} must hold a JSON object')
+    def pick(key, var, default):
+        value = env.get(var)
+        return value if value else file.get(key, default)
+    run = ROOT / str(pick('run', 'RAI_LOCAL_DEVICE_RUN', '.local/device-acceptance'))
+    derived = pick('derived', 'RAI_LOCAL_DEVICE_DERIVED', '')
+    return {
+        'run': run.resolve(),
+        'derived': (ROOT / str(derived)).resolve() if derived else (run / 'DerivedData').resolve(),
+        'configuration': str(pick('configuration', 'RAI_LOCAL_DEVICE_CONFIGURATION', 'Debug')),
+        'pgPort': int(pick('pgPort', 'RAI_LOCAL_DEVICE_PG_PORT', 55433)),
+        'httpPort': int(pick('httpPort', 'RAI_LOCAL_DEVICE_HTTP_PORT', 18080)),
+        'host': str(pick('host', 'RAI_LOCAL_DEVICE_HOST', '') or ''),
+    }
+
+
+SETTINGS = load_settings()
+RUN = SETTINGS['run']
+DERIVED = SETTINGS['derived']
+CONFIGURATION = SETTINGS['configuration']
+PG_PORT = SETTINGS['pgPort']
+HTTP_PORT = SETTINGS['httpPort']
 PG = ROOT / '.local/toolchain/Postgres.app/Contents/Versions/18/bin'
 GO = ROOT / '.local/toolchain/go/bin/go'
 BINARY = RUN / 'rai'
@@ -81,7 +110,7 @@ def execute(args, *, env=None, capture=False, timeout=180, cwd=ROOT):
 
 
 def lan_address():
-    specified = os.environ.get('RAI_LOCAL_DEVICE_HOST')
+    specified = os.environ.get('RAI_LOCAL_DEVICE_HOST') or SETTINGS['host']
     if specified:
         candidates = [specified]
     else:
@@ -100,7 +129,7 @@ def lan_address():
         ranges = ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16')
         if any(address in ipaddress.ip_network(network) for network in ranges):
             return str(address)
-    raise RuntimeError('No private Mac LAN IPv4 address; set RAI_LOCAL_DEVICE_HOST to its reachable LAN address')
+    raise RuntimeError('No private Mac LAN IPv4 address; set "host" in .local/device.json (or RAI_LOCAL_DEVICE_HOST) to its reachable LAN address')
 
 
 def load():

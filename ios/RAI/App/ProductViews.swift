@@ -360,7 +360,7 @@ struct WeeklyCard: View {
 func athleteAbsenceDetail(_ snapshot: ProductSnapshot) -> String {
   switch snapshot.athleteAbsenceText {
   case "尚未启用": return "服务器上还没有启用运动模型，启用后这里会显示准备度、跑力和训练负荷。"
-  case "结果尚未就绪": return "还在计算。同步几次跑步并填写最大心率后，这里会显示准备度、跑力和训练负荷。"
+  case "正在计算": return "还在计算。同步几次跑步并填写最大心率后，这里会显示准备度、跑力和训练负荷。"
   default: return snapshot.athleteAbsenceText
   }
 }
@@ -415,7 +415,6 @@ struct ActivitiesView: View {
 }
 struct AnalysisView: View {
   @Bindable var model: ProductModel
-  @State private var showingModelInput = false
   var body: some View {
     ScrollView {
       VStack(spacing: 16) {
@@ -438,48 +437,38 @@ struct AnalysisView: View {
           }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("model.history.link")
         }
         AthleteRefreshNotice(snapshot: model.data)
-        Button {
-          showingModelInput = true
-        } label: {
-          RAIRowLabel(title: "睡眠目标与 VO₂ 来源", icon: "square.and.pencil", detail: "用于恢复和 VO₂ 的计算")
-        }
-        .buttonStyle(RAIPressStyle())
-        .disabled(!model.configured)
-        .accessibilityHint("填写睡眠目标或 Apple VO₂ 来源；心率在「我的 → 静息与最大心率」填写")
-        Text("以上结果由服务器根据已同步的数据计算；数据不足或过期时会留空，不会用 0 代替。RAI VO₂ 为实验性估计，与 Apple 的 VO₂ 估计各自独立。").font(.footnote)
-          .foregroundStyle(RAITheme.secondary)
+        MetricsExplainerLink()
       }.padding(18)
     }.navigationTitle("运动模型").raiScreen()
       .refreshable { await model.refresh(); await model.loadTrainingLoadHistory() }
       .task { await model.loadTrainingLoadHistory() }
       .accessibilityIdentifier("screen.analysis")
-      .sheet(isPresented: $showingModelInput) { ModelInputSheet(model: model) }
   }
+}
+
+/// The two user inputs that are not heart rate. Each has its own sheet; the
+/// value applies from today.
+enum ModelInputKind: String, Identifiable {
+  case sleepTarget = "sleep_target"
+  case vo2Source = "vo2max_source_selection"
+  var id: String { rawValue }
 }
 
 private struct ModelInputSheet: View {
   @Bindable var model: ProductModel
+  let kind: ModelInputKind
   @Environment(\.dismiss) private var dismiss
-  @State private var kind = "sleep_target"
   @State private var sleepHours = "8"
   @State private var sourceEpoch = ""
   @State private var vo2Sources: [VO2SourceOption] = []
   @State private var selectionRevoked = false
-  @State private var effectiveDate = Date()
   @State private var busy = false
   @State private var message: String?
 
   var body: some View {
     NavigationStack {
       Form {
-        Section {
-          Picker("类型", selection: $kind) {
-            Text("睡眠目标").tag("sleep_target")
-            Text("VO₂ 来源").tag("vo2max_source_selection")
-          }.pickerStyle(.segmented)
-        }
-        Section("生效日期") { DatePicker("日期", selection: $effectiveDate, displayedComponents: .date) }
-        if kind == "sleep_target" {
+        if kind == .sleepTarget {
           Section("睡眠目标（小时）") {
             TextField("目标睡眠时长", text: $sleepHours)
             Text("你希望每晚睡多久，用于评估恢复情况。")
@@ -498,18 +487,12 @@ private struct ModelInputSheet: View {
               }.pickerStyle(.inline)
             }
             Toggle("不再使用该来源", isOn: $selectionRevoked)
-            Text("同一设备升级系统后仍是同一来源，无需重新选择。")
+            Text("通常会自动使用最近一直在记录的 Apple Watch；只有多个设备数据冲突时才需要在这里确认。")
               .font(.caption).foregroundStyle(RAITheme.secondary)
           }
         }
         if model.pendingModelInput != nil {
-          Button("重新提交上一次修改") {
-            busy = true
-            Task {
-              if let failure = await model.retryModelInput() { message = failure } else { dismiss() }
-              busy = false
-            }
-          }.disabled(busy)
+          Text("上一次修改正在提交，联网后会自动完成。").font(.footnote).foregroundStyle(RAITheme.secondary)
         }
         if let message { Text(message).foregroundStyle(.red).font(.footnote) }
         Section {
@@ -518,17 +501,18 @@ private struct ModelInputSheet: View {
         }
       }
       .task {
+        guard kind == .vo2Source else { return }
         vo2Sources = await model.loadVO2Sources()
         if sourceEpoch.isEmpty { sourceEpoch = vo2Sources.first?.sourceEpoch ?? "" }
       }
-      .navigationTitle("睡眠目标与 VO₂ 来源")
+      .navigationTitle(kind == .sleepTarget ? "睡眠目标" : "Apple VO₂ 来源")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar { ToolbarItem(placement: .cancellationAction) { Button("取消") { dismiss() } } }
     }
   }
 
   private var valid: Bool {
-    if kind == "vo2max_source_selection" {
+    if kind == .vo2Source {
       return trimmedSourceEpoch.range(
         of: "^sha256:[0-9a-f]{64}$", options: .regularExpression) != nil
     }
@@ -550,7 +534,7 @@ private struct ModelInputSheet: View {
     message = nil
     Task {
       let payload: [String: JSON]
-      if kind == "vo2max_source_selection" {
+      if kind == .vo2Source {
         payload = [
           "sourceEpoch": .string(trimmedSourceEpoch),
           "revoked": .bool(selectionRevoked),
@@ -559,7 +543,7 @@ private struct ModelInputSheet: View {
         payload = ["hours": .number(Double(sleepHours) ?? 0)]
       }
       let failure = await model.submitModelInput(
-        kind: kind, payload: payload, effectiveFrom: effectiveDate)
+        kind: kind.rawValue, payload: payload, effectiveFrom: Date())
       await MainActor.run {
         busy = false
         if let failure { message = failure } else { dismiss() }
@@ -570,7 +554,11 @@ private struct ModelInputSheet: View {
 struct AthleteRefreshNotice: View {
   let snapshot: ProductSnapshot
   var body: some View {
-    if snapshot.athleteRefreshFailed {
+    if snapshot.athleteNeedsAppUpdate {
+      Label(ProductReasonText.updateApp, systemImage: "arrow.down.app")
+        .font(.caption).foregroundStyle(RAITheme.blue)
+        .accessibilityIdentifier("model.update-app")
+    } else if snapshot.athleteRefreshFailed {
       VStack(alignment: .leading, spacing: 4) {
         Text("运动模型刷新失败，可下拉重试。")
         if let athlete = snapshot.athlete {
@@ -629,6 +617,7 @@ struct LoadFocusBar: View {
 struct AthleteModelCard: View {
   let snapshot: AthleteModelSnapshot
   var summary = false
+  @AppStorage(ExperimentalMetrics.key) private var showExperimental = false
   @Environment(\.dynamicTypeSize) private var typeSize
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
@@ -676,11 +665,10 @@ struct AthleteModelCard: View {
       }
 
       sectionDivider("最大摄氧量")
-      if let rai = snapshot.raiVO2Max {
+      if showExperimental, let rai = snapshot.raiVO2Max {
         row(rai.value?.experimental == true ? "RAI VO₂（" + ProductReasonText.experimentalLabel + "）" : "RAI VO₂", value: rai.value?.value, unit: "mL/kg/min", metric: rai.envelope, digits: 1)
       }
       row("Apple VO₂ 估计", value: snapshot.externalVO2Max.value?.value, unit: "mL/kg/min", metric: snapshot.externalVO2Max.envelope, digits: 1)
-      Text(ProductReasonText.independenceNotice).font(.caption2).foregroundStyle(RAITheme.secondary)
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("model.card")
@@ -713,6 +701,7 @@ struct AthleteModelCard: View {
 
 struct AthleteHistoryView: View {
   @Bindable var model: ProductModel
+  @AppStorage(ExperimentalMetrics.key) private var showExperimental = false
   @State private var metric: String
   @State private var page: AthleteHistoryPage?
   @State private var failed = false
@@ -735,7 +724,7 @@ struct AthleteHistoryView: View {
         }
         Text("生理恢复").tag("physiologicalRecovery")
         Text("训练准备度").tag("trainingReadiness")
-        Text("RAI VO₂（实验）").tag("raiVO2Max")
+        if showExperimental { Text("RAI VO₂（实验）").tag("raiVO2Max") }
         Text("Apple VO₂ 估计").tag("externalVO2Max")
       }
       if let page, page.metric == metric, page.assignment == model.data.athlete?.assignment {
@@ -787,8 +776,9 @@ struct ProfileView: View {
   @Bindable var model: ProductModel
   @Bindable var sync: SyncModel
   @AppStorage("runnerName") private var name = "跑者"
-  @State private var showingModelInput = false
+  @State private var modelInput: ModelInputKind?
   @State private var hasHeartRateSuggestion = false
+  @AppStorage(ExperimentalMetrics.key) private var showExperimental = false
   var body: some View {
     Form {
       Section("个人资料") {
@@ -809,10 +799,23 @@ struct ProfileView: View {
           }
         }.accessibilityIdentifier("profile.hr-settings")
         Button {
-          showingModelInput = true
+          modelInput = .sleepTarget
         } label: {
-          Label("睡眠目标与 VO₂ 来源", systemImage: "bed.double")
+          Label("睡眠目标", systemImage: "bed.double")
         }.disabled(!model.configured).accessibilityIdentifier("profile.model-input")
+        if let env = model.data.athlete?.externalVO2Max.envelope,
+          ([env.modelStatus.rawValue] + env.reasonCodes.map(\.rawValue) + env.productReasonCodes.map(\.rawValue))
+            .contains(where: { ["source_selection_required", "source_conflict"].contains($0) }) {
+          // Normally chosen automatically; only an unresolved conflict asks.
+          Button {
+            modelInput = .vo2Source
+          } label: {
+            VStack(alignment: .leading, spacing: 4) {
+              Label("Apple VO₂ 来源", systemImage: "applewatch")
+              Text("多个设备的 VO₂ 数据不一致，点此确认使用哪一个").font(.caption).foregroundStyle(RAITheme.blue)
+            }
+          }.disabled(!model.configured).accessibilityIdentifier("profile.vo2-source")
+        }
       } header: {
         Text("训练参数")
       } footer: {
@@ -848,16 +851,10 @@ struct ProfileView: View {
           }
         }
       }
-      if let pending = model.pending {
-        Section("有一次修改还没保存成功") {
-          Text("上一次提交没有收到服务器的确认。重新提交不会产生重复记录。").font(.footnote)
-          if model.conflict { Button("查看最新计划并放弃这次修改") { Task { await model.reviewConflict() } } }
-          Button("重新提交") {
-            Task {
-              _ = await model.submit(pending)
-              await model.refresh()
-            }
-          }.disabled(model.loading)
+      if model.pending != nil && model.conflict {
+        Section("训练计划已更新") {
+          Text("有一次修改和最新计划冲突，没有保存。").font(.footnote)
+          Button("查看最新计划") { Task { await model.reviewConflict() } }
         }
       }
       #if DEBUG && targetEnvironment(simulator)
@@ -871,6 +868,13 @@ struct ProfileView: View {
         }
       #endif
       Section {
+        NavigationLink {
+          MetricsExplainerView()
+        } label: {
+          Label("指标说明", systemImage: "info.circle")
+        }.accessibilityIdentifier("profile.explainer")
+        Toggle("显示实验指标", isOn: $showExperimental)
+          .accessibilityIdentifier("profile.experimental")
         LabeledContent("版本", value: appVersion)
       } header: {
         Text("关于")
@@ -880,7 +884,7 @@ struct ProfileView: View {
       if let error = model.error { Section { RAINotice(text: error) } }
     }.scrollContentBackground(.hidden).navigationTitle("我的").raiScreen().accessibilityIdentifier(
       "screen.profile")
-      .sheet(isPresented: $showingModelInput) { ModelInputSheet(model: model) }
+      .sheet(item: $modelInput) { ModelInputSheet(model: model, kind: $0) }
       .task(id: model.statisticsRevision) {
         let (response, supported) = await model.loadHRSettingsV3()
         guard let response, supported else { hasHeartRateSuggestion = false; return }
@@ -1222,7 +1226,7 @@ struct WorkoutSyncDetail: View {
 
 struct RunningFitnessEntryCard: View {
   let snapshot: AthleteModelSnapshot?
-  var absenceText = "结果尚未就绪"
+  var absenceText = "正在计算"
 
   var body: some View {
     let metric = snapshot?.runningFitness
@@ -1271,6 +1275,7 @@ struct RunningFitnessEntryCard: View {
 
 struct RunningFitnessDetailView: View {
   @Bindable var model: ProductModel
+  @AppStorage(ExperimentalMetrics.key) private var showExperimental = false
 
   var body: some View {
     ScrollView {
@@ -1292,22 +1297,20 @@ struct RunningFitnessDetailView: View {
                 state: metric.envelope.presentationState.rawValue))
             FitnessBasicMetricsCard(metrics: FitnessBasicMetric.metrics(snapshot: snapshot))
           }
-          researchDiagnostics()
+          if showExperimental { researchDiagnostics() }
           NavigationLink {
             RunningFitnessHistoryView(model: model)
           } label: {
             RAIRowLabel(title: "跑力历史", icon: "calendar")
           }.buttonStyle(RAIPressStyle()).accessibilityIdentifier("runningFitness.history")
-          if metric.presentationValue != nil { reanalysis() }
         } else {
           EmptyCard(
             title: "跑力暂不可用",
             detail: model.configured
-              ? (model.data.athlete == nil ? model.data.athleteAbsenceText : "需要更新到新版模型后显示。")
+              ? (model.data.athlete == nil ? model.data.athleteAbsenceText : "服务器正在更新模型，稍后自动恢复。")
               : "请先连接服务器。")
         }
-        Text("跑力按 RAI 自定义刻度换算为平坦路线、适宜天气下的马拉松等效水平（8 小时为 0 分，4 小时为 50 分，2 小时为 100 分），不是完赛承诺，也不是其他品牌的分数。范围是模型假设下的范围，不是概率。")
-          .font(.footnote).foregroundStyle(RAITheme.secondary)
+        MetricsExplainerLink()
       }.padding(18)
     }.navigationTitle("跑力").raiScreen().refreshable { await model.refresh() }
       .task { await model.loadAthleteDiagnostics() }
@@ -1334,13 +1337,6 @@ struct RunningFitnessDetailView: View {
       if value.stability.changeUnconfirmed {
         Text("最近一次训练让结果变化较大，等待另一次训练确认。").font(.caption).foregroundStyle(RAITheme.amber)
       }
-      if let date = value.latestEvidenceDay {
-        Text("最近证据 \(date) · 有效训练日 \(value.support.independentDays) 天").font(.caption2).foregroundStyle(RAITheme.secondary)
-      }
-      if value.support.conditionDownweightedShare > 0.3 {
-        Text("近期 \(Int((value.support.conditionDownweightedShare * 100).rounded()))% 的跑步缺少天气记录或在炎热、寒冷条件下，长期跑力中权重已降低。")
-          .font(.caption2).foregroundStyle(RAITheme.secondary)
-      }
     }.padding(20).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
   }
 
@@ -1353,8 +1349,6 @@ struct RunningFitnessDetailView: View {
         FitnessAbilityRow(key: item.key, dimension: item.value, zone: value.zones.zone(item.value.zone))
         if item.key != "sprint" { Divider() }
       }
-      Text("配速区间与能力评分分别展示；默认假设区间仅供参考，缺少证据的能力不补评分。")
-        .font(.caption2).foregroundStyle(RAITheme.secondary)
     }.padding(20).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("runningFitness.dimensions")
   }
@@ -1382,8 +1376,6 @@ struct RunningFitnessDetailView: View {
           }
         }
       }
-      Text("平坦路线、适宜天气、合理配速与补给条件下的模型范围，不是完赛概率。没有长距离成绩时，半马与全马主要由默认耐力假设决定。")
-        .font(.caption2).foregroundStyle(RAITheme.secondary)
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("runningFitness.predictions")
   }
@@ -1427,8 +1419,6 @@ struct RunningFitnessDetailView: View {
           }
         }
       }
-      Text("区间由服务端按长期能力生成；训练计划只使用标为可用的区间，其余课次只给心率目标。")
-        .font(.caption2).foregroundStyle(RAITheme.secondary)
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("runningFitness.zones")
   }
@@ -1457,42 +1447,8 @@ struct RunningFitnessDetailView: View {
           Text(RunningFitnessText.singleStatus(run.status)).font(.caption2).foregroundStyle(RAITheme.secondary)
         }
       }
-      Text("单次跑力统一使用默认耐力假设，长期跑力可使用你的个人耐力形状；两者的差值不等于当天状态。")
-        .font(.caption2).foregroundStyle(RAITheme.secondary)
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("runningFitness.singles")
-  }
-
-  private func reanalysis() -> some View {
-    VStack(alignment: .leading, spacing: 8) {
-      CardHeading(title: "重新计算", icon: "arrow.triangle.2.circlepath")
-      Text("修改心率设置或比赛标注后，可按当前算法重算近 90 天的跑力。重算期间保留原结果。")
-        .font(.caption).foregroundStyle(RAITheme.secondary)
-      Button("重算近 90 天") {
-        Task {
-          let today = Date()
-          let formatter = DateFormatter()
-          formatter.calendar = Calendar(identifier: .gregorian)
-          formatter.locale = Locale(identifier: "en_US_POSIX")
-          formatter.timeZone = TimeZone(identifier: model.data.athlete?.timezone ?? "") ?? .current
-          formatter.dateFormat = "yyyy-MM-dd"
-          let from = formatter.string(from: today.addingTimeInterval(-89 * 86400))
-          await model.requestFitnessReanalysis(from: from, to: formatter.string(from: today))
-        }
-      }.buttonStyle(.bordered).accessibilityIdentifier("runningFitness.reanalyze")
-      if let op = model.fitnessReanalysis {
-        HStack {
-          Text(RunningFitnessText.reanalysisStatus(op)).font(.caption)
-          Spacer()
-          if !op.finished {
-            Button("刷新进度") { Task { await model.refreshFitnessReanalysis() } }.font(.caption)
-          }
-        }
-      }
-      if let error = model.fitnessReanalysisError {
-        Text(error).font(.caption).foregroundStyle(RAITheme.amber)
-      }
-    }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
   }
 
   private func researchDiagnostics() -> some View {
@@ -1645,7 +1601,7 @@ private func researchStatusText(_ status: String) -> String {
   case "unstable": return "不稳定"
   case "stale": return "已过期"
   case "unavailable": return "暂不可用"
-  default: return "证据不足"
+  default: return "数据还不够"
   }
 }
 

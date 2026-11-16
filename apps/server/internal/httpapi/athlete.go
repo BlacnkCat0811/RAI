@@ -30,30 +30,20 @@ func (a *API) athleteProduct(w http.ResponseWriter, r *http.Request, p syncing.P
 	if !ok {
 		return syncing.Fail(503, "athlete_model_unavailable")
 	}
+	// The server computes schema4 only. An older App (no parameter means
+	// schema2) gets its own schema projected down, so it keeps showing every
+	// metric whose meaning did not change instead of a blank page.
 	q := r.URL.Query()
-	if len(q) > 1 || len(q) == 1 && (len(q["schemaVersion"]) != 1 || q.Get("schemaVersion") != am.Schema3 && q.Get("schemaVersion") != am.Schema4) {
+	requested := am.Schema2
+	if len(q) == 1 && len(q["schemaVersion"]) == 1 {
+		requested = q.Get("schemaVersion")
+	}
+	if len(q) > 1 || len(q) == 1 && len(q["schemaVersion"]) != 1 || requested != am.Schema2 && requested != am.Schema3 && requested != am.Schema4 {
 		return syncing.Fail(422, "invalid_athlete_query")
 	}
-	var snapshot am.AthleteModelSnapshot
-	var err error
-	if q.Get("schemaVersion") == am.Schema4 {
-		v4, ok := a.store.(interface {
-			ReadAthleteProductV4(context.Context, syncing.Principal, time.Time) (am.AthleteModelSnapshot, error)
-		})
-		if !ok {
-			return syncing.Fail(503, "athlete_model_unavailable")
-		}
-		snapshot, err = v4.ReadAthleteProductV4(r.Context(), p, time.Now().UTC())
-	} else if q.Get("schemaVersion") == am.Schema3 {
-		v3, ok := a.store.(interface {
-			ReadAthleteProductV3(context.Context, syncing.Principal, time.Time) (am.AthleteModelSnapshot, error)
-		})
-		if !ok {
-			return syncing.Fail(503, "athlete_model_unavailable")
-		}
-		snapshot, err = v3.ReadAthleteProductV3(r.Context(), p, time.Now().UTC())
-	} else {
-		snapshot, err = rd.ReadAthleteProduct(r.Context(), p, time.Now().UTC())
+	snapshot, err := rd.ReadAthleteProduct(r.Context(), p, time.Now().UTC())
+	if err == nil {
+		snapshot = am.Downgrade(snapshot, requested)
 	}
 	if err != nil {
 		if err == am.ErrNotActivated {

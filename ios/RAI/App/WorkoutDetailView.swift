@@ -15,7 +15,6 @@ struct WorkoutDetail: View {
   @State private var effortMessage: String?
   @State private var effortBusy = false
   @State private var confirmEffort = false
-  @State private var reanalyzing = false
   @AppStorage("developerOptions") private var developerOptions = false
 
   private var detail: WorkoutDetailResponse? {
@@ -124,15 +123,16 @@ struct WorkoutDetail: View {
               Text((delta >= 0 ? "+" : "") + num(delta, digits: 1) + " 较训练前基准").font(.caption).monospacedDigit()
             }
           }
-          Text("范围 \(num(hr.scoreSensitivityRange.low, digits: 1))–\(num(hr.scoreSensitivityRange.high, digits: 1)) 分 · 有效分析 \(Int((hr.netSupportedSeconds / 60).rounded())) 分钟 · 心率与配速")
-            .font(.caption).foregroundStyle(RAITheme.secondary)
-          if hr.gradeMode != "adjusted" {
-            Text(hr.gradeMode == "indoor" ? "跑步机：速度没有路线核对，只作有限参考" : "坡度未知：按未校正配速估计")
-              .font(.caption2).foregroundStyle(RAITheme.secondary)
-          }
-          if hr.conditionWeight < 1 {
-            Text("天气条件不同，这次跑步在长期跑力里降权").font(.caption2).foregroundStyle(RAITheme.secondary)
-          }
+          DisclosureGroup("计算依据") {
+            VStack(alignment: .leading, spacing: 4) {
+              LabeledContent("可能范围", value: "\(num(hr.scoreSensitivityRange.low, digits: 1))–\(num(hr.scoreSensitivityRange.high, digits: 1)) 分")
+              LabeledContent("用于计算", value: "\(Int((hr.netSupportedSeconds / 60).rounded())) 分钟")
+              if hr.gradeMode != "adjusted" {
+                Text(hr.gradeMode == "indoor" ? "跑步机：速度没有路线核对，只作有限参考" : "坡度未知：按未校正配速估计")
+              }
+              if hr.conditionWeight < 1 { Text("天气条件不同，这次跑步在长期跑力里降权") }
+            }.font(.caption.monospacedDigit()).padding(.top, 4)
+          }.font(.caption).tint(RAITheme.blue)
         }
         if let race = single.raceEquivalent {
           Text("\(RunningFitnessText.effortName(race.kind))成绩折算 \(num(race.score, digits: 1)) 分 · \(RunningFitnessText.raceTime(race.elapsedSeconds))")
@@ -151,17 +151,8 @@ struct WorkoutDetail: View {
           NavigationLink("查看心率建议") { HeartRateSettingsView(model: model) }
             .font(.caption).accessibilityIdentifier("workout.hr-suggestions")
         }
-        Text("单次分按统一的默认耐力假设换算，不代表这次能跑出的全马成绩。")
-          .font(.caption2).foregroundStyle(RAITheme.secondary)
       } else {
-        Text("跑力还在计算，或这次跑步不在当前模型的范围内。").font(.caption).foregroundStyle(RAITheme.secondary)
-      }
-      Button(reanalyzing ? "已提交重新分析" : "按当前设置重新分析这次跑步") {
-        reanalyzing = true
-        Task { await model.requestFitnessReanalysis(workoutIDs: [workout.id]) }
-      }.font(.caption).disabled(reanalyzing).accessibilityIdentifier("workout.runFitness.reanalyze")
-      if reanalyzing, let op = model.fitnessReanalysis {
-        Text(RunningFitnessText.reanalysisStatus(op)).font(.caption2).foregroundStyle(RAITheme.secondary)
+        Text("这次跑步没有跑力结果。").font(.caption).foregroundStyle(RAITheme.secondary)
       }
     }.padding(16).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("workout.runFitness")
@@ -294,7 +285,9 @@ struct WorkoutDetail: View {
              : "没有坡度数据，无法计算坡度修正配速")
           .font(.caption2).foregroundStyle(RAITheme.secondary)
       }
-      if let env = detail.environment, env.status != "pending" { environmentSummary(env) }
+      if let total = detail.environment?.correction?.total, detail.environment?.status == "applied" {
+        Text("已按天气修正 \(num(total * 100, digits: 1))%").font(.caption2.monospacedDigit()).foregroundStyle(RAITheme.secondary)
+      }
       if summaryExpanded {
         Divider().overlay(RAITheme.primary.opacity(0.12))
         Text("更多指标").font(.subheadline.weight(.medium))
@@ -305,19 +298,21 @@ struct WorkoutDetail: View {
           summaryMetric("平均步幅", value(w.averageStrideLengthM, digits: 2, unit: "m"))
           summaryMetric("垂直振幅", value(w.averageVerticalOscillationCm, digits: 1, unit: "cm"))
           summaryMetric("触地时间", value(w.averageGroundContactTimeMs, digits: 0, unit: "ms"))
-          summaryMetric("数据质量", num(w.qualityScore, digits: 2))
         }.accessibilityIdentifier("workout.summary.metrics")
         if let adjusted = detail.environment?.adjusted {
           summaryMetric("环境等效用时", ProductFormat.duration(adjusted.durationS)).accessibilityIdentifier("workout.summary.adjustedDuration")
         }
         if let load = detail.trainingLoad {
-          HStack(spacing: 14) {
-            summaryMetric("负荷强度", num(load.intensity, digits: 1))
-            summaryMetric("负荷可信度", percent(load.confidence))
-          }
+          summaryMetric("训练负荷", num(load.intensity, digits: 1))
           Text("主要刺激：\(stimulusName(load.stimulusType))").font(.caption).foregroundStyle(RAITheme.secondary)
-          Text("负荷计算方式：\(loadSourceName(load.source))").font(.caption2).foregroundStyle(RAITheme.secondary)
         }
+        DisclosureGroup("计算依据") {
+        VStack(alignment: .leading, spacing: 6) {
+        summaryMetric("数据质量", num(w.qualityScore, digits: 2))
+        if let load = detail.trainingLoad {
+          Text("负荷可信度 \(percent(load.confidence)) · \(loadSourceName(load.source))").font(.caption2).foregroundStyle(RAITheme.secondary)
+        }
+        if let env = detail.environment, env.status != "pending" { environmentSummary(env) }
         if let focus = detail.loadFocus {
           Text("负荷构成：低强度有氧 \(num(focus.buckets.lowAerobicAU, digits: 0)) · 高强度有氧 \(num(focus.buckets.highAerobicAU, digits: 0)) · 无氧 \(num(focus.buckets.anaerobicProxyAU, digits: 0)) · 未分类 \(num(focus.buckets.unclassifiedAU, digits: 0))")
             .font(.caption2).foregroundStyle(RAITheme.secondary)
@@ -337,6 +332,8 @@ struct WorkoutDetail: View {
           }.font(.caption2).foregroundStyle(RAITheme.secondary).fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("workout.summary.modelQualification")
         }
+        }.padding(.top, 4)
+        }.font(.caption).tint(RAITheme.blue)
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .contentShape(Rectangle()).onTapGesture { withAnimation(reducedMotion ? nil : .easeInOut(duration: 0.2)) { summaryExpanded.toggle() } }
@@ -387,14 +384,24 @@ struct WorkoutDetail: View {
       VStack(alignment: .leading, spacing: 8) {
         CardHeading(title: "本次心率参考", icon: "heart")
         ForEach([("最大心率", reference.maxHR), ("静息心率", reference.restingHR)], id: \.0) { title, component in
-          Text(title + " · " + HeartRateReferenceText.source(component.source)).font(.subheadline)
-          if let raw = component.effectiveFrom { Text("适用起始：" + String(raw.prefix(10))).font(.caption) }
-          if let raw = component.measuredAt { Text("测量日期：" + String(raw.prefix(10))).font(.caption) }
-          if let raw = component.latestSampleAt { Text("最近观测：" + String(raw.prefix(10))).font(.caption) }
-          if let n = component.sampleDays, n > 0 { Text("有效观测 \(n) 天").font(.caption) }
-          if component.status == "estimated" { Text("估计参考").font(.caption) }
-          ForEach(Array(Set((component.reasonCodes ?? []).compactMap(HeartRateReferenceText.reason))).sorted(), id: \.self) { Text($0).font(.caption).foregroundStyle(RAITheme.secondary) }
+          HStack {
+            Text(title).font(.subheadline)
+            Spacer()
+            Text(component.value.map { "\(Int($0.rounded())) bpm" } ?? "—").font(.subheadline.monospacedDigit())
+            Text(HeartRateReferenceText.source(component.source) + (component.status == "estimated" ? " · 估计" : ""))
+              .font(.caption).foregroundStyle(RAITheme.secondary)
+          }
         }
+        DisclosureGroup("依据") {
+          VStack(alignment: .leading, spacing: 4) {
+            ForEach([("最大心率", reference.maxHR), ("静息心率", reference.restingHR)], id: \.0) { title, component in
+              if let raw = component.effectiveFrom { Text(title + "适用起始：" + String(raw.prefix(10))) }
+              if let raw = component.measuredAt { Text(title + "测量日期：" + String(raw.prefix(10))) }
+              if let n = component.sampleDays, n > 0 { Text(title + "有效观测 \(n) 天") }
+              ForEach(Array(Set((component.reasonCodes ?? []).compactMap(HeartRateReferenceText.reason))).sorted(), id: \.self) { Text($0) }
+            }
+          }.font(.caption).foregroundStyle(RAITheme.secondary).padding(.top, 4)
+        }.font(.caption).tint(RAITheme.blue)
         if reference.maxHR.status == "unavailable" || reference.restingHR.status == "unavailable" {
           Text("分析完成，缺少可用心率参考。").font(.footnote)
           NavigationLink("检查心率设置") { HeartRateSettingsView(model: model) }
@@ -436,10 +443,8 @@ struct WorkoutDetail: View {
             LabeledContent("高强度段", value: "\(effect.bouts ?? 0) 段 · " + ProductFormat.duration(effect.highIntensitySeconds))
           }.font(.caption.monospacedDigit()).padding(.top, 4)
         }.font(.caption).tint(RAITheme.blue)
-        Text(TrainingEffectText.disclaimer).font(.caption2).foregroundStyle(RAITheme.secondary)
-          .fixedSize(horizontal: false, vertical: true)
       } else {
-        Text(detail.workout.analysisStatus == "published" ? "当前模型版本尚未计算这次跑步的训练效果。" : "分析完成后显示训练效果。")
+        Text("分析完成后显示训练效果。")
           .font(.footnote).foregroundStyle(RAITheme.secondary)
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
@@ -460,9 +465,6 @@ struct WorkoutDetail: View {
       HStack {
         Text("刺激类型").font(.headline)
         Spacer()
-        if let confidence = zones?.stimulusConfidence ?? detail.workout.stimulusConfidence {
-          Text("可信度 " + percent(confidence)).font(.caption).foregroundStyle(RAITheme.secondary)
-        }
       }
       if let primary = scores.first {
         HStack(alignment: .bottom, spacing: 12) {
@@ -497,7 +499,7 @@ struct WorkoutDetail: View {
       }
       ForEach(scores) { score in
         WorkoutStatLine(label: stimulusName(score.stimulusType), value: "\(percent(score.score)) · \(ProductFormat.duration(score.qualifyingSeconds))",
-                        fraction: score.score, note: "可信度 \(percent(score.confidence))")
+                        fraction: score.score, note: nil)
       }
     }.padding(18).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .accessibilityIdentifier("workout.training-effect")
@@ -1050,7 +1052,7 @@ struct WorkoutPaceZoneCard: View {
   private func label(_ zone: String) -> String {
     let name = "\(zone) \(RunningFitnessText.zoneName(zone))"
     guard let band = zones.paceBand(zone) else { return name }
-    if !band.canClassify { return name + " · 证据不足" }
+    if !band.canClassify { return name + " · 数据还不够" }
     switch (band.fastPaceSecondsPerKm, band.slowPaceSecondsPerKm) {
     case let (fast?, slow?): return "\(name) \(paceText(fast))–\(paceText(slow))"
     case let (fast?, nil): return "\(name) 慢于 \(paceText(fast))"
@@ -1069,7 +1071,7 @@ struct WorkoutPaceZoneCard: View {
     if zones.explanationCodes.contains("pace_zones_not_fully_supported") { parts.append("部分区间仍是估计") }
     parts.append("占比按已分类时长计算")
     if let seconds = zones.paceReconstructedSeconds, seconds > 0 { parts.append("包含短间隔速度插值") }
-    if zones.explanationCodes.contains("pace_zone_evidence_insufficient") { parts.append("证据不足区间未分类") }
+    if zones.explanationCodes.contains("pace_zone_evidence_insufficient") { parts.append("部分区间数据不够，未分类") }
     if zones.explanationCodes.contains("stationary_speed_excluded") { parts.append("停步不计入") }
     return parts.joined(separator: " · ")
   }
@@ -1082,7 +1084,7 @@ struct WorkoutPaceZoneCard: View {
     case "input_unavailable": return "速度分析输入暂不可用，请刷新详情后重试"
     case "timing_unavailable": return "暂停与运动时长记录存在冲突，暂不划分"
     case "profile_expired": return "训练前的个人配速区间已过期，暂不划分"
-    case "zone_evidence_insufficient": return "速度记录落在证据不足的区间内，暂不划分"
+    case "zone_evidence_insufficient": return "这段速度所在区间数据不够，暂不划分"
     case "speed_unavailable": return "这次跑步没有可用的速度记录，无法划分配速区间"
     default: return "训练前还没有跑力配速区间，暂不划分"
     }

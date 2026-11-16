@@ -96,9 +96,20 @@ func Calculate(input ExternalVO2Snapshot) (Result, error) {
 		r.SelectionRefs = append(r.SelectionRefs, [2]string{s.ID, s.Hash})
 	}
 	sel, overlap := SelectionAt(in)
+	if sel == nil && !overlap && !anySelectionActive(in) {
+		// No explicit choice (and none revoked): use the Apple source that
+		// recorded most recently. Two sources tied on that instant stay a
+		// question for the user; nothing is preferred silently.
+		if epoch, ok := latestAppleEpoch(visible, in.AsOf); ok {
+			sel = &Selection{Epoch: epoch}
+			r.Reasons = append(r.Reasons, "source_auto_selected")
+		}
+	}
 	revoked := false
 	if sel != nil {
-		r.SelectionID = &sel.ID
+		if sel.ID != "" {
+			r.SelectionID = &sel.ID
+		}
 		r.SourceEpoch = &sel.Epoch
 		for _, t := range in.Tombstones {
 			if t.Epoch == sel.Epoch && t.Origin == Apple && t.Revision <= in.KnownThroughRevision && t.End != nil && *t.End <= in.AsOf {
@@ -248,4 +259,33 @@ func unique(ss []string) []string {
 		}
 	}
 	return out
+}
+
+// anySelectionActive reports whether any explicit selection (including a
+// revocation) is in force; an explicit "do not use" is never overridden.
+func anySelectionActive(in ExternalVO2Snapshot) bool {
+	for _, s := range in.Selections {
+		if s.RecordedAt <= in.CapturedAt && s.RecordedAt <= in.AsOf && s.EffectiveFrom <= in.AsOf && (s.EffectiveThrough == nil || in.AsOf < *s.EffectiveThrough) {
+			return true
+		}
+	}
+	return false
+}
+
+// latestAppleEpoch is the source epoch of the most recent supported Apple
+// sample at or before asOf. It fails when two epochs share that instant.
+func latestAppleEpoch(facts []Fact, asOf int64) (string, bool) {
+	latest, epoch, tied := int64(math.MinInt64), "", false
+	for _, f := range facts {
+		if !f.Supported || f.Origin != Apple || f.End > asOf || f.Epoch == "" {
+			continue
+		}
+		switch {
+		case f.End > latest:
+			latest, epoch, tied = f.End, f.Epoch, false
+		case f.End == latest && f.Epoch != epoch:
+			tied = true
+		}
+	}
+	return epoch, epoch != "" && !tied
 }

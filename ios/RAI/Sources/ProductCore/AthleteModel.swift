@@ -40,19 +40,26 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
   public var technicalError: ProductCode?
   /// The reason a single-line presentation shows: the server's primary
   /// reason, else the first of the frozen lexicographic list.
-  public var displayReason: ProductCode? { primaryReason ?? productReasonCodes.first }
+  public var displayReason: ProductCode? {
+    // A model version this build does not know is new server functionality.
+    if !modelVersion.isEmpty && !modelVersionKnown { return ProductCode(rawValue: "model_update_required") }
+    return primaryReason ?? productReasonCodes.first
+  }
+  public var modelVersionKnown: Bool { Self.knownVersions[metric]?.contains(modelVersion) == true }
   public var supportsPresentation: Bool {
-    let versions = ["trainingLoad": ["rai.training_load.hrr_integral/v1", "rai.training_load.hrr_integral/v2"],
+    modelVersionKnown && state.isKnown
+      && Self.mappings.contains(mappingVersion)
+      && ["fresh", "current", "aging", "stale", "expired", "unknown"].contains(freshness.rawValue)
+  }
+  static let knownVersions: [String: [String]] = {
+    ["trainingLoad": ["rai.training_load.hrr_integral/v1", "rai.training_load.hrr_integral/v2"],
       "runningFitness": ["rai.running_fitness/v1"],
       "externalVO2Max": ["rai.vo2max.external_projection/v1"],
       "physiologicalRecovery": ["rai.recovery.physiological/v1", "rai.recovery.physiological/v2", "rai.recovery.physiological/v3", "rai.recovery.physiological/v4"],
       "trainingReadiness": ["rai.readiness.training/v1", "rai.readiness.training/v2", "rai.readiness.training/v3", "rai.readiness.training/v4"],
       "sessionRecovery": ["rai.session_recovery/v1"], "loadFocus": ["rai.load_focus/v1"],
       "raiVO2Max": ["rai.vo2max.submax/v1"]]
-    return versions[metric]?.contains(modelVersion) == true && state.isKnown
-      && Self.mappings.contains(mappingVersion)
-      && ["fresh", "current", "aging", "stale", "expired", "unknown"].contains(freshness.rawValue)
-  }
+  }()
   public var presentationValueAvailable: Bool {
     supportsPresentation && ["available", "limited"].contains(state.rawValue)
       && !["stale", "expired"].contains(freshness.rawValue) && technicalError == nil
@@ -71,7 +78,7 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
   public func reasonLocalizationKey(_ reason: ProductCode) -> String {
     let known = ["not_enough_history", "insufficient_evidence", "data_sync_incomplete", "source_conflict", "source_selection_required", "data_stale",
       "missing_heart_rate", "recovery_data_incomplete", "training_load_unknown", "no_sample", "deleted", "not_product_activated",
-      "model_result_pending", "model_update_required", "unsupported", "technical_failure"]
+      "model_result_pending", "model_update_required", "model_switching", "unsupported", "technical_failure"]
     return "athlete_model.reason." + (known.contains(reason.rawValue) ? reason.rawValue : "generic")
   }
 }

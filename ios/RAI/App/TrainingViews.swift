@@ -512,15 +512,26 @@ struct PendingCommandNotice: View {
   @Bindable var model: ProductModel
   var onConfirmed: () -> Void = {}
   var body: some View {
+    Group { content }
+      .onChange(of: model.pending) { old, current in
+        // The automatic resend went through: the edit is saved.
+        if old != nil && current == nil && !model.conflict { onConfirmed() }
+      }
+  }
+  @ViewBuilder private var content: some View {
     if model.pending != nil {
-      Section("上一次修改还没保存成功") {
-        Text("没有收到服务器的确认。请先重新提交，成功后才能继续编辑；重新提交不会产生重复记录。")
-          .font(.footnote).accessibilityIdentifier("pending.message")
-        Button("重新提交") { Task { if await model.retryPending() { onConfirmed() } } }
-          .disabled(model.loading).accessibilityIdentifier("pending.retry")
-        if model.conflict {
+      if model.conflict {
+        Section("训练计划已更新") {
+          Text("这次修改和最新计划冲突，没有保存。查看最新计划后可以重新修改。")
+            .font(.footnote).accessibilityIdentifier("pending.message")
           Button("查看最新计划") { Task { await model.reviewConflict() } }
             .disabled(model.loading).accessibilityIdentifier("pending.review")
+        }
+      } else {
+        // The write is resent by itself (idempotent); nothing to do here.
+        Section {
+          Label("修改正在提交，联网后会自动完成", systemImage: "arrow.triangle.2.circlepath")
+            .font(.footnote).foregroundStyle(RAITheme.secondary).accessibilityIdentifier("pending.message")
         }
       }
     }

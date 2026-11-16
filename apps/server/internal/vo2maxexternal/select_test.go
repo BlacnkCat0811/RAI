@@ -17,6 +17,31 @@ func testFact(in ExternalVO2Snapshot) Fact {
 	testType := int64(2)
 	return Fact{ID: "sample", Hash: "raw", Epoch: "A", Start: in.AsOf - DayUs, End: in.AsOf - DayUs, KnownRevision: 1, Value: 42.123456789, Origin: Apple, Supported: true, SupportHash: "context", SemanticHash: "semantic", TestType: &testType}
 }
+func TestAutoSelectionUsesMostRecentAppleSource(t *testing.T) {
+	in := testInput()
+	in.Selections = nil
+	old := testFact(in)
+	old.ID, old.Epoch, old.End, old.Start = "old-watch", "A", in.AsOf-5*DayUs, in.AsOf-5*DayUs
+	current := testFact(in)
+	current.ID, current.Epoch, current.Value = "current-watch", "B", 47
+	in.Facts = []Fact{old, current}
+	r, err := Calculate(in)
+	if err != nil || r.Status != "available" || r.SourceEpoch == nil || *r.SourceEpoch != "B" || r.SelectionID != nil || *r.Value != 47 {
+		t.Fatalf("auto selection %+v %v", r, err)
+	}
+	found := false
+	for _, reason := range r.Reasons {
+		found = found || reason == "source_auto_selected"
+	}
+	if !found {
+		t.Fatal("auto selection is not stated")
+	}
+	// An explicit choice always wins over the most recent source.
+	in.Selections = []Selection{{ID: "selection", Hash: "control", Epoch: "A", EffectiveFrom: in.AsOf - 1, RecordedAt: in.AsOf - 1}}
+	if r, err = Calculate(in); err != nil || r.SourceEpoch == nil || *r.SourceEpoch != "A" {
+		t.Fatalf("explicit selection lost %+v %v", r, err)
+	}
+}
 func TestGoldenDecisionTable(t *testing.T) {
 	tests := []struct {
 		name, status string
@@ -31,7 +56,13 @@ func TestGoldenDecisionTable(t *testing.T) {
 		{"expired", "expired", false, func(in *ExternalVO2Snapshot) { in.Facts[0].End = in.AsOf - 90*DayUs }},
 		{"future", "invalid_input", false, func(in *ExternalVO2Snapshot) { in.Facts[0].End = in.AsOf + 1 }},
 		{"future known", "no_sample_observed", false, func(in *ExternalVO2Snapshot) { in.Facts[0].KnownRevision = 101 }},
-		{"missing selection", "source_selection_required", false, func(in *ExternalVO2Snapshot) { in.Selections = nil }},
+		{"missing selection auto-selects the only Apple source", "available", true, func(in *ExternalVO2Snapshot) { in.Selections = nil }},
+		{"auto selection tie between sources", "source_selection_required", false, func(in *ExternalVO2Snapshot) {
+			in.Selections = nil
+			f := in.Facts[0]
+			f.ID, f.Epoch = "other-watch", "B"
+			in.Facts = append(in.Facts, f)
+		}},
 		{"third party", "source_selection_required", false, func(in *ExternalVO2Snapshot) { in.Facts[0].Origin = "third_party_estimate" }},
 		{"manual", "source_selection_required", false, func(in *ExternalVO2Snapshot) { in.Facts[0].Origin = "user_entered" }},
 		{"unclassified maxExercise", "source_selection_required", false, func(in *ExternalVO2Snapshot) {
@@ -89,7 +120,7 @@ func TestGoldenDecisionTable(t *testing.T) {
 			s.ID = "overlap"
 			in.Selections = append(in.Selections, s)
 		}},
-		{"future control", "source_selection_required", false, func(in *ExternalVO2Snapshot) { in.Selections[0].RecordedAt = in.AsOf + 1 }},
+		{"future control falls back to auto selection", "available", true, func(in *ExternalVO2Snapshot) { in.Selections[0].RecordedAt = in.AsOf + 1 }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
