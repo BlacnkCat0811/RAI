@@ -49,7 +49,11 @@ WITH dataset AS MATERIALIZED (
     AND (kind<>'analysis.model_stack_v2' OR (left(scope_key,length(sqlc.arg(model_day_prefix)::text))=sqlc.arg(model_day_prefix)::text
      AND EXISTS(SELECT 1 FROM analysis_model_channels c WHERE c.dataset_id=candidate.dataset_id AND c.stack_id=split_part(candidate.scope_key,'/',2) AND c.channel IN ('active','candidate'))))
     AND NOT EXISTS (SELECT 1 FROM jobs newer WHERE newer.dataset_id=candidate.dataset_id AND newer.kind=candidate.kind AND newer.scope_key=candidate.scope_key AND newer.target_generation>candidate.target_generation AND newer.state IN ('queued','running'))
-    ORDER BY CASE kind WHEN 'analysis.workout' THEN 0 WHEN 'analysis.training_state' THEN 2 WHEN 'training.plan' THEN 3 ELSE 1 END, run_after, id FOR UPDATE SKIP LOCKED LIMIT 1
+    -- Today's day release goes before history rebuilds and backfill chunks:
+    -- a sync hides today's results until it is recomputed.
+    ORDER BY CASE kind WHEN 'analysis.workout' THEN 0 WHEN 'analysis.training_state' THEN 2 WHEN 'training.plan' THEN 3 ELSE 1 END,
+     CASE WHEN kind='analysis.model_stack_v2' AND right(scope_key,10)=(SELECT (now() AT TIME ZONE ds.timezone)::date::text FROM datasets ds WHERE ds.id=candidate.dataset_id) THEN 0 ELSE 1 END,
+     run_after, id FOR UPDATE SKIP LOCKED LIMIT 1
 )
 UPDATE jobs j SET state = 'running', lease_until = now() + interval '60 seconds',
     fencing_token = fencing_token + 1, attempts = attempts + 1

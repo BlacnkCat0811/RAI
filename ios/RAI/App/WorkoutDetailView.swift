@@ -63,6 +63,10 @@ struct WorkoutDetail: View {
               if metric == .pace {
                 if let analysis = detail.paceAnalysis {
                   WorkoutPaceAnalysisCard(analysis: analysis)
+                } else if model.paceAnalysisLoadingID == workout.id {
+                  HStack(spacing: 8) { ProgressView(); Text("正在计算个人配速区间…") }
+                    .font(.caption).foregroundStyle(RAITheme.secondary)
+                    .accessibilityIdentifier("workout.zones.pace.loading")
                 } else if let zones = detail.zoneSummary {
                   WorkoutPaceZoneCard(zones: zones)
                 } else {

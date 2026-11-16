@@ -146,18 +146,32 @@ public struct RunningStatistics: Sendable {
   }
 }
 
+/// One Workout's entry in the server's statistics batch.
+public struct WorkoutDistanceItem: Codable, Sendable {
+  public let workoutID: String
+  public let status: String
+  public let distanceDistribution: WorkoutDistanceDistribution?
+}
+
 public enum RunningStatisticsReader {
-  /// Reads the whole cursor chain; the home page cache is deliberately not a data source.
-  /// A failed list page fails the request, so partial totals never look complete.
+  /// Reads the cursor chain back to the window start; the home page cache is
+  /// deliberately not a data source. A failed list page fails the request, so
+  /// partial totals never look complete. Distributions come from one batch
+  /// read when the server offers it (`batch` returns nil otherwise); Workouts
+  /// the batch does not cover fall back to their detail.
   public static func load(
     window: RunningStatisticsWindow,
     page: @Sendable (String) async throws -> JSON,
+    batch: (@Sendable (RunningStatisticsWindow) async throws -> [WorkoutDistanceItem]?)? = nil,
     distribution: @escaping @Sendable (String) async throws -> WorkoutDistanceDistribution?
   ) async throws -> RunningStatistics {
     var cursor = ""
     var cursors: Set<String> = []
     var ids: Set<String> = []
     var workouts: [ProductWorkout] = []
+    // The list is newest first: once a page reaches before the window start,
+    // no later page can contain a Workout of this window.
+    var reachedStart = false
     repeat {
       try Task.checkCancellation()
       guard cursors.insert(cursor).inserted else { throw SyncFailure.invalid("statistics_cursor_cycle") }
@@ -170,13 +184,24 @@ public enum RunningStatisticsReader {
         guard !workout.id.isEmpty, item.number("startUs") != nil else {
           throw SyncFailure.invalid("statistics_workout_invalid")
         }
+        if workout.date < window.start { reachedStart = true }
         if ids.insert(workout.id).inserted, item.number("activityType") == 37, window.contains(workout.date) {
           workouts.append(workout)
         }
       }
       cursor = next
-    } while !cursor.isEmpty
+    } while !cursor.isEmpty && !reachedStart
     var result = RunningStatistics(window: window)
+    if let batch, let items = try? await batch(window) {
+      let byID = Dictionary(items.map { ($0.workoutID.lowercased(), $0) }, uniquingKeysWith: { first, _ in first })
+      var uncovered: [ProductWorkout] = []
+      for workout in workouts {
+        guard let item = byID[workout.id.lowercased()] else { uncovered.append(workout); continue }
+        result.add(workout, distribution: item.status == "available" ? item.distanceDistribution : nil, failed: item.status == "failed")
+      }
+      workouts = uncovered
+    }
+    try Task.checkCancellation()
     // Bound simultaneous detail reads; results only publish when all reads finish.
     for offset in stride(from: 0, to: workouts.count, by: 4) {
       let batch = Array(workouts[offset..<min(offset + 4, workouts.count)])
@@ -204,6 +229,18 @@ extension ProductAPI {
       var query = ["limit": "50"]
       if !cursor.isEmpty { query["before"] = cursor }
       return try await self.get("/v2/workouts", query: query)
+    }, batch: { window in
+      // Older servers do not have the batch read: fall back to details.
+      do {
+        let raw = try await self.get("/v2/workouts/distance-distributions", query: [
+          "fromUs": String(Int64((window.start.timeIntervalSince1970 * 1e6).rounded())),
+          "toUs": String(Int64((window.end.timeIntervalSince1970 * 1e6).rounded())),
+        ])
+        struct Page: Decodable { let items: [WorkoutDistanceItem] }
+        return try JSONDecoder().decode(Page.self, from: raw.data()).items
+      } catch let failure as UploadError where failure.status == 404 || failure.status == 405 {
+        return nil
+      }
     }, distribution: { id in
       let detail = try await self.workoutDetail(id)
       guard detail.workout.workoutID == id else { throw SyncFailure.invalid("statistics_detail_mismatch") }

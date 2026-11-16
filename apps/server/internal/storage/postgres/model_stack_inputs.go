@@ -20,6 +20,7 @@ import (
 	tl "rai/server/internal/trainingload"
 	vo2 "rai/server/internal/vo2max"
 	ve "rai/server/internal/vo2maxexternal"
+	"rai/server/internal/workoutdetail"
 	wf "rai/server/internal/workoutfeatures"
 
 	"github.com/jackc/pgx/v5"
@@ -105,6 +106,13 @@ type stackWorkout struct {
 	// keys the per-Workout cache. cached marks feature/exposure read from it.
 	factGeneration int64
 	cached         bool
+	// pointsOmitted marks a cached feature read without its effort points;
+	// loadEffortPoints restores them for the few Workouts that need them.
+	pointsOmitted bool
+	// Cached per-Workout calculations and the input key each was made for.
+	vo2Key, effectKey string
+	vo2Cached         []byte
+	effectCached      []byte
 }
 
 // workoutFailure reports whether err is confined to one Workout's input. Storage,
@@ -125,7 +133,8 @@ const stackRawRetentionDays = 76
 func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start, at, captured time.Time, revision int64) ([]stackWorkout, error) {
 	retainAfter := at.AddDate(0, 0, -stackRawRetentionDays).UnixMicro()
 	rows, err := tx.Query(ctx, `SELECT w.workout_uuid::text,w.first_received_at,w.event_start,w.event_end,encode(w.content_sha256,'hex'),
- COALESCE(d.generation,0),c.fact_generation,COALESCE(c.source_epoch,''),c.feature,c.exposure
+ COALESCE(d.generation,0),c.fact_generation,COALESCE(c.source_epoch,''),c.feature #- '{effort,points}',c.exposure,
+ COALESCE(c.vo2_key,''),c.vo2_evidence,COALESCE(c.effect_key,''),c.effect
  FROM workouts w
  LEFT JOIN dirty_scopes d ON d.dataset_id=w.dataset_id AND d.scope_key='workout:HKWorkoutTypeIdentifier:'||w.workout_uuid::text
  LEFT JOIN model_workout_results c ON c.dataset_id=w.dataset_id AND c.stack_id=$5 AND c.workout_uuid=w.workout_uuid
@@ -142,7 +151,8 @@ func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start,
 	ids, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (candidate, error) {
 		var x candidate
 		var from, through time.Time
-		err := row.Scan(&x.w.id, &x.w.known, &from, &through, &x.w.factHash, &x.w.factGeneration, &x.cachedGen, &x.w.sourceEpoch, &x.feature, &x.exposure)
+		err := row.Scan(&x.w.id, &x.w.known, &from, &through, &x.w.factHash, &x.w.factGeneration, &x.cachedGen, &x.w.sourceEpoch, &x.feature, &x.exposure,
+			&x.w.vo2Key, &x.w.vo2Cached, &x.w.effectKey, &x.w.effectCached)
 		x.w.dataset = l.DatasetID
 		x.w.start, x.w.end = from.UnixMicro(), through.UnixMicro()
 		return x, err
@@ -165,12 +175,12 @@ func stackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack string, start,
 				f.Schema == wf.Schema && f.StackID == wf.StackID() && e.Schema == wf.ExposureSchema &&
 				f.RunFitness != nil && f.RunFitness.Schema == wf.RunFitnessSchema && f.RunFitness.Policy == wf.RunFitnessPolicy() &&
 				f.Effort != nil && f.Effort.Schema == wf.EffortSchema && f.Effort.Policy == wf.EffortPolicy {
-				w.feature, w.exposure, w.cached = f, e, true
+				w.feature, w.exposure, w.cached, w.pointsOmitted = f, e, true, true
 				out = append(out, w)
 				continue
 			}
 		}
-		w.sourceEpoch = ""
+		w.sourceEpoch, w.vo2Key, w.effectKey, w.vo2Cached, w.effectCached = "", "", "", nil, nil
 		n, err := stackRaw(ctx, tx, l, stack, w.id, captured, revision)
 		if err != nil {
 			code, isolated := workoutFailure(err)
@@ -377,10 +387,12 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		return nil, err
 	}
 	from := date.AddDate(0, 0, -186)
+	analysis.Mark(ctx, "inputs")
 	workouts, err := stackWorkouts(ctx, tx, l, stack, from, at, captured, revision)
 	if err != nil {
 		return nil, err
 	}
+	analysis.Mark(ctx, "workouts")
 	targets, resolutions, source := stackAnnotations(inputs, at)
 	efforts := stackEfforts(inputs, captured)
 	suppressed, ambiguous := stackOverlap(workouts, resolutions, at)
@@ -399,12 +411,14 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	if err != nil {
 		return nil, err
 	}
+	analysis.Mark(ctx, "daily_facts")
 	var ledger []tl.LedgerLoad
 	var loads []rd.WorkoutLoad
 	var evidence []vo2.Evidence
 	loc := date.Location()
 	fromDay := from.Format(time.DateOnly)
 	var pending []stackPendingLoad
+	var vo2Rows []workoutCacheRow
 	vo2Points := 0
 	for _, workout := range workouts {
 		if err := ctx.Err(); err != nil {
@@ -421,6 +435,18 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		}
 		if r.doseRef != nil && stackVO2RawNeeded(workout.feature) && end.After(at.AddDate(0, 0, -76)) && (source == "" || r.doseRef.SourceEpoch == source) &&
 			workout.feature.Environment.Indoor != nil && !*workout.feature.Environment.Indoor {
+			// The VO2 evaluation of a Workout depends only on its facts and HR
+			// reference: an earlier evaluation with the same inputs is reused
+			// without reloading the raw samples.
+			key := stackVO2Key(workout, *r.doseRef, r.ref, loc)
+			if workout.vo2Key == key {
+				if v, ok := cachedVO2Evidence(workout.vo2Cached); ok {
+					if v != nil {
+						evidence = append(evidence, *v)
+					}
+					continue
+				}
+			}
 			// Cached Workouts load their raw facts only when VO2 needs them.
 			if workout.raw == nil {
 				n, err := stackRaw(ctx, tx, l, stack, workout.id, captured, revision)
@@ -436,8 +462,16 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 			}
 			// A Workout VO2 evaluation error stays with that Workout: no evidence.
 			if workout.raw != nil {
-				if v, err := stackVO2Evidence(workout, *r.doseRef, r.ref, loc); err == nil && v != nil {
+				v, err := stackVO2Evidence(workout, *r.doseRef, r.ref, loc)
+				if err == nil && v != nil {
 					evidence = append(evidence, *v)
+				}
+				if err == nil || errors.As(err, new(*analysis.Failure)) {
+					// An evaluation error is as deterministic as a result.
+					if err != nil {
+						v = nil
+					}
+					vo2Rows = append(vo2Rows, workoutCacheRow{id: workout.id, key: key, value: featureJSON(v)})
 				}
 				workout.raw = nil
 			}
@@ -445,10 +479,12 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	}
 	// Running fitness v1: single results and the day state. HR-less runs keep
 	// an unknown load; no ability estimate is fed back into load.
+	analysis.Mark(ctx, "load_vo2")
 	fitness, fitnessInputs := stackRunFitnessDetail(l.DatasetID, generation, date, at, pending, efforts, source, ambiguous)
 	// Lactate threshold v1: the running-fitness vT is its pace anchor, the
 	// same Workouts and source feed its heart-rate estimate.
 	threshold := stackLactateThreshold(l.DatasetID, generation, date, at, pending, ambiguous, fitness, fitnessInputs)
+	analysis.Mark(ctx, "fitness_threshold")
 	// Per-Workout results: newly computed features/exposures fill the cache,
 	// and today's release records each Workout's v2 load for product readers.
 	var results []stackArtifact
@@ -533,13 +569,15 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	if err != nil {
 		return nil, analysis.Invalid()
 	}
+	analysis.Mark(ctx, "state_recovery_external")
 	recoveryID := syncing.NewID()
 	// The same day release computes structure -> fatigue -> readiness in that
 	// order. Running fitness consumes only neutral Workout features.
-	optimized, effects, ready, err := optimizedStackOutputs(ctx, tx, l, stack, date, at, captured, workouts, pending, loads, state, recovery)
+	optimized, effects, effectRows, ready, err := optimizedStackOutputs(ctx, tx, l, stack, date, at, captured, workouts, pending, loads, state, recovery, writeLoad)
 	if err != nil {
 		return nil, err
 	}
+	analysis.Mark(ctx, "effect_session_readiness")
 	artifacts := []stackArtifact{
 		{key: "load_state", schema: tl.StateSchemaV2, algorithm: tl.StateAlgorithmV2, version: tl.VersionV2, value: state,
 			inputHash: featureHash(stateInput)},
@@ -571,6 +609,14 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		}
 	}
 	artifacts = append(artifacts, results...)
+	artifacts = append(artifacts, stackArtifact{key: workoutCacheKey, value: workoutCaches{vo2: vo2Rows, effect: effectRows}})
+	reviews, err := stackPaceReviews(ctx, tx, l.DatasetID, stack, date, generation, captured, inputs, workouts, restingHR)
+	if err != nil {
+		return nil, err
+	}
+	analysis.Mark(ctx, "pace_reviews")
+	artifacts = append(artifacts, stackArtifact{key: workoutdetail.PaceReviewsArtifactKey, family: workoutdetail.PaceReviewsFamily, schema: workoutdetail.PaceReviewsSchema,
+		algorithm: workoutdetail.PaceReviewAlgorithm, version: workoutdetail.PaceReviewVersion, value: reviews, inputHash: featureHash(reviews)})
 	if date.Format(time.DateOnly) == captured.In(date.Location()).Format(time.DateOnly) {
 		for _, w := range workouts {
 			if w.failure != "" {
@@ -850,6 +896,34 @@ func writeWorkoutResult(ctx context.Context, tx pgx.Tx, dataset, stack string, r
 	return err
 }
 
+// writeWorkoutLoads records today's load of Workouts whose cached features
+// were reused. A load equal to the stored one is not rewritten, so an
+// unchanged Workout keeps its row, its updated_at and produces no dead tuple;
+// a published load also resolves an earlier failure of the Workout. The
+// comparison ignores the audit fields that change with every release even
+// when the load does not: the day job generation, the HR reference
+// evaluation instant and the focus input hash derived from both. No reader
+// interprets them; the stored row keeps the values of the release that last
+// changed the load.
+func writeWorkoutLoads(ctx context.Context, tx pgx.Tx, dataset, stack string, rows []workoutResultRow) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	ids := make([]string, len(rows))
+	loads := make([]string, len(rows))
+	for i, r := range rows {
+		ids[i], loads[i] = r.id, string(featureJSON(r.load))
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM model_workout_failures WHERE dataset_id=$1 AND stack_id=$2 AND workout_uuid=ANY($3::uuid[])`, dataset, stack, ids); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `UPDATE model_workout_results r SET load=v.load,updated_at=clock_timestamp()
+ FROM unnest($3::uuid[],$4::jsonb[]) v(id,load)
+ WHERE r.dataset_id=$1 AND r.stack_id=$2 AND r.workout_uuid=v.id AND (r.load-'inputGeneration')#-'{heartRateReference,evaluatedAtUs}'#-'{loadFocus,inputHash}'
+  IS DISTINCT FROM (v.load-'inputGeneration')#-'{heartRateReference,evaluatedAtUs}'#-'{loadFocus,inputHash}'`, dataset, stack, ids, loads)
+	return err
+}
+
 // previousLoadCheckpoint reads the checkpoint of the previous day's published
 // load state of this stack, if any. A missing or unreadable one only means a
 // full rebuild.
@@ -869,4 +943,37 @@ func previousLoadCheckpoint(ctx context.Context, tx pgx.Tx, dataset, stack, day 
 		return nil, nil
 	}
 	return &cp, nil
+}
+
+// stackPaceReviews precomputes the read-time pace review of every Workout
+// that starts on this local day, from the inputs the release already loaded.
+// The day scope is invalidated by every fact or input the review reads (each
+// invalidation runs from its own time to now), so a clean publication of
+// this day carries reviews of the current facts.
+func stackPaceReviews(ctx context.Context, tx pgx.Tx, dataset, stack string, date time.Time, generation int64, captured time.Time,
+	inputs []stackInput, workouts []stackWorkout, resting *rc.Input) (workoutdetail.PaceReviews, error) {
+	day := date.Format(time.DateOnly)
+	out := workoutdetail.PaceReviews{SchemaVersion: workoutdetail.PaceReviewsSchema, DatasetID: dataset, Generation: generation, Date: day, StackID: stack,
+		Reviews: map[string]*workoutdetail.PaceAnalysis{}}
+	manifest, err := modelmanifest.CurrentHash()
+	if err != nil {
+		return out, err
+	}
+	rel := &paceRelease{stack: stack, tz: date.Location().String(), manifest: manifest}
+	pre := &paceInputs{inputs: inputs, workouts: workouts, resting: resting}
+	for _, w := range workouts {
+		start := time.UnixMicro(w.start)
+		if start.In(date.Location()).Format(time.DateOnly) != day {
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
+		a, err := computePaceAnalysis(ctx, tx, dataset, w.id, start, time.UnixMicro(w.end), w.factGeneration, captured, rel, nil, pre)
+		if err != nil {
+			return out, err
+		}
+		out.Reviews[w.id] = a
+	}
+	return out, nil
 }

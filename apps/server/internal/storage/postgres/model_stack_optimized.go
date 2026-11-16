@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -27,8 +28,28 @@ type priorFitness struct {
 	fitness *te.FitnessReference
 }
 
+// priorFitnessCache keeps the extracted speed references of published
+// running-fitness day states. Artifacts are immutable and the key carries the
+// run ID and the verified content hash, so an entry can never go stale; it only
+// saves re-reading, decoding and re-hashing up to 187 day states per job.
+var priorFitnessCache = struct {
+	sync.Mutex
+	m map[string]priorFitnessEntry
+}{m: map[string]priorFitnessEntry{}}
+
+type priorFitnessEntry struct {
+	usable bool
+	asOf   int64
+	status string
+	vt, v6 float64
+	hasVT  bool
+	v90s   *float64
+}
+
+const priorFitnessCacheMax = 8192
+
 func preWorkoutAbilities(ctx context.Context, tx pgx.Tx, dataset, stack string, from, to time.Time) ([]priorFitness, error) {
-	rows, err := tx.Query(ctx, `SELECT a.payload,encode(a.content_sha256,'hex'),p.published_at FROM analysis_publications p
+	rows, err := tx.Query(ctx, `SELECT r.id::text,encode(a.content_sha256,'hex'),p.published_at FROM analysis_publications p
  JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.status='SUCCEEDED'
  JOIN analysis_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=$5
  JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
@@ -37,28 +58,79 @@ func preWorkoutAbilities(ctx context.Context, tx pgx.Tx, dataset, stack string, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []priorFitness
-	for rows.Next() {
-		var payload []byte
-		var hash string
-		var published time.Time
-		if err := rows.Scan(&payload, &hash, &published); err != nil {
-			return nil, err
-		}
-		var r rf.State
-		if json.Unmarshal(payload, &r) == nil && r.DatasetID == dataset && r.Schema == rf.Schema && rf.Hash(r) == hash && r.Params.V6 != nil {
-			if s := r.Dimensions.Speed.Status; s == "supported" || s == "estimated" {
-				at := max(r.AsOf, published.UnixMicro())
-				p := priorFitness{ability: tl.AbilityReference{V6: *r.Params.V6, At: at, Hash: hash, Status: s}}
-				if r.Params.VT != nil {
-					p.fitness = &te.FitnessReference{VT: *r.Params.VT, V6: *r.Params.V6, V90s: r.Params.V90s, At: at, Hash: hash, Status: s}
-				}
-				out = append(out, p)
-			}
+	type ref struct {
+		run, hash string
+		published time.Time
+	}
+	refs, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (ref, error) {
+		var x ref
+		return x, r.Scan(&x.run, &x.hash, &x.published)
+	})
+	if err != nil {
+		return nil, err
+	}
+	key := func(x ref) string { return dataset + "/" + x.run + "/" + x.hash }
+	entries := make(map[string]priorFitnessEntry, len(refs))
+	var missing []string
+	priorFitnessCache.Lock()
+	for _, x := range refs {
+		if e, ok := priorFitnessCache.m[key(x)]; ok {
+			entries[x.run] = e
+		} else {
+			missing = append(missing, x.run)
 		}
 	}
-	return out, rows.Err()
+	priorFitnessCache.Unlock()
+	if len(missing) > 0 {
+		rows, err := tx.Query(ctx, `SELECT a.run_id::text,a.payload,encode(a.content_sha256,'hex') FROM analysis_artifacts a
+ WHERE a.dataset_id=$1 AND a.artifact_key=$2 AND a.run_id=ANY($3::uuid[])`, dataset, rf.ArtifactKey, missing)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var run, hash string
+			var payload []byte
+			if err := rows.Scan(&run, &payload, &hash); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			var r rf.State
+			e := priorFitnessEntry{}
+			if json.Unmarshal(payload, &r) == nil && r.DatasetID == dataset && r.Schema == rf.Schema && rf.Hash(r) == hash && r.Params.V6 != nil {
+				if s := r.Dimensions.Speed.Status; s == "supported" || s == "estimated" {
+					e = priorFitnessEntry{usable: true, asOf: r.AsOf, status: s, v6: *r.Params.V6, v90s: r.Params.V90s}
+					if r.Params.VT != nil {
+						e.vt, e.hasVT = *r.Params.VT, true
+					}
+				}
+			}
+			entries[run] = e
+			priorFitnessCache.Lock()
+			if len(priorFitnessCache.m) >= priorFitnessCacheMax {
+				priorFitnessCache.m = map[string]priorFitnessEntry{}
+			}
+			priorFitnessCache.m[dataset+"/"+run+"/"+hash] = e
+			priorFitnessCache.Unlock()
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+	var out []priorFitness
+	for _, x := range refs {
+		e, ok := entries[x.run]
+		if !ok || !e.usable {
+			continue
+		}
+		at := max(e.asOf, x.published.UnixMicro())
+		p := priorFitness{ability: tl.AbilityReference{V6: e.v6, At: at, Hash: x.hash, Status: e.status}}
+		if e.hasVT {
+			p.fitness = &te.FitnessReference{VT: e.vt, V6: e.v6, V90s: e.v90s, At: at, Hash: x.hash, Status: e.status}
+		}
+		out = append(out, p)
+	}
+	return out, nil
 }
 
 // trainingLevelInput sums completed, non-conflicting runs of the same source
@@ -99,13 +171,25 @@ func floatMedian(xs []float64) *float64 {
 	return &v
 }
 
-func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string, date, at, captured time.Time, workouts []stackWorkout, pending []stackPendingLoad, loads []rd.WorkoutLoad, state tl.StateResult, recovery rc.V3Result) ([]stackArtifact, map[string]te.Result, rd.V4Result, error) {
+// optimizedStackOutputs computes structure, session fatigue and readiness.
+// Training effects are only needed where today's release records them on each
+// Workout (needEffects); a cached effect with the same input key is reused and
+// only the remaining Workouts load their effort points.
+func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string, date, at, captured time.Time, workouts []stackWorkout, pending []stackPendingLoad, loads []rd.WorkoutLoad, state tl.StateResult, recovery rc.V3Result, needEffects bool) ([]stackArtifact, map[string]te.Result, []workoutCacheRow, rd.V4Result, error) {
 	var artifacts []stackArtifact
 	loc := date.Location()
 	prior, err := preWorkoutAbilities(ctx, tx, l.DatasetID, stack, date.AddDate(0, 0, -186), date)
 	if err != nil {
-		return nil, nil, rd.V4Result{}, err
+		return nil, nil, nil, rd.V4Result{}, err
 	}
+	type effectJob struct {
+		i         int
+		in        te.Input
+		key       string
+		estimated bool
+	}
+	var effectJobs []effectJob
+	var effectRows []workoutCacheRow
 	var focus []tl.WorkoutFocus
 	effects := map[string]te.Result{}
 	var sessions []sr.Workout
@@ -113,7 +197,7 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 	for _, w := range workouts {
 		byID[w.id] = w
 	}
-	for _, p := range pending {
+	for pi, p := range pending {
 		w, r := p.w, p.r
 		var pre *tl.AbilityReference
 		var fitness *te.FitnessReference
@@ -125,22 +209,26 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 		}
 		f, e := tl.ClassifyLoad(r.load, w.exposure, w.feature, r.doseRef, pre, loc)
 		if e != nil {
-			return nil, nil, rd.V4Result{}, analysis.Invalid()
+			return nil, nil, nil, rd.V4Result{}, analysis.Invalid()
 		}
 		focus = append(focus, f)
 		// Training effect: this run's own facts plus pre-run references only,
 		// so later training never rewrites a historical score.
-		effectInput := te.Input{WorkoutID: w.id, Start: w.start, LoadTier: r.load.QualityTier, Exposure: w.exposure, Effort: w.feature.Effort,
-			Fitness: fitness, Level: trainingLevelInput(w, loads, byID, loc)}
-		if r.doseRef != nil {
-			effectInput.HR = &te.HRReference{RestHR: r.doseRef.RestHR, MaxHR: r.doseRef.MaxHR, Hash: r.doseRef.Hash}
+		if needEffects {
+			effectInput := te.Input{WorkoutID: w.id, Start: w.start, LoadTier: r.load.QualityTier, Exposure: w.exposure,
+				Fitness: fitness, Level: trainingLevelInput(w, loads, byID, loc)}
+			if r.doseRef != nil {
+				effectInput.HR = &te.HRReference{RestHR: r.doseRef.RestHR, MaxHR: r.doseRef.MaxHR, Hash: r.doseRef.Hash}
+			}
+			key := stackEffectKey(w, effectInput)
+			estimated := r.ref.Evidence != nil && (r.ref.Evidence.MaxHR.Status == "estimated" || r.ref.Evidence.RestingHR.Status == "estimated")
+			var cached te.Result
+			if w.effectKey == key && len(w.effectCached) > 0 && json.Unmarshal(w.effectCached, &cached) == nil && cached.WorkoutID == w.id {
+				effects[w.id] = estimateEffect(cached, estimated)
+			} else {
+				effectJobs = append(effectJobs, effectJob{i: pi, in: effectInput, key: key, estimated: estimated})
+			}
 		}
-		effect := te.Calculate(effectInput)
-		if r.ref.Evidence != nil && (r.ref.Evidence.MaxHR.Status == "estimated" || r.ref.Evidence.RestingHR.Status == "estimated") && effect.Aerobic.Value != nil {
-			effect.Aerobic.Status = "estimated"
-			effect.Aerobic.ReasonCodes = append(effect.Aerobic.ReasonCodes, "hr_reference_estimated")
-		}
-		effects[w.id] = effect
 		// B and longRef use only completed, comparable runs before this run's
 		// start; current-day evidence cannot redefine its own fatigue pulse.
 		// The 28 days before the run are preferred. After a break they hold too
@@ -206,11 +294,31 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 		}
 		sessions = append(sessions, s)
 	}
+	if len(effectJobs) > 0 {
+		need := make([]*stackWorkout, 0, len(effectJobs))
+		for _, j := range effectJobs {
+			need = append(need, &pending[j.i].w)
+		}
+		if err := loadEffortPoints(ctx, tx, l.DatasetID, stack, need); err != nil {
+			return nil, nil, nil, rd.V4Result{}, err
+		}
+		for _, j := range effectJobs {
+			w := pending[j.i].w
+			if w.pointsOmitted {
+				// Same snapshot as the cached feature: the points must exist.
+				return nil, nil, nil, rd.V4Result{}, analysis.Invalid()
+			}
+			j.in.Effort = w.feature.Effort
+			effect := te.Calculate(j.in)
+			effectRows = append(effectRows, workoutCacheRow{id: w.id, key: j.key, value: featureJSON(effect)})
+			effects[w.id] = estimateEffect(effect, j.estimated)
+		}
+	}
 	focusResult := tl.AggregateFocus(l.DatasetID, stack, l.TargetGeneration, at.UnixMicro(), date, focus)
 	sessionInput := sr.Input{Dataset: l.DatasetID, Stack: stack, Generation: l.TargetGeneration, AsOf: at.UnixMicro(), ValidBefore: date.AddDate(0, 0, 1).UnixMicro(), Workouts: sessions}
 	session, err := sr.Calculate(sessionInput)
 	if err != nil {
-		return nil, nil, rd.V4Result{}, analysis.Invalid()
+		return nil, nil, nil, rd.V4Result{}, analysis.Invalid()
 	}
 	readyInput := rd.V4Input{Snapshot: rd.ReadinessSnapshot{Dataset: l.DatasetID, Assignment: l.ID, LoadAssignment: stack, Generation: l.TargetGeneration, AsOf: at.UnixMicro(), CapturedAt: captured.UnixMicro(), Config: rd.DefaultV4Config(loc.String()), Loads: loads},
 		Physiology: rd.Physiological{Score: recovery.Score, Mode: recovery.Mode, Status: recovery.Status, Confidence: recovery.Confidence, EvidenceAt: recovery.EvidenceAt, ValidBefore: recovery.ValidBefore, Hash: rc.Hash(recovery)}, SessionAvailable: session.Residual != nil, SessionMode: session.Mode, SessionUnknown: session.UnknownBurden}
@@ -228,7 +336,7 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 	}
 	ready, err := rd.CalculateV4(readyInput)
 	if err != nil {
-		return nil, nil, rd.V4Result{}, analysis.Invalid()
+		return nil, nil, nil, rd.V4Result{}, analysis.Invalid()
 	}
 	for _, a := range []stackArtifact{
 		{key: sr.Key, schema: sr.Schema, algorithm: sr.Algorithm, version: "v1", value: session, inputHash: session.InputHash},
@@ -237,5 +345,14 @@ func optimizedStackOutputs(ctx context.Context, tx pgx.Tx, l Lease, stack string
 		a.family = "model_product_v3/" + a.key
 		artifacts = append(artifacts, a)
 	}
-	return artifacts, effects, ready, nil
+	return artifacts, effects, effectRows, ready, nil
+}
+
+// estimateEffect marks the aerobic score estimated when the HR reference is.
+func estimateEffect(effect te.Result, estimated bool) te.Result {
+	if estimated && effect.Aerobic.Value != nil {
+		effect.Aerobic.Status = "estimated"
+		effect.Aerobic.ReasonCodes = append(append([]string(nil), effect.Aerobic.ReasonCodes...), "hr_reference_estimated")
+	}
+	return effect
 }

@@ -1,3 +1,15 @@
+## 2026-11-16 — 读取性能与重算期间沿用上次结果 / OpenAPI 1.18.0
+
+- `GET /v2/analysis/athlete` 新增可选 `updating`：同步让当天日发布变脏、正在重算时，返回当天上一次完整发布（整份，不混合两次发布）并置 `updating=true`、`notices` 追加 `model_result_updating`；新发布后字段消失。此前同一情形所有指标为 `model_result_pending`。历史、训练输入等其他读取仍只读干净发布。
+- 新增 `GET /v2/workouts/distance-distributions?fromUs=&toUs=`：一次返回窗口（≤45 天、≤200 次跑步）内每次跑步的 `distanceDistribution`（与 `/detail` 相同），统计页不再逐条读取详情；旧服务端无此路径时 App 回退到逐条读取。
+- `/v2/workouts/{id}/freshness` 结果不变，改为由存储计数计算，不再解码全部采样。
+- `/v2/workouts/{id}/pace-analysis`：当天正在重算时，若自上次发布以来的所有变化都发生在这次跑步结束之后，直接返回已发布复盘，不再回放 90 天跑力。
+
+## 2026-11-16 — 运动详情配速复盘独立读取 / OpenAPI 1.17.0
+
+- 新增 `GET /v2/workouts/{id}/pace-analysis`，返回 `{workoutID, paceAnalysis}`；计算与结果不变（读取时按训练开始时回放跑力）。`/detail` 不再携带 `paceAnalysis`，事实与已发布结果先返回。
+- 日模型栈新增组件 `workout_pace_review`（产物 `workout_pace_reviews`，`rai.workout_pace_reviews/1`，迁移 65）：为当天开始的每次跑步预计算上述复盘并与其他日产物原子发布；`/pace-analysis` 优先返回干净日发布中的结果，缺失时回放。manifest 变化产生新模型栈，部署后按既有流程自动激活并回填近 365 天。
+
 ## 2026-11-16 — 乳酸阈值 v1 与成绩主段 / OpenAPI 1.16.0
 
 - schema4 `runningFitness.value` 新增可选 `lactateThreshold`（`rai.lactate_threshold/1`），与跑力同一天、同一 generation 发布：`pace`（跑力 vT、模型范围、保守训练区间 `[v(3600), v(2400)]`）与 `heartRate`（`bpm` 可为 null、`basis` collecting/preliminary/supported/conflict、`definition` `rai_t40_working_proxy` 或 `field_tt30_last20`、范围、时效、原因码）各自独立；`trainingUse.heartRateEligible` 恒为 false。schema2/3 不含该字段。

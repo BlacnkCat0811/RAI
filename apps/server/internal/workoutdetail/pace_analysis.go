@@ -6,6 +6,37 @@ import (
 	wf "rai/server/internal/workoutfeatures"
 )
 
+// PaceAnalysisResponse is GET /v2/workouts/{id}/pace-analysis. The review is
+// computed at read time by replaying the running-fitness state, so it is kept
+// apart from the detail facts and loaded after them.
+type PaceAnalysisResponse struct {
+	WorkoutID    string        `json:"workoutID"`
+	PaceAnalysis *PaceAnalysis `json:"paceAnalysis"`
+}
+
+// Pace reviews precomputed by the day release (artifact workout_pace_reviews):
+// the review of every Workout that starts on the release's local day, keyed by
+// Workout ID. Published atomically with the day's other products, so a clean
+// day publication carries reviews computed from the current facts.
+const (
+	PaceReviewsArtifactKey = "workout_pace_reviews"
+	// Its own publication family: not one of the product slots that the
+	// release readiness check counts.
+	PaceReviewsFamily   = "model_pace_review_v1/workout_pace_reviews"
+	PaceReviewsSchema   = "rai.workout_pace_reviews/1"
+	PaceReviewAlgorithm = "rai.workout_pace_review"
+	PaceReviewVersion   = "v1"
+)
+
+type PaceReviews struct {
+	SchemaVersion string                   `json:"schemaVersion"`
+	DatasetID     string                   `json:"datasetID"`
+	Generation    int64                    `json:"generation"`
+	Date          string                   `json:"date"`
+	StackID       string                   `json:"stackID"`
+	Reviews       map[string]*PaceAnalysis `json:"reviews"`
+}
+
 // PaceAnalysis is a read-only review projection, never a training prescription.
 type PaceAnalysis struct {
 	SchemaVersion string         `json:"schemaVersion"`

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -111,19 +112,29 @@ func (s *Store) PublishTraining(ctx context.Context, l Lease, id string, in trai
 			return "", e
 		}
 
-		var number int64
-		if e = tx.QueryRow(ctx, `SELECT base_number+1 FROM training_plans WHERE dataset_id=$1 AND id=$2 FOR UPDATE`, l.DatasetID, p.ID).Scan(&number); e != nil {
+		// Every model-stack release of today regenerates the plan. When the
+		// generated base equals the current one and the current effective
+		// version already reflects the same base and override revision, the
+		// plan did not change: no new base or effective version is appended.
+		unchanged, e := trainingBaseUnchanged(ctx, tx, l.DatasetID, p, bh)
+		if e != nil {
 			return "", e
 		}
-		baseID := syncing.NewID()
-		if _, e = tx.Exec(ctx, `INSERT INTO training_base_versions(dataset_id,plan_id,id,number,run_id,base) VALUES($1,$2,$3,$4,$5,$6)`, l.DatasetID, p.ID, baseID, number, id, trainingJSON(base)); e != nil {
-			return "", e
-		}
-		if _, e = materialize(ctx, tx, l.DatasetID, p, baseID, base); e != nil {
-			return "", e
-		}
-		if _, e = tx.Exec(ctx, `UPDATE training_plans SET current_base_id=$3,base_number=$4 WHERE dataset_id=$1 AND id=$2`, l.DatasetID, p.ID, baseID, number); e != nil {
-			return "", e
+		if !unchanged {
+			var number int64
+			if e = tx.QueryRow(ctx, `SELECT base_number+1 FROM training_plans WHERE dataset_id=$1 AND id=$2 FOR UPDATE`, l.DatasetID, p.ID).Scan(&number); e != nil {
+				return "", e
+			}
+			baseID := syncing.NewID()
+			if _, e = tx.Exec(ctx, `INSERT INTO training_base_versions(dataset_id,plan_id,id,number,run_id,base) VALUES($1,$2,$3,$4,$5,$6)`, l.DatasetID, p.ID, baseID, number, id, trainingJSON(base)); e != nil {
+				return "", e
+			}
+			if _, e = materialize(ctx, tx, l.DatasetID, p, baseID, base); e != nil {
+				return "", e
+			}
+			if _, e = tx.Exec(ctx, `UPDATE training_plans SET current_base_id=$3,base_number=$4 WHERE dataset_id=$1 AND id=$2`, l.DatasetID, p.ID, baseID, number); e != nil {
+				return "", e
+			}
 		}
 		for _, ex := range in.Executions {
 			var w *training.Workout
@@ -208,6 +219,33 @@ func (s *Store) FailTraining(ctx context.Context, l Lease, id string, err error)
 }
 
 // Called once per published analysis bundle under its dataset lock.
+// trainingBaseUnchanged reports whether the plan's current base hashes to
+// baseHash and its current effective version was materialized from that base
+// at the plan's current override revision.
+func trainingBaseUnchanged(ctx context.Context, tx pgx.Tx, dataset string, p training.Plan, baseHash []byte) (bool, error) {
+	var raw []byte
+	var current bool
+	err := tx.QueryRow(ctx, `SELECT b.base,COALESCE(e.base_id=b.id AND e.override_revision=$3,false)
+ FROM training_plans tp JOIN training_base_versions b ON b.dataset_id=tp.dataset_id AND b.id=tp.current_base_id
+ LEFT JOIN training_effective_versions e ON e.dataset_id=tp.dataset_id AND e.id=tp.current_effective_id
+ WHERE tp.dataset_id=$1 AND tp.id=$2`, dataset, p.ID, p.OverrideRevision).Scan(&raw, &current)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil || !current {
+		return false, err
+	}
+	var stored training.Base
+	if json.Unmarshal(raw, &stored) != nil {
+		return false, nil
+	}
+	h, err := training.Hash(stored)
+	if err != nil {
+		return false, nil
+	}
+	return string(h) == string(baseHash), nil
+}
+
 func dirtyTrainingPlans(ctx context.Context, tx pgx.Tx, dataset string) error {
 	_, e := tx.Exec(ctx, `SELECT rai_training_dirty(dataset_id,id) FROM training_plans WHERE dataset_id=$1 AND active`, dataset)
 	return e
@@ -218,9 +256,12 @@ func dirtyTrainingPlans(ctx context.Context, tx pgx.Tx, dataset string) error {
 func (s *Store) TrainingVersions(ctx context.Context, l Lease, run string) (string, string, int64, error) {
 	var base, effective string
 	var revision int64
+	// A run whose output equalled the current plan appended no base: report
+	// the current base and effective version it confirmed.
 	e := s.Pool.QueryRow(ctx, `SELECT b.id::text,e.id::text,e.override_revision FROM training_base_versions b JOIN LATERAL
  (SELECT id,override_revision FROM training_effective_versions e WHERE e.dataset_id=b.dataset_id AND e.plan_id=b.plan_id AND e.base_id=b.id ORDER BY number LIMIT 1) e ON true
- WHERE b.dataset_id=$1 AND b.plan_id=$2 AND b.run_id=$3`, l.DatasetID, trainingPlanID(l), run).Scan(&base, &effective, &revision)
+ WHERE b.dataset_id=$1 AND b.plan_id=$2 AND (b.run_id=$3 OR NOT EXISTS(SELECT 1 FROM training_base_versions x WHERE x.dataset_id=$1 AND x.plan_id=$2 AND x.run_id=$3)
+  AND b.id=(SELECT current_base_id FROM training_plans WHERE dataset_id=$1 AND id=$2))`, l.DatasetID, trainingPlanID(l), run).Scan(&base, &effective, &revision)
 	if e != nil {
 		return "", "", 0, e
 	}

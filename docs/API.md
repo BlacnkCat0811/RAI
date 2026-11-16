@@ -30,7 +30,11 @@
   - `hr-references` 的 `method` 新增 `age_estimated`：仅在用户显式选择“暂用年龄估计”时提交，跑力据此一律为有限、敏感性范围加宽
 
 ## 读取
-- 运动：`GET /v2/workouts`、`/v2/workouts/{id}`、`/detail`、`/series`、`/freshness`
+- 运动：`GET /v2/workouts`、`/v2/workouts/{id}`、`/detail`、`/series`、`/freshness`、`/pace-analysis`
+  - `GET /v2/workouts/distance-distributions?fromUs=&toUs=`（OpenAPI 1.18.0）：返回 `{items:[{workoutID,status,distanceDistribution}]}`，
+    覆盖开始时间在 `[fromUs,toUs)` 的每次跑步，`distanceDistribution` 与 `/detail` 相同；`status` 为 `available`／`unavailable`（无可分距离）／`failed`
+    （该次跑步自身事实无法读取）。窗口 ≤45 天且 ≤200 次跑步，否则 422 `invalid_statistics_window`／`statistics_window_too_large`。只读，结果按全部输入为键缓存在服务端内存。
+  - `/freshness` 用存储计数计算，结果语义不变，适合轮询。
   - `/detail` 的心率覆盖及分析卡速度覆盖使用有效连续支持（包含受限插值），不使用瞬时样本数量除以秒数。优先取已发布特征的 `reconstructedCoverage`（活动时间口径，保留暂停、来源冲突和异常过滤）；`observedCoverage` 保留为原始区间观测语义。旧详情无特征时，心率显示按相邻有效瞬时点间隔 ≤15 秒计连续支持，不外推首尾、不跨越长断点；旧心率分区按线性插值的区间边界累计。此修复不修改原始载荷或模型版本，也不自动发布、部署或重算。
   - `/detail` 新增可选 `distanceDistribution`（`policyVersion=distance-zones/v1`），由原始速度／心率时间区间积分距离，
     独立于模型发布与旧 `zoneSummary` 的时长占比。返回 `totalDistanceMeters`、`pace`、`heartRate`（各项 `zone` / `distanceMeters`）、
@@ -161,6 +165,7 @@ iOS 优先显示 `primaryReason`，旧服务端没有该字段时取 `productRea
 |---|---|---|---|
 | 无 active assignment 或 active 为 legacy | 409 | `not_product_activated` | 尚未启用 |
 | 当前栈当天无可读发布，且没有该代数的终止失败任务 | 200 / `pending` | `model_result_pending` | 正在计算 |
+| 当天已有干净发布，之后的同步使其正在重算 | 200 / 上一次发布各指标的实际状态，顶层 `updating=true`，`notices` 含 `model_result_updating` | — | 今日模型更新中（显示上一次结果） |
 | 当前栈无可读发布且该代数任务已失败，或某项产物校验失败 | 200 / `technical_failure` | `technical_failure` | 读取失败，下拉重试 |
 | active 为上一版栈（自动激活完成前或回滚后）且当天无可读结果 | 200 / `model_switching` | `model_switching` | 服务器正在更新模型，稍后自动恢复 |
 | 激活栈不在发布注册表（只保留当前与上一版） | 200 / `unsupported` | `unsupported` | 服务器正在更新模型，稍后自动恢复 |
@@ -269,7 +274,7 @@ iOS 将响应解码失败或未知顶层 schema 记录为本地 `athlete_respons
 
 ## 配速区间 v3 契约
 
-`GET /v2/workouts/{id}/detail` 新增可选 `paceAnalysis`，`schemaVersion=rai.workout_pace_analysis/1`、`policyVersion=pace-zones/3`。旧 `zoneSummary` 的 `pace-zones/2` 及 `distanceDistribution` 保持原义。
+`GET /v2/workouts/{id}/pace-analysis` 返回 `{workoutID, paceAnalysis}`（OpenAPI 1.17.0 起从 `/detail` 移出，`/detail` 不再携带该字段）。服务端优先返回日发布预计算的结果（模型栈组件 `workout_pace_review`，产物 `workout_pace_reviews`）；该日正在重算但自上次发布以来的变化都晚于这次跑步结束时仍返回已发布结果，其他情况读取时回放，内容相同；App 先渲染详情再补齐配速卡片。`paceAnalysis` `schemaVersion=rai.workout_pace_analysis/1`、`policyVersion=pace-zones/3`。旧 `zoneSummary` 的 `pace-zones/2` 及 `distanceDistribution` 保持原义。
 
 - `defaultView`：`personal`（有成功个人分类）、`absolute`（只有实际配速分布可用）、`summary`（没有可用速度分段）。
 - `personal` / `absolute` 复用 `WorkoutZoneSummary` 类型，仅消费其中的配速字段；无心率／刺激推断。状态沿用具体原因，另有 `personal_evidence_insufficient` 和 `model_version_unsupported`。不存在后台参考准备任务，缓存未命中直接纯计算，不输出虚假 pending。

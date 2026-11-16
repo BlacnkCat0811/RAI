@@ -257,25 +257,28 @@ type LoadFocusValue struct {
 	Windows []tl.FocusWindow `json:"windows"`
 }
 type AthleteModelSnapshot struct {
-	RunningFitness        *Metric[RunningFitnessValue]  `json:"runningFitness,omitempty"`
-	SessionRecovery       *Metric[SessionRecoveryValue] `json:"sessionRecovery,omitempty"`
-	LoadFocus             *Metric[LoadFocusValue]       `json:"loadFocus,omitempty"`
-	SchemaVersion         string                        `json:"schemaVersion"`
-	AsOf                  int64                         `json:"asOf"`
-	EvaluationAt          int64                         `json:"evaluationAt"`
-	DatasetRevision       int64                         `json:"datasetRevision"`
-	Timezone              string                        `json:"timezone"`
-	CalendarDate          string                        `json:"calendarDate"`
-	Assignment            Assignment                    `json:"assignment"`
-	ResponseState         string                        `json:"responseState"`
-	PresentationOrder     []string                      `json:"presentationOrder"`
-	Notices               []string                      `json:"notices"`
-	TrainingLoad          Metric[TrainingLoadValue]     `json:"trainingLoad"`
-	RunningAbility        Metric[RunningAbilityValue]   `json:"runningAbility"`
-	ExternalVO2Max        Metric[ExternalVO2Value]      `json:"externalVO2Max"`
-	PhysiologicalRecovery Metric[RecoveryValue]         `json:"physiologicalRecovery"`
-	TrainingReadiness     Metric[ReadinessValue]        `json:"trainingReadiness"`
-	RAIVO2Max             *Metric[RAIVO2Value]          `json:"raiVO2Max,omitempty"`
+	RunningFitness  *Metric[RunningFitnessValue]  `json:"runningFitness,omitempty"`
+	SessionRecovery *Metric[SessionRecoveryValue] `json:"sessionRecovery,omitempty"`
+	LoadFocus       *Metric[LoadFocusValue]       `json:"loadFocus,omitempty"`
+	SchemaVersion   string                        `json:"schemaVersion"`
+	AsOf            int64                         `json:"asOf"`
+	EvaluationAt    int64                         `json:"evaluationAt"`
+	DatasetRevision int64                         `json:"datasetRevision"`
+	Timezone        string                        `json:"timezone"`
+	CalendarDate    string                        `json:"calendarDate"`
+	Assignment      Assignment                    `json:"assignment"`
+	ResponseState   string                        `json:"responseState"`
+	// Updating marks today's previous complete release served while a sync
+	// has it recomputed; the values are that release's, never a mixture.
+	Updating              bool                        `json:"updating,omitempty"`
+	PresentationOrder     []string                    `json:"presentationOrder"`
+	Notices               []string                    `json:"notices"`
+	TrainingLoad          Metric[TrainingLoadValue]   `json:"trainingLoad"`
+	RunningAbility        Metric[RunningAbilityValue] `json:"runningAbility"`
+	ExternalVO2Max        Metric[ExternalVO2Value]    `json:"externalVO2Max"`
+	PhysiologicalRecovery Metric[RecoveryValue]       `json:"physiologicalRecovery"`
+	TrainingReadiness     Metric[ReadinessValue]      `json:"trainingReadiness"`
+	RAIVO2Max             *Metric[RAIVO2Value]        `json:"raiVO2Max,omitempty"`
 }
 
 // A distinct transport type prevents confusing an administrative preview with

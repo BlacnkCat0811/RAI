@@ -155,16 +155,27 @@ func TestRunningFitnessV4HTTPNegotiationAndPublication(t *testing.T) {
 		t.Fatalf("post-run zones leaked into the detail: %s", b)
 	}
 	// HR-only input retains a visible but unavailable review, never fabricates speed.
-	if detail.PaceAnalysis == nil || detail.PaceAnalysis.DefaultView != "summary" {
+	if detail.PaceAnalysis != nil {
+		t.Fatal("detail still computes the pace review")
+	}
+	review, e := f.s.WorkoutPaceAnalysis(ctx, f.p, "f62f735b-fb16-43f9-b415-7a7041bca032")
+	if e != nil || review.PaceAnalysis == nil || review.PaceAnalysis.DefaultView != "summary" {
 		t.Fatal("HR-only run fabricated pace")
 	}
-	// A dirty generation hides all day products together, including new slots.
+	// A dirty generation serves the previous release whole, including new
+	// slots, and marks it updating; no slot mixes two generations.
+	before, e := f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
+	if e != nil || before.Updating {
+		t.Fatal("clean release marked updating", e)
+	}
 	if _, e = f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,clock_timestamp())`, f.p.DatasetID, modelmanifest.StackID(), today.Format(time.DateOnly)); e != nil {
 		t.Fatal(e)
 	}
 	s, e := f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
-	if e != nil || s.SessionRecovery.Value != nil || s.LoadFocus.Value != nil || s.TrainingReadiness.Value != nil || s.RunningFitness.Value != nil {
-		t.Fatal("mixed generation survived invalidation", e)
+	a, _ := json.Marshal([]any{before.SessionRecovery.Value, before.LoadFocus.Value, before.RunningFitness.Value})
+	b, _ := json.Marshal([]any{s.SessionRecovery.Value, s.LoadFocus.Value, s.RunningFitness.Value})
+	if e != nil || !s.Updating || string(a) != string(b) {
+		t.Fatal("invalidated release not served whole as updating", e)
 	}
 }
 
@@ -175,7 +186,7 @@ func TestPaceReviewAfterRestNeedsNoHistoricalPublication(t *testing.T) {
 	runStackDay(t, f, []stackDayRun{{id: older, day: -10, version: "11.0", hr: steadyHR}, {id: target, day: -1, version: "11.0", hr: steadyHR}}, stackDayOptions{payloads: map[string]func(*fixture, string, time.Time) []byte{older: stackPacePayload(t), target: stackPacePayload(t)}})
 	hash, _ := modelmanifest.CurrentHash()
 	setModelChannel(t, f, "active", modelmanifest.StackID(), hash)
-	d, err := f.s.WorkoutDetail(context.Background(), f.p, target)
+	d, err := f.s.WorkoutPaceAnalysis(context.Background(), f.p, target)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,7 +222,7 @@ func TestPaceReviewFirstRunUsesExplicitPostRunEstimate(t *testing.T) {
 	runStackDay(t, f, []stackDayRun{{id: id, day: -1, version: "11.0", hr: steadyHR}}, stackDayOptions{payloads: map[string]func(*fixture, string, time.Time) []byte{id: stackPacePayload(t)}})
 	hash, _ := modelmanifest.CurrentHash()
 	setModelChannel(t, f, "active", modelmanifest.StackID(), hash)
-	d, err := f.s.WorkoutDetail(context.Background(), f.p, id)
+	d, err := f.s.WorkoutPaceAnalysis(context.Background(), f.p, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +257,7 @@ func TestPaceReviewSpeedOnlyRetainsAbsoluteDistribution(t *testing.T) {
 	runStackDay(t, f, []stackDayRun{{id: id, day: -1, version: "11.0", hr: steadyHR}}, stackDayOptions{payloads: map[string]func(*fixture, string, time.Time) []byte{id: speedOnly}})
 	hash, _ := modelmanifest.CurrentHash()
 	setModelChannel(t, f, "active", modelmanifest.StackID(), hash)
-	d, err := f.s.WorkoutDetail(context.Background(), f.p, id)
+	d, err := f.s.WorkoutPaceAnalysis(context.Background(), f.p, id)
 	if err != nil {
 		t.Fatal(err)
 	}

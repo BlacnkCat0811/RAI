@@ -35,6 +35,9 @@ type publishedModelArtifact struct {
 	PublishedAt time.Time
 	FinishedAt  *time.Time
 	ManifestSHA string
+	// Stale is set when today's scope was invalidated after this clean
+	// publication and is being recomputed.
+	Stale bool
 }
 
 func stampArtifact[T any](m *am.Metric[T], a publishedModelArtifact) {
@@ -137,12 +140,16 @@ func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, s
 		scopeNames = append(scopeNames, modelmanifest.DayScope(stack, day))
 	}
 	rows := map[string]publishedModelArtifact{}
-	query := `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at,r.lineage->>'manifestSHA256'
+	// Today's release is served from its last clean publication while a sync
+	// has it recomputed (d.generation ahead of the publication); the snapshot
+	// says so with updating=true instead of hiding every card. The release is
+	// served whole: every slot comes from the same clean publication.
+	query := `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at,r.lineage->>'manifestSHA256',d.generation<>p.generation
 FROM unnest($2::text[], $4::text[]) expected(scope, key)
 JOIN analysis_publications p ON p.scope_key=expected.scope
 JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
 JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=expected.key
-JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.generation=p.generation AND d.clean_generation=p.generation
+JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.clean_generation=p.generation
 WHERE p.dataset_id=$1 AND r.status='SUCCEEDED' AND p.day<=$3::date
 ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 	args := []any{dataset, scopeNames, day, keys}
@@ -150,7 +157,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 		// The product view deliberately hides candidate/previous channels. An
 		// administrative preview reads the same clean publications from the base
 		// tables with an explicit channel binding.
-		query = `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at,r.lineage->>'manifestSHA256'
+		query = `SELECT DISTINCT ON (a.artifact_key) a.artifact_key,a.payload,encode(a.content_sha256,'hex'),a.schema_version,a.artifact_key,r.algorithm_name,r.algorithm_version,r.id::text,r.target_generation,p.published_at,r.finished_at,r.lineage->>'manifestSHA256',false
 FROM unnest($2::text[], $4::text[]) expected(scope, key)
 JOIN analysis_publications p ON p.scope_key=expected.scope AND p.dataset_id=$1
 JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation
@@ -168,12 +175,15 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 	for qrows.Next() {
 		var key string
 		var a publishedModelArtifact
-		if err = qrows.Scan(&key, &a.Payload, &a.ContentHash, &a.Schema, &a.Key, &a.Algorithm, &a.Version, &a.RunID, &a.Generation, &a.PublishedAt, &a.FinishedAt, &a.ManifestSHA); err != nil {
+		if err = qrows.Scan(&key, &a.Payload, &a.ContentHash, &a.Schema, &a.Key, &a.Algorithm, &a.Version, &a.RunID, &a.Generation, &a.PublishedAt, &a.FinishedAt, &a.ManifestSHA, &a.Stale); err != nil {
 			qrows.Close()
 			return am.AthleteModelSnapshot{}, err
 		}
 		if name, ok := byKey[key]; ok {
 			rows[name] = a
+			if a.Stale {
+				out.Updating = true
+			}
 		}
 	}
 	if err = qrows.Err(); err != nil {
@@ -181,7 +191,7 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 		return am.AthleteModelSnapshot{}, err
 	}
 	qrows.Close()
-	if len(rows) == 0 && stack == modelmanifest.StackID() {
+	if (len(rows) == 0 || out.Updating) && stack == modelmanifest.StackID() {
 		var failed bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j JOIN dirty_scopes d USING(dataset_id,scope_key)
  WHERE j.dataset_id=$1 AND j.scope_key=$2 AND j.target_generation=d.generation
@@ -189,6 +199,10 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 			return out, err
 		}
 		if failed {
+			// The recompute failed: the previous release is no longer "being
+			// updated", so it is not served as if it were.
+			rows = map[string]publishedModelArtifact{}
+			out.Updating = false
 			am.SetMissingMetricsV2(&out, "technical_failure")
 		}
 	}
@@ -286,6 +300,9 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 		out.RunningFitness = &m
 	}
 	am.SetProjectedResponseState(&out)
+	if out.Updating {
+		out.Notices = append(out.Notices, "model_result_updating")
+	}
 	return out, nil
 }
 

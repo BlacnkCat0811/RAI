@@ -79,7 +79,9 @@ func (s *Store) ProcessModelStack(ctx context.Context, l Lease, now time.Time) (
 	if err := tx.Commit(ctx); err != nil {
 		return "", err
 	}
-	return s.publishModelStackDay(ctx, l, stack, day, manifest, revision, results)
+	status, err := s.publishModelStackDay(ctx, l, stack, day, manifest, revision, results)
+	analysis.Mark(ctx, "publish")
+	return status, err
 }
 
 func modelStackDay(scope string) (stack, day string, ok bool) {
@@ -127,22 +129,41 @@ func (s *Store) publishModelStackDay(ctx context.Context, l Lease, stack, day, m
 	}
 	status := "SUPERSEDED"
 	if current && modelStackProductsPresent(artifacts) {
+		var loads []workoutResultRow
+		var features []stackArtifact
+		var caches workoutCaches
 		for _, a := range artifacts {
 			if r, ok := a.value.(workoutResultRow); ok {
+				// Cached Workouts only carry today's load: written in one batch below.
+				if r.failure == "" && r.feature == nil && r.load != nil {
+					loads = append(loads, r)
+					continue
+				}
 				if err := writeWorkoutResult(ctx, tx, l.DatasetID, stack, r); err != nil {
 					return "", err
 				}
 				continue
 			}
-			if f, ok := a.value.(wf.WorkoutFeatures); ok {
-				if err := writeStackWorkout(ctx, tx, l, stack, manifest, revision, day, a, f); err != nil {
-					return "", err
-				}
+			if _, ok := a.value.(wf.WorkoutFeatures); ok {
+				features = append(features, a)
+				continue
+			}
+			if c, ok := a.value.(workoutCaches); ok {
+				caches = c
 				continue
 			}
 			if err := writeStackArtifact(ctx, tx, l, day, manifest, revision, a); err != nil {
 				return "", err
 			}
+		}
+		if err := writeWorkoutLoads(ctx, tx, l.DatasetID, stack, loads); err != nil {
+			return "", err
+		}
+		if err := writeStackWorkouts(ctx, tx, l, stack, manifest, revision, day, features); err != nil {
+			return "", err
+		}
+		if err := writeWorkoutCaches(ctx, tx, l.DatasetID, stack, caches); err != nil {
+			return "", err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE dirty_scopes SET clean_generation=generation WHERE dataset_id=$1 AND scope_key=$2`, l.DatasetID, l.ScopeKey); err != nil {
 			return "", err
@@ -244,19 +265,60 @@ DO UPDATE SET published_run_id=EXCLUDED.published_run_id,generation=EXCLUDED.gen
 	return err
 }
 
-func writeStackWorkout(ctx context.Context, tx pgx.Tx, l Lease, stack, manifest string, revision int64, day string, a stackArtifact, f wf.WorkoutFeatures) error {
-	scope := "model/" + stack + "/workout/" + f.WorkoutID
-	if _, err := tx.Exec(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through)
- VALUES($1,$2,1,$3,$4) ON CONFLICT DO NOTHING`, l.DatasetID, scope, time.UnixMicro(f.Timing.Start), time.UnixMicro(f.Timing.End)); err != nil {
-		return err
-	}
-	var gen, clean int64
-	if err := tx.QueryRow(ctx, `SELECT generation,clean_generation FROM dirty_scopes WHERE dataset_id=$1 AND scope_key=$2`, l.DatasetID, scope).Scan(&gen, &clean); err != nil {
-		return err
-	}
-	if gen == clean {
+// writeStackWorkouts publishes the feature artifact of every Workout whose
+// per-Workout scope is not clean. The scopes are created and read in one
+// statement each instead of two round trips per Workout.
+func writeStackWorkouts(ctx context.Context, tx pgx.Tx, l Lease, stack, manifest string, revision int64, day string, features []stackArtifact) error {
+	if len(features) == 0 {
 		return nil
 	}
+	scopes := make([]string, len(features))
+	froms := make([]time.Time, len(features))
+	throughs := make([]time.Time, len(features))
+	for i, a := range features {
+		f := a.value.(wf.WorkoutFeatures)
+		scopes[i] = "model/" + stack + "/workout/" + f.WorkoutID
+		froms[i], throughs[i] = time.UnixMicro(f.Timing.Start), time.UnixMicro(f.Timing.End)
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO dirty_scopes(dataset_id,scope_key,generation,dirty_from,dirty_through)
+ SELECT $1,s,1,f,t FROM unnest($2::text[],$3::timestamptz[],$4::timestamptz[]) x(s,f,t) ON CONFLICT DO NOTHING`, l.DatasetID, scopes, froms, throughs); err != nil {
+		return err
+	}
+	rows, err := tx.Query(ctx, `SELECT scope_key,generation FROM dirty_scopes WHERE dataset_id=$1 AND scope_key=ANY($2::text[]) AND generation<>clean_generation`, l.DatasetID, scopes)
+	if err != nil {
+		return err
+	}
+	dirty := map[string]int64{}
+	for rows.Next() {
+		var scope string
+		var gen int64
+		if err := rows.Scan(&scope, &gen); err != nil {
+			rows.Close()
+			return err
+		}
+		dirty[scope] = gen
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i, a := range features {
+		gen, ok := dirty[scopes[i]]
+		if !ok {
+			continue
+		}
+		f := a.value.(wf.WorkoutFeatures)
+		if err := restoreArtifactEffort(ctx, tx, l.DatasetID, stack, &f); err != nil {
+			return err
+		}
+		if err := writeStackWorkout(ctx, tx, l, scopes[i], gen, manifest, revision, day, a, f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeStackWorkout(ctx context.Context, tx pgx.Tx, l Lease, scope string, gen int64, manifest string, revision int64, day string, a stackArtifact, f wf.WorkoutFeatures) error {
 	l.ScopeKey, l.TargetGeneration = scope, gen
 	f.Generation = gen
 	a.value = f

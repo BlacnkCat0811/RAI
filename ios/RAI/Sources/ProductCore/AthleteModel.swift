@@ -33,6 +33,8 @@ public struct MetricEnvelope: Codable, Equatable, Sendable {
   public var asOf: Int64?, evaluationAt: Int64
   public var freshness: ProductCode
   public var updatedAt: Int64?
+  /// When the release carrying this value was published (µs); absent when missing.
+  public var publishedAt: Int64?
   public var reasonCodes: [ProductCode], productReasonCodes: [ProductCode]
   /// Server-chosen reason to show (explicit priority); older servers omit it.
   public var primaryReason: ProductCode?
@@ -181,6 +183,16 @@ public struct AthleteModelSnapshot: Codable, Equatable, Sendable {
   public var trainingLoad: TrainingLoadMetric, runningAbility: RunningAbilityMetric, externalVO2Max: ExternalVO2Metric
   public var physiologicalRecovery: RecoveryMetric, trainingReadiness: ReadinessMetric
   public var raiVO2Max: RAIVO2Metric?
+  /// The server serves today's previous complete release while a sync has it
+  /// recomputed (absent on older servers).
+  public var updating: Bool?
+  /// When the shown release was published (µs): the newest publication time
+  /// of its metrics, else the evaluation time on servers that omit it.
+  public var releasePublishedAt: Int64 {
+    let times = [trainingLoad.envelope.publishedAt, physiologicalRecovery.envelope.publishedAt, trainingReadiness.envelope.publishedAt,
+      runningFitness?.envelope.publishedAt, sessionRecovery?.envelope.publishedAt].compactMap { $0 }
+    return times.max() ?? evaluationAt
+  }
   public var supportsPresentation: Bool { ["rai.athlete_model/1", "rai.athlete_model/2", "rai.athlete_model/3", "rai.athlete_model/4"].contains(schemaVersion) }
 }
 

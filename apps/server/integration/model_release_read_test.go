@@ -75,21 +75,23 @@ func TestModelReleasePendingFailureAndUnknownNeverClaimUnactivated(t *testing.T)
 	if _, err := f.s.Pool.Exec(ctx, `SELECT rai_schedule_model_day($1,$2,$3::date,clock_timestamp())`, f.p.DatasetID, stack, today.Format(time.DateOnly)); err != nil {
 		t.Fatal(err)
 	}
+	// While today's release is recomputed the previous one is served whole
+	// and marked updating.
 	s, err := f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
-	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "pending" || s.RunningAbility.Value != nil || s.RunningFitness == nil || s.RunningFitness.Envelope.ModelStatus != "pending" {
-		t.Fatalf("pending: %+v %v", s.TrainingReadiness.Envelope, err)
+	if err != nil || !s.Updating || s.TrainingReadiness.Envelope.ModelStatus == "pending" || s.RunningAbility.Value != nil || s.RunningFitness == nil || s.RunningFitness.Envelope.ModelStatus == "pending" {
+		t.Fatalf("updating: %v %+v %v", s.Updating, s.TrainingReadiness.Envelope, err)
 	}
 	if _, err := f.s.Pool.Exec(ctx, `UPDATE jobs SET state='failed',last_error_code='analysis_invalid_input' WHERE dataset_id=$1 AND scope_key=$2 AND state='queued'`, f.p.DatasetID, scope); err != nil {
 		t.Fatal(err)
 	}
 	s, err = f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
-	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "technical_failure" {
+	if err != nil || s.Updating || s.TrainingReadiness.Envelope.ModelStatus != "technical_failure" {
 		t.Fatalf("failure: %+v %v", s.TrainingReadiness.Envelope, err)
 	}
 	// The previous registered release is active (before auto-activation or
 	// after a rollback) and has no clean result: the server is switching
 	// models, which an App update cannot fix.
-	const previous = "3a59303d56150329de984a22e0b9011373c3c1a07d2ce56a5996c0dd73974d32"
+	const previous = "eae55bfc11c17a901f0a6bcec01c5cd82a72501c6c7ef8add0db74395b75977f"
 	setModelChannel(t, f, "active", "rai-v2-"+previous[:16], previous)
 	s, err = f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
 	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "model_switching" || s.TrainingReadiness.Envelope.PrimaryReason != "model_switching" {

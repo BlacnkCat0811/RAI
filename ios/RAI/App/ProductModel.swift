@@ -263,6 +263,18 @@ final class ProductModel {
     else { return nil }
     return caches.appendingPathComponent("RAIProductHome-\(session).json")
   }
+  /// Encodes and writes the home snapshot off the main actor; the newest
+  /// snapshot wins because writes are chained in order.
+  private var homeCacheWrite: Task<Void, Never>?
+  private func saveHomeCache(_ snapshot: ProductSnapshot) {
+    guard let url = cacheURL() else { return }
+    let previous = homeCacheWrite
+    homeCacheWrite = Task.detached(priority: .utility) {
+      await previous?.value
+      guard let bytes = ProductSnapshotCache.encode(snapshot) else { return }
+      try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+  }
   func refresh() async {
     guard !loading else { return }
     loading = true
@@ -309,10 +321,12 @@ final class ProductModel {
     loading = false
     await resumePendingWrites()
     loading = true
-    let loaded = await api.load().keepingLastGood(from: data).keepingPublishedAthlete(from: data)
-    if !ProductLoadFailures.needsRetry(loaded.failures), let url = cacheURL(), let bytes = ProductSnapshotCache.encode(loaded) {
-      try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-    }
+    let fetched = await api.load()
+    // A refresh SwiftUI cancelled (the pull gesture ended or the view went
+    // away) did not fail: keep what is on screen and record nothing.
+    if Task.isCancelled { return }
+    let loaded = fetched.keepingLastGood(from: data).keepingPublishedAthlete(from: data)
+    if !ProductLoadFailures.needsRetry(loaded.failures) { saveHomeCache(loaded) }
     let stateStart = Date()
     data = loaded
     statisticsRevision += 1
@@ -424,8 +438,7 @@ final class ProductModel {
     athleteRefreshing = true
     defer { athleteRefreshing = false }
     do {
-      let json = try await api.get("/v2/analysis/athlete", query: ["schemaVersion": "rai.athlete_model/4"])
-      let snapshot = try JSONDecoder().decode(AthleteModelSnapshot.self, from: json.data())
+      let snapshot = try await api.athleteSnapshot()
       guard snapshot.supportsPresentation else {
         // Newer server contract: keep the last result, ask for an App update.
         if !Task.isCancelled { data.failures["athlete"] = ProductSnapshot.athleteUpdateRequired }
@@ -451,10 +464,7 @@ final class ProductModel {
       // Network or decoding trouble keeps the last good value on screen.
       if !Task.isCancelled { data.failures["athlete"] = "athlete_response_invalid" }
     }
-    if !Task.isCancelled, !data.athleteRefreshFailed,
-      let url = cacheURL(), let bytes = ProductSnapshotCache.encode(data) {
-      try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-    }
+    if !Task.isCancelled, !data.athleteRefreshFailed { saveHomeCache(data) }
   }
   /// Every sync makes the server recompute today's release (about a minute or
   /// two). Re-read the athlete model until the new release is published, then
@@ -541,6 +551,8 @@ final class ProductModel {
   var workoutFreshness: WorkoutFreshness?
   var workoutDetailLoading = false
   var workoutDetailError: String?
+  /// The Workout whose pace review is still being computed by the server.
+  var paceAnalysisLoadingID: String?
   var diagnostics: AthleteDiagnostics?
   var diagnosticsError: String?
   /// Last loaded detail per Workout, so going back and forth between records
@@ -554,7 +566,7 @@ final class ProductModel {
     cacheURL().map { HomeRouteDiskCache(url: $0.deletingPathExtension().appendingPathExtension("routes.json")) }
   }
   private var openDetailID: String?
-  func loadWorkoutDetail(_ id: String) async {
+  func loadWorkoutDetail(_ id: String, refreshPace: Bool = true) async {
     guard let api else {
       workoutDetailError = "请先连接服务器。"
       return
@@ -581,9 +593,21 @@ final class ProductModel {
     async let detailResult = Self.capture { try await api.workoutDetail(id) }
     async let seriesResult = Self.capture { try await api.workoutSeries(id) }
     async let freshnessResult = Self.capture { try await api.workoutFreshness(id) }
+    // The pace review replays the running-fitness state and is the slowest
+    // read; it fills its card when it lands, never blocking the page.
+    let knownPace = detailCache[id]?.detail.paceAnalysis
+    let fetchPace = refreshPace || knownPace == nil
+    if fetchPace { paceAnalysisLoadingID = id }
+    let paceTask = Task { fetchPace ? await Self.capture { try await api.workoutPaceAnalysis(id) } : nil }
+    defer { paceTask.cancel() }
     do {
-      let detail = try await detailResult.get()
+      var detail = try await detailResult.get()
       guard detail.workout.workoutID == id else { throw SyncFailure.invalid("invalid_response") }
+      // Servers before 1.17.0 still embed the review; otherwise keep the last
+      // known one on screen until the new one arrives.
+      if detail.paceAnalysis == nil, let known = detailCache[id]?.detail.paceAnalysis ?? workoutDetail.flatMap({ $0.workout.workoutID == id ? $0.paceAnalysis : nil }) {
+        detail.paceAnalysis = known
+      }
       workoutDetail = detail
       workoutDetailError = nil
       detailCache[id] = (detail, workoutSeries, workoutFreshness)
@@ -592,14 +616,23 @@ final class ProductModel {
       guard workoutDetail?.workout.workoutID == id else { return }
       if let value = try? series.get(), value.workoutID == id { workoutSeries = value }
       if let value = try? freshness.get(), value.workoutID == id { workoutFreshness = value }
+      if case .success(let review)? = await paceTask.value, review.workoutID.lowercased() == id.lowercased(),
+        workoutDetail?.workout.workoutID == id
+      {
+        detail.paceAnalysis = review.paceAnalysis
+        workoutDetail = detail
+      }
+      if paceAnalysisLoadingID == id { paceAnalysisLoadingID = nil }
       detailCache[id] = (detail, workoutSeries, workoutFreshness)
       if let disk = detailDiskCache() {
         let entry = WorkoutDetailDiskCache.Entry(detail: detail, series: workoutSeries)
         Task.detached(priority: .utility) { disk.save(id, entry) }
       }
     } catch let failure as UploadError {
+      if paceAnalysisLoadingID == id { paceAnalysisLoadingID = nil }
       workoutDetailError = "跑步详情暂不可用：\(UserFacingText.error(failure.code))"
     } catch {
+      if paceAnalysisLoadingID == id { paceAnalysisLoadingID = nil }
       workoutDetailError = "跑步详情暂不可用，请稍后重试。"
     }
   }
@@ -639,8 +672,11 @@ final class ProductModel {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
     let changed = (try? encoder.encode(fresh)) != workoutFreshness.flatMap { try? encoder.encode($0) }
+    // The pace review only depends on the published analysis; new samples
+    // alone refresh the detail and charts.
+    let analysisChanged = (try? encoder.encode(fresh.analysis)) != workoutFreshness.flatMap { try? encoder.encode($0.analysis) }
     workoutFreshness = fresh
-    if changed { await loadWorkoutDetail(id) }
+    if changed { await loadWorkoutDetail(id, refreshPace: analysisChanged) }
     return changed
   }
   func loadAudit() async {

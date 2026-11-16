@@ -66,6 +66,7 @@ type Manifest struct {
 	LoadFocus                *Component  `json:"loadFocus,omitempty"`
 	TrainingEffect           *Component  `json:"trainingEffect,omitempty"`
 	LactateThreshold         *Component  `json:"lactateThreshold,omitempty"`
+	PaceReview               *Component  `json:"paceReview,omitempty"`
 }
 
 // ProductSchema4 is the running-fitness product contract.
@@ -160,6 +161,10 @@ func Current() Manifest {
 	// family; the pace is the running-fitness vT, never a second curve.
 	m.LactateThreshold = &Component{Name: "lactate_threshold", ModelID: lt.Algorithm, Version: lt.Version, Schema: lt.Schema, JobKind: StackJobKind, ArtifactKey: lt.ArtifactKey,
 		ConfigHash: lt.ConfigHash(), SourcePolicy: "recorded-running;running-fitness-vt-anchor;same-source-as-fitness;hr-reference-diagnostic-only;effort-main-segment/v1", ConsumerSchema: lt.Schema}
+	// The day release precomputes the read-time pace review (pace-zones/3) of
+	// each Workout starting that day; the review itself is unchanged.
+	m.PaceReview = &Component{Name: "workout_pace_review", ModelID: "rai.workout_pace_review", Version: "v1", Schema: "rai.workout_pace_reviews/1", JobKind: StackJobKind, ArtifactKey: "workout_pace_reviews",
+		ConfigHash: digest("pace-zones/3;pre-run-then-post-run-estimate;window90;start-day-release;" + rf.ConfigHash()), SourcePolicy: "recorded-running;running-fitness-replay-at-event;absolute-supported-signal/v1", ConsumerSchema: "rai.workout_pace_analysis/1"}
 	return m
 }
 
@@ -172,7 +177,7 @@ func (m Manifest) Validate() error {
 	}
 	all := []Component{m.Features, m.Load, m.LoadState, m.RunningAbility, m.VO2Max, m.Recovery, m.Readiness, m.ExternalVO2}
 	all = append(all, m.Diagnostics...)
-	for _, c := range []*Component{m.SessionRecovery, m.AbilityEstimate, m.LoadFocus, m.TrainingEffect, m.LactateThreshold} {
+	for _, c := range []*Component{m.SessionRecovery, m.AbilityEstimate, m.LoadFocus, m.TrainingEffect, m.LactateThreshold, m.PaceReview} {
 		if c != nil {
 			all = append(all, *c)
 		}

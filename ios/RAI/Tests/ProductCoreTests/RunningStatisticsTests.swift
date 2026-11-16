@@ -71,14 +71,16 @@ import Testing
     #expect(value.paceUnknownMeters == 15000)
     #expect(value.unavailableDistributionCount == 1)
   }
-  @Test func completePaginationDeduplicatesAndOnlyLoadsSelectedRuns() async throws {
-    let rows = [workout("a"), workout("old", "2026-10-01T00:00:00Z"), workout("cycle", activity: 13)]
-    let page1: JSON = .object(["items": .array(rows), "next": .string("second")])
+  @Test func paginationDeduplicatesLoadsSelectedRunsAndStopsBeforeTheWindow() async throws {
+    // Newest first, as the server orders the list: the page that reaches
+    // before the window start is the last one read.
+    let page1: JSON = .object(["items": .array([workout("a"), workout("cycle", activity: 13)]), "next": .string("second")])
     let page2: JSON = .object(["items": .array([workout("a"), workout("b")]), "next": .string("third")])
-    let page3: JSON = .object(["items": .array([workout("c")]), "next": .string("")])
+    let page3: JSON = .object(["items": .array([workout("c"), workout("old", "2026-10-01T00:00:00Z")]), "next": .string("fourth")])
     let recorder = StatisticsRecorder()
     let value = try await RunningStatisticsReader.load(window: window, page: { cursor in
       await recorder.page(cursor)
+      if cursor == "fourth" { throw SyncFailure.invalid("read_past_window") }
       return cursor.isEmpty ? page1 : cursor == "second" ? page2 : page3
     }, distribution: { id in
       await recorder.detail(id)
@@ -90,6 +92,29 @@ import Testing
     #expect(value.distributionFailureCount == 1)
     #expect(await recorder.pages == ["", "second", "third"])
     #expect(await Set(recorder.details) == ["a", "b", "c"])
+  }
+  @Test func batchDistributionsReplaceDetailReadsAndUncoveredRunsFallBack() async throws {
+    let page: JSON = .object(["items": .array([workout("a"), workout("b"), workout("c")]), "next": .string("")])
+    let recorder = StatisticsRecorder()
+    let value = try await RunningStatisticsReader.load(window: window, page: { _ in page }, batch: { _ in
+      [WorkoutDistanceItem(workoutID: "a", status: "available", distanceDistribution: distribution()),
+       WorkoutDistanceItem(workoutID: "b", status: "failed", distanceDistribution: nil)]
+    }, distribution: { id in
+      await recorder.detail(id)
+      return nil
+    })
+    #expect(value.count == 3)
+    #expect(value.pace[1].distanceMeters == 1000)
+    #expect(value.distributionFailureCount == 1)
+    #expect(value.unavailableDistributionCount == 1)
+    #expect(await recorder.details == ["c"])
+    // A server without the batch read keeps the per-run detail reads.
+    let fallback = StatisticsRecorder()
+    _ = try await RunningStatisticsReader.load(window: window, page: { _ in page }, batch: { _ in nil }, distribution: { id in
+      await fallback.detail(id)
+      return nil
+    })
+    #expect(await Set(fallback.details) == ["a", "b", "c"])
   }
   @Test func failedOrCyclicPaginationCannotPublishPartialTotals() async {
     let first: JSON = .object(["items": .array([workout("a")]), "next": .string("again")])

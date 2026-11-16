@@ -182,6 +182,12 @@ public actor ProductAPI {
   public func get(_ path: String, query: [String: String] = [:]) async throws -> JSON {
     try await request("GET", path, query: query)
   }
+  /// The schema4 athlete snapshot, decoded on this actor rather than on the
+  /// caller's (main) actor.
+  public func athleteSnapshot() async throws -> AthleteModelSnapshot {
+    let raw = try await get("/v2/analysis/athlete", query: ["schemaVersion": "rai.athlete_model/4"])
+    return try JSONDecoder().decode(AthleteModelSnapshot.self, from: raw.data())
+  }
   public func athleteHistory(metric: String, cursor: String? = nil) async throws -> AthleteHistoryPage {
     var query = ["metric": metric, "limit": "30", "view": "revised"]
     if let cursor { query["cursor"] = cursor }

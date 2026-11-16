@@ -54,6 +54,34 @@ import Testing
     #expect(loaded.keepingPublishedAthlete(from: previous).athlete == loaded.athlete)
   }
 
+  @Test func serverServedPreviousReleaseIsShownAsUpdating() throws {
+    var served = try full()
+    served.updating = true
+    var loaded = ProductSnapshot()
+    loaded.athlete = served
+    let merged = loaded.keepingPublishedAthlete(from: ProductSnapshot())
+    #expect(merged.athlete == served)
+    #expect(merged.athleteUpdating)
+    #expect(merged.athleteShowingPrevious)
+    served.updating = false
+    loaded.athlete = served
+    #expect(!loaded.keepingPublishedAthlete(from: merged).athleteUpdating)
+  }
+
+  @Test func releaseTimeIsThePublicationNotTheRead() throws {
+    var served = try full()
+    served.evaluationAt = 9_000_000_000_000_000
+    served.trainingLoad.envelope.publishedAt = 1_000
+    served.trainingReadiness.envelope.publishedAt = 2_000
+    #expect(served.releasePublishedAt == 2_000)
+    served.trainingLoad.envelope.publishedAt = nil
+    served.trainingReadiness.envelope.publishedAt = nil
+    served.physiologicalRecovery.envelope.publishedAt = nil
+    served.runningFitness?.envelope.publishedAt = nil
+    served.sessionRecovery?.envelope.publishedAt = nil
+    #expect(served.releasePublishedAt == served.evaluationAt)
+  }
+
   @Test func publishedReleaseClearsUpdating() throws {
     let last = try full()
     var previous = ProductSnapshot()

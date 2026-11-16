@@ -536,6 +536,10 @@ extension ProductAPI {
   public func workoutFreshness(_ id: String) async throws -> WorkoutFreshness {
     try decode(await get("/v2/workouts/" + id + "/freshness"))
   }
+  /// The read-time pace review, served apart from the detail (API 1.17.0).
+  public func workoutPaceAnalysis(_ id: String) async throws -> WorkoutPaceAnalysisResponse {
+    try decode(await get("/v2/workouts/" + id + "/pace-analysis"))
+  }
   private func decode<T: Decodable>(_ value: JSON) throws -> T {
     try JSONDecoder().decode(T.self, from: value.data())
   }
@@ -553,6 +557,10 @@ extension WorkoutSeriesBundle {
     elevation: WorkoutMetricSeries(unit: "m", totalSamples: 0, points: []))
 }
 
+public struct WorkoutPaceAnalysisResponse: Codable, Sendable {
+  public let workoutID: String
+  public let paceAnalysis: WorkoutPaceAnalysis?
+}
 public struct WorkoutPaceAnalysis: Codable, Sendable {
   public let schemaVersion: String
   public let policyVersion: String

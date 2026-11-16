@@ -102,6 +102,11 @@ extension ProductSnapshot {
   /// it as updating. Never mixes two releases: the whole snapshot is kept.
   public func keepingPublishedAthlete(from previous: ProductSnapshot) -> ProductSnapshot {
     var out = self
+    // Newer servers already serve the previous complete release and say so.
+    if let athlete, athlete.updating == true, !athlete.awaitingRecompute {
+      out.athleteUpdating = true
+      return out
+    }
     guard let athlete, athlete.awaitingRecompute else {
       out.athleteUpdating = false
       return out

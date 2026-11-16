@@ -158,3 +158,12 @@ func BuildDistanceDistribution(startUs, endUs int64, total *float64, obs []Obser
 	out.PaceUnknownMeters, out.HeartRateUnknownMeters = unknown(out.Pace), unknown(out.HeartRate)
 	return out
 }
+
+// WorkoutDistanceItem is one running Workout of a statistics window:
+// available (with its distribution), unavailable (no distance to split) or
+// failed (its own facts could not be read).
+type WorkoutDistanceItem struct {
+	WorkoutID    string                `json:"workoutID"`
+	Status       string                `json:"status"`
+	Distribution *DistanceDistribution `json:"distanceDistribution"`
+}

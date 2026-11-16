@@ -176,10 +176,11 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 	if l.Kind == modelmanifest.StackJobKind {
 		status := "FAILED"
 		var err error
+		phaseCtx, phases := analysis.WithPhases(runCtx)
 		if processor, ok := q.(interface {
 			ProcessModelStack(context.Context, analysis.Lease, time.Time) (string, error)
 		}); ok {
-			status, err = processor.ProcessModelStack(runCtx, l, at)
+			status, err = processor.ProcessModelStack(phaseCtx, l, at)
 		} else {
 			err = &analysis.Failure{Code: "analysis_unsupported_algorithm"}
 		}
@@ -194,7 +195,7 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 			}
 			stop()
 		}
-		log.Info("model_stack_execution", "component", "worker", "status", status, "duration_ms", elapsed().Milliseconds())
+		log.Info("model_stack_execution", "component", "worker", "status", status, "duration_ms", elapsed().Milliseconds(), "phases_ms", phases.String())
 		return
 	}
 	if l.Kind == "training.plan" {

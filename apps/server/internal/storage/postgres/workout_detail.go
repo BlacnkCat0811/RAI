@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"rai/server/internal/analysis"
+	am "rai/server/internal/athletemodel"
+	"rai/server/internal/modelmanifest"
 	"rai/server/internal/syncing"
 	"rai/server/internal/training"
 	te "rai/server/internal/trainingeffect"
@@ -94,9 +96,9 @@ type executionRow struct {
 	Version     int64
 }
 
-// withAnalysis adds the read-time model views only the detail page shows
-// (pace zones replay the 90-day running-fitness state, run fitness, feature
-// artifact, qualification and HR references). Series and freshness reads skip
+// withAnalysis adds the published model views only the detail page shows
+// (run fitness, feature artifact, qualification and HR references). The pace
+// review, which replays the 90-day running-fitness state, has its own read. Series and freshness reads skip
 // them: they are by far the most expensive part of the snapshot and freshness
 // is polled while the page is open.
 func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, id string, withAnalysis bool) (*workoutDetailData, error) {
@@ -105,6 +107,17 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	d, err := loadWorkoutDetailTx(ctx, tx, p, id, withAnalysis)
+	if err != nil {
+		return nil, err
+	}
+	return d, tx.Commit(ctx)
+}
+
+// loadWorkoutDetailTx reads one Workout's detail snapshot inside the caller's
+// read-only transaction.
+func loadWorkoutDetailTx(ctx context.Context, tx pgx.Tx, p syncing.Principal, id string, withAnalysis bool) (*workoutDetailData, error) {
+	var err error
 	d := &workoutDetailData{ID: id, SampleCounts: map[string]int{}, SeriesCounts: map[string]int{}, LastObservedByType: map[string]time.Time{}}
 	var payload []byte
 	err = tx.QueryRow(ctx, `SELECT event_start,event_end,duration_us,activity_type,source_bundle_id,payload,first_received_at
@@ -338,9 +351,6 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		if err = loadFeatureAnalysis(ctx, tx, p, id, d); err != nil {
 			return nil, err
 		}
-		if err = loadPaceAnalysis(ctx, tx, p, id, d); err != nil {
-			return nil, err
-		}
 		if err = loadRunFitnessDetail(ctx, tx, p, id, d); err != nil {
 			return nil, err
 		}
@@ -349,49 +359,8 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 		}
 	}
 
-	// The v2 model stack's latest day release records this Workout's load in
-	// model_workout_results; that row is the Workout's published analysis.
-	var failed bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM model_workout_failures f
- JOIN analysis_model_channels c ON c.dataset_id=f.dataset_id AND c.stack_id=f.stack_id AND c.channel='active'
- LEFT JOIN dirty_scopes d ON d.dataset_id=f.dataset_id AND d.scope_key='workout:HKWorkoutTypeIdentifier:'||f.workout_uuid::text
- WHERE f.dataset_id=$1 AND f.workout_uuid=$2 AND f.fact_generation=COALESCE(d.generation,0))`, p.DatasetID, id).Scan(&failed); err != nil {
+	if err = loadPublishedWorkoutLoad(ctx, tx, p, id, d); err != nil {
 		return nil, err
-	}
-	var loadJSON []byte
-	var updated time.Time
-	err = tx.QueryRow(ctx, `SELECT r.load,r.updated_at FROM model_workout_results r
- JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
- WHERE r.dataset_id=$1 AND r.workout_uuid=$2 AND r.load IS NOT NULL AND NOT $3`, p.DatasetID, id, failed).Scan(&loadJSON, &updated)
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		d.AnalysisStatus = "pending"
-		if failed {
-			d.AnalysisStatus = "failed"
-		}
-	case err != nil:
-		return nil, err
-	default:
-		var load tl.Result
-		if json.Unmarshal(loadJSON, &load) != nil {
-			return nil, analysis.Invalid()
-		}
-		m := analysis.Metric{Name: "workout_load", Algorithm: load.Model, Version: load.ModelVersion, Value: load.Load, Unit: load.Unit, Quality: "insufficient", Details: map[string]any{"qualityTier": load.QualityTier, "method": load.Method}}
-		switch {
-		case load.Load != nil && load.QualityTier == tl.TierComplete && load.Quality != "estimated":
-			m.Quality = "available"
-		case load.Load != nil:
-			m.Quality = "partial"
-		default:
-			reasons := make([]any, 0, len(load.ReasonCodes))
-			for _, r := range load.ReasonCodes {
-				reasons = append(reasons, r)
-			}
-			m.Details["missingComponents"] = reasons
-		}
-		d.Published = []analysis.Metric{m}
-		d.PublishedAt = updated
-		d.AnalysisAvailable, d.AnalysisStatus = true, "published"
 	}
 
 	if withAnalysis {
@@ -417,7 +386,7 @@ func (s *Store) loadWorkoutDetailData(ctx context.Context, p syncing.Principal, 
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	return d, tx.Commit(ctx)
+	return d, nil
 }
 
 // loadDetailReferences resolves the HR zone bounds of the detail page: the
@@ -1197,6 +1166,55 @@ func formatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
 }
 
+// loadPublishedWorkoutLoad reads the Workout's v2 load the active model
+// stack's latest day release recorded in model_workout_results; that row is
+// the Workout's published analysis.
+func loadPublishedWorkoutLoad(ctx context.Context, tx pgx.Tx, p syncing.Principal, id string, d *workoutDetailData) error {
+	var failed bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM model_workout_failures f
+ JOIN analysis_model_channels c ON c.dataset_id=f.dataset_id AND c.stack_id=f.stack_id AND c.channel='active'
+ LEFT JOIN dirty_scopes d ON d.dataset_id=f.dataset_id AND d.scope_key='workout:HKWorkoutTypeIdentifier:'||f.workout_uuid::text
+ WHERE f.dataset_id=$1 AND f.workout_uuid=$2 AND f.fact_generation=COALESCE(d.generation,0))`, p.DatasetID, id).Scan(&failed); err != nil {
+		return err
+	}
+	var loadJSON []byte
+	var updated time.Time
+	err := tx.QueryRow(ctx, `SELECT r.load,r.updated_at FROM model_workout_results r
+ JOIN analysis_model_channels c ON c.dataset_id=r.dataset_id AND c.stack_id=r.stack_id AND c.channel='active'
+ WHERE r.dataset_id=$1 AND r.workout_uuid=$2 AND r.load IS NOT NULL AND NOT $3`, p.DatasetID, id, failed).Scan(&loadJSON, &updated)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		d.AnalysisStatus = "pending"
+		if failed {
+			d.AnalysisStatus = "failed"
+		}
+	case err != nil:
+		return err
+	default:
+		var load tl.Result
+		if json.Unmarshal(loadJSON, &load) != nil {
+			return analysis.Invalid()
+		}
+		m := analysis.Metric{Name: "workout_load", Algorithm: load.Model, Version: load.ModelVersion, Value: load.Load, Unit: load.Unit, Quality: "insufficient", Details: map[string]any{"qualityTier": load.QualityTier, "method": load.Method}}
+		switch {
+		case load.Load != nil && load.QualityTier == tl.TierComplete && load.Quality != "estimated":
+			m.Quality = "available"
+		case load.Load != nil:
+			m.Quality = "partial"
+		default:
+			reasons := make([]any, 0, len(load.ReasonCodes))
+			for _, r := range load.ReasonCodes {
+				reasons = append(reasons, r)
+			}
+			m.Details["missingComponents"] = reasons
+		}
+		d.Published = []analysis.Metric{m}
+		d.PublishedAt = updated
+		d.AnalysisAvailable, d.AnalysisStatus = true, "published"
+	}
+	return nil
+}
+
 // Public store entry points used by httpapi.
 
 func (s *Store) WorkoutDetail(ctx context.Context, p syncing.Principal, id string) (workoutdetail.Detail, error) {
@@ -1225,9 +1243,91 @@ func (s *Store) WorkoutFreshness(ctx context.Context, p syncing.Principal, id st
 	if !syncing.ValidID(id) {
 		return workoutdetail.Freshness{}, syncing.Fail(422, "invalid_workout_id")
 	}
-	d, err := s.loadWorkoutDetailData(ctx, p, id, false)
+	d, err := s.loadWorkoutFreshnessData(ctx, p, id)
 	if err != nil {
 		return workoutdetail.Freshness{}, err
 	}
 	return d.buildFreshness(), nil
+}
+
+// WorkoutPaceAnalysis is the read-time pace review of one Workout. It needs
+// only the Workout's interval; the replay itself reads the stack inputs.
+func (s *Store) WorkoutPaceAnalysis(ctx context.Context, p syncing.Principal, id string) (workoutdetail.PaceAnalysisResponse, error) {
+	if !syncing.ValidID(id) {
+		return workoutdetail.PaceAnalysisResponse{}, syncing.Fail(422, "invalid_workout_id")
+	}
+	tx, err := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return workoutdetail.PaceAnalysisResponse{}, err
+	}
+	defer tx.Rollback(ctx)
+	d := &workoutDetailData{ID: id}
+	err = tx.QueryRow(ctx, `SELECT event_start,event_end FROM workouts WHERE dataset_id=$1 AND workout_uuid=$2`, p.DatasetID, id).Scan(&d.Start, &d.End)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return workoutdetail.PaceAnalysisResponse{}, syncing.Fail(404, "workout_not_found")
+	}
+	if err != nil {
+		return workoutdetail.PaceAnalysisResponse{}, err
+	}
+	review, ok, err := publishedPaceReview(ctx, tx, p.DatasetID, id, d.Start, d.End)
+	if err != nil {
+		return workoutdetail.PaceAnalysisResponse{}, err
+	}
+	if ok {
+		return workoutdetail.PaceAnalysisResponse{WorkoutID: id, PaceAnalysis: review}, tx.Commit(ctx)
+	}
+	// Not precomputed yet (its day is being recomputed, is outside the
+	// backfilled history, or the Workout ends after its start day): replay.
+	if err = loadPaceAnalysis(ctx, tx, p, id, d); err != nil {
+		return workoutdetail.PaceAnalysisResponse{}, err
+	}
+	return workoutdetail.PaceAnalysisResponse{WorkoutID: id, PaceAnalysis: d.PaceAnalysis}, tx.Commit(ctx)
+}
+
+// publishedPaceReview reads the review the active stack's clean release of
+// the Workout's start day precomputed. ok=false means there is none to serve.
+//
+// While the day is recomputed after a later change, the last clean review is
+// still served when every change since that publication happened after the
+// Workout ended (stale_from, trusted only when stale_mark matches the
+// generation): the review reads only evidence up to the Workout's end.
+func publishedPaceReview(ctx context.Context, tx pgx.Tx, dataset, id string, start, end time.Time) (*workoutdetail.PaceAnalysis, bool, error) {
+	act, err := activeFitnessRelease(ctx, tx, dataset)
+	if errors.Is(err, am.ErrNotActivated) || errors.Is(err, am.ErrUnsupportedRelease) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	loc, err := time.LoadLocation(act.tz)
+	if err != nil {
+		return nil, false, nil
+	}
+	day := start.In(loc).Format(time.DateOnly)
+	var payload []byte
+	var generation int64
+	err = tx.QueryRow(ctx, `SELECT a.payload,r.target_generation
+ FROM analysis_publications p
+ JOIN analysis_runs r ON r.dataset_id=p.dataset_id AND r.id=p.published_run_id AND r.scope_key=p.scope_key AND r.target_generation=p.generation AND r.status='SUCCEEDED'
+ JOIN analysis_published_artifacts a ON a.dataset_id=r.dataset_id AND a.run_id=r.id AND a.artifact_key=$4
+ JOIN dirty_scopes d ON d.dataset_id=p.dataset_id AND d.scope_key=p.scope_key AND d.clean_generation=p.generation
+  AND (d.generation=p.generation OR d.stale_mark=d.generation AND d.stale_from>$6)
+ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.day=$3::date AND p.metric_family=$5`,
+		dataset, modelmanifest.DayScope(act.stack, day), day, workoutdetail.PaceReviewsArtifactKey, workoutdetail.PaceReviewsFamily, end).Scan(&payload, &generation)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	var r workoutdetail.PaceReviews
+	if json.Unmarshal(payload, &r) != nil || r.SchemaVersion != workoutdetail.PaceReviewsSchema || r.DatasetID != dataset ||
+		r.Date != day || r.StackID != act.stack || r.Generation != generation {
+		return nil, false, syncing.Fail(500, "workout_pace_review_invalid")
+	}
+	review := r.Reviews[strings.ToLower(id)]
+	if review == nil {
+		return nil, false, nil
+	}
+	return review, true, nil
 }

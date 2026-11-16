@@ -102,7 +102,9 @@ func TestTrainingPlanV4LifecycleOnPostgres(t *testing.T) {
 	}
 	a, _ := json.Marshal(eff.Sessions)
 	b, _ := json.Marshal(again.Effective.Sessions)
-	if string(a) != string(b) || again.Effective.ID == eff.ID {
+	// An unchanged plan keeps its base and effective version instead of
+	// appending an identical one on every regeneration.
+	if string(a) != string(b) || again.Effective.ID != eff.ID {
 		t.Fatal("regeneration without new facts changed the plan")
 	}
 	// An override on a future session is effective at once and queues a

@@ -11,6 +11,8 @@
 - 同步不得依赖备份、恢复、迁移、全库摘要或全量重算。管理工具不可被 application/httpapi 导入。
 - 仅用合成数据测试。不得读取生产数据库、记录健康值或提交凭证。不得自动部署、切换旧入口或迁移真实数据。
 - 修改后运行受影响 Go 测试；涉及 SQL/事务的改动再跑一次真实隔离 PostgreSQL 集成测试。完成阶段运行 `go test -race ./...`、`go vet ./...` 和依赖边界检查。
-- 开发、回归、性能测试统一在本机 Mac 执行，也可以使用 fnOS/N100、SSH 远端测试入口或远端测试数据库。日常用 `scripts/local/test.sh quick`、`swift` 和定向测试缩短反馈；`gate` 执行原有 Go race/vet/边界完成门禁，并固定运行 admin 迁移集成测试（真实隔离 PostgreSQL 18）；SQL/事务改动另加受影响的真实隔离 PG 集成测试；需要全量集成回归时用 `full`。不能用 quick 替代完成门禁，也不必每次迭代重跑完整真机历史。真机验收后端同样在本机；新本机验收使用独立状态，不搬迁或清除原云端验收数据。
-- 个人自用项目，不再维护阶段证据文件：文档只保留 `README.md`、`docs/ARCHITECTURE.md`（只写现在怎么工作）、`docs/API.md` 和 `CHANGELOG.md`（每次部署一行：日期、镜像、迁移、active 模型栈、内容），并与代码同步更新；部署细节不写进文档；`docs/archive/`、`scripts/archive/` 为历史资料，只读。文件存在或 mock 通过不能替代数据库、真机、部署验收，未验证的部分在交付说明里如实写明。
+- 开发、回归、性能测试统一在本机 Mac 执行，也可以使用 fnOS/N100、SSH 远端测试入口或远端测试数据库。日常用 `scripts/local/test.sh quick`、`swift` 和定向测试缩短反馈；`swift` 只覆盖 Swift 包（`Sources/`），改动 iOS `App/` 时另需用 `xcodebuild` 编译 App 目标；`gate` 执行原有 Go race/vet/边界完成门禁，并固定运行 admin 迁移集成测试（真实隔离 PostgreSQL 18）；SQL/事务改动另加受影响的真实隔离 PG 集成测试；需要全量集成回归时用 `full`。不能用 quick 替代完成门禁，也不必每次迭代重跑完整真机历史。真机验收后端同样在本机；新本机验收使用独立状态，不搬迁或清除原云端验收数据。
+- 模拟器验收用 `scripts/local/test.sh simulator`（App XCTest）和 `training-ui`（训练页 → 本机 API/Worker → 隔离 PG 18）。`e2e` 目前无效：它调用的两个 Go 测试已删除，报 PASS 但不测试任何内容，不能作为验收依据。需要手动操作 App 时，用 `-tags integration,perfsim` 的 `TestPerfSimulatorAcceptance`（合成数据、隔离数据库、真实 API 与 Worker，通过控制文件模拟同步）配合模拟器。
+- 涉及日模型栈或读接口性能的改动，用 `-tags integration,modelperf` 的 `TestModelPerfRealistic`（约 120 次含速度、路线、功率、步频的合成跑步）对比改动前后耗时；旧的 `TestModelOptimizationResources` 只有心率数据，不代表真实负载。Worker 日志 `model_stack_execution` 的 `phases_ms` 记录各阶段耗时，用于定位瓶颈。
+- 个人自用项目，不再维护阶段证据文件：文档只保留 `README.md`、`docs/ARCHITECTURE.md`（只写现在怎么工作）、`docs/API.md`、`CHANGELOG.md`（每次部署一行：日期、镜像、迁移、active 模型栈、内容）以及 `contracts/`（`openapi-v2.yaml` 与记录合同变更的 `contracts/CHANGELOG.md`，接口变化时同步更新），并与代码同步更新；部署细节不写进文档；`docs/archive/`、`scripts/archive/` 为历史资料，根目录 `RAI-*方案.md` 为原方案原文，均只读。文件存在或 mock 通过不能替代数据库、真机、部署验收，未验证的部分在交付说明里如实写明。
 - 保留原方案原文。尚未实现的接口/算法不得伪装成功，Worker 不能假装完成分析。

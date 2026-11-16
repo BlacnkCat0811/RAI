@@ -96,9 +96,11 @@ func TestTrainingPlanV4PublicationRollbackAndRetry(t *testing.T) {
 	ctx := context.Background()
 	p := createPublishedV4(t, f)
 	l, in, id, base := startTrainingGeneration(t, f, p)
-	// Fail after base/session writes, while materializing the effective version.
+	// Fail after the session, base comparison and feedback writes, while the
+	// run is being marked finished. (Regenerating the unchanged plan appends no
+	// base or effective version, so the failure is injected later.)
 	if _, err := f.s.Pool.Exec(ctx, `CREATE FUNCTION synthetic_training_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic_training_failure'; END $$;
- CREATE TRIGGER synthetic_training_fail BEFORE INSERT ON training_effective_versions FOR EACH ROW EXECUTE FUNCTION synthetic_training_fail()`); err != nil {
+ CREATE TRIGGER synthetic_training_fail BEFORE UPDATE ON training_generation_runs FOR EACH ROW EXECUTE FUNCTION synthetic_training_fail()`); err != nil {
 		t.Fatal(err)
 	}
 	before := trainingSnapshot(t, f, false)
@@ -106,15 +108,15 @@ func TestTrainingPlanV4PublicationRollbackAndRetry(t *testing.T) {
 		t.Fatal("injected failure ignored")
 	}
 	requireTrainingSnapshot(t, f, before, false)
-	if _, err := f.s.Pool.Exec(ctx, `DROP TRIGGER synthetic_training_fail ON training_effective_versions; DROP FUNCTION synthetic_training_fail()`); err != nil {
+	if _, err := f.s.Pool.Exec(ctx, `DROP TRIGGER synthetic_training_fail ON training_generation_runs; DROP FUNCTION synthetic_training_fail()`); err != nil {
 		t.Fatal(err)
 	}
 	if status, err := f.s.PublishTraining(ctx, l, id, in, base); err != nil || status != "SUCCEEDED" {
 		t.Fatalf("retry: %s %v", status, err)
 	}
 	next, err := f.s.TrainingPlan(ctx, f.p, p.ID)
-	if err != nil || next.Effective == nil || next.Effective.Number != p.Effective.Number+1 {
-		t.Fatal("retry did not publish exactly once", err)
+	if err != nil || next.Effective == nil || next.Effective.Number != p.Effective.Number || next.Effective.ID != p.Effective.ID {
+		t.Fatal("retry of an unchanged plan must keep its version", err)
 	}
 	var clean bool
 	if err = f.s.Pool.QueryRow(ctx, `SELECT generation=clean_generation FROM dirty_scopes WHERE dataset_id=$1 AND scope_key=$2`, f.p.DatasetID, l.ScopeKey).Scan(&clean); err != nil || !clean {
@@ -197,7 +199,9 @@ func TestTrainingPlanV4ConcurrentOverrideSupersedesGeneration(t *testing.T) {
 			}
 		}
 	}
-	if !found || final.OverrideRevision != p.OverrideRevision+1 || final.Effective.Number != edited.Effective.Number+1 {
+	// The override already produced the effective version; regenerating the
+	// unchanged base keeps it.
+	if !found || final.OverrideRevision != p.OverrideRevision+1 || final.Effective.Number != edited.Effective.Number {
 		t.Fatal("override or version sequence changed")
 	}
 }

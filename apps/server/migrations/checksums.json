@@ -62,5 +62,7 @@
   "00061_training_baseline_parameters.sql": "5837754e244d65bf3200d6dc06d891ef736cae002965c0948a873bf332bdb56a",
   "00062_hr_reference_v3.sql": "ebfcba119ecfedd247fbae63902ba094c959054a2b0af49e83456b29a022f45a",
   "00063_backfill_real_datasets.sql": "ab368a4e8ce9784523b78429ea996121ea7a55f5e6a9b80e6771d071c08aebd8",
-  "00064_lactate_threshold_v1.sql": "3845403dcee36c79818f1fb6ffd505f51ea4f1afea9096cf8a70892d7e5d091f"
+  "00064_lactate_threshold_v1.sql": "3845403dcee36c79818f1fb6ffd505f51ea4f1afea9096cf8a70892d7e5d091f",
+  "00065_workout_pace_reviews.sql": "799f745ac1ebb9416449c24f884ad634726435fe8dc7321fe5cd4e495adf55c9",
+  "00066_model_stack_read_caches.sql": "40692ea7c3dc72c0f757e06af6c977caab48693f0d7bd38440b8f5104f0e0dcc"
 }

@@ -82,7 +82,8 @@ func TestTrainingMigration59To61PreservesPublishedV3(t *testing.T) {
 		out := map[string]string{}
 		for _, table := range tables {
 			var b string
-			q := `SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]'::jsonb)::text FROM ` + pgx.Identifier{table}.Sanitize() + ` t`
+			// Columns added by later migrations (null on existing rows) are not a rewrite.
+			q := `SELECT COALESCE(jsonb_agg(to_jsonb(t)-'stale_from'-'stale_mark' ORDER BY (to_jsonb(t)-'stale_from'-'stale_mark')::text),'[]'::jsonb)::text FROM ` + pgx.Identifier{table}.Sanitize() + ` t`
 			if err := db.QueryRowContext(ctx, q).Scan(&b); err != nil {
 				t.Fatal(err)
 			}
