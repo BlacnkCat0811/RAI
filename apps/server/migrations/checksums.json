@@ -61,5 +61,6 @@
   "00060_training_plan_v4.sql": "f08e6462229f766da074d5e6d74b803b406d2d79c3e8ef456c91027716eac0b2",
   "00061_training_baseline_parameters.sql": "5837754e244d65bf3200d6dc06d891ef736cae002965c0948a873bf332bdb56a",
   "00062_hr_reference_v3.sql": "ebfcba119ecfedd247fbae63902ba094c959054a2b0af49e83456b29a022f45a",
-  "00063_backfill_real_datasets.sql": "ab368a4e8ce9784523b78429ea996121ea7a55f5e6a9b80e6771d071c08aebd8"
+  "00063_backfill_real_datasets.sql": "ab368a4e8ce9784523b78429ea996121ea7a55f5e6a9b80e6771d071c08aebd8",
+  "00064_lactate_threshold_v1.sql": "3845403dcee36c79818f1fb6ffd505f51ea4f1afea9096cf8a70892d7e5d091f"
 }

@@ -89,7 +89,7 @@ func TestModelReleasePendingFailureAndUnknownNeverClaimUnactivated(t *testing.T)
 	// The previous registered release is active (before auto-activation or
 	// after a rollback) and has no clean result: the server is switching
 	// models, which an App update cannot fix.
-	const previous = "be2ffee8ea215e14c0a0cb052d7c1b94ba351b431981ae75e073fe5eb77c6641"
+	const previous = "3a59303d56150329de984a22e0b9011373c3c1a07d2ce56a5996c0dd73974d32"
 	setModelChannel(t, f, "active", "rai-v2-"+previous[:16], previous)
 	s, err = f.s.ReadAthleteProductV4(ctx, f.p, time.Now())
 	if err != nil || s.TrainingReadiness.Envelope.ModelStatus != "model_switching" || s.TrainingReadiness.Envelope.PrimaryReason != "model_switching" {

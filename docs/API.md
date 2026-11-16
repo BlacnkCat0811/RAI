@@ -21,8 +21,12 @@
 - `GET /v2/sync/changes` — 变更通知（能力位 `changefeed=false`）
 - `POST /v2/model-inputs/{kind}`、`POST /v2/model-inputs/{id}/revocations` — 个人参考值与目标
   （App 使用 `hr-references`、`sleep-targets`、`vo2max-source-selections`、`workout-efforts`；`trimp-parameters` 仍接受但 App 已不再写入）
-  - `workout-efforts` 的 `mode` 为 `race` / `threshold_test` / `speed_test` / `sprint_test`（旧值 `maximal_supported` 按 `race` 读取），
-    须 `userConfirmed=true`；撤销用 `revocations`。标注只改变模型输入，不修改 HealthKit 事实
+  - `workout-efforts` 的 `mode` 为 `race` / `threshold_test` / `speed_test` / `sprint_test` / `maximal_time_trial` /
+    `controlled_threshold`（旧值 `maximal_supported` 按 `race` 读取），须 `userConfirmed=true`；撤销用 `revocations`。
+    可选 `segment{startOffsetSeconds,durationSeconds,protocol}`（整数秒，自 Workout 开始；`protocol` 为 `rai.tt30/1`（仅
+    `maximal_time_trial`，1680–1920 秒）、`rai.controlled25/1`（仅 `controlled_threshold`，1380–1620 秒）或 `user_defined/1`（≥60 秒））；
+    `maximal_time_trial`／`controlled_threshold` 必须带主段。测试类标注只按主段计成绩，`race` 无主段时按整次记录。
+    标注只改变模型输入，不修改 HealthKit 事实
   - `hr-references` 的 `method` 新增 `age_estimated`：仅在用户显式选择“暂用年龄估计”时提交，跑力据此一律为有限、敏感性范围加宽
 
 ## 读取
@@ -119,8 +123,16 @@
   - iOS 跑力详情用半圆刻度展示总分，并将四项能力按 `dimension.zone` 对应到 Z2/Z4/Z5/Z6 的训练配速区间；
     不把 `speedRange` 的模型不确定范围当训练区间，不在客户端补算缺失边界或评分。冲突、缺失区间显示待补充，
     默认假设区间明确标为仅参考。基础指标独立读取当前可展示的外部 VO₂（优先）或 RAI VO₂（标实验性），
-    乳酸阈值配速来自 `dimensions.threshold.paceSecondsPerKm`（估计须注明）；当前契约没有乳酸阈心率，显示 `-- / 暂未提供`，
-    不用最大心率比例冒充该指标
+    乳酸阈值配速来自 `dimensions.threshold.paceSecondsPerKm`（估计须注明）；乳酸阈心率来自 `lactateThreshold.heartRate`，
+    `bpm` 为 null 时显示 `--` 与缺少的证据，不用最大心率比例冒充该指标
+  - schema4 的 `runningFitness.value.lactateThreshold`（可选，`rai.lactate_threshold/1`，与跑力同 generation；schema2/3 不含）：
+    `definition`（`rai_t40_working_proxy`）、`status`（collecting / prior_based_proxy / estimated_proxy / field_calibrated_proxy / conflict）、
+    `updateStatus`（confirmed / pending_confirmation / none）、`pace`（`speedMPS`、`paceSecondsPerKm`、`basis`、`freshness`、
+    `speedModelRange`、`trainingSpeedRange`、`definitionSensitivitySeconds`=[2400,3600]、`speed60MPS`）、`heartRate`（`bpm` 可为 null、
+    `basis` collecting / preliminary / supported / conflict、`method`、`definition`（`rai_t40_working_proxy` 或 `field_tt30_last20`）、
+    `freshness`、`modelRange`、`rangePartiallyIdentified`、`independentDays`、`effectiveDays`、`supportSeconds`、`evidenceDay`、
+    `observedHRR`、`looMaxDeltaBPM`、`reasonCodes`）、`trainingUse`（`heartRateEligible` 恒为 false）、`evidence`（按日证据）与 `reasonCodes`。
+    范围是模型范围，不是置信区间；没有单独的乳酸阈值读取、历史或证据接口
 - `GET /v2/analysis/running-fitness/history?from=&to=&view=&cursor=&limit=` — 逐日 `days`（长期总分、同政策日常基准、参数、
   当日单次点、`publicationID`）。`view=revised`（缺省，当前算法与输入下的历史，可含后来补传、事件在评估日前的训练）；
   `view=published`（每天在当天结束前最后一次发布的不可变结果，即使后来被重算替换）；`view=as_known` 返回

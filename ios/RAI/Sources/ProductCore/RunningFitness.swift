@@ -139,8 +139,63 @@ public struct RunningFitnessValue: Codable, Equatable, Sendable {
   public var stability: FitnessStability
   public var singleRuns: [FitnessSingleBrief]
   public var reasonCodes: [String]
+  /// Same-generation lactate threshold v1 (rai.lactate_threshold/1); absent
+  /// for older releases.
+  public var lactateThreshold: LactateThresholdValue?
 }
 public typealias RunningFitnessMetric = AthleteMetric<RunningFitnessValue>
+
+// MARK: - Lactate threshold v1 (RAI working threshold, not a lab measurement)
+
+public struct LactateThresholdRange: Codable, Equatable, Sendable {
+  public var low: Double, high: Double
+}
+
+public struct LactateThresholdPace: Codable, Equatable, Sendable {
+  public var speedMPS: Double, paceSecondsPerKm: Double
+  /// prior_based | estimated | field_calibrated
+  public var basis: String
+  public var freshness: String
+  public var speedModelRange: LactateThresholdRange?
+  /// Conservative threshold-session band [v(60 min), v(40 min)] in m/s.
+  public var trainingSpeedRange: LactateThresholdRange
+  public var speed60MPS: Double?
+}
+
+public struct LactateThresholdHeartRate: Codable, Equatable, Sendable {
+  public var bpm: Double?
+  /// collecting | preliminary | supported | conflict
+  public var basis: String
+  public var method: String?
+  /// rai_t40_working_proxy | field_tt30_last20
+  public var definition: String?
+  public var freshness: String
+  public var modelRange: LactateThresholdRange?
+  public var rangePartiallyIdentified: Bool
+  public var independentDays: Int
+  public var effectiveDays: Double
+  public var supportSeconds: Double
+  public var evidenceDay: String?
+  public var reasonCodes: [String]
+}
+
+public struct LactateThresholdTrainingUse: Codable, Equatable, Sendable {
+  public var paceEligible: Bool, heartRateEligible: Bool, automaticIntensityIncreaseAllowed: Bool
+  public var reasonCodes: [String]
+}
+
+public struct LactateThresholdValue: Codable, Equatable, Sendable {
+  public var publicationID: String, schemaVersion: String, algorithmVersion: String, date: String
+  public var definition: String
+  /// collecting | prior_based_proxy | estimated_proxy | field_calibrated_proxy | conflict
+  public var status: String
+  /// confirmed | pending_confirmation | none
+  public var updateStatus: String
+  public var pace: LactateThresholdPace?
+  public var heartRate: LactateThresholdHeartRate
+  public var trainingUse: LactateThresholdTrainingUse
+  public var reasonCodes: [String]
+}
 
 // MARK: - Single run (workout detail)
 
@@ -242,8 +297,40 @@ public struct FitnessBasicMetric: Equatable, Sendable, Identifiable {
         note: vo2 == nil ? "暂无可用估计" : (useExternal ? "Apple 健康 · 外部估计" : "RAI 估计 · 实验性")),
       .init(id: "thresholdPace", title: "乳酸阈值配速", text: RunningFitnessText.pace(pace), unit: "/km",
         note: pace == nil ? "数据还不够" : (threshold?.status == "supported" ? "有训练或比赛校准" : "模型估计 · 仅供参考")),
-      .init(id: "thresholdHeartRate", title: "乳酸阈心率", text: "--", unit: "bpm", note: "暂未提供")
+      thresholdHeartRate(snapshot?.runningFitness?.presentationValue?.lactateThreshold)
     ]
+  }
+
+  /// The server-published working-threshold heart rate. The App never derives
+  /// it from a maximum or resting heart rate.
+  public static func thresholdHeartRate(_ value: LactateThresholdValue?) -> FitnessBasicMetric {
+    let id = "thresholdHeartRate", title = "乳酸阈心率"
+    guard let value else { return .init(id: id, title: title, text: "--", unit: "bpm", note: "暂未提供") }
+    let hr = value.heartRate
+    guard let bpm = hr.bpm, bpm.isFinite, bpm > 0, hr.basis != "conflict" else {
+      let note: String
+      if hr.basis == "conflict" {
+        note = "近期数据相互矛盾"
+      } else if hr.reasonCodes.contains("anchor_prior_based_hr_circular") {
+        note = "需要节奏跑或 30 分钟计时跑"
+      } else {
+        note = "还缺接近阈值配速的稳定跑"
+      }
+      return .init(id: id, title: title, text: "--", unit: "bpm", note: note)
+    }
+    let note: String
+    if hr.freshness == "expired" {
+      note = "证据已过期"
+    } else if value.updateStatus == "pending_confirmation" {
+      note = "发现变化，等待更多训练确认"
+    } else if hr.basis == "supported" {
+      note = "多次稳定跑支持"
+    } else if hr.definition == "field_tt30_last20" {
+      note = "30 分钟计时跑 · 初步估计"
+    } else {
+      note = "初步估计"
+    }
+    return .init(id: id, title: title, text: String(Int(bpm.rounded())), unit: "bpm", note: note)
   }
 }
 
@@ -357,7 +444,8 @@ public enum RunningFitnessText {
     return "缺少可用的心率与配速片段"
   }
   public static func effortName(_ kind: String) -> String {
-    ["race": "比赛", "threshold_test": "阈值测试", "speed_test": "速度测试", "sprint_test": "冲刺测试"][kind] ?? "普通训练"
+    ["race": "比赛", "threshold_test": "阈值测试", "speed_test": "速度测试", "sprint_test": "冲刺测试",
+     "maximal_time_trial": "30 分钟计时跑", "controlled_threshold": "25 分钟阈值稳定跑"][kind] ?? "普通训练"
   }
   public static func reanalysisStatus(_ op: RunningFitnessReanalysis) -> String {
     switch op.status {

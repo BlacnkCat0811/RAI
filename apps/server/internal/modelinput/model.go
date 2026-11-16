@@ -29,7 +29,7 @@ var ErrNotFound = errors.New("model_input_not_found")
 var payloadFields = map[string][]string{
 	"hr_reference":               {"maxHR", "restingHR", "measuredAt", "restingMeasuredAt", "method", "unit"},
 	"sleep_target":               {"hours"},
-	"workout_effort":             {"workoutID", "mode", "userConfirmed", "independentlyVerified"},
+	"workout_effort":             {"workoutID", "mode", "userConfirmed", "independentlyVerified", "segment"},
 	"workout_overlap_resolution": {"primaryWorkoutID", "duplicateWorkoutID"},
 	"source_context_selection":   {"sourceEpoch"},
 	"vo2max_source_selection":    {"sourceEpoch", "revoked"},
@@ -290,9 +290,18 @@ func validateEffort(m map[string]any) error {
 	mode, _ := m["mode"].(string)
 	switch mode {
 	// maximal_supported is the original all-out label and reads as a race.
-	case "maximal_supported", "race", "threshold_test", "speed_test", "sprint_test":
+	case "maximal_supported", "race", "threshold_test", "speed_test", "sprint_test", "maximal_time_trial", "controlled_threshold":
 	default:
 		return ErrInvalid
+	}
+	raw, hasSegment := m["segment"]
+	if (mode == "maximal_time_trial" || mode == "controlled_threshold") && !hasSegment {
+		return ErrInvalid
+	}
+	if hasSegment {
+		if err := validateEffortSegment(mode, raw); err != nil {
+			return err
+		}
 	}
 	user, _ := m["userConfirmed"].(bool)
 	independent, _ := m["independentlyVerified"].(bool)
@@ -304,6 +313,52 @@ func validateEffort(m map[string]any) error {
 	}
 	return nil
 }
+
+// Effort main-segment protocols (lactate threshold plan section 11.2).
+const (
+	ProtocolTT30         = "rai.tt30/1"
+	ProtocolControlled25 = "rai.controlled25/1"
+	ProtocolUserDefined  = "user_defined/1"
+)
+
+// validateEffortSegment checks the optional main segment of an effort label:
+// whole non-negative seconds from the Workout start, a positive duration and a
+// protocol whose nominal length matches (+-120 s). Whether the segment lies
+// inside the Workout is checked by the model against the recorded timeline.
+func validateEffortSegment(mode string, raw any) error {
+	seg, ok := raw.(map[string]any)
+	if !ok || len(seg) != 3 {
+		return ErrInvalid
+	}
+	whole := func(k string) (float64, bool) {
+		v, ok := seg[k].(float64)
+		return v, ok && v >= 0 && v == float64(int64(v)) && v <= 86400
+	}
+	start, ok1 := whole("startOffsetSeconds")
+	duration, ok2 := whole("durationSeconds")
+	protocol, ok3 := seg["protocol"].(string)
+	if !ok1 || !ok2 || !ok3 || duration <= 0 || start+duration > 86400 {
+		return ErrInvalid
+	}
+	switch protocol {
+	case ProtocolTT30:
+		if mode != "maximal_time_trial" || duration < 1680 || duration > 1920 {
+			return ErrInvalid
+		}
+	case ProtocolControlled25:
+		if mode != "controlled_threshold" || duration < 1380 || duration > 1620 {
+			return ErrInvalid
+		}
+	case ProtocolUserDefined:
+		if duration < 60 {
+			return ErrInvalid
+		}
+	default:
+		return ErrInvalid
+	}
+	return nil
+}
+
 func validateOverlap(m map[string]any) error {
 	for _, k := range []string{"primaryWorkoutID", "duplicateWorkoutID"} {
 		v, ok := m[k].(string)

@@ -43,6 +43,7 @@ type Policy struct {
 	Rating           string     `json:"ratingPolicy"`
 	Calendar         string     `json:"calendarPolicy"`
 	Features         string     `json:"featurePolicy"`
+	Efforts          string     `json:"effortPolicy"`
 	Beta             float64    `json:"beta"`
 	BetaRange        [2]float64 `json:"betaRange"`
 	RT               float64    `json:"rT"`
@@ -107,6 +108,7 @@ func DefaultPolicy() Policy {
 	return Policy{
 		Version: "rai.running_fitness.policy/1", Rating: RatingPolicy, Calendar: CalendarPolicy,
 		Features: "rai.run_fitness_features/1",
+		Efforts:  "race-whole-or-main-segment;tests-main-segment-only;controlled-never-maximal;segment-window-coverage.75/v2",
 		Beta:     Beta, BetaRange: [2]float64{.85, 1.15}, RT: RT, RTRange: [2]float64{.80, .90}, TT: TT,
 		BL0: BL0, BLRange: [2]float64{1.06, 1.18}, BLDomain: [2]float64{1.02, 1.25}, BLStep: .001, BLPriorSigma: .03,
 		BS0: BS0, BSRange: [2]float64{1.03, 1.12},

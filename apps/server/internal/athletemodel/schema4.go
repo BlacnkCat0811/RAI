@@ -1,6 +1,7 @@
 package athletemodel
 
 import (
+	lt "rai/server/internal/lactatethreshold"
 	rf "rai/server/internal/runfitness"
 )
 
@@ -33,6 +34,46 @@ type RunningFitnessValue struct {
 	Stability           rf.Stability     `json:"stability"`
 	Observations        []rf.SingleBrief `json:"singleRuns"`
 	ReasonCodes         []string         `json:"reasonCodes"`
+	// LactateThreshold is the same-generation lactate threshold v1 release
+	// (rai.lactate_threshold/1). Absent for releases without the component.
+	LactateThreshold *LactateThresholdValue `json:"lactateThreshold,omitempty"`
+}
+
+// LactateThresholdValue is the product view of one published lactate
+// threshold: pace and heart rate with independent status, range and time
+// status. Per-Workout diagnostics stay in the artifact.
+type LactateThresholdValue struct {
+	PublicationID    string           `json:"publicationID"`
+	SchemaVersion    string           `json:"schemaVersion"`
+	AlgorithmVersion string           `json:"algorithmVersion"`
+	Date             string           `json:"date"`
+	Definition       string           `json:"definition"`
+	Status           string           `json:"status"`
+	UpdateStatus     string           `json:"updateStatus"`
+	Pace             *lt.Pace         `json:"pace"`
+	HeartRate        lt.HeartRate     `json:"heartRate"`
+	TrainingUse      lt.TrainingUse   `json:"trainingUse"`
+	Evidence         []lt.DayEvidence `json:"evidence"`
+	ReasonCodes      []string         `json:"reasonCodes"`
+}
+
+// ProjectLactateThreshold maps a validated, Freshen-ed result. The pace time
+// status follows the Freshen-ed running-fitness state it is anchored to.
+func ProjectLactateThreshold(r lt.Result, publication, paceFreshness string) *LactateThresholdValue {
+	v := &LactateThresholdValue{PublicationID: publication, SchemaVersion: r.Schema, AlgorithmVersion: r.Version, Date: r.Date, Definition: r.Definition, Status: r.Status,
+		UpdateStatus: r.UpdateStatus, Pace: r.Pace, HeartRate: r.HeartRate, TrainingUse: r.TrainingUse, Evidence: r.Evidence, ReasonCodes: r.Reasons}
+	if v.Pace != nil && paceFreshness != "" {
+		p := *v.Pace
+		p.Freshness = paceFreshness
+		v.Pace = &p
+		if paceFreshness != "fresh" && paceFreshness != "aging" && v.TrainingUse.PaceEligible {
+			u := v.TrainingUse
+			u.PaceEligible = false
+			u.Reasons = append(append([]string(nil), u.Reasons...), "pace_not_eligible")
+			v.TrainingUse = u
+		}
+	}
+	return v
 }
 
 func NewSnapshotV4(at, revision int64, tz, date string, a Assignment) AthleteModelSnapshot {

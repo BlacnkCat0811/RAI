@@ -16,13 +16,14 @@ type stackEffort struct {
 	ID, WorkoutID, Kind string
 	AnnotatedAt         int64
 	KnownAt             int64
+	Segment             *rf.EffortSegment
 }
 
 func effortKind(mode string) string {
 	switch mode {
 	case "race", "maximal_supported":
 		return "race"
-	case "threshold_test", "speed_test", "sprint_test":
+	case "threshold_test", "speed_test", "sprint_test", "maximal_time_trial", "controlled_threshold":
 		return mode
 	}
 	return ""
@@ -46,15 +47,16 @@ func stackEfforts(inputs []stackInput, captured time.Time) []stackEffort {
 
 func parseEffort(row stackInput) (stackEffort, bool) {
 	var x struct {
-		WorkoutID     string `json:"workoutID"`
-		Mode          string `json:"mode"`
-		UserConfirmed bool   `json:"userConfirmed"`
+		WorkoutID     string            `json:"workoutID"`
+		Mode          string            `json:"mode"`
+		UserConfirmed bool              `json:"userConfirmed"`
+		Segment       *rf.EffortSegment `json:"segment"`
 	}
 	if json.Unmarshal(row.Payload, &x) != nil || !x.UserConfirmed || effortKind(x.Mode) == "" {
 		return stackEffort{}, false
 	}
 	// Workout UUIDs are stored lowercase; HealthKit prints them uppercase.
-	return stackEffort{ID: row.ID, WorkoutID: strings.ToLower(x.WorkoutID), Kind: effortKind(x.Mode), AnnotatedAt: row.From.UnixMicro(), KnownAt: row.Known.UnixMicro()}, true
+	return stackEffort{ID: row.ID, WorkoutID: strings.ToLower(x.WorkoutID), Kind: effortKind(x.Mode), AnnotatedAt: row.From.UnixMicro(), KnownAt: row.Known.UnixMicro(), Segment: x.Segment}, true
 }
 
 // fitnessReference maps the resolved event-time HR reference. The resting
@@ -95,6 +97,20 @@ func fitnessReference(ref hrref.Snapshot, conflict bool) (*rf.Reference, bool) {
 // results depend only on each Workout's own features, the reference in
 // effect at its start and its effort label known at evaluation time.
 func stackRunFitness(dataset string, generation int64, date, at time.Time, pending []stackPendingLoad, efforts []stackEffort, source string, ambiguous map[string]bool) rf.State {
+	state, _ := stackRunFitnessDetail(dataset, generation, date, at, pending, efforts, source, ambiguous)
+	return state
+}
+
+// fitnessDetail carries what the lactate threshold needs from the same
+// running-fitness computation: the single results, the source the state was
+// computed for, and the effective effort labels.
+type fitnessDetail struct {
+	obs    []rf.SingleResult
+	source string
+	labels map[string]stackEffort
+}
+
+func stackRunFitnessDetail(dataset string, generation int64, date, at time.Time, pending []stackPendingLoad, efforts []stackEffort, source string, ambiguous map[string]bool) (rf.State, fitnessDetail) {
 	loc := date.Location()
 	first := date.AddDate(0, 0, -89).Format(time.DateOnly)
 	day := date.Format(time.DateOnly)
@@ -128,12 +144,12 @@ func stackRunFitness(dataset string, generation int64, date, at time.Time, pendi
 		in := rf.SingleInput{WorkoutID: w.id, Day: d, Start: w.start, End: w.end, KnownAt: w.known.UnixMicro(), SourceEpoch: w.sourceEpoch,
 			Features: w.feature.RunFitness, Reference: ref, ReferenceConflict: conflict}
 		if e, ok := label[w.id]; ok {
-			in.Effort = &rf.Effort{Kind: e.Kind, ID: e.ID}
+			in.Effort = &rf.Effort{Kind: e.Kind, ID: e.ID, Segment: e.Segment}
 			in.KnownAt = max(in.KnownAt, e.KnownAt)
 		}
 		obs = append(obs, rf.Single(in))
 	}
 	state := rf.CalculateState(rf.StateInput{DatasetID: dataset, Date: day, AsOf: at.UnixMicro(), View: "revised", Observations: obs})
 	state.Generation = generation
-	return state
+	return state, fitnessDetail{obs: obs, source: source, labels: label}
 }

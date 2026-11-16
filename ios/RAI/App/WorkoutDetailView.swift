@@ -1,6 +1,7 @@
 import Charts
 import MapKit
 import ProductCore
+import SyncCore
 import SwiftUI
 
 /// Native training detail. Facts are shown as soon as they are durable; derived
@@ -15,6 +16,8 @@ struct WorkoutDetail: View {
   @State private var effortMessage: String?
   @State private var effortBusy = false
   @State private var confirmEffort = false
+  @State private var segmentKind: String?
+  @State private var segmentStartMinute = 10
   @AppStorage("developerOptions") private var developerOptions = false
 
   private var detail: WorkoutDetailResponse? {
@@ -178,19 +181,79 @@ struct WorkoutDetail: View {
         .accessibilityIdentifier("workout.effort.mark")
     }.padding(16).frame(maxWidth: .infinity, alignment: .leading).raiGlass()
       .confirmationDialog("这次跑步是？", isPresented: $confirmEffort, titleVisibility: .visible) {
-        ForEach(["race", "threshold_test", "speed_test", "sprint_test"], id: \.self) { kind in
-          Button(RunningFitnessText.effortName(kind)) { submitEffort(kind) }
+        Button(RunningFitnessText.effortName("race")) { submitEffort("race") }
+        // Tests count only through their main segment, so warm-up and
+        // cool-down never enter the calibration.
+        ForEach(["maximal_time_trial", "controlled_threshold"], id: \.self) { kind in
+          Button(RunningFitnessText.effortName(kind) + "…") {
+            segmentStartMinute = min(10, maxSegmentStart(kind))
+            segmentKind = kind
+          }
         }
+        Button(RunningFitnessText.effortName("sprint_test")) { submitEffort("sprint_test") }
+      }
+      .sheet(item: Binding(get: { segmentKind.map(EffortSegmentChoice.init) }, set: { segmentKind = $0?.kind })) { choice in
+        segmentSheet(choice.kind)
       }
   }
 
-  private func submitEffort(_ kind: String) {
+  private struct EffortSegmentChoice: Identifiable {
+    let kind: String
+    var id: String { kind }
+  }
+
+  private func segmentSeconds(_ kind: String) -> Int { kind == "maximal_time_trial" ? 1800 : 1500 }
+
+  private var workoutSeconds: Int {
+    let start = workout.raw.number("startUs") ?? 0, end = workout.raw.number("endUs") ?? 0
+    return end > start ? Int((end - start) / 1_000_000) : 0
+  }
+
+  private func maxSegmentStart(_ kind: String) -> Int {
+    max(0, (workoutSeconds - segmentSeconds(kind)) / 60)
+  }
+
+  private func segmentSheet(_ kind: String) -> some View {
+    let minutes = segmentSeconds(kind) / 60
+    let fits = workoutSeconds >= segmentSeconds(kind)
+    return NavigationStack {
+      Form {
+        Section {
+          Text(kind == "maximal_time_trial"
+            ? "热身后全力、均匀地跑满 30 分钟。主段用于校准阈值配速，后 20 分钟的平均心率作为阈值心率的现场估计。"
+            : "热身后按体感（吃力但可持续）均匀跑 25 分钟，不追配速。它只提供稳定心率，不当作全力成绩。")
+            .font(.callout)
+        }
+        Section("主段") {
+          if fits {
+            Stepper("从第 \(segmentStartMinute) 分钟开始", value: $segmentStartMinute, in: 0...maxSegmentStart(kind))
+            Text("主段：第 \(segmentStartMinute)–\(segmentStartMinute + minutes) 分钟").foregroundStyle(RAITheme.secondary)
+          } else {
+            Text("这次记录不足 \(minutes) 分钟，无法标记为\(RunningFitnessText.effortName(kind))。").foregroundStyle(RAITheme.secondary)
+          }
+        }
+      }
+      .navigationTitle(RunningFitnessText.effortName(kind))
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) { Button("取消") { segmentKind = nil } }
+        ToolbarItem(placement: .confirmationAction) {
+          Button("确认") {
+            let start = segmentStartMinute * 60
+            segmentKind = nil
+            submitEffort(kind, segment: ["startOffsetSeconds": .int(Int64(start)), "durationSeconds": .int(Int64(segmentSeconds(kind))),
+              "protocol": .string(kind == "maximal_time_trial" ? "rai.tt30/1" : "rai.controlled25/1")])
+          }.disabled(!fits)
+        }
+      }
+    }.presentationDetents([.medium])
+  }
+
+  private func submitEffort(_ kind: String, segment: [String: JSON]? = nil) {
     effortBusy = true
     Task {
-      let failure = await model.submitModelInput(
-        kind: "workout_effort",
-        payload: ["workoutID": .string(workout.id.lowercased()), "mode": .string(kind), "userConfirmed": .bool(true)],
-        effectiveFrom: Date())
+      var payload: [String: JSON] = ["workoutID": .string(workout.id.lowercased()), "mode": .string(kind), "userConfirmed": .bool(true)]
+      if let segment { payload["segment"] = .object(segment) }
+      let failure = await model.submitModelInput(kind: "workout_effort", payload: payload, effectiveFrom: Date())
       effortMessage = failure ?? "已标记为\(RunningFitnessText.effortName(kind))，跑力更新后生效。"
       effortBusy = false
     }

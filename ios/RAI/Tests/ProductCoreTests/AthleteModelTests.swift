@@ -197,6 +197,44 @@ import Testing
     #expect(d.presentation(for: "endurance") == d)
   }
 
+  // Synthetic lactate threshold v1 payload, as the server publishes it.
+  private func threshold(bpm: Double?, basis: String, definition: String? = "rai_t40_working_proxy", update: String = "confirmed",
+                         freshness: String = "fresh", reasons: [String] = []) throws -> LactateThresholdValue {
+    let bpmJSON = bpm.map { String($0) } ?? "null"
+    let def = definition.map { "\"\($0)\"" } ?? "null"
+    let json = """
+    {"publicationID":"p","schemaVersion":"rai.lactate_threshold/1","algorithmVersion":"v1","date":"2026-11-16","definition":"rai_t40_working_proxy",
+     "status":"estimated_proxy","updateStatus":"\(update)",
+     "pace":{"speedMPS":3.6,"paceSecondsPerKm":277.8,"basis":"estimated","freshness":"fresh","speedModelRange":{"low":3.5,"high":3.7},
+             "trainingSpeedRange":{"low":3.45,"high":3.6},"definitionSensitivitySeconds":[2400,3600],"speed60MPS":3.45},
+     "heartRate":{"bpm":\(bpmJSON),"basis":"\(basis)","method":"near_anchor_observed","definition":\(def),"freshness":"\(freshness)",
+                  "modelRange":{"low":160,"high":172},"rangePartiallyIdentified":false,"independentDays":2,"effectiveDays":1.9,
+                  "supportSeconds":1800,"evidenceDay":"2026-11-15","observedHRR":null,"looMaxDeltaBPM":1,"reasonCodes":\(reasons)},
+     "trainingUse":{"paceEligible":true,"heartRateEligible":false,"automaticIntensityIncreaseAllowed":false,"reasonCodes":["hr_training_adapter_not_activated"]},
+     "evidence":[],"reasonCodes":["working_threshold_not_lab_measurement"]}
+    """
+    return try JSONDecoder().decode(LactateThresholdValue.self, from: Data(json.utf8))
+  }
+
+  @Test func thresholdHeartRateComesOnlyFromThePublishedModel() throws {
+    var s = try snapshot()
+    #expect(s.runningFitness?.value?.lactateThreshold == nil)
+    #expect(FitnessBasicMetric.thresholdHeartRate(nil).note == "暂未提供")
+    let supported = try threshold(bpm: 166.4, basis: "supported")
+    s.runningFitness?.value?.lactateThreshold = supported
+    let metric = FitnessBasicMetric.metrics(snapshot: s)[2]
+    #expect(metric.text == "166" && metric.note == "多次稳定跑支持")
+    #expect(FitnessBasicMetric.thresholdHeartRate(try threshold(bpm: 170, basis: "preliminary", definition: "field_tt30_last20")).note == "30 分钟计时跑 · 初步估计")
+    #expect(FitnessBasicMetric.thresholdHeartRate(try threshold(bpm: 170, basis: "preliminary", update: "pending_confirmation")).note.contains("等待"))
+    #expect(FitnessBasicMetric.thresholdHeartRate(try threshold(bpm: 170, basis: "preliminary", freshness: "expired")).note == "证据已过期")
+    let circular = FitnessBasicMetric.thresholdHeartRate(try threshold(bpm: nil, basis: "collecting", reasons: ["anchor_prior_based_hr_circular"]))
+    #expect(circular.text == "--" && circular.note.contains("计时跑"))
+    #expect(FitnessBasicMetric.thresholdHeartRate(try threshold(bpm: 170, basis: "conflict")).text == "--")
+    // An older App's decode of the whole value ignores unknown keys.
+    let encoded = try JSONEncoder().encode(supported)
+    #expect(try JSONDecoder().decode(LactateThresholdValue.self, from: encoded) == supported)
+  }
+
   @Test func basicMetricsRespectAvailabilityAndNeverInventThresholdHeartRate() throws {
     var s = try snapshot()
     let basic = FitnessBasicMetric.metrics(snapshot: s)

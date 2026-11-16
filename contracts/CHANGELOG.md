@@ -1,3 +1,8 @@
+## 2026-11-16 — 乳酸阈值 v1 与成绩主段 / OpenAPI 1.16.0
+
+- schema4 `runningFitness.value` 新增可选 `lactateThreshold`（`rai.lactate_threshold/1`），与跑力同一天、同一 generation 发布：`pace`（跑力 vT、模型范围、保守训练区间 `[v(3600), v(2400)]`）与 `heartRate`（`bpm` 可为 null、`basis` collecting/preliminary/supported/conflict、`definition` `rai_t40_working_proxy` 或 `field_tt30_last20`、范围、时效、原因码）各自独立；`trainingUse.heartRateEligible` 恒为 false。schema2/3 不含该字段。
+- `workout_effort` 新增 `maximal_time_trial`、`controlled_threshold` 与可选 `segment{startOffsetSeconds,durationSeconds,protocol}`；`threshold_test`/`speed_test`/`maximal_time_trial` 只按主段计成绩，无主段时不再把整次记录当成绩；`race` 无主段时仍按整次。迁移 64 同时修正数据库只接受旧 `maximal_supported` 的检查。
+
 ## 2026-11-16 — 运动模型只计算 schema4，旧 App 降级读取 / OpenAPI 1.15.0
 
 - 服务端只计算 schema4。`GET /v2/analysis/athlete` 不带参数（schema2）或 `schemaVersion=rai.athlete_model/2`／`3` 时，从当前 schema4 结果投影出旧 schema：schema3 去掉 `runningFitness`；schema2 再去掉 `sessionRecovery`／`loadFocus`，恢复与准备度只在 `mode` 为 complete 时保留数值，否则为 `model_update_required`。其他取值仍为 422。

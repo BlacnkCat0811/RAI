@@ -8,6 +8,7 @@ import (
 	"time"
 
 	am "rai/server/internal/athletemodel"
+	lt "rai/server/internal/lactatethreshold"
 	"rai/server/internal/modelmanifest"
 	"rai/server/internal/modelrelease"
 	rd "rai/server/internal/readiness"
@@ -119,7 +120,7 @@ func readPublishedModelStack(ctx context.Context, tx pgx.Tx, dataset, channel, s
 	// One bounded batch read for all six slots keeps the product request at a
 	// fixed SELECT count and avoids N+1 artifact lookups.
 	artifactKeys := map[string]string{"loadState": "load_state", "vo2": ve.ArtifactKey, "raiVO2": vo2.ArtifactKey, "recovery": "physiological_recovery",
-		"readiness": "training_readiness", "session": sr.Key, "focus": "load_focus", "fitness": rf.ArtifactKey}
+		"readiness": "training_readiness", "session": sr.Key, "focus": "load_focus", "fitness": rf.ArtifactKey, "threshold": lt.ArtifactKey}
 	// The v60 running ability was retired with running fitness v1; retained
 	// releases cannot serve it any more and say so.
 	out.RunningAbility = am.Missing[am.RunningAbilityValue]("runningAbility", at.UnixMicro(), "model_update_required")
@@ -269,9 +270,18 @@ ORDER BY a.artifact_key,p.day DESC,p.published_run_id`
 		var r rf.State
 		m := am.Missing[am.RunningFitnessValue]("runningFitness", at.UnixMicro(), "technical_failure")
 		if validHistoryArtifactForRelease("runningFitness", dataset, c.timezone, a, release) && json.Unmarshal(a.Payload, &r) == nil {
-			m = am.ProjectRunningFitness(rf.Freshen(r, day), a.RunID, a.PublishedAt.UnixMicro(), at.UnixMicro())
+			fresh := rf.Freshen(r, day)
+			m = am.ProjectRunningFitness(fresh, a.RunID, a.PublishedAt.UnixMicro(), at.UnixMicro())
 			stampArtifact(&m, a)
 			m.Envelope.MappingVersion = am.MappingVersion4
+			// The threshold is served only from the same day release (same
+			// scope generation) as the running-fitness state it is anchored to.
+			if t, ok := rows["threshold"]; ok && m.Value != nil && t.Generation == a.Generation {
+				var x lt.Result
+				if validThresholdArtifact(dataset, t, release) && json.Unmarshal(t.Payload, &x) == nil && x.AnchorHash == r.InputHash {
+					m.Value.LactateThreshold = am.ProjectLactateThreshold(lt.Freshen(x, day), t.RunID, fresh.Freshness)
+				}
+			}
 		}
 		out.RunningFitness = &m
 	}
@@ -407,6 +417,18 @@ ORDER BY p.day DESC,p.published_at DESC,p.published_run_id LIMIT $5`, p.DatasetI
 func validHistoryArtifactForStack(metric, dataset, tz, stack string, a publishedModelArtifact) bool {
 	release, ok := modelrelease.Lookup(stack, a.ManifestSHA, tz)
 	return ok && validHistoryArtifactForRelease(metric, dataset, tz, a, release)
+}
+
+// validThresholdArtifact binds a lactate threshold artifact to its release
+// component, dataset, generation and content hash.
+func validThresholdArtifact(dataset string, a publishedModelArtifact, release modelrelease.Release) bool {
+	c := release.Manifest.LactateThreshold
+	manifest, err := modelmanifest.Hash(release.Manifest)
+	if c == nil || err != nil || a.ManifestSHA != manifest || a.Schema != lt.Schema || a.Algorithm != lt.Algorithm || a.Version != lt.Version {
+		return false
+	}
+	var r lt.Result
+	return json.Unmarshal(a.Payload, &r) == nil && r.DatasetID == dataset && r.Generation == a.Generation && r.Schema == a.Schema && r.ConfigHash == c.ConfigHash && lt.Hash(r) == a.ContentHash
 }
 
 func validHistoryArtifactForRelease(metric, dataset, tz string, a publishedModelArtifact, release modelrelease.Release) bool {

@@ -21,8 +21,17 @@ type Reference struct {
 // Effort is a user-confirmed effort label. Labels change the model input only;
 // they never modify HealthKit facts.
 type Effort struct {
-	Kind string `json:"kind"` // race | threshold_test | speed_test | sprint_test
+	Kind string `json:"kind"` // race | threshold_test | speed_test | sprint_test | maximal_time_trial | controlled_threshold
 	ID   string `json:"id"`
+	// Segment is the optional user-marked main segment (seconds from the
+	// Workout start). Tests count as performances only through it.
+	Segment *EffortSegment `json:"segment,omitempty"`
+}
+
+type EffortSegment struct {
+	StartOffset float64 `json:"startOffsetSeconds"`
+	Duration    float64 `json:"durationSeconds"`
+	Protocol    string  `json:"protocol"`
 }
 
 type SingleInput struct {
@@ -67,6 +76,7 @@ type HRSingle struct {
 
 type RaceSingle struct {
 	Kind      string  `json:"kind"`
+	Basis     string  `json:"basis,omitempty"` // whole_workout | main_segment
 	DistanceM float64 `json:"distanceM"`
 	Seconds   float64 `json:"elapsedSeconds"`
 	Score     float64 `json:"score"`
@@ -284,12 +294,28 @@ func Single(in SingleInput) SingleResult {
 	}
 
 	// Confirmed race / test: distance and elapsed time, no heart rate needed.
-	if in.Effort != nil && (in.Effort.Kind == "race" || in.Effort.Kind == "threshold_test" || in.Effort.Kind == "speed_test") {
-		out.Race = raceSingle(p, f, in.Effort.Kind, indoor)
-		if out.Race != nil {
-			out.EvidenceTypes = append(out.EvidenceTypes, "race_equivalent")
-		} else {
-			out.Reasons = addReason(out.Reasons, "race_input_unsupported")
+	// A race may be the whole record; a test or time trial counts only
+	// through its marked main segment, so warm-up and cool-down never enter
+	// the calibration (lactate threshold plan section 8.2). A controlled
+	// threshold run is never a maximal performance.
+	if e := in.Effort; e != nil {
+		switch e.Kind {
+		case "race", "threshold_test", "speed_test", "maximal_time_trial":
+			switch {
+			case e.Segment != nil:
+				out.Race = segmentRace(f, e.Kind, *e.Segment, in.Start, in.End, indoor)
+			case e.Kind == "race":
+				out.Race = raceSingle(p, f, e.Kind, indoor)
+			default:
+				out.Reasons = addReason(out.Reasons, "effort_segment_required")
+			}
+			if out.Race != nil {
+				out.EvidenceTypes = append(out.EvidenceTypes, "race_equivalent")
+			} else if e.Segment != nil || e.Kind == "race" {
+				out.Reasons = addReason(out.Reasons, "race_input_unsupported")
+			}
+		case "controlled_threshold":
+			out.Reasons = addReason(out.Reasons, "controlled_effort_not_maximal")
 		}
 	}
 	if out.SprintTest != nil {
@@ -550,7 +576,42 @@ func raceSingle(p Policy, f *wf.RunFitnessFeatures, kind string, indoor bool) *R
 		q, status = .7, "limited"
 	}
 	s, raw, _ := ScoreFromTime(MarathonSeconds(vT, BL0))
-	return &RaceSingle{Kind: kind, DistanceM: d, Seconds: t, Score: s, RawScore: raw, Quality: q, Status: status}
+	return &RaceSingle{Kind: kind, Basis: "whole_workout", DistanceM: d, Seconds: t, Score: s, RawScore: raw, Quality: q, Status: status}
+}
+
+// segmentRace scores a marked main segment. Its distance is the mean speed of
+// the 180 s feature windows inside the segment times the segment duration;
+// at least 75% of the segment must be covered by such windows.
+func segmentRace(f *wf.RunFitnessFeatures, kind string, seg EffortSegment, start, end int64, indoor bool) *RaceSingle {
+	from := start + int64(seg.StartOffset*1e6)
+	to := from + int64(seg.Duration*1e6)
+	if indoor || seg.Duration < 180 || from < start || to > end {
+		return nil
+	}
+	dist, covered := 0.0, 0.0
+	for _, w := range f.Segments {
+		if w.Kind != "steady" || w.Start < from || w.End > to || !(w.Speed > 0) {
+			continue
+		}
+		dist += w.Speed * w.Seconds
+		covered += w.Seconds
+	}
+	coverage := covered / seg.Duration
+	if coverage < .75 {
+		return nil
+	}
+	t := seg.Duration
+	d := dist / covered * t
+	vT, ok := neutralVT(d/t, t)
+	if !ok {
+		return nil
+	}
+	q, status := 1.0, "supported"
+	if f.DistanceCheck != "consistent" || coverage < .9 {
+		q, status = .7, "limited"
+	}
+	s, raw, _ := ScoreFromTime(MarathonSeconds(vT, BL0))
+	return &RaceSingle{Kind: kind, Basis: "main_segment", DistanceM: d, Seconds: t, Score: s, RawScore: raw, Quality: q, Status: status}
 }
 
 // neutralVT inverts the neutral two-segment curve at one performance.

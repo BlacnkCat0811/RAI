@@ -158,3 +158,44 @@ func TestEffortKindsAndAgeEstimatedColdStart(t *testing.T) {
 		t.Fatalf("explicit age-estimated cold start rejected: %v", err)
 	}
 }
+
+func TestEffortMainSegment(t *testing.T) {
+	now := time.Now().UTC()
+	effort := func(mode string, seg any) Request {
+		r := base(now)
+		r.Kind = "workout_effort"
+		r.Payload = Payload{"workoutID": "6f9619ff-8b86-4d01-b42d-00cf4fc964ff", "mode": mode, "userConfirmed": true}
+		if seg != nil {
+			r.Payload["segment"] = seg
+		}
+		return r
+	}
+	seg := func(start, duration float64, protocol string) map[string]any {
+		return map[string]any{"startOffsetSeconds": start, "durationSeconds": duration, "protocol": protocol}
+	}
+	for _, ok := range []Request{
+		effort("maximal_time_trial", seg(900, 1800, ProtocolTT30)),
+		effort("controlled_threshold", seg(600, 1500, ProtocolControlled25)),
+		effort("race", seg(0, 2400, ProtocolUserDefined)),
+		effort("threshold_test", seg(600, 1200, ProtocolUserDefined)),
+	} {
+		if _, err := Validate(ok, now); err != nil {
+			t.Fatalf("%v rejected: %v", ok.Payload, err)
+		}
+	}
+	for _, bad := range []Request{
+		effort("maximal_time_trial", nil),
+		effort("controlled_threshold", nil),
+		effort("maximal_time_trial", seg(900, 1200, ProtocolTT30)),
+		effort("race", seg(900, 1800, ProtocolTT30)),
+		effort("maximal_time_trial", seg(-1, 1800, ProtocolTT30)),
+		effort("maximal_time_trial", seg(900.5, 1800, ProtocolTT30)),
+		effort("maximal_time_trial", seg(900, 1800, "custom")),
+		effort("race", map[string]any{"startOffsetSeconds": 0.0, "durationSeconds": 60.0}),
+		effort("race", "segment"),
+	} {
+		if _, err := Validate(bad, now); err == nil {
+			t.Fatalf("%v accepted", bad.Payload)
+		}
+	}
+}

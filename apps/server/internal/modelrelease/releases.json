@@ -132,7 +132,7 @@
         "inputSchema": "rai.vo2max.external_input/1",
         "jobKind": "analysis.model_stack_v2",
         "artifactKey": "vo2max_external_projection",
-        "configHash": "376701123e17bd7c9459142aa30b3e5954df493a558a6261e1a264f77701579a",
+        "configHash": "d53c26a73828f5d9530f4c9d272d218519d50f1076d82bb54e22b1045df6a09d",
         "sourcePolicy": "healthkit-readonly;external/v1",
         "consumerSchema": "rai.vo2max.external_projection/1"
       },
@@ -282,7 +282,7 @@
         "inputSchema": "rai.running_fitness.input/1",
         "jobKind": "analysis.model_stack_v2",
         "artifactKey": "running_fitness",
-        "configHash": "7b430dec0d4b473f1b8d6b0c7870138dc385dc5fc6f6862d945b8d28421fd8ea",
+        "configHash": "7c039dce0fe393d879edcd2630b7c216b1bc4963e7874393c476b0d95922bad9",
         "sourcePolicy": "recorded-running;stable-source-identity;hr-reference-at-event;effort-labels-known-at/v1",
         "annotationMode": "versioned-effort-annotation-known-at/v1",
         "consumerSchema": "rai.running_fitness/1"
@@ -416,10 +416,21 @@
         "configHash": "5b9dcd233bf49d9853ee035adb56a89d78df893218d928f0e429142240f57ede",
         "sourcePolicy": "recorded-running;hr-reference-at-event;pre-workout-running-fitness;pre-workout-training-level;workout-detail-only",
         "consumerSchema": "rai.training_effect/1"
+      },
+      "lactateThreshold": {
+        "name": "lactate_threshold",
+        "modelId": "rai.lactate_threshold",
+        "version": "v1",
+        "schema": "rai.lactate_threshold/1",
+        "jobKind": "analysis.model_stack_v2",
+        "artifactKey": "lactate_threshold",
+        "configHash": "e44d6e0ef0c817c3a7d51ae7e0761392a3cc6da973df5b5bcefeaaf82675601c",
+        "sourcePolicy": "recorded-running;running-fitness-vt-anchor;same-source-as-fitness;hr-reference-diagnostic-only;effort-main-segment/v1",
+        "consumerSchema": "rai.lactate_threshold/1"
       }
     },
     "loadConfigHash": "aa62145c050f91a7263063bcc1492250b997f0feba999999c82a8980f293ad2b",
-    "abilityConfigHash": "7b430dec0d4b473f1b8d6b0c7870138dc385dc5fc6f6862d945b8d28421fd8ea",
+    "abilityConfigHash": "7c039dce0fe393d879edcd2630b7c216b1bc4963e7874393c476b0d95922bad9",
     "recoveryConfig": {
       "UnknownContextFactor": 0.7,
       "SupportDays": 21,

@@ -58,6 +58,17 @@ for dependency in runfitness.get('Imports', []):
         raise SystemExit('FAIL: runfitness consumes a non-feature model: ' + dependency)
 print('PASS: runfitness consumes only neutral Workout features; no VO2/load/recovery dependency')
 
+# Lactate threshold v1 receives the running-fitness anchor and Workout
+# windows as its own DTOs: it imports no other RAI package, no I/O and no clock.
+threshold = json.loads(subprocess.check_output(['go', 'list', '-json', './internal/lactatethreshold'], cwd=root, text=True))
+for dependency in threshold.get('Imports', []):
+    if dependency.startswith(('rai/server/', 'github.com/', 'net', 'os', 'database/', 'math/rand')):
+        raise SystemExit('FAIL: lactate threshold reaches another package or I/O: ' + dependency)
+for source in (root / 'internal/lactatethreshold').glob('*.go'):
+    if not source.name.endswith('_test.go') and ('time.Now(' in source.read_text() or 'time.LoadLocation(' in source.read_text()):
+        raise SystemExit('FAIL: lactate threshold reads ambient state: ' + str(source))
+print('PASS: lactate threshold is pure and imports no other RAI package')
+
 # The retired v60 running ability must not come back through any production path.
 import re
 for source in (root / 'internal').rglob('*.go'):

@@ -447,3 +447,46 @@ func TestOrdinaryRunBest90sIsOnlyALowerBound(t *testing.T) {
 		t.Fatalf("Z6 must stay empty without a sprint test: %+v", z)
 	}
 }
+
+// Synthetic: a test counts only through its marked main segment.
+func segmentedFeatures() (*wf.RunFitnessFeatures, int64, int64) {
+	start := time.Date(2026, 11, 1, 8, 0, 0, 0, time.UTC).UnixMicro()
+	f := &wf.RunFitnessFeatures{Schema: wf.RunFitnessSchema, DistanceCheck: "consistent", DistanceM: f64(9000), Elapsed: 3000, Indoor: bptr(false), Segments: []wf.RunFitnessSegment{}, Best: []wf.RunFitnessBest{}}
+	at := start + 120e6
+	for i := 0; i < 16; i++ {
+		speed := 2.6 // warm-up and cool-down
+		if i >= 3 && i < 13 {
+			speed = 3.8 // 30 minute main segment
+		}
+		f.Segments = append(f.Segments, wf.RunFitnessSegment{Kind: "steady", Start: at, End: at + 180e6, Seconds: 180, Speed: speed, HR: 160, Coverage: 1})
+		at += 180e6
+	}
+	return f, start, start + 3000e6
+}
+
+func TestTestsNeedMainSegment(t *testing.T) {
+	f, start, end := segmentedFeatures()
+	in := SingleInput{WorkoutID: "t", Day: "2026-11-01", Start: start, End: end, Features: f}
+	in.Effort = &Effort{Kind: "threshold_test"}
+	r := Single(in)
+	if r.Race != nil || !contains(r.Reasons, "effort_segment_required") {
+		t.Fatalf("whole-record test accepted: %+v", r.Race)
+	}
+	in.Effort = &Effort{Kind: "maximal_time_trial", Segment: &EffortSegment{StartOffset: 120 + 3*180, Duration: 1800, Protocol: "rai.tt30/1"}}
+	r = Single(in)
+	if r.Race == nil || r.Race.Basis != "main_segment" || r.Race.Seconds != 1800 || math.Abs(r.Race.DistanceM-3.8*1800) > 1e-6 || r.Race.Status != "supported" {
+		t.Fatalf("%+v", r.Race)
+	}
+	in.Effort = &Effort{Kind: "controlled_threshold", Segment: &EffortSegment{StartOffset: 120 + 3*180, Duration: 1500, Protocol: "rai.controlled25/1"}}
+	if r = Single(in); r.Race != nil || !contains(r.Reasons, "controlled_effort_not_maximal") {
+		t.Fatalf("controlled run became a performance: %+v", r.Race)
+	}
+	in.Effort = &Effort{Kind: "maximal_time_trial", Segment: &EffortSegment{StartOffset: 2900, Duration: 1800, Protocol: "rai.tt30/1"}}
+	if r = Single(in); r.Race != nil {
+		t.Fatal("segment outside the Workout accepted")
+	}
+	in.Effort = &Effort{Kind: "race"}
+	if r = Single(in); r.Race == nil || r.Race.Basis != "whole_workout" {
+		t.Fatalf("%+v", r.Race)
+	}
+}

@@ -10,6 +10,7 @@ import (
 
 	"rai/server/internal/analysis"
 	"rai/server/internal/hrref"
+	lt "rai/server/internal/lactatethreshold"
 	"rai/server/internal/modelmanifest"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
@@ -444,7 +445,10 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 	}
 	// Running fitness v1: single results and the day state. HR-less runs keep
 	// an unknown load; no ability estimate is fed back into load.
-	fitness := stackRunFitness(l.DatasetID, generation, date, at, pending, efforts, source, ambiguous)
+	fitness, fitnessInputs := stackRunFitnessDetail(l.DatasetID, generation, date, at, pending, efforts, source, ambiguous)
+	// Lactate threshold v1: the running-fitness vT is its pace anchor, the
+	// same Workouts and source feed its heart-rate estimate.
+	threshold := stackLactateThreshold(l.DatasetID, generation, date, at, pending, ambiguous, fitness, fitnessInputs)
 	// Per-Workout results: newly computed features/exposures fill the cache,
 	// and today's release records each Workout's v2 load for product readers.
 	var results []stackArtifact
@@ -540,6 +544,7 @@ func computeModelStackDay(ctx context.Context, tx pgx.Tx, l Lease, stack string,
 		{key: "load_state", schema: tl.StateSchemaV2, algorithm: tl.StateAlgorithmV2, version: tl.VersionV2, value: state,
 			inputHash: featureHash(stateInput)},
 		{key: rf.ArtifactKey, schema: rf.Schema, algorithm: rf.Algorithm, version: rf.Version, value: fitness, inputHash: fitness.InputHash},
+		{key: lt.ArtifactKey, family: lt.Family, schema: lt.Schema, algorithm: lt.Algorithm, version: lt.Version, value: threshold, inputHash: threshold.InputHash},
 		{key: ve.ArtifactKey, schema: ve.Schema, algorithm: ve.Algorithm, version: "v1", value: external, inputHash: featureHash(in.ExternalInput)},
 		{key: vo2.ArtifactKey, schema: vo2.Schema, algorithm: vo2.Algorithm, version: vo2.Version, value: owned, inputHash: featureHash(ownedInput)},
 		{key: "physiological_recovery", schema: rc.SchemaV4, algorithm: rc.Algorithm, version: "v4", value: recovery, runID: recoveryID, inputHash: featureHash(recoveryInput)},

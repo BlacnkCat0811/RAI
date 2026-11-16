@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 
+	lt "rai/server/internal/lactatethreshold"
 	rd "rai/server/internal/readiness"
 	rc "rai/server/internal/recovery"
 	rf "rai/server/internal/runfitness"
@@ -64,6 +65,7 @@ type Manifest struct {
 	AbilityEstimate          *Component  `json:"abilityEstimate,omitempty"`
 	LoadFocus                *Component  `json:"loadFocus,omitempty"`
 	TrainingEffect           *Component  `json:"trainingEffect,omitempty"`
+	LactateThreshold         *Component  `json:"lactateThreshold,omitempty"`
 }
 
 // ProductSchema4 is the running-fitness product contract.
@@ -154,6 +156,10 @@ func Current() Manifest {
 	// read only by the Workout detail; the athlete product is unchanged.
 	m.TrainingEffect = &Component{Name: "training_effect", ModelID: te.Algorithm, Version: te.Version, Schema: te.Schema, ConfigHash: te.ConfigHash(),
 		SourcePolicy: "recorded-running;hr-reference-at-event;pre-workout-running-fitness;pre-workout-training-level;workout-detail-only", ConsumerSchema: te.Schema}
+	// Lactate threshold v1: published with the day release in its own
+	// family; the pace is the running-fitness vT, never a second curve.
+	m.LactateThreshold = &Component{Name: "lactate_threshold", ModelID: lt.Algorithm, Version: lt.Version, Schema: lt.Schema, JobKind: StackJobKind, ArtifactKey: lt.ArtifactKey,
+		ConfigHash: lt.ConfigHash(), SourcePolicy: "recorded-running;running-fitness-vt-anchor;same-source-as-fitness;hr-reference-diagnostic-only;effort-main-segment/v1", ConsumerSchema: lt.Schema}
 	return m
 }
 
@@ -166,7 +172,7 @@ func (m Manifest) Validate() error {
 	}
 	all := []Component{m.Features, m.Load, m.LoadState, m.RunningAbility, m.VO2Max, m.Recovery, m.Readiness, m.ExternalVO2}
 	all = append(all, m.Diagnostics...)
-	for _, c := range []*Component{m.SessionRecovery, m.AbilityEstimate, m.LoadFocus, m.TrainingEffect} {
+	for _, c := range []*Component{m.SessionRecovery, m.AbilityEstimate, m.LoadFocus, m.TrainingEffect, m.LactateThreshold} {
 		if c != nil {
 			all = append(all, *c)
 		}
