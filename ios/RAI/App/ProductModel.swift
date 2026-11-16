@@ -309,7 +309,7 @@ final class ProductModel {
     loading = false
     await resumePendingWrites()
     loading = true
-    let loaded = await api.load().keepingLastGood(from: data)
+    let loaded = await api.load().keepingLastGood(from: data).keepingPublishedAthlete(from: data)
     if !ProductLoadFailures.needsRetry(loaded.failures), let url = cacheURL(), let bytes = ProductSnapshotCache.encode(loaded) {
       try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
@@ -320,6 +320,7 @@ final class ProductModel {
     // Only real faults prompt a retry. "The product is not activated yet" is an
     // expected empty state: retrying cannot change it, so it must not look broken.
     error = ProductLoadFailures.needsRetry(data.failures) ? "部分数据暂不可用，可下拉重试。" : nil
+    watchAthleteRecompute()
     log.info("home_load_ms=\(Date().timeIntervalSince(start)*1000,privacy:.public)")
   }
   /// Submits one user-entered model input. The server assigns receipt time and
@@ -431,7 +432,11 @@ final class ProductModel {
         return
       }
       if !Task.isCancelled {
-        data.athlete = snapshot
+        var next = data
+        next.athlete = snapshot
+        next = next.keepingPublishedAthlete(from: data)
+        data.athlete = next.athlete
+        data.athleteUpdating = next.athleteUpdating
         data.failures.removeValue(forKey: "athlete")
       }
     } catch let failure as UploadError where failure.code == "not_product_activated" {
@@ -449,6 +454,27 @@ final class ProductModel {
     if !Task.isCancelled, !data.athleteRefreshFailed,
       let url = cacheURL(), let bytes = ProductSnapshotCache.encode(data) {
       try? bytes.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+  }
+  /// Every sync makes the server recompute today's release (about a minute or
+  /// two). Re-read the athlete model until the new release is published, then
+  /// refresh the whole home once; no fixed polling otherwise.
+  private var recomputeWatch: Task<Void, Never>?
+  private func watchAthleteRecompute() {
+    guard data.athleteUpdating, recomputeWatch == nil else { return }
+    recomputeWatch = Task { [weak self] in
+      for _ in 0..<16 {
+        try? await Task.sleep(for: .seconds(15))
+        guard let self, !Task.isCancelled else { return }
+        await self.refreshAthleteAssignment()
+        if !self.data.athleteUpdating {
+          self.recomputeWatch = nil
+          await self.refresh()
+          await self.loadTrainingLoadHistory()
+          return
+        }
+      }
+      self?.recomputeWatch = nil
     }
   }
   /// v2 athlete-model training-load history for the load card and page.
@@ -520,16 +546,31 @@ final class ProductModel {
   /// Last loaded detail per Workout, so going back and forth between records
   /// shows content at once while the refresh runs behind it.
   private var detailCache: [String: (detail: WorkoutDetailResponse, series: WorkoutSeriesResponse?, freshness: WorkoutFreshness?)] = [:]
+  /// Detail and route thumbnails survive an App restart next to the home cache.
+  private func detailDiskCache() -> WorkoutDetailDiskCache? {
+    cacheURL().map { WorkoutDetailDiskCache(directory: $0.deletingPathExtension().appendingPathExtension("details")) }
+  }
+  private func routeDiskCache() -> HomeRouteDiskCache? {
+    cacheURL().map { HomeRouteDiskCache(url: $0.deletingPathExtension().appendingPathExtension("routes.json")) }
+  }
+  private var openDetailID: String?
   func loadWorkoutDetail(_ id: String) async {
     guard let api else {
       workoutDetailError = "请先连接服务器。"
       return
     }
+    openDetailID = id
     if workoutDetail?.workout.workoutID != id {
       if let cached = detailCache[id] {
         workoutDetail = cached.detail; workoutSeries = cached.series; workoutFreshness = cached.freshness
       } else {
         workoutDetail = nil; workoutSeries = nil; workoutFreshness = nil
+        if let disk = detailDiskCache(), let entry = await Task.detached(operation: { disk.load(id) }).value,
+          openDetailID == id, workoutDetail == nil
+        {
+          workoutDetail = entry.detail; workoutSeries = entry.series
+          detailCache[id] = (entry.detail, entry.series, nil)
+        }
       }
       workoutDetailError = nil
     }
@@ -552,6 +593,10 @@ final class ProductModel {
       if let value = try? series.get(), value.workoutID == id { workoutSeries = value }
       if let value = try? freshness.get(), value.workoutID == id { workoutFreshness = value }
       detailCache[id] = (detail, workoutSeries, workoutFreshness)
+      if let disk = detailDiskCache() {
+        let entry = WorkoutDetailDiskCache.Entry(detail: detail, series: workoutSeries)
+        Task.detached(priority: .utility) { disk.save(id, entry) }
+      }
     } catch let failure as UploadError {
       workoutDetailError = "跑步详情暂不可用：\(UserFacingText.error(failure.code))"
     } catch {
@@ -562,14 +607,22 @@ final class ProductModel {
   /// `workoutDetail` so the home card never disturbs an open detail page.
   /// An empty array means the Workout has no usable route.
   var homeRoutes: [String: [ProductCore.RoutePoint]] = [:]
+  private var homeRoutesRestored = false
   func loadHomeRoute(_ id: String) async {
+    if !homeRoutesRestored, let disk = routeDiskCache() {
+      homeRoutesRestored = true
+      let stored = await Task.detached(operation: { disk.load() }).value
+      homeRoutes.merge(stored) { current, _ in current }
+    }
     guard homeRoutes[id] == nil, let api else { return }
     if let cached = detailCache[id] {
       homeRoutes[id] = HomeRouteShape.downsample(cached.detail.route.points)
       return
     }
     guard let detail = try? await api.workoutDetail(id), detail.workout.workoutID == id else { return }
-    homeRoutes[id] = HomeRouteShape.downsample(detail.route.points)
+    let route = HomeRouteShape.downsample(detail.route.points)
+    homeRoutes[id] = route
+    if let disk = routeDiskCache() { Task.detached(priority: .utility) { disk.save(id, route) } }
     // Opening this Workout then paints the fetched detail at once and only
     // revalidates behind it.
     if detailCache[id] == nil { detailCache[id] = (detail, nil, nil) }

@@ -367,3 +367,14 @@ func TestTrainingPlanV4FollowsActiveStackDayRelease(t *testing.T) {
 		t.Fatalf("plan scope still dirty: generation %d clean %d %v", dirty, clean, err)
 	}
 }
+
+// A failed training input read names its step (never its values), so a
+// production failure log says which read failed.
+func TestTrainingInputFailureNamesStep(t *testing.T) {
+	f := setup(t)
+	_, err := f.s.LoadTraining(context.Background(), analysis.Lease{DatasetID: f.p.DatasetID, ScopeKey: "plan:" + syncing.NewID()}, time.Now())
+	var se *training.StepError
+	if !errors.As(err, &se) || se.Step != "plan" {
+		t.Fatalf("missing step: %v", err)
+	}
+}

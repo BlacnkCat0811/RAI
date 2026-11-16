@@ -450,6 +450,11 @@ struct AthleteRefreshNotice: View {
       Label(ProductReasonText.updateApp, systemImage: "arrow.down.app")
         .font(.caption).foregroundStyle(RAITheme.blue)
         .accessibilityIdentifier("model.update-app")
+    } else if snapshot.athleteShowingPrevious, let athlete = snapshot.athlete {
+      Label("今日模型更新中，暂显示上次结果（" + Date(timeIntervalSince1970: Double(athlete.evaluationAt) / 1_000_000).formatted(date: .omitted, time: .shortened) + "）",
+            systemImage: "arrow.triangle.2.circlepath")
+        .font(.caption).foregroundStyle(RAITheme.secondary)
+        .accessibilityIdentifier("model.refresh.updating")
     } else if snapshot.athleteRefreshFailed {
       VStack(alignment: .leading, spacing: 4) {
         Text("运动模型刷新失败，可下拉重试。")

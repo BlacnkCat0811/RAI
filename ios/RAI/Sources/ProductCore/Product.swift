@@ -51,6 +51,8 @@ public struct ProductSnapshot: Sendable {
   public var workouts: [ProductWorkout] = []
   public var next = ""
   public var failures: [String: String] = [:]
+  /// The server is recomputing today's model release (not persisted).
+  public var athleteUpdating = false
   public var athleteAbsenceText: String {
     if failures["athlete"] == "not_product_activated" { return "尚未启用" }
     if failures["athlete"] == Self.athleteUpdateRequired { return ProductReasonText.updateApp }

@@ -18,6 +18,7 @@ import (
 	tl "rai/server/internal/trainingload"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // Only current, clean publications supply features; raw rows filter identity and
@@ -149,13 +150,29 @@ WHERE p.dataset_id=$1 AND p.scope_key=$2 AND p.metric_family=$3 AND p.day=$4::da
 	return sig, true, nil
 }
 
-func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (training.Input, error) {
-	var out training.Input
+func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (out training.Input, err error) {
+	step := "begin"
+	defer func() {
+		if err != nil {
+			se := &training.StepError{Step: step, Err: err}
+			var pe *pgconn.PgError
+			if errors.As(err, &pe) {
+				se.SQLState = pe.Code
+			}
+			err = se
+		}
+	}()
 	tx, e := s.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if e != nil {
 		return out, e
 	}
 	defer tx.Rollback(ctx)
+	// A background job, not an API request: the worker budget of the model
+	// stack applies instead of the 2 s connection default meant for requests.
+	if _, e = tx.Exec(ctx, `SET LOCAL statement_timeout='5s'; SET LOCAL transaction_timeout='45s'`); e != nil {
+		return out, e
+	}
+	step = "plan"
 	p, e := loadPlan(ctx, tx, l.DatasetID, trainingPlanID(l))
 	if e != nil {
 		return out, e
@@ -168,6 +185,7 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 	}
 	c := training.Context{PlanID: p.ID, Timezone: p.Timezone, AsOf: at.In(loc).Format("2006-01-02"), ConfigRevision: p.ConfigRevision, Config: p.Config, Signals: []training.Signal{}, Feedback: []training.Feedback{}}
 	var b []byte
+	step = "parameters"
 	if e = tx.QueryRow(ctx, `SELECT parameters FROM training_parameter_sets WHERE version=$1`, training.ParameterVersionFor(p.Config)).Scan(&b); e != nil {
 		return out, e
 	}
@@ -179,12 +197,14 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 		}
 		c.Coach = &coach
 		window = coach.HistoryDays
+		step = "previous"
 		if e = loadTrainingPrevious(ctx, tx, l.DatasetID, p, &c); e != nil {
 			return out, e
 		}
 	} else if e = json.Unmarshal(b, &c.Parameters); e != nil {
 		return out, e
 	}
+	step = "workouts"
 	c.Workouts, e = loadTrainingWorkouts(ctx, tx, l.DatasetID, p.Timezone, c.AsOf, "", window)
 	if e != nil {
 		return out, e
@@ -193,12 +213,14 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 	for _, w := range c.Workouts {
 		out.Workouts[w.ID] = w
 	}
+	step = "model_binding"
 	binding, e := loadTrainingModelBinding(ctx, tx, l.DatasetID)
 	if e != nil {
 		return out, e
 	}
 	c.ObservedModelBinding = &binding
 	if binding.Adapter == "schema2-v2" || binding.Adapter == "schema3-v1" || binding.Adapter == "schema4-v1" {
+		step = "readiness"
 		sig, ok, err := loadTrainingReadinessSignal(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
 		if err != nil {
 			return out, err
@@ -206,17 +228,20 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 		if ok {
 			c.Signals = append(c.Signals, sig)
 		}
+		step = "load"
 		signals, err := loadTrainingLoadSignals(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf)
 		if err != nil {
 			return out, err
 		}
 		c.Signals = append(c.Signals, signals...)
+		step = "targets"
 		signals, err = loadTrainingTargetSignals(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
 		if err != nil {
 			return out, err
 		}
 		c.Signals = append(c.Signals, signals...)
 		if p.Config.V2() && binding.Adapter != "schema2-v2" {
+			step = "session_recovery"
 			sig, ok, err := loadTrainingSessionRecoverySignal(ctx, tx, l.DatasetID, binding.Assignment, p.Timezone, c.AsOf, at)
 			if err != nil {
 				return out, err
@@ -226,6 +251,7 @@ func (s *Store) LoadTraining(ctx context.Context, l Lease, at time.Time) (traini
 			}
 		}
 	}
+	step = "executions"
 	rows, e := tx.Query(ctx, `SELECT id::text FROM training_executions WHERE dataset_id=$1 AND plan_id=$2 AND status IN ('completed','skipped') ORDER BY id LIMIT 4097`, l.DatasetID, p.ID)
 	if e != nil {
 		return out, e

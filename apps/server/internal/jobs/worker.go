@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -202,17 +203,21 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 		id := ""
 		var err error
 		publicationDuration := time.Duration(0)
+		stage := "load"
 		tq, ok := q.(TrainingQueue)
 		if ok {
 			in, err = tq.LoadTraining(runCtx, l, at)
 			if err == nil {
+				stage = "start_run"
 				id, err = tq.StartTrainingRun(runCtx, l, in)
 			}
 			var base training.Base
 			if err == nil && in.Generation == l.TargetGeneration {
+				stage = "generate"
 				base, err = training.Generate(in.Context)
 			}
 			if err == nil {
+				stage = "publish"
 				publicationStart := elapsed()
 				status, err = tq.PublishTraining(runCtx, l, id, in, base)
 				publicationDuration = elapsed() - publicationStart
@@ -249,11 +254,16 @@ func processWithRenewal(ctx context.Context, q Queue, l analysis.Lease, log *slo
 				log.Warn("training_versions_read_failed", "reason", "database_unavailable")
 			}
 		}
-		errorCode := ""
+		errorCode, failedStep, sqlState := "", "", ""
 		if err != nil {
 			errorCode = "training_failed"
+			failedStep = stage
+			var se *training.StepError
+			if errors.As(err, &se) {
+				failedStep, sqlState = stage+"."+se.Step, se.SQLState
+			}
 		}
-		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "plan_hash", logIdentity(trainingPlanFromScope(l.ScopeKey)), "generation", l.TargetGeneration, "base_hash", logIdentity(baseID), "effective_hash", logIdentity(effectiveID), "job_hash", logIdentity(l.ID), "run_hash", logIdentity(id), "generator_version", training.GeneratorFor(in.Plan.Config), "override_count", overrideCount, "duration_ms", elapsed().Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
+		log.Info("training_execution", "component", "worker", "operation", "training", "error_code", errorCode, "failed_step", failedStep, "sqlstate", sqlState, "plan_hash", logIdentity(trainingPlanFromScope(l.ScopeKey)), "generation", l.TargetGeneration, "base_hash", logIdentity(baseID), "effective_hash", logIdentity(effectiveID), "job_hash", logIdentity(l.ID), "run_hash", logIdentity(id), "generator_version", training.GeneratorFor(in.Plan.Config), "override_count", overrideCount, "duration_ms", elapsed().Milliseconds(), "publication_ms", publicationDuration.Milliseconds(), "status", status)
 		return
 	}
 	code := "analysis_unsupported_algorithm"

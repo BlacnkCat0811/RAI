@@ -352,6 +352,16 @@ type Input struct {
 var ErrInsufficient = errors.New("insufficient_context")
 var ErrInvalid = errors.New("invalid_training_input")
 
+// StepError names the input step that failed and, for a database error, its
+// SQLSTATE. It carries no input values, so it is safe to log.
+type StepError struct {
+	Step, SQLState string
+	Err            error
+}
+
+func (e *StepError) Error() string { return "training " + e.Step + ": " + e.Err.Error() }
+func (e *StepError) Unwrap() error { return e.Err }
+
 func Finite(v float64) bool  { return !math.IsNaN(v) && !math.IsInf(v, 0) }
 func Ptr(v float64) *float64 { return &v }
 func Hash(v any) ([]byte, error) {
